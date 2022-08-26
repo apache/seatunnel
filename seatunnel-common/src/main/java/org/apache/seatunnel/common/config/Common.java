@@ -21,10 +21,6 @@ import java.io.File;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 public class Common {
 
@@ -32,28 +28,27 @@ public class Common {
         throw new IllegalStateException("Utility class");
     }
 
-    private static final List<String> ALLOWED_MODES = Arrays.stream(DeployMode.values())
-            .map(DeployMode::getName).collect(Collectors.toList());
+    /**
+     * Used to set the size when create a new collection(just to pass the checkstyle).
+     */
+    public static final int COLLECTION_SIZE = 16;
 
-    private static Optional<String> MODE = Optional.empty();
+    private static DeployMode MODE;
 
-    public static boolean isModeAllowed(String mode) {
-        return ALLOWED_MODES.contains(mode.toLowerCase());
-    }
+    private static boolean STARTER = false;
 
     /**
      * Set mode. return false in case of failure
      */
-    public static Boolean setDeployMode(String m) {
-        if (isModeAllowed(m)) {
-            MODE = Optional.of(m);
-            return true;
-        } else {
-            return false;
-        }
+    public static void setDeployMode(DeployMode mode) {
+        MODE = mode;
     }
 
-    public static Optional<String> getDeployMode() {
+    public static void setStarter(boolean inStarter) {
+        STARTER = inStarter;
+    }
+
+    public static DeployMode getDeployMode() {
         return MODE;
     }
 
@@ -65,7 +60,7 @@ public class Common {
      * When running seatunnel in --master yarn or --master mesos, you can put plugins related files in plugins dir.
      */
     public static Path appRootDir() {
-        if (MODE.equals(Optional.of(DeployMode.CLIENT.getName()))) {
+        if (DeployMode.CLIENT == MODE || STARTER) {
             try {
                 String path = Common.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
                 path = new File(path).getPath();
@@ -73,10 +68,10 @@ public class Common {
             } catch (URISyntaxException e) {
                 throw new RuntimeException(e);
             }
-        } else if (MODE.equals(Optional.of(DeployMode.CLUSTER.getName()))) {
+        } else if (DeployMode.CLUSTER == MODE) {
             return Paths.get("");
         } else {
-            throw new IllegalStateException("MODE not support : " + MODE.orElse("null"));
+            throw new IllegalStateException("deploy mode not support : " + MODE);
         }
     }
 

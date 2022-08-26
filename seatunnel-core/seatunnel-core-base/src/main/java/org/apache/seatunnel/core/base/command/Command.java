@@ -18,6 +18,7 @@
 package org.apache.seatunnel.core.base.command;
 
 import org.apache.seatunnel.apis.base.command.CommandArgs;
+import org.apache.seatunnel.core.base.exception.CommandException;
 
 /**
  * Command interface.
@@ -30,6 +31,6 @@ public interface Command<T extends CommandArgs> {
     /**
      * Execute command
      */
-    void execute();
+    void execute() throws CommandException;
 
 }

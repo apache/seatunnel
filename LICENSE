@@ -209,9 +209,17 @@ The text of each license is the standard Apache 2.0 license.
 
 tools/dependencies/checkLicense.sh files from https://github.com/apache/skywalking
 mvnw files from https://github.com/apache/maven-wrapper Apache 2.0
+seatunnel-api/src/main/java/org/apache/seatunnel/api/table/type/RowKind.java from  https://github.com/apache/flink
 seatunnel-config/seatunnel-config-shade/src/main/java/org/apache/seatunnel/shade/com/typesafe/config/impl/ConfigNodePath.java    from  https://github.com/lightbend/config
 seatunnel-config/seatunnel-config-shade/src/main/java/org/apache/seatunnel/shade/com/typesafe/config/impl/ConfigParser.java      from  https://github.com/lightbend/config
 seatunnel-config/seatunnel-config-shade/src/main/java/org/apache/seatunnel/shade/com/typesafe/config/impl/Path.java              from  https://github.com/lightbend/config
 seatunnel-config/seatunnel-config-shade/src/main/java/org/apache/seatunnel/shade/com/typesafe/config/impl/PathParser.java        from  https://github.com/lightbend/config
 seatunnel-config/seatunnel-config-shade/src/main/java/org/apache/seatunnel/shade/com/typesafe/config/ConfigParseOptions.java     from https://github.com/lightbend/config
 seatunnel-config/seatunnel-config-shade/src/main/java/org/apache/seatunnel/shade/com/typesafe/config/SimpleConfigObject.java     from https://github.com/lightbend/config
+seatunnel-connectors-v2/connector-jdbc/src/main/java/org/apache/seatunnel/connectors/seatunnel/jdbc/internal/split/JdbcGenericParameterValuesProvider.java              from https://github.com/apache/flink
+seatunnel-connectors-v2/connector-jdbc/src/main/java/org/apache/seatunnel/connectors/seatunnel/jdbc/internal/split/JdbcNumericBetweenParametersProvider.java            from https://github.com/apache/flink
+seatunnel-connectors-v2/connector-jdbc/src/main/java/org/apache/seatunnel/connectors/seatunnel/jdbc/internal/split/JdbcParameterValuesProvider.java                     from https://github.com/apache/flink
+seatunnel-connectors-v2/connector-jdbc/src/main/java/org/apache/seatunnel/connectors/seatunnel/jdbc/internal/dialect/JdbcDialectFactory.java                            from https://github.com/apache/flink
+seatunnel-connectors-v2/connector-jdbc/src/main/java/org/apache/seatunnel/connectors/seatunnel/jdbc/internal/dialect/JdbcDialectLoader.java                             from https://github.com/apache/flink
+seatunnel-connectors-v2/connector-jdbc/src/main/java/org/apache/seatunnel/connectors/seatunnel/jdbc/internal/executor/BiConsumerWithException.java                      from https://github.com/apache/flink
+seatunnel-connectors-v2/connector-jdbc/src/main/java/org/apache/seatunnel/connectors/seatunnel/jdbc/internal/executor/JdbcStatementBuilder.java                         from https://github.com/apache/flink

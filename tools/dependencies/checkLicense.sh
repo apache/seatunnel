@@ -19,7 +19,11 @@
 
 set -e
 
-./mvnw --batch-mode --no-snapshot-updates dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=/tmp/seatunnel-dependencies
+if [ -d "/tmp/seatunnel-dependencies" ]; then
+  rm -rf /tmp/seatunnel-dependencies/*
+fi
+
+./mvnw clean -pl '!seatunnel-connectors-v2-dist,!seatunnel-dist,!seatunnel-connectors-v2/connector-fake' --batch-mode  --no-snapshot-updates dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=/tmp/seatunnel-dependencies
 
 # List all modules(jars) that belong to the SeaTunnel itself, these will be ignored when checking the dependency
 ls /tmp/seatunnel-dependencies | sort > all-dependencies.txt

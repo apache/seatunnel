@@ -19,11 +19,13 @@ package org.apache.seatunnel.core.sql;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.core.base.Starter;
+import org.apache.seatunnel.core.base.utils.CommandLineUtils;
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.flink.config.FlinkJobType;
-import org.apache.seatunnel.core.flink.utils.CommandLineUtils;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class FlinkSqlStarter implements Starter {
 
@@ -37,19 +39,37 @@ public class FlinkSqlStarter implements Starter {
     private final String appJar;
 
     FlinkSqlStarter(String[] args) {
-        this.flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.SQL);
+        this.flinkCommandArgs = CommandLineUtils.parse(args, new FlinkCommandArgs(), FlinkJobType.SQL.getType(), true);
         // set the deployment mode, used to get the job jar path.
-        Common.setDeployMode(flinkCommandArgs.getDeployMode().getName());
+        Common.setStarter(true);
+        Common.setDeployMode(flinkCommandArgs.getDeployMode());
         this.appJar = Common.appLibDir().resolve(APP_JAR_NAME).toString();
     }
 
     @Override
-    public List<String> buildCommands() throws Exception {
-        return CommandLineUtils.buildFlinkCommand(flinkCommandArgs, CLASS_NAME, appJar);
+    public List<String> buildCommands() {
+        List<String> command = new ArrayList<>();
+        command.add("${FLINK_HOME}/bin/flink");
+        command.add(flinkCommandArgs.getRunMode().getMode());
+        command.addAll(flinkCommandArgs.getOriginalParameters());
+        command.add("-c");
+        command.add(CLASS_NAME);
+        command.add(appJar);
+        command.add("--config");
+        command.add(flinkCommandArgs.getConfigFile());
+        if (flinkCommandArgs.isCheckConfig()) {
+            command.add("--check");
+        }
+        // set System properties
+        flinkCommandArgs.getVariables().stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .forEach(variable -> command.add("-D" + variable));
+        return command;
     }
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
         FlinkSqlStarter flinkSqlStarter = new FlinkSqlStarter(args);
         System.out.println(String.join(" ", flinkSqlStarter.buildCommands()));
     }

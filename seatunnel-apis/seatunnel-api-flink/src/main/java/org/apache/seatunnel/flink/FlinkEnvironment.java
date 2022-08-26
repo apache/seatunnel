@@ -26,6 +26,7 @@ import org.apache.seatunnel.flink.util.EnvironmentUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.configuration.Configuration;
@@ -49,7 +50,6 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 public class FlinkEnvironment implements RuntimeEnv {
@@ -88,10 +88,10 @@ public class FlinkEnvironment implements RuntimeEnv {
 
     @Override
     public FlinkEnvironment prepare() {
-        if (isStreaming()) {
-            createStreamEnvironment();
-            createStreamTableEnvironment();
-        } else {
+        // Batch/Streaming both use data stream api in SeaTunnel New API
+        createStreamEnvironment();
+        createStreamTableEnvironment();
+        if (!isStreaming()) {
             createExecutionEnvironment();
             createBatchTableEnvironment();
         }
@@ -121,33 +121,33 @@ public class FlinkEnvironment implements RuntimeEnv {
     }
 
     @Override
-    public void registerPlugin(Set<URL> pluginPaths) {
-        LOGGER.info("register plugins :" + pluginPaths);
-        Configuration configuration;
+    public void registerPlugin(List<URL> pluginPaths) {
+        pluginPaths.forEach(url -> LOGGER.info("register plugins : {}", url));
+        List<Configuration> configurations = new ArrayList<>();
         try {
-            if (isStreaming()) {
-                configuration =
-                        (Configuration) Objects.requireNonNull(ReflectionUtils.getDeclaredMethod(StreamExecutionEnvironment.class,
-                                "getConfiguration")).orElseThrow(() -> new RuntimeException("can't find " +
-                                "method: getConfiguration")).invoke(this.environment);
-            } else {
-                configuration = batchEnvironment.getConfiguration();
+            configurations.add((Configuration) Objects.requireNonNull(ReflectionUtils.getDeclaredMethod(StreamExecutionEnvironment.class,
+                    "getConfiguration")).orElseThrow(() -> new RuntimeException("can't find " +
+                    "method: getConfiguration")).invoke(this.environment));
+            if (!isStreaming()) {
+                configurations.add(batchEnvironment.getConfiguration());
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        List<String> jars = configuration.get(PipelineOptions.JARS);
-        if (jars == null) {
-            jars = new ArrayList<>();
-        }
-        jars.addAll(pluginPaths.stream().map(URL::toString).collect(Collectors.toList()));
-        configuration.set(PipelineOptions.JARS, jars);
-        List<String> classpath = configuration.get(PipelineOptions.CLASSPATHS);
-        if (classpath == null) {
-            classpath = new ArrayList<>();
-        }
-        classpath.addAll(pluginPaths.stream().map(URL::toString).collect(Collectors.toList()));
-        configuration.set(PipelineOptions.CLASSPATHS, classpath);
+        configurations.forEach(configuration -> {
+            List<String> jars = configuration.get(PipelineOptions.JARS);
+            if (jars == null) {
+                jars = new ArrayList<>();
+            }
+            jars.addAll(pluginPaths.stream().map(URL::toString).collect(Collectors.toList()));
+            configuration.set(PipelineOptions.JARS, jars.stream().distinct().collect(Collectors.toList()));
+            List<String> classpath = configuration.get(PipelineOptions.CLASSPATHS);
+            if (classpath == null) {
+                classpath = new ArrayList<>();
+            }
+            classpath.addAll(pluginPaths.stream().map(URL::toString).collect(Collectors.toList()));
+            configuration.set(PipelineOptions.CLASSPATHS, classpath.stream().distinct().collect(Collectors.toList()));
+        });
     }
 
     public StreamExecutionEnvironment getStreamExecutionEnvironment() {
@@ -201,6 +201,10 @@ public class FlinkEnvironment implements RuntimeEnv {
         if (config.hasPath(ConfigKeyName.MAX_PARALLELISM)) {
             int max = config.getInt(ConfigKeyName.MAX_PARALLELISM);
             environment.setMaxParallelism(max);
+        }
+
+        if (this.jobMode.equals(JobMode.BATCH)) {
+            environment.setRuntimeMode(RuntimeExecutionMode.BATCH);
         }
     }
 

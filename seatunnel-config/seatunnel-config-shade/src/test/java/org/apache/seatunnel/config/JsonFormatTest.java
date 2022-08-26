@@ -23,8 +23,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.net.URISyntaxException;
 
@@ -43,10 +43,10 @@ public class JsonFormatTest {
                 .resolveWith(ConfigFactory.systemProperties(),
                         ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
-        Assert.assertEquals(config.atPath("transform"), json.atPath("transform"));
-        Assert.assertEquals(config.atPath("sink"), json.atPath("sink"));
-        Assert.assertEquals(config.atPath("source"), json.atPath("source"));
-        Assert.assertEquals(config.atPath("env"), json.atPath("env"));
+        Assertions.assertEquals(config.atPath("transform"), json.atPath("transform"));
+        Assertions.assertEquals(config.atPath("sink"), json.atPath("sink"));
+        Assertions.assertEquals(config.atPath("source"), json.atPath("source"));
+        Assertions.assertEquals(config.atPath("env"), json.atPath("env"));
 
     }
 

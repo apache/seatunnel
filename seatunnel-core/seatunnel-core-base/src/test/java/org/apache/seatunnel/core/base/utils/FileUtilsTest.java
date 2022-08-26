@@ -20,8 +20,8 @@ package org.apache.seatunnel.core.base.utils;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.base.command.AbstractCommandArgs;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.net.URISyntaxException;
 import java.nio.file.Path;
@@ -36,11 +36,11 @@ public class FileUtilsTest {
         sparkCommandArgs.setDeployMode(DeployMode.CLIENT);
         Path expectConfPath = Paths.get(FileUtilsTest.class.getResource("/flink.batch.conf").toURI());
         sparkCommandArgs.setConfigFile(expectConfPath.toString());
-        Assert.assertEquals(expectConfPath, FileUtils.getConfigPath(sparkCommandArgs));
+        Assertions.assertEquals(expectConfPath, FileUtils.getConfigPath(sparkCommandArgs));
 
         // test cluster mode
         sparkCommandArgs.setDeployMode(DeployMode.CLUSTER);
-        Assert.assertEquals("flink.batch.conf", FileUtils.getConfigPath(sparkCommandArgs).toString());
+        Assertions.assertEquals("flink.batch.conf", FileUtils.getConfigPath(sparkCommandArgs).toString());
     }
 
     private static class SparkCommandArgs extends AbstractCommandArgs {
@@ -50,6 +50,7 @@ public class FileUtilsTest {
             this.deployMode = deployMode;
         }
 
+        @Override
         public DeployMode getDeployMode() {
             return deployMode;
         }

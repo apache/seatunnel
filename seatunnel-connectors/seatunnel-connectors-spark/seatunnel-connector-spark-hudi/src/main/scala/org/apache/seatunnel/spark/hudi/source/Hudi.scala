@@ -38,7 +38,7 @@ class Hudi extends SparkBatchSource {
       reader.option(e.getKey, String.valueOf(e.getValue.unwrapped()))
     }
 
-    reader.load(config.getString(HOODIE_DATASTORE_READ_PATHS))
+    reader.load()
   }
 
   override def getPluginName: String = "Hudi"

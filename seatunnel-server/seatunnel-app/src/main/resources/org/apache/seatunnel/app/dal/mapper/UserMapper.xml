@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one or more
+    contributor license agreements.  See the NOTICE file distributed with
+    this work for additional information regarding copyright ownership.
+    The ASF licenses this file to You under the Apache License, Version 2.0
+    (the "License"); you may not use this file except in compliance with
+    the License.  You may obtain a copy of the License at
+       http://www.apache.org/licenses/LICENSE-2.0
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.apache.seatunnel.app.dal.mapper.UserMapper">
+    <resultMap id="BaseResultMap" type="org.apache.seatunnel.app.dal.entity.User">
+        <id column="id" jdbcType="INTEGER" property="id"/>
+        <result column="username" jdbcType="VARCHAR" property="username"/>
+        <result column="password" jdbcType="VARCHAR" property="password"/>
+        <result column="status" jdbcType="TINYINT" property="status"/>
+        <result column="type" jdbcType="TINYINT" property="type"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id,
+        username,
+        `password`,
+        `status`,
+        `type`,
+        create_time,
+        update_time
+    </sql>
+    <insert id="insert" keyColumn="id" keyProperty="id" parameterType="org.apache.seatunnel.app.dal.entity.User"
+            useGeneratedKeys="true">
+        insert into `user` (username, password, status, type)
+                value (#{username,jdbcType=VARCHAR}, #{password,jdbcType=VARCHAR}, #{status,jdbcType=TINYINT},
+                       #{type,jdbcType=TINYINT})
+    </insert>
+    <update id="updateByPrimaryKey">
+        update `user`
+        set username = #{username,jdbcType=VARCHAR},
+            password = #{password,jdbcType=VARCHAR},
+            status   = #{status,jdbcType=TINYINT},
+            type     = #{type,jdbcType=TINYINT}
+        where id = #{id,jdbcType=INTEGER}
+    </update>
+    <update id="updateStatus">
+        update `user`
+        set status = #{status,jdbcType=TINYINT}
+        where id = #{id,jdbcType=INTEGER}
+    </update>
+    <delete id="deleteByPrimaryKey">
+        delete
+        from `user`
+        where id = #{id,jdbcType=INTEGER}
+    </delete>
+    <select id="selectByPrimaryKey" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from `user`
+        where id = #{id,jdbcType=INTEGER}
+    </select>
+    <select id="selectBySelectiveAndPage" resultType="org.apache.seatunnel.app.dal.entity.User">
+        select
+        <include refid="Base_Column_List"/>
+        from `user`
+        <where>
+            <if test="user.username != null and user.username != ''">
+                and `username` = #{user.username,jdbcType=VARCHAR}
+            </if>
+        </where>
+        limit #{start,jdbcType=INTEGER}, #{offset,jdbcType=INTEGER}
+    </select>
+    <select id="selectByName" resultType="org.apache.seatunnel.app.dal.entity.User">
+        select
+        <include refid="Base_Column_List"/>
+        from `user`
+        where username = #{username,jdbcType=VARCHAR}
+    </select>
+    <select id="countBySelective" resultType="java.lang.Integer">
+    select
+        count(1)
+        from `user`
+        <where>
+            <if test="user.username != null and user.username != ''">
+                and `username` = #{user.username,jdbcType=VARCHAR}
+            </if>
+        </where>
+    </select>
+</mapper>

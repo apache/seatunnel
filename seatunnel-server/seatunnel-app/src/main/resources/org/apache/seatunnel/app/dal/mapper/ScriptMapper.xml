@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one or more
+    contributor license agreements.  See the NOTICE file distributed with
+    this work for additional information regarding copyright ownership.
+    The ASF licenses this file to You under the Apache License, Version 2.0
+    (the "License"); you may not use this file except in compliance with
+    the License.  You may obtain a copy of the License at
+       http://www.apache.org/licenses/LICENSE-2.0
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.apache.seatunnel.app.dal.mapper.ScriptMapper">
+    <resultMap id="BaseResultMap" type="org.apache.seatunnel.app.dal.entity.Script">
+        <id column="id" jdbcType="INTEGER" property="id"/>
+        <result column="name" jdbcType="VARCHAR" property="name"/>
+        <result column="type" jdbcType="TINYINT" property="type"/>
+        <result column="status" jdbcType="TINYINT" property="status"/>
+        <result column="content" jdbcType="LONGVARCHAR" property="content"/>
+        <result column="content_md5" jdbcType="VARCHAR" property="contentMd5"/>
+        <result column="creator_id" jdbcType="INTEGER" property="creatorId"/>
+        <result column="mender_id" jdbcType="INTEGER" property="menderId"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id,
+        `name`,
+        `type`,
+        `status`,
+        content,
+        content_md5,
+        creator_id,
+        mender_id,
+        create_time,
+        update_time
+    </sql>
+    <insert id="insert" keyColumn="id" keyProperty="id" parameterType="org.apache.seatunnel.app.dal.entity.Script"
+            useGeneratedKeys="true">
+        insert into `script` (name, type, status, creator_id, mender_id)
+        VALUES (#{name,jdbcType=VARCHAR}, #{type,jdbcType=TINYINT}, #{status,jdbcType=TINYINT},
+                #{creatorId,jdbcType=INTEGER},
+                #{menderId,jdbcType=INTEGER})
+    </insert>
+    <update id="updateContentByPrimaryKey">
+        update `script`
+        set `content`     = #{content,jdbcType=VARCHAR},
+            `content_md5` = #{contentMd5,jdbcType=VARCHAR},
+            `mender_id`   = #{menderId, jdbcType=INTEGER}
+        where id = #{id,jdbcType=INTEGER}
+    </update>
+    <update id="updateStatus">
+        update `script`
+        set `status` = #{code,jdbcType=TINYINT}
+        where id = #{id,jdbcType=INTEGER}
+    </update>
+    <select id="selectByPrimaryKey" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from script
+        where id = #{id,jdbcType=INTEGER}
+    </select>
+    <select id="selectBySelectiveAndPage" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from script
+        <where>
+            <if test="script.name != null and script.name != ''">
+                and `name` = #{script.name,jdbcType=VARCHAR}
+            </if>
+            <if test="script.status != null">
+                and `status` = #{script.status,jdbcType=TINYINT}
+            </if>
+        </where>
+        limit #{start,jdbcType=INTEGER}, #{offset,jdbcType=INTEGER}
+    </select>
+    <select id="selectByNameAndCreatorAndStatusNotEq" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from script
+        where `name` = #{name,jdbcType=VARCHAR}
+          and `creator_id` = #{creatorId,jdbcType=INTEGER}
+          and `status` != #{status,jdbcType=TINYINT}
+    </select>
+    <select id="countBySelectiveAndPage" resultType="java.lang.Integer">
+    select
+        count(1)
+        from script
+        <where>
+            <if test="script.name != null and script.name != ''">
+                and `name` = #{script.name,jdbcType=VARCHAR}
+            </if>
+            <if test="script.status != null">
+                and `status` = #{script.status,jdbcType=TINYINT}
+            </if>
+        </where>
+    </select>
+</mapper>

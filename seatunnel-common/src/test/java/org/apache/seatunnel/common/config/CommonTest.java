@@ -17,16 +17,16 @@
 
 package org.apache.seatunnel.common.config;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 
 public class CommonTest {
 
     static {
-        Common.setDeployMode("client");
+        Common.setDeployMode(DeployMode.CLIENT);
     }
 
     @Test

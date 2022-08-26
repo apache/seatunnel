@@ -17,6 +17,9 @@
     },
     {
       "pattern": "^/docs/category"
+    },
+    {
+      "pattern": "^https://opencollective.com"
     }
   ],
   "timeout": "10s",
@@ -26,6 +29,7 @@
   "aliveStatusCodes": [
     0,
     200,
-    401
+    401,
+    403
   ]
 }

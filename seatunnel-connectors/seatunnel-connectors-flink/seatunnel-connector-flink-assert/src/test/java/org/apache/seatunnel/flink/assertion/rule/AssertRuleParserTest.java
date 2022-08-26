@@ -17,18 +17,20 @@
 
 package org.apache.seatunnel.flink.assertion.rule;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import junit.framework.TestCase;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-@SuppressWarnings("magicnumber")
-public class AssertRuleParserTest extends TestCase {
+public class AssertRuleParserTest {
     AssertRuleParser parser = new AssertRuleParser();
 
+    @Test
     public void testParseRules() {
         List<? extends Config> ruleConfigList = assembleConfig();
         List<AssertFieldRule> assertFieldRules = parser.parseRules(ruleConfigList);
