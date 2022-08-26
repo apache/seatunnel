@@ -15,31 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.phoenix.constant;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.phoenix;
 
-import java.util.Arrays;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
 
-public enum NullModeType {
-    Skip("skip"),
-    Empty("empty");
+import com.google.auto.service.AutoService;
+import lombok.NonNull;
 
-    private String mode;
+@AutoService(JdbcDialectFactory.class)
+public class PhoenixDialectFactory implements JdbcDialectFactory {
 
-    NullModeType(String mode) {
-        this.mode = mode.toLowerCase();
+    @Override
+    public boolean acceptsURL(@NonNull String url) {
+        // Support greenplum native driver: com.pivotal.jdbc.GreenplumDriver
+        return url.startsWith("jdbc:phoenix:");
     }
 
-    public String getMode() {
-        return mode;
-    }
-
-    public static NullModeType getByTypeName(String modeName) {
-        for (NullModeType modeType : values()) {
-            if (modeType.mode.equalsIgnoreCase(modeName)) {
-                return modeType;
-            }
-        }
-        throw new RuntimeException(
-                "nullMode type:" + modeName + ",  Currently supported nullMode types are: :" + Arrays.asList(values()));
+    @Override
+    public JdbcDialect create() {
+        return new MysqlDialect();
     }
 }
