@@ -60,6 +60,8 @@ public class TaskExecutionServiceTest {
     ILogger logger = instance.node.nodeEngine.getLogger(TaskExecutionServiceTest.class);
     FlakeIdGenerator flakeIdGenerator = instance.getFlakeIdGenerator("test");
     long taskRunTime = 2000;
+    long jobId = 1001;
+    long pipelineId = 10001;
 
     @Test
     public void testAll() throws InterruptedException, ExecutionException {
@@ -91,7 +93,7 @@ public class TaskExecutionServiceTest {
         TestTask testTask2 = new TestTask(stop, logger, sleepTime, false);
 
         long taskGroupId = flakeIdGenerator.newId();
-        CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(taskGroupId, "ts", Lists.newArrayList(testTask1, testTask2)), new CompletableFuture<>());
+        CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(jobId, pipelineId, taskGroupId, "ts", Lists.newArrayList(testTask1, testTask2)), new CompletableFuture<>());
 
         taskExecutionService.cancelTaskGroup(taskGroupId);
 
@@ -110,7 +112,7 @@ public class TaskExecutionServiceTest {
         TestTask testTask1 = new TestTask(stop, logger, sleepTime, true);
         TestTask testTask2 = new TestTask(stop, logger, sleepTime, false);
 
-        CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(flakeIdGenerator.newId(), "ts", Lists.newArrayList(testTask1, testTask2)), new CompletableFuture<>());
+        CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(jobId, pipelineId, flakeIdGenerator.newId(), "ts", Lists.newArrayList(testTask1, testTask2)), new CompletableFuture<>());
         completableFuture.whenComplete(new BiConsumer<TaskExecutionState, Throwable>() {
             @Override
             public void accept(TaskExecutionState unused, Throwable throwable) {
@@ -144,7 +146,7 @@ public class TaskExecutionServiceTest {
 
         TaskExecutionService taskExecutionService = service.getTaskExecutionService();
 
-        CompletableFuture<TaskExecutionState> taskCts = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(flakeIdGenerator.newId(), "t1", Lists.newArrayList(criticalTask)), new CompletableFuture<>());
+        CompletableFuture<TaskExecutionState> taskCts = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(jobId, pipelineId, flakeIdGenerator.newId(), "t1", Lists.newArrayList(criticalTask)), new CompletableFuture<>());
 
         // Run it for a while
         Thread.sleep(taskRunTime);
@@ -190,11 +192,11 @@ public class TaskExecutionServiceTest {
         tasks.addAll(lowLagTask);
         Collections.shuffle(tasks);
 
-        CompletableFuture<TaskExecutionState> taskCts = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(flakeIdGenerator.newId(), "ts", Lists.newArrayList(tasks)), new CompletableFuture<>());
+        CompletableFuture<TaskExecutionState> taskCts = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(jobId, pipelineId, flakeIdGenerator.newId(), "ts", Lists.newArrayList(tasks)), new CompletableFuture<>());
 
-        CompletableFuture<TaskExecutionState> t1c = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(flakeIdGenerator.newId(), "t1", Lists.newArrayList(t1)), new CompletableFuture<>());
+        CompletableFuture<TaskExecutionState> t1c = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(jobId, pipelineId, flakeIdGenerator.newId(), "t1", Lists.newArrayList(t1)), new CompletableFuture<>());
 
-        CompletableFuture<TaskExecutionState> t2c = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(flakeIdGenerator.newId(), "t2", Lists.newArrayList(t2)), new CompletableFuture<>());
+        CompletableFuture<TaskExecutionState> t2c = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(jobId, pipelineId, flakeIdGenerator.newId(), "t2", Lists.newArrayList(t2)), new CompletableFuture<>());
 
         Thread.sleep(taskRunTime);
 
@@ -234,7 +236,7 @@ public class TaskExecutionServiceTest {
         tasks.addAll(lowLagTask);
         Collections.shuffle(tasks);
 
-        TaskGroupDefaultImpl taskGroup = new TaskGroupDefaultImpl(flakeIdGenerator.newId(), "ts", Lists.newArrayList(tasks));
+        TaskGroupDefaultImpl taskGroup = new TaskGroupDefaultImpl(jobId, pipelineId, flakeIdGenerator.newId(), "ts", Lists.newArrayList(tasks));
 
         logger.info("task size is : " + taskGroup.getTasks().size());
 

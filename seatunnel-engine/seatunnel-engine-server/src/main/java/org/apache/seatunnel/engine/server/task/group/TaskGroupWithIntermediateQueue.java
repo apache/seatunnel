@@ -32,8 +32,8 @@ public class TaskGroupWithIntermediateQueue extends TaskGroupDefaultImpl {
 
     public static final int QUEUE_SIZE = 1000;
 
-    public TaskGroupWithIntermediateQueue(long id, String taskGroupName, Collection<Task> tasks) {
-        super(id, taskGroupName, tasks);
+    public TaskGroupWithIntermediateQueue(long jobId, long pipelineId, long id, String taskGroupName, Collection<Task> tasks) {
+        super(jobId, pipelineId, id, taskGroupName, tasks);
     }
 
     private Map<Long, BlockingQueue<Record<?>>> blockingQueueCache = null;

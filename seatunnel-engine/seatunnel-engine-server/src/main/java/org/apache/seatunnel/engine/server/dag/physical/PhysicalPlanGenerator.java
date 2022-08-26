@@ -198,7 +198,7 @@ public class PhysicalPlanGenerator {
                         atomicInteger.incrementAndGet(),
                         executorService,
                         collect.size(),
-                        new TaskGroupDefaultImpl(taskGroupID, s.getName() + "-AggregatedCommitterTask",
+                        new TaskGroupDefaultImpl(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID, s.getName() + "-AggregatedCommitterTask",
                             Lists.newArrayList(t)),
                         taskFuture,
                         flakeIdGenerator,
@@ -237,8 +237,8 @@ public class PhysicalPlanGenerator {
                         i,
                         executorService,
                         flow.getAction().getParallelism(),
-                        new TaskGroupDefaultImpl(taskGroupID, flow.getAction().getName() +
-                                "-PartitionTransformTask",
+                        new TaskGroupDefaultImpl(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID, flow.getAction().getName() +
+                            "-PartitionTransformTask",
                             Lists.newArrayList(seaTunnelTask)),
                         taskFuture,
                         flakeIdGenerator,
@@ -271,8 +271,8 @@ public class PhysicalPlanGenerator {
                 atomicInteger.incrementAndGet(),
                 executorService,
                 sources.size(),
-                new TaskGroupDefaultImpl(taskGroupID, s.getName() + "-SplitEnumerator",
-                        Lists.newArrayList(t)),
+                new TaskGroupDefaultImpl(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID, s.getName() + "-SplitEnumerator",
+                    Lists.newArrayList(t)),
                 taskFuture,
                 flakeIdGenerator,
                 pipelineIndex,
@@ -331,8 +331,8 @@ public class PhysicalPlanGenerator {
                             i,
                             executorService,
                             flow.getAction().getParallelism(),
-                            new TaskGroupWithIntermediateQueue(taskGroupID, flow.getAction().getName() +
-                                    "-SourceTask",
+                            new TaskGroupWithIntermediateQueue(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID, flow.getAction().getName() +
+                                "-SourceTask",
                                 taskList.stream().map(task -> (Task) task).collect(Collectors.toList())),
                             taskFuture,
                             flakeIdGenerator,
@@ -347,8 +347,8 @@ public class PhysicalPlanGenerator {
                             i,
                             executorService,
                             flow.getAction().getParallelism(),
-                            new TaskGroupDefaultImpl(taskGroupID, flow.getAction().getName() +
-                                    "-SourceTask",
+                            new TaskGroupDefaultImpl(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID, flow.getAction().getName() +
+                                "-SourceTask",
                                 taskList.stream().map(task -> (Task) task).collect(Collectors.toList())),
                             taskFuture,
                             flakeIdGenerator,

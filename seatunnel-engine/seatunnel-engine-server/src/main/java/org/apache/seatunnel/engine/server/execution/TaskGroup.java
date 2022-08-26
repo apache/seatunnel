@@ -22,6 +22,9 @@ import java.util.Collection;
 import java.util.Map;
 
 public interface TaskGroup extends Serializable {
+    long getJobId();
+
+    long getPipelineId();
 
     long getId();
 

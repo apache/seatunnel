@@ -37,6 +37,7 @@ import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
+import org.apache.seatunnel.engine.server.operation.NotifyTaskStatusOperation;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 
 import com.google.common.collect.Lists;
@@ -44,6 +45,7 @@ import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import com.hazelcast.spi.properties.HazelcastProperties;
 import lombok.NonNull;
 import lombok.SneakyThrows;
@@ -180,6 +182,16 @@ public class TaskExecutionService {
             logger.severe(ExceptionUtils.getMessage(t));
             resultFuture.completeExceptionally(t);
         }
+        resultFuture.whenComplete((r, s) -> {
+            InvocationFuture<Object> invoke;
+            do {
+                invoke = nodeEngine.getOperationService().createInvocationBuilder(
+                    SeaTunnelServer.SERVICE_NAME,
+                    new NotifyTaskStatusOperation(taskGroup.getJobId(), taskGroup.getPipelineId(), taskGroup.getId(), r),
+                    nodeEngine.getMasterAddress()).invoke();
+                invoke.join();
+            } while (!invoke.isDone());
+        });
         return new PassiveCompletableFuture<>(resultFuture);
     }
 
