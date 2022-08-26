@@ -17,87 +17,78 @@
 
 package org.apache.seatunnel.connectors.seatunnel.doris.source;
 
-
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
-
 public class DorisTypeMapper {
-
     private static final Logger LOG = LoggerFactory.getLogger(DorisTypeMapper.class);
 
     // ============================data types=====================
 
-    private static final String KUDU_UNKNOWN = "UNKNOWN";
-    private static final String KUDU_BIT = "BOOL";
+    private static final String DORIS_UNKNOWN = "UNKNOWN";
 
     // -------------------------number----------------------------
-    private static final String KUDU_TINYINT = "INT8";
-    private static final String KUDU_MEDIUMINT = "INT32";
-    private static final String KUDU_INT = "INT16";
-    private static final String KUDU_BIGINT = "INT64";
+    private static final String DORIS_TINYINT = "TINYINT";
+    private static final String DORIS_SMALLINT = "SMALLINT";
+    private static final String DORIS_INT = "INT";
+    private static final String DORIS_BIGINT = "BIGINT";
 
-    private static final String KUDU_FLOAT = "FLOAT";
+    private static final String DORIS_FLOAT = "FLOAT";
 
-    private static final String KUDU_DOUBLE = "DOUBLE";
-    private static final String KUDU_DECIMAL = "DECIMAL32";
+    private static final String DORIS_DOUBLE = "DOUBLE";
+    private static final String DORIS_DECIMAL = "DECIMAL";
 
 
     // -------------------------string----------------------------
 
-    private static final String KUDU_VARCHAR = "STRING";
+    private static final String DORIS_STRING = "STRING";
+    private static final String DORIS_CHAR = "CHAR";
+    private static final String DORIS_VARCHAR = "VARCHAR";
 
 
     // ------------------------------time-------------------------
 
-    private static final String KUDU_UNIXTIME_MICROS = "UNIXTIME_MICROS";
+    private static final String DORIS_DATE_TIME = "DATETIME";
 
 
-    // ------------------------------blob-------------------------
-
-    private static final String KUDU_BINARY = "BINARY";
     private static final int PRECISION = 20;
+
     public static SeaTunnelDataType<?> mapping(ResultSetMetaData columnSchemaList, int colIndex) throws SQLException {
         String dorisType = columnSchemaList.getColumnTypeName(colIndex).toUpperCase();
         switch (dorisType) {
-            case KUDU_BIT:
-                return BasicType.BOOLEAN_TYPE;
-            case KUDU_TINYINT:
-            case KUDU_MEDIUMINT:
-            case KUDU_INT:
+            case DORIS_TINYINT:
+            case DORIS_SMALLINT:
+            case DORIS_INT:
                 return BasicType.INT_TYPE;
-            case KUDU_BIGINT:
+            case DORIS_BIGINT:
                 return BasicType.LONG_TYPE;
-            case KUDU_DECIMAL:
+            case DORIS_DECIMAL:
                 return new DecimalType(PRECISION, 0);
-            case KUDU_FLOAT:
+            case DORIS_FLOAT:
                 return BasicType.FLOAT_TYPE;
-            case KUDU_DOUBLE:
+            case DORIS_DOUBLE:
                 return BasicType.DOUBLE_TYPE;
 
-            case KUDU_VARCHAR:
+            case DORIS_VARCHAR:
+            case DORIS_STRING:
+            case DORIS_CHAR:
                 return BasicType.STRING_TYPE;
-            case KUDU_UNIXTIME_MICROS:
+            case DORIS_DATE_TIME:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-            case KUDU_BINARY:
-                return PrimitiveByteArrayType.INSTANCE;
-
-            //Doesn't support yet
-
-            case KUDU_UNKNOWN:
+            case DORIS_UNKNOWN:
             default:
                 throw new UnsupportedOperationException(
-                    String.format(
-                        "Doesn't support KUDU type '%s' .",
-                            dorisType));
+                        String.format(
+                                "Doesn't support DORIS type '%s' .",
+                                dorisType));
         }
     }
 }

@@ -17,29 +17,28 @@
 
 package org.apache.seatunnel.connectors.seatunnel.doris.source;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.doris.util.JDBCUtils;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import com.google.auto.service.AutoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.List;
 
 @AutoService(SeaTunnelSource.class)
 public class DorisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
@@ -51,7 +50,7 @@ public class DorisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public Boundedness getBoundedness() {
-        return  Boundedness.BOUNDED ;
+        return Boundedness.BOUNDED;
     }
 
     @Override
@@ -61,7 +60,7 @@ public class DorisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new DorisSourceReader(readerContext,dorisInputFormat);
+        return new DorisSourceReader(readerContext, dorisInputFormat);
     }
 
     @Override
@@ -77,7 +76,7 @@ public class DorisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         String selectsql = "";
         String database = "";
         if (config.hasPath(DorisSourceParameter.DORISBEADDRESS) && config.hasPath(DorisSourceParameter.PASSWORD)
-                && config.hasPath(DorisSourceParameter.USERNAME)&& config.hasPath(DorisSourceParameter.SELECTSQL)&& config.hasPath(DorisSourceParameter.DATABASE)) {
+            && config.hasPath(DorisSourceParameter.USERNAME) && config.hasPath(DorisSourceParameter.SELECTSQL) && config.hasPath(DorisSourceParameter.DATABASE)) {
             dorisbeaddress = config.getString(DorisSourceParameter.DORISBEADDRESS);
             password = config.getString(DorisSourceParameter.PASSWORD);
             username = config.getString(DorisSourceParameter.USERNAME);
@@ -85,12 +84,12 @@ public class DorisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             database = config.getString(DorisSourceParameter.DATABASE);
             try {
 
-                SeaTunnelRowType seaTunnelRowType = getSeaTunnelRowType(JDBCUtils.getMetaData(JDBCUtils.getConnection(dorisbeaddress,username,password,database),selectsql));
+                SeaTunnelRowType seaTunnelRowType = getSeaTunnelRowType(JDBCUtils.getMetaData(JDBCUtils.getConnection(dorisbeaddress, username, password, database), selectsql));
                 rowTypeInfo = seaTunnelRowType;
             } catch (SQLException e) {
                 throw new RuntimeException("Parameters in the preparation phase fail to be generated", e);
             }
-            dorisInputFormat = new DorisInputFormat(dorisbeaddress,password,username,selectsql,database,rowTypeInfo);
+            dorisInputFormat = new DorisInputFormat(dorisbeaddress, password, username, selectsql, database, rowTypeInfo);
         } else {
             throw new RuntimeException("Missing Source configuration parameters");
         }
@@ -107,7 +106,7 @@ public class DorisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         ArrayList<String> fieldNames = new ArrayList<>();
         try {
 
-            for (int i = 0; i < columnSchemaList.getColumnCount(); i++) {
+            for (int i = 1; i <= columnSchemaList.getColumnCount(); i++) {
                 fieldNames.add(columnSchemaList.getColumnName(i));
                 seaTunnelDataTypes.add(DorisTypeMapper.mapping(columnSchemaList, i));
             }

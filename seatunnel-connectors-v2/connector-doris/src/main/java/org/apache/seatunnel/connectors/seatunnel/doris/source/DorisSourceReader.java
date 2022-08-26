@@ -22,12 +22,11 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Random;
-import java.util.concurrent.ThreadLocalRandom;
 
 public class DorisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
@@ -54,13 +53,13 @@ public class DorisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     @Override
-    @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws IOException {
         // Generate a random number of rows to emit.
         dorisInputFormat.open(dorisInputFormat.selectsql);
-        SeaTunnelRow seaTunnelRow = dorisInputFormat.nextRecord();
-
-        output.collect(seaTunnelRow);
+        while (!dorisInputFormat.reachedEnd()) {
+            SeaTunnelRow seaTunnelRow = dorisInputFormat.nextRecord();
+            output.collect(seaTunnelRow);
+        }
         dorisInputFormat.close();
 
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {

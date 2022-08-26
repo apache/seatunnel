@@ -34,15 +34,10 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.sql.Array;
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.sql.Time;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -62,14 +57,12 @@ public class DorisInputFormat implements Serializable {
     protected String username;
     protected String selectsql;
     protected SeaTunnelRowType rowTypeInfo;
-    private Connection dbConn;
-    protected SeaTunnelRowType typeInfo;
-
     protected transient PreparedStatement statement;
     protected transient ResultSet resultSet;
     protected boolean hasNext;
+    private Connection dbConn;
 
-    public DorisInputFormat(String dorisbeaddress, String password, String username, String selectsql,String database, SeaTunnelRowType rowTypeInfo) {
+    public DorisInputFormat(String dorisbeaddress, String password, String username, String selectsql, String database, SeaTunnelRowType rowTypeInfo) {
         this.dorisbeaddress = dorisbeaddress;
         this.password = password;
         this.username = username;
@@ -81,7 +74,7 @@ public class DorisInputFormat implements Serializable {
     public void openInputFormat() {
         // called once per inputFormat (on open)
         try {
-            this.dbConn = JDBCUtils.getConnection(dorisbeaddress,username,password,database);
+            this.dbConn = JDBCUtils.getConnection(dorisbeaddress, username, password, database);
             statement = dbConn.prepareStatement(selectsql);
 
         } catch (SQLException se) {
@@ -89,7 +82,7 @@ public class DorisInputFormat implements Serializable {
         }
     }
 
-    public void closeInputFormat()  {
+    public void closeInputFormat() {
         // called once per inputFormat (on close)
         try {
             JDBCUtils.close(statement, dbConn);
@@ -101,8 +94,7 @@ public class DorisInputFormat implements Serializable {
     /**
      * Connects to the source database and executes the query
      *
-     * @param sql which is ignored if this InputFormat is executed as a non-parallel source,
-     *                   a "hook" to the query parameters otherwise (using its <i>parameterId</i>)
+     * @param sql SQL to query data
      * @throws IOException if there's an error during the execution of the query
      */
     public void open(String sql) throws IOException {
@@ -114,7 +106,8 @@ public class DorisInputFormat implements Serializable {
             throw new IllegalArgumentException("open() failed." + se.getMessage(), se);
         }
     }
-    public void close() throws IOException {
+
+    public void close() {
         if (resultSet == null) {
             return;
         }
@@ -124,8 +117,6 @@ public class DorisInputFormat implements Serializable {
             LOG.info("Inputformat ResultSet couldn't be closed - " + se.getMessage());
         }
     }
-
-
 
     /**
      * Checks whether all data has been read.
@@ -144,7 +135,7 @@ public class DorisInputFormat implements Serializable {
             if (!hasNext) {
                 return null;
             }
-            SeaTunnelRow seaTunnelRow = toInternal(resultSet, typeInfo);
+            SeaTunnelRow seaTunnelRow = toInternal(resultSet, rowTypeInfo);
             // update hasNext after we've read the record
             hasNext = resultSet.next();
             return seaTunnelRow;
@@ -164,8 +155,7 @@ public class DorisInputFormat implements Serializable {
             SeaTunnelDataType<?> seaTunnelDataType = seaTunnelDataTypes[i - 1];
             if (null == rs.getObject(i)) {
                 seatunnelField = null;
-            }
-            else if (BasicType.BOOLEAN_TYPE.equals(seaTunnelDataType)) {
+            } else if (BasicType.BOOLEAN_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getBoolean(i);
             } else if (BasicType.BYTE_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getByte(i);
@@ -178,8 +168,8 @@ public class DorisInputFormat implements Serializable {
             } else if (seaTunnelDataType instanceof DecimalType) {
                 Object value = rs.getObject(i);
                 seatunnelField = value instanceof BigInteger ?
-                        new BigDecimal((BigInteger) value, 0)
-                        : value;
+                    new BigDecimal((BigInteger) value, 0)
+                    : value;
             } else if (BasicType.FLOAT_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getFloat(i);
             } else if (BasicType.DOUBLE_TYPE.equals(seaTunnelDataType)) {
@@ -203,6 +193,5 @@ public class DorisInputFormat implements Serializable {
 
         return new SeaTunnelRow(fields.toArray());
     }
-
 
 }

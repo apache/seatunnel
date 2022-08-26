@@ -17,10 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.doris.source;
 
-import org.apache.commons.lang3.StringUtils;
-
 import java.io.Serializable;
-import java.util.Objects;
 
 public class DorisSourceParameter implements Serializable {
 
