@@ -51,6 +51,8 @@ See [install plugins for IDEA](https://www.jetbrains.com/help/idea/managing-plug
 Before coding, you should also install JetBrains IntelliJ IDEA's [CheckStyle-IDEA plugin](https://plugins.jetbrains.com/plugin/1065-checkstyle-idea).
 See [install plugins for IDEA](https://www.jetbrains.com/help/idea/managing-plugins.html#install-plugins) if you want to.
 Next, you should go to `Preferences -> Editor -> Code style -> Scheme -> Import Scheme -> CheckStyle Configration` and import `tools/checkstyle/checkStyle.xml`
+![checkstyle.png](../images/checkstyle.png)
+If you want to change to automatically formatting, these configurations are also required.
 
 ## Run Simple Example
 
