@@ -67,7 +67,7 @@ public class SeaTunnelClientTest {
     @Test
     public void testExecuteJob() {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/fakesource_to_file_complex.conf");
+        String filePath = TestUtils.getResource("/client_test.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setMode(JobMode.BATCH);
         jobConfig.setName("fake_to_file");
