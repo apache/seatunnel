@@ -25,20 +25,20 @@ import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkFunction;
 import org.apache.flink.streaming.connectors.elasticsearch.RequestIndexer;
+import org.apache.http.HttpHost;
 import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.transport.TransportAddress;
-import org.elasticsearch.transport.client.PreBuiltTransportClient;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestClientBuilder;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.InetAddress;
 import java.util.List;
 
 public class ElasticsearchOutputFormat<T> extends RichOutputFormat<T> {
@@ -47,8 +47,6 @@ public class ElasticsearchOutputFormat<T> extends RichOutputFormat<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchOutputFormat.class);
 
     private final Config config;
-
-    private static final String PREFIX = "es.";
 
     private final ElasticsearchSinkFunction<T> elasticsearchSinkFunction;
 
@@ -64,27 +62,14 @@ public class ElasticsearchOutputFormat<T> extends RichOutputFormat<T> {
     @Override
     public void configure(Configuration configuration) {
         List<String> hosts = config.getStringList(HOSTS);
-        Settings.Builder settings = Settings.builder();
+        HttpHost[] httpHosts = hosts.stream()
+            .map(host -> HttpHost.create(host)).toArray(length -> new HttpHost[length]);
+        RestClientBuilder builder = RestClient.builder(httpHosts);
+        RestHighLevelClient client = new RestHighLevelClient(builder);
 
-        config.entrySet().forEach(entry -> {
-            String key = entry.getKey();
-            Object value = entry.getValue().unwrapped();
-            if (key.startsWith(PREFIX)) {
-                settings.put(key.substring(PREFIX.length()), value.toString());
-            }
-        });
-
-        TransportClient transportClient = new PreBuiltTransportClient(settings.build());
-
-        for (String host : hosts) {
-            try {
-                transportClient.addTransportAddresses(new TransportAddress(InetAddress.getByName(host.split(":")[0]), Integer.parseInt(host.split(":")[1])));
-            } catch (Exception e) {
-                LOGGER.warn("Host '{}' parse failed.", host, e);
-            }
-        }
-
-        BulkProcessor.Builder bulkProcessorBuilder = BulkProcessor.builder(transportClient, new BulkProcessor.Listener() {
+        BulkProcessor.Builder bulkProcessorBuilder = BulkProcessor.builder((request, listener) -> {
+            client.bulkAsync(request, RequestOptions.DEFAULT, listener);
+        }, new BulkProcessor.Listener() {
             @Override
             public void beforeBulk(long executionId, BulkRequest request) {
             }
@@ -95,7 +80,9 @@ public class ElasticsearchOutputFormat<T> extends RichOutputFormat<T> {
 
             @Override
             public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
+                LOGGER.error(failure.getMessage(), failure);
             }
+
         });
 
         // This makes flush() blocking
