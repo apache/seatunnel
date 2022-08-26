@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
@@ -32,10 +33,13 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
+import java.io.Serializable;
 import java.util.Map;
 
-public class SeatunnelSchema {
+public class SeatunnelSchema implements Serializable {
+    public static final String SCHEMA = "schema";
     private static final String FIELD_KEY = "fields";
+    private static final String SIMPLE_SCHEMA_FILED = "content";
     private final SeaTunnelRowType seaTunnelRowType;
 
     private SeatunnelSchema(SeaTunnelRowType seaTunnelRowType) {
@@ -152,8 +156,9 @@ public class SeatunnelSchema {
             case BOOLEAN:
                 return BasicType.BOOLEAN_TYPE;
             case TINYINT:
-            case BYTES:
                 return BasicType.BYTE_TYPE;
+            case BYTES:
+                return PrimitiveByteArrayType.INSTANCE;
             case SMALLINT:
                 return BasicType.SHORT_TYPE;
             case INT:
@@ -209,6 +214,10 @@ public class SeatunnelSchema {
         }
         SeaTunnelRowType seaTunnelRowType = new SeaTunnelRowType(fieldsName, seaTunnelDataTypes);
         return new SeatunnelSchema(seaTunnelRowType);
+    }
+
+    public static SeaTunnelRowType buildSimpleTextSchema() {
+        return new SeaTunnelRowType(new String[]{SIMPLE_SCHEMA_FILED}, new SeaTunnelDataType<?>[]{BasicType.STRING_TYPE});
     }
 
     public SeaTunnelRowType getSeaTunnelRowType() {

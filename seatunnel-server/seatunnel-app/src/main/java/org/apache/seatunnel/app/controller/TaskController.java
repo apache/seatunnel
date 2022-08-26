@@ -22,6 +22,7 @@ import org.apache.seatunnel.app.domain.request.task.ExecuteReq;
 import org.apache.seatunnel.app.domain.request.task.InstanceListReq;
 import org.apache.seatunnel.app.domain.request.task.JobListReq;
 import org.apache.seatunnel.app.domain.request.task.RecycleScriptReq;
+import org.apache.seatunnel.app.domain.response.PageInfo;
 import org.apache.seatunnel.app.domain.response.task.InstanceSimpleInfoRes;
 import org.apache.seatunnel.app.domain.response.task.JobSimpleInfoRes;
 import org.apache.seatunnel.app.service.ITaskService;
@@ -36,8 +37,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
 import javax.validation.constraints.NotNull;
-
-import java.util.List;
 
 @RequestMapping("/api/v1/task")
 @RestController
@@ -55,13 +54,13 @@ public class TaskController {
 
     @GetMapping("/listJob")
     @ApiOperation(value = "list job", httpMethod = "GET")
-    Result<List<JobSimpleInfoRes>> listJob(@RequestBody @NotNull JobListReq req) {
+    Result<PageInfo<JobSimpleInfoRes>> listJob(@RequestBody @NotNull JobListReq req) {
         return Result.success(iTaskService.listJob(req));
     }
 
     @GetMapping("/listInstance")
     @ApiOperation(value = "list instance", httpMethod = "GET")
-    Result<List<InstanceSimpleInfoRes>> listInstance(@RequestBody @NotNull InstanceListReq req) {
+    Result<PageInfo<InstanceSimpleInfoRes>> listInstance(@RequestBody @NotNull InstanceListReq req) {
         return Result.success(iTaskService.listInstance(req));
     }
 

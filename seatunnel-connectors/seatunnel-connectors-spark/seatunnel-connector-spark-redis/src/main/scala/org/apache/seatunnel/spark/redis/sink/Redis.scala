@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.spark.redis.sink
 
-import com.redislabs.provider.redis.{RedisConfig, RedisEndpoint, toRedisContext}
+import com.redislabs.provider.redis.{RedisConfig, toRedisContext}
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
-import org.apache.seatunnel.spark.redis.common.Constants.{AUTH, DATA_TYPE, DB_NUM, DEFAULT_AUTH, DEFAULT_DATA_TYPE, DEFAULT_DB_NUM, DEFAULT_HOST, DEFAULT_PORT, DEFAULT_TIMEOUT, DEFAULT_TTL, HASH_NAME, HOST, LIST_NAME, PORT, SET_NAME, TIMEOUT, ZSET_NAME, TTL}
-import org.apache.seatunnel.spark.redis.common.RedisDataType
+import org.apache.seatunnel.spark.redis.common.Constants._
+import org.apache.seatunnel.spark.redis.common.{RedisDataType, RedisUtil}
 import org.apache.spark.SparkContext
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{Dataset, Row}
@@ -35,13 +35,9 @@ class Redis extends SparkBatchSink with Logging {
   var redisDataType: RedisDataType.Value = _
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
-    val redisConfigs = new RedisConfig(RedisEndpoint(
-      host = config.getString(HOST),
-      port = config.getInt(PORT),
-      auth = if (config.getIsNull(AUTH)) null else config.getString(AUTH),
-      dbNum = config.getInt(DB_NUM),
-      timeout = config.getInt(TIMEOUT)
-    ))
+    val isSelfAchieved = if (config.getIsNull(IS_SELF_ACHIEVED_REDIS)) false else config.getBoolean(IS_SELF_ACHIEVED_REDIS)
+
+    val redisConfigs = RedisUtil.getRedisConfig(isSelfAchieved, config)
 
     redisDataType = RedisDataType.withName(config.getString(DATA_TYPE))
     implicit val sc: SparkContext = env.getSparkSession.sparkContext
@@ -79,7 +75,8 @@ class Redis extends SparkBatchSink with Logging {
         DB_NUM -> DEFAULT_DB_NUM,
         DATA_TYPE -> DEFAULT_DATA_TYPE,
         TIMEOUT -> DEFAULT_TIMEOUT,
-        TTL -> DEFAULT_TTL
+        TTL -> DEFAULT_TTL,
+        IS_SELF_ACHIEVED_REDIS -> DEFAULT_IS_SELF_ACHIEVED_REDIS
       ))
     config = config.withFallback(defaultConfig)
   }
