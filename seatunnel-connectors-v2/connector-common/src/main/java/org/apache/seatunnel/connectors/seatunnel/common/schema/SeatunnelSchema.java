@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
@@ -155,8 +156,9 @@ public class SeatunnelSchema implements Serializable {
             case BOOLEAN:
                 return BasicType.BOOLEAN_TYPE;
             case TINYINT:
-            case BYTES:
                 return BasicType.BYTE_TYPE;
+            case BYTES:
+                return PrimitiveByteArrayType.INSTANCE;
             case SMALLINT:
                 return BasicType.SHORT_TYPE;
             case INT:

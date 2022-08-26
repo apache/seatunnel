@@ -29,12 +29,12 @@ public class SparkCommandArgsTest {
 
     @Test
     public void testParseSparkArgs() {
-        String[] args = {"-c", "app.conf", "-e", "client", "-m", "yarn", "-i", "city=shijiazhuang", "-i", "name=Tom"};
+        String[] args = {"-c", "app.conf", "-e", "client", "-m", "yarn", "-i", "city=shijiazhuang", "-i", "name=Tom", "-i", "hobby=basketball,football"};
         SparkCommandArgs sparkArgs = CommandLineUtils.parse(args, new SparkCommandArgs(), "seatunnel-spark", true);
         Assertions.assertEquals("app.conf", sparkArgs.getConfigFile());
         Assertions.assertEquals(DeployMode.CLIENT, sparkArgs.getDeployMode());
         Assertions.assertEquals("yarn", sparkArgs.getMaster());
-        Assertions.assertEquals(Arrays.asList("city=shijiazhuang", "name=Tom"), sparkArgs.getVariables());
+        Assertions.assertEquals(Arrays.asList("city=shijiazhuang", "name=Tom", "hobby=basketball,football"), sparkArgs.getVariables());
     }
 
 }

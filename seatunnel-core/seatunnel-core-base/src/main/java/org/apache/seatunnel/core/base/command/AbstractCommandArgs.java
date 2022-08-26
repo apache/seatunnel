@@ -29,12 +29,13 @@ import java.util.List;
 public abstract class AbstractCommandArgs implements CommandArgs {
 
     @Parameter(names = {"-c", "--config"},
-        description = "Config file",
-        required = true)
+            description = "Config file",
+            required = true)
     private String configFile;
 
     @Parameter(names = {"-i", "--variable"},
-        description = "variable substitution, such as -i city=beijing, or -i date=20190318")
+            splitter = NoopParameterSplitter.class,
+            description = "variable substitution, such as -i city=beijing, or -i date=20190318")
     private List<String> variables = Collections.emptyList();
 
     // todo: use command type enum
