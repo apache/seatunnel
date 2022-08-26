@@ -36,6 +36,14 @@ public interface CheckpointStorage {
     String storeCheckPoint(PipelineState state) throws CheckpointStorageException;
 
     /**
+     * async save checkpoint to storage
+     *
+     * @param state PipelineState
+     * @throws CheckpointStorageException if save checkpoint failed
+     */
+    void asyncStoreCheckPoint(PipelineState state) throws CheckpointStorageException;
+
+    /**
      * get all checkpoint from storage
      * if no data found, return empty list
      *

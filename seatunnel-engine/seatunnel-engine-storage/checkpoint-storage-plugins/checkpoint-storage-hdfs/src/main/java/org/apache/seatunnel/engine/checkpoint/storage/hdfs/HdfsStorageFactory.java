@@ -18,32 +18,25 @@
  *
  */
 
-package org.apache.seatunnel.engine.checkpoint.storage.api;
+package org.apache.seatunnel.engine.checkpoint.storage.hdfs;
 
+import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+
+import com.google.auto.service.AutoService;
 
 import java.util.Map;
 
-/**
- * All checkpoint storage plugins need to implement it
- */
-public interface CheckpointStorageFactory {
+@AutoService(CheckpointStorageFactory.class)
+public class HdfsStorageFactory implements CheckpointStorageFactory {
+    @Override
+    public String name() {
+        return "hdfs";
+    }
 
-    /**
-     * Returns the name of the storage plugin
-     */
-    String name();
-
-    /**
-     * create storage plugin instance
-     *
-     * @param configuration storage system config params
-     *                      key: storage system config key
-     *                      value: storage system config value
-     *                      e.g.
-     *                      key: "FS_DEFAULT_NAME_KEY"
-     *                      value: "fs.defaultFS"
-     *                      return storage plugin instance
-     */
-    CheckpointStorage create(Map<String, String> configuration) throws CheckpointStorageException;
+    @Override
+    public CheckpointStorage create(Map<String, String> configuration) throws CheckpointStorageException {
+        return new HdfsStorage(configuration);
+    }
 }
