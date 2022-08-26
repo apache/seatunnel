@@ -114,7 +114,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
                                     }
                                 }
                             }
-                    );
+                    ).join();
                 } else {
                     throw new NoEnoughResourceException("can't apply resource request: " + r);
                 }

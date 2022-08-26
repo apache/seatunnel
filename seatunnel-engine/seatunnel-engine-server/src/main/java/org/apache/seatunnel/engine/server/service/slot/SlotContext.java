@@ -19,19 +19,13 @@ package org.apache.seatunnel.engine.server.service.slot;
 
 import org.apache.seatunnel.engine.server.TaskExecutionService;
 
-import com.hazelcast.spi.impl.NodeEngineImpl;
-
 public class SlotContext {
     private final TaskExecutionService taskExecutionService;
     private final int slotID;
 
-    public SlotContext(NodeEngineImpl nodeEngine, int slotID) {
+    public SlotContext(int slotID, TaskExecutionService taskExecutionService) {
         this.slotID = slotID;
-        taskExecutionService = new TaskExecutionService(
-                nodeEngine, nodeEngine.getProperties()
-        );
-        taskExecutionService.setSlotContext(this);
-        taskExecutionService.start();
+        this.taskExecutionService = taskExecutionService;
     }
 
     public int getSlotID() {

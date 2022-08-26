@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.service.slot;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.TaskExecutionService;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.WorkerHeartbeatOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.CPU;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.Memory;
@@ -61,11 +62,13 @@ public class DefaultSlotService implements SlotService {
     private final boolean dynamicSlot;
     private final int slotNumber;
     private final IdGenerator idGenerator;
+    private final TaskExecutionService taskExecutionService;
     private Map<Integer, SlotContext> contexts;
 
-    public DefaultSlotService(NodeEngineImpl nodeEngine, boolean dynamicSlot, int slotNumber) {
+    public DefaultSlotService(NodeEngineImpl nodeEngine, TaskExecutionService taskExecutionService, boolean dynamicSlot, int slotNumber) {
         this.nodeEngine = nodeEngine;
         this.dynamicSlot = dynamicSlot;
+        this.taskExecutionService = taskExecutionService;
         this.slotNumber = slotNumber;
         this.serviceID = nodeEngine.getThisAddress().toString();
         this.idGenerator = new IdGenerator();
@@ -89,7 +92,7 @@ public class DefaultSlotService implements SlotService {
                 RetryUtils.retryWithException(() -> {
                     sendToMaster(new WorkerHeartbeatOperation(toWorkerProfile())).join();
                     return null;
-                }, new RetryUtils.RetryMaterial(HEARTBEAT_RETRY_TIME, true, e -> true));
+                }, new RetryUtils.RetryMaterial(HEARTBEAT_RETRY_TIME, true, e -> true, DEFAULT_HEARTBEAT_TIMEOUT));
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -105,7 +108,7 @@ public class DefaultSlotService implements SlotService {
             unassignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::unmerge);
             unassignedSlots.remove(profile.getSlotID());
             assignedSlots.put(profile.getSlotID(), profile);
-            contexts.computeIfAbsent(profile.getSlotID(), p -> new SlotContext(nodeEngine, profile.getSlotID()));
+            contexts.computeIfAbsent(profile.getSlotID(), p -> new SlotContext(profile.getSlotID(), taskExecutionService));
         }
         return new SlotAndWorkerProfile(toWorkerProfile(), profile);
     }

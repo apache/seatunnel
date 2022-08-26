@@ -23,7 +23,7 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
-import org.apache.seatunnel.engine.server.resourcemanager.StandaloneResourceManager;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
 
@@ -57,11 +57,11 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     private final ILogger logger;
     private final LiveOperationRegistry liveOperationRegistry;
 
-    private SlotService slotService;
+    private volatile SlotService slotService;
     private TaskExecutionService taskExecutionService;
 
     private final ExecutorService executorService;
-    private ResourceManager resourceManager;
+    private volatile ResourceManager resourceManager;
 
     private final SeaTunnelConfig seaTunnelConfig;
 
@@ -81,8 +81,20 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         logger.info("SeaTunnel server start...");
     }
 
+    /**
+     * Lazy load for Slot Service
+     */
     public SlotService getSlotService() {
-        return this.slotService;
+        if (slotService == null) {
+            synchronized (this) {
+                if (slotService == null) {
+                    SlotService service = new DefaultSlotService(nodeEngine, taskExecutionService, true, 2);
+                    service.init();
+                    slotService = service;
+                }
+            }
+        }
+        return slotService;
     }
 
     public JobMaster getJobMaster(Long jobId) {
@@ -92,15 +104,12 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     @Override
     public void init(NodeEngine engine, Properties hzProperties) {
         this.nodeEngine = (NodeEngineImpl) engine;
-        // TODO Determine whether to create a SlotService on the master node according to the deploy type
-        this.slotService = new DefaultSlotService(nodeEngine, false, 2);
-        if (nodeEngine.getClusterService().isMaster()) {
-            resourceManager = new StandaloneResourceManager(nodeEngine);
-            taskExecutionService = new TaskExecutionService(
-                    nodeEngine, nodeEngine.getProperties()
-            );
-            taskExecutionService.start();
-        }
+        // TODO Determine whether to execute there method on the master node according to the deploy type
+        taskExecutionService = new TaskExecutionService(
+            nodeEngine, nodeEngine.getProperties()
+        );
+        taskExecutionService.start();
+        getSlotService();
     }
 
     @Override
@@ -110,7 +119,9 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     @Override
     public void shutdown(boolean terminate) {
-        slotService.close();
+        if (slotService != null) {
+            slotService.close();
+        }
         taskExecutionService.shutdown();
     }
 
@@ -141,7 +152,17 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         return liveOperationRegistry;
     }
 
+    /**
+     * Lazy load for resource manager
+     */
     public ResourceManager getResourceManager() {
+        if (resourceManager == null) {
+            synchronized (this) {
+                if (resourceManager == null) {
+                    resourceManager = new ResourceManagerFactory(nodeEngine).getResourceManager();
+                }
+            }
+        }
         return resourceManager;
     }
 
@@ -154,7 +175,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
      */
     public PassiveCompletableFuture<Void> submitJob(long jobId, Data jobImmutableInformation) {
         CompletableFuture<Void> voidCompletableFuture = new CompletableFuture<>();
-        JobMaster jobMaster = new JobMaster(jobImmutableInformation, this.nodeEngine, executorService, resourceManager);
+        JobMaster jobMaster = new JobMaster(jobImmutableInformation, this.nodeEngine, executorService, getResourceManager());
         executorService.submit(() -> {
             try {
                 jobMaster.init();
