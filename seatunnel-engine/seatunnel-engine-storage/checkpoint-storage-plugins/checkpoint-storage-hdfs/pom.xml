@@ -22,29 +22,30 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <artifactId>seatunnel-engine-storage</artifactId>
+        <artifactId>checkpoint-storage-plugins</artifactId>
         <groupId>org.apache.seatunnel</groupId>
         <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>checkpoint-storage-plugins</artifactId>
-    <packaging>pom</packaging>
+    <artifactId>checkpoint-storage-hdfs</artifactId>
     <dependencies>
         <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>checkpoint-storage-api</artifactId>
-            <version>${project.version}</version>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-shaded-hadoop-2</artifactId>
+            <version>${flink-shaded-hadoop-2.version}</version>
+            <scope>compile</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-lang</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
-            <groupId>com.google.auto.service</groupId>
-            <artifactId>auto-service</artifactId>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
         </dependency>
     </dependencies>
-    
-    <modules>
-        <module>checkpoint-storage-local-file</module>
-        <module>checkpoint-storage-hdfs</module>
-    </modules>
 
 </project>

@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.common.source;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -29,7 +27,6 @@ public abstract class AbstractSingleSplitSource<T> implements SeaTunnelSource<T,
 
     @Override
     public final AbstractSingleSplitReader<T> createReader(SourceReader.Context readerContext) throws Exception {
-        checkArgument(readerContext.getIndexOfSubtask() == 0, "A single split source allows only one single reader to be created.");
         return createReader(new SingleSplitReaderContext(readerContext));
     }
 

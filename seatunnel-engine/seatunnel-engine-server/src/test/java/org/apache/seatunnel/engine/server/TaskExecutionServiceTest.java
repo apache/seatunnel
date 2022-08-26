@@ -24,7 +24,6 @@ import static org.awaitility.Awaitility.await;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.server.execution.ExceptionTestTask;
 import org.apache.seatunnel.engine.server.execution.FixedCallTestTimeTask;
 import org.apache.seatunnel.engine.server.execution.StopTimeTestTask;
@@ -34,12 +33,8 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TestTask;
 
 import com.google.common.collect.Lists;
-import com.hazelcast.config.Config;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
-import com.hazelcast.instance.impl.HazelcastInstanceFactory;
-import com.hazelcast.instance.impl.HazelcastInstanceImpl;
-import com.hazelcast.instance.impl.HazelcastInstanceProxy;
-import com.hazelcast.logging.ILogger;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -48,23 +43,25 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiConsumer;
 
-public class TaskExecutionServiceTest {
+public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
-    HazelcastInstanceImpl instance = ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(new Config(), Thread.currentThread().getName(), new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
-    SeaTunnelServer service = instance.node.nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
-    ILogger logger = instance.node.nodeEngine.getLogger(TaskExecutionServiceTest.class);
-    FlakeIdGenerator flakeIdGenerator = instance.getFlakeIdGenerator("test");
+    FlakeIdGenerator flakeIdGenerator;
     long taskRunTime = 2000;
     long jobId = 1001;
     long pipelineId = 10001;
 
+    @Before
+    @Override
+    public void before() {
+        super.before();
+        flakeIdGenerator = instance.getFlakeIdGenerator("test");
+    }
+
     @Test
-    public void testAll() throws InterruptedException, ExecutionException {
+    public void testAll() throws InterruptedException {
         logger.info("----------start Cancel test----------");
         testCancel();
 
@@ -84,7 +81,7 @@ public class TaskExecutionServiceTest {
     }
 
     public void testCancel() {
-        TaskExecutionService taskExecutionService = service.getTaskExecutionService();
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         long sleepTime = 300;
 
@@ -97,13 +94,12 @@ public class TaskExecutionServiceTest {
 
         taskExecutionService.cancelTaskGroup(taskGroupId);
 
-        await().atMost(sleepTime + 1000, TimeUnit.MILLISECONDS).untilAsserted(() -> {
-            assertEquals(CANCELED, completableFuture.get().getExecutionState());
-        });
+        await().atMost(sleepTime + 1000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> assertEquals(CANCELED, completableFuture.get().getExecutionState()));
     }
 
     public void testFinish() {
-        TaskExecutionService taskExecutionService = service.getTaskExecutionService();
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         long sleepTime = 300;
 
@@ -112,20 +108,14 @@ public class TaskExecutionServiceTest {
         TestTask testTask1 = new TestTask(stop, logger, sleepTime, true);
         TestTask testTask2 = new TestTask(stop, logger, sleepTime, false);
 
-        CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(jobId, pipelineId, flakeIdGenerator.newId(), "ts", Lists.newArrayList(testTask1, testTask2)), new CompletableFuture<>());
-        completableFuture.whenComplete(new BiConsumer<TaskExecutionState, Throwable>() {
-            @Override
-            public void accept(TaskExecutionState unused, Throwable throwable) {
-                futureMark.set(true);
-            }
-        });
+        final CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(jobId, pipelineId, flakeIdGenerator.newId(), "ts", Lists.newArrayList(testTask1, testTask2)), new CompletableFuture<>());
+        completableFuture.whenComplete((unused, throwable) -> futureMark.set(true));
 
         stop.set(true);
 
         await().atMost(sleepTime + 1000, TimeUnit.MILLISECONDS).untilAsserted(() -> {
             assertEquals(FINISHED, completableFuture.get().getExecutionState());
         });
-
         assertTrue(futureMark.get());
     }
 
@@ -144,7 +134,7 @@ public class TaskExecutionServiceTest {
         //Create tasks with critical delays
         List<Task> criticalTask = buildStopTestTask(callTime, count, stopMark, stopTime);
 
-        TaskExecutionService taskExecutionService = service.getTaskExecutionService();
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         CompletableFuture<TaskExecutionState> taskCts = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(jobId, pipelineId, flakeIdGenerator.newId(), "t1", Lists.newArrayList(criticalTask)), new CompletableFuture<>());
 
@@ -155,9 +145,8 @@ public class TaskExecutionServiceTest {
         stopMark.set(true);
 
         // Check all task ends right
-        await().atMost(count * callTime, TimeUnit.MILLISECONDS).untilAsserted(() -> {
-            assertEquals(FINISHED, taskCts.get().getExecutionState());
-        });
+        await().atMost(count * callTime, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> assertEquals(FINISHED, taskCts.get().getExecutionState()));
 
         //Check that each Task is only Done once
         assertEquals(count, stopTime.size());
@@ -165,7 +154,7 @@ public class TaskExecutionServiceTest {
     }
 
     public void testThrowException() throws InterruptedException {
-        TaskExecutionService taskExecutionService = service.getTaskExecutionService();
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         AtomicBoolean stopMark = new AtomicBoolean(false);
 
@@ -210,9 +199,8 @@ public class TaskExecutionServiceTest {
 
         stopMark.set(true);
 
-        await().atMost(lowLagSleep * 10 + highLagSleep, TimeUnit.MILLISECONDS).untilAsserted(() -> {
-            assertEquals(FINISHED, taskCts.get().getExecutionState());
-        });
+        await().atMost(lowLagSleep * 10 + highLagSleep + 1000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> assertEquals(FINISHED, taskCts.get().getExecutionState()));
     }
 
     public void testDelay() throws InterruptedException {
@@ -240,7 +228,7 @@ public class TaskExecutionServiceTest {
 
         logger.info("task size is : " + taskGroup.getTasks().size());
 
-        TaskExecutionService taskExecutionService = service.getTaskExecutionService();
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.deployLocalTask(taskGroup, new CompletableFuture<>());
 
@@ -249,9 +237,8 @@ public class TaskExecutionServiceTest {
         stopMark.set(true);
 
         //Check all task ends right
-        await().atMost(lowLagSleep * 10 + highLagSleep * 5, TimeUnit.MILLISECONDS).untilAsserted(() -> {
-            assertEquals(FINISHED, completableFuture.get().getExecutionState());
-        });
+        await().atMost(lowLagSleep * 10 + highLagSleep * 5, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> assertEquals(FINISHED, completableFuture.get().getExecutionState()));
 
         //Computation Delay
         double lowAvg = lowLagList.stream().mapToLong(x -> x).average().getAsDouble();
