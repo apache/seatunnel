@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.app.service.impl;
 
+import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.USERNAME_PASSWORD_NO_MATCHED;
+
 import org.apache.seatunnel.app.dal.dao.IUserDao;
 import org.apache.seatunnel.app.dal.entity.User;
 import org.apache.seatunnel.app.domain.dto.user.ListUserDto;
@@ -24,12 +26,14 @@ import org.apache.seatunnel.app.domain.dto.user.UpdateUserDto;
 import org.apache.seatunnel.app.domain.request.user.AddUserReq;
 import org.apache.seatunnel.app.domain.request.user.UpdateUserReq;
 import org.apache.seatunnel.app.domain.request.user.UserListReq;
+import org.apache.seatunnel.app.domain.request.user.UserLoginReq;
 import org.apache.seatunnel.app.domain.response.PageInfo;
 import org.apache.seatunnel.app.domain.response.user.AddUserRes;
 import org.apache.seatunnel.app.domain.response.user.UserSimpleInfoRes;
 import org.apache.seatunnel.app.service.IUserService;
 import org.apache.seatunnel.app.util.PasswordUtils;
 import org.apache.seatunnel.server.common.PageData;
+import org.apache.seatunnel.server.common.SeatunnelException;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -37,6 +41,7 @@ import org.springframework.stereotype.Component;
 import javax.annotation.Resource;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Component
@@ -114,6 +119,19 @@ public class UserServiceImpl implements IUserService {
     @Override
     public void disable(int id) {
         userDaoImpl.disable(id);
+    }
+
+    @Override
+    public UserSimpleInfoRes login(UserLoginReq req) {
+
+        final String username = req.getUsername();
+        final String password = PasswordUtils.encryptWithSalt(defaultSalt, req.getPassword());
+
+        final User user = userDaoImpl.checkPassword(username, password);
+        if (Objects.isNull(user)) {
+            throw new SeatunnelException(USERNAME_PASSWORD_NO_MATCHED);
+        }
+        return translate(user);
     }
 
     private UserSimpleInfoRes translate(User user) {

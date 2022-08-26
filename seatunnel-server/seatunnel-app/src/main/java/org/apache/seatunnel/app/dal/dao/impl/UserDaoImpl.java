@@ -22,11 +22,15 @@ import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.USER_ALREADY
 import static com.google.common.base.Preconditions.checkState;
 
 import org.apache.seatunnel.app.common.UserStatusEnum;
+import org.apache.seatunnel.app.common.UserTokenStatusEnum;
 import org.apache.seatunnel.app.dal.dao.IUserDao;
 import org.apache.seatunnel.app.dal.entity.User;
+import org.apache.seatunnel.app.dal.entity.UserLoginLog;
+import org.apache.seatunnel.app.dal.mapper.UserLoginLogMapper;
 import org.apache.seatunnel.app.dal.mapper.UserMapper;
 import org.apache.seatunnel.app.domain.dto.user.ListUserDto;
 import org.apache.seatunnel.app.domain.dto.user.UpdateUserDto;
+import org.apache.seatunnel.app.domain.dto.user.UserLoginLogDto;
 import org.apache.seatunnel.server.common.PageData;
 
 import org.springframework.stereotype.Repository;
@@ -40,6 +44,8 @@ import java.util.Objects;
 public class UserDaoImpl implements IUserDao {
     @Resource
     private UserMapper userMapper;
+    @Resource
+    private UserLoginLogMapper userLoginLogMapper;
 
     @Override
     public int add(UpdateUserDto dto) {
@@ -100,5 +106,31 @@ public class UserDaoImpl implements IUserDao {
     @Override
     public User getById(int operatorId) {
         return userMapper.selectByPrimaryKey(operatorId);
+    }
+
+    @Override
+    public User checkPassword(String username, String password) {
+        return userMapper.selectByNameAndPasswd(username, password);
+    }
+
+    @Override
+    public long insertLoginLog(UserLoginLogDto dto) {
+        final UserLoginLog log = new UserLoginLog();
+        log.setToken(dto.getToken());
+        log.setTokenStatus(dto.getTokenStatus());
+        log.setUserId(dto.getUserId());
+
+        userLoginLogMapper.insert(log);
+        return log.getId();
+    }
+
+    @Override
+    public void disableToken(int userId) {
+        userLoginLogMapper.updateStatus(userId, UserTokenStatusEnum.DISABLE.enable());
+    }
+
+    @Override
+    public UserLoginLog getLastLoginLog(Integer userId) {
+        return userLoginLogMapper.checkLastTokenEnable(userId);
     }
 }

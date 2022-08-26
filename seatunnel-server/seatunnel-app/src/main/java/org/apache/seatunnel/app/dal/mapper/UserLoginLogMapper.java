@@ -17,28 +17,18 @@
 
 package org.apache.seatunnel.app.dal.mapper;
 
-import org.apache.seatunnel.app.dal.entity.User;
+import org.apache.seatunnel.app.dal.entity.UserLoginLog;
 
 import org.apache.ibatis.annotations.Param;
 
-import java.util.List;
+public interface UserLoginLogMapper {
+    int insert(UserLoginLog userLoginLog);
 
-public interface UserMapper {
-    User selectByPrimaryKey(@Param("id") Integer id);
+    int updateStatus(@Param("userId") int userId, @Param("enable") boolean enable);
 
-    void insert(User user);
-
-    int updateByPrimaryKey(User user);
-
-    void deleteByPrimaryKey(@Param("id") int id);
-
-    List<User> selectBySelectiveAndPage(@Param("user") User user, @Param("start") int start, @Param("offset") int offset);
-
-    void updateStatus(@Param("id") int id, @Param("status") byte status);
-
-    User selectByName(@Param("username") String username);
-
-    int countBySelective(@Param("user") User user);
-
-    User selectByNameAndPasswd(@Param("username") String username, @Param("password") String password);
+    UserLoginLog checkLastTokenEnable(@Param("userId") Integer userId);
 }
+
+
+
+

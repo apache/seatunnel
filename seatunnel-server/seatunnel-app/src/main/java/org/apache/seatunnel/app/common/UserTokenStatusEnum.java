@@ -15,30 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.app.dal.mapper;
+package org.apache.seatunnel.app.common;
 
-import org.apache.seatunnel.app.dal.entity.User;
+public enum UserTokenStatusEnum {
+    ENABLE,
+    DISABLE,
+    ;
 
-import org.apache.ibatis.annotations.Param;
-
-import java.util.List;
-
-public interface UserMapper {
-    User selectByPrimaryKey(@Param("id") Integer id);
-
-    void insert(User user);
-
-    int updateByPrimaryKey(User user);
-
-    void deleteByPrimaryKey(@Param("id") int id);
-
-    List<User> selectBySelectiveAndPage(@Param("user") User user, @Param("start") int start, @Param("offset") int offset);
-
-    void updateStatus(@Param("id") int id, @Param("status") byte status);
-
-    User selectByName(@Param("username") String username);
-
-    int countBySelective(@Param("user") User user);
-
-    User selectByNameAndPasswd(@Param("username") String username, @Param("password") String password);
+    public boolean enable() {
+        return this == ENABLE;
+    }
 }

@@ -429,6 +429,9 @@ jsr305-1.3.9.jar
 jsr305-2.0.1.jar
 jsr311-api-1.1.1.jar
 jvm-attach-api-1.5.jar
+jjwt-api-0.10.7.jar
+jjwt-impl-0.10.7.jar
+jjwt-jackson-0.10.7.jar
 kafka-clients-2.0.0.jar
 kafka-clients-2.4.1.jar
 kerb-admin-1.0.1.jar
