@@ -14,11 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.e2e.flink.v2.jdbc;
 
+import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
 import com.google.common.collect.Lists;
-import org.apache.seatunnel.e2e.flink.FlinkContainer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,61 +33,65 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.List;
 import java.util.stream.Stream;
 
 public class FakeSourceToOracleIT extends FlinkContainer {
-	private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceToOracleIT.class);
-	private OracleContainer oracleContainer;
+    private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceToOracleIT.class);
+    private OracleContainer oracleContainer;
 
-	@SuppressWarnings("checkstyle:MagicNumber")
-	@BeforeEach
-	public void startOracleContainer() throws InterruptedException, ClassNotFoundException {
-		oracleContainer = new OracleContainer(DockerImageName.parse("gvenzl/oracle-xe:18.4.0-slim"))
-				.withNetwork(NETWORK)
-				.withNetworkAliases("oracle")
-				.withLogConsumer(new Slf4jLogConsumer(LOGGER));
-		Startables.deepStart(Stream.of(oracleContainer)).join();
-		LOGGER.info("Oracle container started");
-		Thread.sleep(5000L);
-		Class.forName(oracleContainer.getDriverClassName());
-		initializeJdbcTable();
-	}
+    @SuppressWarnings("checkstyle:MagicNumber")
+    @BeforeEach
+    public void startOracleContainer() throws InterruptedException, ClassNotFoundException {
+        oracleContainer = new OracleContainer(DockerImageName.parse("gvenzl/oracle-xe:18.4.0-slim"))
+            .withNetwork(NETWORK)
+            .withNetworkAliases("oracle")
+            .withLogConsumer(new Slf4jLogConsumer(LOGGER));
+        Startables.deepStart(Stream.of(oracleContainer)).join();
+        LOGGER.info("Oracle container started");
+        Thread.sleep(5000L);
+        Class.forName(oracleContainer.getDriverClassName());
+        initializeJdbcTable();
+    }
 
-	private void initializeJdbcTable() {
-		try (Connection connection = DriverManager.getConnection(oracleContainer.getJdbcUrl(), oracleContainer.getUsername(), oracleContainer.getPassword())) {
-			Statement statement = connection.createStatement();
-			String sql = "CREATE TABLE test (\n" +
-					"  name varchar(255) NOT NULL\n" +
-					")";
-			statement.execute(sql);
-		} catch (SQLException e) {
-			throw new RuntimeException("Initializing Oracle table failed!", e);
-		}
-	}
+    private void initializeJdbcTable() {
+        try (Connection connection = DriverManager.getConnection(oracleContainer.getJdbcUrl(), oracleContainer.getUsername(), oracleContainer.getPassword())) {
+            Statement statement = connection.createStatement();
+            String sql = "CREATE TABLE test (\n" +
+                "  name varchar(255) NOT NULL\n" +
+                ")";
+            statement.execute(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException("Initializing Oracle table failed!", e);
+        }
+    }
 
-	@Test
-	public void testFakeSourceToOracleSink() throws SQLException, IOException, InterruptedException {
-		Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/fakesource_to_oracle.conf");
-		Assertions.assertEquals(0, execResult.getExitCode());
-		// query result
-		String sql = "select * from test";
-		try (Connection connection = DriverManager.getConnection(oracleContainer.getJdbcUrl(), oracleContainer.getUsername(), oracleContainer.getPassword())) {
-			Statement statement = connection.createStatement();
-			ResultSet resultSet = statement.executeQuery(sql);
-			List<String> result = Lists.newArrayList();
-			while (resultSet.next()) {
-				result.add(resultSet.getString("name"));
-			}
-			Assertions.assertFalse(result.isEmpty());
-		}
-	}
+    @Test
+    public void testFakeSourceToOracleSink() throws SQLException, IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/fakesource_to_oracle.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        // query result
+        String sql = "select * from test";
+        try (Connection connection = DriverManager.getConnection(oracleContainer.getJdbcUrl(), oracleContainer.getUsername(), oracleContainer.getPassword())) {
+            Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery(sql);
+            List<String> result = Lists.newArrayList();
+            while (resultSet.next()) {
+                result.add(resultSet.getString("name"));
+            }
+            Assertions.assertFalse(result.isEmpty());
+        }
+    }
 
-	@AfterEach
-	public void closeClickHouseContainer() {
-		if (oracleContainer != null) {
-			oracleContainer.stop();
-		}
-	}
+    @AfterEach
+    public void closeClickHouseContainer() {
+        if (oracleContainer != null) {
+            oracleContainer.stop();
+        }
+    }
 }
