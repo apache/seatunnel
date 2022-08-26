@@ -63,7 +63,6 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
             return null;
         }, new RetryUtils.RetryMaterial(RETRY_TIME, true,
             exception -> exception instanceof NullPointerException, RETRY_TIME_OUT));
-
     }
 
     @Override

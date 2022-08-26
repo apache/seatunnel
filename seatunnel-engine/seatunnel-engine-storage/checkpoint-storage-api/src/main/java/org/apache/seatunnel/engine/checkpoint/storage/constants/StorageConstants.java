@@ -18,29 +18,12 @@
  *
  */
 
-package org.apache.seatunnel.engine.checkpoint.storage.localfile;
+package org.apache.seatunnel.engine.checkpoint.storage.constants;
 
-import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
-import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
+public class StorageConstants {
 
-import com.google.auto.service.AutoService;
-
-import java.util.Map;
-
-/**
- * Local file storage plug-in, use local file storage,
- * only suitable for single-machine testing or small data scale use, use with caution in production environment
- */
-@AutoService(CheckpointStorageFactory.class)
-public class LocalFileStorageFactory implements CheckpointStorageFactory {
-
-    @Override
-    public String name() {
-        return "localfile";
-    }
-
-    @Override
-    public CheckpointStorage create(Map<String, String> configuration) {
-        return new LocalFileStorage(configuration);
-    }
+    /**
+     * The name of the configuration property that specifies the name of the file system.
+     */
+    public static final String STORAGE_NAME_SPACE = "storageNameSpace";
 }

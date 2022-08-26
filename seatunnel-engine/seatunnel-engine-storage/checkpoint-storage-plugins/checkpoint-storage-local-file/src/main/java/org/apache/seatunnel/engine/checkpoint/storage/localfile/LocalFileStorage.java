@@ -20,35 +20,60 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.localfile;
 
+import static org.apache.seatunnel.engine.checkpoint.storage.constants.StorageConstants.STORAGE_NAME_SPACE;
+
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractCheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class LocalFileStorage extends AbstractCheckpointStorage {
 
     private static final String[] FILE_EXTENSIONS = new String[]{FILE_FORMAT};
 
-    public LocalFileStorage() {
-        // Nothing to do
+    private static final String DEFAULT_WINDOWS_OS_NAME_SPACE = "C:\\ProgramData\\seatunnel\\checkpoint\\";
+
+    private static final String DEFAULT_LINUX_OS_NAME_SPACE = "/tmp/seatunnel/checkpoint/";
+
+    public LocalFileStorage(Map<String, String> configuration) {
+        initStorage(configuration);
     }
 
     @Override
-    public void initStorage(Map<String, String> configuration) throws CheckpointStorageException {
-        // Nothing to do
+    public void initStorage(Map<String, String> configuration) {
+        if (MapUtils.isEmpty(configuration)) {
+            setDefaultStorageSpaceByOSName();
+            return;
+        }
+        if (StringUtils.isNotBlank(configuration.get(STORAGE_NAME_SPACE))) {
+            setStorageNameSpace(configuration.get(STORAGE_NAME_SPACE));
+        }
+    }
+
+    /**
+     * set default storage root directory
+     */
+    private void setDefaultStorageSpaceByOSName() {
+        if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+            setStorageNameSpace(DEFAULT_WINDOWS_OS_NAME_SPACE);
+        } else {
+            setStorageNameSpace(DEFAULT_LINUX_OS_NAME_SPACE);
+        }
     }
 
     @Override
@@ -60,7 +85,7 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
             throw new CheckpointStorageException("Failed to serialize checkpoint data", e);
         }
         //Consider file paths for different operating systems
-        String fileName = getStorageParentDirectory() + state.getJobId() + "/" + getCheckPointName(state);
+        String fileName = getStorageParentDirectory() + state.getJobId() + File.separator + getCheckPointName(state);
 
         File file = new File(fileName);
         try {
@@ -107,27 +132,20 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
         if (fileList.isEmpty()) {
             throw new CheckpointStorageException("No checkpoint found for job " + jobId);
         }
-        Map<String, File> latestPipelineMap = new HashMap<>();
+        List<String> fileNames = fileList.stream().map(File::getName).collect(Collectors.toList());
+        Set<String> latestPipelines = getLatestPipelineNames(fileNames);
+        List<PipelineState> latestPipelineFiles = new ArrayList<>(latestPipelines.size());
         fileList.forEach(file -> {
-            String filePipelineId = file.getName().split(FILE_NAME_SPLIT)[FILE_NAME_PIPELINE_ID_INDEX];
-            int fileVersion = Integer.parseInt(file.getName().split(FILE_NAME_SPLIT)[FILE_SORT_ID_INDEX]);
-            if (latestPipelineMap.containsKey(filePipelineId)) {
-                int oldVersion = Integer.parseInt(latestPipelineMap.get(filePipelineId).getName().split(FILE_NAME_SPLIT)[FILE_SORT_ID_INDEX]);
-                if (fileVersion > oldVersion) {
-                    latestPipelineMap.put(filePipelineId, file);
+            String fileName = file.getName();
+            if (latestPipelines.contains(fileName)) {
+                try {
+                    byte[] data = FileUtils.readFileToByteArray(file);
+                    latestPipelineFiles.add(deserializeCheckPointData(data));
+                } catch (IOException e) {
+                    log.error("Failed to read checkpoint data from file " + file.getAbsolutePath(), e);
                 }
-            } else {
-                latestPipelineMap.put(filePipelineId, file);
             }
-        });
-        List<PipelineState> latestPipelineFiles = new ArrayList<>(latestPipelineMap.size());
-        latestPipelineMap.values().forEach(file -> {
-            try {
-                byte[] data = FileUtils.readFileToByteArray(file);
-                latestPipelineFiles.add(deserializeCheckPointData(data));
-            } catch (IOException e) {
-                log.error("Failed to read checkpoint data from file " + file.getAbsolutePath(), e);
-            }
+
         });
         if (latestPipelineFiles.isEmpty()) {
             throw new CheckpointStorageException("Failed to read checkpoint data from file");
@@ -138,32 +156,32 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
     @Override
     public PipelineState getLatestCheckpointByJobIdAndPipelineId(String jobId, String pipelineId) throws CheckpointStorageException {
 
-        Collection<File> fileList = FileUtils.listFiles(new File(getStorageParentDirectory() + jobId), FILE_EXTENSIONS, false);
+        String parentPath = getStorageParentDirectory() + jobId;
+        Collection<File> fileList = FileUtils.listFiles(new File(parentPath), FILE_EXTENSIONS, false);
         if (fileList.isEmpty()) {
             throw new CheckpointStorageException("No checkpoint found for job " + jobId);
         }
+        List<String> fileNames = fileList.stream().map(File::getName).collect(Collectors.toList());
 
-        AtomicReference<File> latestFile = new AtomicReference<>();
-        AtomicInteger latestVersion = new AtomicInteger();
+        String latestFileName = getLatestCheckpointFileNameByJobIdAndPipelineId(fileNames, pipelineId);
+
+        AtomicReference<PipelineState> latestFile = new AtomicReference<>(null);
         fileList.forEach(file -> {
-            int fileVersion = Integer.parseInt(file.getName().split(FILE_NAME_SPLIT)[FILE_SORT_ID_INDEX]);
-            String filePipelineId = file.getName().split(FILE_NAME_SPLIT)[FILE_NAME_PIPELINE_ID_INDEX];
-            if (pipelineId.equals(filePipelineId) && fileVersion > latestVersion.get()) {
-                latestVersion.set(fileVersion);
-                latestFile.set(file);
+            String fileName = file.getName();
+            if (fileName.equals(latestFileName)) {
+                try {
+                    byte[] data = FileUtils.readFileToByteArray(file);
+                    latestFile.set(deserializeCheckPointData(data));
+                } catch (IOException e) {
+                    log.error("read checkpoint data from file " + file.getAbsolutePath(), e);
+                }
             }
         });
 
-        if (latestFile.get().exists()) {
-            try {
-                byte[] data = FileUtils.readFileToByteArray(latestFile.get());
-                return deserializeCheckPointData(data);
-            } catch (IOException e) {
-                throw new CheckpointStorageException("Failed to read checkpoint data from file " + latestFile.get().getAbsolutePath(), e);
-            }
-
+        if (latestFile.get() == null) {
+            throw new CheckpointStorageException("Failed to read checkpoint data from file, file name " + latestFileName);
         }
-        return null;
+        return latestFile.get();
     }
 
     @Override
@@ -174,7 +192,7 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
         }
         List<PipelineState> pipelineStates = new ArrayList<>();
         fileList.forEach(file -> {
-            String filePipelineId = file.getName().split(FILE_NAME_SPLIT)[FILE_NAME_PIPELINE_ID_INDEX];
+            String filePipelineId = getPipelineIdByFileName(file.getName());
             if (pipelineId.equals(filePipelineId)) {
                 try {
                     byte[] data = FileUtils.readFileToByteArray(file);
