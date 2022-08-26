@@ -1,5 +1,7 @@
 # HBase
 
+> Hbase source connector
+
 ## Description
 
 Get data from HBase

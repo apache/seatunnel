@@ -113,7 +113,7 @@ public class HiveSink implements SeaTunnelSink<SeaTunnelRow, HiveSinkState, Hive
 
     @Override
     public Optional<Serializer<HiveAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
-        return Optional.of(new DefaultSerializer<HiveAggregatedCommitInfo>());
+        return Optional.of(new DefaultSerializer<>());
     }
 
     @Override

@@ -28,7 +28,10 @@ export function useTable() {
     pageSize: ref(10),
     totalPage: ref(1),
     row: {},
-    loadingRef: ref(false)
+    loading: ref(false),
+    showFormModal: ref(false),
+    showDeleteModal: ref(false),
+    status: ref(0)
   })
 
   const createColumns = (state: any) => {
@@ -56,16 +59,35 @@ export function useTable() {
       {
         title: t('user_manage.operation'),
         key: 'operation',
-        render: () =>
+        render: (row: any) =>
           h(NSpace, null, {
             default: () => [
               h(NButton, { text: true }, t('user_manage.enable')),
-              h(NButton, { text: true }, t('user_manage.edite')),
-              h(NButton, { text: true }, t('user_manage.delete'))
+              h(
+                NButton,
+                { text: true, onClick: () => handleEdit(row) },
+                t('user_manage.edit')
+              ),
+              h(
+                NButton,
+                { text: true, onClick: () => handleDelete(row) },
+                t('user_manage.delete')
+              )
             ]
           })
       }
     ]
+  }
+
+  const handleEdit = (row: any) => {
+    state.showFormModal = true
+    state.status = 1
+    state.row = row
+  }
+
+  const handleDelete = (row: any) => {
+    state.showDeleteModal = true
+    state.row = row
   }
 
   return { state, createColumns }

@@ -26,6 +26,14 @@ export default {
   operation: 'Operation',
   enable: 'Enable',
   disable: 'Disable',
-  edite: 'Edite',
-  delete: 'Delete'
+  edit: 'Edit',
+  delete: 'Delete',
+  active: 'Active',
+  inactive: 'Inactive',
+  password: 'Password',
+  model_validate_tips: 'Required Fields',
+  username_tips: 'Required fields, number, letter case, 50 characters',
+  password_tips: 'Required fields, number, letter case, 6 characters',
+  user_delete_tips:
+    'Whether to delete the user? It cannot be restored after being deleted.'
 }

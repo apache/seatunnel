@@ -17,29 +17,36 @@
 
 package org.apache.seatunnel.app.service.impl;
 
-import static org.apache.seatunnel.app.common.SeatunnelErrorEnum.NO_SUCH_SCRIPT;
+import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.NO_SUCH_SCRIPT;
 import static com.google.common.base.Preconditions.checkState;
 
 import org.apache.seatunnel.app.common.ScriptParamStatusEnum;
 import org.apache.seatunnel.app.common.ScriptStatusEnum;
 import org.apache.seatunnel.app.dal.dao.IScriptDao;
 import org.apache.seatunnel.app.dal.dao.IScriptParamDao;
+import org.apache.seatunnel.app.dal.dao.IUserDao;
 import org.apache.seatunnel.app.dal.entity.Script;
 import org.apache.seatunnel.app.dal.entity.ScriptParam;
+import org.apache.seatunnel.app.domain.dto.job.PushScriptDto;
 import org.apache.seatunnel.app.domain.dto.script.AddEmptyScriptDto;
 import org.apache.seatunnel.app.domain.dto.script.CheckScriptDuplicateDto;
 import org.apache.seatunnel.app.domain.dto.script.ListScriptsDto;
 import org.apache.seatunnel.app.domain.dto.script.UpdateScriptContentDto;
 import org.apache.seatunnel.app.domain.dto.script.UpdateScriptParamDto;
 import org.apache.seatunnel.app.domain.request.script.AddEmptyScriptReq;
+import org.apache.seatunnel.app.domain.request.script.PublishScriptReq;
 import org.apache.seatunnel.app.domain.request.script.ScriptListReq;
 import org.apache.seatunnel.app.domain.request.script.UpdateScriptContentReq;
 import org.apache.seatunnel.app.domain.request.script.UpdateScriptParamReq;
+import org.apache.seatunnel.app.domain.response.PageInfo;
 import org.apache.seatunnel.app.domain.response.script.AddEmptyScriptRes;
 import org.apache.seatunnel.app.domain.response.script.ScriptParamRes;
 import org.apache.seatunnel.app.domain.response.script.ScriptSimpleInfoRes;
 import org.apache.seatunnel.app.service.IScriptService;
+import org.apache.seatunnel.app.service.ITaskService;
 import org.apache.seatunnel.app.util.Md5Utils;
+import org.apache.seatunnel.scheduler.dolphinscheduler.impl.InstanceServiceImpl;
+import org.apache.seatunnel.server.common.PageData;
 
 import com.google.common.base.Strings;
 import org.springframework.stereotype.Component;
@@ -61,6 +68,15 @@ public class ScriptServiceImpl implements IScriptService {
 
     @Resource
     private IScriptParamDao scriptParamDaoImpl;
+
+    @Resource
+    private InstanceServiceImpl instanceService;
+
+    @Resource
+    private IUserDao userDaoImpl;
+
+    @Resource
+    private ITaskService iTaskService;
 
     @Override
     public AddEmptyScriptRes addEmptyScript(AddEmptyScriptReq addEmptyScriptReq) {
@@ -129,15 +145,22 @@ public class ScriptServiceImpl implements IScriptService {
     }
 
     @Override
-    public List<ScriptSimpleInfoRes> list(ScriptListReq scriptListReq) {
+    public PageInfo<ScriptSimpleInfoRes> list(ScriptListReq scriptListReq) {
 
         final ListScriptsDto dto = ListScriptsDto.builder()
                 .name(scriptListReq.getName())
                 .status(scriptListReq.getStatus())
                 .build();
 
-        List<Script> scripts = scriptDaoImpl.list(dto, scriptListReq.getPageNo(), scriptListReq.getPageSize());
-        return scripts.stream().map(this::translate).collect(Collectors.toList());
+        PageData<Script> scriptPageData = scriptDaoImpl.list(dto, scriptListReq.getRealPageNo(), scriptListReq.getPageSize());
+        final List<ScriptSimpleInfoRes> data = scriptPageData.getData().stream().map(this::translate).collect(Collectors.toList());
+
+        final PageInfo<ScriptSimpleInfoRes> pageInfo = new PageInfo<>();
+        pageInfo.setPageNo(scriptListReq.getPageNo());
+        pageInfo.setPageSize(scriptListReq.getPageSize());
+        pageInfo.setTotalCount(scriptPageData.getTotalCount());
+        pageInfo.setData(data);
+        return pageInfo;
     }
 
     @Override
@@ -169,6 +192,15 @@ public class ScriptServiceImpl implements IScriptService {
                 .build();
 
         scriptParamDaoImpl.batchInsert(dto);
+    }
+
+    @Override
+    public void publishScript(PublishScriptReq req){
+        final PushScriptDto dto = PushScriptDto.builder()
+                .scriptId(req.getScriptId())
+                .userId(req.getOperatorId())
+                .build();
+        iTaskService.pushScriptToScheduler(dto);
     }
 
     private ScriptParamRes translate(ScriptParam scriptParam) {

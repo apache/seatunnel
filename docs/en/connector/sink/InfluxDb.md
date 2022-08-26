@@ -1,5 +1,7 @@
 # InfluxDB
 
+> InfluxDB sink connector
+
 ## Description
 
 Write data to InfluxDB.

@@ -46,6 +46,11 @@ public abstract class AbstractCommandArgs implements CommandArgs {
             description = "Show the usage message")
     private boolean help = false;
 
+    /**
+     * Undefined parameters parsed will be stored here as engine original command parameters.
+     */
+    private List<String> originalParameters;
+
     public String getConfigFile() {
         return configFile;
     }
@@ -76,6 +81,14 @@ public abstract class AbstractCommandArgs implements CommandArgs {
 
     public void setHelp(boolean help) {
         this.help = help;
+    }
+
+    public List<String> getOriginalParameters() {
+        return originalParameters;
+    }
+
+    public void setOriginalParameters(List<String> originalParameters) {
+        this.originalParameters = originalParameters;
     }
 
     public EngineType getEngineType() {

@@ -29,7 +29,9 @@ export function useTable() {
     pageSize: ref(10),
     totalPage: ref(1),
     row: {},
-    loadingRef: ref(false)
+    loading: ref(false),
+    showDeleteModal: ref(false),
+    showPublishModal: ref(false)
   })
 
   const createColumns = (state: any) => {
@@ -53,12 +55,16 @@ export function useTable() {
       {
         title: t('data_pipes.operation'),
         key: 'operation',
-        render: () =>
+        render: (row: any) =>
           h(NSpace, null, {
             default: () => [
               h(NButton, { text: true }, t('data_pipes.execute')),
-              h(NButton, { text: true }, t('data_pipes.edite')),
-              h(NButton, { text: true }, t('data_pipes.publish')),
+              h(NButton, { text: true }, t('data_pipes.edit')),
+              h(
+                NButton,
+                { text: true, onClick: () => handlePublish(row) },
+                t('data_pipes.publish')
+              ),
               h(
                 NButton,
                 {
@@ -68,21 +74,26 @@ export function useTable() {
                 h(
                   NDropdown,
                   {
-                    options: [
-                      { key: 'delete', label: t('data_pipes.delete') }
-                    ]
+                    options: [{ key: 'delete', label: t('data_pipes.delete') }],
+                    onClick: () => handleDelete(row)
                   },
-                  h(
-                    NIcon,
-                    {},
-                    h(EllipsisOutlined)
-                  )
+                  h(NIcon, {}, h(EllipsisOutlined))
                 )
               )
             ]
           })
       }
     ]
+  }
+
+  const handleDelete = (row: any) => {
+    state.showDeleteModal = true
+    state.row = row
+  }
+
+  const handlePublish = (row: any) => {
+    state.showPublishModal = true
+    state.row = row
   }
 
   return { state, createColumns }

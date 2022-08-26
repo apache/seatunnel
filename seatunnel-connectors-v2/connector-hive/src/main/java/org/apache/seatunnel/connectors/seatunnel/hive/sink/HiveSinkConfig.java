@@ -56,6 +56,9 @@ import java.util.stream.Collectors;
 
 @Data
 public class HiveSinkConfig implements Serializable {
+    private static final String TEXT_FORMAT_CLASSNAME = "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat";
+    private static final String PARQUET_FORMAT_CLASSNAME = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat";
+    private static final String ORC_FORMAT_CLASSNAME = "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat";
     private String hiveTableName;
     private List<String> hivePartitionFieldList;
     private String hiveMetaUris;
@@ -92,17 +95,21 @@ public class HiveSinkConfig implements Serializable {
 
         try {
             table = hiveMetaStoreClient.getTable(dbName, tableName);
-            String inputFormat = table.getSd().getInputFormat();
-            if ("org.apache.hadoop.mapred.TextInputFormat".equals(inputFormat)) {
-                config = config.withValue(FILE_FORMAT, ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()));
+            String outputFormat = table.getSd().getOutputFormat();
+            Map<String, String> parameters = table.getSd().getSerdeInfo().getParameters();
+            if (TEXT_FORMAT_CLASSNAME.equals(outputFormat)) {
+                config = config.withValue(FILE_FORMAT, ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()))
+                        .withValue(FIELD_DELIMITER, ConfigValueFactory.fromAnyRef(parameters.get("field.delim")))
+                        .withValue(ROW_DELIMITER, ConfigValueFactory.fromAnyRef(parameters.get("line.delim")));
+            } else if (PARQUET_FORMAT_CLASSNAME.equals(outputFormat)) {
+                config = config.withValue(FILE_FORMAT, ConfigValueFactory.fromAnyRef(FileFormat.PARQUET.toString()));
+            } else if (ORC_FORMAT_CLASSNAME.equals(outputFormat)) {
+                config = config.withValue(FILE_FORMAT, ConfigValueFactory.fromAnyRef(FileFormat.ORC.toString()));
             } else {
-                throw new RuntimeException("Only support text file now");
+                throw new RuntimeException("Only support [text parquet orc] file now");
             }
 
-            Map<String, String> parameters = table.getSd().getSerdeInfo().getParameters();
             config = config.withValue(IS_PARTITION_FIELD_WRITE_IN_FILE, ConfigValueFactory.fromAnyRef(false))
-                .withValue(FIELD_DELIMITER, ConfigValueFactory.fromAnyRef(parameters.get("field.delim")))
-                .withValue(ROW_DELIMITER, ConfigValueFactory.fromAnyRef(parameters.get("line.delim")))
                 .withValue(FILE_NAME_EXPRESSION, ConfigValueFactory.fromAnyRef("${transactionId}"))
                 .withValue(PATH, ConfigValueFactory.fromAnyRef(table.getSd().getLocation()));
 

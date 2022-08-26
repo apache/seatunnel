@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.core.starter.flink;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class FlinkStarterTest {
 
@@ -28,38 +28,25 @@ public class FlinkStarterTest {
         FlinkStarter flinkStarter = new FlinkStarter(args);
         String flinkExecuteCommand = String.join(" ", flinkStarter.buildCommands());
         // since we cannot get the actual jar path, so we just check the command contains the command
-        Assert.assertTrue(flinkExecuteCommand.contains("--config test.conf"));
-        Assert.assertTrue(flinkExecuteCommand.contains("-m yarn-cluster"));
-        Assert.assertTrue(flinkExecuteCommand.contains("-Dkey1=value1"));
-        Assert.assertTrue(flinkExecuteCommand.contains("${FLINK_HOME}/bin/flink run"));
+        Assertions.assertTrue(flinkExecuteCommand.contains("--config test.conf"));
+        Assertions.assertTrue(flinkExecuteCommand.contains("-m yarn-cluster"));
+        Assertions.assertTrue(flinkExecuteCommand.contains("-Dkey1=value1"));
+        Assertions.assertTrue(flinkExecuteCommand.contains("${FLINK_HOME}/bin/flink run"));
 
         String[] args1 = {"--config", "test.conf", "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2", "--run-mode", "run-application"};
         flinkExecuteCommand = String.join(" ", new FlinkStarter(args1).buildCommands());
-        Assert.assertTrue(flinkExecuteCommand.contains("${FLINK_HOME}/bin/flink run-application"));
+        Assertions.assertTrue(flinkExecuteCommand.contains("${FLINK_HOME}/bin/flink run-application"));
 
         String[] args2 = {"--config", "test.conf", "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2", "--run-mode", "run"};
         flinkExecuteCommand = String.join(" ", new FlinkStarter(args2).buildCommands());
-        Assert.assertTrue(flinkExecuteCommand.contains("${FLINK_HOME}/bin/flink run"));
+        Assertions.assertTrue(flinkExecuteCommand.contains("${FLINK_HOME}/bin/flink run"));
 
         try {
             String[] args3 = {"--config", "test.conf", "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2", "--run-mode", "run123"};
             new FlinkStarter(args3);
         } catch (Exception e) {
-            Assert.assertTrue(e instanceof IllegalArgumentException);
-            Assert.assertEquals("Run mode run123 not supported", e.getMessage());
-        }
-    }
-
-    @Test
-    public void buildCommandsMissingConfig() {
-        try {
-            String[] args = {"-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2"};
-            FlinkStarter flinkStarter = new FlinkStarter(args);
-            String flinkExecuteCommand = String.join(" ", flinkStarter.buildCommands());
-            // since we cannot get the actual jar path, so we just check the command contains the command
-            Assert.assertTrue(flinkExecuteCommand.contains("--config flink.yarn.conf"));
-        } catch (Exception e) {
-            Assert.assertEquals("The following option is required: [-c | --config]", e.getMessage());
+            Assertions.assertTrue(e instanceof IllegalArgumentException);
+            Assertions.assertEquals("Run mode run123 not supported", e.getMessage());
         }
     }
 }
