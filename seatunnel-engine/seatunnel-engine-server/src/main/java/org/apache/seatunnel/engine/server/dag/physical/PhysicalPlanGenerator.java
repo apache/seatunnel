@@ -224,8 +224,9 @@ public class PhysicalPlanGenerator {
             .flatMap(flow -> {
                 List<PhysicalVertex> t = new ArrayList<>();
                 long taskIDPrefix = idGenerator.getNextId();
+                long taskGroupIDPrefix = idGenerator.getNextId();
                 for (int i = 0; i < flow.getAction().getParallelism(); i++) {
-                    long taskGroupID = idGenerator.getNextId();
+                    long taskGroupID = mixIDPrefixAndIndex(taskGroupIDPrefix, i);
                     setFlowConfig(flow, i);
                     SeaTunnelTask seaTunnelTask = new TransformSeaTunnelTask(jobImmutableInformation.getJobId(),
                         new TaskLocation(taskGroupID, mixIDPrefixAndIndex(taskIDPrefix, i)), i, flow);
