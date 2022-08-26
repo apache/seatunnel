@@ -58,7 +58,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private Map<WorkerTaskLocation, Address> taskMemberMapping;
     private Map<Long, WorkerTaskLocation> taskIDToTaskLocationMapping;
 
-    private EnumeratorState currState;
+    private volatile EnumeratorState currState;
 
     private CompletableFuture<Void> readerRegisterFuture;
     private CompletableFuture<Void> readerFinishFuture;
@@ -122,7 +122,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         return taskMemberMapping.get(taskIDToTaskLocationMapping.get(taskID));
     }
 
-    public TaskLocation getTaskMemberLocation(long taskID) {
+    public WorkerTaskLocation getTaskMemberLocation(long taskID) {
         return taskIDToTaskLocationMapping.get(taskID);
     }
 
