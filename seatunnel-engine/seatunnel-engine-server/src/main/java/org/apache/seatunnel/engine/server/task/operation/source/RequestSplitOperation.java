@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.task.operation.source;
 
+import org.apache.seatunnel.common.utils.RetryUtils;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
@@ -46,10 +48,15 @@ public class RequestSplitOperation extends Operation implements IdentifiedDataSe
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        SourceSplitEnumeratorTask<?> task =
+
+        RetryUtils.retryWithException(() -> {
+            SourceSplitEnumeratorTask<?> task =
                 server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID())
-                        .getTaskGroup().getTask(enumeratorTaskID.getTaskID());
-        task.requestSplit(taskID.getTaskID());
+                    .getTaskGroup().getTask(enumeratorTaskID.getTaskID());
+            task.requestSplit(taskID.getTaskID());
+            return null;
+        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
+            exception -> exception instanceof NullPointerException, Constant.OPERATION_RETRY_SLEEP));
     }
 
     @Override

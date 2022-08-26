@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.task.operation.source;
 
+import org.apache.seatunnel.common.utils.RetryUtils;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
@@ -43,10 +45,14 @@ public class CloseRequestOperation extends Operation implements IdentifiedDataSe
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        SourceSeaTunnelTask<?, ?> task =
+        RetryUtils.retryWithException(() -> {
+            SourceSeaTunnelTask<?, ?> task =
                 server.getTaskExecutionService().getExecutionContext(readerLocation.getTaskGroupID())
-                        .getTaskGroup().getTask(readerLocation.getTaskID());
-        task.close();
+                    .getTaskGroup().getTask(readerLocation.getTaskID());
+            task.close();
+            return null;
+        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
+            exception -> exception instanceof NullPointerException, Constant.OPERATION_RETRY_SLEEP));
     }
 
     @Override
