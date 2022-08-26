@@ -33,7 +33,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeatunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.state.IoTDBSourceState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -67,7 +67,7 @@ public class IoTDBSource implements SeaTunnelSource<SeaTunnelRow, IoTDBSourceSpl
                 throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "host and port and node urls are both empty");
             }
         }
-        SeatunnelSchema seatunnelSchema = SeatunnelSchema.buildWithConfig(pluginConfig);
+        SeaTunnelSchema seatunnelSchema = SeaTunnelSchema.buildWithConfig(pluginConfig);
         this.typeInfo = seatunnelSchema.getSeaTunnelRowType();
         pluginConfig.entrySet().forEach(entry -> configParams.put(entry.getKey(), entry.getValue().unwrapped()));
     }

@@ -86,7 +86,7 @@ public class FlinkRowConverter extends RowConverter<Row> {
     }
 
     @Override
-    public SeaTunnelRow convert(Row engineRow) throws IOException {
+    public SeaTunnelRow reconvert(Row engineRow) throws IOException {
         return (SeaTunnelRow) reconvert(engineRow, dataType);
     }
 
