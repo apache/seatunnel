@@ -31,11 +31,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ProtoStuffSerializer implements Serializer {
 
     /**
-     * Consider configurable
-     */
-    private static final LinkedBuffer BUFFER = LinkedBuffer.allocate(1024);
-
-    /**
      * At the moment it looks like we only have one Schema.
      */
     private static final Map<Class<?>, Schema<?>> SCHEMA_CACHE = new ConcurrentHashMap<>();
@@ -48,12 +43,13 @@ public class ProtoStuffSerializer implements Serializer {
     @Override
     public <T> byte[] serialize(T obj) {
         Class<T> clazz = (Class<T>) obj.getClass();
+        LinkedBuffer buffer = LinkedBuffer.allocate(LinkedBuffer.DEFAULT_BUFFER_SIZE);
         Schema<T> schema = getSchema(clazz);
         byte[] data;
         try {
-            data = ProtostuffIOUtil.toByteArray(obj, schema, BUFFER);
+            data = ProtostuffIOUtil.toByteArray(obj, schema, buffer);
         } finally {
-            BUFFER.clear();
+            buffer.clear();
         }
         return data;
     }

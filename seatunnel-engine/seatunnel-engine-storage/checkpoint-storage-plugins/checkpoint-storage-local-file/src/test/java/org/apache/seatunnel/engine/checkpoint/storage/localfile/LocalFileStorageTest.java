@@ -37,7 +37,7 @@ import java.util.List;
 @EnabledOnOs({LINUX, MAC})
 public class LocalFileStorageTest {
 
-    private static LocalFileStorage STORAGE = new LocalFileStorage();
+    private static LocalFileStorage STORAGE = new LocalFileStorage(null);
     private static final String JOB_ID = "chris";
 
     @Before
@@ -60,7 +60,7 @@ public class LocalFileStorageTest {
     public void testGetAllCheckpoints() throws CheckpointStorageException {
 
         List<PipelineState> pipelineStates = STORAGE.getAllCheckpoints(JOB_ID);
-        Assertions.assertEquals(4, pipelineStates.size());
+        Assertions.assertEquals(3, pipelineStates.size());
     }
 
     @Test
