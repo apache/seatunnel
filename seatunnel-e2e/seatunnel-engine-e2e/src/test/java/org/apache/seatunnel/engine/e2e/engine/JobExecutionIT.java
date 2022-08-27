@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.engine.e2e.engine;
 
+import static org.awaitility.Awaitility.await;
+import static org.junit.Assert.assertEquals;
+
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
@@ -40,6 +43,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 public class JobExecutionIT {
     private static final Logger LOGGER = LoggerFactory.getLogger(JobExecutionIT.class);
@@ -75,11 +79,10 @@ public class JobExecutionIT {
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
 
-        ClientJobProxy clientJobProxy = null;
         try {
-            clientJobProxy = jobExecutionEnv.execute();
-            JobStatus jobStatus = clientJobProxy.waitForJobComplete();
-            Assert.assertEquals(JobStatus.FINISHED, jobStatus);
+            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertEquals(JobStatus.FINISHED, clientJobProxy.waitForJobComplete()));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -97,9 +100,8 @@ public class JobExecutionIT {
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
 
-        ClientJobProxy clientJobProxy = null;
         try {
-            clientJobProxy = jobExecutionEnv.execute();
+            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
             JobStatus jobStatus1 = clientJobProxy.getJobStatus();
             Assert.assertFalse(jobStatus1.isEndState());
             ClientJobProxy finalClientJobProxy = clientJobProxy;
@@ -108,9 +110,13 @@ public class JobExecutionIT {
                 Assert.assertEquals(JobStatus.CANCELED, jobStatus);
                 return null;
             });
-            Thread.sleep(500);
-            clientJobProxy.cancelJob();
-            objectCompletableFuture.join();
+            Thread.sleep(1000);
+            await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> clientJobProxy.cancelJob());
+
+            await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> objectCompletableFuture.join());
+
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

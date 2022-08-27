@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.engine.client;
 
+import static org.awaitility.Awaitility.await;
+import static org.junit.Assert.assertEquals;
+
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
@@ -38,6 +41,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("checkstyle:MagicNumber")
 @RunWith(JUnit4.class)
@@ -74,11 +78,10 @@ public class SeaTunnelClientTest {
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
 
-        ClientJobProxy clientJobProxy = null;
         try {
-            clientJobProxy = jobExecutionEnv.execute();
-            JobStatus jobStatus = clientJobProxy.waitForJobComplete();
-            Assert.assertEquals(JobStatus.FINISHED, jobStatus);
+            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertEquals(JobStatus.FINISHED, clientJobProxy.waitForJobComplete()));
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         }

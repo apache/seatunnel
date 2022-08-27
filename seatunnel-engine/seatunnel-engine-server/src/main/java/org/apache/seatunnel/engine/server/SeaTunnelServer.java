@@ -176,7 +176,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
             return new PassiveCompletableFuture<>(future);
         } else {
             return new PassiveCompletableFuture<>(CompletableFuture.supplyAsync(() -> {
-                runningJobMaster.cleanJob();
+                runningJobMaster.cancelJob();
                 return null;
             }));
         }

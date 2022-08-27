@@ -134,6 +134,10 @@ public class JobMaster implements Runnable {
     }
 
     public void cleanJob() {
+        // TODO Add some job clean operation
+    }
+
+    public void cancelJob() {
         this.physicalPlan.cancelJob();
     }
 
