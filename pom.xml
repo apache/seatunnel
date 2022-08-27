@@ -250,6 +250,12 @@
                 <artifactId>spark-core_${scala.binary.version}</artifactId>
                 <version>${spark.version}</version>
                 <scope>${spark.scope}</scope>
+                <exclusions>
+                    <exclusion>
+                        <artifactId>RoaringBitmap</artifactId>
+                        <groupId>org.roaringbitmap</groupId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
