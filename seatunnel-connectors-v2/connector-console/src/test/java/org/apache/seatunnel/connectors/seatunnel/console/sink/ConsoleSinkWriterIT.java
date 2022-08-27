@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.console.sink;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
@@ -70,7 +71,7 @@ public class ConsoleSinkWriterIT {
     }
 
     @Test
-    void arrayStringTest() {
+    void stringTest() {
         Assertions.assertDoesNotThrow(() -> {
             String str = RandomStringUtils.randomAlphanumeric(10);
             Object obj = fieldToStringTest(BasicType.STRING_TYPE, str);
@@ -93,11 +94,11 @@ public class ConsoleSinkWriterIT {
     @Test
     void rowTypeTest() {
         Assertions.assertDoesNotThrow(() -> {
-            String[] fieldNames = {"c_byte", "c_array"};
-            SeaTunnelDataType<?>[] fieldTypes = {BasicType.BYTE_TYPE, ArrayType.INT_ARRAY_TYPE};
+            String[] fieldNames = {"c_byte", "c_array", "bytes"};
+            SeaTunnelDataType<?>[] fieldTypes = {BasicType.BYTE_TYPE, ArrayType.BYTE_ARRAY_TYPE, PrimitiveByteArrayType.INSTANCE};
             SeaTunnelRowType seaTunnelRowType = new SeaTunnelRowType(fieldNames, fieldTypes);
-            int[] intArr = {RandomUtils.nextInt(0, Integer.MAX_VALUE)};
-            Object[] rowData = {(byte) 1, intArr};
+            byte[] bytes = RandomUtils.nextBytes(10);
+            Object[] rowData = {(byte) 1, bytes, bytes};
             Object rowString = fieldToStringTest(seaTunnelRowType, rowData);
             Assertions.assertNotNull(rowString);
         });
