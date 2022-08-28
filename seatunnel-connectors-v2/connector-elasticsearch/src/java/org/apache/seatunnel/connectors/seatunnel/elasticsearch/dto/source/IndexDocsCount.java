@@ -15,27 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.config;
+package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source;
 
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.BulkConfig;
+public class IndexDocsCount {
 
-public class SinkConfig {
+    private String index;
+    /**
+     * index docs count
+     */
+    private Long docsCount;
 
-    public static final String INDEX = "index";
-
-    public static final String INDEX_TYPE = "index_type";
-
-    public static final String MAX_BATCH_SIZE = "max_batch_size";
-
-    public static final String MAX_RETRY_SIZE = "max_retry_size";
-
-    public static void setValue(org.apache.seatunnel.shade.com.typesafe.config.Config pluginConfig){
-        if(pluginConfig.hasPath(MAX_BATCH_SIZE)){
-            BulkConfig.MAX_BATCH_SIZE = pluginConfig.getInt(MAX_BATCH_SIZE);
-        }
-        if(pluginConfig.hasPath(MAX_RETRY_SIZE)){
-            BulkConfig.MAX_RETRY_SIZE = pluginConfig.getInt(MAX_RETRY_SIZE);
-        }
+    public String getIndex() {
+        return index;
     }
 
+    public void setIndex(String index) {
+        this.index = index;
+    }
+
+    public Long getDocsCount() {
+        return docsCount;
+    }
+
+    public void setDocsCount(Long docsCount) {
+        this.docsCount = docsCount;
+    }
 }

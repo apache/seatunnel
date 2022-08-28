@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.BulkConfig;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.ElasticsearchVersion;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
@@ -50,9 +49,7 @@ public class ElasticsearchSinkWriter<ElasticsearchSinkState> implements SinkWrit
     private final List<String> requestEsList;
     private EsRestClient esRestClient;
 
-
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchSinkWriter.class);
-
 
     public ElasticsearchSinkWriter(
             Context context,
@@ -62,24 +59,11 @@ public class ElasticsearchSinkWriter<ElasticsearchSinkState> implements SinkWrit
         this.context = context;
 
         IndexInfo indexInfo = new IndexInfo(pluginConfig);
-        initRestClient(pluginConfig);
-        ElasticsearchVersion elasticsearchVersion = ElasticsearchVersion.get(EsRestClient.getClusterVersion());
+        esRestClient = EsRestClient.createInstance(pluginConfig);
+        ElasticsearchVersion elasticsearchVersion = ElasticsearchVersion.get(esRestClient.getClusterVersion());
         this.seaTunnelRowSerializer = new ElasticsearchRowSerializer(elasticsearchVersion, indexInfo, seaTunnelRowType);
 
         this.requestEsList = new ArrayList<>(BulkConfig.MAX_BATCH_SIZE);
-    }
-
-    private void initRestClient(org.apache.seatunnel.shade.com.typesafe.config.Config pluginConfig) {
-        List<String> hosts = pluginConfig.getStringList(SinkConfig.HOSTS);
-        String username = null;
-        String password = null;
-        if (pluginConfig.hasPath(SinkConfig.USERNAME)) {
-            username = pluginConfig.getString(SinkConfig.USERNAME);
-            if (pluginConfig.hasPath(SinkConfig.PASSWORD)) {
-                password = pluginConfig.getString(SinkConfig.PASSWORD);
-            }
-        }
-        esRestClient = EsRestClient.getInstance(hosts, username, password);
     }
 
     @Override

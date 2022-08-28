@@ -15,27 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.config;
+package org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception;
 
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.BulkConfig;
+public class ScrollRequestException extends RuntimeException {
 
-public class SinkConfig {
+    public ScrollRequestException(String message, Throwable cause) {
+        super(message, cause);
+    }
 
-    public static final String INDEX = "index";
-
-    public static final String INDEX_TYPE = "index_type";
-
-    public static final String MAX_BATCH_SIZE = "max_batch_size";
-
-    public static final String MAX_RETRY_SIZE = "max_retry_size";
-
-    public static void setValue(org.apache.seatunnel.shade.com.typesafe.config.Config pluginConfig){
-        if(pluginConfig.hasPath(MAX_BATCH_SIZE)){
-            BulkConfig.MAX_BATCH_SIZE = pluginConfig.getInt(MAX_BATCH_SIZE);
-        }
-        if(pluginConfig.hasPath(MAX_RETRY_SIZE)){
-            BulkConfig.MAX_RETRY_SIZE = pluginConfig.getInt(MAX_RETRY_SIZE);
-        }
+    public ScrollRequestException(String message) {
+        super(message);
     }
 
 }
