@@ -16,8 +16,6 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.apache.seatunnel.app.dal.mapper.RoleMapper">
   <resultMap id="BaseResultMap" type="org.apache.seatunnel.app.dal.entity.Role">
-    <!--@mbg.generated-->
-    <!--@Table `role`-->
     <id column="id" jdbcType="INTEGER" property="id" />
     <result column="type" jdbcType="INTEGER" property="type" />
     <result column="role_name" jdbcType="VARCHAR" property="roleName" />
@@ -26,11 +24,9 @@
     <result column="update_time" jdbcType="TIMESTAMP" property="updateTime" />
   </resultMap>
   <sql id="Base_Column_List">
-    <!--@mbg.generated-->
     id, `type`, `role_name`, `description`, create_time, update_time
   </sql>
   <insert id="insert" keyColumn="id" keyProperty="id" parameterType="org.apache.seatunnel.app.dal.entity.Role" useGeneratedKeys="true">
-    <!--@mbg.generated-->
     insert into `role` (`type`, `role_name`, `description`)
     values (#{type,jdbcType=INTEGER}, #{roleName,jdbcType=VARCHAR}, #{description,jdbcType=VARCHAR})
   </insert>

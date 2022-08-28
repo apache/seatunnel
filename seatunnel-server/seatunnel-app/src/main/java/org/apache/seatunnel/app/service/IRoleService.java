@@ -20,7 +20,7 @@ package org.apache.seatunnel.app.service;
 public interface IRoleService {
     boolean addUserToRole(Integer userId, Integer type);
 
-    boolean checkUserRole(String userName, String roleName);
+    boolean checkUserRole(String username, String roleName);
 
     void deleteByUserId(Integer id);
 }

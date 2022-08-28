@@ -21,7 +21,6 @@ import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.NO_SUCH_USER
 import static com.google.common.base.Preconditions.checkState;
 
 import org.apache.seatunnel.app.common.RoleTypeEnum;
-import org.apache.seatunnel.app.common.UserTypeEnum;
 import org.apache.seatunnel.app.dal.dao.IRoleDao;
 import org.apache.seatunnel.app.dal.dao.IRoleUserRelationDao;
 import org.apache.seatunnel.app.dal.dao.IUserDao;
@@ -53,7 +52,7 @@ public class RoleServiceImpl implements IRoleService {
     @Override
     public boolean addUserToRole(Integer userId, Integer type){
 
-        String roleName = type == UserTypeEnum.ADMIN.getCode() ? RoleTypeEnum.ADMIN.getDescription() : RoleTypeEnum.NORMAL.getDescription();
+        String roleName = type == RoleTypeEnum.ADMIN.getCode() ? RoleTypeEnum.ADMIN.getDescription() : RoleTypeEnum.NORMAL.getDescription();
 
         final Role role = roleDaoImpl.getByRoleName(roleName);
 
@@ -67,9 +66,9 @@ public class RoleServiceImpl implements IRoleService {
     }
 
     @Override
-    public boolean checkUserRole(String userName, String roleName){
+    public boolean checkUserRole(String username, String roleName){
 
-        final User user = userDaoImpl.getByName(userName);
+        final User user = userDaoImpl.getByName(username);
 
         checkState(!Objects.isNull(user), NO_SUCH_USER.getTemplate());
 
