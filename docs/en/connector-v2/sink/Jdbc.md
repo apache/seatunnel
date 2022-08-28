@@ -55,7 +55,7 @@ For batch writing, when the number of buffers reaches the number of `batch_size`
 Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to set `xa_data_source_class_name`.
 
 ### xa_data_source_class_name[string]
-The xa data source class name of the database Driver, for example, mysql is `com.mysql.cj.jdbc.MysqlXADataSource` and postgresql is `org.postgresql.xa.PGXADataSource`
+The xa data source class name of the database Driver, for example, mysql is `com.mysql.cj.jdbc.MysqlXADataSource` and postgresql is `org.postgresql.xa.PGXADataSource` and oracle is `oracle.jdbc.xa.OracleXADataSource`
 
 ### max_commit_attempts[int]
 The number of retries for transaction commit failures

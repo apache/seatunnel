@@ -4,7 +4,7 @@
 
 ## Description
 
-Read external data source data through JDBC. Currently supports mysql and Postgres databases, and supports Batch mode.
+Read external data source data through JDBC. Currently supports mysql,oracle and Postgres databases, and supports Batch mode.
 
 ##  Options
 
