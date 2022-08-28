@@ -18,21 +18,30 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.commit;
 
 import org.apache.seatunnel.api.sink.SinkCommitter;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class FileSinkCommitter2 implements SinkCommitter<FileCommitInfo2> {
-    /**
-     * Commit message to third party data receiver, The method need to achieve idempotency.
-     *
-     * @param committables The list of commit message
-     * @return The commit message need retry.
-     * @throws IOException throw IOException when commit failed.
-     */
+
     @Override
     public List<FileCommitInfo2> commit(List<FileCommitInfo2> commitInfos) throws IOException {
-        return null;
+        ArrayList<FileCommitInfo2> failedCommitInfos = new ArrayList<>();
+        for (FileCommitInfo2 commitInfo : commitInfos) {
+            Map<String, String> needMoveFiles = commitInfo.getNeedMoveFiles();
+            needMoveFiles.forEach((k, v) -> {
+                try {
+                    FileSystemUtils.renameFile(k, v, true);
+                } catch (IOException e) {
+                    failedCommitInfos.add(commitInfo);
+                }
+            });
+            FileSystemUtils.deleteFile(commitInfo.getTransactionDir());
+        }
+        return failedCommitInfos;
     }
 
     /**
@@ -43,6 +52,14 @@ public class FileSinkCommitter2 implements SinkCommitter<FileCommitInfo2> {
      */
     @Override
     public void abort(List<FileCommitInfo2> commitInfos) throws IOException {
-
+        for (FileCommitInfo2 commitInfo : commitInfos) {
+            Map<String, String> needMoveFiles = commitInfo.getNeedMoveFiles();
+            for (Map.Entry<String, String> entry : needMoveFiles.entrySet()) {
+                if (FileSystemUtils.fileExist(entry.getValue()) && !FileSystemUtils.fileExist(entry.getKey())) {
+                    FileSystemUtils.renameFile(entry.getValue(), entry.getKey(), true);
+                }
+            }
+            FileSystemUtils.deleteFile(commitInfo.getTransactionDir());
+        }
     }
 }
