@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class TextWriteStrategy extends AbstractWriteStrategy {
-    private Map<String, FSDataOutputStream> beingWrittenOutputStream;
+    private final Map<String, FSDataOutputStream> beingWrittenOutputStream;
     private final String fieldDelimiter;
     private final String rowDelimiter;
 

@@ -41,7 +41,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class ParquetWriteStrategy extends AbstractWriteStrategy {
-    private Map<String, ParquetWriter<GenericRecord>> beingWrittenWriter;
+    private final Map<String, ParquetWriter<GenericRecord>> beingWrittenWriter;
 
     public ParquetWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
         super(textFileSinkConfig);

@@ -34,7 +34,7 @@ import java.util.Map;
 public class JsonWriteStrategy extends AbstractWriteStrategy {
     private final byte[] rowDelimiter;
     private SerializationSchema serializationSchema;
-    private Map<String, FSDataOutputStream> beingWrittenOutputStream;
+    private final Map<String, FSDataOutputStream> beingWrittenOutputStream;
 
     public JsonWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
         super(textFileSinkConfig);

@@ -41,7 +41,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class OrcWriteStrategy extends AbstractWriteStrategy {
-    private Map<String, Writer> beingWrittenWriter;
+    private final Map<String, Writer> beingWrittenWriter;
 
     public OrcWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
         super(textFileSinkConfig);
