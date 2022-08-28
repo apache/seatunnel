@@ -10,6 +10,8 @@ Two ways of connecting Phoenix with Java JDBC. One is to connect to zookeeper th
 
 > Tips: By default, the (thin) driver jar is used. If you want to use the (thick) driver  or other versions of Phoenix (thin) driver, you need to recompile the jdbc connector module
 
+> Tips: Not support exactly-once semantics (XA transaction is not yet supported in Greenplum database).
+
 ## Options
 
 ### driver [string]

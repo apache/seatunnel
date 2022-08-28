@@ -81,14 +81,19 @@ public class JdbcPhoenixIT extends SparkContainer {
         Assertions.assertEquals(0, execResult.getExitCode());
 
         // query result
-        String sql = "select age, name from test.sink order by age asc";
+        String sql = "select f1, f2, f3, f4, f5, f6, f7 from test.sink order by f5 asc";
         List<List> result = new ArrayList<>();
         try (Statement statement = connection.createStatement()) {
             ResultSet resultSet = statement.executeQuery(sql);
             while (resultSet.next()) {
                 result.add(Arrays.asList(
-                        resultSet.getInt(1),
-                        resultSet.getString(2)));
+                        resultSet.getString(1),
+                        resultSet.getBoolean(2),
+                        resultSet.getDouble(3),
+                        resultSet.getFloat(4),
+                        resultSet.getShort(5),
+                        resultSet.getInt(6),
+                        resultSet.getInt(7)));
             }
         }
         Assertions.assertIterableEquals(generateTestDataset(), result);
@@ -102,12 +107,24 @@ public class JdbcPhoenixIT extends SparkContainer {
     private void initializePhoenixTable() {
         try  {
             Statement statement = connection.createStatement();
-            String createSource = "create table test.source(\n" +
-                    " name VARCHAR PRIMARY KEY,\n" +
-                    " age INTEGER)";
-            String createSink = "create table test.sink(\n" +
-                    " name VARCHAR PRIMARY KEY,\n" +
-                    " age INTEGER)";
+            String createSource = "CREATE TABLE test.source (\n" +
+                    "\tf1 VARCHAR PRIMARY KEY,\n" +
+                    "\tf2 BOOLEAN,\n" +
+                    "\tf3 UNSIGNED_DOUBLE,\n" +
+                    "\tf4 UNSIGNED_FLOAT,\n" +
+                    "\tf5 UNSIGNED_SMALLINT,\n" +
+                    "\tf6 INTEGER,\n" +
+                    "\tf7 UNSIGNED_INT\n" +
+                    ")";
+            String createSink = "CREATE TABLE test.sink (\n" +
+                    "\tf1 VARCHAR PRIMARY KEY,\n" +
+                    "\tf2 BOOLEAN,\n" +
+                    "\tf3 UNSIGNED_DOUBLE,\n" +
+                    "\tf4 UNSIGNED_FLOAT,\n" +
+                    "\tf5 UNSIGNED_SMALLINT,\n" +
+                    "\tf6 INTEGER,\n" +
+                    "\tf7 UNSIGNED_INT\n" +
+                    ")";
             statement.execute(createSource);
             statement.execute(createSink);
         } catch (SQLException e) {
@@ -125,20 +142,32 @@ public class JdbcPhoenixIT extends SparkContainer {
     private static List<List> generateTestDataset() {
         List<List> rows = new ArrayList<>();
         for (int i = 1; i <= 100; i++) {
-            rows.add(Arrays.asList(i, String.format("test_%s", i)));
+            rows.add(Arrays.asList(String.format("test_%s", i),
+                    i % 2 == 0,
+                    Double.valueOf(i + 1),
+                    Float.valueOf(i + 2),
+                    (short) (i + 3),
+                    Integer.valueOf(i + 4),
+                    i + 5
+            ));
         }
         return rows;
     }
 
     private void batchInsertData() throws SQLException, ClassNotFoundException {
-        String sql = "upsert into test.source(age, name) values(?, ?)";
+        String sql = "upsert into test.source(f1, f2, f3, f4, f5, f6, f7) values(?, ?, ?, ?, ?, ?, ?)";
 
         try {
             connection.setAutoCommit(false);
             try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
                 for (List row : generateTestDataset()) {
-                    preparedStatement.setInt(1, (Integer) row.get(0));
-                    preparedStatement.setString(2, (String) row.get(1));
+                    preparedStatement.setString(1, (String) row.get(0));
+                    preparedStatement.setBoolean(2, (Boolean) row.get(1));
+                    preparedStatement.setDouble(3, (Double) row.get(2));
+                    preparedStatement.setFloat(4, (Float) row.get(3));
+                    preparedStatement.setShort(5, (Short) row.get(4));
+                    preparedStatement.setInt(6, (Integer) row.get(5));
+                    preparedStatement.setInt(7, (Integer) row.get(6));
                     preparedStatement.addBatch();
                 }
                 preparedStatement.executeBatch();

@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import org.slf4j.Logger;
@@ -33,7 +32,7 @@ import java.sql.SQLException;
 
 public class PhoenixTypeMapper implements JdbcDialectTypeMapper {
 
-    private static final Logger LOG = LoggerFactory.getLogger(JdbcDialect.class);
+    private static final Logger LOG = LoggerFactory.getLogger(PhoenixTypeMapper.class);
 
     // ============================data types=====================
 

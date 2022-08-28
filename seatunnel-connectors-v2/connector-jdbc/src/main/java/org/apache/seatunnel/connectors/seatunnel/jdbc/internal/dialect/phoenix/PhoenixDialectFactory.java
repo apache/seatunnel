@@ -28,7 +28,6 @@ public class PhoenixDialectFactory implements JdbcDialectFactory {
 
     @Override
     public boolean acceptsURL(@NonNull String url) {
-        // Support greenplum native driver: com.pivotal.jdbc.GreenplumDriver
         return url.startsWith("jdbc:phoenix:");
     }
 
