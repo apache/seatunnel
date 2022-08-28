@@ -35,7 +35,7 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
     private final int subTaskIndex;
     private final String jobId;
 
-    public BaseFileSinkWriter(WriteStrategy writeStrategy, HadoopConf hadoopConf, Context context, String jobId) {
+    public BaseFileSinkWriter(WriteStrategy writeStrategy, HadoopConf hadoopConf, SinkWriter.Context context, String jobId) {
         this.writeStrategy = writeStrategy;
         this.context = context;
         this.hadoopConf = hadoopConf;
