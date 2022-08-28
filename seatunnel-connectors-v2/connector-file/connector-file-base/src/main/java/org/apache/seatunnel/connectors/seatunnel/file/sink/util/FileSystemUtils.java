@@ -37,7 +37,7 @@ public class FileSystemUtils {
 
     public static final int WRITE_BUFFER_SIZE = 2048;
 
-    public static final Configuration CONF = new Configuration();
+    public static Configuration CONF;
 
     public static FileSystem getHdfsFs(@NonNull String path) throws IOException {
         return FileSystem.get(URI.create(path), CONF);

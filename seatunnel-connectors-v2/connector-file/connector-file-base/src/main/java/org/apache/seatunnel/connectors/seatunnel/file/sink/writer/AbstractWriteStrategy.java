@@ -85,6 +85,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         this.needMoveFiles = new HashMap<>();
         this.partitionDirAndValuesMap = new HashMap<>();
         this.beingWrittenFile = new HashMap<>();
+        FileSystemUtils.CONF = getConfiguration(hadoopConf);
     }
 
     /**
