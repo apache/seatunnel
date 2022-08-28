@@ -31,7 +31,7 @@ public class SinkConfig implements Serializable {
     private static final int DEFAULT_MAX_RETRIES = 3;
     private String host;
     private int port;
-    private Integer maxNumRetries = DEFAULT_MAX_RETRIES;
+    private int maxNumRetries = DEFAULT_MAX_RETRIES;
 
     public SinkConfig(Config config) {
         this.host = config.getString(HOST);
