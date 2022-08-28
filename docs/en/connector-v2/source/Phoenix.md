@@ -13,10 +13,10 @@ Two ways of connecting Phoenix with Java JDBC. One is to connect to zookeeper th
 ## Options
 
 ### driver [string]
-if you use  phoenix (thick) driver the value is  `org.apache.phoenix.jdbc.PhoenixDriver` or you use (thin) driver  the value is `org.apache.phoenix.queryserver.client.Driver`
+if you use phoenix (thick) driver the value is `org.apache.phoenix.jdbc.PhoenixDriver` or you use (thin) driver the value is `org.apache.phoenix.queryserver.client.Driver`
 
 ### url [string]
-if you use  phoenix (thick) driver the value is  `jdbc:phoenix:localhost:2182/hbase` or you use (thin) driver  the value is `jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF`
+if you use phoenix (thick) driver the value is `jdbc:phoenix:localhost:2182/hbase` or you use (thin) driver the value is `jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF`
 
 ## Example
 use thick client drive

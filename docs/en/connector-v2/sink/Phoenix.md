@@ -10,15 +10,15 @@ Two ways of connecting Phoenix with Java JDBC. One is to connect to zookeeper th
 
 > Tips: By default, the (thin) driver jar is used. If you want to use the (thick) driver  or other versions of Phoenix (thin) driver, you need to recompile the jdbc connector module
 
-> Tips: Not support exactly-once semantics (XA transaction is not yet supported in Greenplum database).
+> Tips: Not support exactly-once semantics (XA transaction is not yet supported in Phoenix).
 
 ## Options
 
 ### driver [string]
-if you use  phoenix (thick) driver the value is  `org.apache.phoenix.jdbc.PhoenixDriver` or you use (thin) driver  the value is `org.apache.phoenix.queryserver.client.Driver`
+if you use phoenix (thick) driver the value is `org.apache.phoenix.jdbc.PhoenixDriver` or you use (thin) driver the value is `org.apache.phoenix.queryserver.client.Driver`
 
 ### url [string]
-if you use  phoenix (thick) driver the value is  `jdbc:phoenix:localhost:2182/hbase` or you use (thin) driver  the value is `jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF`
+if you use phoenix (thick) driver the value is `jdbc:phoenix:localhost:2182/hbase` or you use (thin) driver the value is `jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF`
 
 ## Example
 use thick client drive
