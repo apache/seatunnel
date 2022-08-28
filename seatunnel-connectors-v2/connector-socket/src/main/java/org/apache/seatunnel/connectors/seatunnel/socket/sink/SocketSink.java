@@ -41,6 +41,7 @@ public class SocketSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private Config pluginConfig;
     private SinkConfig sinkConfig;
     private SeaTunnelRowType seaTunnelRowType;
+
     @Override
     public String getPluginName() {
         return "Socket";

@@ -28,10 +28,9 @@ import java.io.IOException;
 
 public class SocketSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private final SocketClient socketClient;
-
-    protected final SerializationSchema serializationSchema;
-
+    private final SerializationSchema serializationSchema;
     private final SinkConfig sinkConfig;
+
     SocketSinkWriter(SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) throws IOException {
         this.sinkConfig = sinkConfig;
         this.serializationSchema = new JsonSerializationSchema(seaTunnelRowType);
@@ -48,5 +47,4 @@ public class SocketSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     public void close() throws IOException {
         socketClient.close();
     }
-
 }
