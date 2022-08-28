@@ -17,23 +17,23 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.phoenix;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
-import com.google.auto.service.AutoService;
-import lombok.NonNull;
-
-@AutoService(JdbcDialectFactory.class)
-public class PhoenixDialectFactory implements JdbcDialectFactory {
-
+public class PhoenixDialect implements JdbcDialect {
     @Override
-    public boolean acceptsURL(@NonNull String url) {
-        // Support greenplum native driver: com.pivotal.jdbc.GreenplumDriver
-        return url.startsWith("jdbc:phoenix:");
+    public String dialectName() {
+        return "Phoenix";
     }
 
     @Override
-    public JdbcDialect create() {
-        return new PhoenixDialect();
+    public JdbcRowConverter getRowConverter() {
+        return new PhoenixJdbcRowConverter();
+    }
+
+    @Override
+    public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
+        return new PhoenixTypeMapper();
     }
 }
