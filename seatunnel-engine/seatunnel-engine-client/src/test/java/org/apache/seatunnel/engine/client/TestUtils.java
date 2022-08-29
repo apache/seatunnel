@@ -21,4 +21,8 @@ public class TestUtils {
     public static String getResource(String confFile) {
         return System.getProperty("user.dir") + "/src/test/resources" + confFile;
     }
+
+    public static String getClusterName(String testClassName) {
+        return System.getProperty("user.name") + "_" + testClassName;
+    }
 }

@@ -51,6 +51,7 @@ public class JobExecutionIT {
     @BeforeClass
     public static void beforeClass() throws Exception {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.getHazelcastConfig().setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         HazelcastInstanceFactory.newHazelcastInstance(seaTunnelConfig.getHazelcastConfig(),
             Thread.currentThread().getName(),
             new SeaTunnelNodeContext(ConfigProvider.locateAndGetSeaTunnelConfig()));
@@ -59,6 +60,7 @@ public class JobExecutionIT {
     @Test
     public void testSayHello() {
         SeaTunnelClientConfig seaTunnelClientConfig = new SeaTunnelClientConfig();
+        seaTunnelClientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         seaTunnelClientConfig.getNetworkConfig().setAddresses(Lists.newArrayList("localhost:5801"));
         SeaTunnelClient engineClient = new SeaTunnelClient(seaTunnelClientConfig);
 
@@ -76,6 +78,7 @@ public class JobExecutionIT {
         jobConfig.setName("fake_to_file");
 
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
 
@@ -97,6 +100,7 @@ public class JobExecutionIT {
         jobConfig.setName("fake_to_file");
 
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
 
@@ -111,11 +115,12 @@ public class JobExecutionIT {
                 return null;
             });
             Thread.sleep(1000);
-            await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> clientJobProxy.cancelJob());
+            clientJobProxy.cancelJob();
 
             await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> objectCompletableFuture.join());
+                .untilAsserted(() -> {
+                    Assert.assertTrue(objectCompletableFuture.isDone());
+                });
 
         } catch (Exception e) {
             throw new RuntimeException(e);
