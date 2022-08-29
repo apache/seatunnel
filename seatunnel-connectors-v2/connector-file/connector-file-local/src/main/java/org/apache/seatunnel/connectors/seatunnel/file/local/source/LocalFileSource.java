@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeatunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
@@ -61,9 +61,9 @@ public class LocalFileSource extends BaseFileSource {
         // support user-defined schema
         FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(LocalSourceConfig.FILE_PATH).toUpperCase());
         // only json type support user-defined schema now
-        if (pluginConfig.hasPath(SeatunnelSchema.SCHEMA) && fileFormat.equals(FileFormat.JSON)) {
-            Config schemaConfig = pluginConfig.getConfig(SeatunnelSchema.SCHEMA);
-            rowType = SeatunnelSchema
+        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA) && fileFormat.equals(FileFormat.JSON)) {
+            Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA);
+            rowType = SeaTunnelSchema
                     .buildWithConfig(schemaConfig)
                     .getSeaTunnelRowType();
             readStrategy.setSeaTunnelRowTypeInfo(rowType);

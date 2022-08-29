@@ -36,13 +36,13 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import java.io.Serializable;
 import java.util.Map;
 
-public class SeatunnelSchema implements Serializable {
+public class SeaTunnelSchema implements Serializable {
     public static final String SCHEMA = "schema";
     private static final String FIELD_KEY = "fields";
     private static final String SIMPLE_SCHEMA_FILED = "content";
     private final SeaTunnelRowType seaTunnelRowType;
 
-    private SeatunnelSchema(SeaTunnelRowType seaTunnelRowType) {
+    private SeaTunnelSchema(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
     }
 
@@ -192,7 +192,7 @@ public class SeatunnelSchema implements Serializable {
         return JsonUtils.toMap(schema);
     }
 
-    public static SeatunnelSchema buildWithConfig(Config schemaConfig) {
+    public static SeaTunnelSchema buildWithConfig(Config schemaConfig) {
         CheckResult checkResult = CheckConfigUtil.checkAllExists(schemaConfig, FIELD_KEY);
         if (!checkResult.isSuccess()) {
             String errorMsg = String.format("Schema config need option [%s], please correct your config first", FIELD_KEY);
@@ -213,7 +213,7 @@ public class SeatunnelSchema implements Serializable {
             i++;
         }
         SeaTunnelRowType seaTunnelRowType = new SeaTunnelRowType(fieldsName, seaTunnelDataTypes);
-        return new SeatunnelSchema(seaTunnelRowType);
+        return new SeaTunnelSchema(seaTunnelRowType);
     }
 
     public static SeaTunnelRowType buildSimpleTextSchema() {
