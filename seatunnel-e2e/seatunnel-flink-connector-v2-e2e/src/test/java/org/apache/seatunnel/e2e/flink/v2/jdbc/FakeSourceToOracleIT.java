@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.flink.v2.jdbc;
 
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
+import com.google.common.collect.Lists;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,8 +36,10 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import java.util.stream.Stream;
 
 public class FakeSourceToOracleIT extends FlinkContainer {
@@ -90,6 +93,17 @@ public class FakeSourceToOracleIT extends FlinkContainer {
     public void testFakeSourceToJdbcSink() throws SQLException, IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/fakesource_to_oracle.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+        // query result
+        String sql = "select * from test";
+        try (Connection connection = DriverManager.getConnection(oracleContainer.getJdbcUrl(), oracleContainer.getUsername(), oracleContainer.getPassword())) {
+            Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery(sql);
+            List<String> result = Lists.newArrayList();
+            while (resultSet.next()) {
+                result.add(resultSet.getString("name"));
+            }
+            Assertions.assertFalse(result.isEmpty());
+        }
     }
 
     @AfterEach
