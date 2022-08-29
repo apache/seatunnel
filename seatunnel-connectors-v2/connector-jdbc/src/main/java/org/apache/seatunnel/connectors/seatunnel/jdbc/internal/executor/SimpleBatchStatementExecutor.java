@@ -66,6 +66,12 @@ public class SimpleBatchStatementExecutor<T> implements JdbcBatchStatementExecut
             }
             st.executeBatch();
             batch.clear();
+
+            // cache commit
+            st.getConnection().commit();
+            st.clearParameters();
+            st.clearBatch();
+
         }
     }
 
