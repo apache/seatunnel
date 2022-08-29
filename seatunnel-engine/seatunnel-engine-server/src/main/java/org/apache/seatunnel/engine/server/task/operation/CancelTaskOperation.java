@@ -15,14 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.operation.source;
+package org.apache.seatunnel.engine.server.task.operation;
 
-import org.apache.seatunnel.common.utils.RetryUtils;
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
-import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -31,28 +27,35 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class CloseRequestOperation extends Operation implements IdentifiedDataSerializable {
+/**
+ * This operation is only to notice the {@link org.apache.seatunnel.engine.server.TaskExecutionService} to cancel the
+ * task. After the final task is cancelled, the {@link org.apache.seatunnel.engine.server.TaskExecutionService} will
+ * notified JobMaster
+ */
+public class CancelTaskOperation extends Operation implements IdentifiedDataSerializable {
+    private long taskGroupId;
 
-    private TaskLocation readerLocation;
-
-    public CloseRequestOperation() {
+    public CancelTaskOperation() {
     }
 
-    public CloseRequestOperation(TaskLocation readerLocation) {
-        this.readerLocation = readerLocation;
+    public CancelTaskOperation(long taskGroupId) {
+        this.taskGroupId = taskGroupId;
+    }
+
+    @Override
+    public int getFactoryId() {
+        return TaskDataSerializerHook.FACTORY_ID;
+    }
+
+    @Override
+    public int getClassId() {
+        return TaskDataSerializerHook.CANCEL_TASK_OPERATOR;
     }
 
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        RetryUtils.retryWithException(() -> {
-            SourceSeaTunnelTask<?, ?> task =
-                server.getTaskExecutionService().getExecutionContext(readerLocation.getTaskGroupID())
-                    .getTaskGroup().getTask(readerLocation.getTaskID());
-            task.close();
-            return null;
-        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException, Constant.OPERATION_RETRY_SLEEP));
+        server.getTaskExecutionService().cancelTaskGroup(taskGroupId);
     }
 
     @Override
@@ -63,22 +66,12 @@ public class CloseRequestOperation extends Operation implements IdentifiedDataSe
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        readerLocation.writeData(out);
+        out.writeLong(taskGroupId);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        readerLocation.readData(in);
-    }
-
-    @Override
-    public int getFactoryId() {
-        return TaskDataSerializerHook.FACTORY_ID;
-    }
-
-    @Override
-    public int getClassId() {
-        return TaskDataSerializerHook.CLOSE_REQUEST_TYPE;
+        taskGroupId = in.readLong();
     }
 }

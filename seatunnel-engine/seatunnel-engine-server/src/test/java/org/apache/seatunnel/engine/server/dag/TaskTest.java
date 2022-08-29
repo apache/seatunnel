@@ -77,7 +77,6 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
 
         JobConfig config = new JobConfig();
         config.setName("test");
-        config.setMode(JobMode.BATCH);
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
             nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
@@ -115,7 +114,6 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
 
         JobConfig config = new JobConfig();
         config.setName("test");
-        config.setMode(JobMode.BATCH);
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
             nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());

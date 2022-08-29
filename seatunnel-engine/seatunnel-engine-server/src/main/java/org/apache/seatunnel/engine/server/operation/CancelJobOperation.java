@@ -15,14 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client;
+package org.apache.seatunnel.engine.server.operation;
 
-public class TestUtils {
-    public static String getResource(String confFile) {
-        return System.getProperty("user.dir") + "/src/test/resources" + confFile;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
+
+public class CancelJobOperation extends AbstractJobAsyncOperation {
+    public CancelJobOperation() {
+        super();
     }
 
-    public static String getClusterName(String testClassName) {
-        return System.getProperty("user.name") + "_" + testClassName;
+    public CancelJobOperation(long jobId) {
+        super(jobId);
+    }
+
+    @Override
+    protected PassiveCompletableFuture<?> doRun() throws Exception {
+        SeaTunnelServer service = getService();
+        return service.cancelJob(jobId);
+    }
+
+    @Override
+    public int getClassId() {
+        return OperationDataSerializerHook.CANCEL_JOB_OPERATOR;
     }
 }

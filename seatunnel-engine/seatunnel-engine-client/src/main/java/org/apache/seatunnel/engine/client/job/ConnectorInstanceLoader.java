@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client;
+package org.apache.seatunnel.engine.client.job;
 
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -46,7 +46,8 @@ public class ConnectorInstanceLoader {
         throw new IllegalStateException("Utility class");
     }
 
-    public static ImmutablePair<SeaTunnelSource, Set<URL>> loadSourceInstance(Config sourceConfig) {
+    public static ImmutablePair<SeaTunnelSource, Set<URL>> loadSourceInstance(Config sourceConfig,
+                                                                              SeaTunnelContext seaTunnelContext) {
         SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery();
         PluginIdentifier pluginIdentifier = PluginIdentifier.of(
             CollectionConstants.SEATUNNEL_PLUGIN,
@@ -57,8 +58,8 @@ public class ConnectorInstanceLoader {
 
         SeaTunnelSource seaTunnelSource = sourcePluginDiscovery.createPluginInstance(pluginIdentifier);
         seaTunnelSource.prepare(sourceConfig);
-        seaTunnelSource.setSeaTunnelContext(SeaTunnelContext.getContext());
-        if (SeaTunnelContext.getContext().getJobMode() == JobMode.BATCH
+        seaTunnelSource.setSeaTunnelContext(seaTunnelContext);
+        if (seaTunnelContext.getJobMode() == JobMode.BATCH
             && seaTunnelSource.getBoundedness() == org.apache.seatunnel.api.source.Boundedness.UNBOUNDED) {
             throw new UnsupportedOperationException(
                 String.format("'%s' source don't support off-line job.", seaTunnelSource.getPluginName()));
@@ -67,7 +68,7 @@ public class ConnectorInstanceLoader {
     }
 
     public static ImmutablePair<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>, Set<URL>> loadSinkInstance(
-        Config sinkConfig) {
+        Config sinkConfig, SeaTunnelContext seaTunnelContext) {
         SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
         PluginIdentifier pluginIdentifier = PluginIdentifier.of(
             CollectionConstants.SEATUNNEL_PLUGIN,
@@ -78,11 +79,12 @@ public class ConnectorInstanceLoader {
             sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
         seaTunnelSink.prepare(sinkConfig);
         seaTunnelSink.setTypeInfo(null);
-        seaTunnelSink.setSeaTunnelContext(SeaTunnelContext.getContext());
+        seaTunnelSink.setSeaTunnelContext(seaTunnelContext);
         return new ImmutablePair<>(seaTunnelSink, new HashSet<>(pluginJarPaths));
     }
 
-    public static ImmutablePair<SeaTunnelTransform<?>, Set<URL>> loadTransformInstance(Config transformConfig) {
+    public static ImmutablePair<SeaTunnelTransform<?>, Set<URL>> loadTransformInstance(Config transformConfig,
+                                                                                       SeaTunnelContext seaTunnelContext) {
         SeaTunnelTransformPluginDiscovery transformPluginDiscovery = new SeaTunnelTransformPluginDiscovery();
         PluginIdentifier pluginIdentifier = PluginIdentifier.of(
             CollectionConstants.SEATUNNEL_PLUGIN,
@@ -91,7 +93,9 @@ public class ConnectorInstanceLoader {
 
         List<URL> pluginJarPaths = transformPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier));
         SeaTunnelTransform<?> seaTunnelTransform =
-                transformPluginDiscovery.createPluginInstance(pluginIdentifier);
+            transformPluginDiscovery.createPluginInstance(pluginIdentifier);
+        seaTunnelTransform.prepare(transformConfig);
+        seaTunnelTransform.setSeaTunnelContext(seaTunnelContext);
         return new ImmutablePair<>(seaTunnelTransform, new HashSet<>(pluginJarPaths));
     }
 }

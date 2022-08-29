@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.common.config;
 
-import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.engine.common.serializeable.ConfigDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
@@ -30,7 +30,7 @@ import java.io.IOException;
 @Data
 public class JobConfig implements IdentifiedDataSerializable {
     private String name;
-    private JobMode mode;
+    private SeaTunnelContext seaTunnelContext;
 
     @Override
     public int getFactoryId() {
@@ -45,10 +45,12 @@ public class JobConfig implements IdentifiedDataSerializable {
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
         out.writeString(name);
+        out.writeObject(seaTunnelContext);
     }
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
         this.name = in.readString();
+        this.seaTunnelContext = in.readObject();
     }
 }
