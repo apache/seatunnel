@@ -15,26 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.app.common;
+package org.apache.seatunnel.app.dal.mapper;
 
-public enum UserTypeEnum {
-    NORMAL(0, "normal"),
-    ADMIN(1, "admin"),
-    ;
+import org.apache.seatunnel.app.dal.entity.RoleUserRelation;
 
-    private final int code;
-    private final String  description;
+import org.apache.ibatis.annotations.Param;
 
-    UserTypeEnum(int code, String description) {
-        this.code = code;
-        this.description = description;
-    }
+public interface RoleUserRelationMapper {
 
-    public int getCode() {
-        return code;
-    }
+    int insert(RoleUserRelation record);
 
-    public String getDescription() {
-        return description;
-    }
+    RoleUserRelation selectByUserIdAndRoleId(@Param("userId")Integer userId, @Param("roleId")Integer roleId);
+
+    void deleteByUserId(@Param("userId")Integer userId);
+
 }

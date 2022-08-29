@@ -17,15 +17,15 @@
 
 package org.apache.seatunnel.app.common;
 
-public enum UserTypeEnum {
-    NORMAL(0, "normal"),
-    ADMIN(1, "admin"),
+public enum RoleTypeEnum {
+    NORMAL(0, "NORMAL_ROLE"),
+    ADMIN(1, "ADMIN_ROLE"),
     ;
 
     private final int code;
     private final String  description;
 
-    UserTypeEnum(int code, String description) {
+    RoleTypeEnum(int code, String description) {
         this.code = code;
         this.description = description;
     }
