@@ -15,18 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.serialization;
+package org.apache.seatunnel.connectors.seatunnel.socket.config;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import lombok.Data;
 
 import java.io.Serializable;
 
-public interface SerializationSchema extends Serializable {
-    /**
-     * Serializes the incoming element to a specified type.
-     *
-     * @param element The incoming element to be serialized
-     * @return The serialized element.
-     */
-    byte[] serialize(SeaTunnelRow element);
+@Data
+public class SinkConfig implements Serializable {
+    public static final String HOST = "host";
+    public static final String PORT = "port";
+    private static final String MAX_RETRIES = "max_retries";
+    private static final int DEFAULT_MAX_RETRIES = 3;
+    private String host;
+    private int port;
+    private int maxNumRetries = DEFAULT_MAX_RETRIES;
+
+    public SinkConfig(Config config) {
+        this.host = config.getString(HOST);
+        this.port = config.getInt(PORT);
+        if (config.hasPath(MAX_RETRIES)) {
+            this.maxNumRetries = config.getInt(MAX_RETRIES);
+        }
+    }
 }
