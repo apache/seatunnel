@@ -34,11 +34,11 @@ public interface SinkCommitter<CommitInfoT> extends Serializable {
     /**
      * Commit message to third party data receiver, The method need to achieve idempotency.
      *
-     * @param committables The list of commit message
+     * @param commitInfos The list of commit message
      * @return The commit message need retry.
      * @throws IOException throw IOException when commit failed.
      */
-    List<CommitInfoT> commit(List<CommitInfoT> committables) throws IOException;
+    List<CommitInfoT> commit(List<CommitInfoT> commitInfos) throws IOException;
 
     /**
      * Abort the transaction, this method will be called (**Only** on Spark engine) when the commit is failed.

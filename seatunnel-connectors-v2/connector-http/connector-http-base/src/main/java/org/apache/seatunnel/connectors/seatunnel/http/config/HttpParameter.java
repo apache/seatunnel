@@ -47,7 +47,7 @@ public class HttpParameter implements Serializable {
         }
         // set params
         if (pluginConfig.hasPath(HttpConfig.PARAMS)) {
-            this.setHeaders(pluginConfig.getConfig(HttpConfig.PARAMS).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue().unwrapped()), (v1, v2) -> v2)));
+            this.setParams(pluginConfig.getConfig(HttpConfig.PARAMS).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue().unwrapped()), (v1, v2) -> v2)));
         }
         // set body
         if (pluginConfig.hasPath(HttpConfig.BODY)) {

@@ -21,7 +21,8 @@ import java.io.Serializable;
 
 public enum FileSystemType implements Serializable {
     HDFS("HdfsFile"),
-    LOCAL("LocalFile");
+    LOCAL("LocalFile"),
+    FTP("FtpFile");
 
     private String sinkFileSystemPluginName;
 
