@@ -54,8 +54,8 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
         if (!fileSinkStates.isEmpty()) {
             List<String> transactionIds = writeStrategy.getTransactionIdFromStates(fileSinkStates);
             transactionIds.forEach(writeStrategy::abortPrepare);
+            writeStrategy.beginTransaction(fileSinkStates.get(0).getCheckpointId());
         }
-        writeStrategy.beginTransaction(fileSinkStates.get(0).getCheckpointId());
     }
 
     @Override
