@@ -15,26 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.app.common;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.phoenix;
 
-public enum UserTypeEnum {
-    NORMAL(0, "normal"),
-    ADMIN(1, "admin"),
-    ;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
-    private final int code;
-    private final String  description;
-
-    UserTypeEnum(int code, String description) {
-        this.code = code;
-        this.description = description;
+public class PhoenixDialect implements JdbcDialect {
+    @Override
+    public String dialectName() {
+        return "Phoenix";
     }
 
-    public int getCode() {
-        return code;
+    @Override
+    public JdbcRowConverter getRowConverter() {
+        return new PhoenixJdbcRowConverter();
     }
 
-    public String getDescription() {
-        return description;
+    @Override
+    public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
+        return new PhoenixTypeMapper();
     }
 }

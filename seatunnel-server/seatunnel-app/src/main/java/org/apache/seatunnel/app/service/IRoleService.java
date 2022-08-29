@@ -15,26 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.app.common;
+package org.apache.seatunnel.app.service;
 
-public enum UserTypeEnum {
-    NORMAL(0, "normal"),
-    ADMIN(1, "admin"),
-    ;
+public interface IRoleService {
+    boolean addUserToRole(Integer userId, Integer type);
 
-    private final int code;
-    private final String  description;
+    boolean checkUserRole(String username, String roleName);
 
-    UserTypeEnum(int code, String description) {
-        this.code = code;
-        this.description = description;
-    }
-
-    public int getCode() {
-        return code;
-    }
-
-    public String getDescription() {
-        return description;
-    }
+    void deleteByUserId(Integer id);
 }

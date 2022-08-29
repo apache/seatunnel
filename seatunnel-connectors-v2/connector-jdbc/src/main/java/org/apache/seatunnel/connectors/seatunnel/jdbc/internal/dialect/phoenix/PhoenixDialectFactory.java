@@ -15,26 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.app.common;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.phoenix;
 
-public enum UserTypeEnum {
-    NORMAL(0, "normal"),
-    ADMIN(1, "admin"),
-    ;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
-    private final int code;
-    private final String  description;
+import com.google.auto.service.AutoService;
+import lombok.NonNull;
 
-    UserTypeEnum(int code, String description) {
-        this.code = code;
-        this.description = description;
+@AutoService(JdbcDialectFactory.class)
+public class PhoenixDialectFactory implements JdbcDialectFactory {
+
+    @Override
+    public boolean acceptsURL(@NonNull String url) {
+        return url.startsWith("jdbc:phoenix:");
     }
 
-    public int getCode() {
-        return code;
-    }
-
-    public String getDescription() {
-        return description;
+    @Override
+    public JdbcDialect create() {
+        return new PhoenixDialect();
     }
 }

@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeatunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
@@ -37,7 +37,7 @@ public class FakeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     private Config pluginConfig;
     private SeaTunnelContext seaTunnelContext;
-    private SeatunnelSchema schema;
+    private SeaTunnelSchema schema;
 
     @Override
     public Boundedness getBoundedness() {
@@ -63,7 +63,7 @@ public class FakeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     public void prepare(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
         assert pluginConfig.hasPath(FakeRandomData.SCHEMA);
-        this.schema = SeatunnelSchema.buildWithConfig(pluginConfig.getConfig(FakeRandomData.SCHEMA));
+        this.schema = SeaTunnelSchema.buildWithConfig(pluginConfig.getConfig(FakeRandomData.SCHEMA));
     }
 
     @Override

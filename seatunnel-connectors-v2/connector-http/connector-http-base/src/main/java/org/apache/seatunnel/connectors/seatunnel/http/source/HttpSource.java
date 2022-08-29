@@ -29,7 +29,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeatunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
@@ -67,9 +67,9 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         this.httpParameter.buildWithConfig(pluginConfig);
         if (pluginConfig.hasPath(HttpConfig.SCHEMA)) {
             Config schema = pluginConfig.getConfig(HttpConfig.SCHEMA);
-            this.rowType = SeatunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
+            this.rowType = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
         } else {
-            this.rowType = SeatunnelSchema.buildSimpleTextSchema();
+            this.rowType = SeaTunnelSchema.buildSimpleTextSchema();
         }
         // TODO: use format SPI
         // default use json format

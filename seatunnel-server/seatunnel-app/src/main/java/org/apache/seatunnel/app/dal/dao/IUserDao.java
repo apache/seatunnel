@@ -41,6 +41,8 @@ public interface IUserDao {
 
     User getById(int operatorId);
 
+    User getByName(String user);
+
     User checkPassword(String username, String password);
 
     long insertLoginLog(UserLoginLogDto dto);

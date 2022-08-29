@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeatunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
@@ -44,7 +44,7 @@ public class FakeRandomDataTest {
     @ValueSource(strings = {"complex.schema.conf", "simple.schema.conf"})
     public void testComplexSchemaParse(String conf) throws FileNotFoundException, URISyntaxException {
         Config testConfigFile = getTestConfigFile(conf);
-        SeatunnelSchema seatunnelSchema = SeatunnelSchema.buildWithConfig(testConfigFile);
+        SeaTunnelSchema seatunnelSchema = SeaTunnelSchema.buildWithConfig(testConfigFile);
         FakeRandomData fakeRandomData = new FakeRandomData(seatunnelSchema);
         SeaTunnelRow seaTunnelRow = fakeRandomData.randomRow();
         Assertions.assertNotNull(seaTunnelRow);

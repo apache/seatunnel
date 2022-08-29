@@ -109,6 +109,11 @@ public class UserDaoImpl implements IUserDao {
     }
 
     @Override
+    public User getByName(String user) {
+        return userMapper.selectByName(user);
+    }
+
+    @Override
     public User checkPassword(String username, String password) {
         return userMapper.selectByNameAndPasswd(username, password);
     }

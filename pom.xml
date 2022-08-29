@@ -228,6 +228,7 @@
         <elasticsearch-rest-client.version>7.5.1</elasticsearch-rest-client.version>
         <checker.qual.version>3.10.0</checker.qual.version>
         <iotdb.version>0.13.1</iotdb.version>
+        <phoenix.version>5.2.5-HBase-2.x</phoenix.version>
         <awaitility.version>4.2.0</awaitility.version>
         <neo4j-java-driver.version>4.4.9</neo4j-java-driver.version>
         <jwt.version>0.10.7</jwt.version>
@@ -963,6 +964,12 @@
                         <artifactId>logback-classic</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.aliyun.phoenix</groupId>
+                <artifactId>ali-phoenix-shaded-thin-client</artifactId>
+                <version>${phoenix.version}</version>
             </dependency>
 
             <dependency>
