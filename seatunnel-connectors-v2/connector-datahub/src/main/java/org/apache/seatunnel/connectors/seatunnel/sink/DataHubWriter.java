@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.sink;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
@@ -31,8 +32,6 @@ import com.aliyun.datahub.client.model.PutRecordsResult;
 import com.aliyun.datahub.client.model.RecordEntry;
 import com.aliyun.datahub.client.model.RecordSchema;
 import com.aliyun.datahub.client.model.TupleRecordData;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -41,9 +40,9 @@ import java.util.List;
 /**
  * Datahub write class
  */
+@Slf4j
 public class DataHubWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(DataHubWriter.class);
     private DatahubClient dataHubClient;
     private String project;
     private String topic;
@@ -80,17 +79,17 @@ public class DataHubWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             PutRecordsResult result = dataHubClient.putRecords(project, topic, recordEntries);
             int i = result.getFailedRecordCount();
             if (i > 0) {
-                LOG.info("begin to retry for putting failed record");
+                log.info("begin to retry for putting failed record");
                 if (retry(result.getFailedRecords(), retryTimes, project, topic)) {
-                    LOG.info("retry putting record success");
+                    log.info("retry putting record success");
                 } else {
-                    LOG.info("retry putting record failed");
+                    log.info("retry putting record failed");
                 }
             } else {
-                LOG.info("put record success");
+                log.info("put record success");
             }
         } catch (DatahubClientException e) {
-            LOG.error("requestId:" + e.getRequestId() + "\tmessage:" + e.getErrorMessage());
+            log.error("requestId:" + e.getRequestId() + "\tmessage:" + e.getErrorMessage());
         }
     }
 
