@@ -15,26 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.app.common;
+package org.apache.seatunnel.app.dal.dao.impl;
 
-public enum UserTypeEnum {
-    NORMAL(0, "normal"),
-    ADMIN(1, "admin"),
-    ;
+import org.apache.seatunnel.app.dal.dao.IRoleDao;
+import org.apache.seatunnel.app.dal.entity.Role;
+import org.apache.seatunnel.app.dal.mapper.RoleMapper;
 
-    private final int code;
-    private final String  description;
+import org.springframework.stereotype.Repository;
 
-    UserTypeEnum(int code, String description) {
-        this.code = code;
-        this.description = description;
+import javax.annotation.Resource;
+
+@Repository
+public class RoleDaoImpl implements IRoleDao {
+
+    @Resource
+    private RoleMapper roleMapper;
+
+    @Override
+    public void add(Role role){
+        roleMapper.insert(role);
     }
 
-    public int getCode() {
-        return code;
+    @Override
+    public Role getByRoleName(String roleName) {
+        return roleMapper.selectByRole(roleName);
     }
 
-    public String getDescription() {
-        return description;
-    }
 }

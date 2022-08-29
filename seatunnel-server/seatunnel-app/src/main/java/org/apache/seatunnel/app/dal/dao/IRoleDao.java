@@ -15,26 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.app.common;
+package org.apache.seatunnel.app.dal.dao;
 
-public enum UserTypeEnum {
-    NORMAL(0, "normal"),
-    ADMIN(1, "admin"),
-    ;
+import org.apache.seatunnel.app.dal.entity.Role;
 
-    private final int code;
-    private final String  description;
+public interface IRoleDao {
 
-    UserTypeEnum(int code, String description) {
-        this.code = code;
-        this.description = description;
-    }
+    void add(Role role);
 
-    public int getCode() {
-        return code;
-    }
-
-    public String getDescription() {
-        return description;
-    }
+    Role getByRoleName(String roleName);
 }
