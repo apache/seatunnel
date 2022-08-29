@@ -35,6 +35,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
+import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -80,12 +81,8 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         this.hadoopConf = conf;
         this.jobId = jobId;
         this.subTaskIndex = subTaskIndex;
-        this.transactionId = "T" + Constant.TRANSACTION_ID_SPLIT + jobId + Constant.TRANSACTION_ID_SPLIT + subTaskIndex + Constant.TRANSACTION_ID_SPLIT + checkpointId;
-        this.transactionDirectory = getTransactionDir(this.transactionId);
-        this.needMoveFiles = new HashMap<>();
-        this.partitionDirAndValuesMap = new HashMap<>();
-        this.beingWrittenFile = new HashMap<>();
         FileSystemUtils.CONF = getConfiguration(hadoopConf);
+        this.beginTransaction(this.checkpointId);
     }
 
     /**
@@ -195,7 +192,6 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     @Override
     public Optional<FileCommitInfo2> prepareCommit() {
         this.finishAndCloseFile();
-        // this.needMoveFiles will be clear when beginTransaction, so we need copy the needMoveFiles.
         Map<String, String> commitMap = new HashMap<>(this.needMoveFiles);
         Map<String, List<String>> copyMap = this.partitionDirAndValuesMap.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> new ArrayList<>(e.getValue())));
@@ -207,10 +203,46 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      */
     @Override
     public void abortPrepare() {
+        abortPrepare(transactionId);
+    }
+
+    /**
+     * abort prepare commit operation using transaction directory
+     * @param transactionId transaction id
+     */
+    public void abortPrepare(String transactionId) {
         try {
-            FileSystemUtils.deleteFile(transactionDirectory);
+            FileSystemUtils.deleteFile(getTransactionDir(transactionId));
         } catch (IOException e) {
-            throw new RuntimeException("abort transaction " + this.transactionId + " error.", e);
+            throw new RuntimeException("abort transaction " + transactionId + " error.", e);
+        }
+    }
+
+    /**
+     * when a checkpoint completed, file connector should begin a new transaction and generate new transaction id
+     * @param checkpointId checkpoint id
+     */
+    public void beginTransaction(Long checkpointId) {
+        this.transactionId = "T" + Constant.TRANSACTION_ID_SPLIT + jobId + Constant.TRANSACTION_ID_SPLIT + subTaskIndex + Constant.TRANSACTION_ID_SPLIT + checkpointId;
+        this.transactionDirectory = getTransactionDir(this.transactionId);
+        this.needMoveFiles = new HashMap<>();
+        this.partitionDirAndValuesMap = new HashMap<>();
+        this.beingWrittenFile = new HashMap<>();
+    }
+
+    /**
+     * get transaction ids from file sink states
+     * @param fileStates file sink states
+     * @return transaction ids
+     */
+    public List<String> getTransactionIdFromStates(List<FileSinkState2> fileStates) {
+        String[] strings = new String[]{textFileSinkConfig.getPath(), Constant.SEATUNNEL, jobId};
+        String jobDir = String.join(File.separator, strings) + "/";
+        try {
+            List<String> transactionDirList = FileSystemUtils.dirList(jobDir).stream().map(Path::toString).collect(Collectors.toList());
+            return transactionDirList.stream().map(dir -> dir.replaceAll(jobDir, "")).collect(Collectors.toList());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -224,9 +256,15 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     public List<FileSinkState2> snapshotState(long checkpointId) {
         ArrayList<FileSinkState2> fileState = Lists.newArrayList(new FileSinkState2(this.transactionId, this.checkpointId));
         this.checkpointId = checkpointId;
+        this.beginTransaction(checkpointId);
         return fileState;
     }
 
+    /**
+     * using transaction id generate transaction directory
+     * @param transactionId transaction id
+     * @return transaction directory
+     */
     private String getTransactionDir(@NonNull String transactionId) {
         String[] strings = new String[]{textFileSinkConfig.getTmpPath(), Constant.SEATUNNEL, jobId, transactionId};
         return String.join(File.separator, strings);

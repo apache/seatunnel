@@ -44,6 +44,20 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
         writeStrategy.init(hadoopConf, jobId, subTaskIndex);
     }
 
+    public BaseFileSinkWriter(WriteStrategy writeStrategy, HadoopConf hadoopConf, SinkWriter.Context context, String jobId, List<FileSinkState2> fileSinkStates) {
+        this.writeStrategy = writeStrategy;
+        this.context = context;
+        this.hadoopConf = hadoopConf;
+        this.jobId = jobId;
+        this.subTaskIndex = context.getIndexOfSubtask();
+        writeStrategy.init(hadoopConf, jobId, subTaskIndex);
+        if (!fileSinkStates.isEmpty()) {
+            List<String> transactionIds = writeStrategy.getTransactionIdFromStates(fileSinkStates);
+            transactionIds.forEach(writeStrategy::abortPrepare);
+        }
+        writeStrategy.beginTransaction(fileSinkStates.get(0).getCheckpointId());
+    }
+
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         try {

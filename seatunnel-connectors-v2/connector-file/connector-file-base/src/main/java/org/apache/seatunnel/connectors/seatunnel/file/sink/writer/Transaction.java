@@ -37,9 +37,28 @@ public interface Transaction extends Serializable {
     void abortPrepare();
 
     /**
+     * abort prepare commit operation using transaction id
+     * @param transactionId transaction id
+     */
+    void abortPrepare(String transactionId);
+
+    /**
      * when a checkpoint was triggered, snapshot the state of connector
      * @param checkpointId checkpointId
      * @return the list of states
      */
     List<FileSinkState2> snapshotState(long checkpointId);
+
+    /**
+     * get dirty transaction ids from file sink states
+     * @param fileSinkState file sink states
+     * @return transaction ids
+     */
+    List<String> getTransactionIdFromStates(List<FileSinkState2> fileSinkState);
+
+    /**
+     * when a checkpoint triggered, file sink should begin a new transaction
+     * @param checkpointId checkpoint id
+     */
+    void beginTransaction(Long checkpointId);
 }

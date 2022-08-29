@@ -74,8 +74,7 @@ public abstract class BaseFileSink implements SeaTunnelSink<SeaTunnelRow, FileSi
 
     @Override
     public SinkWriter<SeaTunnelRow, FileCommitInfo2, FileSinkState2> restoreWriter(SinkWriter.Context context, List<FileSinkState2> states) throws IOException {
-        // TODO
-        return null;
+        return new BaseFileSinkWriter(writeStrategy, hadoopConf, context, jobId, states);
     }
 
     @Override
