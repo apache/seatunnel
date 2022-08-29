@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Optional;
 
@@ -87,7 +88,9 @@ public class ConsoleSinkWriterIT {
             map.put("key", "value");
             MapType<String, String> mapType = new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE);
             Object mapString = fieldToStringTest(mapType, map);
+            System.out.println(mapString);
             Assertions.assertNotNull(mapString);
+            Assertions.assertEquals("{\"key\":\"value\"}", mapString);
         });
     }
 
@@ -100,7 +103,9 @@ public class ConsoleSinkWriterIT {
             byte[] bytes = RandomUtils.nextBytes(10);
             Object[] rowData = {(byte) 1, bytes, bytes};
             Object rowString = fieldToStringTest(seaTunnelRowType, rowData);
+            System.out.println(rowString);
             Assertions.assertNotNull(rowString);
+            Assertions.assertEquals(String.format("[1, %s, %s]", Arrays.toString(bytes), Arrays.toString(bytes)), rowString.toString());
         });
     }
 }
