@@ -25,7 +25,11 @@ import org.apache.seatunnel.engine.checkpoint.storage.common.ProtoStuffSerialize
 import org.apache.seatunnel.engine.checkpoint.storage.common.Serializer;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishedOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointTriggerOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.execution.TaskInfo;
 
@@ -34,10 +38,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Used to coordinate all checkpoints of a pipeline.
@@ -58,7 +67,9 @@ public class CheckpointCoordinator {
 
     private final CheckpointStorageConfiguration storageConfig;
 
-    private final Serializer serializer;
+    private final CheckpointIDCounter idCounter;
+
+    private final Serializer serializer = new ProtoStuffSerializer();
 
     private final CheckpointPlan plan;
 
@@ -68,6 +79,11 @@ public class CheckpointCoordinator {
 
     private final CheckpointCoordinatorConfiguration coordinatorConfig;
 
+    private final transient ScheduledExecutorService scheduler;
+
+    private final AtomicLong latestTriggerTimestamp = new AtomicLong(0);
+
+    private final Object lock = new Object();
     public CheckpointCoordinator(CheckpointManager manager,
                                  CheckpointStorage checkpointStorage,
                                  CheckpointStorageConfiguration storageConfig,
@@ -77,13 +93,55 @@ public class CheckpointCoordinator {
         this.checkpointManager = manager;
         this.checkpointStorage = checkpointStorage;
         this.storageConfig = storageConfig;
-        this.serializer = new ProtoStuffSerializer();
         this.jobId = jobId;
         this.pipelineId = plan.getPipelineId();
         this.plan = plan;
         this.coordinatorConfig = coordinatorConfig;
         this.pendingCheckpoints = new LinkedHashMap<>();
-        this.completedCheckpoints = new ArrayDeque<>();
+        this.completedCheckpoints = new ArrayDeque<>(storageConfig.getMaxRetainedCheckpoints() + 1);
+        this.scheduler = Executors.newScheduledThreadPool(
+            1, runnable -> {
+                Thread thread = new Thread(runnable);
+                thread.setDaemon(true);
+                thread.setName(String.format("checkpoint-coordinator-%s/%s", pipelineId, jobId));
+                return thread;
+            });
+        // TODO: IDCounter SPI
+        this.idCounter = new StandaloneCheckpointIDCounter();
+        scheduleTriggerPendingCheckpoint(coordinatorConfig.getCheckpointInterval());
+    }
+
+    private void scheduleTriggerPendingCheckpoint(long delayMills) {
+        scheduler.schedule(this::tryTriggerPendingCheckpoint, delayMills, TimeUnit.MILLISECONDS);
+    }
+
+    private void tryTriggerPendingCheckpoint() {
+        final long currentTimestamp = Instant.now().toEpochMilli();
+        synchronized (lock) {
+            if (currentTimestamp - latestTriggerTimestamp.get() >= coordinatorConfig.getCheckpointInterval() &&
+                pendingCheckpoints.size() < coordinatorConfig.getMaxConcurrentCheckpoints()) {
+                CheckpointBarrier checkpointBarrier = new CheckpointBarrier(idCounter.get(), currentTimestamp, CheckpointType.CHECKPOINT_TYPE);
+                InvocationFuture<?>[] invocationFutures = triggerCheckpoint(checkpointBarrier);
+                CompletableFuture.allOf(invocationFutures).join();
+                try {
+                    idCounter.getAndIncrement();
+                } catch (Exception e) {
+                    sneakyThrow(e);
+                }
+                latestTriggerTimestamp.set(currentTimestamp);
+                scheduleTriggerPendingCheckpoint(coordinatorConfig.getCheckpointInterval());
+            }
+        }
+    }
+
+    public InvocationFuture<?>[] triggerCheckpoint(CheckpointBarrier checkpointBarrier) {
+        return plan.getStartingTasks()
+            .stream()
+            .map(taskId -> new CheckpointTriggerOperation(checkpointBarrier,
+                new TaskInfo(jobId, plan.getPipelineTaskIds().get(taskId), taskId)
+            ))
+            .map(checkpointManager::triggerCheckpoint)
+            .toArray(InvocationFuture[]::new);
     }
 
     protected void acknowledgeTask(TaskAcknowledgeOperation ackOperation) {
@@ -112,6 +170,10 @@ public class CheckpointCoordinator {
             pendingCheckpoint.getTaskStates(),
             pendingCheckpoint.getTaskStatistics());
         pendingCheckpoints.remove(checkpointId);
+        if (pendingCheckpoints.size() + 1 == coordinatorConfig.getMaxConcurrentCheckpoints()) {
+            // latest checkpoint completed time > checkpoint interval
+            tryTriggerPendingCheckpoint();
+        }
         completedCheckpoints.addLast(completedCheckpoint);
         try {
             byte[] states = serializer.serialize(completedCheckpoint);
