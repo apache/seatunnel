@@ -123,7 +123,7 @@ public class TaskExecutionService {
         uncheckRun(startedLatch::await);
     }
 
-    public PassiveCompletableFuture<TaskExecutionState> deployTask(
+    public synchronized PassiveCompletableFuture<TaskExecutionState> deployTask(
         @NonNull Data taskImmutableInformation
     ) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
@@ -140,6 +140,9 @@ public class TaskExecutionService {
                         taskImmutableInfo.getGroup());
             } else {
                 taskGroup = nodeEngine.getSerializationService().toObject(taskImmutableInfo.getGroup());
+            }
+            if (executionContexts.containsKey(taskGroup.getTaskGroupInfo())) {
+                throw new RuntimeException(String.format("TaskGroupInfo: %s already exists", taskGroup.getTaskGroupInfo()));
             }
             return deployLocalTask(taskGroup, resultFuture);
         } catch (Throwable t) {
@@ -382,6 +385,7 @@ public class TaskExecutionService {
             if (completionLatch.decrementAndGet() == 0) {
                 TaskGroupInfo taskGroupInfo = taskGroup.getTaskGroupInfo();
                 executionContexts.remove(taskGroupInfo);
+                cancellationFutures.remove(taskGroupInfo);
                 Throwable ex = executionException.get();
                 if (ex == null) {
                     future.complete(new TaskExecutionState(taskGroupInfo, ExecutionState.FINISHED, null));

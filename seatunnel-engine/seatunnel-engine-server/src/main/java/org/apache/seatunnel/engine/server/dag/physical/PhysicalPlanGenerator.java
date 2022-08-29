@@ -200,7 +200,7 @@ public class PhysicalPlanGenerator {
                         atomicInteger.incrementAndGet(),
                         executorService,
                         collect.size(),
-                        new TaskGroupDefaultImpl(new TaskGroupInfo(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID), s.getName() + "-AggregatedCommitterTask",
+                        new TaskGroupDefaultImpl(taskGroupInfo, s.getName() + "-AggregatedCommitterTask",
                             Lists.newArrayList(t)),
                         taskFuture,
                         flakeIdGenerator,
@@ -240,7 +240,7 @@ public class PhysicalPlanGenerator {
                         i,
                         executorService,
                         flow.getAction().getParallelism(),
-                        new TaskGroupDefaultImpl(new TaskGroupInfo(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID), flow.getAction().getName() +
+                        new TaskGroupDefaultImpl(taskGroupInfo, flow.getAction().getName() +
                             "-PartitionTransformTask",
                             Lists.newArrayList(seaTunnelTask)),
                         taskFuture,
@@ -275,7 +275,7 @@ public class PhysicalPlanGenerator {
                 atomicInteger.incrementAndGet(),
                 executorService,
                 sources.size(),
-                new TaskGroupDefaultImpl(new TaskGroupInfo(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID), s.getName() + "-SplitEnumerator",
+                new TaskGroupDefaultImpl(taskGroupInfo, s.getName() + "-SplitEnumerator",
                     Lists.newArrayList(t)),
                 taskFuture,
                 flakeIdGenerator,
@@ -297,14 +297,14 @@ public class PhysicalPlanGenerator {
             .map(s -> new PhysicalExecutionFlow(s, getNextWrapper(edges, s)))
             .flatMap(flow -> {
                 List<PhysicalVertex> t = new ArrayList<>();
-                long taskGroupID = idGenerator.getNextId();
-                TaskGroupInfo taskGroupInfo = new TaskGroupInfo(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID);
                 List<Flow> flows = new ArrayList<>(Collections.singletonList(flow));
                 if (sourceWithSink(flow)) {
                     flows.addAll(splitSinkFromFlow(flow));
                 }
                 Map<Long, Long> flowTaskIDPrefixMap = new HashMap<>();
                 for (int i = 0; i < flow.getAction().getParallelism(); i++) {
+                    long taskGroupID = idGenerator.getNextId();
+                    TaskGroupInfo taskGroupInfo = new TaskGroupInfo(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID);
                     int finalParallelismIndex = i;
                     List<SeaTunnelTask> taskList =
                         flows.stream().map(f -> {
