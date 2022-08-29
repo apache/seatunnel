@@ -90,7 +90,6 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TestTask testTask1 = new TestTask(stop, logger, sleepTime, true);
         TestTask testTask2 = new TestTask(stop, logger, sleepTime, false);
 
-
         TaskGroupDefaultImpl ts = new TaskGroupDefaultImpl(new TaskGroupInfo(jobId, pipeLineId, flakeIdGenerator.newId()), "ts", Lists.newArrayList(testTask1, testTask2));
         CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.deployLocalTask(ts, new CompletableFuture<>());
 
