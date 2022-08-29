@@ -26,7 +26,7 @@ import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
-import org.apache.seatunnel.engine.server.execution.TaskGroupInfo;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
 import org.apache.seatunnel.engine.server.task.operation.DeployTaskOperation;
@@ -55,7 +55,7 @@ public class PhysicalVertex {
 
     private final long physicalVertexId;
 
-    private final TaskGroupInfo taskGroupInfo;
+    private final TaskGroupLocation taskGroupLocation;
 
     /**
      * the index of PhysicalVertex
@@ -149,7 +149,7 @@ public class PhysicalVertex {
                 subTaskGroupIndex + 1,
                 parallelism);
         this.taskFuture = taskFuture;
-        this.taskGroupInfo = new TaskGroupInfo(jobImmutableInformation.getJobId(), pipelineIndex, physicalVertexId);
+        this.taskGroupLocation = new TaskGroupLocation(jobImmutableInformation.getJobId(), pipelineIndex, physicalVertexId);
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -177,20 +177,20 @@ public class PhysicalVertex {
                     if (ExecutionState.CANCELING.equals(this.getExecutionState().get())) {
                         turnToEndState(ExecutionState.CANCELED);
                         taskFuture.complete(
-                            new TaskExecutionState(this.taskGroupInfo, ExecutionState.CANCELED, null));
+                            new TaskExecutionState(this.taskGroupLocation, ExecutionState.CANCELED, null));
                     } else {
                         turnToEndState(ExecutionState.FAILED);
-                        taskFuture.complete(new TaskExecutionState(this.taskGroupInfo, ExecutionState.FAILED,
+                        taskFuture.complete(new TaskExecutionState(this.taskGroupLocation, ExecutionState.FAILED,
                             new JobException(String.format("%s turn to a unexpected state: %s, make it Failed",
                                 this.getTaskFullName(), executionState.get()))));
                     }
                 }
             } else if (ExecutionState.CANCELING.equals(this.getExecutionState().get())) {
                 turnToEndState(ExecutionState.CANCELED);
-                taskFuture.complete(new TaskExecutionState(this.taskGroupInfo, executionState.get(), null));
+                taskFuture.complete(new TaskExecutionState(this.taskGroupLocation, executionState.get(), null));
             } else {
                 turnToEndState(ExecutionState.FAILED);
-                taskFuture.complete(new TaskExecutionState(this.taskGroupInfo, executionState.get(),
+                taskFuture.complete(new TaskExecutionState(this.taskGroupLocation, executionState.get(),
                     new JobException(String.format("%s turn to a unexpected state"))));
             }
 
@@ -200,7 +200,7 @@ public class PhysicalVertex {
                 ExceptionUtils.getMessage(th)));
             turnToEndState(ExecutionState.FAILED);
             taskFuture.complete(
-                new TaskExecutionState(this.taskGroupInfo, ExecutionState.FAILED, th));
+                new TaskExecutionState(this.taskGroupLocation, ExecutionState.FAILED, th));
         }
 
         if (waitForCompleteByExecutionService == null) {
@@ -212,7 +212,7 @@ public class PhysicalVertex {
                 if (t != null) {
                     LOGGER.severe("An unexpected error occurred while the task was running", t);
                     taskFuture.complete(
-                        new TaskExecutionState(this.taskGroupInfo, ExecutionState.FAILED,
+                        new TaskExecutionState(this.taskGroupLocation, ExecutionState.FAILED,
                             t));
                 } else {
                     turnToEndState(v.getExecutionState());
@@ -232,7 +232,7 @@ public class PhysicalVertex {
                 LOGGER.severe(
                     String.format("%s end with Exception: %s", this.taskFullName, ExceptionUtils.getMessage(th)));
                 turnToEndState(ExecutionState.FAILED);
-                v = new TaskExecutionState(this.taskGroupInfo, ExecutionState.FAILED, th);
+                v = new TaskExecutionState(this.taskGroupLocation, ExecutionState.FAILED, th);
                 taskFuture.complete(v);
             }
         });
@@ -310,7 +310,7 @@ public class PhysicalVertex {
     public void cancel() {
         if (updateTaskState(ExecutionState.CREATED, ExecutionState.CANCELED) ||
             updateTaskState(ExecutionState.SCHEDULED, ExecutionState.CANCELED)) {
-            taskFuture.complete(new TaskExecutionState(this.taskGroupInfo, ExecutionState.CANCELED, null));
+            taskFuture.complete(new TaskExecutionState(this.taskGroupLocation, ExecutionState.CANCELED, null));
         } else if (updateTaskState(ExecutionState.DEPLOYING, ExecutionState.CANCELING)) {
             // do nothing, because even if task is deployed to TaskExecutionService, we can do the cancel in deploy method
         } else if (updateTaskState(ExecutionState.RUNNING, ExecutionState.CANCELING)) {

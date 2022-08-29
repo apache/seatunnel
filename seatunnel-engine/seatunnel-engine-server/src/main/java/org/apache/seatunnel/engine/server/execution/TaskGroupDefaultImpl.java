@@ -23,14 +23,14 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class TaskGroupDefaultImpl implements TaskGroup {
-    private final TaskGroupInfo taskGroupInfo;
+    private final TaskGroupLocation taskGroupLocation;
 
     private final String taskGroupName;
 
     private final Map<Long, Task> tasks;
 
-    public TaskGroupDefaultImpl(TaskGroupInfo taskGroupInfo, String taskGroupName, Collection<Task> tasks) {
-        this.taskGroupInfo = taskGroupInfo;
+    public TaskGroupDefaultImpl(TaskGroupLocation taskGroupLocation, String taskGroupName, Collection<Task> tasks) {
+        this.taskGroupLocation = taskGroupLocation;
         this.taskGroupName = taskGroupName;
         this.tasks = tasks.stream().collect(Collectors.toMap(Task::getTaskID, Function.identity()));
     }
@@ -40,8 +40,8 @@ public class TaskGroupDefaultImpl implements TaskGroup {
     }
 
     @Override
-    public TaskGroupInfo getTaskGroupInfo() {
-        return taskGroupInfo;
+    public TaskGroupLocation getTaskGroupInfo() {
+        return taskGroupLocation;
     }
 
     @Override

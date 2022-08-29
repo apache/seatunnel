@@ -49,7 +49,7 @@ public class SourceNoMoreElementOperation extends Operation implements Identifie
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(() -> {
             SourceSplitEnumeratorTask<?> task =
-                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupInfo())
+                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupLocation())
                     .getTaskGroup().getTask(enumeratorTaskID.getTaskID());
             task.readerFinished(currentTaskID.getTaskID());
             return null;

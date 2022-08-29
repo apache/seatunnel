@@ -117,7 +117,7 @@ public class JobExecutionIT {
             Thread.sleep(1000);
             clientJobProxy.cancelJob();
 
-            await().atMost(10000, TimeUnit.MILLISECONDS)
+            await().atMost(20000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
                     Assert.assertTrue(objectCompletableFuture.isDone());
                 });

@@ -26,7 +26,7 @@ import java.io.Serializable;
 
 @Data
 @AllArgsConstructor
-public class TaskGroupInfo implements Serializable {
+public class TaskGroupLocation implements Serializable {
     private final long jobId;
 
     private final long pipelineId;
@@ -43,7 +43,7 @@ public class TaskGroupInfo implements Serializable {
             return false;
         }
 
-        TaskGroupInfo that = (TaskGroupInfo) o;
+        TaskGroupLocation that = (TaskGroupLocation) o;
 
         return new EqualsBuilder().append(jobId, that.jobId).append(pipelineId, that.pipelineId).append(taskGroupId, that.taskGroupId).isEquals();
     }

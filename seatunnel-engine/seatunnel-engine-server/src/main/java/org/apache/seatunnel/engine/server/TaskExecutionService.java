@@ -35,7 +35,7 @@ import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
-import org.apache.seatunnel.engine.server.execution.TaskGroupInfo;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 
@@ -79,8 +79,8 @@ public class TaskExecutionService {
     private final ExecutorService executorService = newCachedThreadPool(new BlockingTaskThreadFactory());
     private final RunBusWorkSupplier runBusWorkSupplier = new RunBusWorkSupplier(executorService, threadShareTaskQueue);
     // key: TaskID
-    private final ConcurrentMap<TaskGroupInfo, TaskGroupContext> executionContexts = new ConcurrentHashMap<>();
-    private final ConcurrentMap<TaskGroupInfo, CompletableFuture<Void>> cancellationFutures = new ConcurrentHashMap<>();
+    private final ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts = new ConcurrentHashMap<>();
+    private final ConcurrentMap<TaskGroupLocation, CompletableFuture<Void>> cancellationFutures = new ConcurrentHashMap<>();
 
     public TaskExecutionService(NodeEngineImpl nodeEngine, HazelcastProperties properties) {
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
@@ -97,8 +97,8 @@ public class TaskExecutionService {
         executorService.shutdownNow();
     }
 
-    public TaskGroupContext getExecutionContext(TaskGroupInfo taskGroupInfo) {
-        return executionContexts.get(taskGroupInfo);
+    public TaskGroupContext getExecutionContext(TaskGroupLocation taskGroupLocation) {
+        return executionContexts.get(taskGroupLocation);
     }
 
     private void submitThreadShareTask(TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
@@ -142,7 +142,7 @@ public class TaskExecutionService {
                 taskGroup = nodeEngine.getSerializationService().toObject(taskImmutableInfo.getGroup());
             }
             if (executionContexts.containsKey(taskGroup.getTaskGroupInfo())) {
-                throw new RuntimeException(String.format("TaskGroupInfo: %s already exists", taskGroup.getTaskGroupInfo()));
+                throw new RuntimeException(String.format("TaskGroupLocation: %s already exists", taskGroup.getTaskGroupInfo()));
             }
             return deployLocalTask(taskGroup, resultFuture);
         } catch (Throwable t) {
@@ -190,14 +190,14 @@ public class TaskExecutionService {
      * JobMaster call this method to cancel a task, and then {@link TaskExecutionService} cancel this task and send the
      * {@link TaskExecutionState} to JobMaster.
      *
-     * @param taskGroupInfo TaskGroup.getTaskGroupInfo()
+     * @param taskGroupLocation TaskGroup.getTaskGroupInfo()
      */
-    public void cancelTaskGroup(TaskGroupInfo taskGroupInfo) {
-        logger.info(String.format("Task (%s) need cancel.", taskGroupInfo));
-        if (cancellationFutures.containsKey(taskGroupInfo)) {
-            cancellationFutures.get(taskGroupInfo).cancel(false);
+    public void cancelTaskGroup(TaskGroupLocation taskGroupLocation) {
+        logger.info(String.format("Task (%s) need cancel.", taskGroupLocation));
+        if (cancellationFutures.containsKey(taskGroupLocation)) {
+            cancellationFutures.get(taskGroupLocation).cancel(false);
         } else {
-            logger.warning(String.format("need cancel taskId : %s is not exist", taskGroupInfo));
+            logger.warning(String.format("need cancel taskId : %s is not exist", taskGroupLocation));
         }
 
     }
@@ -383,16 +383,16 @@ public class TaskExecutionService {
 
         void taskDone() {
             if (completionLatch.decrementAndGet() == 0) {
-                TaskGroupInfo taskGroupInfo = taskGroup.getTaskGroupInfo();
-                executionContexts.remove(taskGroupInfo);
-                cancellationFutures.remove(taskGroupInfo);
+                TaskGroupLocation taskGroupLocation = taskGroup.getTaskGroupInfo();
+                executionContexts.remove(taskGroupLocation);
+                cancellationFutures.remove(taskGroupLocation);
                 Throwable ex = executionException.get();
                 if (ex == null) {
-                    future.complete(new TaskExecutionState(taskGroupInfo, ExecutionState.FINISHED, null));
+                    future.complete(new TaskExecutionState(taskGroupLocation, ExecutionState.FINISHED, null));
                 } else if (isCancel.get()) {
-                    future.complete(new TaskExecutionState(taskGroupInfo, ExecutionState.CANCELED, null));
+                    future.complete(new TaskExecutionState(taskGroupLocation, ExecutionState.CANCELED, null));
                 } else {
-                    future.complete(new TaskExecutionState(taskGroupInfo, ExecutionState.FAILED, ex));
+                    future.complete(new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, ex));
                 }
             }
         }

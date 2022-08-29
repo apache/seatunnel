@@ -51,7 +51,7 @@ public class RequestSplitOperation extends Operation implements IdentifiedDataSe
 
         RetryUtils.retryWithException(() -> {
             SourceSplitEnumeratorTask<?> task =
-                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupInfo())
+                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupLocation())
                     .getTaskGroup().getTask(enumeratorTaskID.getTaskID());
             task.requestSplit(taskID.getTaskID());
             return null;
