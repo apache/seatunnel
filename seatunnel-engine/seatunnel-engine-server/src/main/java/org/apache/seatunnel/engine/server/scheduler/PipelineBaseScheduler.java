@@ -39,6 +39,7 @@ import lombok.NonNull;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -66,19 +67,22 @@ public class PipelineBaseScheduler implements JobScheduler {
                     handlePipelineStateUpdateError(pipeline, PipelineState.SCHEDULED);
                     return null;
                 }
-                Map<PhysicalVertex, SlotProfile> slotProfiles = applyResourceForPipeline(pipeline);
-                pipeline.whenComplete((state, error) -> {
-                    releasePipelineResource(Lists.newArrayList(slotProfiles.values()));
-                });
+                Map<PhysicalVertex, SlotProfile> slotProfiles;
+                try {
+                    slotProfiles = applyResourceForPipeline(pipeline);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                pipeline.whenComplete((state, error) -> releasePipelineResource(Lists.newArrayList(slotProfiles.values())));
                 // deploy pipeline
                 return CompletableFuture.supplyAsync(() -> {
                     deployPipeline(pipeline, slotProfiles);
                     return null;
                 });
-            }).filter(x -> x != null).collect(Collectors.toList());
+            }).filter(Objects::nonNull).collect(Collectors.toList());
             try {
                 CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
-                    collect.toArray(new CompletableFuture[collect.size()]));
+                    collect.toArray(new CompletableFuture[0]));
                 voidCompletableFuture.get();
             } catch (Exception e) {
                 // cancel pipeline and throw an exception
@@ -127,24 +131,9 @@ public class PipelineBaseScheduler implements JobScheduler {
         }
     }
 
-    private CompletableFuture<Void> deployTask(PhysicalVertex task) {
-        if (task.updateTaskState(ExecutionState.SCHEDULED, ExecutionState.DEPLOYING)) {
-            // deploy is a time-consuming operation, so we do it async
-            return CompletableFuture.supplyAsync(() -> {
-                task.deploy(
-                    resourceManager.getAppliedResource(physicalPlan.getJobImmutableInformation().getJobId(),
-                        task.getTaskGroup().getId()));
-                return null;
-            });
-        } else {
-            handleTaskStateUpdateError(task, ExecutionState.DEPLOYING);
-        }
-        return null;
-    }
-
-    private void deployPipeline(@NonNull SubPlan pipeline,Map<PhysicalVertex, SlotProfile> slotProfiles) {
+    private void deployPipeline(@NonNull SubPlan pipeline, Map<PhysicalVertex, SlotProfile> slotProfiles) {
         if (pipeline.updatePipelineState(PipelineState.SCHEDULED, PipelineState.DEPLOYING)) {
-            List<CompletableFuture> deployCoordinatorFuture =
+            List<CompletableFuture<?>> deployCoordinatorFuture =
                 pipeline.getCoordinatorVertexList().stream().map(coordinator -> {
                     if (coordinator.updateTaskState(ExecutionState.SCHEDULED, ExecutionState.DEPLOYING)) {
                         // deploy is a time-consuming operation, so we do it async
@@ -154,9 +143,9 @@ public class PipelineBaseScheduler implements JobScheduler {
                         });
                     }
                     return null;
-                }).filter(x -> x != null).collect(Collectors.toList());
+                }).filter(Objects::nonNull).collect(Collectors.toList());
 
-            List<CompletableFuture> deployTaskFuture =
+            List<CompletableFuture<?>> deployTaskFuture =
                 pipeline.getPhysicalVertexList().stream().map(task -> {
                     if (task.updateTaskState(ExecutionState.SCHEDULED, ExecutionState.DEPLOYING)) {
                         return CompletableFuture.supplyAsync(() -> {
@@ -165,12 +154,12 @@ public class PipelineBaseScheduler implements JobScheduler {
                         });
                     }
                     return null;
-                }).filter(x -> x != null).collect(Collectors.toList());
+                }).filter(Objects::nonNull).collect(Collectors.toList());
 
             try {
                 deployCoordinatorFuture.addAll(deployTaskFuture);
                 CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
-                    deployCoordinatorFuture.toArray(new CompletableFuture[deployCoordinatorFuture.size()]));
+                    deployCoordinatorFuture.toArray(new CompletableFuture[0]));
                 voidCompletableFuture.get();
                 if (!pipeline.updatePipelineState(PipelineState.DEPLOYING, PipelineState.RUNNING)) {
                     LOGGER.info(
