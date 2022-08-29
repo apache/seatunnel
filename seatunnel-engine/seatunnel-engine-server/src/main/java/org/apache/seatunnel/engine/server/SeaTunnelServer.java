@@ -159,7 +159,9 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         if (resourceManager == null) {
             synchronized (this) {
                 if (resourceManager == null) {
-                    resourceManager = new ResourceManagerFactory(nodeEngine).getResourceManager();
+                    ResourceManager manager = new ResourceManagerFactory(nodeEngine).getResourceManager();
+                    manager.init();
+                    resourceManager = manager;
                 }
             }
         }

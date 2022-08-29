@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
+import com.google.common.collect.Lists;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.NonNull;
@@ -43,6 +44,8 @@ import java.util.stream.Collectors;
 public class PipelineBaseScheduler implements JobScheduler {
     private static final ILogger LOGGER = Logger.getLogger(PipelineBaseScheduler.class);
     private final PhysicalPlan physicalPlan;
+
+    private final long jobId;
     private final JobMaster jobMaster;
     private final ResourceManager resourceManager;
 
@@ -50,6 +53,7 @@ public class PipelineBaseScheduler implements JobScheduler {
         this.physicalPlan = physicalPlan;
         this.jobMaster = jobMaster;
         this.resourceManager = jobMaster.getResourceManager();
+        this.jobId = physicalPlan.getJobImmutableInformation().getJobId();
     }
 
     @Override
@@ -59,12 +63,22 @@ public class PipelineBaseScheduler implements JobScheduler {
             pipeline.updatePipelineState(PipelineState.CREATED, PipelineState.SCHEDULED);
             try {
                 Map<PhysicalVertex, SlotProfile> slotProfiles = applyResourceForPipeline(pipeline);
+                pipeline.whenComplete((state, error) -> {
+                    releasePipelineResource(Lists.newArrayList(slotProfiles.values()));
+                });
                 // deploy pipeline
                 deployPipeline(pipeline, slotProfiles);
             } catch (Exception e) {
                 pipeline.failedWithNoEnoughResource();
             }
         });
+    }
+
+    private void releasePipelineResource(List<SlotProfile> slotProfiles) {
+        if (null == slotProfiles || slotProfiles.isEmpty()) {
+            return;
+        }
+        resourceManager.releaseResources(jobId, slotProfiles).join();
     }
 
     private Map<PhysicalVertex, SlotProfile> applyResourceForPipeline(@NonNull SubPlan subPlan) throws Exception {
@@ -79,8 +93,7 @@ public class PipelineBaseScheduler implements JobScheduler {
                 // TODO If there is no enough resources for tasks, we need add some wait profile
                 task.updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED);
                 // TODO custom resource size
-                futures.put(task, resourceManager.applyResource(physicalPlan.getJobImmutableInformation().getJobId(),
-                        new ResourceProfile()));
+                futures.put(task, resourceManager.applyResource(jobId, new ResourceProfile()));
             });
             for (Map.Entry<PhysicalVertex, CompletableFuture<SlotProfile>> future : futures.entrySet()) {
                 try {

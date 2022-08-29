@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.kubernetes.KubernetesResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.yarn.YarnResourceManager;
 

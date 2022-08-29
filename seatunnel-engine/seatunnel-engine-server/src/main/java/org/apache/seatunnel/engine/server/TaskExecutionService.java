@@ -129,14 +129,17 @@ public class TaskExecutionService {
         uncheckRun(startedLatch::await);
     }
 
+    public PassiveCompletableFuture<TaskExecutionState> deployTask(@NonNull Data taskImmutableInformation) {
+        TaskGroupImmutableInformation taskImmutableInfo =
+            nodeEngine.getSerializationService().toObject(taskImmutableInformation);
+        return deployTask(taskImmutableInfo);
+    }
+
     public PassiveCompletableFuture<TaskExecutionState> deployTask(
-        @NonNull Data taskImmutableInformation
-    ) {
+        @NonNull TaskGroupImmutableInformation taskImmutableInfo) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
         TaskGroup taskGroup = null;
         try {
-            TaskGroupImmutableInformation taskImmutableInfo =
-                nodeEngine.getSerializationService().toObject(taskImmutableInformation);
             Set<URL> jars = taskImmutableInfo.getJars();
 
             if (!CollectionUtils.isEmpty(jars)) {

@@ -29,8 +29,8 @@ public class HeartbeatManager {
 
     private static final ILogger LOGGER = Logger.getLogger(HeartbeatManager.class);
 
-    private static final int DEFAULT_TIMEOUT_MILLISECONDS = 5;
-    private static final int DEFAULT_INTERVAL_MILLISECONDS = 3;
+    private static final int DEFAULT_TIMEOUT_MILLISECONDS = 5000;
+    private static final int DEFAULT_INTERVAL_MILLISECONDS = 3000;
     private final Map<String, Long> lastHeartbeat;
     private final HeartbeatListener listener;
 

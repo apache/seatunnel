@@ -144,7 +144,7 @@ public class PhysicalVertex {
         try {
             SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
             completeFuture = new PassiveCompletableFuture<>(server.getTaskExecutionService()
-                    .deployTask(taskGroupImmutableInformation.getGroup()));
+                .deployTask(taskGroupImmutableInformation));
         } catch (Throwable th) {
             failedByException(taskGroupImmutableInformation, th);
             return;
@@ -155,15 +155,14 @@ public class PhysicalVertex {
     @SuppressWarnings("checkstyle:MagicNumber")
     // This method must not throw an exception
     public void deploy(@NonNull SlotProfile slotProfile) {
-
         TaskGroupImmutableInformation taskGroupImmutableInformation = getTaskGroupImmutableInformation();
         PassiveCompletableFuture<TaskExecutionState> completeFuture;
         try {
             completeFuture = new PassiveCompletableFuture<>(
-                    nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
-                            new DeployTaskOperation(slotProfile,
-                                    nodeEngine.getSerializationService().toData(taskGroupImmutableInformation)),
-                            slotProfile.getWorker()).invoke());
+                nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
+                    new DeployTaskOperation(slotProfile,
+                        nodeEngine.getSerializationService().toData(taskGroupImmutableInformation)),
+                    slotProfile.getWorker()).invoke());
             updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
         } catch (Throwable th) {
             failedByException(taskGroupImmutableInformation, th);
@@ -174,11 +173,11 @@ public class PhysicalVertex {
 
     private void failedByException(TaskGroupImmutableInformation taskGroupImmutableInformation, Throwable th) {
         LOGGER.severe(String.format("%s deploy error with Exception: %s",
-                this.taskFullName,
-                ExceptionUtils.getMessage(th)));
+            this.taskFullName,
+            ExceptionUtils.getMessage(th)));
         updateTaskState(ExecutionState.DEPLOYING, ExecutionState.FAILED);
         taskFuture.complete(
-                new TaskExecutionState(taskGroupImmutableInformation.getExecutionId(), ExecutionState.FAILED, null));
+            new TaskExecutionState(taskGroupImmutableInformation.getExecutionId(), ExecutionState.FAILED, null));
     }
 
     private TaskGroupImmutableInformation getTaskGroupImmutableInformation() {

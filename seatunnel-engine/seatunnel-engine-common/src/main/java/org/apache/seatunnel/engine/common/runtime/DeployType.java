@@ -15,28 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.resourcemanager.resource;
+package org.apache.seatunnel.engine.common.runtime;
 
-public class CPU implements Resource {
-
-    private final int core;
-
-    private CPU(int core) {
-        this.core = core;
-    }
-
-    public int getCore() {
-        return core;
-    }
-
-    public static CPU of(int core) {
-        return new CPU(core);
-    }
-
-    @Override
-    public String toString() {
-        return "CPU{" +
-            "core=" + core +
-            '}';
-    }
+public enum DeployType {
+    STANDALONE,
+    YARN,
+    KUBERNETES
 }

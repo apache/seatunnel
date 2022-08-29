@@ -28,6 +28,8 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfi
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.InvocationBuilder;
 import com.hazelcast.spi.impl.operationservice.Operation;
@@ -46,6 +48,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class DefaultSlotService implements SlotService {
 
+    private static final ILogger LOGGER = Logger.getLogger(DefaultSlotService.class);
     private static final long DEFAULT_HEARTBEAT_TIMEOUT = 2000;
     private static final int HEARTBEAT_RETRY_TIME = 5;
     private final NodeEngineImpl nodeEngine;
@@ -84,9 +87,8 @@ public class DefaultSlotService implements SlotService {
         scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
         if (!dynamicSlot) {
             initFixedSlots();
-        } else {
-            unassignedResource.set(getNodeResource());
         }
+        unassignedResource.set(getNodeResource());
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             try {
                 RetryUtils.retryWithException(() -> {
@@ -100,10 +102,11 @@ public class DefaultSlotService implements SlotService {
     }
 
     @Override
-    public synchronized SlotAndWorkerProfile requestSlot(long jobID, ResourceProfile resourceProfile) {
+    public synchronized SlotAndWorkerProfile requestSlot(long jobId, ResourceProfile resourceProfile) {
+        LOGGER.info(String.format("received slot request, jobID: %d, resource profile: %s", jobId, resourceProfile));
         SlotProfile profile = selectBestMatchSlot(resourceProfile);
         if (profile != null) {
-            profile.assign(jobID);
+            profile.assign(jobId);
             assignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::merge);
             unassignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::unmerge);
             unassignedSlots.remove(profile.getSlotID());
@@ -120,7 +123,7 @@ public class DefaultSlotService implements SlotService {
 
     @Override
     public void releaseSlot(long jobId, SlotProfile profile) {
-
+        LOGGER.info(String.format("received slot release request, jobID: %d, slot: %s", jobId, profile));
         if (!assignedSlots.containsKey(profile.getSlotID())) {
             throw new WrongTargetSlotException("Not exist this slot in slot service, slot profile: " + profile);
         }

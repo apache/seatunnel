@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 
 public class SubPlan {
     private static final ILogger LOGGER = Logger.getLogger(SubPlan.class);
@@ -131,10 +132,14 @@ public class SubPlan {
                         updatePipelineState(PipelineState.FINISHED);
                         LOGGER.info(String.format("%s end with state FINISHED", this.pipelineFullName));
                     }
-                    pipelineFuture.complete(pipelineState.get());
+                    this.pipelineFuture.complete(pipelineState.get());
                 }
             });
         });
+    }
+
+    public void whenComplete(BiConsumer<? super PipelineState, ? super Throwable> action) {
+        this.pipelineFuture.whenComplete(action);
     }
 
     public boolean updatePipelineState(@NonNull PipelineState targetState) {

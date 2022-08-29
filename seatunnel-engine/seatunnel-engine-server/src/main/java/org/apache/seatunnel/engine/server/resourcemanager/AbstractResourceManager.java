@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.resourcemanager.heartbeat.HeartbeatListener;
 import org.apache.seatunnel.engine.server.resourcemanager.heartbeat.HeartbeatManager;
@@ -50,6 +51,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public abstract class AbstractResourceManager implements ResourceManager {
 
+    private static final long DEFAULT_WORKER_CHECK_INTERVAL = 500;
     private static final ILogger LOGGER = Logger.getLogger(AbstractResourceManager.class);
 
     protected final Map<String, WorkerProfile> registerWorker;
@@ -57,15 +59,22 @@ public abstract class AbstractResourceManager implements ResourceManager {
     private final HeartbeatManager heartbeatManager;
     private final NodeEngine nodeEngine;
 
+    private final ExecutionMode mode = ExecutionMode.LOCAL;
+
     public AbstractResourceManager(NodeEngine nodeEngine) {
         this.registerWorker = new ConcurrentHashMap<>();
         this.nodeEngine = nodeEngine;
         this.heartbeatManager = new HeartbeatManager(new WorkerHeartbeatListener());
+    }
+
+    @Override
+    public void init() {
         heartbeatManager.start(Executors.newSingleThreadScheduledExecutor());
     }
 
     @Override
     public CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile) throws NoEnoughResourceException {
+        waitingWorkerRegister();
         CompletableFuture<SlotProfile> completableFuture = new CompletableFuture<>();
         applyResources(jobId, Collections.singletonList(resourceProfile)).whenComplete((profile, error) -> {
             if (error != null) {
@@ -77,87 +86,123 @@ public abstract class AbstractResourceManager implements ResourceManager {
         return completableFuture;
     }
 
+    private void waitingWorkerRegister() {
+        if (ExecutionMode.LOCAL.equals(mode)) {
+            // Local mode, should wait worker(master node) register.
+            try {
+                while (registerWorker.isEmpty()) {
+                    Thread.sleep(DEFAULT_WORKER_CHECK_INTERVAL);
+                }
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
     @Override
     public CompletableFuture<List<SlotProfile>> applyResources(long jobId,
                                                                List<ResourceProfile> resourceProfile) throws NoEnoughResourceException {
         // TODO Apply for the profile with the largest resources first, and then decrease in order. In this
         //  way, the success rate of resource application will be higher.
+        waitingWorkerRegister();
         CompletableFuture<List<SlotProfile>> completableFuture = new CompletableFuture<>();
+        CompletableFuture<Void> requestSlotFuture = new CompletableFuture<>();
         AtomicInteger successCount = new AtomicInteger();
         List<SlotProfile> slotProfiles = new CopyOnWriteArrayList<>();
-        try {
-            resourceProfile.forEach(r -> {
-                Optional<WorkerProfile> workerProfile =
-                        registerWorker.values().stream().filter(worker -> worker.getUnassignedResource().enoughThan(r)).findAny();
+        List<CompletableFuture<SlotAndWorkerProfile>> allRequestFuture = new ArrayList<>();
+        for (ResourceProfile r : resourceProfile) {
+            Optional<WorkerProfile> workerProfile =
+                registerWorker.values().stream().filter(worker -> worker.getUnassignedResource().enoughThan(r)).findAny();
 
-                if (!workerProfile.isPresent()) {
-                    workerProfile =
-                            registerWorker.values().stream().filter(worker -> Arrays.stream(worker.getUnassignedSlots()).anyMatch(slot -> slot.getResourceProfile().enoughThan(r))).findAny();
-                }
+            if (!workerProfile.isPresent()) {
+                workerProfile =
+                    registerWorker.values().stream().filter(worker -> Arrays.stream(worker.getUnassignedSlots()).anyMatch(slot -> slot.getResourceProfile().enoughThan(r))).findAny();
+            }
 
-                if (workerProfile.isPresent()) {
-                    sendToMember(new RequestSlotOperation(jobId, r), workerProfile.get().getAddress()).whenComplete(
-                            (profile, error) -> {
-                                if (error != null) {
-                                    completableFuture.completeExceptionally(error);
-                                } else {
-                                    SlotAndWorkerProfile slotAndWorkerProfile =
-                                            (SlotAndWorkerProfile) profile;
-                                    workerRegister(slotAndWorkerProfile.getWorkerProfile());
-                                    if (null != slotAndWorkerProfile.getSlotProfile()) {
-                                        slotProfiles.add(slotAndWorkerProfile.getSlotProfile());
-                                        if (successCount.incrementAndGet() == resourceProfile.size()) {
-                                            completableFuture.complete(slotProfiles);
-                                        }
-                                    } else {
-                                        slotProfiles.add(null);
-                                    }
+            if (workerProfile.isPresent()) {
+                InvocationFuture<SlotAndWorkerProfile> future = sendToMember(new RequestSlotOperation(jobId, r), workerProfile.get().getAddress());
+                CompletableFuture<SlotAndWorkerProfile> internalCompletableFuture = future.whenComplete(
+                    (slotAndWorkerProfile, error) -> {
+                        if (error != null) {
+                            throw new RuntimeException(error);
+                        } else {
+                            workerTouch(slotAndWorkerProfile.getWorkerProfile());
+                            if (null != slotAndWorkerProfile.getSlotProfile()) {
+                                slotProfiles.add(slotAndWorkerProfile.getSlotProfile());
+                                if (successCount.incrementAndGet() == resourceProfile.size()) {
+                                    completableFuture.complete(slotProfiles);
                                 }
+                            } else {
+                                slotProfiles.add(null);
                             }
-                    ).join();
-                } else {
-                    throw new NoEnoughResourceException("can't apply resource request: " + r);
-                }
-            });
-            if (slotProfiles.contains(null) && supportDynamicWorker()) {
-                List<ResourceProfile> needApplyResource = new ArrayList<>();
-                List<Integer> needApplyIndex = new ArrayList<>();
-                for (int i = 0; i < slotProfiles.size(); i++) {
-                    if (slotProfiles.get(i) == null) {
-                        needApplyResource.add(resourceProfile.get(i));
-                        needApplyIndex.add(i);
-                    }
-                }
-                findNewWorker(needApplyResource);
-                applyResources(jobId, needApplyResource).whenComplete((s, e) -> {
-                    if (e != null) {
-                        completableFuture.completeExceptionally(e);
-                        return;
-                    }
-                    for (int i = 0; i < s.size(); i++) {
-                        slotProfiles.set(needApplyIndex.get(i), s.get(i));
-                        if (successCount.incrementAndGet() == resourceProfile.size()) {
-                            completableFuture.complete(slotProfiles);
+                        }
+                        if (slotProfiles.size() == resourceProfile.size()) {
+                            requestSlotFuture.complete(null);
                         }
                     }
-
-                });
+                );
+                allRequestFuture.add(internalCompletableFuture);
             } else {
-                throw new NoEnoughResourceException("can't apply resource request: " + resourceProfile.get(slotProfiles.indexOf(null)));
+                CompletableFuture.allOf(allRequestFuture.toArray(new CompletableFuture[0])).whenComplete((unused, error) -> {
+                        releaseAllResourceInternal(jobId, slotProfiles);
+                        if (error != null) {
+                            completableFuture.completeExceptionally(error);
+                        } else {
+                            completableFuture.completeExceptionally(new NoEnoughResourceException("can't apply resource request: " + r));
+                        }
+                    }
+                );
+                return completableFuture;
             }
-        } catch (Exception e) {
-            LOGGER.warning("apply resource not success, release all already applied resource");
-            slotProfiles.stream().filter(Objects::nonNull).forEach(profile -> {
-                releaseResource(jobId, profile);
-            });
-            throw e;
         }
+        CompletableFuture.allOf(allRequestFuture.toArray(new CompletableFuture[0])).whenComplete((unused, error) -> {
+            if (error != null) {
+                releaseAllResourceInternal(jobId, slotProfiles);
+                completableFuture.completeExceptionally(error);
+            }
+            if (slotProfiles.contains(null)) {
+                if (supportDynamicWorker()) {
+                    List<ResourceProfile> needApplyResource = new ArrayList<>();
+                    List<Integer> needApplyIndex = new ArrayList<>();
+                    for (int i = 0; i < slotProfiles.size(); i++) {
+                        if (slotProfiles.get(i) == null) {
+                            needApplyResource.add(resourceProfile.get(i));
+                            needApplyIndex.add(i);
+                        }
+                    }
+                    findNewWorker(needApplyResource);
+                    applyResources(jobId, needApplyResource).whenComplete((s, e) -> {
+                        if (e != null) {
+                            releaseAllResourceInternal(jobId, slotProfiles);
+                            completableFuture.completeExceptionally(e);
+                            return;
+                        }
+                        for (int i = 0; i < s.size(); i++) {
+                            slotProfiles.set(needApplyIndex.get(i), s.get(i));
+                            if (successCount.incrementAndGet() == resourceProfile.size()) {
+                                completableFuture.complete(slotProfiles);
+                            }
+                        }
 
+                    });
+                } else {
+                    releaseAllResourceInternal(jobId, slotProfiles);
+                    completableFuture.completeExceptionally(new NoEnoughResourceException("can't apply resource request: " + resourceProfile.get(slotProfiles.indexOf(null))));
+                }
+            }
+        });
         return completableFuture;
     }
 
     protected boolean supportDynamicWorker() {
         return false;
+    }
+
+    private void releaseAllResourceInternal(long jobId, List<SlotProfile> slotProfiles) {
+        LOGGER.warning("apply resource not success, release all already applied resource");
+        slotProfiles.stream().filter(Objects::nonNull).forEach(profile -> {
+            releaseResource(jobId, profile);
+        });
     }
 
     /**
@@ -200,7 +245,12 @@ public abstract class AbstractResourceManager implements ResourceManager {
     }
 
     @Override
-    public void workerRegister(WorkerProfile workerProfile) {
+    public void workerTouch(WorkerProfile workerProfile) {
+        if (!registerWorker.containsKey(workerProfile.getWorkerID())) {
+            LOGGER.info("received new worker register: " + workerProfile.getAddress());
+        } else {
+            LOGGER.fine("received worker heartbeat from: " + workerProfile.getAddress());
+        }
         registerWorker.put(workerProfile.getWorkerID(), workerProfile);
         heartbeatFromWorker(workerProfile.getWorkerID());
     }

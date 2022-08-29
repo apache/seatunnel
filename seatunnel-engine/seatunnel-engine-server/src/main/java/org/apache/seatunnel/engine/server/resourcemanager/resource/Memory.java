@@ -32,4 +32,11 @@ public class Memory implements Resource {
     public static Memory of(long bytes) {
         return new Memory(bytes);
     }
+
+    @Override
+    public String toString() {
+        return "Memory{" +
+            "bytes=" + bytes +
+            '}';
+    }
 }

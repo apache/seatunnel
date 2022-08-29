@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.resourcemanager;
+package org.apache.seatunnel.engine.common.runtime;
 
-public enum DeployType {
-    STANDALONE,
-    YARN,
-    KUBERNETES
+public enum ExecutionMode {
+    LOCAL,
+    CLUSTER
 }

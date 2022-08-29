@@ -21,21 +21,11 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfi
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
-import com.hazelcast.cluster.Address;
-
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public interface ResourceManager {
-    @Deprecated
-    default Address applyForResource(long jobId, long taskId) {
-        return null;
-    }
-
-    @Deprecated
-    default Address getAppliedResource(long jobId, long taskId) {
-        return null;
-    }
+    void init();
 
     CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile) throws NoEnoughResourceException;
 
@@ -45,7 +35,13 @@ public interface ResourceManager {
 
     CompletableFuture<Void> releaseResource(long jobId, SlotProfile profile);
 
-    void workerRegister(WorkerProfile workerProfile);
+    /**
+     * Every time ResourceManager and Worker communicate, workerTouch method should be called to
+     * record the latest Worker status
+     *
+     * @param workerProfile the worker current worker's profile
+     */
+    void workerTouch(WorkerProfile workerProfile);
 
     void heartbeatFromWorker(String workerID);
 
