@@ -20,7 +20,7 @@ A sink plugin which use send message to datahub
 
 ### url [string]
 i
-datahub endpoint  format is http://dh-cn-hangzhou.aliyuncs.com（string）
+your datahub endpoint start with http （string）
 
 ### accessId [string]
 

@@ -96,7 +96,7 @@ public class DataHubWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     @Override
     public void close() throws IOException {
-
+        //the client does not need to be closed
     }
 
     public boolean retry(List<RecordEntry> records, int retryNums, String project, String topic) {
