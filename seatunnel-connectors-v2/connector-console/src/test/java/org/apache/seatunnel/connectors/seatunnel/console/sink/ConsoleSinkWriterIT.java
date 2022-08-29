@@ -88,7 +88,6 @@ public class ConsoleSinkWriterIT {
             map.put("key", "value");
             MapType<String, String> mapType = new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE);
             Object mapString = fieldToStringTest(mapType, map);
-            System.out.println(mapString);
             Assertions.assertNotNull(mapString);
             Assertions.assertEquals("{\"key\":\"value\"}", mapString);
         });
