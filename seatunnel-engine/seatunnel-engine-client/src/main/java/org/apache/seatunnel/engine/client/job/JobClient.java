@@ -34,7 +34,7 @@ public class JobClient {
         return hazelcastClient.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
     }
 
-    public JobProxy createJobProxy(@NonNull JobImmutableInformation jobImmutableInformation) {
-        return new JobProxy(hazelcastClient, jobImmutableInformation);
+    public ClientJobProxy createJobProxy(@NonNull JobImmutableInformation jobImmutableInformation) {
+        return new ClientJobProxy(hazelcastClient, jobImmutableInformation);
     }
 }

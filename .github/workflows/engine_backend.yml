@@ -23,6 +23,8 @@ on:
       - 'seatunnel-engine/**'
       - 'seatunnel-engine/seatunnel-engine-e2e/**'
       - 'seatunnel-examples/seatunnel-engine-examples/**'
+      - 'seatunnel-core/seatunnel-seatunnel-starter/**'
+      - 'generate_client_protocol.sh'
 
 concurrency:
   group: backend-${{ github.event.pull_request.number || github.ref }}

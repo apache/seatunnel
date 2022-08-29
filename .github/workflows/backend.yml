@@ -26,6 +26,8 @@ on:
       - 'seatunnel-engine/**'
       - 'seatunnel-engine/seatunnel-engine-e2e/**'
       - 'seatunnel-examples/seatunnel-engine-examples/**'
+      - 'seatunnel-core/seatunnel-seatunnel-starter/**'
+      - 'generate_client_protocol.sh'
 
 concurrency:
   group: backend-${{ github.event.pull_request.number || github.ref }}
@@ -146,7 +148,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest', 'windows-latest' ]
-    timeout-minutes: 50
+    timeout-minutes: 80
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}
@@ -169,7 +171,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 50
+    timeout-minutes: 80
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}

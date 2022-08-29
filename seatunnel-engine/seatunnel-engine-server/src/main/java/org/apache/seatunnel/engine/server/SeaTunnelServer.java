@@ -167,4 +167,27 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
             return runningJobMaster.getJobMasterCompleteFuture();
         }
     }
+
+    public PassiveCompletableFuture<Void> cancelJob(long jodId) {
+        JobMaster runningJobMaster = runningJobMasterMap.get(jodId);
+        if (runningJobMaster == null) {
+            CompletableFuture<Void> future = new CompletableFuture<>();
+            future.complete(null);
+            return new PassiveCompletableFuture<>(future);
+        } else {
+            return new PassiveCompletableFuture<>(CompletableFuture.supplyAsync(() -> {
+                runningJobMaster.cancelJob();
+                return null;
+            }));
+        }
+    }
+
+    public JobStatus getJobStatus(long jobId) {
+        JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
+        if (runningJobMaster == null) {
+            // TODO Get Job Status from JobHistoryStorage
+            return JobStatus.FINISHED;
+        }
+        return runningJobMaster.getJobStatus();
+    }
 }

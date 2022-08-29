@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.operation;
+package org.apache.seatunnel.engine.server.task.operation;
 
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
+import org.apache.seatunnel.engine.server.operation.AsyncOperation;
+import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
 import com.hazelcast.internal.nio.IOUtil;
 import com.hazelcast.internal.serialization.Data;
@@ -47,7 +48,7 @@ public class DeployTaskOperation extends AsyncOperation {
 
     @Override
     public int getClassId() {
-        return OperationDataSerializerHook.DEPLOY_TASK_OPERATOR;
+        return TaskDataSerializerHook.DEPLOY_TASK_OPERATOR;
     }
 
     @Override
