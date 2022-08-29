@@ -17,11 +17,15 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
-import org.apache.seatunnel.engine.server.NodeEngineUtil;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
+import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishedOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointTriggerOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.execution.TaskInfo;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.jet.datamodel.Tuple2;
@@ -60,16 +64,23 @@ public class CheckpointManager {
      */
     private final Map<Integer, CheckpointCoordinator> coordinatorMap;
 
-    private final CheckpointCoordinatorConfiguration config;
+    private final CheckpointStorage checkpointStorage;
+    private final CheckpointCoordinatorConfiguration coordinatorConfig;
 
-    public CheckpointManager(long jobId, NodeEngine nodeEngine, Map<Integer, CheckpointPlan> checkpointPlanMap, CheckpointCoordinatorConfiguration config) {
+    public CheckpointManager(long jobId,
+                             NodeEngine nodeEngine,
+                             Map<Integer, CheckpointPlan> checkpointPlanMap,
+                             CheckpointCoordinatorConfiguration coordinatorConfig,
+                             CheckpointStorageConfiguration storageConfig) throws CheckpointStorageException {
         this.jobId = jobId;
         this.nodeEngine = nodeEngine;
         this.checkpointPlanMap = checkpointPlanMap;
-        this.config = config;
+        this.coordinatorConfig = coordinatorConfig;
         this.coordinatorMap = new HashMap<>(checkpointPlanMap.size());
         this.subtaskWithPipelines = checkpointPlanMap.values().stream().flatMap(plan -> plan.getPipelineTaskIds().keySet().stream().map(taskId -> Tuple2.tuple2(taskId, plan.getPipelineId()))).collect(Collectors.toMap(Tuple2::f0, Tuple2::f1));
-        this.subtaskWithAddresses = new HashMap<>(subtaskWithPipelines.size());
+        this.subtaskWithAddresses = new HashMap<>();
+        this.checkpointStorage = FactoryUtil.discoverFactory(Thread.currentThread().getContextClassLoader(), CheckpointStorageFactory.class, storageConfig.getStorage())
+            .create(new HashMap<>());
     }
 
     private int getPipelineId(long subtaskId) {

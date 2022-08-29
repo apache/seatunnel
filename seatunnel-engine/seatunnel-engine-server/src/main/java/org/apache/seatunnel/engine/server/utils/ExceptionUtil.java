@@ -15,16 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.checkpoint;
+package org.apache.seatunnel.engine.server.utils;
 
-/** A checkpoint, pending or completed. */
-public interface Checkpoint {
+public class ExceptionUtil {
+    private ExceptionUtil() {
+    }
 
-    long getCheckpointId();
-
-    int getPipelineId();
-
-    long getJobId();
-
-    long getCheckpointTimestamp();
+    /** javac hack for unchecking the checked exception. */
+    @SuppressWarnings("unchecked")
+    public static <T extends Exception> void sneakyThrow(Exception t) throws T {
+        throw (T) t;
+    }
 }

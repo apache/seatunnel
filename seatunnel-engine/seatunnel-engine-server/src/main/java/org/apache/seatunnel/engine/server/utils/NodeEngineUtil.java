@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server;
+package org.apache.seatunnel.engine.server.utils;
+
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.spi.impl.NodeEngine;
@@ -24,6 +26,9 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
 public class NodeEngineUtil {
+
+    private NodeEngineUtil() {
+    }
 
     public static <E> InvocationFuture<E> sendOperationToMasterNode(NodeEngine nodeEngine, Operation operation) {
         InvocationBuilder invocationBuilder = nodeEngine.getOperationService().createInvocationBuilder(SeaTunnelServer.SERVICE_NAME, operation, nodeEngine.getMasterAddress());

@@ -29,6 +29,6 @@ public class PipelineState {
 
     private String jobId;
     private int pipelineId;
-    private int checkpointId;
+    private long checkpointId;
     private byte[] states;
 }

@@ -26,7 +26,7 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
     private static final long serialVersionUID = 1L;
     private final long jobId;
 
-    private final long pipelineId;
+    private final int pipelineId;
 
     private final long checkpointId;
 
@@ -39,7 +39,7 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
     private final Map<Long, TaskStatistics> taskStatistics;
 
     public CompletedCheckpoint(long jobId,
-                               long pipelineId,
+                               int pipelineId,
                                long checkpointId,
                                long triggerTimestamp,
                                long completedTimestamp,
@@ -60,7 +60,7 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
     }
 
     @Override
-    public long getPipelineId() {
+    public int getPipelineId() {
         return this.pipelineId;
     }
 
@@ -72,5 +72,17 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
     @Override
     public long getCheckpointTimestamp() {
         return this.triggerTimestamp;
+    }
+
+    public long getCompletedTimestamp() {
+        return completedTimestamp;
+    }
+
+    public Map<Long, TaskState> getTaskStates() {
+        return taskStates;
+    }
+
+    public Map<Long, TaskStatistics> getTaskStatistics() {
+        return taskStatistics;
     }
 }

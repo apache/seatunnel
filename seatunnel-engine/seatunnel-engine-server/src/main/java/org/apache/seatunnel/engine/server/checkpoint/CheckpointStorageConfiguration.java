@@ -15,16 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.checkpoint;
+package org.apache.seatunnel.engine.server.checkpoint;
 
-/** A checkpoint, pending or completed. */
-public interface Checkpoint {
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 
-    long getCheckpointId();
+@Getter
+@EqualsAndHashCode
+@Builder(builderClassName = "Builder")
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
+public class CheckpointStorageConfiguration {
+    private final String storage;
+    private final int maxRetainedCheckpoints;
 
-    int getPipelineId();
-
-    long getJobId();
-
-    long getCheckpointTimestamp();
+    public static final class Builder {
+        private final String storage = "localfile";
+        private int retainedCheckpoints = 1;
+    }
 }

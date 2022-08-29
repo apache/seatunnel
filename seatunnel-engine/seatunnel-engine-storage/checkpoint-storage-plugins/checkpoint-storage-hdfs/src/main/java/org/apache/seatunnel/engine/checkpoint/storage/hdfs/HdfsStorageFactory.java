@@ -31,7 +31,7 @@ import java.util.Map;
 @AutoService(CheckpointStorageFactory.class)
 public class HdfsStorageFactory implements CheckpointStorageFactory {
     @Override
-    public String name() {
+    public String factoryIdentifier() {
         return "hdfs";
     }
 

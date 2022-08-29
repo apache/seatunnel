@@ -17,6 +17,13 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import static org.apache.seatunnel.engine.server.utils.ExceptionUtil.sneakyThrow;
+
+import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
+import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.common.ProtoStuffSerializer;
+import org.apache.seatunnel.engine.checkpoint.storage.common.Serializer;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishedOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
@@ -26,10 +33,11 @@ import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Used to coordinate all checkpoints of a pipeline.
@@ -42,29 +50,40 @@ public class CheckpointCoordinator {
 
     private final long jobId;
 
-    private final long pipelineId;
+    private final int pipelineId;
 
     private final CheckpointManager checkpointManager;
+
+    private final CheckpointStorage checkpointStorage;
+
+    private final CheckpointStorageConfiguration storageConfig;
+
+    private final Serializer serializer;
 
     private final CheckpointPlan plan;
 
     private final Map<Long, PendingCheckpoint> pendingCheckpoints;
 
-    private final Map<Long, CompletedCheckpoint> completedCheckpoints;
+    private final ArrayDeque<CompletedCheckpoint> completedCheckpoints;
 
-    private final CheckpointCoordinatorConfiguration config;
+    private final CheckpointCoordinatorConfiguration coordinatorConfig;
 
     public CheckpointCoordinator(CheckpointManager manager,
+                                 CheckpointStorage checkpointStorage,
+                                 CheckpointStorageConfiguration storageConfig,
                                  long jobId,
                                  CheckpointPlan plan,
-                                 CheckpointCoordinatorConfiguration config) {
+                                 CheckpointCoordinatorConfiguration coordinatorConfig) {
         this.checkpointManager = manager;
+        this.checkpointStorage = checkpointStorage;
+        this.storageConfig = storageConfig;
+        this.serializer = new ProtoStuffSerializer();
         this.jobId = jobId;
         this.pipelineId = plan.getPipelineId();
         this.plan = plan;
-        this.config = config;
+        this.coordinatorConfig = coordinatorConfig;
         this.pendingCheckpoints = new LinkedHashMap<>();
-        this.completedCheckpoints = new LinkedHashMap<>();
+        this.completedCheckpoints = new ArrayDeque<>();
     }
 
     protected void acknowledgeTask(TaskAcknowledgeOperation ackOperation) {
@@ -76,15 +95,15 @@ public class CheckpointCoordinator {
         }
         pendingCheckpoint.acknowledgeTask(ackOperation.getTaskInfo(), ackOperation.getStates());
         if (pendingCheckpoint.isFullyAcknowledged()) {
-            CompletedCheckpoint completedCheckpoint = completePendingCheckpoint(pendingCheckpoint);
-            pendingCheckpoints.remove(checkpointId);
-            completedCheckpoints.put(checkpointId, completedCheckpoint);
+            completePendingCheckpoint(pendingCheckpoint);
         }
     }
 
-    public CompletedCheckpoint completePendingCheckpoint(PendingCheckpoint pendingCheckpoint) {
-        notifyCheckpointCompleted(pendingCheckpoint.getCheckpointId());
-        return new CompletedCheckpoint(
+    public void completePendingCheckpoint(PendingCheckpoint pendingCheckpoint) {
+        final long checkpointId = pendingCheckpoint.getCheckpointId();
+        InvocationFuture<?>[] invocationFutures = notifyCheckpointCompleted(pendingCheckpoint.getCheckpointId());
+        CompletableFuture.allOf(invocationFutures).join();
+        CompletedCheckpoint completedCheckpoint = new CompletedCheckpoint(
             jobId,
             pipelineId,
             pendingCheckpoint.getCheckpointId(),
@@ -92,9 +111,29 @@ public class CheckpointCoordinator {
             System.currentTimeMillis(),
             pendingCheckpoint.getTaskStates(),
             pendingCheckpoint.getTaskStatistics());
+        pendingCheckpoints.remove(checkpointId);
+        completedCheckpoints.addLast(completedCheckpoint);
+        try {
+            byte[] states = serializer.serialize(completedCheckpoint);
+            checkpointStorage.storeCheckPoint(PipelineState.builder()
+                .checkpointId(checkpointId)
+                .jobId(String.valueOf(jobId))
+                .pipelineId(pipelineId)
+                .states(states)
+                .build());
+            if (completedCheckpoints.size() > storageConfig.getMaxRetainedCheckpoints()) {
+                CompletedCheckpoint superfluous = completedCheckpoints.removeFirst();
+                checkpointStorage.deleteCheckpoint(
+                    String.valueOf(superfluous.getJobId()),
+                    String.valueOf(superfluous.getPipelineId()),
+                    String.valueOf(superfluous.getCheckpointId()));
+            }
+        } catch (IOException | CheckpointStorageException e) {
+            sneakyThrow(e);
+        }
     }
 
-    public List<InvocationFuture> notifyCheckpointCompleted(long checkpointId) {
+    public InvocationFuture<?>[] notifyCheckpointCompleted(long checkpointId) {
         return plan.getPipelineTaskIds()
             .entrySet()
             .stream()
@@ -103,7 +142,7 @@ public class CheckpointCoordinator {
                     new TaskInfo(jobId, entry.getValue(), entry.getKey()),
                     true)
             ).map(checkpointManager::notifyCheckpointFinished)
-            .collect(Collectors.toList());
+            .toArray(InvocationFuture[]::new);
     }
 
     protected void taskCompleted(TaskInfo taskInfo) {

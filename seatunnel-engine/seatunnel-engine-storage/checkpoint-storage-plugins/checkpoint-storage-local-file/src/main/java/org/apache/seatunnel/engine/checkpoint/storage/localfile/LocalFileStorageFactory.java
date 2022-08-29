@@ -35,7 +35,7 @@ import java.util.Map;
 public class LocalFileStorageFactory implements CheckpointStorageFactory {
 
     @Override
-    public String name() {
+    public String factoryIdentifier() {
         return "localfile";
     }
 

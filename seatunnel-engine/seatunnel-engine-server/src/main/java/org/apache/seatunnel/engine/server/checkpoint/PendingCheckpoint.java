@@ -28,7 +28,7 @@ public class PendingCheckpoint implements Checkpoint {
 
     private final long jobId;
 
-    private final long pipelineId;
+    private final int pipelineId;
 
     private final long checkpointId;
 
@@ -41,7 +41,7 @@ public class PendingCheckpoint implements Checkpoint {
     private final Map<Long, TaskState> taskStates;
 
     public PendingCheckpoint(long jobId,
-                             long pipelineId,
+                             int pipelineId,
                              long checkpointId,
                              long triggerTimestamp,
                              Set<Long> notYetAcknowledgedTasks,
@@ -65,7 +65,7 @@ public class PendingCheckpoint implements Checkpoint {
     }
 
     @Override
-    public long getPipelineId() {
+    public int getPipelineId() {
         return this.pipelineId;
     }
 
