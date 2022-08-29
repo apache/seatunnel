@@ -43,7 +43,6 @@ import org.apache.seatunnel.engine.server.dag.physical.flow.UnknownFlowException
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
-import org.apache.seatunnel.engine.server.execution.TaskGroupInfo;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
@@ -187,12 +186,11 @@ public class PhysicalPlanGenerator {
                 // if sinkAggregatedCommitter is empty, don't create task.
                 if (sinkAggregatedCommitter.isPresent()) {
                     long taskGroupID = idGenerator.getNextId();
-                    TaskGroupInfo taskGroupInfo = new TaskGroupInfo(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID);
                     SinkAggregatedCommitterTask<?> t =
                         new SinkAggregatedCommitterTask(jobImmutableInformation.getJobId(),
-                            new TaskLocation(taskGroupInfo, convertToTaskID(idGenerator.getNextId(), 0)), s,
+                            new TaskLocation(taskGroupID, mixIDPrefixAndIndex(idGenerator.getNextId(), 0)), s,
                             sinkAggregatedCommitter.get());
-                    committerTaskIDMap.put(s, new TaskLocation(taskGroupInfo, t.getTaskID()));
+                    committerTaskIDMap.put(s, new TaskLocation(taskGroupID, t.getTaskID()));
                     CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
                     waitForCompleteByPhysicalVertexList.add(new PassiveCompletableFuture<>(taskFuture));
 
@@ -200,7 +198,7 @@ public class PhysicalPlanGenerator {
                         atomicInteger.incrementAndGet(),
                         executorService,
                         collect.size(),
-                        new TaskGroupDefaultImpl(taskGroupInfo, s.getName() + "-AggregatedCommitterTask",
+                        new TaskGroupDefaultImpl(taskGroupID, s.getName() + "-AggregatedCommitterTask",
                             Lists.newArrayList(t)),
                         taskFuture,
                         flakeIdGenerator,
@@ -226,12 +224,12 @@ public class PhysicalPlanGenerator {
             .flatMap(flow -> {
                 List<PhysicalVertex> t = new ArrayList<>();
                 long taskIDPrefix = idGenerator.getNextId();
+                long taskGroupIDPrefix = idGenerator.getNextId();
                 for (int i = 0; i < flow.getAction().getParallelism(); i++) {
-                    long taskGroupID = idGenerator.getNextId();
-                    TaskGroupInfo taskGroupInfo = new TaskGroupInfo(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID);
+                    long taskGroupID = mixIDPrefixAndIndex(taskGroupIDPrefix, i);
                     setFlowConfig(flow, i);
                     SeaTunnelTask seaTunnelTask = new TransformSeaTunnelTask(jobImmutableInformation.getJobId(),
-                        new TaskLocation(taskGroupInfo, convertToTaskID(taskIDPrefix, i)), i, flow);
+                        new TaskLocation(taskGroupID, mixIDPrefixAndIndex(taskIDPrefix, i)), i, flow);
 
                     CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
                     waitForCompleteByPhysicalVertexList.add(new PassiveCompletableFuture<>(taskFuture));
@@ -240,8 +238,8 @@ public class PhysicalPlanGenerator {
                         i,
                         executorService,
                         flow.getAction().getParallelism(),
-                        new TaskGroupDefaultImpl(taskGroupInfo, flow.getAction().getName() +
-                            "-PartitionTransformTask",
+                        new TaskGroupDefaultImpl(taskGroupID, flow.getAction().getName() +
+                                "-PartitionTransformTask",
                             Lists.newArrayList(seaTunnelTask)),
                         taskFuture,
                         flakeIdGenerator,
@@ -264,10 +262,9 @@ public class PhysicalPlanGenerator {
 
         return sources.stream().map(s -> {
             long taskGroupID = idGenerator.getNextId();
-            TaskGroupInfo taskGroupInfo = new TaskGroupInfo(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID);
             SourceSplitEnumeratorTask<?> t = new SourceSplitEnumeratorTask<>(jobImmutableInformation.getJobId(),
-                new TaskLocation(taskGroupInfo, convertToTaskID(idGenerator.getNextId(), 0)), s);
-            enumeratorTaskIDMap.put(s, new TaskLocation(taskGroupInfo, t.getTaskID()));
+                new TaskLocation(taskGroupID, mixIDPrefixAndIndex(idGenerator.getNextId(), 0)), s);
+            enumeratorTaskIDMap.put(s, new TaskLocation(taskGroupID, t.getTaskID()));
             CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
             waitForCompleteByPhysicalVertexList.add(new PassiveCompletableFuture<>(taskFuture));
 
@@ -275,8 +272,8 @@ public class PhysicalPlanGenerator {
                 atomicInteger.incrementAndGet(),
                 executorService,
                 sources.size(),
-                new TaskGroupDefaultImpl(taskGroupInfo, s.getName() + "-SplitEnumerator",
-                    Lists.newArrayList(t)),
+                new TaskGroupDefaultImpl(taskGroupID, s.getName() + "-SplitEnumerator",
+                        Lists.newArrayList(t)),
                 taskFuture,
                 flakeIdGenerator,
                 pipelineIndex,
@@ -301,11 +298,11 @@ public class PhysicalPlanGenerator {
                 if (sourceWithSink(flow)) {
                     flows.addAll(splitSinkFromFlow(flow));
                 }
+                long taskGroupIDPrefix = idGenerator.getNextId();
                 Map<Long, Long> flowTaskIDPrefixMap = new HashMap<>();
                 for (int i = 0; i < flow.getAction().getParallelism(); i++) {
-                    long taskGroupID = idGenerator.getNextId();
-                    TaskGroupInfo taskGroupInfo = new TaskGroupInfo(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID);
                     int finalParallelismIndex = i;
+                    long taskGroupID = mixIDPrefixAndIndex(taskGroupIDPrefix, i);
                     List<SeaTunnelTask> taskList =
                         flows.stream().map(f -> {
                             setFlowConfig(f, finalParallelismIndex);
@@ -313,13 +310,13 @@ public class PhysicalPlanGenerator {
                                 flowTaskIDPrefixMap.computeIfAbsent(f.getFlowID(), id -> idGenerator.getNextId());
                             if (f instanceof PhysicalExecutionFlow) {
                                 return new SourceSeaTunnelTask<>(jobImmutableInformation.getJobId(),
-                                    new TaskLocation(taskGroupInfo,
-                                        convertToTaskID(taskIDPrefix, finalParallelismIndex)),
+                                    new TaskLocation(taskGroupID,
+                                        mixIDPrefixAndIndex(taskIDPrefix, finalParallelismIndex)),
                                     finalParallelismIndex, f);
                             } else {
                                 return new TransformSeaTunnelTask(jobImmutableInformation.getJobId(),
-                                    new TaskLocation(taskGroupInfo,
-                                        convertToTaskID(taskIDPrefix, finalParallelismIndex)),
+                                    new TaskLocation(taskGroupID,
+                                        mixIDPrefixAndIndex(taskIDPrefix, finalParallelismIndex)),
                                     finalParallelismIndex, f);
                             }
                         }).collect(Collectors.toList());
@@ -336,8 +333,8 @@ public class PhysicalPlanGenerator {
                             i,
                             executorService,
                             flow.getAction().getParallelism(),
-                            new TaskGroupWithIntermediateQueue(taskGroupInfo, flow.getAction().getName() +
-                                "-SourceTask",
+                            new TaskGroupWithIntermediateQueue(taskGroupID, flow.getAction().getName() +
+                                    "-SourceTask",
                                 taskList.stream().map(task -> (Task) task).collect(Collectors.toList())),
                             taskFuture,
                             flakeIdGenerator,
@@ -352,8 +349,8 @@ public class PhysicalPlanGenerator {
                             i,
                             executorService,
                             flow.getAction().getParallelism(),
-                            new TaskGroupDefaultImpl(new TaskGroupInfo(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID), flow.getAction().getName() +
-                                "-SourceTask",
+                            new TaskGroupDefaultImpl(taskGroupID, flow.getAction().getName() +
+                                    "-SourceTask",
                                 taskList.stream().map(task -> (Task) task).collect(Collectors.toList())),
                             taskFuture,
                             flakeIdGenerator,
@@ -449,8 +446,8 @@ public class PhysicalPlanGenerator {
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    private long convertToTaskID(long taskTypeID, int index) {
-        return taskTypeID * 10000 + index;
+    private long mixIDPrefixAndIndex(long idPrefix, int index) {
+        return idPrefix * 10000 + index;
     }
 
     private List<Flow> getNextWrapper(List<ExecutionEdge> edges, Action start) {
