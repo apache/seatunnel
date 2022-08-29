@@ -23,7 +23,6 @@ import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -33,20 +32,12 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
-import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
-import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 
 import com.google.common.collect.Sets;
-import com.hazelcast.config.Config;
-import com.hazelcast.instance.impl.HazelcastInstanceFactory;
-import com.hazelcast.instance.impl.HazelcastInstanceImpl;
-import com.hazelcast.instance.impl.HazelcastInstanceProxy;
-import com.hazelcast.spi.impl.NodeEngine;
-import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 
 import java.net.MalformedURLException;
@@ -54,24 +45,7 @@ import java.net.URL;
 import java.util.Collections;
 import java.util.concurrent.Executors;
 
-public class TaskTest {
-
-    private SeaTunnelServer service;
-
-    private NodeEngine nodeEngine;
-
-    private HazelcastInstanceImpl instance;
-
-    @Before
-    public void before() {
-        Config config = new Config();
-        config.setInstanceName("test");
-        config.setClusterName("test");
-        instance = ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(config,
-            "taskTest", new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
-        nodeEngine = instance.node.nodeEngine;
-        service = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
-    }
+public class TaskTest extends AbstractSeaTunnelServerTest {
 
     @Test
     public void testTask() throws MalformedURLException {
@@ -103,13 +77,12 @@ public class TaskTest {
 
         JobConfig config = new JobConfig();
         config.setName("test");
-        config.setMode(JobMode.BATCH);
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
             nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
 
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
-            service.submitJob(jobImmutableInformation.getJobId(),
+            server.submitJob(jobImmutableInformation.getJobId(),
                 nodeEngine.getSerializationService().toData(jobImmutableInformation));
 
         Assert.assertNotNull(voidPassiveCompletableFuture);
@@ -141,7 +114,6 @@ public class TaskTest {
 
         JobConfig config = new JobConfig();
         config.setName("test");
-        config.setMode(JobMode.BATCH);
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
             nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
@@ -155,10 +127,5 @@ public class TaskTest {
         Assert.assertEquals(physicalPlan.getPipelineList().size(), 1);
         Assert.assertEquals(physicalPlan.getPipelineList().get(0).getCoordinatorVertexList().size(), 1);
         Assert.assertEquals(physicalPlan.getPipelineList().get(0).getPhysicalVertexList().size(), 1);
-    }
-
-    @After
-    public void after() {
-        instance.shutdown();
     }
 }

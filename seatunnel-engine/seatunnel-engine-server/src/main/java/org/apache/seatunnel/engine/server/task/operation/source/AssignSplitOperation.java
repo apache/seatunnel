@@ -18,6 +18,8 @@
 package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.common.utils.RetryUtils;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
@@ -47,10 +49,14 @@ public class AssignSplitOperation<SplitT extends SourceSplit> extends Operation 
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        SourceSeaTunnelTask<?, SplitT> task =
-                server.getSlotService().getSlotContext(taskID.getSlotID()).getTaskExecutionService()
-                        .getExecutionContext(taskID.getTaskGroupID()).getTaskGroup().getTask(taskID.getTaskID());
-        task.receivedSourceSplit(splits);
+        RetryUtils.retryWithException(() -> {
+            SourceSeaTunnelTask<?, SplitT> task =
+                server.getSlotService().getSlotContext(taskID.getSlotID()).getTaskExecutionService().getExecutionContext(taskID.getTaskGroupID()).getTaskGroup()
+                    .getTask(taskID.getTaskID());
+            task.receivedSourceSplit(splits);
+            return null;
+        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
+            exception -> exception instanceof NullPointerException, Constant.OPERATION_RETRY_SLEEP));
     }
 
     @Override

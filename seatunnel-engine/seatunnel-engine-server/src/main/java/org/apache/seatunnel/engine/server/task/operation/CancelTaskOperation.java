@@ -15,56 +15,63 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.operation;
+package org.apache.seatunnel.engine.server.task.operation;
 
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
-import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
+import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
-import com.hazelcast.internal.nio.IOUtil;
-import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
-import lombok.NonNull;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class DeployTaskOperation extends AsyncOperation {
-    private Data taskImmutableInformation;
-    private SlotProfile slotProfile;
+/**
+ * This operation is only to notice the {@link org.apache.seatunnel.engine.server.TaskExecutionService} to cancel the
+ * task. After the final task is cancelled, the {@link org.apache.seatunnel.engine.server.TaskExecutionService} will
+ * notified JobMaster
+ */
+public class CancelTaskOperation extends Operation implements IdentifiedDataSerializable {
+    private long taskGroupId;
 
-    public DeployTaskOperation() {
+    public CancelTaskOperation() {
     }
 
-    public DeployTaskOperation(@NonNull SlotProfile slotProfile, @NonNull Data taskImmutableInformation) {
-        this.taskImmutableInformation = taskImmutableInformation;
-        this.slotProfile = slotProfile;
+    public CancelTaskOperation(long taskGroupId) {
+        this.taskGroupId = taskGroupId;
     }
 
     @Override
-    protected PassiveCompletableFuture<?> doRun() throws Exception {
-        SeaTunnelServer server = getService();
-        return server.getSlotService().getSlotContext(slotProfile.getSlotID())
-                .getTaskExecutionService().deployTask(taskImmutableInformation);
+    public int getFactoryId() {
+        return TaskDataSerializerHook.FACTORY_ID;
     }
 
     @Override
     public int getClassId() {
-        return OperationDataSerializerHook.DEPLOY_TASK_OPERATOR;
+        return TaskDataSerializerHook.CANCEL_TASK_OPERATOR;
+    }
+
+    @Override
+    public void run() throws Exception {
+        SeaTunnelServer server = getService();
+        server.getTaskExecutionService().cancelTaskGroup(taskGroupId);
+    }
+
+    @Override
+    public String getServiceName() {
+        return SeaTunnelServer.SERVICE_NAME;
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        IOUtil.writeData(out, taskImmutableInformation);
-        out.writeObject(slotProfile);
+        out.writeLong(taskGroupId);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        taskImmutableInformation = IOUtil.readData(in);
-        slotProfile = in.readObject();
+        taskGroupId = in.readLong();
     }
 }

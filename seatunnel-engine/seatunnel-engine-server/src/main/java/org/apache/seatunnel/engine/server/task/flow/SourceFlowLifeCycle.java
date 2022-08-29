@@ -83,8 +83,9 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
 
     @Override
     public void close() throws IOException {
-        super.close();
+        collector.close();
         reader.close();
+        super.close();
     }
 
     public void collect() throws Exception {
@@ -94,10 +95,9 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
     }
 
     public void signalNoMoreElement() {
-        // Close this reader
+        // ready close this reader
         try {
             this.closed = true;
-            collector.close();
             runningTask.getExecutionContext().sendToMaster(new SourceNoMoreElementOperation(currentTaskID,
                     enumeratorTaskID)).get();
         } catch (Exception e) {

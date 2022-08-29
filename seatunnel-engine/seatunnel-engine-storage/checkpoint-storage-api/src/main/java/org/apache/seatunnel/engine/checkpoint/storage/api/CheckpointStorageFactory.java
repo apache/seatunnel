@@ -20,6 +20,8 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.api;
 
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+
 import java.util.Map;
 
 /**
@@ -43,5 +45,5 @@ public interface CheckpointStorageFactory {
      *                      value: "fs.defaultFS"
      *                      return storage plugin instance
      */
-    CheckpointStorage create(Map<String, String> configuration);
+    CheckpointStorage create(Map<String, String> configuration) throws CheckpointStorageException;
 }

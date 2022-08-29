@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineState;
@@ -33,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 
 public class SubPlan {
     private static final ILogger LOGGER = Logger.getLogger(SubPlan.class);
@@ -123,13 +125,13 @@ public class SubPlan {
 
                 if (finishedTaskNum.incrementAndGet() == (physicalVertexList.size() + coordinatorVertexList.size())) {
                     if (failedTaskNum.get() > 0) {
-                        updatePipelineState(PipelineState.FAILED);
+                        turnToEndState(PipelineState.FAILED);
                         LOGGER.info(String.format("%s end with state FAILED", this.pipelineFullName));
                     } else if (canceledTaskNum.get() > 0) {
-                        updatePipelineState(PipelineState.CANCELED);
+                        turnToEndState(PipelineState.CANCELED);
                         LOGGER.info(String.format("%s end with state CANCELED", this.pipelineFullName));
                     } else {
-                        updatePipelineState(PipelineState.FINISHED);
+                        turnToEndState(PipelineState.FINISHED);
                         LOGGER.info(String.format("%s end with state FINISHED", this.pipelineFullName));
                     }
                     this.pipelineFuture.complete(pipelineState.get());
@@ -142,8 +144,22 @@ public class SubPlan {
         this.pipelineFuture.whenComplete(action);
     }
 
-    public boolean updatePipelineState(@NonNull PipelineState targetState) {
-        return updatePipelineState(pipelineState.get(), targetState);
+    private void turnToEndState(@NonNull PipelineState endState) {
+        // consistency check
+        if (pipelineState.get().isEndState()) {
+            String message = "Pipeline is trying to leave terminal state " + pipelineState.get();
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+
+        if (!endState.isEndState()) {
+            String message = "Need a end state, not " + endState;
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+
+        pipelineState.set(endState);
+        stateTimestamps[endState.ordinal()] = System.currentTimeMillis();
     }
 
     public boolean updatePipelineState(@NonNull PipelineState current, @NonNull PipelineState targetState) {
@@ -173,8 +189,7 @@ public class SubPlan {
         }
 
         // now do the actual state transition
-        if (pipelineState.get() == current) {
-            pipelineState.set(targetState);
+        if (pipelineState.compareAndSet(current, targetState)) {
             LOGGER.info(String.format("%s turn from state %s to %s.",
                 pipelineFullName,
                 current,
@@ -187,20 +202,57 @@ public class SubPlan {
         }
     }
 
-    public PassiveCompletableFuture<Void> cancelPipeline() {
-        CompletableFuture<Void> cancelFuture = CompletableFuture.supplyAsync(() -> {
-            // TODO Implement cancel tasks in pipeline.
-            return null;
-        });
+    public void cancelPipeline() {
+        if (!updatePipelineState(PipelineState.CREATED, PipelineState.CANCELED) &&
+            !updatePipelineState(PipelineState.SCHEDULED, PipelineState.CANCELED)) {
+            // may be deploying, running, failed, canceling , canceled, finished
+            if (updatePipelineState(PipelineState.DEPLOYING, PipelineState.CANCELING) ||
+                updatePipelineState(PipelineState.RUNNING, PipelineState.CANCELING)) {
+                cancelRunningPipeline();
+            } else {
+                LOGGER.info(
+                    String.format("%s in a non cancellable state: %s, skip cancel", pipelineFullName, pipelineState.get()));
+            }
+        } else {
+            pipelineFuture.complete(PipelineState.CANCELED);
+        }
+    }
 
-        cancelFuture.complete(null);
-        return new PassiveCompletableFuture<>(cancelFuture);
+    private void cancelRunningPipeline() {
+        List<CompletableFuture<Void>> coordinatorCancelList =
+            coordinatorVertexList.stream().map(coordinator -> cancelTask(coordinator)).filter(x -> x != null)
+                .collect(Collectors.toList());
+
+        List<CompletableFuture<Void>> taskCancelList =
+            physicalVertexList.stream().map(task -> cancelTask(task)).filter(x -> x != null)
+                .collect(Collectors.toList());
+
+        try {
+            coordinatorCancelList.addAll(taskCancelList);
+            CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
+                coordinatorCancelList.toArray(new CompletableFuture[coordinatorCancelList.size()]));
+            voidCompletableFuture.get();
+        } catch (Exception e) {
+            LOGGER.severe(
+                String.format("%s cancel error with exception: %s", pipelineFullName, ExceptionUtils.getMessage(e)));
+        }
+    }
+
+    private CompletableFuture<Void> cancelTask(@NonNull PhysicalVertex task) {
+        if (!task.getExecutionState().get().isEndState() &&
+            !ExecutionState.CANCELING.equals(task.getExecutionState().get())) {
+            CompletableFuture<Void> future = CompletableFuture.supplyAsync(() -> {
+                task.cancel();
+                return null;
+            });
+            return future;
+        }
+        return null;
     }
 
     public void failedWithNoEnoughResource() {
         LOGGER.severe(String.format("%s failed with have no enough resource to run.", this.getPipelineFullName()));
-        updatePipelineState(PipelineState.SCHEDULED, PipelineState.FAILED);
-        pipelineFuture.complete(PipelineState.FAILED);
+        cancelPipeline();
     }
 
     public int getPipelineIndex() {
@@ -217,5 +269,9 @@ public class SubPlan {
 
     public String getPipelineFullName() {
         return pipelineFullName;
+    }
+
+    public AtomicReference<PipelineState> getPipelineState() {
+        return pipelineState;
     }
 }

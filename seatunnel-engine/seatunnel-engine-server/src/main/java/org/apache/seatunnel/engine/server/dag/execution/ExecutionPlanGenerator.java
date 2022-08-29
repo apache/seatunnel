@@ -175,6 +175,7 @@ public class ExecutionPlanGenerator {
                 String.join("->", names),
                 jars,
                 transforms);
+            newAction.setParallelism(logicalVertex.getAction().getParallelism());
         }
         ExecutionVertex executionVertex = new ExecutionVertex(newId, newAction, logicalVertex.getParallelism());
         executionVertexMap.put(newId, executionVertex);
@@ -208,6 +209,7 @@ public class ExecutionPlanGenerator {
         } else {
             throw new UnknownActionException(action);
         }
+        newAction.setParallelism(action.getParallelism());
         return newAction;
     }
 

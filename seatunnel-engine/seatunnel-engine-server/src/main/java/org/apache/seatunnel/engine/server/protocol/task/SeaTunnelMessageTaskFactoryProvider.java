@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.protocol.task;
 
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelCancelJobCodec;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSubmitJobCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelWaitForJobCompleteCodec;
@@ -49,5 +51,9 @@ public class SeaTunnelMessageTaskFactoryProvider implements MessageTaskFactoryPr
             (clientMessage, connection) -> new SubmitJobTask(clientMessage, node, connection));
         factories.put(SeaTunnelWaitForJobCompleteCodec.REQUEST_MESSAGE_TYPE,
             (clientMessage, connection) -> new WaitForJobCompleteTask(clientMessage, node, connection));
+        factories.put(SeaTunnelCancelJobCodec.REQUEST_MESSAGE_TYPE,
+            (clientMessage, connection) -> new CancelJobTask(clientMessage, node, connection));
+        factories.put(SeaTunnelGetJobStatusCodec.REQUEST_MESSAGE_TYPE,
+            (clientMessage, connection) -> new GetJobStatusTask(clientMessage, node, connection));
     }
 }

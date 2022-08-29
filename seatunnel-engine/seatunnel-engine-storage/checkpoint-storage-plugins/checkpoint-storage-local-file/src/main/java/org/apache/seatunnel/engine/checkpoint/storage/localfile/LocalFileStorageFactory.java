@@ -41,6 +41,6 @@ public class LocalFileStorageFactory implements CheckpointStorageFactory {
 
     @Override
     public CheckpointStorage create(Map<String, String> configuration) {
-        return new LocalFileStorage();
+        return new LocalFileStorage(configuration);
     }
 }

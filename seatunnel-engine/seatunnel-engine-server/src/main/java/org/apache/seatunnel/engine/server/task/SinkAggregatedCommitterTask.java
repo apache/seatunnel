@@ -93,7 +93,9 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
     @NonNull
     @Override
     public ProgressState call() throws Exception {
-        completableFuture.join();
+        if (completableFuture.isDone()) {
+            completableFuture.get();
+        }
         return progress.toState();
     }
 

@@ -22,6 +22,8 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
 import org.apache.seatunnel.engine.server.task.Progress;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
+import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
+import org.apache.seatunnel.engine.server.task.operation.DeployTaskOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkUnregisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
@@ -57,7 +59,11 @@ public class TaskDataSerializerHook implements DataSerializerHook {
 
     public static final int CLOSE_REQUEST_TYPE = 10;
 
-    public static final int WORKER_TASK_LOCATION_TYPE = 11;
+    public static final int DEPLOY_TASK_OPERATOR = 11;
+
+    public static final int CANCEL_TASK_OPERATOR = 12;
+
+    public static final int WORKER_TASK_LOCATION_TYPE = 13;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
             SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -99,6 +105,10 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new Progress();
                 case  CLOSE_REQUEST_TYPE:
                     return new CloseRequestOperation();
+                case DEPLOY_TASK_OPERATOR:
+                    return new DeployTaskOperation();
+                case CANCEL_TASK_OPERATOR:
+                    return new CancelTaskOperation();
                 case WORKER_TASK_LOCATION_TYPE:
                     return new WorkerTaskLocation();
                 default:
