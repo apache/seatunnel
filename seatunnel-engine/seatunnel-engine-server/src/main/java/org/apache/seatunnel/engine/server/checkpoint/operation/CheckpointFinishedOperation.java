@@ -21,10 +21,8 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskInfo;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.operation.AsyncOperation;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
-import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -69,7 +67,7 @@ public class CheckpointFinishedOperation extends AsyncOperation {
     protected PassiveCompletableFuture<?> doRun() throws Exception {
         SeaTunnelServer server = getService();
         Task task = server.getTaskExecutionService().getExecutionContext(taskInfo.getTaskGroupId())
-                .getTaskGroup().getTask(taskInfo.getSubtaskId());
+            .getTaskGroup().getTask(taskInfo.getSubtaskId());
         return null;
     }
 }

@@ -20,7 +20,6 @@ package org.apache.seatunnel.engine.server.checkpoint;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.IntStream;
 
 public class TaskState implements Serializable {
 

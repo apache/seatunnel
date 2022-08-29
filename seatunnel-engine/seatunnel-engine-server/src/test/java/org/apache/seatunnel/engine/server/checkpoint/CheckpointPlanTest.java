@@ -41,7 +41,6 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
-
 public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
 
     @Test

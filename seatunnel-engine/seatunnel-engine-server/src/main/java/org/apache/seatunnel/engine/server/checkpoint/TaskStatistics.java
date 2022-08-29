@@ -23,7 +23,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.io.Serializable;
 
 public class TaskStatistics implements Serializable {
-    /** ID of the task the statistics belong to. */
+    /**
+     * ID of the task the statistics belong to.
+     */
     private final Long jobVertexId;
 
     private final SubtaskStatistics[] subtaskStats;
@@ -63,7 +65,7 @@ public class TaskStatistics implements Serializable {
 
     /**
      * @return The latest acknowledged subtask stats or <code>null</code> if none was acknowledged
-     *     yet.
+     * yet.
      */
     public SubtaskStatistics getLatestAcknowledgedSubtaskStatistics() {
         return latestAckedSubtaskStatistics;
@@ -71,7 +73,7 @@ public class TaskStatistics implements Serializable {
 
     /**
      * @return Ack timestamp of the latest acknowledged subtask or <code>-1</code> if none was
-     *     acknowledged yet..
+     * acknowledged yet..
      */
     public long getLatestAckTimestamp() {
         return latestAckedSubtaskStatistics != null ?

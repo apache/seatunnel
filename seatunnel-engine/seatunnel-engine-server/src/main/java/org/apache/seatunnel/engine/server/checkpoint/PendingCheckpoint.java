@@ -95,7 +95,7 @@ public class PendingCheckpoint implements Checkpoint {
             System.currentTimeMillis(),
             states.length));
         TaskState taskState = taskStates.get(taskInfo.getJobVertexId());
-        if(taskState == null) {
+        if (taskState == null) {
             return;
         }
         taskState.reportState(taskInfo.getIndex(), states);

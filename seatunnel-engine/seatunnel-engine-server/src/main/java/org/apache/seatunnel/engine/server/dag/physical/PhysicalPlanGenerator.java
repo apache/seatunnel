@@ -504,6 +504,7 @@ public class PhysicalPlanGenerator {
         return taskId / 10000;
     }
 
+    @SuppressWarnings("checkstyle:MagicNumber")
     public static int getTaskIndex(long subtaskId) {
         return (int) (subtaskId % 10000);
     }
