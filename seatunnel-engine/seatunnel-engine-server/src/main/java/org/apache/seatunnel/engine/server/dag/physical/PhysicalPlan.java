@@ -64,12 +64,6 @@ public class PhysicalPlan {
      */
     private final CompletableFuture<JobStatus> jobEndFuture;
 
-    /**
-     * This future only can completion by the {@link SubPlan } subPlanFuture.
-     * When subPlanFuture completed, this NonCompletableFuture's whenComplete method will be called.
-     */
-    private List<PassiveCompletableFuture<PipelineState>> waitForCompleteBySubPlan;
-
     private final ExecutorService executorService;
 
     private final String jobFullName;
