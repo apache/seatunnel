@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorConfiguration;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointStorageConfiguration;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
@@ -108,7 +109,8 @@ public class JobMaster implements Runnable {
             nodeEngine,
             planTuple.f1(),
             // TODO: checkpoint config
-            CheckpointCoordinatorConfiguration.builder().build());
+            CheckpointCoordinatorConfiguration.builder().build(),
+            CheckpointStorageConfiguration.builder().build());
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
