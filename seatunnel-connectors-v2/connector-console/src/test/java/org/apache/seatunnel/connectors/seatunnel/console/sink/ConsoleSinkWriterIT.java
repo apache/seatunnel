@@ -102,7 +102,6 @@ public class ConsoleSinkWriterIT {
             byte[] bytes = RandomUtils.nextBytes(10);
             Object[] rowData = {(byte) 1, bytes, bytes};
             Object rowString = fieldToStringTest(seaTunnelRowType, rowData);
-            System.out.println(rowString);
             Assertions.assertNotNull(rowString);
             Assertions.assertEquals(String.format("[1, %s, %s]", Arrays.toString(bytes), Arrays.toString(bytes)), rowString.toString());
         });
