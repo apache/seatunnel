@@ -38,4 +38,6 @@ public interface IUserDao {
     PageData<User> list(ListUserDto dto, int pageNo, int pageSize);
 
     User getById(int operatorId);
+
+    User getByName(String user);
 }

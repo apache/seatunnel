@@ -15,36 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.scheduler.dolphinscheduler.dto;
+package org.apache.seatunnel.app.dal.entity;
 
-import static org.apache.seatunnel.server.common.DateUtils.DEFAULT_DATETIME_FORMAT;
-
-import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.Date;
 
 @Data
-@JsonIgnoreProperties(ignoreUnknown = true)
-public class ProcessDefinitionDto {
-    private int id;
-    private long code;
-    private String name;
-    private String releaseState;
-    private long projectCode;
-    private String description;
-    @JsonFormat(pattern = DEFAULT_DATETIME_FORMAT)
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class RoleUserRelation {
+
+    private Integer id;
+
+    private Integer roleId;
+
+    private Integer userId;
+
     private Date createTime;
-    @JsonFormat(pattern = DEFAULT_DATETIME_FORMAT)
+
     private Date updateTime;
-    private String username;
-    private String projectName;
-    private String locations;
-    private String scheduleReleaseState;
-    private int timeout;
-    private int tenantId;
-    private String tenantCode;
-    private String modifyBy;
-    private int warningGroupId;
 }
