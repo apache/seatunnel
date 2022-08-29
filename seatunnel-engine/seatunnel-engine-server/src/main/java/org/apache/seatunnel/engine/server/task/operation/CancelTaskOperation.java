@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task.operation;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.execution.TaskGroupInfo;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
@@ -33,13 +34,13 @@ import java.io.IOException;
  * notified JobMaster
  */
 public class CancelTaskOperation extends Operation implements IdentifiedDataSerializable {
-    private long taskGroupId;
+    private TaskGroupInfo taskGroupInfo;
 
     public CancelTaskOperation() {
     }
 
-    public CancelTaskOperation(long taskGroupId) {
-        this.taskGroupId = taskGroupId;
+    public CancelTaskOperation(TaskGroupInfo taskGroupInfo) {
+        this.taskGroupInfo = taskGroupInfo;
     }
 
     @Override
@@ -55,7 +56,7 @@ public class CancelTaskOperation extends Operation implements IdentifiedDataSeri
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        server.getTaskExecutionService().cancelTaskGroup(taskGroupId);
+        server.getTaskExecutionService().cancelTaskGroup(taskGroupInfo);
     }
 
     @Override
@@ -66,12 +67,12 @@ public class CancelTaskOperation extends Operation implements IdentifiedDataSeri
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        out.writeLong(taskGroupId);
+        out.writeObject(taskGroupInfo);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        taskGroupId = in.readLong();
+        taskGroupInfo = in.readObject();
     }
 }

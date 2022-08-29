@@ -17,31 +17,39 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
+
 import java.io.Serializable;
 
-public class TaskExecutionState implements Serializable {
+@Data
+@AllArgsConstructor
+public class TaskGroupInfo implements Serializable {
+    private final long jobId;
 
-    private final TaskGroupInfo taskGroupInfo;
+    private final long pipelineId;
 
-    private final ExecutionState executionState;
+    private final long taskGroupId;
 
-    private Throwable throwable;
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
 
-    public TaskExecutionState(TaskGroupInfo taskGroupInfo, ExecutionState executionState, Throwable throwable) {
-        this.taskGroupInfo = taskGroupInfo;
-        this.executionState = executionState;
-        this.throwable = throwable;
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        TaskGroupInfo that = (TaskGroupInfo) o;
+
+        return new EqualsBuilder().append(jobId, that.jobId).append(pipelineId, that.pipelineId).append(taskGroupId, that.taskGroupId).isEquals();
     }
 
-    public ExecutionState getExecutionState() {
-        return executionState;
-    }
-
-    public Throwable getThrowable() {
-        return throwable;
-    }
-
-    public TaskGroupInfo getTaskGroupInfo() {
-        return taskGroupInfo;
+    @Override
+    public int hashCode() {
+        return new HashCodeBuilder(17, 37).append(jobId).append(pipelineId).append(taskGroupId).toHashCode();
     }
 }

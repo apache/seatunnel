@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.server.execution.StopTimeTestTask;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
+import org.apache.seatunnel.engine.server.execution.TaskGroupInfo;
 import org.apache.seatunnel.engine.server.execution.TestTask;
 
 import com.google.common.collect.Lists;
@@ -50,6 +51,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
     FlakeIdGenerator flakeIdGenerator;
     long taskRunTime = 2000;
+    long jobId = 10001;
+    long pipeLineId = 100001;
 
     @Before
     @Override
@@ -87,10 +90,11 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TestTask testTask1 = new TestTask(stop, logger, sleepTime, true);
         TestTask testTask2 = new TestTask(stop, logger, sleepTime, false);
 
-        long taskGroupId = flakeIdGenerator.newId();
-        CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(taskGroupId, "ts", Lists.newArrayList(testTask1, testTask2)), new CompletableFuture<>());
 
-        taskExecutionService.cancelTaskGroup(taskGroupId);
+        TaskGroupDefaultImpl ts = new TaskGroupDefaultImpl(new TaskGroupInfo(jobId, pipeLineId, flakeIdGenerator.newId()), "ts", Lists.newArrayList(testTask1, testTask2));
+        CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.deployLocalTask(ts, new CompletableFuture<>());
+
+        taskExecutionService.cancelTaskGroup(ts.getTaskGroupInfo());
 
         await().atMost(sleepTime + 1000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> assertEquals(CANCELED, completableFuture.get().getExecutionState()));
@@ -106,7 +110,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TestTask testTask1 = new TestTask(stop, logger, sleepTime, true);
         TestTask testTask2 = new TestTask(stop, logger, sleepTime, false);
 
-        final CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(flakeIdGenerator.newId(), "ts", Lists.newArrayList(testTask1, testTask2)), new CompletableFuture<>());
+        final CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(new TaskGroupInfo(jobId, pipeLineId, flakeIdGenerator.newId()), "ts", Lists.newArrayList(testTask1, testTask2)), new CompletableFuture<>());
         completableFuture.whenComplete((unused, throwable) -> futureMark.set(true));
         stop.set(true);
 
@@ -133,7 +137,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
-        CompletableFuture<TaskExecutionState> taskCts = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(flakeIdGenerator.newId(), "t1", Lists.newArrayList(criticalTask)), new CompletableFuture<>());
+        CompletableFuture<TaskExecutionState> taskCts = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(new TaskGroupInfo(jobId, pipeLineId, flakeIdGenerator.newId()), "t1", Lists.newArrayList(criticalTask)), new CompletableFuture<>());
 
         // Run it for a while
         Thread.sleep(taskRunTime);
@@ -178,11 +182,11 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         tasks.addAll(lowLagTask);
         Collections.shuffle(tasks);
 
-        CompletableFuture<TaskExecutionState> taskCts = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(flakeIdGenerator.newId(), "ts", Lists.newArrayList(tasks)), new CompletableFuture<>());
+        CompletableFuture<TaskExecutionState> taskCts = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(new TaskGroupInfo(jobId, pipeLineId, flakeIdGenerator.newId()), "ts", Lists.newArrayList(tasks)), new CompletableFuture<>());
 
-        CompletableFuture<TaskExecutionState> t1c = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(flakeIdGenerator.newId(), "t1", Lists.newArrayList(t1)), new CompletableFuture<>());
+        CompletableFuture<TaskExecutionState> t1c = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(new TaskGroupInfo(jobId, pipeLineId, flakeIdGenerator.newId()), "t1", Lists.newArrayList(t1)), new CompletableFuture<>());
 
-        CompletableFuture<TaskExecutionState> t2c = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(flakeIdGenerator.newId(), "t2", Lists.newArrayList(t2)), new CompletableFuture<>());
+        CompletableFuture<TaskExecutionState> t2c = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(new TaskGroupInfo(jobId, pipeLineId, flakeIdGenerator.newId()), "t2", Lists.newArrayList(t2)), new CompletableFuture<>());
 
         Thread.sleep(taskRunTime);
 
@@ -221,7 +225,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         tasks.addAll(lowLagTask);
         Collections.shuffle(tasks);
 
-        TaskGroupDefaultImpl taskGroup = new TaskGroupDefaultImpl(flakeIdGenerator.newId(), "ts", Lists.newArrayList(tasks));
+        TaskGroupDefaultImpl taskGroup = new TaskGroupDefaultImpl(new TaskGroupInfo(jobId, pipeLineId, flakeIdGenerator.newId()), "ts", Lists.newArrayList(tasks));
 
         logger.info("task size is : " + taskGroup.getTasks().size());
 
