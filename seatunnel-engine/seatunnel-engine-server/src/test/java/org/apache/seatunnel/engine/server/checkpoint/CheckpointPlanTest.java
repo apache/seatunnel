@@ -23,7 +23,6 @@ import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
@@ -32,17 +31,10 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
-import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
+import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 
-import com.hazelcast.config.Config;
-import com.hazelcast.instance.impl.HazelcastInstanceFactory;
-import com.hazelcast.instance.impl.HazelcastInstanceImpl;
-import com.hazelcast.instance.impl.HazelcastInstanceProxy;
-import com.hazelcast.spi.impl.NodeEngine;
-import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Collections;
@@ -50,26 +42,7 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 
 
-public class CheckpointPlanTest {
-
-    private NodeEngine nodeEngine;
-
-    private HazelcastInstanceImpl instance;
-
-    @Before
-    public void before() {
-        Config config = new Config();
-        config.setInstanceName("test");
-        config.setClusterName("test");
-        instance = ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(config,
-            this.getClass().getSimpleName(), new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
-        nodeEngine = instance.node.nodeEngine;
-    }
-
-    @After
-    public void after() {
-        instance.shutdown();
-    }
+public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
 
     @Test
     public void testGenerateCheckpointPlan() {
@@ -110,13 +83,13 @@ public class CheckpointPlanTest {
         FakeSource fakeSource = new FakeSource();
         fakeSource.setSeaTunnelContext(SeaTunnelContext.getContext());
 
-        Action fake = new SourceAction<>(idGenerator.getNextId(), "fake", fakeSource, Collections.emptyList());
+        Action fake = new SourceAction<>(idGenerator.getNextId(), "fake", fakeSource, Collections.emptySet());
         fake.setParallelism(parallelism);
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, parallelism);
 
         ConsoleSink consoleSink = new ConsoleSink();
         consoleSink.setSeaTunnelContext(SeaTunnelContext.getContext());
-        Action console = new SinkAction<>(idGenerator.getNextId(), "console", consoleSink, Collections.emptyList());
+        Action console = new SinkAction<>(idGenerator.getNextId(), "console", consoleSink, Collections.emptySet());
         console.setParallelism(parallelism);
         LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, parallelism);
 
