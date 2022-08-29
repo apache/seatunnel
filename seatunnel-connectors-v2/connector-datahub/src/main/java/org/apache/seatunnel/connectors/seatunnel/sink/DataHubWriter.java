@@ -81,14 +81,13 @@ public class DataHubWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             int i = result.getFailedRecordCount();
             if (i > 0) {
                 LOG.info("begin to retry for putting failed record");
-                if (retry(result.getFailedRecords(), retryTimes, project, topic))
-                {
-                    LOG.info(" retry putting record success");
+                if (retry(result.getFailedRecords(), retryTimes, project, topic)) {
+                    LOG.info("retry putting record success");
                 } else {
-                    LOG.info(" retry putting record failed");
+                    LOG.info("retry putting record failed");
                 }
             } else {
-                LOG.info("put record  success");
+                LOG.info("put record success");
             }
         } catch (DatahubClientException e) {
             LOG.error("requestId:" + e.getRequestId() + "\tmessage:" + e.getErrorMessage());
@@ -103,7 +102,7 @@ public class DataHubWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     public boolean retry(List<RecordEntry> records, int retryNums, String project, String topic) {
         boolean suc = false;
         while (retryNums != 0) {
-            retryTimes = retryTimes - 1;
+            retryNums = retryNums - 1;
             PutRecordsResult recordsResult = dataHubClient.putRecords(project, topic, records);
             if (recordsResult.getFailedRecordCount() > 0) {
                 retry(recordsResult.getFailedRecords(), retryNums, project, topic);
