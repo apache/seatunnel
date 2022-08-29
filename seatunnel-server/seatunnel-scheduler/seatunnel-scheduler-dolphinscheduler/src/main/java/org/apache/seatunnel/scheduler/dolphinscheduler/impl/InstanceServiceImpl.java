@@ -24,6 +24,7 @@ import org.apache.seatunnel.server.common.PageData;
 import org.apache.seatunnel.spi.scheduler.IInstanceService;
 import org.apache.seatunnel.spi.scheduler.dto.InstanceDto;
 import org.apache.seatunnel.spi.scheduler.dto.InstanceListDto;
+import org.apache.seatunnel.spi.scheduler.dto.InstanceLogDto;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -51,7 +52,8 @@ public class InstanceServiceImpl implements IInstanceService {
         final PageData<TaskInstanceDto> instancePageData = iDolphinschedulerService.listTaskInstance(listDto);
 
         final List<InstanceDto> data = instancePageData.getData().stream().map(t -> InstanceDto.builder()
-                .instanceId(t.getId())
+            // use processInstanceId instead of taskInstanceId
+                .instanceId(t.getProcessInstanceId())
                 .instanceCode(t.getProcessInstanceId())
                 .instanceName(t.getProcessInstanceName())
                 .status(t.getState())
@@ -62,5 +64,10 @@ public class InstanceServiceImpl implements IInstanceService {
                 .retryTimes(t.getRetryTimes())
                 .build()).collect(Collectors.toList());
         return new PageData<>(instancePageData.getTotalCount(), data);
+    }
+
+    @Override
+    public InstanceLogDto queryInstanceLog(long instanceId, int skipLine, int limit) {
+        return iDolphinschedulerService.queryInstanceLog(instanceId, skipLine, limit);
     }
 }

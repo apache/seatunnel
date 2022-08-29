@@ -20,7 +20,10 @@ package org.apache.seatunnel.spi.scheduler;
 import org.apache.seatunnel.server.common.PageData;
 import org.apache.seatunnel.spi.scheduler.dto.InstanceDto;
 import org.apache.seatunnel.spi.scheduler.dto.InstanceListDto;
+import org.apache.seatunnel.spi.scheduler.dto.InstanceLogDto;
 
 public interface IInstanceService {
     PageData<InstanceDto> list(InstanceListDto dto);
+
+    InstanceLogDto queryInstanceLog(long instanceId, int skipLine, int limit);
 }

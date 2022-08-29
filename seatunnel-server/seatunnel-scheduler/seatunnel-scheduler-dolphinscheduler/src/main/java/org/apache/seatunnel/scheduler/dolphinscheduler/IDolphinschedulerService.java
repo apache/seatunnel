@@ -26,6 +26,7 @@ import org.apache.seatunnel.scheduler.dolphinscheduler.dto.StartProcessDefinitio
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.TaskInstanceDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.UpdateProcessDefinitionDto;
 import org.apache.seatunnel.server.common.PageData;
+import org.apache.seatunnel.spi.scheduler.dto.InstanceLogDto;
 import org.apache.seatunnel.spi.scheduler.dto.JobDto;
 
 import java.util.List;
@@ -57,4 +58,6 @@ public interface IDolphinschedulerService {
     PageData<TaskInstanceDto> listTaskInstance(ListProcessInstanceDto dto);
 
     void deleteProcessDefinition(long code);
+
+    InstanceLogDto queryInstanceLog(long instanceId, int skipLine, int limit);
 }

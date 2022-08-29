@@ -155,8 +155,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -440,6 +442,12 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
                 .withToken(TOKEN, token)
                 .execute(Map.class);
         checkResult(result, false);
+    }
+
+    @Override
+    public InstanceLogDto queryInstanceLog(long instanceId, int skipLine, int limit) {
+        //
+
     }
 
     private ProjectDto queryProjectCodeByName(String projectName) throws IOException {

@@ -33,7 +33,7 @@ public class DolphinschedulerConstants {
     public static final String QUERY_RESOURCE = "/resources/%s";
     public static final String ONLINE_CREATE_RESOURCE = "/resources/online-create";
     public static final String UPDATE_CONTENT = "/resources/%s/update-content";
-    public static final String LOG_DETAIL = "/log/detail";
+    public static final String LOG_DETAIL = "/log/detail?taskInstanceId={}&limit={}&skipLineNum={}";
     public static final String RELEASE = "/projects/%s/process-definition/%s/release";
     public static final String START_PROCESS_INSTANCE = "/projects/%s/executors/start-process-instance";
     public static final String QUERY_PROCESS_DEFINITION_BY_NAME = "/projects/%s/process-definition/query-by-name";
