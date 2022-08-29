@@ -8,16 +8,18 @@ A sink plugin which use send message to datahub
 
 ## Options
 
-| name                    | type   | required | default value |
-|-------------------------|--------|----------|---------------|
-| endpoint                | string | yes      | -             |
-| accessId                | string | yes      | -             |
-| accessKey               | string | yes      | -             |
-| project                 | string | yes      | -             |
-| topic                   | string | yes      | -             |
+| name       | type   | required | default value |
+|------------|--------|----------|---------------|
+| endpoint   | string | yes      | -             |
+| accessId   | string | yes      | -             |
+| accessKey  | string | yes      | -             |
+| project    | string | yes      | -             |
+| topic      | string | yes      | -             |
+| timeout    | int    | yes      | -             |
+| retryTimes | int    | yes      | -             |
 
 ### url [string]
-
+i
 datahub endpoint  format is http://dh-cn-hangzhou.aliyuncs.com（string）
 
 ### accessId [string]
@@ -36,16 +38,26 @@ your datahub project which is created in Alibaba Cloud  (string)
 
 your datahub topic  (string)
 
+### timeout [int]
+
+the max connection timeout (int)
+
+### retryTimes [int]
+
+the max retry times when your client put record failed  (int)
+
 ## Example
 
 ```hocon
 sink {
  DataHub {
-  endpoint="http://dh-cn-hangzhou.aliyuncs.com"
+  endpoint="yourendpoint"
   accessId="xxx"
   accessKey="xxx"
   project="projectname"
   topic="topicname"
+  timeout=3000
+  retryTimes=3
  }
 }
 ```

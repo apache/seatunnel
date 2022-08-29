@@ -49,6 +49,8 @@ public class DataHubSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private final String accessKey = "accessKey";
     private final String project = "project";
     private final String topic = "topic";
+    private final String timeout = "timeout";
+    private final String retryTimes = "retryTimes";
 
     @Override
     public String getPluginName() {
@@ -82,6 +84,8 @@ public class DataHubSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
                 pluginConfig.getString(accessId),
                 pluginConfig.getString(accessKey),
                 pluginConfig.getString(project),
-                pluginConfig.getString(topic));
+                pluginConfig.getString(topic),
+                pluginConfig.getInt(timeout),
+                pluginConfig.getInt(retryTimes));
     }
 }
