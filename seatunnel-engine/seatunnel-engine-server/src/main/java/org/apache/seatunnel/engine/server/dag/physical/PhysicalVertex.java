@@ -329,7 +329,7 @@ public class PhysicalVertex {
             try {
                 i++;
                 nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
-                        new CancelTaskOperation(taskGroup.getTaskGroupInfo()),
+                        new CancelTaskOperation(taskGroup.getTaskGroupLocation()),
                         currentExecutionAddress)
                     .invoke().get();
                 return;

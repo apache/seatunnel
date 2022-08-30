@@ -93,7 +93,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskGroupDefaultImpl ts = new TaskGroupDefaultImpl(new TaskGroupLocation(jobId, pipeLineId, flakeIdGenerator.newId()), "ts", Lists.newArrayList(testTask1, testTask2));
         CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.deployLocalTask(ts, new CompletableFuture<>());
 
-        taskExecutionService.cancelTaskGroup(ts.getTaskGroupInfo());
+        taskExecutionService.cancelTaskGroup(ts.getTaskGroupLocation());
 
         await().atMost(sleepTime + 1000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> assertEquals(CANCELED, completableFuture.get().getExecutionState()));
