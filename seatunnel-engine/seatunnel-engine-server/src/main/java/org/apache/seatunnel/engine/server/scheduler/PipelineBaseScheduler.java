@@ -100,7 +100,7 @@ public class PipelineBaseScheduler implements JobScheduler {
             // TODO If there is no enough resources for tasks, we need add some wait profile
             if (task.updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED)) {
                 resourceManager.applyForResource(physicalPlan.getJobImmutableInformation().getJobId(),
-                    task.getTaskGroup().getTaskGroupInfo());
+                    task.getTaskGroup().getTaskGroupLocation());
             } else {
                 handleTaskStateUpdateError(task, ExecutionState.SCHEDULED);
             }
@@ -115,7 +115,7 @@ public class PipelineBaseScheduler implements JobScheduler {
             return CompletableFuture.supplyAsync(() -> {
                 task.deploy(
                     resourceManager.getAppliedResource(physicalPlan.getJobImmutableInformation().getJobId(),
-                        task.getTaskGroup().getTaskGroupInfo()));
+                        task.getTaskGroup().getTaskGroupLocation()));
                 return null;
             });
         } else {
