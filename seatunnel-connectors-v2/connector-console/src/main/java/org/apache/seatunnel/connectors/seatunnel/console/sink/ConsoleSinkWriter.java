@@ -60,7 +60,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         switch (type.getSqlType()) {
             case ARRAY:
             case BYTES:
-                return Arrays.toString((Object[]) value);
+                return JsonUtils.toJsonString(value);
             case MAP:
                 return JsonUtils.toJsonString(value);
             case ROW:
