@@ -2,6 +2,7 @@ HdrHistogram-2.1.9.jar
 RoaringBitmap-0.9.0.jar
 RoaringBitmap-0.9.22.jar
 SparseBitSet-1.2.jar
+aopalliance-1.0.jar
 accessors-smart-2.4.8.jar
 activation-1.1.1.jar
 activation-1.1.jar
@@ -42,7 +43,6 @@ aws-java-sdk-core-1.12.37.jar
 aws-java-sdk-ec2-1.12.37.jar
 aws-java-sdk-kms-1.12.37.jar
 aws-java-sdk-s3-1.12.37.jar
-aopalliance-1.0.jar
 caffeine-2.9.3.jar
 calcite-core-1.29.0.jar
 calcite-druid-1.29.0.jar
