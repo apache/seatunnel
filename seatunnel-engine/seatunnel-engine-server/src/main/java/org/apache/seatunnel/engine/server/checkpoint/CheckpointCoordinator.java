@@ -167,7 +167,7 @@ public class CheckpointCoordinator {
             pendingCheckpoint.getCheckpointId(),
             pendingCheckpoint.getCheckpointTimestamp(),
             System.currentTimeMillis(),
-            pendingCheckpoint.getTaskStates(),
+            pendingCheckpoint.getActionStates(),
             pendingCheckpoint.getTaskStatistics());
         pendingCheckpoints.remove(checkpointId);
         if (pendingCheckpoints.size() + 1 == coordinatorConfig.getMaxConcurrentCheckpoints()) {

@@ -18,6 +18,8 @@
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
@@ -36,6 +38,9 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
 
     private static final ILogger LOGGER = Logger.getLogger(SourceSeaTunnelTask.class);
 
+    private transient SeaTunnelSourceCollector<T> collector;
+
+    private final Object checkpointLock = new Object();
     public SourceSeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
         super(jobID, taskID, indexID, executionFlow);
     }
@@ -43,12 +48,11 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
     @Override
     public void init() throws Exception {
         super.init();
-        Object checkpointLock = new Object();
         LOGGER.info("starting seatunnel source task, index " + indexID);
         if (!(startFlowLifeCycle instanceof SourceFlowLifeCycle)) {
             throw new TaskRuntimeException("SourceSeaTunnelTask only support SourceFlowLifeCycle, but get " + startFlowLifeCycle.getClass().getName());
         } else {
-            SeaTunnelSourceCollector<T> collector = new SeaTunnelSourceCollector<>(checkpointLock, outputs);
+            this.collector = new SeaTunnelSourceCollector<>(checkpointLock, outputs);
             ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).setCollector(collector);
         }
     }
@@ -70,5 +74,26 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
 
     public void receivedSourceSplit(List<SplitT> splits) {
         ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).receivedSplits(splits);
+    }
+
+    @Override
+    public void triggerCheckpoint(CheckpointBarrier barrier) throws Exception {
+        SourceFlowLifeCycle<T, SplitT> sourceFlow = (SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle;
+        // Block the reader from adding data to the collector.
+        synchronized (checkpointLock) {
+            sourceFlow.snapshotState(barrier.getId());
+            collector.sendRecordToNext(new Record<>(barrier));
+        }
+
+    }
+
+    @Override
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+        ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).notifyCheckpointComplete(checkpointId);
+    }
+
+    @Override
+    public void notifyCheckpointAborted(long checkpointId) throws Exception {
+        ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).notifyCheckpointAborted(checkpointId);
     }
 }

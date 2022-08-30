@@ -21,6 +21,7 @@ import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConsta
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.Progress;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
+import org.apache.seatunnel.engine.server.task.operation.sink.SinkPrepareCommitOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkUnregisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
@@ -50,11 +51,13 @@ public class TaskDataSerializerHook implements DataSerializerHook {
 
     public static final int SINK_REGISTER_TYPE = 7;
 
-    public static final int TASK_LOCATION_TYPE = 8;
+    public static final int SINK_PREPARE_COMMIT_TYPE = 8;
 
-    public static final int PROGRESS_TYPE = 9;
+    public static final int TASK_LOCATION_TYPE = 9;
 
-    public static final int CLOSE_REQUEST_TYPE = 10;
+    public static final int PROGRESS_TYPE = 10;
+
+    public static final int CLOSE_REQUEST_TYPE = 11;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
             SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -90,11 +93,13 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new SinkRegisterOperation();
                 case SINK_UNREGISTER_TYPE:
                     return new SinkUnregisterOperation();
+                case SINK_PREPARE_COMMIT_TYPE:
+                    return new SinkPrepareCommitOperation();
                 case TASK_LOCATION_TYPE:
                     return new TaskLocation();
                 case PROGRESS_TYPE:
                     return new Progress();
-                case  CLOSE_REQUEST_TYPE:
+                case CLOSE_REQUEST_TYPE:
                     return new CloseRequestOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);

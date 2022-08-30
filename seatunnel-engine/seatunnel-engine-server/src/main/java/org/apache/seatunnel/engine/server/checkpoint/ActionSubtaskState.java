@@ -15,27 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.flow;
+package org.apache.seatunnel.engine.server.checkpoint;
 
-import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+import lombok.Data;
 
-import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
+import java.io.Serializable;
 
-public class AbstractFlowLifeCycle implements FlowLifeCycle {
-
-    protected final SeaTunnelTask runningTask;
-
-    protected final CompletableFuture<Void> completableFuture;
-
-    public AbstractFlowLifeCycle(SeaTunnelTask runningTask,
-                                 CompletableFuture<Void> completableFuture) {
-        this.runningTask = runningTask;
-        this.completableFuture = completableFuture;
-    }
-
-    @Override
-    public void close() throws IOException {
-        completableFuture.complete(null);
-    }
+@Data
+public class ActionSubtaskState implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private final long actionId;
+    private final int index;
+    private final byte[] state;
 }

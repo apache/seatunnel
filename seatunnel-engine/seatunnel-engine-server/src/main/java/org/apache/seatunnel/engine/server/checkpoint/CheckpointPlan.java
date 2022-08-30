@@ -54,7 +54,7 @@ public class CheckpointPlan {
      * <br> key: job vertex id;
      * <br> value: job vertex state;
      */
-    private final Map<Long, TaskState> restoredTaskState;
+    private final Map<Long, ActionState> restoredTaskState;
 
     /**
      * All stateful vertices in this pipeline.
@@ -73,7 +73,7 @@ public class CheckpointPlan {
     public static final class Builder {
         private final Map<Long, Long> pipelineTaskIds = new HashMap<>();
         private final Set<Long> startingTasks = new HashSet<>();
-        private final Map<Long, TaskState> restoredTaskState = new HashMap<>();
+        private final Map<Long, ActionState> restoredTaskState = new HashMap<>();
         private final Map<Long, Integer> statefulVertices = new HashMap<>();
 
         private final Map<Long, Integer> allVertices = new HashMap<>();
@@ -91,7 +91,7 @@ public class CheckpointPlan {
             return this;
         }
 
-        public Builder restoredTaskState(Map<Long, TaskState> restoredTaskState) {
+        public Builder restoredTaskState(Map<Long, ActionState> restoredTaskState) {
             this.restoredTaskState.putAll(restoredTaskState);
             return this;
         }

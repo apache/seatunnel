@@ -15,27 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.flow;
+package org.apache.seatunnel.engine.server.utils;
 
-import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
-
-import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
-
-public class AbstractFlowLifeCycle implements FlowLifeCycle {
-
-    protected final SeaTunnelTask runningTask;
-
-    protected final CompletableFuture<Void> completableFuture;
-
-    public AbstractFlowLifeCycle(SeaTunnelTask runningTask,
-                                 CompletableFuture<Void> completableFuture) {
-        this.runningTask = runningTask;
-        this.completableFuture = completableFuture;
-    }
-
-    @Override
-    public void close() throws IOException {
-        completableFuture.complete(null);
-    }
+@FunctionalInterface
+public interface ConsumerWithException<T>  {
+    /**
+     * Performs this operation on the given argument.
+     *
+     * @param t the input argument
+     */
+    void accept(T t) throws Exception;
 }

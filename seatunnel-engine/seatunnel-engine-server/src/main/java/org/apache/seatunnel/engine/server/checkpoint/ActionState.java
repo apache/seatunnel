@@ -18,47 +18,55 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import java.io.Serializable;
-import java.util.HashMap;
-import java.util.Map;
 
-public class TaskState implements Serializable {
+public class ActionState implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     /**
-     * The id of the task.
+     * The id of the action.
      */
-    private final String taskId;
+    private final String actionId;
 
     /**
-     * The handles to states created by the parallel tasks: subtaskIndex -> subtask state.
+     * The handles to states created by the parallel actions: action index -> action state.
      */
-    private final Map<Integer, byte[]> subtaskStates;
+    private final ActionSubtaskState[] subtaskStates;
+
+    private ActionSubtaskState coordinatorState;
 
     /**
-     * The parallelism of the operator when it was checkpointed.
+     * The parallelism of the action when it was checkpointed.
      */
     private final int parallelism;
 
-    public TaskState(String taskId, int parallelism) {
-        this.taskId = taskId;
-        this.subtaskStates = new HashMap<>(parallelism);
+    public ActionState(String actionId, int parallelism) {
+        this.actionId = actionId;
+        this.subtaskStates = new ActionSubtaskState[parallelism];
         this.parallelism = parallelism;
     }
 
-    public String getTaskId() {
-        return taskId;
+    public String getActionId() {
+        return actionId;
     }
 
-    public Map<Integer, byte[]> getSubtaskStates() {
+    public ActionSubtaskState[] getSubtaskStates() {
         return subtaskStates;
+    }
+
+    public ActionSubtaskState getCoordinatorState() {
+        return coordinatorState;
     }
 
     public int getParallelism() {
         return parallelism;
     }
 
-    public void reportState(int index, byte[] states) {
-        subtaskStates.put(index, states);
+    public void reportState(int index, ActionSubtaskState state) {
+        if (index < 0) {
+            coordinatorState = state;
+            return;
+        }
+        subtaskStates[index] = state;
     }
 }

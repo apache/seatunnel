@@ -17,15 +17,17 @@
 
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import static org.apache.seatunnel.engine.server.utils.ExceptionUtil.sneakyThrow;
+
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskInfo;
-import org.apache.seatunnel.engine.server.operation.AsyncOperation;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import com.hazelcast.spi.impl.operationservice.Operation;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -33,7 +35,7 @@ import java.io.IOException;
 
 @Getter
 @AllArgsConstructor
-public class CheckpointFinishedOperation extends AsyncOperation {
+public class CheckpointFinishedOperation extends Operation implements IdentifiedDataSerializable {
 
     private long checkpointId;
 
@@ -42,6 +44,11 @@ public class CheckpointFinishedOperation extends AsyncOperation {
     private boolean successful;
 
     public CheckpointFinishedOperation() {
+    }
+
+    @Override
+    public int getFactoryId() {
+        return OperationDataSerializerHook.FACTORY_ID;
     }
 
     @Override
@@ -64,10 +71,18 @@ public class CheckpointFinishedOperation extends AsyncOperation {
     }
 
     @Override
-    protected PassiveCompletableFuture<?> doRun() throws Exception {
+    public void run() {
         SeaTunnelServer server = getService();
         Task task = server.getTaskExecutionService().getExecutionContext(taskInfo.getTaskGroupId())
             .getTaskGroup().getTask(taskInfo.getSubtaskId());
-        return null;
+        try {
+            if (successful) {
+                task.notifyCheckpointComplete(checkpointId);
+            } else {
+                task.notifyCheckpointAborted(checkpointId);
+            }
+        } catch (Exception e) {
+            sneakyThrow(e);
+        }
     }
 }

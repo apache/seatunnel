@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.execution.TaskInfo;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
@@ -25,25 +26,22 @@ import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 import java.io.IOException;
+import java.util.List;
 
 @Getter
+@AllArgsConstructor
 public class TaskAcknowledgeOperation extends Operation implements IdentifiedDataSerializable {
     private long checkpointId;
 
     private TaskInfo taskInfo;
 
-    private byte[] states;
+    private List<ActionSubtaskState> states;
 
     public TaskAcknowledgeOperation() {
-    }
-
-    public TaskAcknowledgeOperation(long checkpointId, TaskInfo taskInfo, byte[] states) {
-        this.checkpointId = checkpointId;
-        this.taskInfo = taskInfo;
-        this.states = states;
     }
 
     @Override
@@ -60,14 +58,14 @@ public class TaskAcknowledgeOperation extends Operation implements IdentifiedDat
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         out.writeLong(checkpointId);
         out.writeObject(taskInfo);
-        out.writeByteArray(states);
+        out.writeObject(states);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         checkpointId = in.readLong();
         taskInfo = in.readObject(TaskInfo.class);
-        states = in.readByteArray();
+        states = in.readObject();
     }
 
     @Override

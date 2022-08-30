@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
+import static org.apache.seatunnel.engine.server.utils.ExceptionUtil.sneakyThrow;
+
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskInfo;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
-import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -65,9 +67,13 @@ public class CheckpointTriggerOperation extends Operation implements IdentifiedD
     @Override
     public void run() {
         SeaTunnelServer server = getService();
-        SourceSplitEnumeratorTask<?> task = server.getTaskExecutionService()
+        Task task = server.getTaskExecutionService()
             .getExecutionContext(taskInfo.getTaskGroupId()).getTaskGroup()
             .getTask(taskInfo.getSubtaskId());
-        task.triggerCheckpoint(checkpointBarrier);
+        try {
+            task.triggerCheckpoint(checkpointBarrier);
+        } catch (Exception e) {
+            sneakyThrow(e);
+        }
     }
 }

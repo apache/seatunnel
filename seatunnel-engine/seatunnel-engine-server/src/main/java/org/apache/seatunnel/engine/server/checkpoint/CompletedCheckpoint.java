@@ -34,7 +34,7 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
 
     private final long completedTimestamp;
 
-    private final Map<Long, TaskState> taskStates;
+    private final Map<Long, ActionState> taskStates;
 
     private final Map<Long, TaskStatistics> taskStatistics;
 
@@ -43,7 +43,7 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
                                long checkpointId,
                                long triggerTimestamp,
                                long completedTimestamp,
-                               Map<Long, TaskState> taskStates,
+                               Map<Long, ActionState> taskStates,
                                Map<Long, TaskStatistics> taskStatistics) {
         this.jobId = jobId;
         this.pipelineId = pipelineId;
@@ -78,7 +78,7 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
         return completedTimestamp;
     }
 
-    public Map<Long, TaskState> getTaskStates() {
+    public Map<Long, ActionState> getTaskStates() {
         return taskStates;
     }
 

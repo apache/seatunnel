@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.checkpoint;
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
 import org.apache.seatunnel.engine.server.execution.TaskInfo;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -38,21 +39,21 @@ public class PendingCheckpoint implements Checkpoint {
 
     private final Map<Long, TaskStatistics> taskStatistics;
 
-    private final Map<Long, TaskState> taskStates;
+    private final Map<Long, ActionState> actionStates;
 
     public PendingCheckpoint(long jobId,
                              int pipelineId,
                              long checkpointId,
                              long triggerTimestamp,
                              Set<Long> notYetAcknowledgedTasks,
-                             Map<Long, TaskState> taskStates,
+                             Map<Long, ActionState> actionStates,
                              Map<Long, Integer> allVertices) {
         this.jobId = jobId;
         this.pipelineId = pipelineId;
         this.checkpointId = checkpointId;
         this.triggerTimestamp = triggerTimestamp;
         this.notYetAcknowledgedTasks = notYetAcknowledgedTasks;
-        this.taskStates = taskStates;
+        this.actionStates = actionStates;
         this.taskStatistics = allVertices.entrySet()
             .stream().collect(Collectors.toMap(
                 Map.Entry::getKey,
@@ -83,22 +84,27 @@ public class PendingCheckpoint implements Checkpoint {
         return taskStatistics;
     }
 
-    protected Map<Long, TaskState> getTaskStates() {
-        return taskStates;
+    protected Map<Long, ActionState> getActionStates() {
+        return actionStates;
     }
 
-    public void acknowledgeTask(TaskInfo taskInfo, byte[] states) {
+    public void acknowledgeTask(TaskInfo taskInfo, List<ActionSubtaskState> states) {
         notYetAcknowledgedTasks.remove(taskInfo.getSubtaskId());
         TaskStatistics statistics = taskStatistics.get(taskInfo.getJobVertexId());
+
+        long stateSize = 0;
+        for (ActionSubtaskState state : states) {
+            ActionState actionState = actionStates.get(state.getActionId());
+            if (actionState == null) {
+                return;
+            }
+            stateSize += state.getState().length;
+            actionState.reportState(state.getIndex(), state);
+        }
         statistics.reportSubtaskStatistics(new SubtaskStatistics(
             taskInfo.getIndex(),
             System.currentTimeMillis(),
-            states.length));
-        TaskState taskState = taskStates.get(taskInfo.getJobVertexId());
-        if (taskState == null) {
-            return;
-        }
-        taskState.reportState(taskInfo.getIndex(), states);
+            stateSize));
     }
 
     public void taskCompleted(TaskInfo taskInfo) {

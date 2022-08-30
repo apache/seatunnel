@@ -17,11 +17,16 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
+import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointTriggerOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
+import org.apache.seatunnel.engine.server.execution.TaskInfo;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.context.SeaTunnelSplitEnumeratorContext;
 import org.apache.seatunnel.engine.server.task.operation.source.CloseRequestOperation;
@@ -30,12 +35,15 @@ import org.apache.seatunnel.engine.server.task.statemachine.EnumeratorState;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
+import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +51,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends CoordinatorTask {
@@ -51,8 +60,12 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     private static final long serialVersionUID = -3713701594297977775L;
 
-    private final SourceAction<?, SplitT, ?> source;
-    private SourceSplitEnumerator<?, ?> enumerator;
+    private final SourceAction<?, SplitT, Serializable> source;
+    private SourceSplitEnumerator<SplitT, Serializable> enumerator;
+    private SeaTunnelSplitEnumeratorContext<SplitT> enumeratorContext;
+
+    private Serializer<Serializable> enumeratorStateSerializer;
+
     private int maxReaderSize;
     private Set<Long> unfinishedReaders;
     private Map<TaskLocation, Address> taskMemberMapping;
@@ -70,8 +83,9 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         readerRegisterFuture = new CompletableFuture<>();
         readerFinishFuture = new CompletableFuture<>();
         LOGGER.info("starting seatunnel source split enumerator task, source name: " + source.getName());
-        SeaTunnelSplitEnumeratorContext<SplitT> context = new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this);
-        enumerator = this.source.getSource().createEnumerator(context);
+        enumeratorContext = new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this);
+        enumerator = this.source.getSource().createEnumerator(enumeratorContext);
+        enumeratorStateSerializer = this.source.getSource().getEnumeratorStateSerializer();
         taskMemberMapping = new ConcurrentHashMap<>();
         taskIDToTaskLocationMapping = new ConcurrentHashMap<>();
         maxReaderSize = source.getParallelism();
@@ -87,9 +101,10 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         progress.done();
     }
 
+    @SuppressWarnings("unchecked")
     public SourceSplitEnumeratorTask(long jobID, TaskLocation taskID, SourceAction<?, SplitT, ?> source) {
         super(jobID, taskID);
-        this.source = source;
+        this.source = (SourceAction<?, SplitT, Serializable>) source;
         this.currState = EnumeratorState.CREATED;
     }
 
@@ -100,8 +115,17 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         return progress.toState();
     }
 
-    public void triggerCheckpoint(CheckpointBarrier checkpointBarrier) {
-
+    @Override
+    public void triggerCheckpoint(CheckpointBarrier barrier) throws Exception {
+        Serializable snapshotState;
+        synchronized (enumeratorContext) {
+            snapshotState = enumerator.snapshotState(barrier.getId());
+            sendToAllReader(location -> new CheckpointTriggerOperation(barrier,
+                new TaskInfo(this.jobID, location.getTaskGroupID(), location.getTaskID())));
+        }
+        byte[] serialize = enumeratorStateSerializer.serialize(snapshotState);
+        this.getExecutionContext().sendToMaster(new TaskAcknowledgeOperation(barrier.getId(), new TaskInfo(this.jobID, taskID.getTaskGroupID(), taskID.getTaskID()),
+            Collections.singletonList(new ActionSubtaskState(source.getId(), -1, serialize))));
     }
 
     public void receivedReader(TaskLocation readerId, Address memberAddr) {
@@ -181,16 +205,28 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     }
 
     private void closeAllReader() {
+        sendToAllReader(CloseRequestOperation::new);
+    }
+
+    private void sendToAllReader(Function<TaskLocation, Operation> function) {
         List<InvocationFuture<?>> futures = new ArrayList<>();
-        taskMemberMapping.forEach((location, address) -> {
-            futures.add(this.getExecutionContext().sendToMember(new CloseRequestOperation(location),
-                    address));
-        });
+        taskMemberMapping.forEach((location, address) ->
+            futures.add(this.getExecutionContext().sendToMember(function.apply(location), address)));
         futures.forEach(InvocationFuture::join);
     }
 
     @Override
     public Set<URL> getJarsUrl() {
         return new HashSet<>(source.getJarUrls());
+    }
+
+    @Override
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+        enumerator.notifyCheckpointComplete(checkpointId);
+    }
+
+    @Override
+    public void notifyCheckpointAborted(long checkpointId) throws Exception {
+        enumerator.notifyCheckpointAborted(checkpointId);
     }
 }

@@ -69,4 +69,9 @@ public abstract class AbstractTask implements Task {
     public Long getTaskID() {
         return taskID.getTaskID();
     }
+
+    @Override
+    public Long getJobId() {
+        return this.jobID;
+    }
 }

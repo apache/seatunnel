@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
+import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.TaskRuntimeException;
 import org.apache.seatunnel.engine.server.task.record.ClosedSign;
 
@@ -29,32 +31,38 @@ import java.util.concurrent.CompletableFuture;
 
 public class TransformFlowLifeCycle<T> extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>> {
 
+    private final TransformChainAction<T> action;
+
     private final List<SeaTunnelTransform<T>> transform;
 
     private final Collector<Record<?>> collector;
 
-    public TransformFlowLifeCycle(List<SeaTunnelTransform<T>> transform, Collector<Record<?>> collector,
+    public TransformFlowLifeCycle(TransformChainAction<T> action,
+                                  SeaTunnelTask runningTask,
+                                  Collector<Record<?>> collector,
                                   CompletableFuture<Void> completableFuture) {
-        super(completableFuture);
-        this.transform = transform;
+        super(runningTask, completableFuture);
+        this.action = action;
+        this.transform = action.getTransforms();
         this.collector = collector;
     }
 
     @Override
-    public void received(Record<?> row) {
-        if (row.getData() instanceof ClosedSign) {
-            collector.collect(row);
+    public void received(Record<?> record) {
+        if (record.getData() instanceof ClosedSign) {
+            collector.collect(record);
             try {
                 this.close();
             } catch (Exception e) {
                 throw new TaskRuntimeException(e);
             }
-        } else if (row.getData() instanceof CheckpointBarrier) {
-            synchronized (this) {
-                // TODO: ack checkpoint
-            }
+        } else if (record.getData() instanceof CheckpointBarrier) {
+            CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
+            runningTask.ack(barrier.getId());
+            runningTask.addState(barrier.getId(), action.getId(), new byte[0]);
+            collector.collect(record);
         } else {
-            T r = (T) row.getData();
+            T r = (T) record.getData();
             for (SeaTunnelTransform<T> t : transform) {
                 r = t.map(r);
             }
