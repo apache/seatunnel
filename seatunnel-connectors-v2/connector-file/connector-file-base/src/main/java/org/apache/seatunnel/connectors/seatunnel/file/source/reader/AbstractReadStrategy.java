@@ -53,6 +53,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         if (hadoopConf != null) {
             configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
             configuration.set("fs.hdfs.impl", hadoopConf.getFsHdfsImpl());
+            hadoopConf.setExtraOptionsForConfiguration(configuration);
         }
         return configuration;
     }

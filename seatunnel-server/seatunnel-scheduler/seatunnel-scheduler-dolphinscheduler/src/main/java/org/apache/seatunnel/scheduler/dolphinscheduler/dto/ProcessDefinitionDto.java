@@ -38,7 +38,7 @@ public class ProcessDefinitionDto {
     private Date createTime;
     @JsonFormat(pattern = DEFAULT_DATETIME_FORMAT)
     private Date updateTime;
-    private String userName;
+    private String username;
     private String projectName;
     private String locations;
     private String scheduleReleaseState;

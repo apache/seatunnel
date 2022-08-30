@@ -26,6 +26,7 @@ import org.apache.seatunnel.core.starter.Starter;
 import org.apache.seatunnel.core.starter.config.ConfigBuilder;
 import org.apache.seatunnel.core.starter.config.PluginType;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
+import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 import org.apache.seatunnel.core.starter.utils.CompressionUtils;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
@@ -35,8 +36,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
-import com.beust.jcommander.JCommander;
-import com.beust.jcommander.UnixStyleUsageFormatter;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
@@ -63,8 +62,6 @@ import java.util.stream.Stream;
  * A Starter to generate spark-submit command for SeaTunnel job on spark.
  */
 public class SparkStarter implements Starter {
-
-    private static final int USAGE_EXIT_CODE = 234;
 
     private static final int PLUGIN_LIB_DIR_DEPTH = 3;
 
@@ -116,7 +113,7 @@ public class SparkStarter implements Starter {
      * {@link ClientModeSparkStarter} depending on deploy mode.
      */
     static SparkStarter getInstance(String[] args) {
-        SparkCommandArgs commandArgs = parseCommandArgs(args);
+        SparkCommandArgs commandArgs = CommandLineUtils.parse(args, new SparkCommandArgs(), "start-seatunnel-spark.sh", true);
         DeployMode deployMode = commandArgs.getDeployMode();
         switch (deployMode) {
             case CLUSTER:
@@ -126,24 +123,6 @@ public class SparkStarter implements Starter {
             default:
                 throw new IllegalArgumentException("Deploy mode " + deployMode + " not supported");
         }
-    }
-
-    /**
-     * parse commandline args
-     */
-    private static SparkCommandArgs parseCommandArgs(String[] args) {
-        SparkCommandArgs commandArgs = new SparkCommandArgs();
-        JCommander commander = JCommander.newBuilder()
-                .programName("start-seatunnel-spark.sh")
-                .addObject(commandArgs)
-                .args(args)
-                .build();
-        if (commandArgs.isHelp()) {
-            commander.setUsageFormatter(new UnixStyleUsageFormatter(commander));
-            commander.usage();
-            System.exit(USAGE_EXIT_CODE);
-        }
-        return commandArgs;
     }
 
     @Override

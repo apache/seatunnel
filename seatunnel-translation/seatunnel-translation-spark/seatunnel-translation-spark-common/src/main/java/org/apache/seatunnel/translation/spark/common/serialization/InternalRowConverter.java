@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.translation.spark.common.serialization;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -35,6 +37,7 @@ import org.apache.spark.sql.catalyst.expressions.MutableLong;
 import org.apache.spark.sql.catalyst.expressions.MutableShort;
 import org.apache.spark.sql.catalyst.expressions.MutableValue;
 import org.apache.spark.sql.catalyst.expressions.SpecificInternalRow;
+import org.apache.spark.sql.catalyst.util.ArrayData;
 import org.apache.spark.sql.types.Decimal;
 import org.apache.spark.unsafe.types.UTF8String;
 
@@ -84,6 +87,8 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 return UTF8String.fromString((String) field);
             case DECIMAL:
                 return Decimal.apply((BigDecimal) field);
+            case ARRAY:
+                return ArrayData.toArrayData(field);
             default:
                 return field;
         }
@@ -146,11 +151,11 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
     }
 
     @Override
-    public SeaTunnelRow convert(InternalRow engineRow) throws IOException {
+    public SeaTunnelRow reconvert(InternalRow engineRow) throws IOException {
         return (SeaTunnelRow) reconvert(engineRow, dataType);
     }
 
-    public static Object reconvert(Object field, SeaTunnelDataType<?> dataType) {
+    private static Object reconvert(Object field, SeaTunnelDataType<?> dataType) {
         if (field == null) {
             return null;
         }
@@ -170,12 +175,33 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 return field.toString();
             case DECIMAL:
                 return ((Decimal) field).toJavaBigDecimal();
+            case ARRAY:
+                ArrayData arrayData = (ArrayData) field;
+                BasicType<?> elementType = ((ArrayType<?, ?>) dataType).getElementType();
+                switch (elementType.getSqlType()) {
+                    case INT:
+                        return arrayData.toIntArray();
+                    case TINYINT:
+                        return arrayData.toByteArray();
+                    case SMALLINT:
+                        return arrayData.toShortArray();
+                    case BIGINT:
+                        return arrayData.toLongArray();
+                    case BOOLEAN:
+                        return arrayData.toBooleanArray();
+                    case FLOAT:
+                        return arrayData.toFloatArray();
+                    case DOUBLE:
+                        return arrayData.toDoubleArray();
+                    default:
+                        return arrayData.array();
+                }
             default:
                 return field;
         }
     }
 
-    public static SeaTunnelRow reconvert(InternalRow engineRow, SeaTunnelRowType rowType) {
+    private static SeaTunnelRow reconvert(InternalRow engineRow, SeaTunnelRowType rowType) {
         Object[] fields = new Object[engineRow.numFields()];
         for (int i = 0; i < engineRow.numFields(); i++) {
             fields[i] = reconvert(engineRow.get(i, TypeConverterUtils.convert(rowType.getFieldType(i))),

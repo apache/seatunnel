@@ -44,6 +44,7 @@ import org.apache.seatunnel.scheduler.dolphinscheduler.dto.StartProcessDefinitio
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.TaskDescriptionDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.UpdateProcessDefinitionDto;
 import org.apache.seatunnel.server.common.DateUtils;
+import org.apache.seatunnel.server.common.PageData;
 import org.apache.seatunnel.server.common.SeatunnelErrorEnum;
 import org.apache.seatunnel.server.common.SeatunnelException;
 import org.apache.seatunnel.spi.scheduler.IInstanceService;
@@ -103,22 +104,23 @@ public class JobServiceImpl implements IJobService {
     }
 
     @Override
-    public List<JobSimpleInfoDto> list(JobListDto dto) {
+    public PageData<JobSimpleInfoDto> list(JobListDto dto) {
         final ListProcessDefinitionDto listDto = ListProcessDefinitionDto.builder()
                 .name(dto.getName())
                 .pageNo(dto.getPageNo())
                 .pageSize(dto.getPageSize())
                 .build();
-        final List<ProcessDefinitionDto> processDefinitionDtos = iDolphinschedulerService.listProcessDefinition(listDto);
-        return processDefinitionDtos.stream().map(p -> JobSimpleInfoDto.builder()
-                    .jobId(p.getCode())
-                    .jobStatus(p.getReleaseState())
-                    .createTime(p.getCreateTime())
-                    .updateTime(p.getUpdateTime())
-                    .creatorName(p.getUserName())
-                    .menderName(p.getUserName())
-                    .build())
+        final PageData<ProcessDefinitionDto> processPageData = iDolphinschedulerService.listProcessDefinition(listDto);
+        final List<JobSimpleInfoDto> data = processPageData.getData().stream().map(p -> JobSimpleInfoDto.builder()
+                .jobId(p.getCode())
+                .jobStatus(p.getReleaseState())
+                .createTime(p.getCreateTime())
+                .updateTime(p.getUpdateTime())
+                .creatorName(p.getUsername())
+                .menderName(p.getUsername())
+                .build())
                 .collect(Collectors.toList());
+        return new PageData<>(processPageData.getTotalCount(), data);
     }
 
     @Override
@@ -183,9 +185,9 @@ public class JobServiceImpl implements IJobService {
                         .pageSize(PAGE_SIZE_MIN)
                         .name(processDefinition.getName())
                         .build();
-                final List<InstanceDto> list = iInstanceService.list(instanceListDto);
-                if (!CollectionUtils.isEmpty(list)) {
-                    instanceDto = list.get(0);
+                final PageData<InstanceDto> instancePageData = iInstanceService.list(instanceListDto);
+                if (!CollectionUtils.isEmpty(instancePageData.getData())) {
+                    instanceDto = instancePageData.getData().get(0);
                     break;
                 }
                 try {
