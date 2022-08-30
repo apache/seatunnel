@@ -42,7 +42,7 @@ import java.sql.Statement;
 import java.util.List;
 import java.util.stream.Stream;
 
-public class FakeSourceToOracleIT extends FlinkContainer {
+public class JdbcOracleIT extends FlinkContainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSourceToConsoleIT.class);
     private OracleContainer oracleContainer;
 
@@ -63,10 +63,14 @@ public class FakeSourceToOracleIT extends FlinkContainer {
     private void initializeJdbcTable() {
         try (Connection connection = DriverManager.getConnection(oracleContainer.getJdbcUrl(), oracleContainer.getUsername(), oracleContainer.getPassword())) {
             Statement statement = connection.createStatement();
-            String sql = "CREATE TABLE test (\n" +
+            String sourceSql = "CREATE TABLE source (\n" +
                 "  name varchar(255) NOT NULL\n" +
                 ")";
-            statement.execute(sql);
+            String sinkSql = "CREATE TABLE sink (\n" +
+                "  name varchar(255) NOT NULL\n" +
+                ")";
+            statement.execute(sourceSql);
+            statement.execute(sinkSql);
         } catch (SQLException e) {
             throw new RuntimeException("Initializing Oracle table failed!", e);
         }
@@ -75,11 +79,11 @@ public class FakeSourceToOracleIT extends FlinkContainer {
     @SuppressWarnings("checkstyle:MagicNumber")
     private void batchInsertData() {
         try (Connection connection = DriverManager.getConnection(oracleContainer.getJdbcUrl(), oracleContainer.getUsername(), oracleContainer.getPassword())) {
-            String sql = "insert into test(name) values(?)";
+            String sql = "insert into source(name) values(?)";
             connection.setAutoCommit(false);
             PreparedStatement preparedStatement = connection.prepareStatement(sql);
             for (int i = 0; i < 10; i++) {
-                preparedStatement.setString(1, "Mike");
+                preparedStatement.setString(1, "Mike_" + i);
                 preparedStatement.addBatch();
             }
             preparedStatement.executeBatch();
@@ -91,10 +95,10 @@ public class FakeSourceToOracleIT extends FlinkContainer {
 
     @Test
     public void testFakeSourceToJdbcSink() throws SQLException, IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/fakesource_to_oracle.conf");
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_oracle_source_to_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         // query result
-        String sql = "select * from test";
+        String sql = "select * from sink";
         try (Connection connection = DriverManager.getConnection(oracleContainer.getJdbcUrl(), oracleContainer.getUsername(), oracleContainer.getPassword())) {
             Statement statement = connection.createStatement();
             ResultSet resultSet = statement.executeQuery(sql);
