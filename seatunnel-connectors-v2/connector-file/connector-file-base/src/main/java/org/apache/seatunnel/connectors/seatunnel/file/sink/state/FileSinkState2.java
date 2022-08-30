@@ -25,6 +25,6 @@ import java.io.Serializable;
 @Data
 @AllArgsConstructor
 public class FileSinkState2 implements Serializable {
-    private String transactionId;
-    private Long checkpointId;
+    private final String transactionId;
+    private final Long checkpointId;
 }

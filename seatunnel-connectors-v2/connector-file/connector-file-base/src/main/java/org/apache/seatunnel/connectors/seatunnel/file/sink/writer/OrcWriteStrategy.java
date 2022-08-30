@@ -171,7 +171,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             Boolean bool = (Boolean) value;
             longVector.vector[row] = (bool.equals(Boolean.TRUE)) ? Long.valueOf(1) : Long.valueOf(0);
         }  else if (value instanceof Integer) {
-            longVector.vector[row] = (Integer) value;
+            longVector.vector[row] = ((Integer) value).longValue();
         } else if (value instanceof Long) {
             longVector.vector[row] = (Long) value;
         } else if (value instanceof BigInteger) {

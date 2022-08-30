@@ -79,17 +79,17 @@ public class FileSinkAggregatedCommitter2 implements SinkAggregatedCommitter<Fil
     /**
      * If {@link #commit(List)} failed, this method will be called (**Only** on Spark engine at now).
      *
-     * @param aggregatedCommitInfo The list of combine commit message.
+     * @param aggregatedCommitInfos The list of combine commit message.
      * @throws Exception throw Exception when abort failed.
      */
     @Override
-    public void abort(List<FileAggregatedCommitInfo2> aggregatedCommitInfo) throws Exception {
-        if (aggregatedCommitInfo == null || aggregatedCommitInfo.size() == 0) {
+    public void abort(List<FileAggregatedCommitInfo2> aggregatedCommitInfos) throws Exception {
+        if (aggregatedCommitInfos == null || aggregatedCommitInfos.size() == 0) {
             return;
         }
-        aggregatedCommitInfo.forEach(aggregateCommitInfo -> {
+        aggregatedCommitInfos.forEach(aggregatedCommitInfo -> {
             try {
-                for (Map.Entry<String, Map<String, String>> entry : aggregateCommitInfo.getTransactionMap().entrySet()) {
+                for (Map.Entry<String, Map<String, String>> entry : aggregatedCommitInfo.getTransactionMap().entrySet()) {
                     // rollback the file
                     for (Map.Entry<String, String> mvFileEntry : entry.getValue().entrySet()) {
                         if (FileSystemUtils.fileExist(mvFileEntry.getValue()) && !FileSystemUtils.fileExist(mvFileEntry.getKey())) {
@@ -100,7 +100,7 @@ public class FileSinkAggregatedCommitter2 implements SinkAggregatedCommitter<Fil
                     FileSystemUtils.deleteFile(entry.getKey());
                 }
             } catch (Exception e) {
-                LOGGER.error("abort aggregateCommitInfo error ", e);
+                LOGGER.error("abort aggregatedCommitInfo error ", e);
             }
         });
     }
