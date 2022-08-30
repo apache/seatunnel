@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.commit;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 
-import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,7 +28,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class FileSinkAggregatedCommitter2 implements SinkAggregatedCommitter<FileCommitInfo2, FileAggregatedCommitInfo2> {
     private static final Logger LOGGER = LoggerFactory.getLogger(FileSinkAggregatedCommitter2.class);
