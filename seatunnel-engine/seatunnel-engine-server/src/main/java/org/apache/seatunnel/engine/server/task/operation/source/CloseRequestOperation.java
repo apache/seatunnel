@@ -20,7 +20,7 @@ package org.apache.seatunnel.engine.server.task.operation.source;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 
@@ -33,12 +33,12 @@ import java.io.IOException;
 
 public class CloseRequestOperation extends Operation implements IdentifiedDataSerializable {
 
-    private WorkerTaskLocation readerLocation;
+    private TaskLocation readerLocation;
 
     public CloseRequestOperation() {
     }
 
-    public CloseRequestOperation(WorkerTaskLocation readerLocation) {
+    public CloseRequestOperation(TaskLocation readerLocation) {
         this.readerLocation = readerLocation;
     }
 
@@ -46,7 +46,7 @@ public class CloseRequestOperation extends Operation implements IdentifiedDataSe
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(() -> {
-            SourceSeaTunnelTask<?, ?> task = server.getSlotService().getTask(readerLocation);
+            SourceSeaTunnelTask<?, ?> task = server.getTaskExecutionService().getTask(readerLocation);
             task.close();
             return null;
         }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,

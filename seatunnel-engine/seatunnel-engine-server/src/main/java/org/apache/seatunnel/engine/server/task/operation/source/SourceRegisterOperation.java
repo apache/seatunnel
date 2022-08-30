@@ -20,7 +20,6 @@ package org.apache.seatunnel.engine.server.task.operation.source;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 
@@ -41,13 +40,13 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
 
     private static final int RETRY_TIME_OUT = 2000;
 
-    private WorkerTaskLocation readerTaskID;
+    private TaskLocation readerTaskID;
     private TaskLocation enumeratorTaskID;
 
     public SourceRegisterOperation() {
     }
 
-    public SourceRegisterOperation(WorkerTaskLocation readerTaskID, TaskLocation enumeratorTaskID) {
+    public SourceRegisterOperation(TaskLocation readerTaskID, TaskLocation enumeratorTaskID) {
         this.readerTaskID = readerTaskID;
         this.enumeratorTaskID = enumeratorTaskID;
     }
@@ -58,8 +57,7 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
         Address readerAddress = getCallerAddress();
         RetryUtils.retryWithException(() -> {
             SourceSplitEnumeratorTask<?> task =
-                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupLocation()).getTaskGroup()
-                    .getTask(enumeratorTaskID.getTaskID());
+                server.getTaskExecutionService().getTask(enumeratorTaskID);
             task.receivedReader(readerTaskID, readerAddress);
             return null;
         }, new RetryUtils.RetryMaterial(RETRY_TIME, true,

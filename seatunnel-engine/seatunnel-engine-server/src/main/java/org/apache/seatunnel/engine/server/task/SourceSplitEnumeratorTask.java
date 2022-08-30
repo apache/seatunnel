@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
 import org.apache.seatunnel.engine.server.task.context.SeaTunnelSplitEnumeratorContext;
 import org.apache.seatunnel.engine.server.task.operation.source.CloseRequestOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.EnumeratorState;
@@ -55,8 +54,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private SourceSplitEnumerator<?, ?> enumerator;
     private int maxReaderSize;
     private Set<Long> unfinishedReaders;
-    private Map<WorkerTaskLocation, Address> taskMemberMapping;
-    private Map<Long, WorkerTaskLocation> taskIDToTaskLocationMapping;
+    private Map<TaskLocation, Address> taskMemberMapping;
+    private Map<Long, TaskLocation> taskIDToTaskLocationMapping;
 
     private volatile EnumeratorState currState;
 
@@ -100,7 +99,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         return progress.toState();
     }
 
-    public void receivedReader(WorkerTaskLocation readerId, Address memberAddr) {
+    public void receivedReader(TaskLocation readerId, Address memberAddr) {
         LOGGER.info("received reader register, readerID: " + readerId);
         this.addTaskMemberMapping(readerId, memberAddr);
         enumerator.registerReader((int) readerId.getTaskID());
@@ -113,7 +112,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         enumerator.handleSplitRequest((int) taskID);
     }
 
-    public void addTaskMemberMapping(WorkerTaskLocation taskID, Address memberAddr) {
+    public void addTaskMemberMapping(TaskLocation taskID, Address memberAddr) {
         taskMemberMapping.put(taskID, memberAddr);
         taskIDToTaskLocationMapping.put(taskID.getTaskID(), taskID);
     }
@@ -122,7 +121,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         return taskMemberMapping.get(taskIDToTaskLocationMapping.get(taskID));
     }
 
-    public WorkerTaskLocation getTaskMemberLocation(long taskID) {
+    public TaskLocation getTaskMemberLocation(long taskID) {
         return taskIDToTaskLocationMapping.get(taskID);
     }
 

@@ -36,6 +36,7 @@ import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
 import org.apache.seatunnel.engine.server.service.slot.SlotContext;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
@@ -135,13 +136,15 @@ public class TaskExecutionService {
         return deployTask(taskImmutableInfo);
     }
 
+    public <T extends Task> T getTask(TaskLocation taskLocation) {
+        return this.getExecutionContext(taskLocation.getTaskGroupLocation()).getTaskGroup().getTask(taskLocation.getTaskID());
+    }
+
     public synchronized PassiveCompletableFuture<TaskExecutionState> deployTask(
         @NonNull TaskGroupImmutableInformation taskImmutableInfo) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
         TaskGroup taskGroup = null;
         try {
-            TaskGroupImmutableInformation taskImmutableInfo =
-                nodeEngine.getSerializationService().toObject(taskImmutableInformation);
             Set<URL> jars = taskImmutableInfo.getJars();
 
             if (!CollectionUtils.isEmpty(jars)) {

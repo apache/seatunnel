@@ -21,7 +21,6 @@ import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 
@@ -36,12 +35,12 @@ public class RequestSplitOperation extends Operation implements IdentifiedDataSe
 
     private TaskLocation enumeratorTaskID;
 
-    private WorkerTaskLocation taskID;
+    private TaskLocation taskID;
 
     public RequestSplitOperation() {
     }
 
-    public RequestSplitOperation(WorkerTaskLocation taskID, TaskLocation enumeratorTaskID) {
+    public RequestSplitOperation(TaskLocation taskID, TaskLocation enumeratorTaskID) {
         this.enumeratorTaskID = enumeratorTaskID;
         this.taskID = taskID;
     }
@@ -51,9 +50,7 @@ public class RequestSplitOperation extends Operation implements IdentifiedDataSe
         SeaTunnelServer server = getService();
 
         RetryUtils.retryWithException(() -> {
-            SourceSplitEnumeratorTask<?> task =
-                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupLocation())
-                    .getTaskGroup().getTask(enumeratorTaskID.getTaskID());
+            SourceSplitEnumeratorTask<?> task = server.getTaskExecutionService().getTask(enumeratorTaskID);
             task.requestSplit(taskID.getTaskID());
             return null;
         }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,

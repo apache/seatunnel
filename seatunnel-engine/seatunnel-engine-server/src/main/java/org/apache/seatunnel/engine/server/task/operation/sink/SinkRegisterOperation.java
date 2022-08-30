@@ -19,7 +19,6 @@ package org.apache.seatunnel.engine.server.task.operation.sink;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
 import org.apache.seatunnel.engine.server.task.TaskRuntimeException;
@@ -39,13 +38,13 @@ public class SinkRegisterOperation extends Operation implements IdentifiedDataSe
     private static final ILogger LOGGER = Logger.getLogger(SinkRegisterOperation.class);
     private static final int RETRY_TIME = 5;
     private static final int RETRY_INTERVAL = 2000;
-    private WorkerTaskLocation writerTaskID;
+    private TaskLocation writerTaskID;
     private TaskLocation committerTaskID;
 
     public SinkRegisterOperation() {
     }
 
-    public SinkRegisterOperation(WorkerTaskLocation writerTaskID, TaskLocation committerTaskID) {
+    public SinkRegisterOperation(TaskLocation writerTaskID, TaskLocation committerTaskID) {
         this.writerTaskID = writerTaskID;
         this.committerTaskID = committerTaskID;
     }
@@ -57,8 +56,7 @@ public class SinkRegisterOperation extends Operation implements IdentifiedDataSe
         SinkAggregatedCommitterTask<?> task = null;
         for (int i = 0; i < RETRY_TIME; i++) {
             try {
-                task = server.getTaskExecutionService().getExecutionContext(committerTaskID.getTaskGroupLocation())
-                        .getTaskGroup().getTask(committerTaskID.getTaskID());
+                task = server.getTaskExecutionService().getTask(committerTaskID);
                 break;
             } catch (NullPointerException e) {
                 LOGGER.warning("can't get committer task , waiting task started");

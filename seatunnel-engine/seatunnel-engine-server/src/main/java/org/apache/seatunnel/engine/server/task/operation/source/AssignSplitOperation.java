@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 
@@ -36,12 +36,12 @@ import java.util.List;
 public class AssignSplitOperation<SplitT extends SourceSplit> extends Operation implements IdentifiedDataSerializable {
 
     private List<SplitT> splits;
-    private WorkerTaskLocation taskID;
+    private TaskLocation taskID;
 
     public AssignSplitOperation() {
     }
 
-    public AssignSplitOperation(WorkerTaskLocation taskID, List<SplitT> splits) {
+    public AssignSplitOperation(TaskLocation taskID, List<SplitT> splits) {
         this.taskID = taskID;
         this.splits = splits;
     }
@@ -50,7 +50,7 @@ public class AssignSplitOperation<SplitT extends SourceSplit> extends Operation 
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(() -> {
-            SourceSeaTunnelTask<?, SplitT> task = server.getSlotService().getTask(taskID);
+            SourceSeaTunnelTask<?, SplitT> task = server.getTaskExecutionService().getTask(taskID);
             task.receivedSourceSplit(splits);
             return null;
         }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,

@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.server.service.slot;
 
-import org.apache.seatunnel.engine.server.execution.Task;
-import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
@@ -29,8 +27,6 @@ public interface SlotService {
     SlotAndWorkerProfile requestSlot(long jobID, ResourceProfile resourceProfile);
 
     SlotContext getSlotContext(int slotID);
-
-    <T extends Task> T getTask(WorkerTaskLocation workerTaskLocation);
 
     void releaseSlot(long jobId, SlotProfile slotProfile);
 

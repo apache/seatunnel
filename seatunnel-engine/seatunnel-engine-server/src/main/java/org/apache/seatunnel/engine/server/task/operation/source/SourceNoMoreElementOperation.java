@@ -21,7 +21,6 @@ import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 
@@ -34,13 +33,13 @@ import java.io.IOException;
 
 public class SourceNoMoreElementOperation extends Operation implements IdentifiedDataSerializable {
 
-    private WorkerTaskLocation currentTaskID;
+    private TaskLocation currentTaskID;
     private TaskLocation enumeratorTaskID;
 
     public SourceNoMoreElementOperation() {
     }
 
-    public SourceNoMoreElementOperation(WorkerTaskLocation currentTaskID, TaskLocation enumeratorTaskID) {
+    public SourceNoMoreElementOperation(TaskLocation currentTaskID, TaskLocation enumeratorTaskID) {
         this.currentTaskID = currentTaskID;
         this.enumeratorTaskID = enumeratorTaskID;
     }
@@ -50,8 +49,7 @@ public class SourceNoMoreElementOperation extends Operation implements Identifie
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(() -> {
             SourceSplitEnumeratorTask<?> task =
-                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupLocation())
-                    .getTaskGroup().getTask(enumeratorTaskID.getTaskID());
+                server.getTaskExecutionService().getTask(enumeratorTaskID);
             task.readerFinished(currentTaskID.getTaskID());
             return null;
         }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,

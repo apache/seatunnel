@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class PipelineBaseScheduler implements JobScheduler {
@@ -134,34 +135,29 @@ public class PipelineBaseScheduler implements JobScheduler {
         }
     }
 
+    private CompletableFuture<Void> deployTask(PhysicalVertex task, Supplier<Void> supplier) {
+        if (task.updateTaskState(ExecutionState.SCHEDULED, ExecutionState.DEPLOYING)) {
+            // deploy is a time-consuming operation, so we do it async
+            return CompletableFuture.supplyAsync(supplier);
+        } else {
+            handleTaskStateUpdateError(task, ExecutionState.DEPLOYING);
+        }
+        return null;
+    }
+
     private void deployPipeline(@NonNull SubPlan pipeline, Map<PhysicalVertex, SlotProfile> slotProfiles) {
         if (pipeline.updatePipelineState(PipelineState.SCHEDULED, PipelineState.DEPLOYING)) {
             List<CompletableFuture<?>> deployCoordinatorFuture =
-                pipeline.getCoordinatorVertexList().stream().map(coordinator -> {
-                    if (coordinator.updateTaskState(ExecutionState.SCHEDULED, ExecutionState.DEPLOYING)) {
-                        // deploy is a time-consuming operation, so we do it async
-                        return CompletableFuture.supplyAsync(() -> {
-                            coordinator.deployOnMaster();
-                            return null;
-                        });
-                    } else {
-                        handleTaskStateUpdateError(task, ExecutionState.DEPLOYING);
-                    }
+                pipeline.getCoordinatorVertexList().stream().map(coordinator -> deployTask(coordinator, () -> {
+                    coordinator.deployOnMaster();
                     return null;
-                }).filter(Objects::nonNull).collect(Collectors.toList());
+                })).filter(Objects::nonNull).collect(Collectors.toList());
 
             List<CompletableFuture<?>> deployTaskFuture =
-                pipeline.getPhysicalVertexList().stream().map(task -> {
-                    if (task.updateTaskState(ExecutionState.SCHEDULED, ExecutionState.DEPLOYING)) {
-                        return CompletableFuture.supplyAsync(() -> {
-                            task.deploy(slotProfiles.get(task));
-                            return null;
-                        });
-                    } else {
-                        handleTaskStateUpdateError(task, ExecutionState.DEPLOYING);
-                    }
+                pipeline.getPhysicalVertexList().stream().map(task -> deployTask(task, () -> {
+                    task.deploy(slotProfiles.get(task));
                     return null;
-                }).filter(Objects::nonNull).collect(Collectors.toList());
+                })).filter(Objects::nonNull).collect(Collectors.toList());
 
             try {
                 deployCoordinatorFuture.addAll(deployTaskFuture);

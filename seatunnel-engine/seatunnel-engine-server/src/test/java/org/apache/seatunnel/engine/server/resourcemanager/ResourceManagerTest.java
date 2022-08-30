@@ -63,7 +63,6 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest {
         Assert.assertThrows(ExecutionException.class, () -> resourceManager.releaseResources(jobId, slotProfiles).get());
 
         Assert.assertThrows(ExecutionException.class, () -> resourceManager.applyResource(jobId, new ResourceProfile(CPU.of(0), Memory.of(Long.MAX_VALUE))).get());
-
     }
 
 }
