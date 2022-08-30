@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task.group;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 
 import java.util.Collection;
@@ -32,8 +33,8 @@ public class TaskGroupWithIntermediateQueue extends TaskGroupDefaultImpl {
 
     public static final int QUEUE_SIZE = 1000;
 
-    public TaskGroupWithIntermediateQueue(long id, String taskGroupName, Collection<Task> tasks) {
-        super(id, taskGroupName, tasks);
+    public TaskGroupWithIntermediateQueue(TaskGroupLocation taskGroupLocation, String taskGroupName, Collection<Task> tasks) {
+        super(taskGroupLocation, taskGroupName, tasks);
     }
 
     private Map<Long, BlockingQueue<Record<?>>> blockingQueueCache = null;

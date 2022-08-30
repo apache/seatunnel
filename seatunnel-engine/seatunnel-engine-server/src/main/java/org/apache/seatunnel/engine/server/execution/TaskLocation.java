@@ -22,30 +22,31 @@ import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.Objects;
 
 public class TaskLocation implements IdentifiedDataSerializable, Serializable {
 
-    private long taskGroupID;
+    private TaskGroupLocation taskGroupLocation;
     private long taskID;
 
     public TaskLocation() {
     }
 
-    public TaskLocation(long taskGroupID, long taskID) {
-        this.taskGroupID = taskGroupID;
+    public TaskLocation(TaskGroupLocation taskGroupLocation, long taskID) {
+        this.taskGroupLocation = taskGroupLocation;
         this.taskID = taskID;
     }
 
-    public long getTaskGroupID() {
-        return taskGroupID;
+    public TaskGroupLocation getTaskGroupLocation() {
+        return taskGroupLocation;
     }
 
-    public void setTaskGroupID(long taskGroupID) {
-        this.taskGroupID = taskGroupID;
+    public void setTaskGroupLocation(TaskGroupLocation taskGroupLocation) {
+        this.taskGroupLocation = taskGroupLocation;
     }
 
     public long getTaskID() {
@@ -68,22 +69,22 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
 
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
-        out.writeLong(taskGroupID);
+        out.writeObject(taskGroupLocation);
         out.writeLong(taskID);
     }
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
-        taskGroupID = in.readLong();
+        taskGroupLocation = in.readObject();
         taskID = in.readLong();
     }
 
     @Override
     public String toString() {
         return "TaskLocation{" +
-                "taskGroupID=" + taskGroupID +
-                ", taskID=" + taskID +
-                '}';
+            "taskGroupLocation=" + taskGroupLocation +
+            ", taskID=" + taskID +
+            '}';
     }
 
     @Override
@@ -95,11 +96,11 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
             return false;
         }
         TaskLocation that = (TaskLocation) o;
-        return taskGroupID == that.taskGroupID && taskID == that.taskID;
+        return new EqualsBuilder().append(taskID, that.taskID).append(taskGroupLocation, that.taskGroupLocation).isEquals();
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(taskGroupID, taskID);
+        return new HashCodeBuilder(17, 37).append(taskGroupLocation).append(taskID).toHashCode();
     }
 }

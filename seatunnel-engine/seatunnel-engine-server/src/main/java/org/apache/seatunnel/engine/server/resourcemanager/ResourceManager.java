@@ -17,12 +17,14 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+
 import com.hazelcast.cluster.Address;
 import lombok.NonNull;
 
 public interface ResourceManager {
-    Address applyForResource(long jobId, long taskId);
+    Address applyForResource(long jobId, TaskGroupLocation taskGroupLocation);
 
     @NonNull
-    Address getAppliedResource(long jobId, long taskId);
+    Address getAppliedResource(long jobId, TaskGroupLocation taskGroupLocation);
 }

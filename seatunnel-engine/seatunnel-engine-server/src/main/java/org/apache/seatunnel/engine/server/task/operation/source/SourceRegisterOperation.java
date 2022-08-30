@@ -57,7 +57,7 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
         Address readerAddress = getCallerAddress();
         RetryUtils.retryWithException(() -> {
             SourceSplitEnumeratorTask<?> task =
-                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID()).getTaskGroup()
+                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupLocation()).getTaskGroup()
                     .getTask(enumeratorTaskID.getTaskID());
             task.receivedReader(readerTaskID, readerAddress);
             return null;
