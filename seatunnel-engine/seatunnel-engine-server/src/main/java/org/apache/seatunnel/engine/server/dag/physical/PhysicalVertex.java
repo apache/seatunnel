@@ -194,7 +194,7 @@ public class PhysicalVertex {
                                 this.getTaskFullName(), executionState.get()))));
                     }
                 }
-                monitorTask(taskGroupImmutableInformation.getExecutionId(), completeFuture);
+                monitorTask(completeFuture);
             } else if (ExecutionState.CANCELING.equals(this.getExecutionState().get())) {
                 turnToEndState(ExecutionState.CANCELED);
                 taskFuture.complete(new TaskExecutionState(this.taskGroupLocation, executionState.get(), null));
@@ -228,7 +228,7 @@ public class PhysicalVertex {
      * @param completeFuture This future only can completion by the task run in
      *                       {@link com.hazelcast.spi.impl.executionservice.ExecutionService }
      */
-    private void monitorTask(long executionId, PassiveCompletableFuture<TaskExecutionState> completeFuture) {
+    private void monitorTask(PassiveCompletableFuture<TaskExecutionState> completeFuture) {
         completeFuture.whenComplete((v, t) -> {
             try {
                 if (t != null) {

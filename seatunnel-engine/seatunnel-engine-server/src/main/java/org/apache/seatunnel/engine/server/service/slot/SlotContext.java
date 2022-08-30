@@ -37,7 +37,4 @@ public class SlotContext {
         return taskExecutionService;
     }
 
-    public void close() {
-        this.taskExecutionService.shutdown();
-    }
 }

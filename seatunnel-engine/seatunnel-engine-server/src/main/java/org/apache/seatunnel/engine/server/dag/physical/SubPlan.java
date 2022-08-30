@@ -97,11 +97,11 @@ public class SubPlan {
     }
 
     public PassiveCompletableFuture<PipelineState> initStateFuture() {
-        physicalVertexList.stream().forEach(m -> {
+        physicalVertexList.forEach(m -> {
             addPhysicalVertexCallBack(m.initStateFuture());
         });
 
-        coordinatorVertexList.stream().forEach(m -> {
+        coordinatorVertexList.forEach(m -> {
             addPhysicalVertexCallBack(m.initStateFuture());
         });
 

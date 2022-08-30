@@ -139,13 +139,12 @@ public class DefaultSlotService implements SlotService {
             unassignedSlots.put(profile.getSlotID(), profile);
         }
         assignedSlots.remove(profile.getSlotID());
-        contexts.remove(profile.getSlotID()).close();
+        contexts.remove(profile.getSlotID());
     }
 
     @Override
     public void close() {
         scheduledExecutorService.shutdown();
-        contexts.values().forEach(SlotContext::close);
     }
 
     private SlotProfile selectBestMatchSlot(ResourceProfile profile) {
