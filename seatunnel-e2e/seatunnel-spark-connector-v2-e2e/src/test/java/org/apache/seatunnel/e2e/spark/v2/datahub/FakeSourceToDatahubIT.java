@@ -26,7 +26,7 @@ import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
-@Disabled
+@Disabled("Disabled because it needs user's personal datahub account to run this test")
 public class FakeSourceToDatahubIT extends SparkContainer {
 
     @Test
