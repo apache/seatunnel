@@ -30,6 +30,10 @@ public class TestUtils {
         return System.getProperty("user.dir") + "/src/test/resources" + confFile;
     }
 
+    public static String getClusterName(String testClassName) {
+        return System.getProperty("user.name") + "_" + testClassName;
+    }
+
     public static void initPluginDir() {
         // copy connectors to project_root/connectors dir
         System.setProperty("SEATUNNEL_HOME", System.getProperty("user.dir") +

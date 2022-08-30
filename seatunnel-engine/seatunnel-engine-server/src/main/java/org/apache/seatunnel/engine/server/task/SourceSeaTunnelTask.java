@@ -31,6 +31,7 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.NonNull;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -68,8 +69,13 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
     @SuppressWarnings("unchecked")
     public ProgressState call() throws Exception {
         ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).collect();
-        checkDone();
         return progress.toState();
+    }
+
+    @Override
+    public void close() throws IOException {
+        startFlowLifeCycle.close();
+        progress.done();
     }
 
     public void receivedSourceSplit(List<SplitT> splits) {

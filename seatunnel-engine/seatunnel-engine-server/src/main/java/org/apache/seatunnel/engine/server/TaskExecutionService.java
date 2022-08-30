@@ -25,7 +25,6 @@ import static java.util.stream.Collectors.partitioningBy;
 import static java.util.stream.Collectors.toList;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.loader.SeatunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
@@ -183,11 +182,18 @@ public class TaskExecutionService {
         return new PassiveCompletableFuture<>(resultFuture);
     }
 
+    /**
+     * JobMaster call this method to cancel a task, and then {@link TaskExecutionService} cancel this task and send the
+     * {@link TaskExecutionState} to JobMaster.
+     *
+     * @param taskId TaskGroup.getId()
+     */
     public void cancelTaskGroup(long taskId) {
+        logger.info(String.format("Task (%s) need cancel.", taskId));
         if (cancellationFutures.containsKey(taskId)) {
             cancellationFutures.get(taskId).cancel(false);
         } else {
-            throw new SeaTunnelEngineException(String.format("taskId : %s is not exist", taskId));
+            logger.warning(String.format("need cancel taskId : %s is not exist", taskId));
         }
 
     }
@@ -378,7 +384,7 @@ public class TaskExecutionService {
                 if (ex == null) {
                     future.complete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FINISHED, null));
                 } else if (isCancel.get()) {
-                    future.complete(new TaskExecutionState(taskGroup.getId(), ExecutionState.CANCELED, ex));
+                    future.complete(new TaskExecutionState(taskGroup.getId(), ExecutionState.CANCELED, null));
                 } else {
                     future.complete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FAILED, ex));
                 }

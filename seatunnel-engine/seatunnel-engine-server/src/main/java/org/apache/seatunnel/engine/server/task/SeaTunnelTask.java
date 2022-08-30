@@ -48,7 +48,6 @@ import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateQu
 
 import lombok.NonNull;
 
-import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -159,12 +158,6 @@ public abstract class SeaTunnelTask extends AbstractTask {
         if (flowFutures.stream().allMatch(CompletableFuture::isDone)) {
             progress.done();
         }
-    }
-
-    @Override
-    public void close() throws IOException {
-        startFlowLifeCycle.close();
-        progress.done();
     }
 
     @Override

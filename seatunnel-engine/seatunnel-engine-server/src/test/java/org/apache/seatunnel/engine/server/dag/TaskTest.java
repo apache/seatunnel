@@ -77,7 +77,6 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
 
         JobConfig config = new JobConfig();
         config.setName("test");
-        config.setMode(JobMode.BATCH);
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
             nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
@@ -115,16 +114,15 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
 
         JobConfig config = new JobConfig();
         config.setName("test");
-        config.setMode(JobMode.BATCH);
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
             nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
 
         PhysicalPlan physicalPlan = PlanUtils.fromLogicalDAG(logicalDag, nodeEngine,
-                jobImmutableInformation,
-                System.currentTimeMillis(),
-                Executors.newCachedThreadPool(),
-                instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME)).f0();
+            jobImmutableInformation,
+            System.currentTimeMillis(),
+            Executors.newCachedThreadPool(),
+            instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME)).f0();
 
         Assert.assertEquals(physicalPlan.getPipelineList().size(), 1);
         Assert.assertEquals(physicalPlan.getPipelineList().get(0).getCoordinatorVertexList().size(), 1);

@@ -17,12 +17,19 @@
 
 package org.apache.seatunnel.engine.core.job;
 
-import java.util.concurrent.ExecutionException;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 
+/**
+ * Job interface define the Running job apis
+ */
 public interface Job {
     long getJobId();
 
-    void submitJob() throws ExecutionException, InterruptedException;
+    PassiveCompletableFuture<JobStatus> doWaitForJobComplete();
+
+    void cancelJob();
+
+    JobStatus getJobStatus();
 
     JobStatus waitForJobComplete();
 }

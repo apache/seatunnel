@@ -22,10 +22,12 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishe
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointTriggerOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskCompletedOperation;
-import org.apache.seatunnel.engine.server.operation.DeployTaskOperation;
+import org.apache.seatunnel.engine.server.operation.CancelJobOperation;
+import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
 import org.apache.seatunnel.engine.server.operation.WaitForJobCompleteOperation;
+import org.apache.seatunnel.engine.server.task.operation.DeployTaskOperation;
 
 import com.hazelcast.internal.serialization.DataSerializerHook;
 import com.hazelcast.internal.serialization.impl.FactoryIdHelper;
@@ -42,6 +44,7 @@ import com.hazelcast.spi.annotation.PrivateApi;
 public final class OperationDataSerializerHook implements DataSerializerHook {
     public static final int PRINT_MESSAGE_OPERATOR = 0;
     public static final int SUBMIT_OPERATOR = 1;
+
     public static final int DEPLOY_TASK_OPERATOR = 2;
 
     public static final int TASK_COMPLETED_OPERATOR = 3;
@@ -52,6 +55,8 @@ public final class OperationDataSerializerHook implements DataSerializerHook {
     public static final int CHECKPOINT_ACK_OPERATOR = 6;
 
     public static final int CHECKPOINT_FINISHED_OPERATOR = 7;
+    public static final int CANCEL_JOB_OPERATOR = 8;
+    public static final int GET_JOB_STATUS_OPERATOR = 9;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_OPERATION_DATA_SERIALIZER_FACTORY,
@@ -85,6 +90,10 @@ public final class OperationDataSerializerHook implements DataSerializerHook {
                     return new WaitForJobCompleteOperation();
                 case CHECKPOINT_TRIGGER_OPERATOR:
                     return new CheckpointTriggerOperation();
+                case CANCEL_JOB_OPERATOR:
+                    return new CancelJobOperation();
+                case GET_JOB_STATUS_OPERATOR:
+                    return new GetJobStatusOperation();
                 case CHECKPOINT_ACK_OPERATOR:
                     return new TaskAcknowledgeOperation();
                 case CHECKPOINT_FINISHED_OPERATOR:

@@ -164,7 +164,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private void stateProcess() throws Exception {
         switch (currState) {
             case INIT:
-                if (readerFinishFuture.isDone()) {
+                if (readerRegisterFuture.isDone()) {
                     readerRegisterFuture.get();
                     currState = EnumeratorState.READER_REGISTER_COMPLETE;
                 }
