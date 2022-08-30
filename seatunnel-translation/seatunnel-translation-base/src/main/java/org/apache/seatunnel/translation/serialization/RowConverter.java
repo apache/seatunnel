@@ -124,5 +124,5 @@ public abstract class RowConverter<T> {
      *
      * @throws IOException Thrown, if the conversion fails.
      */
-    public abstract SeaTunnelRow convert(T engineRow) throws IOException;
+    public abstract SeaTunnelRow reconvert(T engineRow) throws IOException;
 }
