@@ -47,7 +47,7 @@ public class CloseRequestOperation extends Operation implements IdentifiedDataSe
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(() -> {
             SourceSeaTunnelTask<?, ?> task =
-                server.getTaskExecutionService().getExecutionContext(readerLocation.getTaskGroupID())
+                server.getTaskExecutionService().getExecutionContext(readerLocation.getTaskGroupLocation())
                     .getTaskGroup().getTask(readerLocation.getTaskID());
             task.close();
             return null;

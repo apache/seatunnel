@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.engine.common.exception.JobException;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.spi.impl.NodeEngine;
@@ -31,7 +32,7 @@ import java.util.Map;
 public class SimpleResourceManager implements ResourceManager {
 
     // TODO We may need more detailed resource define, instead of the resource definition method of only Address.
-    private Map<Long, Map<Long, Address>> physicalVertexIdAndResourceMap = new HashMap<>();
+    private Map<Long, Map<TaskGroupLocation, Address>> physicalVertexIdAndResourceMap = new HashMap<>();
 
     private final NodeEngine nodeEngine;
 
@@ -41,14 +42,14 @@ public class SimpleResourceManager implements ResourceManager {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
-    public Address applyForResource(long jobId, long taskId) {
-        Map<Long, Address> jobAddressMap =
+    public Address applyForResource(long jobId, TaskGroupLocation taskGroupLocation) {
+        Map<TaskGroupLocation, Address> jobAddressMap =
             physicalVertexIdAndResourceMap.computeIfAbsent(jobId, k -> new HashMap<>());
 
         Address localhost =
-            jobAddressMap.putIfAbsent(taskId, nodeEngine.getThisAddress());
+            jobAddressMap.putIfAbsent(taskGroupLocation, nodeEngine.getThisAddress());
         if (null == localhost) {
-            localhost = jobAddressMap.get(taskId);
+            localhost = jobAddressMap.get(taskGroupLocation);
         }
 
         return localhost;
@@ -57,13 +58,13 @@ public class SimpleResourceManager implements ResourceManager {
 
     @Override
     @NonNull
-    public Address getAppliedResource(long jobId, long taskId) {
-        Map<Long, Address> longAddressMap = physicalVertexIdAndResourceMap.get(jobId);
+    public Address getAppliedResource(long jobId, TaskGroupLocation taskGroupLocation) {
+        Map<TaskGroupLocation, Address> longAddressMap = physicalVertexIdAndResourceMap.get(jobId);
         if (null == longAddressMap || longAddressMap.isEmpty()) {
             throw new JobException(
-                String.format("Job %s, Task %s can not found applied resource.", jobId, taskId));
+                String.format("Job %s, Task %s can not found applied resource.", jobId, taskGroupLocation));
         }
 
-        return longAddressMap.get(taskId);
+        return longAddressMap.get(taskGroupLocation);
     }
 }

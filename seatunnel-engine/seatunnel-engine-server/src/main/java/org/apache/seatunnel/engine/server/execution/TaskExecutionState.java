@@ -21,14 +21,14 @@ import java.io.Serializable;
 
 public class TaskExecutionState implements Serializable {
 
-    private final long taskExecutionId;
+    private final TaskGroupLocation taskGroupLocation;
 
     private final ExecutionState executionState;
 
     private Throwable throwable;
 
-    public TaskExecutionState(long taskExecutionId, ExecutionState executionState, Throwable throwable) {
-        this.taskExecutionId = taskExecutionId;
+    public TaskExecutionState(TaskGroupLocation taskGroupLocation, ExecutionState executionState, Throwable throwable) {
+        this.taskGroupLocation = taskGroupLocation;
         this.executionState = executionState;
         this.throwable = throwable;
     }
@@ -41,7 +41,7 @@ public class TaskExecutionState implements Serializable {
         return throwable;
     }
 
-    public long getTaskExecutionId() {
-        return taskExecutionId;
+    public TaskGroupLocation getTaskGroupInfo() {
+        return taskGroupLocation;
     }
 }
