@@ -23,7 +23,7 @@ import java.util.Map;
 
 public interface TaskGroup extends Serializable {
 
-    TaskGroupLocation getTaskGroupInfo();
+    TaskGroupLocation getTaskGroupLocation();
 
     void init();
 
