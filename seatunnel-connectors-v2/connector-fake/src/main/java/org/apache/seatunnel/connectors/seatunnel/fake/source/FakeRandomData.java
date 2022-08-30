@@ -36,7 +36,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeatunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.RandomUtils;
@@ -50,9 +50,9 @@ import java.util.List;
 
 public class FakeRandomData {
     public static final String SCHEMA = "schema";
-    private final SeatunnelSchema schema;
+    private final SeaTunnelSchema schema;
 
-    public FakeRandomData(SeatunnelSchema schema) {
+    public FakeRandomData(SeaTunnelSchema schema) {
         this.schema = schema;
     }
 

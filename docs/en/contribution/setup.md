@@ -35,6 +35,12 @@ Otherwise, your code could not start in JetBrains IntelliJ IDEA correctly.
 ./mvnw install -Dmaven.test.skip
 ```
 
+### Building SeaTunnel from source
+After you install the maven, you can use the follow command to compile and package.
+```
+mvn clean package -pl seatunnel-dist -am -Dmaven.test.skip=true
+```
+
 ### Install JetBrains IDEA Scala Plugin
 
 Now, you can open your JetBrains IntelliJ IDEA and explore the source code, but allow building Scala code in IDEA,
@@ -45,6 +51,14 @@ See [install plugins for IDEA](https://www.jetbrains.com/help/idea/managing-plug
 
 Before running the following example, you should also install JetBrains IntelliJ IDEA's [Lombok plugin](https://plugins.jetbrains.com/plugin/6317-lombok).
 See [install plugins for IDEA](https://www.jetbrains.com/help/idea/managing-plugins.html#install-plugins) if you want to.
+
+### Install JetBrains IDEA CheckStyle-IDEA Plugin
+
+Before coding, you should also install JetBrains IntelliJ IDEA's [CheckStyle-IDEA plugin](https://plugins.jetbrains.com/plugin/1065-checkstyle-idea).
+See [install plugins for IDEA](https://www.jetbrains.com/help/idea/managing-plugins.html#install-plugins) if you want to.
+Next, you should go to `Preferences -> Editor -> Code style -> Scheme -> Import Scheme -> CheckStyle Configration` and import `tools/checkstyle/checkStyle.xml`
+![checkstyle.png](../images/checkstyle.png)
+If you want to change to automatically formatting, these configurations are also required.
 
 ## Run Simple Example
 

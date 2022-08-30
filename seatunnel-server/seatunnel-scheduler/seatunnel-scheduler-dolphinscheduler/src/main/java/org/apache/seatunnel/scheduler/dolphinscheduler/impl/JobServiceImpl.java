@@ -116,8 +116,8 @@ public class JobServiceImpl implements IJobService {
                 .jobStatus(p.getReleaseState())
                 .createTime(p.getCreateTime())
                 .updateTime(p.getUpdateTime())
-                .creatorName(p.getUserName())
-                .menderName(p.getUserName())
+                .creatorName(p.getUsername())
+                .menderName(p.getUsername())
                 .build())
                 .collect(Collectors.toList());
         return new PageData<>(processPageData.getTotalCount(), data);
