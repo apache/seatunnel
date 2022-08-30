@@ -48,5 +48,5 @@ public interface Task extends InternalCheckpointListener, Serializable {
     default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext){
     }
 
-    void triggerCheckpoint(CheckpointBarrier checkpointBarrier) throws Exception;
+    default void triggerCheckpoint(CheckpointBarrier checkpointBarrier) throws Exception {}
 }

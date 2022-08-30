@@ -30,7 +30,7 @@ public interface InternalCheckpointListener extends CheckpointListener {
      *     the task. Note that this will NOT lead to the checkpoint being revoked.
      */
     @Override
-    void notifyCheckpointComplete(long checkpointId) throws Exception;
+    default void notifyCheckpointComplete(long checkpointId) throws Exception {}
 
     /**
      * This method is called as a notification once a distributed checkpoint has been aborted.
@@ -40,5 +40,5 @@ public interface InternalCheckpointListener extends CheckpointListener {
      *     the task or job.
      */
     @Override
-    void notifyCheckpointAborted(long checkpointId) throws Exception;
+    default void notifyCheckpointAborted(long checkpointId) throws Exception {}
 }
