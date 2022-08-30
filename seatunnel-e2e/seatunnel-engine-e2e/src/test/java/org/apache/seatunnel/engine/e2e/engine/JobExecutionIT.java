@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.e2e.engine;
 
 import static org.awaitility.Awaitility.await;
-import static org.junit.Assert.assertEquals;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
@@ -84,8 +83,15 @@ public class JobExecutionIT {
 
         try {
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> assertEquals(JobStatus.FINISHED, clientJobProxy.waitForJobComplete()));
+
+            CompletableFuture<Object> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
+                JobStatus jobStatus = clientJobProxy.waitForJobComplete();
+                Assert.assertEquals(JobStatus.FINISHED, jobStatus);
+                return null;
+            });
+
+            await().atMost(20000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> Assert.assertTrue(objectCompletableFuture.isDone()));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -118,9 +124,7 @@ public class JobExecutionIT {
             clientJobProxy.cancelJob();
 
             await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> {
-                    Assert.assertTrue(objectCompletableFuture.isDone());
-                });
+                .untilAsserted(() -> Assert.assertTrue(objectCompletableFuture.isDone()));
 
         } catch (Exception e) {
             throw new RuntimeException(e);

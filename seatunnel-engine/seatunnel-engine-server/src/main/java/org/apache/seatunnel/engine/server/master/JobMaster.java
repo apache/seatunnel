@@ -160,4 +160,8 @@ public class JobMaster implements Runnable {
     public JobStatus getJobStatus() {
         return physicalPlan.getJobStatus();
     }
+
+    public PhysicalPlan getPhysicalPlan() {
+        return physicalPlan;
+    }
 }

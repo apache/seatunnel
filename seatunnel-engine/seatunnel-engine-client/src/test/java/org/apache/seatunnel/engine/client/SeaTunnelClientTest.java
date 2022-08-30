@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.client;
 
 import static org.awaitility.Awaitility.await;
-import static org.junit.Assert.assertEquals;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
@@ -40,6 +39,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -83,8 +83,15 @@ public class SeaTunnelClientTest {
 
         try {
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            CompletableFuture<Object> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
+                JobStatus jobStatus = clientJobProxy.waitForJobComplete();
+                Assert.assertEquals(JobStatus.FINISHED, jobStatus);
+                return null;
+            });
+
             await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> assertEquals(JobStatus.FINISHED, clientJobProxy.waitForJobComplete()));
+                .untilAsserted(() -> Assert.assertTrue(objectCompletableFuture.isDone()));
+
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         }
