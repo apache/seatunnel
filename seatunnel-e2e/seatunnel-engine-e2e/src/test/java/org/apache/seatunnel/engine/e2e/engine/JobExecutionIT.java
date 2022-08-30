@@ -84,14 +84,14 @@ public class JobExecutionIT {
         try {
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-            CompletableFuture<Object> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
-                JobStatus jobStatus = clientJobProxy.waitForJobComplete();
-                Assert.assertEquals(JobStatus.FINISHED, jobStatus);
-                return null;
+            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
+                return clientJobProxy.waitForJobComplete();
             });
 
             await().atMost(20000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assert.assertTrue(objectCompletableFuture.isDone()));
+                .untilAsserted(() -> Assert.assertTrue(
+                    objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
+
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -115,16 +115,15 @@ public class JobExecutionIT {
             JobStatus jobStatus1 = clientJobProxy.getJobStatus();
             Assert.assertFalse(jobStatus1.isEndState());
             ClientJobProxy finalClientJobProxy = clientJobProxy;
-            CompletableFuture<Object> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
-                JobStatus jobStatus = finalClientJobProxy.waitForJobComplete();
-                Assert.assertEquals(JobStatus.CANCELED, jobStatus);
-                return null;
+            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
+                return finalClientJobProxy.waitForJobComplete();
             });
             Thread.sleep(1000);
             clientJobProxy.cancelJob();
 
             await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assert.assertTrue(objectCompletableFuture.isDone()));
+                .untilAsserted(() -> Assert.assertTrue(
+                    objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
 
         } catch (Exception e) {
             throw new RuntimeException(e);

@@ -145,7 +145,8 @@ public class PhysicalPlanGenerator {
                 initializationTimestamp,
                 physicalVertexList,
                 coordinatorVertexList,
-                jobImmutableInformation);
+                jobImmutableInformation,
+                executorService);
         });
 
         PhysicalPlan physicalPlan = new PhysicalPlan(subPlanStream.collect(Collectors.toList()),
@@ -186,7 +187,7 @@ public class PhysicalPlanGenerator {
                             sinkAggregatedCommitter.get());
                     committerTaskIDMap.put(s, new TaskLocation(taskGroupLocation, t.getTaskID()));
 
-                    return new PhysicalVertex(idGenerator.getNextId(),
+                    return new PhysicalVertex(taskGroupID,
                         atomicInteger.incrementAndGet(),
                         executorService,
                         collect.size(),
@@ -222,7 +223,7 @@ public class PhysicalPlanGenerator {
                     SeaTunnelTask seaTunnelTask = new TransformSeaTunnelTask(jobImmutableInformation.getJobId(),
                         new TaskLocation(taskGroupLocation, mixIDPrefixAndIndex(taskIDPrefix, i)), i, flow);
 
-                    t.add(new PhysicalVertex(idGenerator.getNextId(),
+                    t.add(new PhysicalVertex(taskGroupID,
                         i,
                         executorService,
                         flow.getAction().getParallelism(),
@@ -253,7 +254,7 @@ public class PhysicalPlanGenerator {
                 new TaskLocation(taskGroupLocation, mixIDPrefixAndIndex(idGenerator.getNextId(), 0)), s);
             enumeratorTaskIDMap.put(s, new TaskLocation(taskGroupLocation, t.getTaskID()));
 
-            return new PhysicalVertex(idGenerator.getNextId(),
+            return new PhysicalVertex(taskGroupID,
                 atomicInteger.incrementAndGet(),
                 executorService,
                 sources.size(),
@@ -309,7 +310,7 @@ public class PhysicalPlanGenerator {
 
                     if (taskList.stream().anyMatch(TransformSeaTunnelTask.class::isInstance)) {
                         // contains IntermediateExecutionFlow in task group
-                        t.add(new PhysicalVertex(idGenerator.getNextId(),
+                        t.add(new PhysicalVertex(taskGroupID,
                             i,
                             executorService,
                             flow.getAction().getParallelism(),
@@ -324,7 +325,7 @@ public class PhysicalPlanGenerator {
                             initializationTimestamp,
                             nodeEngine));
                     } else {
-                        t.add(new PhysicalVertex(idGenerator.getNextId(),
+                        t.add(new PhysicalVertex(taskGroupID,
                             i,
                             executorService,
                             flow.getAction().getParallelism(),

@@ -30,6 +30,7 @@ import lombok.NonNull;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -71,12 +72,15 @@ public class SubPlan {
      */
     private final CompletableFuture<PipelineState> pipelineFuture;
 
+    private final ExecutorService executorService;
+
     public SubPlan(int pipelineIndex,
                    int totalPipelineNum,
                    long initializationTimestamp,
                    @NonNull List<PhysicalVertex> physicalVertexList,
                    @NonNull List<PhysicalVertex> coordinatorVertexList,
-                   @NonNull JobImmutableInformation jobImmutableInformation) {
+                   @NonNull JobImmutableInformation jobImmutableInformation,
+                   @NonNull ExecutorService executorService) {
         this.pipelineIndex = pipelineIndex;
         this.pipelineFuture = new CompletableFuture<>();
         this.totalPipelineNum = totalPipelineNum;
@@ -93,6 +97,8 @@ public class SubPlan {
             jobImmutableInformation.getJobId(),
             pipelineIndex,
             totalPipelineNum);
+
+        this.executorService = executorService;
     }
 
     public PassiveCompletableFuture<PipelineState> initStateFuture() {
@@ -242,7 +248,7 @@ public class SubPlan {
             CompletableFuture<Void> future = CompletableFuture.supplyAsync(() -> {
                 task.cancel();
                 return null;
-            });
+            }, executorService);
             return future;
         }
         return null;

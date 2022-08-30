@@ -138,7 +138,7 @@ public class PhysicalPlan {
                 CompletableFuture<Void> future = CompletableFuture.supplyAsync(() -> {
                     pipeline.cancelPipeline();
                     return null;
-                });
+                }, executorService);
                 return future;
             }
             return null;

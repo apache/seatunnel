@@ -172,6 +172,14 @@ public class JobMaster implements Runnable {
                 return;
             }
 
+            pipeline.getCoordinatorVertexList().forEach(task -> {
+                if (task.getPhysicalVertexId() != taskExecutionState.getTaskGroupLocation().getTaskGroupId()) {
+                    return;
+                }
+
+                task.updateTaskExecutionState(taskExecutionState);
+            });
+
             pipeline.getPhysicalVertexList().forEach(task -> {
                 if (task.getPhysicalVertexId() != taskExecutionState.getTaskGroupLocation().getTaskGroupId()) {
                     return;
