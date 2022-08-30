@@ -57,7 +57,7 @@ public class SinkRegisterOperation extends Operation implements IdentifiedDataSe
         SinkAggregatedCommitterTask<?> task = null;
         for (int i = 0; i < RETRY_TIME; i++) {
             try {
-                task = server.getTaskExecutionService().getExecutionContext(committerTaskID.getTaskGroupID())
+                task = server.getTaskExecutionService().getExecutionContext(committerTaskID.getTaskGroupLocation())
                         .getTaskGroup().getTask(committerTaskID.getTaskID());
                 break;
             } catch (NullPointerException e) {

@@ -112,9 +112,12 @@ public class PipelineBaseScheduler implements JobScheduler {
 
             subPlan.getPhysicalVertexList().forEach(task -> {
                 // TODO If there is no enough resources for tasks, we need add some wait profile
-                task.updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED);
-                // TODO custom resource size
-                futures.put(task, resourceManager.applyResource(jobId, new ResourceProfile()));
+                if (task.updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED)) {
+                    // TODO custom resource size
+                    futures.put(task, resourceManager.applyResource(jobId, new ResourceProfile()));
+                } else {
+                    handleTaskStateUpdateError(task, ExecutionState.SCHEDULED);
+                }
             });
             for (Map.Entry<PhysicalVertex, CompletableFuture<SlotProfile>> future : futures.entrySet()) {
                 try {
@@ -141,6 +144,8 @@ public class PipelineBaseScheduler implements JobScheduler {
                             coordinator.deployOnMaster();
                             return null;
                         });
+                    } else {
+                        handleTaskStateUpdateError(task, ExecutionState.DEPLOYING);
                     }
                     return null;
                 }).filter(Objects::nonNull).collect(Collectors.toList());
@@ -152,6 +157,8 @@ public class PipelineBaseScheduler implements JobScheduler {
                             task.deploy(slotProfiles.get(task));
                             return null;
                         });
+                    } else {
+                        handleTaskStateUpdateError(task, ExecutionState.DEPLOYING);
                     }
                     return null;
                 }).filter(Objects::nonNull).collect(Collectors.toList());
