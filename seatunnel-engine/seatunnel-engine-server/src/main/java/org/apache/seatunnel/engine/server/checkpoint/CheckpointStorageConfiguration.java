@@ -32,7 +32,7 @@ public class CheckpointStorageConfiguration {
     private final int maxRetainedCheckpoints;
 
     public static final class Builder {
-        private final String storage = "localfile";
-        private int retainedCheckpoints = 1;
+        private String storage = "localfile";
+        private int maxRetainedCheckpoints = 1;
     }
 }
