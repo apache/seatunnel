@@ -114,7 +114,6 @@ public class PhysicalVertex {
                           @NonNull ExecutorService executorService,
                           int parallelism,
                           @NonNull TaskGroupDefaultImpl taskGroup,
-                          @NonNull CompletableFuture<TaskExecutionState> taskFuture,
                           @NonNull FlakeIdGenerator flakeIdGenerator,
                           int pipelineIndex,
                           int totalPipelineNum,
@@ -148,8 +147,12 @@ public class PhysicalVertex {
                 taskGroup.getTaskGroupName(),
                 subTaskGroupIndex + 1,
                 parallelism);
-        this.taskFuture = taskFuture;
+        this.taskFuture = new CompletableFuture<>();
         this.taskGroupLocation = new TaskGroupLocation(jobImmutableInformation.getJobId(), pipelineIndex, physicalVertexId);
+    }
+
+    public PassiveCompletableFuture<TaskExecutionState> initStateFuture() {
+        return new PassiveCompletableFuture<>(this.taskFuture);
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")

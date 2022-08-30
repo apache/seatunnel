@@ -138,6 +138,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         executorService.submit(() -> {
             try {
                 jobMaster.init();
+                jobMaster.getPhysicalPlan().initStateFuture();
                 runningJobMasterMap.put(jobId, jobMaster);
             } catch (Throwable e) {
                 LOGGER.severe(String.format("submit job %s error %s ", jobId, ExceptionUtils.getMessage(e)));

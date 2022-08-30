@@ -27,7 +27,6 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.NonNull;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -64,13 +63,6 @@ public class PhysicalPlan {
      * in {@link org.apache.seatunnel.engine.server.scheduler.JobScheduler} whenComplete method will be called.
      */
     private final CompletableFuture<JobStatus> jobEndFuture;
-    private final PassiveCompletableFuture<JobStatus> passiveCompletableFuture;
-
-    /**
-     * This future only can completion by the {@link SubPlan } subPlanFuture.
-     * When subPlanFuture completed, this NonCompletableFuture's whenComplete method will be called.
-     */
-    private final PassiveCompletableFuture<PipelineState>[] waitForCompleteBySubPlan;
 
     private final ExecutorService executorService;
 
@@ -79,8 +71,7 @@ public class PhysicalPlan {
     public PhysicalPlan(@NonNull List<SubPlan> pipelineList,
                         @NonNull ExecutorService executorService,
                         @NonNull JobImmutableInformation jobImmutableInformation,
-                        long initializationTimestamp,
-                        @NonNull PassiveCompletableFuture<PipelineState>[] waitForCompleteBySubPlan) {
+                        long initializationTimestamp) {
         this.executorService = executorService;
         this.jobImmutableInformation = jobImmutableInformation;
         stateTimestamps = new long[JobStatus.values().length];
@@ -88,15 +79,18 @@ public class PhysicalPlan {
         this.jobStatus.set(JobStatus.CREATED);
         this.stateTimestamps[JobStatus.CREATED.ordinal()] = System.currentTimeMillis();
         this.jobEndFuture = new CompletableFuture<>();
-        this.passiveCompletableFuture = new PassiveCompletableFuture<>(jobEndFuture);
-        this.waitForCompleteBySubPlan = waitForCompleteBySubPlan;
         this.pipelineList = pipelineList;
         if (pipelineList.isEmpty()) {
             throw new UnknownPhysicalPlanException("The physical plan didn't have any can execute pipeline");
         }
-        this.jobFullName = String.format("Job %s (%s)", jobImmutableInformation.getJobConfig().getName(), jobImmutableInformation.getJobId());
-        Arrays.stream(this.waitForCompleteBySubPlan).forEach(x -> {
-            x.whenComplete((v, t) -> {
+        this.jobFullName = String.format("Job %s (%s)", jobImmutableInformation.getJobConfig().getName(),
+            jobImmutableInformation.getJobId());
+    }
+
+    public void initStateFuture() {
+        pipelineList.stream().forEach(subPlan -> {
+            PassiveCompletableFuture<PipelineState> future = subPlan.initStateFuture();
+            future.whenComplete((v, t) -> {
                 // We need not handle t, Because we will not return t from Pipeline
                 if (PipelineState.CANCELED.equals(v)) {
                     canceledPipelineNum.incrementAndGet();
@@ -108,6 +102,7 @@ public class PhysicalPlan {
                     LOGGER.severe(
                         "Pipeline Failed with Unknown PipelineState, Begin to cancel other pipelines in this job.");
                     failedPipelineNum.incrementAndGet();
+                    cancelJob();
                 }
 
                 if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
@@ -130,7 +125,8 @@ public class PhysicalPlan {
             if (updateJobState(JobStatus.RUNNING, JobStatus.CANCELLING)) {
                 cancelRunningJob();
             } else {
-                LOGGER.info(String.format("%s in a non cancellable state: %s, skip cancel", jobFullName, jobStatus.get()));
+                LOGGER.info(
+                    String.format("%s in a non cancellable state: %s, skip cancel", jobFullName, jobStatus.get()));
             }
         }
     }
@@ -212,7 +208,7 @@ public class PhysicalPlan {
     }
 
     public PassiveCompletableFuture<JobStatus> getJobEndCompletableFuture() {
-        return this.passiveCompletableFuture;
+        return new PassiveCompletableFuture<>(jobEndFuture);
     }
 
     public JobImmutableInformation getJobImmutableInformation() {
