@@ -40,7 +40,7 @@ public class TaskGroupDefaultImpl implements TaskGroup {
     }
 
     @Override
-    public TaskGroupLocation getTaskGroupInfo() {
+    public TaskGroupLocation getTaskGroupLocation() {
         return taskGroupLocation;
     }
 

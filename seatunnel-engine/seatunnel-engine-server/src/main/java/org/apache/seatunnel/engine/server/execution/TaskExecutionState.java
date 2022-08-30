@@ -41,7 +41,7 @@ public class TaskExecutionState implements Serializable {
         return throwable;
     }
 
-    public TaskGroupLocation getTaskGroupInfo() {
+    public TaskGroupLocation getTaskGroupLocation() {
         return taskGroupLocation;
     }
 }
