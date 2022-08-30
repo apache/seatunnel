@@ -204,6 +204,11 @@
         <p3c-pmd.version>1.3.0</p3c-pmd.version>
         <maven-scm-provider-jgit.version>1.9.5</maven-scm-provider-jgit.version>
         <testcontainer.version>1.16.3</testcontainer.version>
+        <jackson-datatype-joda.version>2.12.1</jackson-datatype-joda.version>
+        <joda-tim.version>2.10.14</joda-tim.version>
+        <fastjson.version>1.2.83</fastjson.version>
+        <avatica-core.version>1.15.0</avatica-core.version>
+        <druid-core.version>0.23.0</druid-core.version>
         <!-- Option args -->
         <skipUT>false</skipUT>
         <skipIT>true</skipIT>
@@ -609,23 +614,41 @@
                 <artifactId>jackson-annotations</artifactId>
                 <version>${jackson.version}</version>
             </dependency>
-
+            <dependency>
+                <groupId>com.alibaba</groupId>
+                <artifactId>fastjson</artifactId>
+                <version>${fastjson.version}</version>
+            </dependency>
             <dependency>
                 <groupId>com.fasterxml.jackson.core</groupId>
                 <artifactId>jackson-core</artifactId>
                 <version>${jackson.version}</version>
             </dependency>
-
+            <dependency>
+                <groupId>org.apache.calcite.avatica</groupId>
+                <artifactId>avatica-core</artifactId>
+                <version>${avatica-core.version}</version>
+            </dependency>
             <dependency>
                 <groupId>com.fasterxml.jackson.core</groupId>
                 <artifactId>jackson-databind</artifactId>
                 <version>${jackson.version}</version>
             </dependency>
-
+            <dependency>
+                <groupId>org.apache.druid</groupId>
+                <artifactId>druid-core</artifactId>
+                <version>${druid-core.version}</version>
+            </dependency>
             <dependency>
                 <groupId>com.fasterxml.jackson.module</groupId>
                 <artifactId>jackson-module-scala_${scala.binary.version}</artifactId>
                 <version>${jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.datatype</groupId>
+                <artifactId>jackson-datatype-joda</artifactId>
+                <version>${jackson-datatype-joda.version}</version>
             </dependency>
 
             <dependency>
@@ -976,6 +999,13 @@
                 <artifactId>commons-net</artifactId>
                 <version>${commons-net.version}</version>
             </dependency>
+
+            <dependency>
+                <groupId>joda-time</groupId>
+                <artifactId>joda-time</artifactId>
+                <version>${joda-tim.version}</version>
+            </dependency>
+
         </dependencies>
 
     </dependencyManagement>
