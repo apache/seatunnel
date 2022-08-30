@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState2;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -34,15 +35,6 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
     private final SinkWriter.Context context;
     private final int subTaskIndex;
     private final String jobId;
-
-    public BaseFileSinkWriter(WriteStrategy writeStrategy, HadoopConf hadoopConf, SinkWriter.Context context, String jobId) {
-        this.writeStrategy = writeStrategy;
-        this.context = context;
-        this.hadoopConf = hadoopConf;
-        this.jobId = jobId;
-        this.subTaskIndex = context.getIndexOfSubtask();
-        writeStrategy.init(hadoopConf, jobId, subTaskIndex);
-    }
 
     public BaseFileSinkWriter(WriteStrategy writeStrategy, HadoopConf hadoopConf, SinkWriter.Context context, String jobId, List<FileSinkState2> fileSinkStates) {
         this.writeStrategy = writeStrategy;
@@ -58,12 +50,16 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
         }
     }
 
+    public BaseFileSinkWriter(WriteStrategy writeStrategy, HadoopConf hadoopConf, SinkWriter.Context context, String jobId) {
+        this(writeStrategy, hadoopConf, context, jobId, Collections.emptyList());
+    }
+
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         try {
             writeStrategy.write(element);
         } catch (Exception e) {
-            throw new RuntimeException("Write data error, please check");
+            throw new RuntimeException("Write data error, please check", e);
         }
     }
 

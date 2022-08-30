@@ -33,7 +33,7 @@ public class WriteStrategyFactory {
             return fileFormat.getWriteStrategy(textFileSinkConfig);
         } catch (IllegalArgumentException e) {
             String errorMsg = String.format("File sink connector not support this file type [%s], please check your config", fileType);
-            throw new RuntimeException(errorMsg);
+            throw new RuntimeException(errorMsg, e);
         }
     }
 

@@ -35,11 +35,11 @@ public class FileSinkAggregatedCommitter2 implements SinkAggregatedCommitter<Fil
     private static final Logger LOGGER = LoggerFactory.getLogger(FileSinkAggregatedCommitter2.class);
 
     @Override
-    public List<FileAggregatedCommitInfo2> commit(List<FileAggregatedCommitInfo2> aggregatedCommitInfo) throws IOException {
+    public List<FileAggregatedCommitInfo2> commit(List<FileAggregatedCommitInfo2> aggregatedCommitInfos) throws IOException {
         List<FileAggregatedCommitInfo2> errorAggregatedCommitInfoList = new ArrayList<>();
-        aggregatedCommitInfo.forEach(aggregateCommitInfo -> {
+        aggregatedCommitInfos.forEach(aggregatedCommitInfo -> {
             try {
-                for (Map.Entry<String, Map<String, String>> entry : aggregateCommitInfo.getTransactionMap().entrySet()) {
+                for (Map.Entry<String, Map<String, String>> entry : aggregatedCommitInfo.getTransactionMap().entrySet()) {
                     for (Map.Entry<String, String> mvFileEntry : entry.getValue().entrySet()) {
                         // first rename temp file
                         FileSystemUtils.renameFile(mvFileEntry.getKey(), mvFileEntry.getValue(), true);
@@ -48,8 +48,8 @@ public class FileSinkAggregatedCommitter2 implements SinkAggregatedCommitter<Fil
                     FileSystemUtils.deleteFile(entry.getKey());
                 }
             } catch (Exception e) {
-                LOGGER.error("commit aggregateCommitInfo error ", e);
-                errorAggregatedCommitInfoList.add(aggregateCommitInfo);
+                LOGGER.error("commit aggregatedCommitInfo error ", e);
+                errorAggregatedCommitInfoList.add(aggregatedCommitInfo);
             }
         });
         return errorAggregatedCommitInfoList;
@@ -71,8 +71,7 @@ public class FileSinkAggregatedCommitter2 implements SinkAggregatedCommitter<Fil
         commitInfos.forEach(commitInfo -> {
             Map<String, String> needMoveFileMap = aggregateCommitInfo.computeIfAbsent(commitInfo.getTransactionDir(), k -> new HashMap<>());
             needMoveFileMap.putAll(commitInfo.getNeedMoveFiles());
-            Set<Map.Entry<String, List<String>>> entries = commitInfo.getPartitionDirAndValuesMap().entrySet();
-            if (!CollectionUtils.isEmpty(entries)) {
+            if (commitInfo.getPartitionDirAndValuesMap() != null && !commitInfo.getPartitionDirAndValuesMap().isEmpty()) {
                 partitionDirAndValuesMap.putAll(commitInfo.getPartitionDirAndValuesMap());
             }
         });

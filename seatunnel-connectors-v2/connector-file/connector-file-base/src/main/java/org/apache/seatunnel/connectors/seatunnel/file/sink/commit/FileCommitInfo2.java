@@ -32,17 +32,17 @@ public class FileCommitInfo2 implements Serializable {
      * <p>K is the file path need to be moved to target dir.</p>
      * <p>V is the target file path of the data file.</p>
      */
-    private Map<String, String> needMoveFiles;
+    private final Map<String, String> needMoveFiles;
 
     /**
      * Storage the partition information in map.
      * <p>K is the partition column's name.</p>
      * <p>V is the list of partition column's values.</p>
      */
-    private Map<String, List<String>> partitionDirAndValuesMap;
+    private final Map<String, List<String>> partitionDirAndValuesMap;
 
     /**
      * Storage the transaction directory
      */
-    private String transactionDir;
+    private final String transactionDir;
 }

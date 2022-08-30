@@ -32,12 +32,12 @@ public class FileAggregatedCommitInfo2 implements Serializable {
      * <p>K is the file path need to be moved to target dir.</p>
      * <p>V is the target file path of the data file.</p>
      */
-    private Map<String, Map<String, String>> transactionMap;
+    private final Map<String, Map<String, String>> transactionMap;
 
     /**
      * Storage the partition information in map.
      * <p>K is the partition column's name.</p>
      * <p>V is the list of partition column's values.</p>
      */
-    private Map<String, List<String>> partitionDirAndValuesMap;
+    private final Map<String, List<String>> partitionDirAndValuesMap;
 }

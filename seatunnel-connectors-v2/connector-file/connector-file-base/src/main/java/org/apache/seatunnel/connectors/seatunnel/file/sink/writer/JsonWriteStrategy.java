@@ -74,7 +74,7 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
                 try {
                     value.close();
                 } catch (IOException e) {
-                    log.error("error when close output stream {}", key);
+                    log.error("error when close output stream {}", key, e);
                 }
             }
 

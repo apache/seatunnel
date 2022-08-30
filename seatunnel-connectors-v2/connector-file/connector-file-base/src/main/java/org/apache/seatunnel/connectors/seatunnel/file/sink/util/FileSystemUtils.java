@@ -81,6 +81,7 @@ public class FileSystemUtils {
         if (rmWhenExist) {
             if (fileExist(newName) && fileExist(oldName)) {
                 hdfsFs.delete(newPath, true);
+                LOGGER.info("Delete already file: {}", newPath);
             }
         }
         if (!fileExist(newName.substring(0, newName.lastIndexOf("/")))) {

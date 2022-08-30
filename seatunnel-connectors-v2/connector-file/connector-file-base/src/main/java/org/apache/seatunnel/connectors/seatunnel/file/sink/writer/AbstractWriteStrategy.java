@@ -120,19 +120,19 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      */
     @Override
     public Map<String, List<String>> generatorPartitionDir(SeaTunnelRow seaTunnelRow) {
-        List<String> partitionFieldList = textFileSinkConfig.getPartitionFieldList();
         List<Integer> partitionFieldsIndexInRow = textFileSinkConfig.getPartitionFieldsIndexInRow();
+        Map<String, List<String>> partitionDirAndValuesMap = new HashMap<>(1);
+        if (CollectionUtils.isEmpty(partitionFieldsIndexInRow)) {
+            partitionDirAndValuesMap.put(Constant.NON_PARTITION, null);
+            return partitionDirAndValuesMap;
+        }
+        List<String> partitionFieldList = textFileSinkConfig.getPartitionFieldList();
         String partitionDirExpression = textFileSinkConfig.getPartitionDirExpression();
         String[] keys = new String[partitionFieldList.size()];
         String[] values = new String[partitionFieldList.size()];
         for (int i = 0; i < partitionFieldList.size(); i++) {
             keys[i] = "k" + i;
             values[i] = "v" + i;
-        }
-        Map<String, List<String>> partitionDirAndValuesMap = new HashMap<>(1);
-        if (CollectionUtils.isEmpty(partitionFieldsIndexInRow)) {
-            partitionDirAndValuesMap.put(Constant.NON_PARTITION, null);
-            return partitionDirAndValuesMap;
         }
         List<String> vals = new ArrayList<>(partitionFieldsIndexInRow.size());
         String partitionDir;
@@ -236,8 +236,8 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      * @return transaction ids
      */
     public List<String> getTransactionIdFromStates(List<FileSinkState2> fileStates) {
-        String[] strings = new String[]{textFileSinkConfig.getPath(), Constant.SEATUNNEL, jobId};
-        String jobDir = String.join(File.separator, strings) + "/";
+        String[] pathSegments = new String[]{textFileSinkConfig.getPath(), Constant.SEATUNNEL, jobId};
+        String jobDir = String.join(File.separator, pathSegments) + "/";
         try {
             List<String> transactionDirList = FileSystemUtils.dirList(jobDir).stream().map(Path::toString).collect(Collectors.toList());
             return transactionDirList.stream().map(dir -> dir.replaceAll(jobDir, "")).collect(Collectors.toList());
@@ -278,8 +278,8 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         if (beingWrittenFilePath != null) {
             return beingWrittenFilePath;
         } else {
-            String[] strings = new String[]{transactionDirectory, beingWrittenFileKey, generateFileName(transactionId)};
-            String newBeingWrittenFilePath = String.join(File.separator, strings);
+            String[] pathSegments = new String[]{transactionDirectory, beingWrittenFileKey, generateFileName(transactionId)};
+            String newBeingWrittenFilePath = String.join(File.separator, pathSegments);
             beingWrittenFile.put(beingWrittenFileKey, newBeingWrittenFilePath);
             if (!Constant.NON_PARTITION.equals(dataPartitionDirAndValuesMap.keySet().toArray()[0].toString())){
                 partitionDirAndValuesMap.putAll(dataPartitionDirAndValuesMap);
