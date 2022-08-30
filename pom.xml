@@ -988,7 +988,7 @@
             <dependency>
                 <groupId>com.aliyun.datahub</groupId>
                 <artifactId>aliyun-sdk-datahub</artifactId>
-                <version>{datahub.version}</version>
+                <version>${datahub.version}</version>
             </dependency>
         </dependencies>
 

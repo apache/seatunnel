@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.sink;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
@@ -32,10 +31,12 @@ import com.aliyun.datahub.client.model.PutRecordsResult;
 import com.aliyun.datahub.client.model.RecordEntry;
 import com.aliyun.datahub.client.model.RecordSchema;
 import com.aliyun.datahub.client.model.TupleRecordData;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+
 
 /**
  * Datahub write class

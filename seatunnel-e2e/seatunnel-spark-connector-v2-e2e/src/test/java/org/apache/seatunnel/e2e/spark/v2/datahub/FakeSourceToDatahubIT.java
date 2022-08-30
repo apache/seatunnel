@@ -17,15 +17,14 @@
 
 package org.apache.seatunnel.e2e.spark.v2.datahub;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.e2e.spark.SparkContainer;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
-@Slf4j
 public class FakeSourceToDatahubIT extends SparkContainer {
 
     @Test

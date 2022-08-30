@@ -34,6 +34,10 @@
       <version>${project.version}</version>
     </dependency>
 
+    <dependency>
+      <groupId>com.aliyun.datahub</groupId>
+      <artifactId>aliyun-sdk-datahub</artifactId>
+    </dependency>
 
   </dependencies>
 
