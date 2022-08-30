@@ -224,18 +224,17 @@ public abstract class AbstractResourceManager implements ResourceManager {
     @Override
     public CompletableFuture<Void> releaseResources(long jobId, List<SlotProfile> profiles) {
         CompletableFuture<Void> completableFuture = new CompletableFuture<>();
-        AtomicInteger releaseCount = new AtomicInteger();
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
         for (SlotProfile profile : profiles) {
-            releaseResource(jobId, profile).whenComplete((r, e) -> {
-                if (e != null) {
-                    completableFuture.completeExceptionally(e);
-                } else {
-                    if (releaseCount.incrementAndGet() == profiles.size()) {
-                        completableFuture.complete(null);
-                    }
-                }
-            });
+            futures.add(releaseResource(jobId, profile));
         }
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).whenComplete((r, e) -> {
+            if (e != null) {
+                completableFuture.completeExceptionally(e);
+            } else {
+                completableFuture.complete(null);
+            }
+        });
         return completableFuture;
     }
 

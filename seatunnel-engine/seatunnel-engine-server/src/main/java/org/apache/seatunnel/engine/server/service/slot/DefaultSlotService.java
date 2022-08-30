@@ -21,6 +21,8 @@ import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
+import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.WorkerHeartbeatOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.CPU;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.Memory;
@@ -116,9 +118,14 @@ public class DefaultSlotService implements SlotService {
         return new SlotAndWorkerProfile(toWorkerProfile(), profile);
     }
 
-    @Override
     public SlotContext getSlotContext(int slotID) {
         return contexts.get(slotID);
+    }
+
+    @Override
+    public <T extends Task> T getTask(WorkerTaskLocation workerTaskLocation) {
+        return contexts.get(workerTaskLocation.getSlotID()).getTaskExecutionService().getExecutionContext(workerTaskLocation.getTaskGroupID()).getTaskGroup()
+            .getTask(workerTaskLocation.getTaskID());
     }
 
     @Override

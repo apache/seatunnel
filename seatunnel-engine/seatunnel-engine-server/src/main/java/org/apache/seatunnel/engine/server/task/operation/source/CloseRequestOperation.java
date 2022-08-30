@@ -46,10 +46,7 @@ public class CloseRequestOperation extends Operation implements IdentifiedDataSe
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(() -> {
-            SourceSeaTunnelTask<?, ?> task =
-                server.getSlotService().getSlotContext(readerLocation.getSlotID())
-                    .getTaskExecutionService().getExecutionContext(readerLocation.getTaskGroupID())
-                    .getTaskGroup().getTask(readerLocation.getTaskID());
+            SourceSeaTunnelTask<?, ?> task = server.getSlotService().getTask(readerLocation);
             task.close();
             return null;
         }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
