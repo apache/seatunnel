@@ -20,11 +20,13 @@ package org.apache.seatunnel.e2e.flink.v2.datahub;
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
+@Disabled
 public class FakeSourceToDatahubIT extends FlinkContainer {
 
     @Test
