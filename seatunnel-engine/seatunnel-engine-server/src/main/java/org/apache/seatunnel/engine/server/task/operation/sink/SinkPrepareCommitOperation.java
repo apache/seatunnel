@@ -60,7 +60,7 @@ public class SinkPrepareCommitOperation extends CheckpointTriggerOperation {
     }
 
     @Override
-    public void run() {
+    public void run() throws Exception {
         super.run();
         // TODO: commit info to AggregatedCommitter
     }

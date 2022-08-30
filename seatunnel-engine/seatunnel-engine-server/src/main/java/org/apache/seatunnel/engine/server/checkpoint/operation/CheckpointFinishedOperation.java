@@ -19,6 +19,8 @@ package org.apache.seatunnel.engine.server.checkpoint.operation;
 
 import static org.apache.seatunnel.engine.server.utils.ExceptionUtil.sneakyThrow;
 
+import org.apache.seatunnel.common.utils.RetryUtils;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskInfo;
@@ -71,18 +73,22 @@ public class CheckpointFinishedOperation extends Operation implements Identified
     }
 
     @Override
-    public void run() {
+    public void run() throws Exception {
         SeaTunnelServer server = getService();
-        Task task = server.getTaskExecutionService().getExecutionContext(taskInfo.getTaskGroupId())
-            .getTaskGroup().getTask(taskInfo.getSubtaskId());
-        try {
-            if (successful) {
-                task.notifyCheckpointComplete(checkpointId);
-            } else {
-                task.notifyCheckpointAborted(checkpointId);
+        RetryUtils.retryWithException(() -> {
+            Task task = server.getTaskExecutionService().getExecutionContext(taskInfo.getTaskGroupId())
+                .getTaskGroup().getTask(taskInfo.getSubtaskId());
+            try {
+                if (successful) {
+                    task.notifyCheckpointComplete(checkpointId);
+                } else {
+                    task.notifyCheckpointAborted(checkpointId);
+                }
+            } catch (Exception e) {
+                sneakyThrow(e);
             }
-        } catch (Exception e) {
-            sneakyThrow(e);
-        }
+            return null;
+        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
+            exception -> exception instanceof NullPointerException, Constant.OPERATION_RETRY_SLEEP));
     }
 }

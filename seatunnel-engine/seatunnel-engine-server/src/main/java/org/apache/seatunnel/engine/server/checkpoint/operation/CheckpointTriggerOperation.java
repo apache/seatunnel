@@ -19,6 +19,8 @@ package org.apache.seatunnel.engine.server.checkpoint.operation;
 
 import static org.apache.seatunnel.engine.server.utils.ExceptionUtil.sneakyThrow;
 
+import org.apache.seatunnel.common.utils.RetryUtils;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.Task;
@@ -65,15 +67,19 @@ public class CheckpointTriggerOperation extends Operation implements IdentifiedD
     }
 
     @Override
-    public void run() {
+    public void run() throws Exception {
         SeaTunnelServer server = getService();
-        Task task = server.getTaskExecutionService()
-            .getExecutionContext(taskInfo.getTaskGroupId()).getTaskGroup()
-            .getTask(taskInfo.getSubtaskId());
-        try {
-            task.triggerCheckpoint(checkpointBarrier);
-        } catch (Exception e) {
-            sneakyThrow(e);
-        }
+        RetryUtils.retryWithException(() -> {
+            Task task = server.getTaskExecutionService()
+                .getExecutionContext(taskInfo.getTaskGroupId()).getTaskGroup()
+                .getTask(taskInfo.getSubtaskId());
+            try {
+                task.triggerCheckpoint(checkpointBarrier);
+            } catch (Exception e) {
+                sneakyThrow(e);
+            }
+            return null;
+        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
+            exception -> exception instanceof NullPointerException, Constant.OPERATION_RETRY_SLEEP));
     }
 }
