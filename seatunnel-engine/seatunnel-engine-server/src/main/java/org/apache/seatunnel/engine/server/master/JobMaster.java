@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.SimpleResourceManager;
 import org.apache.seatunnel.engine.server.scheduler.JobScheduler;
@@ -163,5 +164,21 @@ public class JobMaster implements Runnable {
 
     public PhysicalPlan getPhysicalPlan() {
         return physicalPlan;
+    }
+
+    public void updateTaskExecutionState(TaskExecutionState taskExecutionState) {
+        this.physicalPlan.getPipelineList().forEach(pipeline -> {
+            if (pipeline.getPipelineIndex() != taskExecutionState.getTaskGroupLocation().getPipelineId()) {
+                return;
+            }
+
+            pipeline.getPhysicalVertexList().forEach(task -> {
+                if (task.getPhysicalVertexId() != taskExecutionState.getTaskGroupLocation().getTaskGroupId()) {
+                    return;
+                }
+
+                task.updateTaskExecutionState(taskExecutionState);
+            });
+        });
     }
 }

@@ -148,7 +148,8 @@ public class PhysicalVertex {
                 subTaskGroupIndex + 1,
                 parallelism);
         this.taskFuture = new CompletableFuture<>();
-        this.taskGroupLocation = new TaskGroupLocation(jobImmutableInformation.getJobId(), pipelineIndex, physicalVertexId);
+        this.taskGroupLocation =
+            new TaskGroupLocation(jobImmutableInformation.getJobId(), pipelineIndex, physicalVertexId);
     }
 
     public PassiveCompletableFuture<TaskExecutionState> initStateFuture() {
@@ -165,12 +166,11 @@ public class PhysicalVertex {
 
         try {
             if (ExecutionState.DEPLOYING.equals(executionState.get())) {
-                waitForCompleteByExecutionService = new PassiveCompletableFuture<>(
-                    nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
-                            new DeployTaskOperation(
-                                nodeEngine.getSerializationService().toData(taskGroupImmutableInformation)),
-                            currentExecutionAddress)
-                        .invoke());
+                nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
+                        new DeployTaskOperation(
+                            nodeEngine.getSerializationService().toData(taskGroupImmutableInformation)),
+                        currentExecutionAddress)
+                    .invoke().get();
 
                 // may be canceling
                 if (!updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING)) {
@@ -205,40 +205,6 @@ public class PhysicalVertex {
             taskFuture.complete(
                 new TaskExecutionState(this.taskGroupLocation, ExecutionState.FAILED, th));
         }
-
-        if (waitForCompleteByExecutionService == null) {
-            return;
-        }
-
-        waitForCompleteByExecutionService.whenComplete((v, t) -> {
-            try {
-                if (t != null) {
-                    LOGGER.severe("An unexpected error occurred while the task was running", t);
-                    taskFuture.complete(
-                        new TaskExecutionState(this.taskGroupLocation, ExecutionState.FAILED,
-                            t));
-                } else {
-                    turnToEndState(v.getExecutionState());
-                    if (v.getThrowable() != null) {
-                        LOGGER.severe(String.format("%s end with state %s and Exception: %s",
-                            this.taskFullName,
-                            v.getExecutionState(),
-                            ExceptionUtils.getMessage(v.getThrowable())));
-                    } else {
-                        LOGGER.info(String.format("%s end with state %s",
-                            this.taskFullName,
-                            v.getExecutionState()));
-                    }
-                    taskFuture.complete(v);
-                }
-            } catch (Throwable th) {
-                LOGGER.severe(
-                    String.format("%s end with Exception: %s", this.taskFullName, ExceptionUtils.getMessage(th)));
-                turnToEndState(ExecutionState.FAILED);
-                v = new TaskExecutionState(this.taskGroupLocation, ExecutionState.FAILED, th);
-                taskFuture.complete(v);
-            }
-        });
     }
 
     public long getPhysicalVertexId() {
@@ -351,5 +317,20 @@ public class PhysicalVertex {
 
     public String getTaskFullName() {
         return taskFullName;
+    }
+
+    public void updateTaskExecutionState(TaskExecutionState taskExecutionState) {
+        turnToEndState(taskExecutionState.getExecutionState());
+        if (taskExecutionState.getThrowable() != null) {
+            LOGGER.severe(String.format("%s end with state %s and Exception: %s",
+                this.taskFullName,
+                taskExecutionState.getExecutionState(),
+                ExceptionUtils.getMessage(taskExecutionState.getThrowable())));
+        } else {
+            LOGGER.info(String.format("%s end with state %s",
+                this.taskFullName,
+                taskExecutionState.getExecutionState()));
+        }
+        taskFuture.complete(taskExecutionState);
     }
 }
