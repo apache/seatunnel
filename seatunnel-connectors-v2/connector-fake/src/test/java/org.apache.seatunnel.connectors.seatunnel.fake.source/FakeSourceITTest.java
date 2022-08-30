@@ -7,8 +7,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Created 2022/8/30
- *
- * @author ke.hao
  */
 public class FakeSourceITTest {
 
