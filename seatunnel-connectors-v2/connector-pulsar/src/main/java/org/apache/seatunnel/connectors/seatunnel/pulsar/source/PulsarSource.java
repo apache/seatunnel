@@ -50,7 +50,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeatunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarAdminConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarClientConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConsumerConfig;
@@ -226,7 +226,7 @@ public class PulsarSource<T> implements SeaTunnelSource<T, PulsarPartitionSplit,
     private void setDeserialization(Config config) {
         String format = config.getString("format");
         // TODO: format SPI
-        SeaTunnelRowType rowType = SeatunnelSchema.buildWithConfig(config.getConfig(SeatunnelSchema.SCHEMA)).getSeaTunnelRowType();
+        SeaTunnelRowType rowType = SeaTunnelSchema.buildWithConfig(config.getConfig(SeaTunnelSchema.SCHEMA)).getSeaTunnelRowType();
         deserialization = (DeserializationSchema<T>) new JsonDeserializationSchema(false, false, rowType);
     }
 
