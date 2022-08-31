@@ -52,6 +52,7 @@
         <module>connector-neo4j</module>
         <module>connector-redis</module>
         <module>connector-datahub</module>
+        <module>connector-doris</module>
     </modules>
 
     <dependencies>
