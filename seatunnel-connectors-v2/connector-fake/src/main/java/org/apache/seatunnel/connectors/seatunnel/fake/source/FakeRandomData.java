@@ -125,7 +125,7 @@ public class FakeRandomData {
         return LocalDateTime.of(
             LocalDateTime.now().getYear(),
             RandomUtils.nextInt(1, 12),
-            RandomUtils.nextInt(1, LocalDateTime.now().getDayOfMonth()),
+            RandomUtils.nextInt(1, 28),
             RandomUtils.nextInt(0, 24),
             RandomUtils.nextInt(0, 59)
         );
