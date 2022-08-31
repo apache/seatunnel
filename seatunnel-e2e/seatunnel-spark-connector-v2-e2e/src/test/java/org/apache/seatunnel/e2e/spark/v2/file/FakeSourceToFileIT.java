@@ -58,6 +58,15 @@ public class FakeSourceToFileIT extends SparkContainer {
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
+    /**
+     *  fake source -> local excel file sink
+     */
+    @Test
+    public void testFakeSourceToLocalFileExcel() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_local_excel.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
 
     /**
      * fake source -> hdfs text file sink
@@ -83,6 +92,15 @@ public class FakeSourceToFileIT extends SparkContainer {
     @Test
     public void testFakeSourceToHdfsFileJson() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_hdfs_json.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    /**
+     * fake source -> hdfs excel file sink
+     */
+    @Test
+    public void testFakeSourceToHdfsFileExcel() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_hdfs_excel.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

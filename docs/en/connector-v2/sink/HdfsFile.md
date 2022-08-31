@@ -40,7 +40,7 @@ Please note that, If `is_enable_transaction` is `true`, we will auto add `${tran
 
 We supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json`
+`text` `csv` `parquet` `orc` `json` `excel`
 
 Please note that, The final file name will ends with the file_format's suffix, the suffix of the text file is `txt`.
 
@@ -155,6 +155,24 @@ HdfsFile {
     is_partition_field_write_in_file=true
     file_name_expression="${transactionId}_${now}"
     file_format="orc"
+    sink_columns=["name","age"]
+    filename_time_format="yyyy.MM.dd"
+    is_enable_transaction=true
+}
+
+```
+
+For excel file format
+
+```bash
+
+HdfsFile {
+    path="hdfs://mycluster/tmp/hive/warehouse/test2"
+    partition_by=["age"]
+    partition_dir_expression="${k0}=${v0}"
+    is_partition_field_write_in_file=true
+    file_name_expression="${transactionId}_${now}"
+    file_format="excel"
     sink_columns=["name","age"]
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
