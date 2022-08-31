@@ -112,7 +112,7 @@ public class FakeRandomData {
             objectObjectHashMap.put(key, value);
             return objectObjectHashMap;
         } else if (fieldType instanceof PrimitiveByteArrayType) {
-            return RandomUtils.nextBytes(100);
+            return RandomUtils.nextBytes(3);
         } else if (VOID_TYPE.equals(fieldType) || fieldType == null) {
             return Void.TYPE;
         } else {
