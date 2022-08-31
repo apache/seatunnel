@@ -42,9 +42,9 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
     private final SinkAction<T, StateT, ?, ?> sinkAction;
     private SinkWriter<T, ?, StateT> writer;
 
-    private Optional<Serializer<StateT>> writerStateSerializer;
+    private transient Optional<Serializer<StateT>> writerStateSerializer;
 
-    private final org.apache.seatunnel.engine.checkpoint.storage.common.Serializer protoStuffSerializer = new ProtoStuffSerializer();
+    private transient org.apache.seatunnel.engine.checkpoint.storage.common.Serializer protoStuffSerializer;
 
     // TODO init states
     private List<StateT> states;
@@ -76,6 +76,7 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
             this.writer = sinkAction.getSink().restoreWriter(new SinkWriterContext(indexID), states);
         }
         this.writerStateSerializer = sinkAction.getSink().getWriterStateSerializer();
+        this.protoStuffSerializer = new ProtoStuffSerializer();
         states = null;
         registerCommitter();
     }

@@ -53,7 +53,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
 
     private transient Serializer<SplitT> splitSerializer;
 
-    private final org.apache.seatunnel.engine.checkpoint.storage.common.Serializer protoStuffSerializer = new ProtoStuffSerializer();
+    private transient org.apache.seatunnel.engine.checkpoint.storage.common.Serializer protoStuffSerializer;
     private final int indexID;
 
     private final TaskLocation currentTaskID;
@@ -80,6 +80,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
     public void init() throws Exception {
         this.closed = false;
         this.splitSerializer = sourceAction.getSource().getSplitSerializer();
+        this.protoStuffSerializer = new ProtoStuffSerializer();
         reader = sourceAction.getSource()
                 .createReader(new SourceReaderContext(indexID, sourceAction.getSource().getBoundedness(), this));
         reader.open();

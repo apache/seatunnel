@@ -69,7 +69,7 @@ public class CheckpointCoordinator {
 
     private final CheckpointIDCounter idCounter;
 
-    private final Serializer serializer = new ProtoStuffSerializer();
+    private final transient Serializer serializer;
 
     private final CheckpointPlan plan;
 
@@ -106,6 +106,7 @@ public class CheckpointCoordinator {
                 thread.setName(String.format("checkpoint-coordinator-%s/%s", pipelineId, jobId));
                 return thread;
             });
+        this.serializer = new ProtoStuffSerializer();
         // TODO: IDCounter SPI
         this.idCounter = new StandaloneCheckpointIDCounter();
         scheduleTriggerPendingCheckpoint(coordinatorConfig.getCheckpointInterval());

@@ -41,7 +41,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
 
     private transient SeaTunnelSourceCollector<T> collector;
 
-    private final Object checkpointLock = new Object();
+    private transient Object checkpointLock;
     public SourceSeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
         super(jobID, taskID, indexID, executionFlow);
     }
@@ -49,6 +49,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
     @Override
     public void init() throws Exception {
         super.init();
+        this.checkpointLock = new Object();
         LOGGER.info("starting seatunnel source task, index " + indexID);
         if (!(startFlowLifeCycle instanceof SourceFlowLifeCycle)) {
             throw new TaskRuntimeException("SourceSeaTunnelTask only support SourceFlowLifeCycle, but get " + startFlowLifeCycle.getClass().getName());

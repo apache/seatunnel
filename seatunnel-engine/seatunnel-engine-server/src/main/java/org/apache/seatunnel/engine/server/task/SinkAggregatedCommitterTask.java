@@ -56,12 +56,12 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
 
     private final SinkAggregatedCommitter<?, AggregatedCommitInfoT> aggregatedCommitter;
 
-    private final Serializer<AggregatedCommitInfoT> aggregatedCommitInfoSerializer;
+    private transient Serializer<AggregatedCommitInfoT> aggregatedCommitInfoSerializer;
     private Map<Long, Address> writerAddressMap;
 
     private Map<Long, List<AggregatedCommitInfoT>> checkpointCommitInfoMap;
 
-    private final org.apache.seatunnel.engine.checkpoint.storage.common.Serializer protoStuffSerializer = new ProtoStuffSerializer();
+    private transient org.apache.seatunnel.engine.checkpoint.storage.common.Serializer protoStuffSerializer;
     private Map<Long, Integer> checkpointBarrierCounter;
     private Map<Long, Map<Long, Long>> alreadyReceivedCommitInfo;
     private Object closeLock;
@@ -73,7 +73,6 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
         this.sink = sink;
         this.aggregatedCommitter = aggregatedCommitter;
         this.maxWriterSize = sink.getParallelism();
-        this.aggregatedCommitInfoSerializer = sink.getSink().getAggregatedCommitInfoSerializer().get();
     }
 
     @Override
@@ -84,6 +83,8 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
         this.writerAddressMap = new ConcurrentHashMap<>();
         this.checkpointCommitInfoMap = new ConcurrentHashMap<>();
         this.completableFuture = new CompletableFuture<>();
+        this.aggregatedCommitInfoSerializer = sink.getSink().getAggregatedCommitInfoSerializer().get();
+        this.protoStuffSerializer = new ProtoStuffSerializer();
         LOGGER.info("starting seatunnel sink aggregated committer task, sink name: " + sink.getName());
     }
 
