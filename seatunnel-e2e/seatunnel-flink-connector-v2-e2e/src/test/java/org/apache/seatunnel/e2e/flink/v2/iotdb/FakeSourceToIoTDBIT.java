@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.e2e.flink.v2.iotdb;
 
-import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
+import static org.awaitility.Awaitility.given;
 
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
