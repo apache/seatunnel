@@ -30,20 +30,25 @@ import org.testcontainers.containers.ClickHouseContainer;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-public class FakeSourceToClickhouseIT extends SparkContainer {
-    private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceToClickhouseIT.class);
+public class ClickhouseSourceToClickhouseIT extends SparkContainer {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ClickhouseSourceToClickhouseIT.class);
     private ClickHouseContainer clickhouse;
+
+    private List<String> data;
 
     @BeforeEach
     public void startClickhouseContainer() throws InterruptedException, ClassNotFoundException {
@@ -53,37 +58,69 @@ public class FakeSourceToClickhouseIT extends SparkContainer {
                 .withLogConsumer(new Slf4jLogConsumer(LOGGER));
         //clickhouse.setPortBindings(Lists.newArrayList("8123:8123"));
         Startables.deepStart(Stream.of(clickhouse)).join();
-        LOGGER.info("Clickhouse container started");
-        Thread.sleep(5000L);
+        data = generateData();
         Class.forName("ru.yandex.clickhouse.ClickHouseDriver");
-        initializeClickhouseTable();
+        Awaitility.given().ignoreExceptions().await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(() -> initializeClickhouseTable());
+        LOGGER.info("Clickhouse container started");
+        batchInsertData();
     }
 
     @Test
     public void testFakeSourceToClickhouseSink() throws IOException, InterruptedException, SQLException {
-        Container.ExecResult execResult = executeSeaTunnelSparkJob("/clickhouse/fakesource_to_clickhouse.conf");
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/clickhouse/clickhousesource_to_clickhouse.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         try (Connection connection = DriverManager.getConnection(clickhouse.getJdbcUrl(), clickhouse.getUsername(), clickhouse.getPassword());
              Statement stmt = connection.createStatement()) {
-            ResultSet resultSet = stmt.executeQuery("select * from default.test");
+            ResultSet resultSet = stmt.executeQuery("select * from default.sink");
             List<String> result = Lists.newArrayList();
             while (resultSet.next()) {
                 result.add(resultSet.getString("name"));
             }
-            Assertions.assertFalse(result.isEmpty());
+            Assertions.assertEquals(data, result);
         }
     }
 
     private void initializeClickhouseTable() {
         try (Connection connection = DriverManager.getConnection(clickhouse.getJdbcUrl(), clickhouse.getUsername(), clickhouse.getPassword());
              Statement stmt = connection.createStatement()) {
-            String initializeTableSql = "CREATE TABLE default.test" +
+            String sourceTableSql = "CREATE TABLE default.source" +
                     "(" +
                     "    `name` Nullable(String)" +
                     ")ENGINE = Memory";
-            stmt.execute(initializeTableSql);
+            String sinkTableSql = "CREATE TABLE default.sink" +
+                    "(" +
+                    "    `name` Nullable(String)" +
+                    ")ENGINE = Memory";
+            stmt.execute(sourceTableSql);
+            stmt.execute(sinkTableSql);
         } catch (SQLException e) {
             throw new RuntimeException("Initializing clickhouse table failed", e);
+        }
+    }
+
+    private List<String> generateData() {
+        List<String> data = Lists.newArrayList();
+        for (int i = 0; i < 10; i++) {
+            data.add("Mike");
+        }
+        return data;
+    }
+
+    @SuppressWarnings("checkstyle:MagicNumber")
+    private void batchInsertData() {
+        try (Connection connection = DriverManager.getConnection(clickhouse.getJdbcUrl(), clickhouse.getUsername(), clickhouse.getPassword())) {
+            String sql = "insert into default.source(name) values(?)";
+            connection.setAutoCommit(false);
+            PreparedStatement preparedStatement = connection.prepareStatement(sql);
+            for (int i = 0; i < data.size(); i++) {
+                preparedStatement.setString(1, data.get(i));
+                preparedStatement.addBatch();
+            }
+            preparedStatement.executeBatch();
+            connection.commit();
+        } catch (SQLException e) {
+            throw new RuntimeException("Batch insert data failed!", e);
         }
     }
 

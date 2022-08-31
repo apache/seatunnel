@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.e2e.flink.v2.clickhouse;
 
-import com.google.common.collect.Lists;
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
+import com.google.common.collect.Lists;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,7 +34,12 @@ import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -42,6 +47,8 @@ import java.util.stream.Stream;
 public class ClickhouseSourceToClickhouseIT extends FlinkContainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClickhouseSourceToClickhouseIT.class);
     private ClickHouseContainer clickhouse;
+
+    private List<String> data;
 
     @BeforeEach
     public void startClickhouseContainer() throws InterruptedException, ClassNotFoundException {
@@ -51,6 +58,7 @@ public class ClickhouseSourceToClickhouseIT extends FlinkContainer {
                 .withLogConsumer(new Slf4jLogConsumer(LOGGER));
         //clickhouse.setPortBindings(Lists.newArrayList("8123:8123"));
         Startables.deepStart(Stream.of(clickhouse)).join();
+        data = generateData();
         Class.forName("ru.yandex.clickhouse.ClickHouseDriver");
         Awaitility.given().ignoreExceptions().await().atMost(10, TimeUnit.SECONDS)
                         .untilAsserted(() -> initializeClickhouseTable());
@@ -69,21 +77,34 @@ public class ClickhouseSourceToClickhouseIT extends FlinkContainer {
             while (resultSet.next()) {
                 result.add(resultSet.getString("name"));
             }
-            Assertions.assertEquals(10, result.size());
+            Assertions.assertEquals(data, result);
         }
     }
 
     private void initializeClickhouseTable() {
         try (Connection connection = DriverManager.getConnection(clickhouse.getJdbcUrl(), clickhouse.getUsername(), clickhouse.getPassword());
              Statement stmt = connection.createStatement()) {
-            String initializeTableSql = "CREATE TABLE default.source" +
+            String sourceTableSql = "CREATE TABLE default.source" +
                     "(" +
                     "    `name` Nullable(String)" +
                     ")ENGINE = Memory";
-            stmt.execute(initializeTableSql);
+            String sinkTableSql = "CREATE TABLE default.sink" +
+                    "(" +
+                    "    `name` Nullable(String)" +
+                    ")ENGINE = Memory";
+            stmt.execute(sourceTableSql);
+            stmt.execute(sinkTableSql);
         } catch (SQLException e) {
             throw new RuntimeException("Initializing clickhouse table failed", e);
         }
+    }
+
+    private List<String> generateData() {
+        List<String> data = Lists.newArrayList();
+        for (int i = 0; i < 10; i++) {
+            data.add("Mike");
+        }
+        return data;
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -92,8 +113,8 @@ public class ClickhouseSourceToClickhouseIT extends FlinkContainer {
             String sql = "insert into default.source(name) values(?)";
             connection.setAutoCommit(false);
             PreparedStatement preparedStatement = connection.prepareStatement(sql);
-            for (int i = 0; i < 10; i++) {
-                preparedStatement.setString(1, "Mike");
+            for (int i = 0; i < data.size(); i++) {
+                preparedStatement.setString(1, data.get(i));
                 preparedStatement.addBatch();
             }
             preparedStatement.executeBatch();
