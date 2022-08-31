@@ -168,6 +168,7 @@ google-http-client-1.26.0.jar
 google-http-client-jackson2-1.26.0.jar
 google-oauth-client-1.26.0.jar
 gson-2.2.4.jar
+gson-2.8.9.jar
 guava-19.0.jar
 guice-3.0.jar
 guice-4.1.0.jar
@@ -348,7 +349,7 @@ jcodings-1.0.18.jar
 jcodings-1.0.43.jar
 jcommander-1.81.jar
 jdbi-2.63.1.jar
-jedis-3.2.0.jar
+jedis-4.2.2.jar
 jersey-client-1.19.jar
 jersey-client-1.9.jar
 jersey-client-2.22.2.jar
@@ -421,6 +422,7 @@ joni-2.1.27.jar
 jopt-simple-5.0.2.jar
 jpam-1.1.jar
 jsch-0.1.54.jar
+json-20211205.jar
 json-path-2.3.0.jar
 json-smart-2.3.jar
 jsoup-1.14.3.jar
