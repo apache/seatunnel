@@ -17,19 +17,17 @@
 
 package org.apache.seatunnel.app.domain.request.script;
 
+import org.apache.seatunnel.app.domain.request.BasePageReq;
+
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
 @ApiModel(value = "scriptListReq", description = "script list")
 @Data
-public class ScriptListReq {
+public class ScriptListReq extends BasePageReq {
     @ApiModelProperty(value = "script name", required = false, dataType = "String")
     private String name;
     @ApiModelProperty(value = "script status", required = false, dataType = "Integer")
     private Byte status;
-    @ApiModelProperty(value = "page number", required = true, dataType = "Integer")
-    private Integer pageNo;
-    @ApiModelProperty(value = "page size", required = true, dataType = "Integer")
-    private Integer pageSize;
 }

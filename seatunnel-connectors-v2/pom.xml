@@ -44,6 +44,13 @@
         <module>connector-file</module>
         <module>connector-hudi</module>
         <module>connector-assert</module>
+        <module>connector-kudu</module>
+        <module>connector-email</module>
+        <module>connector-dingtalk</module>
+        <module>connector-elasticsearch</module>
+        <module>connector-iotdb</module>
+        <module>connector-neo4j</module>
+        <module>connector-datahub</module>
         <module>connector-sentry</module>
     </modules>
 

@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.spi.scheduler;
 
+import org.apache.seatunnel.server.common.PageData;
+import org.apache.seatunnel.spi.scheduler.dto.ExecuteDto;
+import org.apache.seatunnel.spi.scheduler.dto.InstanceDto;
 import org.apache.seatunnel.spi.scheduler.dto.JobDto;
 import org.apache.seatunnel.spi.scheduler.dto.JobListDto;
 import org.apache.seatunnel.spi.scheduler.dto.JobSimpleInfoDto;
-
-import java.util.List;
 
 public interface IJobService {
 
@@ -29,6 +30,7 @@ public interface IJobService {
 
     void offlineJob(JobDto dto);
 
-    List<JobSimpleInfoDto> list(JobListDto dto);
+    PageData<JobSimpleInfoDto> list(JobListDto dto);
 
+    InstanceDto execute(ExecuteDto dto);
 }

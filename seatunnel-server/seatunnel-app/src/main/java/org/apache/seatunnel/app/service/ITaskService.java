@@ -18,20 +18,22 @@
 package org.apache.seatunnel.app.service;
 
 import org.apache.seatunnel.app.domain.dto.job.PushScriptDto;
+import org.apache.seatunnel.app.domain.request.task.ExecuteReq;
 import org.apache.seatunnel.app.domain.request.task.InstanceListReq;
 import org.apache.seatunnel.app.domain.request.task.JobListReq;
 import org.apache.seatunnel.app.domain.request.task.RecycleScriptReq;
+import org.apache.seatunnel.app.domain.response.PageInfo;
 import org.apache.seatunnel.app.domain.response.task.InstanceSimpleInfoRes;
 import org.apache.seatunnel.app.domain.response.task.JobSimpleInfoRes;
-
-import java.util.List;
 
 public interface ITaskService {
     Long pushScriptToScheduler(PushScriptDto pushScriptDto);
 
     void recycleScriptFromScheduler(RecycleScriptReq req);
 
-    List<JobSimpleInfoRes> listJob(JobListReq req);
+    PageInfo<JobSimpleInfoRes> listJob(JobListReq req);
 
-    List<InstanceSimpleInfoRes> listInstance(InstanceListReq dto);
+    PageInfo<InstanceSimpleInfoRes> listInstance(InstanceListReq req);
+
+    InstanceSimpleInfoRes tmpExecute(ExecuteReq req);
 }

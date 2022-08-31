@@ -43,6 +43,7 @@ public class DolphinschedulerConstants {
     public static final String QUERY_SCHEDULE_LIST_PAGING = "/projects/%s/schedules";
     public static final String SCHEDULE_ONLINE = "/projects/%s/schedules/%s/online";
     public static final String SCHEDULE_OFFLINE = "/projects/%s/schedules/%s/offline";
+    public static final String DELETE_PROCESS_DEFINITION = "/projects/%s/process-definition/%s";
 
     /**
      * request param
@@ -51,6 +52,7 @@ public class DolphinschedulerConstants {
     public static final String SEARCH_VAL = "searchVal";
     public static final String PAGE_SIZE = "pageSize";
     public static final int PAGE_SIZE_DEFAULT = 10;
+    public static final int PAGE_SIZE_MIN = 1;
     public static final String PAGE_NO = "pageNo";
     public static final int PAGE_NO_DEFAULT = 1;
     public static final String GEN_NUM = "genNum";
@@ -82,6 +84,7 @@ public class DolphinschedulerConstants {
     public static final int WARNING_GROUP_ID_DEFAULT = 0;
     public static final String TASK_DEPEND_TYPE_DEFAULT = "TASK_POST";
     public static final String RUN_MODE_DEFAULT = "RUN_MODE_SERIAL";
+    public static final String RUN_MODE_PARALLEL = "RUN_MODE_PARALLEL";
     public static final String PROCESS_INSTANCE_PRIORITY = "processInstancePriority";
     public static final String PROCESS_INSTANCE_PRIORITY_DEFAULT = "MEDIUM";
     public static final int DRY_RUN = 0;
@@ -161,12 +164,16 @@ public class DolphinschedulerConstants {
     public static final String SCHEDULE = "schedule";
     public static final String SCHEDULE_ID = "id";
     public static final String DEFAULT_FILE_SUFFIX = ".conf";
+    public static final String EXEC_TYPE_DEFAULT = "START_PROCESS";
+    public static final String EXEC_TYPE_COMPLEMENT = "COMPLEMENT_DATA";
+    public static final String DEPENDENT_MODE_DEFAULT = "OFF_MODE";
 
     /**
      * response param
      */
     public static final String DATA = "data";
     public static final String DATA_TOTAL_LIST = "totalList";
+    public static final String DATA_TOTAL = "total";
     public static final String CODE = "code";
     public static final int CODE_SUCCESS = 0;
     public static final String MSG = "msg";

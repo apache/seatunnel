@@ -17,33 +17,67 @@
 
 package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.commons.lang3.StringUtils;
 
-import java.util.Arrays;
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ConsoleSinkWriter.class);
-
     private final SeaTunnelRowType seaTunnelRowType;
+    public static final AtomicLong CNT = new AtomicLong(0);
 
     public ConsoleSinkWriter(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
+        System.out.printf("fields : %s%n", StringUtils.join(seaTunnelRowType.getFieldNames(), ", "));
+        System.out.printf("types : %s%n", StringUtils.join(seaTunnelRowType.getFieldTypes(), ", "));
     }
 
     @Override
     @SuppressWarnings("checkstyle:RegexpSingleline")
     public void write(SeaTunnelRow element) {
-        System.out.println(Arrays.toString(element.getFields()));
+        String[] arr = new String[seaTunnelRowType.getTotalFields()];
+        SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
+        Object[] fields = element.getFields();
+        for (int i = 0; i < fieldTypes.length; i++) {
+            arr[i] = fieldToString(fieldTypes[i], fields[i]);
+        }
+        System.out.format("row=%s : %s%n", CNT.incrementAndGet(), StringUtils.join(arr, ", "));
     }
 
     @Override
     public void close() {
         // nothing
+    }
+
+    private String fieldToString(SeaTunnelDataType<?> type, Object value) {
+        switch (type.getSqlType()) {
+            case ARRAY:
+            case BYTES:
+                List<String> arrayData = new ArrayList<>();
+                for (int i = 0; i < Array.getLength(value); i++) {
+                    arrayData.add(String.valueOf(Array.get(value, i)));
+                }
+                return arrayData.toString();
+            case MAP:
+                return JsonUtils.toJsonString(value);
+            case ROW:
+                List<String> rowData = new ArrayList<>();
+                SeaTunnelRowType rowType = (SeaTunnelRowType) type;
+                for (int i = 0; i < rowType.getTotalFields(); i++) {
+                    rowData.add(fieldToString(rowType.getFieldTypes()[i], Array.get(value, i)));
+                }
+                return rowData.toString();
+            default:
+                return String.valueOf(value);
+        }
     }
 }

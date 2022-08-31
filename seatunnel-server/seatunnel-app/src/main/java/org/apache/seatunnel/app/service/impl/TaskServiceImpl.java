@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.app.service.impl;
 
+import static org.apache.seatunnel.server.common.Constants.UNDERLINE;
 import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.NO_SUCH_SCRIPT;
 import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.SCHEDULER_CONFIG_NOT_EXIST;
+import static org.apache.seatunnel.spi.scheduler.constants.SchedulerConstant.NEVER_TRIGGER_EXPRESSION;
+import static org.apache.seatunnel.spi.scheduler.constants.SchedulerConstant.RETRY_INTERVAL_DEFAULT;
+import static org.apache.seatunnel.spi.scheduler.constants.SchedulerConstant.RETRY_TIMES_DEFAULT;
 
 import org.apache.seatunnel.app.dal.dao.ISchedulerConfigDao;
 import org.apache.seatunnel.app.dal.dao.IScriptDao;
@@ -30,21 +34,26 @@ import org.apache.seatunnel.app.dal.entity.ScriptJobApply;
 import org.apache.seatunnel.app.dal.entity.ScriptParam;
 import org.apache.seatunnel.app.domain.dto.job.PushScriptDto;
 import org.apache.seatunnel.app.domain.dto.job.ScriptJobApplyDto;
+import org.apache.seatunnel.app.domain.request.task.ExecuteReq;
 import org.apache.seatunnel.app.domain.request.task.InstanceListReq;
 import org.apache.seatunnel.app.domain.request.task.JobListReq;
 import org.apache.seatunnel.app.domain.request.task.RecycleScriptReq;
+import org.apache.seatunnel.app.domain.response.PageInfo;
 import org.apache.seatunnel.app.domain.response.task.InstanceSimpleInfoRes;
 import org.apache.seatunnel.app.domain.response.task.JobSimpleInfoRes;
 import org.apache.seatunnel.app.service.ITaskService;
+import org.apache.seatunnel.server.common.PageData;
 import org.apache.seatunnel.server.common.SeatunnelException;
 import org.apache.seatunnel.spi.scheduler.IInstanceService;
 import org.apache.seatunnel.spi.scheduler.IJobService;
+import org.apache.seatunnel.spi.scheduler.dto.ExecuteDto;
 import org.apache.seatunnel.spi.scheduler.dto.InstanceDto;
 import org.apache.seatunnel.spi.scheduler.dto.InstanceListDto;
 import org.apache.seatunnel.spi.scheduler.dto.JobDto;
 import org.apache.seatunnel.spi.scheduler.dto.JobListDto;
 import org.apache.seatunnel.spi.scheduler.dto.JobSimpleInfoDto;
 import org.apache.seatunnel.spi.scheduler.dto.SchedulerConfigDto;
+import org.apache.seatunnel.spi.scheduler.enums.ExecuteTypeEnum;
 
 import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
@@ -53,6 +62,7 @@ import org.springframework.util.CollectionUtils;
 
 import javax.annotation.Resource;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -94,11 +104,7 @@ public class TaskServiceImpl implements ITaskService {
 
         final Script script = checkAndGetScript(scriptId);
         final List<ScriptParam> scriptParams = scriptParamDaoImpl.getParamsByScriptId(scriptId);
-        Map<String, Object> params = Maps.newHashMap();
-
-        if (!CollectionUtils.isEmpty(params)) {
-            scriptParams.forEach(scriptParam -> params.put(scriptParam.getKey(), scriptParam.getValue()));
-        }
+        Map<String, Object> params = getScriptParamMap(scriptParams);
 
         final SchedulerConfigDto schedulerConfigDto = SchedulerConfigDto.builder()
                 .retryInterval(config.getRetryInterval())
@@ -149,27 +155,73 @@ public class TaskServiceImpl implements ITaskService {
     }
 
     @Override
-    public List<JobSimpleInfoRes> listJob(JobListReq req) {
+    public PageInfo<JobSimpleInfoRes> listJob(JobListReq req) {
         // Search from scheduler.
         final JobListDto dto = JobListDto.builder()
                 .name(req.getName())
                 .pageNo(req.getPageNo())
                 .pageSize(req.getPageSize())
                 .build();
-        final List<JobSimpleInfoDto> list = iJobService.list(dto);
-        return list.stream().map(this::translate).collect(Collectors.toList());
+        final PageData<JobSimpleInfoDto> jobPageData = iJobService.list(dto);
+        final List<JobSimpleInfoRes> data = jobPageData.getData().stream().map(this::translate).collect(Collectors.toList());
+        final PageInfo<JobSimpleInfoRes> pageInfo = new PageInfo<>();
+        pageInfo.setData(data);
+        pageInfo.setTotalCount(jobPageData.getTotalCount());
+        pageInfo.setPageNo(req.getPageNo());
+        pageInfo.setPageSize(req.getPageSize());
+
+        return pageInfo;
     }
 
     @Override
-    public List<InstanceSimpleInfoRes> listInstance(InstanceListReq req) {
+    public PageInfo<InstanceSimpleInfoRes> listInstance(InstanceListReq req) {
         // Search from scheduler.
         final InstanceListDto dto = InstanceListDto.builder()
                 .name(req.getName())
                 .pageNo(req.getPageNo())
                 .pageSize(req.getPageSize())
                 .build();
-        final List<InstanceDto> list = iInstanceService.list(dto);
-        return list.stream().map(this::translate).collect(Collectors.toList());
+        final PageData<InstanceDto> instancePageData = iInstanceService.list(dto);
+        final List<InstanceSimpleInfoRes> data = instancePageData.getData().stream().map(this::translate).collect(Collectors.toList());
+        final PageInfo<InstanceSimpleInfoRes> pageInfo = new PageInfo<>();
+        pageInfo.setData(data);
+        pageInfo.setTotalCount(instancePageData.getTotalCount());
+        pageInfo.setPageNo(req.getPageNo());
+        pageInfo.setPageSize(req.getPageSize());
+
+        return pageInfo;
+    }
+
+    @Override
+    public InstanceSimpleInfoRes tmpExecute(ExecuteReq req) {
+        final Script script = checkAndGetScript(req.getScriptId());
+
+        final SchedulerConfigDto schedulerConfigDto = SchedulerConfigDto.builder()
+                .retryInterval(RETRY_INTERVAL_DEFAULT)
+                .retryTimes(RETRY_TIMES_DEFAULT)
+                .startTime(new Date())
+                .endTime(new Date())
+                .triggerExpression(NEVER_TRIGGER_EXPRESSION)
+                .build();
+
+        final JobDto jobDto = JobDto.builder()
+                .jobName(script.getName().concat(UNDERLINE).concat(String.valueOf(System.currentTimeMillis())))
+                .jobContent(req.getContent())
+                .params(req.getParams())
+                .operatorId(req.getOperatorId())
+                .schedulerConfigDto(schedulerConfigDto)
+                //todo fix to real execute script
+                .executorScript(script.getContent())
+                .jobId(null)
+                .build();
+
+        final ExecuteDto dto = ExecuteDto.builder()
+                .jobDto(jobDto)
+                .executeTypeEnum(ExecuteTypeEnum.parse(req.getExecuteType()))
+                .complementDataDto(null)
+                .build();
+
+        return this.translate(iJobService.execute(dto));
     }
 
     private JobSimpleInfoRes translate(JobSimpleInfoDto dto) {
@@ -221,5 +273,14 @@ public class TaskServiceImpl implements ITaskService {
                         "scriptId [{}], schedulerConfigId [{}], jobId [{}], userId [{}]", scriptId, schedulerConfigId, jobId, userId, e);
             }
         });
+    }
+
+    private Map<String, Object> getScriptParamMap(List<ScriptParam> scriptParams) {
+        Map<String, Object> params = Maps.newHashMap();
+
+        if (!CollectionUtils.isEmpty(params)) {
+            scriptParams.forEach(scriptParam -> params.put(scriptParam.getKey(), scriptParam.getValue()));
+        }
+        return params;
     }
 }

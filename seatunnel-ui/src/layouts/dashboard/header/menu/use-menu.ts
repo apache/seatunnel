@@ -26,6 +26,10 @@ export function useMenu() {
     {
       label: () => h(NEllipsis, null, { default: () => t('menu.data_pipes') }),
       key: 'data-pipes'
+    },
+    {
+      label: () => h(NEllipsis, null, { default: () => t('menu.jobs') }),
+      key: 'jobs'
     }
   ]
 

@@ -54,7 +54,9 @@ const PublishModal = defineComponent({
         onConfirm={this.handleConfirm}
       >
         {{
-          default: () => <span>{this.t('data_pipes.data_pipes_publish_tips')}</span>
+          default: () => (
+            <span>{this.t('data_pipes.data_pipes_publish_tips')}</span>
+          )
         }}
       </Modal>
     )

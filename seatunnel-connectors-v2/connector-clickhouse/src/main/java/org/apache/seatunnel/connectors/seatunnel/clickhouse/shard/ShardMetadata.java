@@ -51,6 +51,20 @@ public class ShardMetadata implements Serializable {
         this.password = password;
     }
 
+    public ShardMetadata(String shardKey,
+                         String shardKeyType,
+                         String database,
+                         String table,
+                         boolean splitMode,
+                         Shard defaultShard) {
+        this.shardKey = shardKey;
+        this.shardKeyType = shardKeyType;
+        this.database = database;
+        this.table = table;
+        this.splitMode = splitMode;
+        this.defaultShard = defaultShard;
+    }
+
     public String getShardKey() {
         return shardKey;
     }

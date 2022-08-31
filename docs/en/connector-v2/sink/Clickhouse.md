@@ -1,5 +1,7 @@
 # Clickhouse
 
+> Clickhouse sink connector
+
 ## Description
 
 Used to write data to Clickhouse. Supports Batch and Streaming mode.

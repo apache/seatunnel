@@ -24,13 +24,17 @@ import org.apache.seatunnel.app.domain.dto.user.UpdateUserDto;
 import org.apache.seatunnel.app.domain.request.user.AddUserReq;
 import org.apache.seatunnel.app.domain.request.user.UpdateUserReq;
 import org.apache.seatunnel.app.domain.request.user.UserListReq;
+import org.apache.seatunnel.app.domain.response.PageInfo;
 import org.apache.seatunnel.app.domain.response.user.AddUserRes;
 import org.apache.seatunnel.app.domain.response.user.UserSimpleInfoRes;
+import org.apache.seatunnel.app.service.IRoleService;
 import org.apache.seatunnel.app.service.IUserService;
 import org.apache.seatunnel.app.util.PasswordUtils;
+import org.apache.seatunnel.server.common.PageData;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 
@@ -42,10 +46,14 @@ public class UserServiceImpl implements IUserService {
     @Resource
     private IUserDao userDaoImpl;
 
+    @Resource
+    private IRoleService roleServiceImpl;
+
     @Value("${user.default.passwordSalt:seatunnel}")
     private String defaultSalt;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public AddUserRes add(AddUserReq addReq) {
         // 1. check duplicate user first
         userDaoImpl.checkUserExists(addReq.getUsername());
@@ -63,6 +71,9 @@ public class UserServiceImpl implements IUserService {
         final int userId = userDaoImpl.add(dto);
         final AddUserRes res = new AddUserRes();
         res.setId(userId);
+
+        // 3. add to role
+        roleServiceImpl.addUserToRole(userId, addReq.getType().intValue());
         return res;
     }
 
@@ -81,19 +92,29 @@ public class UserServiceImpl implements IUserService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(int id) {
         userDaoImpl.delete(id);
+        roleServiceImpl.deleteByUserId(id);
     }
 
     @Override
-    public List<UserSimpleInfoRes> list(UserListReq userListReq) {
+    public PageInfo<UserSimpleInfoRes> list(UserListReq userListReq) {
 
         final ListUserDto dto = ListUserDto.builder()
                 .name(userListReq.getName())
                 .build();
 
-        List<User> userList = userDaoImpl.list(dto, userListReq.getPageNo(), userListReq.getPageSize());
-        return userList.stream().map(this::translate).collect(Collectors.toList());
+        final PageData<User> userPageData = userDaoImpl.list(dto, userListReq.getRealPageNo(), userListReq.getPageSize());
+
+        final List<UserSimpleInfoRes> data = userPageData.getData().stream().map(this::translate).collect(Collectors.toList());
+        final PageInfo<UserSimpleInfoRes> pageInfo = new PageInfo<>();
+        pageInfo.setPageNo(userListReq.getPageNo());
+        pageInfo.setPageSize(userListReq.getPageSize());
+        pageInfo.setData(data);
+        pageInfo.setTotalCount(userPageData.getTotalCount());
+
+        return pageInfo;
     }
 
     @Override

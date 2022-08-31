@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.core.sql;
 
+import org.apache.seatunnel.core.base.utils.CommandLineUtils;
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.flink.config.FlinkJobType;
-import org.apache.seatunnel.core.flink.utils.CommandLineUtils;
 import org.apache.seatunnel.core.sql.job.JobInfo;
 
 import org.apache.commons.io.FileUtils;
@@ -37,7 +37,7 @@ public class SqlVariableSubstitutionTest {
         String[] args = {"-c", System.getProperty("user.dir") + TEST_RESOURCE_DIR + "flink.sql.conf.template",
             "-t", "-i", "table_name=events", "-i", "table_name2=print_table"};
 
-        FlinkCommandArgs flinkArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.JAR);
+        FlinkCommandArgs flinkArgs = CommandLineUtils.parse(args, new FlinkCommandArgs(), FlinkJobType.SQL.getType(), true);
         String configFilePath = flinkArgs.getConfigFile();
         String jobContent = FileUtils.readFileToString(new File(configFilePath), StandardCharsets.UTF_8);
         JobInfo jobInfo = new JobInfo(jobContent);

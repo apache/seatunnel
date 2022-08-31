@@ -20,11 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
@@ -38,6 +37,7 @@ public class FakeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     private Config pluginConfig;
     private SeaTunnelContext seaTunnelContext;
+    private SeaTunnelSchema schema;
 
     @Override
     public Boundedness getBoundedness() {
@@ -46,14 +46,12 @@ public class FakeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public SeaTunnelRowType getProducedType() {
-        return new SeaTunnelRowType(
-            new String[]{"name", "age", "timestamp"},
-            new SeaTunnelDataType<?>[]{BasicType.STRING_TYPE, BasicType.INT_TYPE, BasicType.LONG_TYPE});
+        return schema.getSeaTunnelRowType();
     }
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new FakeSourceReader(readerContext);
+        return new FakeSourceReader(readerContext, new FakeRandomData(schema));
     }
 
     @Override
@@ -64,6 +62,8 @@ public class FakeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     @Override
     public void prepare(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
+        assert pluginConfig.hasPath(FakeRandomData.SCHEMA);
+        this.schema = SeaTunnelSchema.buildWithConfig(pluginConfig.getConfig(FakeRandomData.SCHEMA));
     }
 
     @Override

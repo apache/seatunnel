@@ -46,9 +46,12 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <scope>provided</scope>
         </dependency>
 
+        <dependency>
+            <groupId>com.aliyun.phoenix</groupId>
+            <artifactId>ali-phoenix-shaded-thin-client</artifactId>
+        </dependency>
     </dependencies>
 
 </project>

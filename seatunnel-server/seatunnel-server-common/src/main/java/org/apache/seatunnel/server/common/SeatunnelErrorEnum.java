@@ -33,7 +33,9 @@ public enum SeatunnelErrorEnum {
     QUERY_PROJECT_CODE_FAILED(20001, "query project code failed", "Request ds for querying project code failed"),
     NO_MATCHED_PROJECT(20002, "no matched project", "No matched project [%s], please check your configuration"),
     NO_MATCHED_SCRIPT_SAVE_DIR(20003, "no matched script save dir", "No matched script save dir [%s], please check your configuration"),
+    GET_INSTANCE_FAILED(20004, "get instance failed", "Get instance failed"),
 
+    NO_SUCH_ELEMENT(99995, "no such element", "No such element."),
     UNSUPPORTED_OPERATION(99996, "unsupported operation", "This operation [%s] is not supported now."),
     HTTP_REQUEST_FAILED(99997, "http request failed", "Http request failed, url is %s"),
     ILLEGAL_STATE(99998, "illegal state", "%s"),

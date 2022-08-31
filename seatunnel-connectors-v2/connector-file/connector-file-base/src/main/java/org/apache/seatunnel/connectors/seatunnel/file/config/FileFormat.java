@@ -17,20 +17,93 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.config;
 
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.JsonWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.OrcWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.ParquetWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.TextWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.JsonReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.OrcReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.TextReadStrategy;
+
 import java.io.Serializable;
 
 public enum FileFormat implements Serializable {
-    CSV("csv"),
-    TEXT("txt"),
-    PARQUET("parquet");
+    CSV("csv") {
+        @Override
+        public WriteStrategy getWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
+            textFileSinkConfig.setFieldDelimiter(",");
+            return new TextWriteStrategy(textFileSinkConfig);
+        }
 
-    private String suffix;
+        @Override
+        public ReadStrategy getReadStrategy() {
+            return new TextReadStrategy();
+        }
+    },
+    TEXT("txt") {
+        @Override
+        public WriteStrategy getWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
+            return new TextWriteStrategy(textFileSinkConfig);
+        }
 
-    private FileFormat(String suffix) {
+        @Override
+        public ReadStrategy getReadStrategy() {
+            return new TextReadStrategy();
+        }
+    },
+    PARQUET("parquet") {
+        @Override
+        public WriteStrategy getWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
+            return new ParquetWriteStrategy(textFileSinkConfig);
+        }
+
+        @Override
+        public ReadStrategy getReadStrategy() {
+            return new ParquetReadStrategy();
+        }
+    },
+    ORC("orc") {
+        @Override
+        public WriteStrategy getWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
+            return new OrcWriteStrategy(textFileSinkConfig);
+        }
+
+        @Override
+        public ReadStrategy getReadStrategy() {
+            return new OrcReadStrategy();
+        }
+    },
+    JSON("json") {
+        @Override
+        public WriteStrategy getWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
+            return new JsonWriteStrategy(textFileSinkConfig);
+        }
+
+        @Override
+        public ReadStrategy getReadStrategy() {
+            return new JsonReadStrategy();
+        }
+    };
+
+    private final String suffix;
+
+    FileFormat(String suffix) {
         this.suffix = suffix;
     }
 
     public String getSuffix() {
         return "." + suffix;
+    }
+
+    public ReadStrategy getReadStrategy() {
+        return null;
+    }
+
+    public WriteStrategy getWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
+        return null;
     }
 }

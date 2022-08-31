@@ -18,9 +18,9 @@
 package org.apache.seatunnel.core.flink;
 
 import org.apache.seatunnel.core.base.config.ConfigParser;
+import org.apache.seatunnel.core.base.utils.CommandLineUtils;
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.flink.config.FlinkJobType;
-import org.apache.seatunnel.core.flink.utils.CommandLineUtils;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -37,7 +37,7 @@ public class FlinkEnvParameterParser {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     public static void main(String[] args) throws FileNotFoundException {
-        FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.JAR);
+        FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parse(args, new FlinkCommandArgs(), FlinkJobType.JAR.getType(), true);
         List<String> envParameters = getEnvParameters(flinkCommandArgs);
         System.out.println(String.join(" ", envParameters));
     }
