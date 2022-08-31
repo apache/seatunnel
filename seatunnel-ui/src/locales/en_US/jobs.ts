@@ -15,27 +15,15 @@
  * limitations under the License.
  */
 
-import { reactive, h } from 'vue'
-import { NEllipsis } from 'naive-ui'
-import { useI18n } from 'vue-i18n'
-
-export function useMenu() {
-  const { t } = useI18n()
-
-  const menuOptions = [
-    {
-      label: () => h(NEllipsis, null, { default: () => t('menu.data_pipes') }),
-      key: 'data-pipes'
-    },
-    {
-      label: () => h(NEllipsis, null, { default: () => t('menu.jobs') }),
-      key: 'jobs'
-    }
-  ]
-
-  const state = reactive({
-    menuOptions
-  })
-
-  return { state }
+export default {
+  jobs: 'Jobs',
+  search: 'Search',
+  search_data_pipes_name: 'Search Data Pipes Name',
+  data_pipes_name: 'Data Pipes Name',
+  plan: 'Plan',
+  create_date: 'Create Date',
+  publish: 'Publish',
+  operation: 'Operation',
+  executed_immediately: 'Executed Immediately',
+  stop_plan: 'Stop Plan'
 }
