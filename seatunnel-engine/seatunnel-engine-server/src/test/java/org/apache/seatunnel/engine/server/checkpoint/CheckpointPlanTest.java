@@ -52,7 +52,6 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
 
         JobConfig config = new JobConfig();
         config.setName("test");
-        config.setMode(JobMode.BATCH);
 
         JobImmutableInformation jobInfo = new JobImmutableInformation(1,
             nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
