@@ -94,11 +94,6 @@ public class PhysicalVertex {
      */
     private final long[] stateTimestamps;
 
-    /**
-     * This future only can completion by the task run in {@link com.hazelcast.spi.impl.executionservice.ExecutionService }
-     */
-    private PassiveCompletableFuture<TaskExecutionState> waitForCompleteByExecutionService;
-
     private final JobImmutableInformation jobImmutableInformation;
 
     private final long initializationTimestamp;
