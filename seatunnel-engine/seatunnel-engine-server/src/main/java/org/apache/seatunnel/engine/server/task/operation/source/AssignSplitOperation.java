@@ -51,7 +51,7 @@ public class AssignSplitOperation<SplitT extends SourceSplit> extends Operation 
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(() -> {
             SourceSeaTunnelTask<?, SplitT> task =
-                server.getTaskExecutionService().getExecutionContext(taskID.getTaskGroupID()).getTaskGroup()
+                server.getTaskExecutionService().getExecutionContext(taskID.getTaskGroupLocation()).getTaskGroup()
                     .getTask(taskID.getTaskID());
             task.receivedSourceSplit(splits);
             return null;

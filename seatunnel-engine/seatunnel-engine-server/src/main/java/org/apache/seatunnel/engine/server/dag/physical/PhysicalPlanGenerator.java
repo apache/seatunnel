@@ -42,6 +42,7 @@ import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlo
 import org.apache.seatunnel.engine.server.dag.physical.flow.UnknownFlowException;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
@@ -213,11 +214,12 @@ public class PhysicalPlanGenerator {
                 if (sinkAggregatedCommitter.isPresent()) {
                     long taskGroupID = idGenerator.getNextId();
                     long taskTypeId = idGenerator.getNextId();
+                    TaskGroupLocation taskGroupLocation = new TaskGroupLocation(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID);
                     SinkAggregatedCommitterTask<?> t =
                         new SinkAggregatedCommitterTask(jobImmutableInformation.getJobId(),
-                            new TaskLocation(taskGroupID, mixIDPrefixAndIndex(taskTypeId, 0)), s,
+                            new TaskLocation(taskGroupLocation, mixIDPrefixAndIndex(taskTypeId, 0)), s,
                             sinkAggregatedCommitter.get());
-                    committerTaskIDMap.put(s, new TaskLocation(taskGroupID, t.getTaskID()));
+                    committerTaskIDMap.put(s, new TaskLocation(taskGroupLocation, t.getTaskID()));
 
                     // checkpoint
                     pipelineTaskIds.put(t.getTaskID(), taskGroupID);
@@ -227,7 +229,7 @@ public class PhysicalPlanGenerator {
                         atomicInteger.incrementAndGet(),
                         executorService,
                         collect.size(),
-                        new TaskGroupDefaultImpl(taskGroupID, s.getName() + "-AggregatedCommitterTask",
+                        new TaskGroupDefaultImpl(taskGroupLocation, s.getName() + "-AggregatedCommitterTask",
                             Lists.newArrayList(t)),
                         flakeIdGenerator,
                         pipelineIndex,
@@ -254,17 +256,17 @@ public class PhysicalPlanGenerator {
                 long taskGroupIDPrefix = idGenerator.getNextId();
                 for (int i = 0; i < flow.getAction().getParallelism(); i++) {
                     long taskGroupID = mixIDPrefixAndIndex(taskGroupIDPrefix, i);
+                    TaskGroupLocation taskGroupLocation = new TaskGroupLocation(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID);
                     setFlowConfig(flow, i);
                     SeaTunnelTask seaTunnelTask = new TransformSeaTunnelTask(jobImmutableInformation.getJobId(),
-                        new TaskLocation(taskGroupID, mixIDPrefixAndIndex(taskIDPrefix, i)), i, flow);
+                        new TaskLocation(taskGroupLocation, mixIDPrefixAndIndex(taskIDPrefix, i)), i, flow);
                     // checkpoint
                     pipelineTaskIds.put(seaTunnelTask.getTaskID(), taskGroupID);
-
                     t.add(new PhysicalVertex(idGenerator.getNextId(),
                         i,
                         executorService,
                         flow.getAction().getParallelism(),
-                        new TaskGroupDefaultImpl(taskGroupID, flow.getAction().getName() +
+                        new TaskGroupDefaultImpl(taskGroupLocation, flow.getAction().getName() +
                             "-PartitionTransformTask",
                             Lists.newArrayList(seaTunnelTask)),
                         flakeIdGenerator,
@@ -287,21 +289,20 @@ public class PhysicalPlanGenerator {
         return sources.stream().map(s -> {
             long taskGroupID = idGenerator.getNextId();
             long taskTypeId = idGenerator.getNextId();
+            TaskGroupLocation taskGroupLocation = new TaskGroupLocation(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID);
             SourceSplitEnumeratorTask<?> t = new SourceSplitEnumeratorTask<>(jobImmutableInformation.getJobId(),
-                new TaskLocation(taskGroupID, mixIDPrefixAndIndex(taskTypeId, 0)), s);
-
+                new TaskLocation(taskGroupLocation, mixIDPrefixAndIndex(taskTypeId, 0)), s);
             // checkpoint
             pipelineTaskIds.put(t.getTaskID(), taskGroupID);
             startingTasks.add(t.getTaskID());
             statefulVertices.put(taskTypeId, 1);
-
-            enumeratorTaskIDMap.put(s, new TaskLocation(taskGroupID, t.getTaskID()));
+            enumeratorTaskIDMap.put(s, new TaskLocation(taskGroupLocation, t.getTaskID()));
 
             return new PhysicalVertex(idGenerator.getNextId(),
                 atomicInteger.incrementAndGet(),
                 executorService,
                 sources.size(),
-                new TaskGroupDefaultImpl(taskGroupID, s.getName() + "-SplitEnumerator",
+                new TaskGroupDefaultImpl(taskGroupLocation, s.getName() + "-SplitEnumerator",
                     Lists.newArrayList(t)),
                 flakeIdGenerator,
                 pipelineIndex,
@@ -330,6 +331,7 @@ public class PhysicalPlanGenerator {
                 for (int i = 0; i < flow.getAction().getParallelism(); i++) {
                     int finalParallelismIndex = i;
                     long taskGroupID = mixIDPrefixAndIndex(taskGroupIDPrefix, i);
+                    TaskGroupLocation taskGroupLocation = new TaskGroupLocation(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID);
                     List<SeaTunnelTask> taskList =
                         flows.stream().map(f -> {
                             setFlowConfig(f, finalParallelismIndex);
@@ -341,11 +343,11 @@ public class PhysicalPlanGenerator {
                             if (f instanceof PhysicalExecutionFlow) {
                                 statefulVertices.putIfAbsent(taskIDPrefix, flow.getAction().getParallelism());
                                 return new SourceSeaTunnelTask<>(jobImmutableInformation.getJobId(),
-                                    new TaskLocation(taskGroupID, taskId),
+                                    new TaskLocation(taskGroupLocation, taskId),
                                     finalParallelismIndex, f);
                             } else {
                                 return new TransformSeaTunnelTask(jobImmutableInformation.getJobId(),
-                                    new TaskLocation(taskGroupID, taskId),
+                                    new TaskLocation(taskGroupLocation, taskId),
                                     finalParallelismIndex, f);
                             }
                         }).collect(Collectors.toList());
@@ -358,7 +360,7 @@ public class PhysicalPlanGenerator {
                             i,
                             executorService,
                             flow.getAction().getParallelism(),
-                            new TaskGroupWithIntermediateQueue(taskGroupID, flow.getAction().getName() +
+                            new TaskGroupWithIntermediateQueue(taskGroupLocation, flow.getAction().getName() +
                                 "-SourceTask",
                                 taskList.stream().map(task -> (Task) task).collect(Collectors.toList())),
                             flakeIdGenerator,
@@ -373,7 +375,7 @@ public class PhysicalPlanGenerator {
                             i,
                             executorService,
                             flow.getAction().getParallelism(),
-                            new TaskGroupDefaultImpl(taskGroupID, flow.getAction().getName() +
+                            new TaskGroupDefaultImpl(taskGroupLocation, flow.getAction().getName() +
                                 "-SourceTask",
                                 taskList.stream().map(task -> (Task) task).collect(Collectors.toList())),
                             flakeIdGenerator,
