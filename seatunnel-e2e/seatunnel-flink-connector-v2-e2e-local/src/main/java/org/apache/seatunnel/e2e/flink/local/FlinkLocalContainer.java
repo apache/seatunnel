@@ -30,6 +30,7 @@ import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -57,7 +58,7 @@ public class FlinkLocalContainer {
 
     @SneakyThrows
     private String getResource(String confFile) {
-        return FlinkLocalContainer.class.getClassLoader().getResource(confFile)
-            .toURI().getPath();
+        return Paths.get(FlinkLocalContainer.class.getClassLoader().getResource(confFile).toURI())
+            .toString();
     }
 }
