@@ -20,11 +20,14 @@ package org.apache.seatunnel.engine.server.checkpoint;
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
+import lombok.AllArgsConstructor;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.concurrent.CompletableFuture;
 
+@AllArgsConstructor
 public class PendingCheckpoint implements Checkpoint {
 
     private final long jobId;
@@ -41,24 +44,7 @@ public class PendingCheckpoint implements Checkpoint {
 
     private final Map<Long, ActionState> actionStates;
 
-    public PendingCheckpoint(long jobId,
-                             int pipelineId,
-                             long checkpointId,
-                             long triggerTimestamp,
-                             Set<Long> notYetAcknowledgedTasks,
-                             Map<Long, ActionState> actionStates,
-                             Map<Long, Integer> allVertices) {
-        this.jobId = jobId;
-        this.pipelineId = pipelineId;
-        this.checkpointId = checkpointId;
-        this.triggerTimestamp = triggerTimestamp;
-        this.notYetAcknowledgedTasks = notYetAcknowledgedTasks;
-        this.actionStates = actionStates;
-        this.taskStatistics = allVertices.entrySet()
-            .stream().collect(Collectors.toMap(
-                Map.Entry::getKey,
-                entry -> new TaskStatistics(entry.getKey(), entry.getValue())));
-    }
+    private final CompletableFuture<PendingCheckpoint> completableFuture;
 
     @Override
     public long getCheckpointId() {
@@ -105,6 +91,10 @@ public class PendingCheckpoint implements Checkpoint {
             taskLocation.getTaskIndex(),
             System.currentTimeMillis(),
             stateSize));
+
+        if (isFullyAcknowledged()) {
+            completableFuture.complete(this);
+        }
     }
 
     public void taskCompleted(TaskLocation taskLocation) {
@@ -112,7 +102,18 @@ public class PendingCheckpoint implements Checkpoint {
             .completed(taskLocation.getTaskIndex());
     }
 
-    public boolean isFullyAcknowledged() {
+    private boolean isFullyAcknowledged() {
         return notYetAcknowledgedTasks.size() == 0;
+    }
+
+    public CompletedCheckpoint toCompletedCheckpoint() {
+        return new CompletedCheckpoint(
+            jobId,
+            pipelineId,
+            checkpointId,
+            triggerTimestamp,
+            System.currentTimeMillis(),
+            actionStates,
+            taskStatistics);
     }
 }

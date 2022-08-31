@@ -42,12 +42,12 @@ public class CheckpointPlan {
     /**
      * All task locations of the pipeline.
      */
-    private final Set<TaskLocation> pipelineTasks;
+    private final Set<TaskLocation> pipelineSubtasks;
 
     /**
      * All starting task of a pipeline.
      */
-    private final Set<TaskLocation> startingTasks;
+    private final Set<TaskLocation> startingSubtasks;
 
     /**
      * Restored task state.
@@ -57,37 +57,28 @@ public class CheckpointPlan {
     private final Map<Long, ActionState> restoredTaskState;
 
     /**
-     * All stateful vertices in this pipeline.
-     * <br> key: the job vertex id;
-     * <br> value: the parallelism of the job vertex;
+     * All actions in this pipeline.
+     * <br> key: the action id;
+     * <br> value: the parallelism of the action;
      */
-    private final Map<Long, Integer> statefulVertices;
-
-    /**
-     * All vertices of this pipeline.
-     * <br> key: the job vertex id;
-     * <br> value: the parallelism of the job vertex;
-     */
-    private final Map<Long, Integer> allVertices;
+    private final Map<Long, Integer> pipelineActions;
 
     public static final class Builder {
-        private final Set<TaskLocation> pipelineTasks = new HashSet<>();
-        private final Set<TaskLocation> startingTasks = new HashSet<>();
+        private final Set<TaskLocation> pipelineSubtasks = new HashSet<>();
+        private final Set<TaskLocation> startingSubtasks = new HashSet<>();
         private final Map<Long, ActionState> restoredTaskState = new HashMap<>();
-        private final Map<Long, Integer> statefulVertices = new HashMap<>();
-
-        private final Map<Long, Integer> allVertices = new HashMap<>();
+        private final Map<Long, Integer> pipelineActions = new HashMap<>();
 
         private Builder() {
         }
 
-        public Builder pipelineTasks(Set<TaskLocation> pipelineTaskIds) {
-            this.pipelineTasks.addAll(pipelineTaskIds);
+        public Builder pipelineSubtasks(Set<TaskLocation> pipelineTaskIds) {
+            this.pipelineSubtasks.addAll(pipelineTaskIds);
             return this;
         }
 
-        public Builder startingTasks(Set<TaskLocation> startingVertices) {
-            this.startingTasks.addAll(startingVertices);
+        public Builder startingSubtasks(Set<TaskLocation> startingVertices) {
+            this.startingSubtasks.addAll(startingVertices);
             return this;
         }
 
@@ -96,13 +87,8 @@ public class CheckpointPlan {
             return this;
         }
 
-        public Builder statefulVertices(Map<Long, Integer> statefulVertices) {
-            this.statefulVertices.putAll(statefulVertices);
-            return this;
-        }
-
-        public Builder allVertices(Map<Long, Integer> allVertices) {
-            this.allVertices.putAll(allVertices);
+        public Builder pipelineActions(Map<Long, Integer> pipelineActions) {
+            this.pipelineActions.putAll(pipelineActions);
             return this;
         }
     }

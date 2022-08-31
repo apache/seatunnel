@@ -63,17 +63,17 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
         Assert.assertNotNull(checkpointPlans);
         Assert.assertEquals(2, checkpointPlans.size());
         // enum(1) + reader(2) + writer(2)
-        Assert.assertEquals(5, checkpointPlans.get(1).getPipelineTasks().size());
+        Assert.assertEquals(5, checkpointPlans.get(1).getPipelineSubtasks().size());
         // enum
-        Assert.assertEquals(1, checkpointPlans.get(1).getStartingTasks().size());
+        Assert.assertEquals(1, checkpointPlans.get(1).getStartingSubtasks().size());
         // enum + reader
-        Assert.assertEquals(2, checkpointPlans.get(1).getStatefulVertices().size());
+        Assert.assertEquals(2, checkpointPlans.get(1).getPipelineActions().size());
         // enum(1) + reader(3) + writer(3)
-        Assert.assertEquals(7, checkpointPlans.get(2).getPipelineTasks().size());
+        Assert.assertEquals(7, checkpointPlans.get(2).getPipelineSubtasks().size());
         // enum
-        Assert.assertEquals(1, checkpointPlans.get(2).getStartingTasks().size());
+        Assert.assertEquals(1, checkpointPlans.get(2).getStartingSubtasks().size());
         // enum + reader
-        Assert.assertEquals(2, checkpointPlans.get(2).getStatefulVertices().size());
+        Assert.assertEquals(2, checkpointPlans.get(2).getPipelineActions().size());
     }
 
     private static void fillVirtualVertex(IdGenerator idGenerator, LogicalDag logicalDag, int parallelism) {

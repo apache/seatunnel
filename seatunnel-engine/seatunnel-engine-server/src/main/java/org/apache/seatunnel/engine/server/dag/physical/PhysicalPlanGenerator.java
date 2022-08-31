@@ -110,12 +110,6 @@ public class PhysicalPlanGenerator {
      */
     private final Set<TaskLocation> startingTasks;
 
-    /**
-     * All stateful vertices in a pipeline.
-     * <br> key: the job vertex id;
-     * <br> value: the parallelism of the job vertex;
-     */
-    private final Map<Long, Integer> statefulVertices;
     public PhysicalPlanGenerator(@NonNull ExecutionPlan executionPlan,
                                  @NonNull NodeEngine nodeEngine,
                                  @NonNull JobImmutableInformation jobImmutableInformation,
@@ -131,7 +125,6 @@ public class PhysicalPlanGenerator {
         // the checkpoint of a pipeline
         this.pipelineTasks = new HashSet<>();
         this.startingTasks = new HashSet<>();
-        this.statefulVertices = new HashMap<>();
     }
 
     public Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> generate() {
@@ -145,7 +138,6 @@ public class PhysicalPlanGenerator {
         Stream<SubPlan> subPlanStream = pipelines.stream().map(pipeline -> {
             this.pipelineTasks.clear();
             this.startingTasks.clear();
-            this.statefulVertices.clear();
             final int pipelineId = pipeline.getId();
             final List<ExecutionEdge> edges = pipeline.getEdges();
 
@@ -168,9 +160,9 @@ public class PhysicalPlanGenerator {
             checkpointPlans.put(pipelineId,
                 CheckpointPlan.builder()
                     .pipelineId(pipelineId)
-                    .pipelineTasks(pipelineTasks)
-                    .startingTasks(startingTasks)
-                    .statefulVertices(statefulVertices)
+                    .pipelineSubtasks(pipelineTasks)
+                    .startingSubtasks(startingTasks)
+                    .pipelineActions(pipeline.getActions())
                     .build());
             return new SubPlan(pipelineId,
                 totalPipelineNum,
@@ -221,7 +213,6 @@ public class PhysicalPlanGenerator {
 
                     // checkpoint
                     pipelineTasks.add(taskLocation);
-                    statefulVertices.put(taskTypeId, 1);
 
                     return new PhysicalVertex(idGenerator.getNextId(),
                         atomicInteger.incrementAndGet(),
@@ -293,7 +284,6 @@ public class PhysicalPlanGenerator {
             // checkpoint
             pipelineTasks.add(taskLocation);
             startingTasks.add(taskLocation);
-            statefulVertices.put(taskTypeId, 1);
             enumeratorTaskIDMap.put(s, taskLocation);
 
             return new PhysicalVertex(idGenerator.getNextId(),
@@ -339,7 +329,6 @@ public class PhysicalPlanGenerator {
                             // checkpoint
                             pipelineTasks.add(taskLocation);
                             if (f instanceof PhysicalExecutionFlow) {
-                                statefulVertices.putIfAbsent(taskIDPrefix, flow.getAction().getParallelism());
                                 return new SourceSeaTunnelTask<>(jobImmutableInformation.getJobId(),
                                     taskLocation,
                                     finalParallelismIndex, f);

@@ -83,8 +83,8 @@ public class CheckpointManager {
     }
 
     public void acknowledgeTask(TaskAcknowledgeOperation ackOperation, Address address) {
-        getCheckpointCoordinator(ackOperation.getTaskLocation()).acknowledgeTask(ackOperation);
         subtaskWithAddresses.putIfAbsent(ackOperation.getTaskLocation().getTaskID(), address);
+        getCheckpointCoordinator(ackOperation.getTaskLocation()).acknowledgeTask(ackOperation);
     }
 
     public void taskCompleted(TaskLocation taskLocation) {

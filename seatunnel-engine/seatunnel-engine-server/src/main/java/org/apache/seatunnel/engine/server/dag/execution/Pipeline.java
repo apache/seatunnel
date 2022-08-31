@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.engine.server.dag.execution;
 
+import org.apache.seatunnel.engine.core.dag.actions.Action;
+
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class Pipeline {
 
@@ -47,4 +50,9 @@ public class Pipeline {
         return vertexes;
     }
 
+    public Map<Long, Integer> getActions() {
+        return vertexes.values()
+            .stream().map(ExecutionVertex::getAction)
+            .collect(Collectors.toMap(Action::getId, Action::getParallelism));
+    }
 }
