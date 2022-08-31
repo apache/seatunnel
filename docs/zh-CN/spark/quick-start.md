@@ -34,7 +34,7 @@ ln -s seatunnel-<version> seatunnel
 ```bash
 env {
   # seatunnel defined streaming batch duration in seconds
-  spark.streaming.batchDuration = 5
+  spark.stream.batchDuration = 5
 
   spark.app.name = "seatunnel"
   spark.ui.port = 13000
