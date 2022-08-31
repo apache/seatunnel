@@ -45,4 +45,6 @@ public interface ResourceManager {
 
     void heartbeatFromWorker(String workerID);
 
+    void close();
+
 }

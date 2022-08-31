@@ -53,7 +53,7 @@ public class ResourceProfile implements Serializable {
         return new ResourceProfile(c, m);
     }
 
-    public ResourceProfile unmerge(ResourceProfile other) {
+    public ResourceProfile subtract(ResourceProfile other) {
         CPU c = CPU.of(this.cpu.getCore() - other.getCpu().getCore());
         Memory m = Memory.of(this.heapMemory.getBytes() - other.heapMemory.getBytes());
         return new ResourceProfile(c, m);

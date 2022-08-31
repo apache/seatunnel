@@ -201,7 +201,7 @@ public class PhysicalVertex {
             } else {
                 turnToEndState(ExecutionState.FAILED);
                 taskFuture.complete(new TaskExecutionState(this.taskGroupLocation, executionState.get(),
-                    new JobException(String.format("%s turn to a unexpected state", jobImmutableInformation.getJobId()))));
+                    new JobException(String.format("%s turn to a unexpected state", getTaskFullName()))));
             }
 
         } catch (Throwable th) {

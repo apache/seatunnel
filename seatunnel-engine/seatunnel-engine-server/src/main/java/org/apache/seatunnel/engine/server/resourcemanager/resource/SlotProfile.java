@@ -21,6 +21,9 @@ import com.hazelcast.cluster.Address;
 
 import java.io.Serializable;
 
+/**
+ * Used to describe the status of the current slot, including resource size and assign status
+ */
 public class SlotProfile implements Serializable {
 
     private final Address worker;

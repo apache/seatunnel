@@ -35,9 +35,9 @@ import com.hazelcast.spi.impl.operationservice.InvocationBuilder;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -57,16 +57,16 @@ public class DefaultSlotService implements SlotService {
 
     private AtomicReference<ResourceProfile> assignedResource;
 
-    private Map<Integer, SlotProfile> assignedSlots;
+    private ConcurrentMap<Integer, SlotProfile> assignedSlots;
 
-    private Map<Integer, SlotProfile> unassignedSlots;
+    private ConcurrentMap<Integer, SlotProfile> unassignedSlots;
     private ScheduledExecutorService scheduledExecutorService;
     private final String serviceID;
     private final boolean dynamicSlot;
     private final int slotNumber;
     private final IdGenerator idGenerator;
     private final TaskExecutionService taskExecutionService;
-    private Map<Integer, SlotContext> contexts;
+    private ConcurrentMap<Integer, SlotContext> contexts;
 
     public DefaultSlotService(NodeEngineImpl nodeEngine, TaskExecutionService taskExecutionService, boolean dynamicSlot, int slotNumber) {
         this.nodeEngine = nodeEngine;
@@ -84,7 +84,8 @@ public class DefaultSlotService implements SlotService {
         unassignedSlots = new ConcurrentHashMap<>();
         unassignedResource = new AtomicReference<>(new ResourceProfile());
         assignedResource = new AtomicReference<>(new ResourceProfile());
-        scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(r -> new Thread(r,
+            String.format("hz.%s.seaTunnel.slotService.thread", nodeEngine.getHazelcastInstance().getName())));
         if (!dynamicSlot) {
             initFixedSlots();
         }
@@ -92,11 +93,13 @@ public class DefaultSlotService implements SlotService {
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             try {
                 RetryUtils.retryWithException(() -> {
+                    LOGGER.fine("start send heartbeat to resource manager, this address: " + nodeEngine.getClusterService().getThisAddress());
                     sendToMaster(new WorkerHeartbeatOperation(toWorkerProfile())).join();
                     return null;
                 }, new RetryUtils.RetryMaterial(HEARTBEAT_RETRY_TIME, true, e -> true, DEFAULT_HEARTBEAT_TIMEOUT));
             } catch (Exception e) {
-                throw new RuntimeException(e);
+                LOGGER.severe(e);
+                LOGGER.severe("failed send heartbeat to resource manager, will retry later. this address: " + nodeEngine.getClusterService().getThisAddress());
             }
         }, 0, DEFAULT_HEARTBEAT_TIMEOUT, TimeUnit.MILLISECONDS);
     }
@@ -108,7 +111,7 @@ public class DefaultSlotService implements SlotService {
         if (profile != null) {
             profile.assign(jobId);
             assignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::merge);
-            unassignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::unmerge);
+            unassignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::subtract);
             unassignedSlots.remove(profile.getSlotID());
             assignedSlots.put(profile.getSlotID(), profile);
             contexts.computeIfAbsent(profile.getSlotID(), p -> new SlotContext(profile.getSlotID(), taskExecutionService));
@@ -132,7 +135,7 @@ public class DefaultSlotService implements SlotService {
                     assignedSlots.get(profile.getSlotID()), jobId));
         }
 
-        assignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::unmerge);
+        assignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::subtract);
         unassignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::merge);
         profile.unassigned();
         if (!dynamicSlot) {

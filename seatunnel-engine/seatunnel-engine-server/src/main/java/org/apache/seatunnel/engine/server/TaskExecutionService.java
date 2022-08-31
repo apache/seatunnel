@@ -185,11 +185,11 @@ public class TaskExecutionService {
             ConcurrentMap<Long, TaskExecutionContext> taskExecutionContextMap = new ConcurrentHashMap<>();
             final Map<Boolean, List<Task>> byCooperation =
                 tasks.stream()
-                    .peek(x -> {
-                        TaskExecutionContext taskExecutionContext = new TaskExecutionContext(x, nodeEngine,
+                    .peek(task -> {
+                        TaskExecutionContext taskExecutionContext = new TaskExecutionContext(task, nodeEngine,
                                 slotContext);
-                        x.setTaskExecutionContext(taskExecutionContext);
-                        taskExecutionContextMap.put(x.getTaskID(), taskExecutionContext);
+                        task.setTaskExecutionContext(taskExecutionContext);
+                        taskExecutionContextMap.put(task.getTaskID(), taskExecutionContext);
                     })
                     .collect(partitioningBy(Task::isThreadsShare));
             submitThreadShareTask(executionTracker, byCooperation.get(true));

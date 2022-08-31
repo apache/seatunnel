@@ -125,7 +125,7 @@ public class PipelineBaseScheduler implements JobScheduler {
                     slotProfiles.put(future.getKey(), future.getValue().get());
                 } catch (NoEnoughResourceException e) {
                     // TODO custom exception with pipelineID, jobName etc.
-                    throw new JobNoEnoughResourceException("No enough resource to execute pipeline");
+                    throw new JobNoEnoughResourceException("No enough resource to execute pipeline", e);
                 }
             }
             return slotProfiles;
@@ -135,10 +135,10 @@ public class PipelineBaseScheduler implements JobScheduler {
         }
     }
 
-    private CompletableFuture<Void> deployTask(PhysicalVertex task, Supplier<Void> supplier) {
+    private CompletableFuture<Void> deployTask(PhysicalVertex task, Supplier<Void> deployMethod) {
         if (task.updateTaskState(ExecutionState.SCHEDULED, ExecutionState.DEPLOYING)) {
             // deploy is a time-consuming operation, so we do it async
-            return CompletableFuture.supplyAsync(supplier);
+            return CompletableFuture.supplyAsync(deployMethod);
         } else {
             handleTaskStateUpdateError(task, ExecutionState.DEPLOYING);
         }

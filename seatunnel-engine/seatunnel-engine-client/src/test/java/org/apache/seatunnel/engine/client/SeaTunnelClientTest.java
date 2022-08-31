@@ -89,7 +89,7 @@ public class SeaTunnelClientTest {
                 return null;
             });
 
-            await().atMost(10000, TimeUnit.MILLISECONDS)
+            await().atMost(100000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assert.assertTrue(objectCompletableFuture.isDone()));
 
         } catch (ExecutionException | InterruptedException e) {

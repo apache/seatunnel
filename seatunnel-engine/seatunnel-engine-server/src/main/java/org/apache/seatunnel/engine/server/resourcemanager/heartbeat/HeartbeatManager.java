@@ -20,8 +20,8 @@ package org.apache.seatunnel.engine.server.resourcemanager.heartbeat;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -31,8 +31,10 @@ public class HeartbeatManager {
 
     private static final int DEFAULT_TIMEOUT_MILLISECONDS = 5000;
     private static final int DEFAULT_INTERVAL_MILLISECONDS = 3000;
-    private final Map<String, Long> lastHeartbeat;
+    private final ConcurrentMap<String, Long> lastHeartbeat;
     private final HeartbeatListener listener;
+
+    private final ScheduledExecutorService scheduledExecutorService;
 
     public void heartbeat(String nodeID) {
         lastHeartbeat.put(nodeID, System.currentTimeMillis());
@@ -42,23 +44,32 @@ public class HeartbeatManager {
         lastHeartbeat.remove(nodeID);
     }
 
-    public HeartbeatManager(HeartbeatListener listener) {
+    public HeartbeatManager(HeartbeatListener listener, ScheduledExecutorService scheduledExecutorService) {
         this.listener = listener;
+        this.scheduledExecutorService = scheduledExecutorService;
         this.lastHeartbeat = new ConcurrentHashMap<>();
     }
 
-    public void start(ScheduledExecutorService scheduledExecutorService) {
+    public void start() {
         scheduledExecutorService.scheduleAtFixedRate(() -> {
-            lastHeartbeat.forEach((nodeID, last) -> {
-                    long now = System.currentTimeMillis();
-                    // TODO support custom timeout
-                    if (now - last > DEFAULT_TIMEOUT_MILLISECONDS) {
-                        LOGGER.severe("Node heartbeat timeout, disconnected for heartbeatManager. " +
+            try {
+                lastHeartbeat.forEach((nodeID, last) -> {
+                        long now = System.currentTimeMillis();
+                        // TODO support custom timeout
+                        if (now - last > DEFAULT_TIMEOUT_MILLISECONDS) {
+                            LOGGER.severe("Node heartbeat timeout, disconnected for heartbeatManager. " +
                                 "NodeID: " + nodeID);
-                        listener.nodeDisconnected(nodeID);
+                            listener.nodeDisconnected(nodeID);
+                        }
                     }
-                }
-            );
+                );
+            } catch (Exception e) {
+                LOGGER.severe("heartbeat manager encountered an exception", e);
+            }
         }, 0, DEFAULT_INTERVAL_MILLISECONDS, TimeUnit.MILLISECONDS);
+    }
+
+    public void close() {
+        this.scheduledExecutorService.shutdown();
     }
 }

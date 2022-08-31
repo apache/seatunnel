@@ -21,9 +21,14 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfi
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import com.hazelcast.cluster.Address;
+import lombok.Data;
 
 import java.io.Serializable;
 
+/**
+ * Used to describe the status of the current Worker, including address and resource assign status
+ */
+@Data
 public class WorkerProfile implements Serializable {
 
     private final String workerID;
@@ -42,45 +47,5 @@ public class WorkerProfile implements Serializable {
         this.workerID = workerID;
         this.address = address;
         this.unassignedResource = new ResourceProfile();
-    }
-
-    public String getWorkerID() {
-        return workerID;
-    }
-
-    public Address getAddress() {
-        return address;
-    }
-
-    public ResourceProfile getProfile() {
-        return profile;
-    }
-
-    public void setProfile(ResourceProfile profile) {
-        this.profile = profile;
-    }
-
-    public SlotProfile[] getAssignedSlots() {
-        return assignedSlots;
-    }
-
-    public void setAssignedSlots(SlotProfile[] assignedSlots) {
-        this.assignedSlots = assignedSlots;
-    }
-
-    public SlotProfile[] getUnassignedSlots() {
-        return unassignedSlots;
-    }
-
-    public void setUnassignedSlots(SlotProfile[] unassignedSlots) {
-        this.unassignedSlots = unassignedSlots;
-    }
-
-    public ResourceProfile getUnassignedResource() {
-        return unassignedResource;
-    }
-
-    public void setUnassignedResource(ResourceProfile unassignedResource) {
-        this.unassignedResource = unassignedResource;
     }
 }
