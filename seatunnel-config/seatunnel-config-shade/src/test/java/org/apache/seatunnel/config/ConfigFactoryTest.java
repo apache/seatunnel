@@ -47,7 +47,7 @@ public class ConfigFactoryTest {
         Assertions.assertEquals("2", env.getString("spark.executor.instances"));
         Assertions.assertEquals("1", env.getString("spark.executor.cores"));
         Assertions.assertEquals("1g", env.getString("spark.executor.memory"));
-        Assertions.assertEquals("5", env.getString("spark.streaming.batchDuration"));
+        Assertions.assertEquals("5", env.getString("spark.stream.batchDuration"));
 
         // check custom plugin
         Assertions.assertEquals("c.Console", config.getConfigList("sink").get(1).getString("plugin_name"));
@@ -73,7 +73,7 @@ public class ConfigFactoryTest {
     @Test
     public void testQuotedString() throws URISyntaxException {
         List<String> keys = Arrays.asList("spark.app.name", "spark.executor.instances", "spark.executor.cores",
-                "spark.executor.memory", "spark.streaming.batchDuration");
+                "spark.executor.memory", "spark.stream.batchDuration");
 
         Config config = ConfigFactory.parseFile(FileUtils.getFileFromResources("/factory/config.conf"));
         Config evnConfig = config.getConfig("env");
