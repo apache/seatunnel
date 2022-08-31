@@ -27,8 +27,12 @@ import org.apache.seatunnel.connectors.seatunnel.druid.config.DruidTypeMapper;
 import java.io.IOException;
 import java.io.Serializable;
 import java.sql.*;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
+import java.util.TimeZone;
 
 @Data
 public class DruidInputFormat implements Serializable {
@@ -40,7 +44,6 @@ public class DruidInputFormat implements Serializable {
     protected SeaTunnelRowType rowTypeInfo;
     protected DruidSourceOptions druidSourceOptions;
 
-    protected static final String KEY_WORDS = "_time";
     protected static final String COLUMNS_DEFAULT = "*";
     protected static final String QUERY_TEMPLATE = "SELECT %s FROM %s WHERE 1=1";
     protected String quarySQL ;
@@ -73,17 +76,12 @@ public class DruidInputFormat implements Serializable {
     }
 
     private String getSQL() throws SQLException {
-        String columns = "";
+        String columns = COLUMNS_DEFAULT;
         String startTimestamp = druidSourceOptions.getStartTimestamp();
         String endTimestamp = druidSourceOptions.getEndTimestamp();
         String dataSource = druidSourceOptions.getDatasource();
 
         if (druidSourceOptions.getColumns() != null && druidSourceOptions.getColumns().size() > 0) {
-            if(druidSourceOptions.getColumns().contains(KEY_WORDS)){
-                LOGGER.error("DruidSorce columns not contains "  + KEY_WORDS);
-                return null;
-
-            }
             columns = String.join(",", druidSourceOptions.getColumns());
         }
 
@@ -178,7 +176,9 @@ public class DruidInputFormat implements Serializable {
             } else if (BasicType.STRING_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getString(i);
             }else if (LocalTimeType.LOCAL_DATE_TIME_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = rs.getDate(i);
+                Timestamp ts = rs.getTimestamp(i, Calendar.getInstance(TimeZone.getTimeZone("UTC")));
+                LocalDateTime localDateTime = LocalDateTime.ofInstant(ts.toInstant(), ZoneId.of("UTC"));  // good
+                seatunnelField = localDateTime;
             }else if (LocalTimeType.LOCAL_TIME_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getDate(i);
             }else if (LocalTimeType.LOCAL_DATE_TYPE.equals(seaTunnelDataType)) {

@@ -32,7 +32,7 @@ public class DruidSourceOptions implements Serializable {
     private String datasource ;
     private String startTimestamp ;
     private String endTimestamp ;
-    private List<String> columns ;
+    private List columns ;
 
     private String partitionColumn;
     private Long partitionUpperBound;
@@ -42,7 +42,7 @@ public class DruidSourceOptions implements Serializable {
     public DruidSourceOptions(Config pluginConfig) {
         this.URL = pluginConfig.getString(DruidSourceConfig.URL);
         this.datasource = pluginConfig.getString(DruidSourceConfig.DATASOURCE);
-        this.columns = pluginConfig.getStringList(DruidSourceConfig.COLUMNS);
+        this.columns = pluginConfig.hasPath(DruidSourceConfig.COLUMNS) ? pluginConfig.getList(DruidSourceConfig.COLUMNS) : null;
         this.startTimestamp = pluginConfig.hasPath(DruidSourceConfig.START_TIMESTAMP) ? pluginConfig.getString(DruidSourceConfig.START_TIMESTAMP) : null;
         this.endTimestamp = pluginConfig.hasPath(DruidSourceConfig.END_TIMESTAMP) ? pluginConfig.getString(DruidSourceConfig.END_TIMESTAMP) : null;
     }
