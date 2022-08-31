@@ -15,27 +15,28 @@
  * limitations under the License.
  */
 
-import { reactive, h } from 'vue'
-import { NEllipsis } from 'naive-ui'
-import { useI18n } from 'vue-i18n'
+import utils from '@/utils'
+import type { Component } from 'vue'
 
-export function useMenu() {
-  const { t } = useI18n()
+const modules = import.meta.glob('/src/views/**/**.tsx')
+const components: { [key: string]: Component } = utils.mapping(modules)
 
-  const menuOptions = [
+export default {
+  path: '/jobs',
+  name: 'jobs',
+  meta: {
+    title: 'jobs'
+  },
+  redirect: { name: 'jobs-list' },
+  component: () => import('@/layouts/dashboard'),
+  children: [
     {
-      label: () => h(NEllipsis, null, { default: () => t('menu.data_pipes') }),
-      key: 'data-pipes'
-    },
-    {
-      label: () => h(NEllipsis, null, { default: () => t('menu.jobs') }),
-      key: 'jobs'
+      path: '/jobs/list',
+      name: 'jobs-list',
+      component: components['jobs-list'],
+      meta: {
+        title: 'jobs-list'
+      }
     }
   ]
-
-  const state = reactive({
-    menuOptions
-  })
-
-  return { state }
 }
