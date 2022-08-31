@@ -20,6 +20,7 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.localfile;
 
+import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
 
@@ -31,7 +32,7 @@ import java.util.Map;
  * Local file storage plug-in, use local file storage,
  * only suitable for single-machine testing or small data scale use, use with caution in production environment
  */
-@AutoService(CheckpointStorageFactory.class)
+@AutoService(Factory.class)
 public class LocalFileStorageFactory implements CheckpointStorageFactory {
 
     @Override
