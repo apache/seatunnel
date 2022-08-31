@@ -27,7 +27,6 @@ import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
-import org.apache.seatunnel.engine.server.execution.TaskInfo;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
 import com.hazelcast.cluster.Address;
@@ -139,7 +138,7 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
                 // This method wouldn't be executed.
                 throw new RuntimeException("Never throw here.");
             }).collect(Collectors.toList());
-        this.getExecutionContext().sendToMaster(new TaskAcknowledgeOperation(barrier.getId(), new TaskInfo(this.jobID, taskID.getTaskGroupID(), taskID.getTaskID()),
+        this.getExecutionContext().sendToMaster(new TaskAcknowledgeOperation(barrier.getId(), this.taskLocation,
             Collections.singletonList(new ActionSubtaskState(sink.getId(), -1, protoStuffSerializer.serialize(states)))));
     }
 

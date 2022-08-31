@@ -24,7 +24,6 @@ import org.apache.seatunnel.engine.checkpoint.storage.common.ProtoStuffSerialize
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
-import org.apache.seatunnel.engine.server.execution.TaskInfo;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
@@ -52,19 +51,19 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
 
     private final int indexID;
 
-    private final TaskLocation taskID;
+    private final TaskLocation taskLocation;
 
     private final TaskLocation committerTaskID;
 
     private final boolean containCommitter;
 
-    public SinkFlowLifeCycle(SinkAction<T, StateT, ?, ?> sinkAction, TaskLocation taskID, int indexID,
+    public SinkFlowLifeCycle(SinkAction<T, StateT, ?, ?> sinkAction, TaskLocation taskLocation, int indexID,
                              SeaTunnelTask runningTask, TaskLocation committerTaskID,
                              boolean containCommitter, CompletableFuture<Void> completableFuture) {
         super(runningTask, completableFuture);
         this.sinkAction = sinkAction;
         this.indexID = indexID;
-        this.taskID = taskID;
+        this.taskLocation = taskLocation;
         this.committerTaskID = committerTaskID;
         this.containCommitter = containCommitter;
     }
@@ -86,14 +85,14 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
         super.close();
         writer.close();
         if (containCommitter) {
-            runningTask.getExecutionContext().sendToMaster(new SinkUnregisterOperation(taskID,
+            runningTask.getExecutionContext().sendToMaster(new SinkUnregisterOperation(taskLocation,
                     committerTaskID)).join();
         }
     }
 
     private void registerCommitter() {
         if (containCommitter) {
-            runningTask.getExecutionContext().sendToMaster(new SinkRegisterOperation(taskID,
+            runningTask.getExecutionContext().sendToMaster(new SinkRegisterOperation(taskLocation,
                     committerTaskID)).join();
         }
     }
@@ -114,8 +113,7 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
                     runningTask.addState(barrier.getId(), sinkAction.getId(), protoStuffSerializer.serialize(states));
                 }
                 // TODO: prepare commit
-                runningTask.getExecutionContext().sendToMaster(new SinkPrepareCommitOperation(barrier,
-                    new TaskInfo(runningTask.getJobId(), taskID.getTaskGroupID(), taskID.getTaskID()),
+                runningTask.getExecutionContext().sendToMaster(new SinkPrepareCommitOperation(barrier, taskLocation,
                     new byte[0]));
             } else {
                 writer.write((T) record.getData());

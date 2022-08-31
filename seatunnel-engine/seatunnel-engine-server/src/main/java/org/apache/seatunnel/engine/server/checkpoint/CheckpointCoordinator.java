@@ -31,7 +31,7 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishedOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointTriggerOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
-import org.apache.seatunnel.engine.server.execution.TaskInfo;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import org.slf4j.Logger;
@@ -137,9 +137,7 @@ public class CheckpointCoordinator {
     public InvocationFuture<?>[] triggerCheckpoint(CheckpointBarrier checkpointBarrier) {
         return plan.getStartingTasks()
             .stream()
-            .map(taskId -> new CheckpointTriggerOperation(checkpointBarrier,
-                new TaskInfo(jobId, plan.getPipelineTaskIds().get(taskId), taskId)
-            ))
+            .map(taskLocation -> new CheckpointTriggerOperation(checkpointBarrier, taskLocation))
             .map(checkpointManager::triggerCheckpoint)
             .toArray(InvocationFuture[]::new);
     }
@@ -151,7 +149,7 @@ public class CheckpointCoordinator {
             LOG.debug("job: {}, pipeline: {}, the checkpoint({}) don't exist.", jobId, pipelineId, checkpointId);
             return;
         }
-        pendingCheckpoint.acknowledgeTask(ackOperation.getTaskInfo(), ackOperation.getStates());
+        pendingCheckpoint.acknowledgeTask(ackOperation.getTaskLocation(), ackOperation.getStates());
         if (pendingCheckpoint.isFullyAcknowledged()) {
             completePendingCheckpoint(pendingCheckpoint);
         }
@@ -196,19 +194,15 @@ public class CheckpointCoordinator {
     }
 
     public InvocationFuture<?>[] notifyCheckpointCompleted(long checkpointId) {
-        return plan.getPipelineTaskIds()
-            .entrySet()
+        return plan.getPipelineTasks()
             .stream()
-            .map(entry ->
-                new CheckpointFinishedOperation(checkpointId,
-                    new TaskInfo(jobId, entry.getValue(), entry.getKey()),
-                    true)
-            ).map(checkpointManager::notifyCheckpointFinished)
+            .map(taskLocation -> new CheckpointFinishedOperation(checkpointId, taskLocation, true))
+            .map(checkpointManager::notifyCheckpointFinished)
             .toArray(InvocationFuture[]::new);
     }
 
-    protected void taskCompleted(TaskInfo taskInfo) {
+    protected void taskCompleted(TaskLocation taskLocation) {
         pendingCheckpoints.values()
-            .forEach(cp -> cp.taskCompleted(taskInfo));
+            .forEach(cp -> cp.taskCompleted(taskLocation));
     }
 }

@@ -19,7 +19,7 @@ package org.apache.seatunnel.engine.server.task.operation.sink;
 
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointTriggerOperation;
-import org.apache.seatunnel.engine.server.execution.TaskInfo;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
@@ -32,8 +32,8 @@ import java.io.IOException;
 public class SinkPrepareCommitOperation extends CheckpointTriggerOperation {
     private byte[] commitInfos;
 
-    public SinkPrepareCommitOperation(CheckpointBarrier checkpointBarrier, TaskInfo taskInfo, byte[] commitInfos) {
-        super(checkpointBarrier, taskInfo);
+    public SinkPrepareCommitOperation(CheckpointBarrier checkpointBarrier, TaskLocation taskLocation, byte[] commitInfos) {
+        super(checkpointBarrier, taskLocation);
         this.commitInfos = commitInfos;
     }
 

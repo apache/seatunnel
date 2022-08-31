@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
+
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -38,16 +40,14 @@ public class CheckpointPlan {
     private final int pipelineId;
 
     /**
-     * all task ids of the pipeline.
-     * <br> key: task id;
-     * <br> value: group id;
+     * All task locations of the pipeline.
      */
-    private final Map<Long, Long> pipelineTaskIds;
+    private final Set<TaskLocation> pipelineTasks;
 
     /**
-     * All starting task ids of a pipeline.
+     * All starting task of a pipeline.
      */
-    private final Set<Long> startingTasks;
+    private final Set<TaskLocation> startingTasks;
 
     /**
      * Restored task state.
@@ -71,8 +71,8 @@ public class CheckpointPlan {
     private final Map<Long, Integer> allVertices;
 
     public static final class Builder {
-        private final Map<Long, Long> pipelineTaskIds = new HashMap<>();
-        private final Set<Long> startingTasks = new HashSet<>();
+        private final Set<TaskLocation> pipelineTasks = new HashSet<>();
+        private final Set<TaskLocation> startingTasks = new HashSet<>();
         private final Map<Long, ActionState> restoredTaskState = new HashMap<>();
         private final Map<Long, Integer> statefulVertices = new HashMap<>();
 
@@ -81,12 +81,12 @@ public class CheckpointPlan {
         private Builder() {
         }
 
-        public Builder pipelineTaskIds(Map<Long, Long> pipelineTaskIds) {
-            this.pipelineTaskIds.putAll(pipelineTaskIds);
+        public Builder pipelineTasks(Set<TaskLocation> pipelineTaskIds) {
+            this.pipelineTasks.addAll(pipelineTaskIds);
             return this;
         }
 
-        public Builder startingTasks(Set<Long> startingVertices) {
+        public Builder startingTasks(Set<TaskLocation> startingVertices) {
             this.startingTasks.addAll(startingVertices);
             return this;
         }

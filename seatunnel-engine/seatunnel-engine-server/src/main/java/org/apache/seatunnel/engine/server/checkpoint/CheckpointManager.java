@@ -24,17 +24,15 @@ import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorag
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishedOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointTriggerOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
-import org.apache.seatunnel.engine.server.execution.TaskInfo;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
-import com.hazelcast.jet.datamodel.Tuple2;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Used to manage all checkpoints for a job.
@@ -47,8 +45,6 @@ public class CheckpointManager {
     private final Long jobId;
 
     private final NodeEngine nodeEngine;
-
-    private final Map<Long, Integer> subtaskWithPipelines;
 
     private final Map<Long, Address> subtaskWithAddresses;
 
@@ -77,27 +73,22 @@ public class CheckpointManager {
         this.checkpointPlanMap = checkpointPlanMap;
         this.coordinatorConfig = coordinatorConfig;
         this.coordinatorMap = new HashMap<>(checkpointPlanMap.size());
-        this.subtaskWithPipelines = checkpointPlanMap.values().stream().flatMap(plan -> plan.getPipelineTaskIds().keySet().stream().map(taskId -> Tuple2.tuple2(taskId, plan.getPipelineId()))).collect(Collectors.toMap(Tuple2::f0, Tuple2::f1));
         this.subtaskWithAddresses = new HashMap<>();
         this.checkpointStorage = FactoryUtil.discoverFactory(Thread.currentThread().getContextClassLoader(), CheckpointStorageFactory.class, storageConfig.getStorage())
             .create(new HashMap<>());
     }
 
-    private int getPipelineId(long subtaskId) {
-        return subtaskWithPipelines.get(subtaskId);
-    }
-
-    private CheckpointCoordinator getCheckpointCoordinator(TaskInfo taskInfo) {
-        return coordinatorMap.get(getPipelineId(taskInfo.getSubtaskId()));
+    private CheckpointCoordinator getCheckpointCoordinator(TaskLocation taskLocation) {
+        return coordinatorMap.get(taskLocation.getPipelineId());
     }
 
     public void acknowledgeTask(TaskAcknowledgeOperation ackOperation, Address address) {
-        getCheckpointCoordinator(ackOperation.getTaskInfo()).acknowledgeTask(ackOperation);
-        subtaskWithAddresses.putIfAbsent(ackOperation.getTaskInfo().getSubtaskId(), address);
+        getCheckpointCoordinator(ackOperation.getTaskLocation()).acknowledgeTask(ackOperation);
+        subtaskWithAddresses.putIfAbsent(ackOperation.getTaskLocation().getTaskID(), address);
     }
 
-    public void taskCompleted(TaskInfo taskInfo) {
-        getCheckpointCoordinator(taskInfo).taskCompleted(taskInfo);
+    public void taskCompleted(TaskLocation taskLocation) {
+        getCheckpointCoordinator(taskLocation).taskCompleted(taskLocation);
     }
 
     public InvocationFuture<?> triggerCheckpoint(CheckpointTriggerOperation operation) {
@@ -105,6 +96,6 @@ public class CheckpointManager {
     }
 
     public InvocationFuture<?> notifyCheckpointFinished(CheckpointFinishedOperation operation) {
-        return NodeEngineUtil.sendOperationToMemberNode(nodeEngine, operation, subtaskWithAddresses.get(operation.getTaskInfo().getSubtaskId()));
+        return NodeEngineUtil.sendOperationToMemberNode(nodeEngine, operation, subtaskWithAddresses.get(operation.getTaskLocation().getTaskID()));
     }
 }

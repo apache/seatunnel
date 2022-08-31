@@ -24,7 +24,7 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.Task;
-import org.apache.seatunnel.engine.server.execution.TaskInfo;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
@@ -39,7 +39,7 @@ import java.io.IOException;
 public class CheckpointTriggerOperation extends Operation implements IdentifiedDataSerializable {
     private CheckpointBarrier checkpointBarrier;
 
-    private TaskInfo taskInfo;
+    private TaskLocation taskLocation;
 
     public CheckpointTriggerOperation() {
     }
@@ -57,13 +57,13 @@ public class CheckpointTriggerOperation extends Operation implements IdentifiedD
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         out.writeObject(checkpointBarrier);
-        out.writeObject(taskInfo);
+        out.writeObject(taskLocation);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         checkpointBarrier = in.readObject(CheckpointBarrier.class);
-        taskInfo = in.readObject(TaskInfo.class);
+        taskLocation = in.readObject(TaskLocation.class);
     }
 
     @Override
@@ -71,8 +71,8 @@ public class CheckpointTriggerOperation extends Operation implements IdentifiedD
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(() -> {
             Task task = server.getTaskExecutionService()
-                .getExecutionContext(taskInfo.getTaskGroupId()).getTaskGroup()
-                .getTask(taskInfo.getSubtaskId());
+                .getExecutionContext(taskLocation.getTaskGroupLocation()).getTaskGroup()
+                .getTask(taskLocation.getTaskID());
             try {
                 task.triggerCheckpoint(checkpointBarrier);
             } catch (Exception e) {

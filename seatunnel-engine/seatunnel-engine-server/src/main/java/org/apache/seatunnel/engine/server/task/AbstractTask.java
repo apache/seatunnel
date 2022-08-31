@@ -32,12 +32,12 @@ public abstract class AbstractTask implements Task {
 
     protected TaskExecutionContext executionContext;
     protected final long jobID;
-    protected final TaskLocation taskID;
+    protected final TaskLocation taskLocation;
 
     protected Progress progress;
 
-    public AbstractTask(long jobID, TaskLocation taskID) {
-        this.taskID = taskID;
+    public AbstractTask(long jobID, TaskLocation taskLocation) {
+        this.taskLocation = taskLocation;
         this.jobID = jobID;
         this.progress = new Progress();
     }
@@ -64,14 +64,13 @@ public abstract class AbstractTask implements Task {
         return progress.toState();
     }
 
+    public TaskLocation getTaskLocation() {
+        return this.taskLocation;
+    }
+
     @NonNull
     @Override
     public Long getTaskID() {
-        return taskID.getTaskID();
-    }
-
-    @Override
-    public Long getJobId() {
-        return this.jobID;
+        return taskLocation.getTaskID();
     }
 }

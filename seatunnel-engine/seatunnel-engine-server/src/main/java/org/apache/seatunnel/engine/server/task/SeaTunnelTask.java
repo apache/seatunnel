@@ -34,7 +34,6 @@ import org.apache.seatunnel.engine.server.dag.physical.flow.IntermediateExecutio
 import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.dag.physical.flow.UnknownFlowException;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
-import org.apache.seatunnel.engine.server.execution.TaskInfo;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.flow.FlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
@@ -119,7 +118,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                         (SourceConfig) f.getConfig(), completableFuture);
                 outputs = flowLifeCycles;
             } else if (f.getAction() instanceof SinkAction) {
-                lifeCycle = new SinkFlowLifeCycle<>((SinkAction) f.getAction(), taskID, indexID, this,
+                lifeCycle = new SinkFlowLifeCycle<>((SinkAction) f.getAction(), taskLocation, indexID, this,
                         ((SinkConfig) f.getConfig()).getCommitterTask(),
                         ((SinkConfig) f.getConfig()).isContainCommitter(), completableFuture);
             } else if (f.getAction() instanceof TransformChainAction) {
@@ -187,9 +186,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
         states.add(new ActionSubtaskState(actionId, indexID, state));
         if (cycleAcks.size() == allCycles.size()) {
             this.getExecutionContext().sendToMaster(
-                new TaskAcknowledgeOperation(checkpointId,
-                    new TaskInfo(this.jobID, taskID.getTaskGroupID(), taskID.getTaskID()),
-                    states));
+                new TaskAcknowledgeOperation(checkpointId, this.taskLocation, states));
         }
     }
 }

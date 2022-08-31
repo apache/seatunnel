@@ -19,7 +19,7 @@ package org.apache.seatunnel.engine.server.checkpoint.operation;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
-import org.apache.seatunnel.engine.server.execution.TaskInfo;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
@@ -37,7 +37,7 @@ import java.util.List;
 public class TaskAcknowledgeOperation extends Operation implements IdentifiedDataSerializable {
     private long checkpointId;
 
-    private TaskInfo taskInfo;
+    private TaskLocation taskLocation;
 
     private List<ActionSubtaskState> states;
 
@@ -57,21 +57,21 @@ public class TaskAcknowledgeOperation extends Operation implements IdentifiedDat
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         out.writeLong(checkpointId);
-        out.writeObject(taskInfo);
+        out.writeObject(taskLocation);
         out.writeObject(states);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         checkpointId = in.readLong();
-        taskInfo = in.readObject(TaskInfo.class);
+        taskLocation = in.readObject(TaskLocation.class);
         states = in.readObject();
     }
 
     @Override
     public void run() {
         ((SeaTunnelServer) getService())
-            .getJobMaster(taskInfo.getJobId())
+            .getJobMaster(taskLocation.getJobId())
             .getCheckpointManager()
             .acknowledgeTask(this, getCallerAddress());
     }

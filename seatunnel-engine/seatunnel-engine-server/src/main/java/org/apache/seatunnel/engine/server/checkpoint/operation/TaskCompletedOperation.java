@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.execution.TaskInfo;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
@@ -29,13 +29,13 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 import java.io.IOException;
 
 public class TaskCompletedOperation extends Operation implements IdentifiedDataSerializable {
-    private TaskInfo taskInfo;
+    private TaskLocation taskLocation;
 
     public TaskCompletedOperation() {
     }
 
-    public TaskCompletedOperation(TaskInfo taskInfo) {
-        this.taskInfo = taskInfo;
+    public TaskCompletedOperation(TaskLocation taskLocation) {
+        this.taskLocation = taskLocation;
     }
 
     @Override
@@ -50,19 +50,19 @@ public class TaskCompletedOperation extends Operation implements IdentifiedDataS
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        out.writeObject(taskInfo);
+        out.writeObject(taskLocation);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        taskInfo = in.readObject(TaskInfo.class);
+        taskLocation = in.readObject(TaskLocation.class);
     }
 
     @Override
     public void run() {
         ((SeaTunnelServer) getService())
-            .getJobMaster(taskInfo.getJobId())
+            .getJobMaster(taskLocation.getJobId())
             .getCheckpointManager()
-            .taskCompleted(taskInfo);
+            .taskCompleted(taskLocation);
     }
 }

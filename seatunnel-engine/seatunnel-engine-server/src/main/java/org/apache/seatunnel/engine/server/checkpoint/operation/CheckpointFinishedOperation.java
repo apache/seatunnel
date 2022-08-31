@@ -23,7 +23,7 @@ import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.Task;
-import org.apache.seatunnel.engine.server.execution.TaskInfo;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
@@ -41,7 +41,7 @@ public class CheckpointFinishedOperation extends Operation implements Identified
 
     private long checkpointId;
 
-    private TaskInfo taskInfo;
+    private TaskLocation taskLocation;
 
     private boolean successful;
 
@@ -61,14 +61,14 @@ public class CheckpointFinishedOperation extends Operation implements Identified
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         out.writeLong(checkpointId);
-        out.writeObject(taskInfo);
+        out.writeObject(taskLocation);
         out.writeBoolean(successful);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         checkpointId = in.readLong();
-        taskInfo = in.readObject(TaskInfo.class);
+        taskLocation = in.readObject(TaskLocation.class);
         successful = in.readBoolean();
     }
 
@@ -76,8 +76,8 @@ public class CheckpointFinishedOperation extends Operation implements Identified
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(() -> {
-            Task task = server.getTaskExecutionService().getExecutionContext(taskInfo.getTaskGroupId())
-                .getTaskGroup().getTask(taskInfo.getSubtaskId());
+            Task task = server.getTaskExecutionService().getExecutionContext(taskLocation.getTaskGroupLocation())
+                .getTaskGroup().getTask(taskLocation.getTaskID());
             try {
                 if (successful) {
                     task.notifyCheckpointComplete(checkpointId);

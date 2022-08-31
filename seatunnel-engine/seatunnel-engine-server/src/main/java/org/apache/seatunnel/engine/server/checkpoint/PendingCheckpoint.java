@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
-import org.apache.seatunnel.engine.server.execution.TaskInfo;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
 import java.util.List;
 import java.util.Map;
@@ -88,9 +88,9 @@ public class PendingCheckpoint implements Checkpoint {
         return actionStates;
     }
 
-    public void acknowledgeTask(TaskInfo taskInfo, List<ActionSubtaskState> states) {
-        notYetAcknowledgedTasks.remove(taskInfo.getSubtaskId());
-        TaskStatistics statistics = taskStatistics.get(taskInfo.getJobVertexId());
+    public void acknowledgeTask(TaskLocation taskLocation, List<ActionSubtaskState> states) {
+        notYetAcknowledgedTasks.remove(taskLocation.getTaskID());
+        TaskStatistics statistics = taskStatistics.get(taskLocation.getTaskVertexId());
 
         long stateSize = 0;
         for (ActionSubtaskState state : states) {
@@ -102,14 +102,14 @@ public class PendingCheckpoint implements Checkpoint {
             actionState.reportState(state.getIndex(), state);
         }
         statistics.reportSubtaskStatistics(new SubtaskStatistics(
-            taskInfo.getIndex(),
+            taskLocation.getTaskIndex(),
             System.currentTimeMillis(),
             stateSize));
     }
 
-    public void taskCompleted(TaskInfo taskInfo) {
-        taskStatistics.get(taskInfo.getJobVertexId())
-            .completed(taskInfo.getIndex());
+    public void taskCompleted(TaskLocation taskLocation) {
+        taskStatistics.get(taskLocation.getTaskVertexId())
+            .completed(taskLocation.getTaskIndex());
     }
 
     public boolean isFullyAcknowledged() {

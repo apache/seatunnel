@@ -26,7 +26,6 @@ import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointTriggerOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
-import org.apache.seatunnel.engine.server.execution.TaskInfo;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.context.SeaTunnelSplitEnumeratorContext;
 import org.apache.seatunnel.engine.server.task.operation.source.CloseRequestOperation;
@@ -120,11 +119,10 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         Serializable snapshotState;
         synchronized (enumeratorContext) {
             snapshotState = enumerator.snapshotState(barrier.getId());
-            sendToAllReader(location -> new CheckpointTriggerOperation(barrier,
-                new TaskInfo(this.jobID, location.getTaskGroupID(), location.getTaskID())));
+            sendToAllReader(location -> new CheckpointTriggerOperation(barrier, location));
         }
         byte[] serialize = enumeratorStateSerializer.serialize(snapshotState);
-        this.getExecutionContext().sendToMaster(new TaskAcknowledgeOperation(barrier.getId(), new TaskInfo(this.jobID, taskID.getTaskGroupID(), taskID.getTaskID()),
+        this.getExecutionContext().sendToMaster(new TaskAcknowledgeOperation(barrier.getId(), this.taskLocation,
             Collections.singletonList(new ActionSubtaskState(source.getId(), -1, serialize))));
     }
 
