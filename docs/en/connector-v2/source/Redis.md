@@ -4,7 +4,7 @@
 
 ## Description
 
-Used to read data from Redis. Both support streaming and batch mode.
+Used to read data from Redis. Only support batch mode.
 
 ##  Options
 
