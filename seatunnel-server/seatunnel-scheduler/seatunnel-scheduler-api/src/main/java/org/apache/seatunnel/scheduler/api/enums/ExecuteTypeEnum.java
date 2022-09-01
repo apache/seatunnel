@@ -15,17 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.spi.scheduler.dto;
+package org.apache.seatunnel.scheduler.api.enums;
 
-import lombok.Builder;
-import lombok.Data;
+import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.NO_SUCH_ELEMENT;
 
-import java.util.Date;
+import org.apache.seatunnel.server.common.SeatunnelException;
 
-@Data
-@Builder
-public class ComplementDataDto {
-    private Date startTime;
-    private Date endTime;
-    private Integer parallelismNum;
+public enum ExecuteTypeEnum {
+    TEMPORARY,
+    MANUAL,
+    SCHEDULER,
+    RERUN,
+    ;
+
+    public static ExecuteTypeEnum parse(int executeType) {
+        for (ExecuteTypeEnum value : values()) {
+            if (value.ordinal() == executeType) {
+                return value;
+            }
+        }
+        throw new SeatunnelException(SeatunnelErrorEnum.NO_SUCH_ELEMENT);
+    }
 }

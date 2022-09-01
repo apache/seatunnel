@@ -15,12 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.spi.scheduler;
+package org.apache.seatunnel.scheduler.api;
 
-import org.apache.seatunnel.server.common.PageData;
-import org.apache.seatunnel.spi.scheduler.dto.InstanceDto;
-import org.apache.seatunnel.spi.scheduler.dto.InstanceListDto;
-
-public interface IInstanceService {
-    PageData<InstanceDto> list(InstanceListDto dto);
+public enum SchedulerTypeEnum {
+    dolphinscheduler;
 }

@@ -15,10 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.spi.scheduler.constants;
+package org.apache.seatunnel.scheduler.api.dto;
 
-public class SchedulerConstant {
-    public static final int RETRY_INTERVAL_DEFAULT = 0;
-    public static final int RETRY_TIMES_DEFAULT = 0;
-    public static final String NEVER_TRIGGER_EXPRESSION = "* * * ? * * 1970";
+import lombok.Builder;
+import lombok.Data;
+
+import java.util.Date;
+
+@Data
+@Builder
+public class InstanceDto {
+    private long instanceId;
+    private long instanceCode;
+    private String instanceName;
+    private Date submitTime;
+    private Date startTime;
+    private Date endTime;
+    private String status;
+    private String executionDuration;
+    private long retryTimes;
 }

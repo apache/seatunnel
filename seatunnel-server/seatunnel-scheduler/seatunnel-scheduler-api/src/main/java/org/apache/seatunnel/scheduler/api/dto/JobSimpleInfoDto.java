@@ -15,15 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.spi.scheduler.dto;
+package org.apache.seatunnel.scheduler.api.dto;
 
 import lombok.Builder;
 import lombok.Data;
 
-@Data
+import java.util.Date;
+
 @Builder
-public class JobListDto {
-    private String name;
-    private Integer pageNo;
-    private Integer pageSize;
+@Data
+public class JobSimpleInfoDto {
+    private long jobId;
+    private String jobStatus;
+    private String creatorName;
+    private String menderName;
+    private Date createTime;
+    private Date updateTime;
 }

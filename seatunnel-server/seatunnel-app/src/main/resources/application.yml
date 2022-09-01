@@ -23,3 +23,12 @@ spring:
     url: jdbc:mysql://127.0.0.1:3306/seatunnel?useSSL=false&useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true
     username: root
     password: 123456
+
+seatunnel:
+  scheduler:
+    type: dolphinscheduler
+    dolphinscheduler:
+      service-url: http://dolphinscheduler.dev.xxx.com/dolphinscheduler
+      project-code: 5811145128992
+      tenant-code: xxx
+      token: xxx

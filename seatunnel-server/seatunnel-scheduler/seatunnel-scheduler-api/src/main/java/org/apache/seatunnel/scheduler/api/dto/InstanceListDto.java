@@ -15,25 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.spi.scheduler.enums;
+package org.apache.seatunnel.scheduler.api.dto;
 
-import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.NO_SUCH_ELEMENT;
+import lombok.Builder;
+import lombok.Data;
 
-import org.apache.seatunnel.server.common.SeatunnelException;
-
-public enum ExecuteTypeEnum {
-    TEMPORARY,
-    MANUAL,
-    SCHEDULER,
-    RERUN,
-    ;
-
-    public static ExecuteTypeEnum parse(int executeType) {
-        for (ExecuteTypeEnum value : values()) {
-            if (value.ordinal() == executeType) {
-                return value;
-            }
-        }
-        throw new SeatunnelException(NO_SUCH_ELEMENT);
-    }
+@Builder
+@Data
+public class InstanceListDto {
+    private String name;
+    private int pageNo;
+    private int pageSize;
 }

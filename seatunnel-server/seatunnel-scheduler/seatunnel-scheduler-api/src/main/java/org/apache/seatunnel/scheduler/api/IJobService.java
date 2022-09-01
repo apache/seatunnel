@@ -15,14 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.spi.scheduler;
+package org.apache.seatunnel.scheduler.api;
 
+import org.apache.seatunnel.scheduler.api.dto.*;
 import org.apache.seatunnel.server.common.PageData;
-import org.apache.seatunnel.spi.scheduler.dto.ExecuteDto;
-import org.apache.seatunnel.spi.scheduler.dto.InstanceDto;
-import org.apache.seatunnel.spi.scheduler.dto.JobDto;
-import org.apache.seatunnel.spi.scheduler.dto.JobListDto;
-import org.apache.seatunnel.spi.scheduler.dto.JobSimpleInfoDto;
 
 public interface IJobService {
 
