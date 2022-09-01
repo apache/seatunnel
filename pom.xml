@@ -233,6 +233,7 @@
         <neo4j-java-driver.version>4.4.9</neo4j-java-driver.version>
         <jedis.version>4.2.2</jedis.version>
         <datahub.version>2.19.0-public</datahub.version>
+        <influxdb.version>2.21</influxdb.version>
     </properties>
 
     <dependencyManagement>
@@ -996,6 +997,12 @@
                 <groupId>com.aliyun.datahub</groupId>
                 <artifactId>aliyun-sdk-datahub</artifactId>
                 <version>${datahub.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.influxdb</groupId>
+                <artifactId>influxdb-java</artifactId>
+                <version>${influxdb.version}</version>
             </dependency>
         </dependencies>
 
