@@ -17,6 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.config;
 
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.JsonWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.OrcWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.ParquetWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.TextWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.JsonReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.OrcReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
@@ -28,11 +34,22 @@ import java.io.Serializable;
 public enum FileFormat implements Serializable {
     CSV("csv") {
         @Override
+        public WriteStrategy getWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
+            textFileSinkConfig.setFieldDelimiter(",");
+            return new TextWriteStrategy(textFileSinkConfig);
+        }
+
+        @Override
         public ReadStrategy getReadStrategy() {
             return new TextReadStrategy();
         }
     },
     TEXT("txt") {
+        @Override
+        public WriteStrategy getWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
+            return new TextWriteStrategy(textFileSinkConfig);
+        }
+
         @Override
         public ReadStrategy getReadStrategy() {
             return new TextReadStrategy();
@@ -40,17 +57,32 @@ public enum FileFormat implements Serializable {
     },
     PARQUET("parquet") {
         @Override
+        public WriteStrategy getWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
+            return new ParquetWriteStrategy(textFileSinkConfig);
+        }
+
+        @Override
         public ReadStrategy getReadStrategy() {
             return new ParquetReadStrategy();
         }
     },
     ORC("orc") {
         @Override
+        public WriteStrategy getWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
+            return new OrcWriteStrategy(textFileSinkConfig);
+        }
+
+        @Override
         public ReadStrategy getReadStrategy() {
             return new OrcReadStrategy();
         }
     },
     JSON("json") {
+        @Override
+        public WriteStrategy getWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
+            return new JsonWriteStrategy(textFileSinkConfig);
+        }
+
         @Override
         public ReadStrategy getReadStrategy() {
             return new JsonReadStrategy();
@@ -68,6 +100,10 @@ public enum FileFormat implements Serializable {
     }
 
     public ReadStrategy getReadStrategy() {
+        return null;
+    }
+
+    public WriteStrategy getWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
         return null;
     }
 }

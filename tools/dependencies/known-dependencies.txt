@@ -307,7 +307,7 @@ jcodings-1.0.18.jar
 jcodings-1.0.43.jar
 jcommander-1.81.jar
 jdbi-2.63.1.jar
-jedis-3.7.1.jar
+jedis-4.2.2.jar
 jersey-client-1.19.jar
 jersey-client-1.9.jar
 jersey-client-2.35.jar

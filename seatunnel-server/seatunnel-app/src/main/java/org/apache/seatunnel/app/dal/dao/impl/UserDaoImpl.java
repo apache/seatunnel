@@ -101,4 +101,9 @@ public class UserDaoImpl implements IUserDao {
     public User getById(int operatorId) {
         return userMapper.selectByPrimaryKey(operatorId);
     }
+
+    @Override
+    public User getByName(String user) {
+        return userMapper.selectByName(user);
+    }
 }
