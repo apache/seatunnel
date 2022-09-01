@@ -35,6 +35,7 @@ asm-all-5.0.2.jar
 asm-analysis-7.1.jar
 asm-commons-7.1.jar
 asm-tree-7.1.jar
+aspectjweaver-1.9.7.jar
 async-http-client-2.5.3.jar
 async-http-client-netty-utils-2.5.3.jar
 audience-annotations-0.11.0.jar
@@ -660,6 +661,7 @@ spring-beans-5.3.20.jar
 spring-boot-2.6.8.jar
 spring-boot-autoconfigure-2.6.8.jar
 spring-boot-starter-2.6.8.jar
+spring-boot-starter-aop-2.6.8.jar
 spring-boot-starter-jdbc-2.6.3.jar
 spring-boot-starter-jetty-2.6.8.jar
 spring-boot-starter-json-2.6.8.jar
