@@ -961,7 +961,7 @@
                 <artifactId>checker-qual</artifactId>
                 <version>${checker.qual.version}</version>
             </dependency>
-            
+
             <dependency>
                 <groupId>org.apache.iotdb</groupId>
                 <artifactId>iotdb-session</artifactId>
@@ -1009,6 +1009,7 @@
                 <artifactId>jjwt-jackson</artifactId>
                 <version>${jwt.version}</version>
                 <scope>runtime</scope>
+            </dependency>
             <dependency>
                 <groupId>com.aliyun.datahub</groupId>
                 <artifactId>aliyun-sdk-datahub</artifactId>
