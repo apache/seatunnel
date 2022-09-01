@@ -82,11 +82,6 @@
             <version>${project.version}</version>
         </dependency>
         <!--   seatunnel connectors   -->
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-sentry</artifactId>
-            <version>${project.version}</version>
-        </dependency>
         <!--flink-->
         <dependency>
             <groupId>org.apache.flink</groupId>
