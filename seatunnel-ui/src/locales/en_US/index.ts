@@ -22,6 +22,7 @@ import user_manage from '@/locales/en_US/user-manage'
 import data_pipes from '@/locales/en_US/data-pipes'
 import log from '@/locales/en_US/log'
 import jobs from '@/locales/en_US/jobs'
+import tasks from '@/locales/en_US/tasks'
 
 export default {
   login,
@@ -30,5 +31,6 @@ export default {
   user_manage,
   data_pipes,
   log,
-  jobs
+  jobs,
+  tasks
 }

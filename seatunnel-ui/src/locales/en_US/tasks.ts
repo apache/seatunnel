@@ -16,13 +16,22 @@
  */
 
 export default {
-  jobs: 'Jobs',
+  tasks: 'Tasks',
   search: 'Search',
-  data_pipe_name: 'Data Pipe Name',
-  plan: 'Plan',
-  create_date: 'Create Date',
-  publish: 'Publish',
-  operation: 'Operation',
-  executed_immediately: 'Executed Immediately',
-  stop_plan: 'Stop Plan'
+  tasks_name: 'Tasks Name',
+  success: 'Success',
+  fail: 'Fail',
+  running: 'Running',
+  task_name: 'Task Name',
+  state: 'State',
+  run_frequency: 'Run Frequency',
+  once: 'Once',
+  crontab: 'Crontab',
+  next_run: 'Next Run',
+  last_run: 'Last Run',
+  last_total_bytes: 'Last Total Bytes',
+  last_total_records: 'Last Total Records',
+  rerun: 'Rerun',
+  kill: 'Kill',
+  view_log: 'View Log'
 }
