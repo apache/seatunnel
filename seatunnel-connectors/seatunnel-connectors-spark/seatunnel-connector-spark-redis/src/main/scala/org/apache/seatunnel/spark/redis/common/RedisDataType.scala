@@ -22,7 +22,9 @@ object RedisDataType extends Enumeration {
 
   val KV: Value = Value("KV")
   val HASH: Value = Value("HASH")
+  val HASHES: Value = Value("HASHES")
   val LIST: Value = Value("LIST")
+  val LISTS: Value = Value("LISTS")
   val SET: Value = Value("SET")
   val ZSET: Value = Value("ZSET")
 }

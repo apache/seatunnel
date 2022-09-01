@@ -48,16 +48,18 @@ class Redis extends SparkBatchSink with Logging {
       case RedisDataType.SET => dealWithSet(data, config.getString(SET_NAME), config.getInt(TTL))(sc = sc, redisConfig = redisConfigs)
       case RedisDataType.ZSET => dealWithZSet(data, config.getString(ZSET_NAME), config.getInt(TTL))(sc = sc, redisConfig = redisConfigs)
       case RedisDataType.LIST => dealWithList(data, config.getString(LIST_NAME), config.getInt(TTL))(sc = sc, redisConfig = redisConfigs)
+      case RedisDataType.HASHES => dealWithHASHes(data, config.getInt(TTL))(sc = sc, redisConfig = redisConfigs)
+      case RedisDataType.LISTS => dealWithLists(data, config.getInt(TTL))(sc = sc, redisConfig = redisConfigs)
     }
   }
 
   override def checkConfig(): CheckResult = {
     if (config.hasPath(DATA_TYPE)) {
       val dataType = config.getString(DATA_TYPE)
-      val dataTypeList = List("KV", "HASH", "SET", "ZSET", "LIST")
+      val dataTypeList = List("KV", "HASH", "SET", "ZSET", "LIST", "HASHES", "LISTS")
       val bool = dataTypeList.contains(dataType.toUpperCase)
       if (!bool) {
-        CheckResult.error("Unknown redis config. data_type must be in [KV HASH SET ZSET LIST]")
+        CheckResult.error("Unknown redis config. data_type must be in [KV HASH SET ZSET LIST HASHES LISTS]")
       } else {
         CheckResult.success()
       }
@@ -104,6 +106,16 @@ class Redis extends SparkBatchSink with Logging {
   def dealWithHASH(data: Dataset[Row], hashName: String, ttl: Int)(implicit sc: SparkContext, redisConfig: RedisConfig): Unit = {
     val value = data.rdd.map(x => (x.getString(0), x.getString(1)))
     sc.toRedisHASH(value, hashName, ttl)(redisConfig = redisConfig)
+  }
+
+  def dealWithHASHes(data: Dataset[Row], ttl: Int)(implicit sc: SparkContext, redisConfig: RedisConfig): Unit = {
+    val value = data.rdd.map(x => (x.getString(0), Map(x.getString(1) -> x.getString(2))))
+    sc.toRedisHASHes(value, ttl)(redisConfig = redisConfig)
+  }
+
+  def dealWithLists(data: Dataset[Row], ttl: Int)(implicit sc: SparkContext, redisConfig: RedisConfig): Unit = {
+    val value = data.rdd.map(x => (x.getString(0), scala.Seq(x.getString(1))))
+    sc.toRedisLISTs(value, ttl)(redisConfig = redisConfig)
   }
 
   override def getPluginName: String = "Redis"
