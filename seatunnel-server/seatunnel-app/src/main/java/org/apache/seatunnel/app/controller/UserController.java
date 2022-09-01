@@ -21,6 +21,7 @@ import org.apache.seatunnel.app.common.Result;
 import org.apache.seatunnel.app.domain.request.user.AddUserReq;
 import org.apache.seatunnel.app.domain.request.user.UpdateUserReq;
 import org.apache.seatunnel.app.domain.request.user.UserListReq;
+import org.apache.seatunnel.app.domain.request.user.UserLoginReq;
 import org.apache.seatunnel.app.domain.response.PageInfo;
 import org.apache.seatunnel.app.domain.response.user.AddUserRes;
 import org.apache.seatunnel.app.domain.response.user.UserSimpleInfoRes;
@@ -30,6 +31,7 @@ import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -93,6 +95,16 @@ public class UserController {
     })
     public Result<Void> disable(@RequestParam @NotNull Integer id) {
         iUserService.disable(id);
+        return Result.success();
+    }
+
+    @PostMapping("/login")
+    public Result<UserSimpleInfoRes> login(@RequestBody UserLoginReq req) {
+        return Result.success(iUserService.login(req));
+    }
+
+    @PatchMapping("/logout")
+    public Result<Void> logout() {
         return Result.success();
     }
 }
