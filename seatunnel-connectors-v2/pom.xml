@@ -53,6 +53,7 @@
         <module>connector-redis</module>
         <module>connector-datahub</module>
         <module>connector-sentry</module>
+        <module>connector-mongodb</module>
     </modules>
 
     <dependencyManagement>
