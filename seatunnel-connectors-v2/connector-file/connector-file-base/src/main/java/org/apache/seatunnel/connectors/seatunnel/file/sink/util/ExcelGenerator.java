@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.utils.JsonUtils;
 
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -32,6 +34,8 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.reflect.Array;
+import java.util.ArrayList;
 import java.util.List;
 
 public class ExcelGenerator {
@@ -93,7 +97,7 @@ public class ExcelGenerator {
         } else if (BasicType.INT_TYPE.equals(type)) {
             cell.setCellValue((int) value);
             cell.setCellStyle(wholeNumberCellStyle);
-        } else if (BasicType.LONG_TYPE.equals(type)) {
+        } else if (BasicType.LONG_TYPE.equals(type) || type.getSqlType().equals(SqlType.TIMESTAMP)) {
             cell.setCellValue((long) value);
             cell.setCellStyle(wholeNumberCellStyle);
         } else if (BasicType.FLOAT_TYPE.equals(type)) {
@@ -102,6 +106,19 @@ public class ExcelGenerator {
         } else if (BasicType.DOUBLE_TYPE.equals(type)) {
             cell.setCellValue((double) value);
             cell.setCellStyle(wholeNumberCellStyle);
+        } else if (type.getSqlType().equals(SqlType.BYTES) || type.getSqlType().equals(SqlType.ARRAY)) {
+            List<String> arrayData = new ArrayList<>();
+            for (int i = 0; i < Array.getLength(value); i++) {
+                arrayData.add(String.valueOf(Array.get(value, i)));
+            }
+            cell.setCellValue(arrayData.toString());
+            cell.setCellStyle(stringCellStyle);
+        } else if (type.getSqlType().equals(SqlType.MAP)) {
+            cell.setCellValue(JsonUtils.toJsonString(value));
+            cell.setCellStyle(stringCellStyle);
+        } else if (type.getSqlType().equals(SqlType.DATE) || type.getSqlType().equals(SqlType.TIME)) {
+            cell.setCellValue((String) value);
+            cell.setCellStyle(stringCellStyle);
         } else {
             String errorMsg = String.format("[%s] type not support ", type.getSqlType());
             throw new RuntimeException(errorMsg);

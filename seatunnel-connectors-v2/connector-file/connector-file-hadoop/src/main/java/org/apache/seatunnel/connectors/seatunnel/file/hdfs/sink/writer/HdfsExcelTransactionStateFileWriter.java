@@ -19,10 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.writer;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.util.HdfsUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.FileSystem;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.TransactionFileNameGenerator;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.ExcelGenerator;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.AbstractTransactionStateFileWriter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.PartitionDirNameGenerator;
 
@@ -63,8 +63,8 @@ public class HdfsExcelTransactionStateFileWriter extends AbstractTransactionStat
     public void finishAndCloseWriteFile() {
         this.beingWrittenWriter.forEach((k, v) -> {
             try {
-                FileSystemUtils.createFile(k);
-                FSDataOutputStream outputStream = FileSystemUtils.getOutputStream(k);
+                HdfsUtils.createFile(k);
+                FSDataOutputStream outputStream = HdfsUtils.getOutputStream(k);
                 v.flushAndCloseExcel(outputStream);
                 outputStream.close();
             } catch (IOException e) {
