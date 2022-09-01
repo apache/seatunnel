@@ -74,7 +74,7 @@ public class InfluxDBSourceToConsoleIT extends FlinkContainer {
 
     @Test
     public void testInfluxDBSource() throws IOException, InterruptedException, SQLException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/org/apache/seatunnel/connectors/seatunnel/influxdb/influxdb_source_to_console.conf");
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/influxdb/influxdb_source_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
