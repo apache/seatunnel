@@ -20,6 +20,7 @@ package org.apache.seatunnel.app.service;
 import org.apache.seatunnel.app.domain.request.user.AddUserReq;
 import org.apache.seatunnel.app.domain.request.user.UpdateUserReq;
 import org.apache.seatunnel.app.domain.request.user.UserListReq;
+import org.apache.seatunnel.app.domain.request.user.UserLoginReq;
 import org.apache.seatunnel.app.domain.response.PageInfo;
 import org.apache.seatunnel.app.domain.response.user.AddUserRes;
 import org.apache.seatunnel.app.domain.response.user.UserSimpleInfoRes;
@@ -37,4 +38,6 @@ public interface IUserService {
     void enable(int id);
 
     void disable(int id);
+
+    UserSimpleInfoRes login(UserLoginReq req);
 }
