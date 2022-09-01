@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import lombok.Data;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.druid.data.input.MaxSizeSplitHintSpec;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.DimensionsSpec;
@@ -48,7 +49,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -68,14 +68,14 @@ public class DruidOutputFormat implements Serializable {
     private final String timestampColumn;
     private final String timestampFormat;
     private final DateTime timestampMissingValue;
-    private final String columns;
+    private  List<String> columns;
 
     public DruidOutputFormat(String coordinatorURL,
                              String datasource,
                              String timestampColumn,
                              String timestampFormat,
                              String timestampMissingValue,
-                             String columns
+                             List<String> columns
                              ) {
         this.data = new StringBuffer();
         this.coordinatorURL = coordinatorURL;
@@ -169,7 +169,8 @@ public class DruidOutputFormat implements Serializable {
     }
 
     private ParallelIndexIOConfig parallelIndexIOConfig() {
-        List<String> columnss= new ArrayList<>(Arrays.asList(columns.split(",")));
+        List columnss = new ArrayList();
+        CollectionUtils.addAll(columnss,this.getColumns().get(0).split(","));
         columnss.add(timestampColumn);
 
         return new ParallelIndexIOConfig(

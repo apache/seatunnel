@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.joda.time.DateTime;
 
 import java.io.Serializable;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -32,7 +33,7 @@ public class DruidSinkOptions implements Serializable {
     private  String timestampColumn;
     private  String timestampFormat;
     private  String  timestampMissingValue;
-    private  String  columns;
+    private List<String> columns;
     private  int parallelism;
 
     private static final String DEFAULT_TIMESTAMP_COLUMN = "timestamp";
@@ -43,7 +44,7 @@ public class DruidSinkOptions implements Serializable {
     public DruidSinkOptions(Config pluginConfig) {
         this.coordinatorURL = pluginConfig.getString(DruidSinkConfig.COORDINATOR_URL);
         this.datasource = pluginConfig.getString(DruidSinkConfig.DATASOURCE);
-        this.columns = pluginConfig.getString(DruidSinkConfig.COLUMNS);
+        this.columns = pluginConfig.getStringList(DruidSinkConfig.COLUMNS);
         this.timestampColumn = pluginConfig.hasPath(DruidSinkConfig.TIMESTAMP_COLUMN) ? pluginConfig.getString(DruidSinkConfig.TIMESTAMP_COLUMN) : null;
         this.timestampFormat = pluginConfig.hasPath(DruidSinkConfig.TIMESTAMP_FORMAT) ? pluginConfig.getString(DruidSinkConfig.TIMESTAMP_FORMAT) : null;
         this.timestampMissingValue = pluginConfig.hasPath(DruidSinkConfig.TIMESTAMP_MISSING_VALUE) ? pluginConfig.getString(DruidSinkConfig.TIMESTAMP_MISSING_VALUE) : null;
