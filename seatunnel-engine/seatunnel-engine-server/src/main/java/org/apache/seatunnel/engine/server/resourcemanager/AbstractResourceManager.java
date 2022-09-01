@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReleaseSlotOperation;
+import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ResetResourceOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
@@ -152,6 +153,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
     public void heartbeat(WorkerProfile workerProfile) {
         if (!registerWorker.containsKey(workerProfile.getWorkerID())) {
             LOGGER.info("received new worker register: " + workerProfile.getAddress());
+            sendToMember(new ResetResourceOperation(), workerProfile.getAddress()).join();
         } else {
             LOGGER.fine("received worker heartbeat from: " + workerProfile.getAddress());
         }

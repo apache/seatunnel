@@ -77,6 +77,7 @@ public class PipelineBaseScheduler implements JobScheduler {
                 pipeline.whenComplete((state, error) -> releasePipelineResource(Lists.newArrayList(slotProfiles.values())));
                 // deploy pipeline
                 return CompletableFuture.supplyAsync(() -> {
+                    // TODO before deploy should check slotProfiles is exist, because it maybe can't use when retry.
                     deployPipeline(pipeline, slotProfiles);
                     return null;
                 });

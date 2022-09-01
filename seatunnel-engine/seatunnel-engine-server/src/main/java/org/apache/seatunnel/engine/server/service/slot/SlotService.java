@@ -24,6 +24,8 @@ public interface SlotService {
 
     void init();
 
+    void reset();
+
     SlotAndWorkerProfile requestSlot(long jobID, ResourceProfile resourceProfile);
 
     SlotContext getSlotContext(int slotID);

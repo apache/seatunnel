@@ -64,6 +64,7 @@ public class DefaultSlotService implements SlotService {
     private final String serviceID;
     private final boolean dynamicSlot;
     private final int slotNumber;
+    private volatile boolean initStatus;
     private final IdGenerator idGenerator;
     private final TaskExecutionService taskExecutionService;
     private ConcurrentMap<Integer, SlotContext> contexts;
@@ -79,6 +80,7 @@ public class DefaultSlotService implements SlotService {
 
     @Override
     public void init() {
+        initStatus = true;
         contexts = new ConcurrentHashMap<>();
         assignedSlots = new ConcurrentHashMap<>();
         unassignedSlots = new ConcurrentHashMap<>();
@@ -105,7 +107,20 @@ public class DefaultSlotService implements SlotService {
     }
 
     @Override
+    public void reset() {
+        if (!initStatus) {
+            synchronized (this) {
+                if (!initStatus) {
+                    this.close();
+                    init();
+                }
+            }
+        }
+    }
+
+    @Override
     public synchronized SlotAndWorkerProfile requestSlot(long jobId, ResourceProfile resourceProfile) {
+        initStatus = false;
         LOGGER.info(String.format("received slot request, jobID: %d, resource profile: %s", jobId, resourceProfile));
         SlotProfile profile = selectBestMatchSlot(resourceProfile);
         if (profile != null) {

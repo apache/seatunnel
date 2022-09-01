@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.serializable;
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReleaseSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.RequestSlotOperation;
+import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ResetResourceOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.WorkerHeartbeatOperation;
 
 import com.hazelcast.internal.serialization.DataSerializerHook;
@@ -35,6 +36,8 @@ public class ResourceDataSerializerHook implements DataSerializerHook {
     public static final int REQUEST_SLOT_TYPE = 2;
 
     public static final int RELEASE_SLOT_TYPE = 3;
+
+    public static final int RESET_RESOURCE_TYPE = 4;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
             SeaTunnelFactoryIdConstant.SEATUNNEL_RESOURCE_DATA_SERIALIZER_FACTORY,
@@ -62,6 +65,8 @@ public class ResourceDataSerializerHook implements DataSerializerHook {
                     return new RequestSlotOperation();
                 case RELEASE_SLOT_TYPE:
                     return new ReleaseSlotOperation();
+                case RESET_RESOURCE_TYPE:
+                    return new ResetResourceOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }
