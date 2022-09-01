@@ -88,7 +88,7 @@ public class PhysicalPlan {
     }
 
     public void initStateFuture() {
-        pipelineList.stream().forEach(subPlan -> {
+        pipelineList.forEach(subPlan -> {
             PassiveCompletableFuture<PipelineState> future = subPlan.initStateFuture();
             future.whenComplete((v, t) -> {
                 // We need not handle t, Because we will not return t from Pipeline

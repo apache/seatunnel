@@ -15,32 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.resourcemanager.thirdparty;
 
-import lombok.NonNull;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 
-import java.io.IOException;
-import java.io.Serializable;
+import java.util.concurrent.CompletableFuture;
 
-public interface Task extends Serializable {
+public interface ThirdPartyResourceManager {
 
-    default void init() throws Exception {
-    }
+    CompletableFuture<CreateWorkerResult> createNewWorker(ResourceProfile resourceProfile);
 
-    @NonNull
-    ProgressState call() throws Exception;
-
-    @NonNull
-    Long getTaskID();
-
-    default boolean isThreadsShare() {
-        return false;
-    }
-
-    default void close() throws IOException {
-    }
-
-    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
-    }
+    CompletableFuture<Void> releaseWorker(String workerID);
 
 }

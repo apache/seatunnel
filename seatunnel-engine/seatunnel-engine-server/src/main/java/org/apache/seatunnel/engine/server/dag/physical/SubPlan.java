@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 public class SubPlan {
@@ -96,11 +97,11 @@ public class SubPlan {
     }
 
     public PassiveCompletableFuture<PipelineState> initStateFuture() {
-        physicalVertexList.stream().forEach(m -> {
+        physicalVertexList.forEach(m -> {
             addPhysicalVertexCallBack(m.initStateFuture());
         });
 
-        coordinatorVertexList.stream().forEach(m -> {
+        coordinatorVertexList.forEach(m -> {
             addPhysicalVertexCallBack(m.initStateFuture());
         });
 
@@ -136,9 +137,13 @@ public class SubPlan {
                     turnToEndState(PipelineState.FINISHED);
                     LOGGER.info(String.format("%s end with state FINISHED", this.pipelineFullName));
                 }
-                pipelineFuture.complete(pipelineState.get());
+                this.pipelineFuture.complete(pipelineState.get());
             }
         });
+    }
+
+    public void whenComplete(BiConsumer<? super PipelineState, ? super Throwable> action) {
+        this.pipelineFuture.whenComplete(action);
     }
 
     private void turnToEndState(@NonNull PipelineState endState) {

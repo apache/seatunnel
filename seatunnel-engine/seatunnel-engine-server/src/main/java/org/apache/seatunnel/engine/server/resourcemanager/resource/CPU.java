@@ -15,32 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.resourcemanager.resource;
 
-import lombok.NonNull;
+public class CPU implements Resource {
 
-import java.io.IOException;
-import java.io.Serializable;
+    private final int core;
 
-public interface Task extends Serializable {
-
-    default void init() throws Exception {
+    private CPU(int core) {
+        this.core = core;
     }
 
-    @NonNull
-    ProgressState call() throws Exception;
-
-    @NonNull
-    Long getTaskID();
-
-    default boolean isThreadsShare() {
-        return false;
+    public int getCore() {
+        return core;
     }
 
-    default void close() throws IOException {
+    public static CPU of(int core) {
+        return new CPU(core);
     }
 
-    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
+    @Override
+    public String toString() {
+        return "CPU{" +
+            "core=" + core +
+            '}';
     }
-
 }

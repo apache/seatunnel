@@ -57,7 +57,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private Map<TaskLocation, Address> taskMemberMapping;
     private Map<Long, TaskLocation> taskIDToTaskLocationMapping;
 
-    private EnumeratorState currState;
+    private volatile EnumeratorState currState;
 
     private CompletableFuture<Void> readerRegisterFuture;
     private CompletableFuture<Void> readerFinishFuture;

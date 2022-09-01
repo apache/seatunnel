@@ -50,9 +50,7 @@ public class RequestSplitOperation extends Operation implements IdentifiedDataSe
         SeaTunnelServer server = getService();
 
         RetryUtils.retryWithException(() -> {
-            SourceSplitEnumeratorTask<?> task =
-                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupLocation())
-                    .getTaskGroup().getTask(enumeratorTaskID.getTaskID());
+            SourceSplitEnumeratorTask<?> task = server.getTaskExecutionService().getTask(enumeratorTaskID);
             task.requestSplit(taskID.getTaskID());
             return null;
         }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,

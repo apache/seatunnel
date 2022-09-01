@@ -15,32 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.resourcemanager;
 
-import lombok.NonNull;
+import org.apache.seatunnel.engine.common.runtime.DeployType;
 
-import java.io.IOException;
-import java.io.Serializable;
+public class UnsupportedDeployTypeException extends RuntimeException {
 
-public interface Task extends Serializable {
-
-    default void init() throws Exception {
+    public UnsupportedDeployTypeException(DeployType type) {
+        super("Unknown deploy type: " + (type != null ? type.name() : "null"));
     }
-
-    @NonNull
-    ProgressState call() throws Exception;
-
-    @NonNull
-    Long getTaskID();
-
-    default boolean isThreadsShare() {
-        return false;
-    }
-
-    default void close() throws IOException {
-    }
-
-    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
-    }
-
 }

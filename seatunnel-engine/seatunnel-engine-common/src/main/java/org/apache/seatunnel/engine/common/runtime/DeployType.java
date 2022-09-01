@@ -15,32 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.common.runtime;
 
-import lombok.NonNull;
-
-import java.io.IOException;
-import java.io.Serializable;
-
-public interface Task extends Serializable {
-
-    default void init() throws Exception {
-    }
-
-    @NonNull
-    ProgressState call() throws Exception;
-
-    @NonNull
-    Long getTaskID();
-
-    default boolean isThreadsShare() {
-        return false;
-    }
-
-    default void close() throws IOException {
-    }
-
-    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
-    }
-
+public enum DeployType {
+    STANDALONE,
+    YARN,
+    KUBERNETES
 }
