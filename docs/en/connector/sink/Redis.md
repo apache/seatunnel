@@ -54,7 +54,7 @@ Redis timeout
 
 ### data_type [string]
 
-Redis data type eg: `KV HASH LIST SET ZSET`
+Redis data type eg: `KV HASH LIST SET ZSET HASHES LISTS`
 
 ### hash_name [string]
 
