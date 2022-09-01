@@ -15,14 +15,28 @@
  * limitations under the License.
  */
 
+import utils from '@/utils'
+import type { Component } from 'vue'
+
+const modules = import.meta.glob('/src/views/**/**.tsx')
+const components: { [key: string]: Component } = utils.mapping(modules)
+
 export default {
-  jobs: 'Jobs',
-  search: 'Search',
-  data_pipe_name: 'Data Pipe Name',
-  plan: 'Plan',
-  create_date: 'Create Date',
-  publish: 'Publish',
-  operation: 'Operation',
-  executed_immediately: 'Executed Immediately',
-  stop_plan: 'Stop Plan'
+  path: '/tasks',
+  name: 'tasks',
+  meta: {
+    title: 'tasks'
+  },
+  redirect: { name: 'tasks-list' },
+  component: () => import('@/layouts/dashboard'),
+  children: [
+    {
+      path: '/tasks/list',
+      name: 'tasks-list',
+      component: components['tasks-list'],
+      meta: {
+        title: 'tasks-list'
+      }
+    }
+  ]
 }

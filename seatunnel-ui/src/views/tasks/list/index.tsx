@@ -17,17 +17,18 @@
 
 import { defineComponent, onMounted, toRefs } from 'vue'
 import {
-  NSpace,
-  NCard,
   NButton,
-  NInput,
+  NCard,
   NDataTable,
-  NPagination
+  NInput,
+  NPagination,
+  NSpace,
+  NSelect
 } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useTable } from './use-table'
 
-const JobsList = defineComponent({
+const TasksList = defineComponent({
   setup() {
     const { t } = useI18n()
     const { state, createColumns } = useTable()
@@ -43,16 +44,25 @@ const JobsList = defineComponent({
   render() {
     return (
       <NSpace vertical>
-        <NCard title={this.t('jobs.jobs')}>
+        <NCard title={this.t('tasks.tasks')}>
           {{
             'header-extra': () => (
               <NSpace>
                 <NInput
-                  placeholder={this.t('jobs.data_pipe_name')}
+                  placeholder={this.t('tasks.tasks_name')}
                   style={{ width: '200px' }}
                 />
+                <NSelect
+                  placeholder={this.t('tasks.state')}
+                  style={{ width: '200px' }}
+                  options={[
+                    { label: this.t('tasks.success'), value: 'success' },
+                    { label: this.t('tasks.fail'), value: 'fail' },
+                    { label: this.t('tasks.running'), value: 'running' }
+                  ]}
+                />
                 <NButton onClick={this.handleSearch}>
-                  {this.t('jobs.search')}
+                  {this.t('tasks.search')}
                 </NButton>
               </NSpace>
             )
@@ -82,4 +92,4 @@ const JobsList = defineComponent({
   }
 })
 
-export default JobsList
+export default TasksList

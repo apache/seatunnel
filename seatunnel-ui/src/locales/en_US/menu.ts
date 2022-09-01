@@ -21,5 +21,6 @@ export default {
   manage: 'Manage',
   user_manage: 'User Manage',
   help: 'Help',
-  logout: 'Logout'
+  logout: 'Logout',
+  tasks: 'Tasks'
 }
