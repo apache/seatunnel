@@ -231,6 +231,7 @@
         <phoenix.version>5.2.5-HBase-2.x</phoenix.version>
         <awaitility.version>4.2.0</awaitility.version>
         <neo4j-java-driver.version>4.4.9</neo4j-java-driver.version>
+        <jwt.version>0.10.7</jwt.version>
         <jedis.version>4.2.2</jedis.version>
         <datahub.version>2.19.0-public</datahub.version>
     </properties>
@@ -960,7 +961,7 @@
                 <artifactId>checker-qual</artifactId>
                 <version>${checker.qual.version}</version>
             </dependency>
-            
+
             <dependency>
                 <groupId>org.apache.iotdb</groupId>
                 <artifactId>iotdb-session</artifactId>
@@ -992,6 +993,23 @@
                 <version>${commons-net.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-api</artifactId>
+                <version>${jwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>${jwt.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>${jwt.version}</version>
+                <scope>runtime</scope>
+            </dependency>
             <dependency>
                 <groupId>com.aliyun.datahub</groupId>
                 <artifactId>aliyun-sdk-datahub</artifactId>

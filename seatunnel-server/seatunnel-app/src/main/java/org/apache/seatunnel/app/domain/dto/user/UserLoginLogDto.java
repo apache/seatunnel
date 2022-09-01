@@ -15,30 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.app.dal.mapper;
+package org.apache.seatunnel.app.domain.dto.user;
 
-import org.apache.seatunnel.app.dal.entity.User;
+import lombok.Builder;
+import lombok.Data;
 
-import org.apache.ibatis.annotations.Param;
+@Data
+@Builder
+public class UserLoginLogDto {
+    private Long id;
 
-import java.util.List;
+    private Integer userId;
 
-public interface UserMapper {
-    User selectByPrimaryKey(@Param("id") Integer id);
+    private String token;
 
-    void insert(User user);
-
-    int updateByPrimaryKey(User user);
-
-    void deleteByPrimaryKey(@Param("id") int id);
-
-    List<User> selectBySelectiveAndPage(@Param("user") User user, @Param("start") int start, @Param("offset") int offset);
-
-    void updateStatus(@Param("id") int id, @Param("status") byte status);
-
-    User selectByName(@Param("username") String username);
-
-    int countBySelective(@Param("user") User user);
-
-    User selectByNameAndPasswd(@Param("username") String username, @Param("password") String password);
+    private Boolean tokenStatus;
 }

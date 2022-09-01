@@ -90,4 +90,10 @@
             </if>
         </where>
     </select>
+    <select id="selectByNameAndPasswd" resultType="org.apache.seatunnel.app.dal.entity.User">
+        select
+        <include refid="Base_Column_List"/>
+        from `user`
+        where username = #{username,jdbcType=VARCHAR} and password = #{password,jdbcType=VARCHAR}
+    </select>
 </mapper>
