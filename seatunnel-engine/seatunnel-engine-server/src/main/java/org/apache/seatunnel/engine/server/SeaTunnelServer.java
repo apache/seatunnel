@@ -135,7 +135,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     @Override
     public void memberRemoved(MembershipServiceEvent event) {
-
+        resourceManager.memberRemoved(event);
     }
 
     @Override

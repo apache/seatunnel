@@ -132,7 +132,7 @@ public class ResourceRequestHandler {
                 if (error != null) {
                     throw new RuntimeException(error);
                 } else {
-                    resourceManager.workerTouch(slotAndWorkerProfile.getWorkerProfile());
+                    resourceManager.heartbeat(slotAndWorkerProfile.getWorkerProfile());
                     addSlotToCacheMap(i, slotAndWorkerProfile.getSlotProfile());
                 }
             }

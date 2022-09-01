@@ -19,14 +19,13 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.resourcemanager.heartbeat.HeartbeatListener;
-import org.apache.seatunnel.engine.server.resourcemanager.heartbeat.HeartbeatManager;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReleaseSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.spi.impl.NodeEngine;
@@ -40,7 +39,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executors;
 
 public abstract class AbstractResourceManager implements ResourceManager {
 
@@ -49,7 +47,6 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     protected final ConcurrentMap<String, WorkerProfile> registerWorker;
 
-    private final HeartbeatManager heartbeatManager;
     private final NodeEngine nodeEngine;
 
     private final ExecutionMode mode = ExecutionMode.LOCAL;
@@ -57,14 +54,10 @@ public abstract class AbstractResourceManager implements ResourceManager {
     public AbstractResourceManager(NodeEngine nodeEngine) {
         this.registerWorker = new ConcurrentHashMap<>();
         this.nodeEngine = nodeEngine;
-        this.heartbeatManager = new HeartbeatManager(new WorkerHeartbeatListener(),
-            Executors.newSingleThreadScheduledExecutor(r -> new Thread(r,
-                String.format("hz.%s.seaTunnel.resourceManager.thread", nodeEngine.getHazelcastInstance().getName()))));
     }
 
     @Override
     public void init() {
-        heartbeatManager.start();
     }
 
     @Override
@@ -95,6 +88,14 @@ public abstract class AbstractResourceManager implements ResourceManager {
     }
 
     @Override
+    public void memberRemoved(MembershipServiceEvent event) {
+        String nodeID = event.getMember().getAddress().toString();
+        LOGGER.severe("Node heartbeat timeout, disconnected for resource manager. " +
+            "NodeID: " + nodeID);
+        registerWorker.remove(nodeID);
+    }
+
+    @Override
     public CompletableFuture<List<SlotProfile>> applyResources(long jobId,
                                                                List<ResourceProfile> resourceProfile) throws NoEnoughResourceException {
         waitingWorkerRegister();
@@ -116,7 +117,6 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Override
     public void close() {
-        this.heartbeatManager.close();
     }
 
     protected <E> InvocationFuture<E> sendToMember(Operation operation, Address address) {
@@ -149,26 +149,12 @@ public abstract class AbstractResourceManager implements ResourceManager {
     }
 
     @Override
-    public void workerTouch(WorkerProfile workerProfile) {
+    public void heartbeat(WorkerProfile workerProfile) {
         if (!registerWorker.containsKey(workerProfile.getWorkerID())) {
             LOGGER.info("received new worker register: " + workerProfile.getAddress());
         } else {
             LOGGER.fine("received worker heartbeat from: " + workerProfile.getAddress());
         }
         registerWorker.put(workerProfile.getWorkerID(), workerProfile);
-        heartbeatFromWorker(workerProfile.getWorkerID());
-    }
-
-    @Override
-    public void heartbeatFromWorker(String workerID) {
-        heartbeatManager.heartbeat(workerID);
-    }
-
-    private class WorkerHeartbeatListener implements HeartbeatListener {
-        @Override
-        public void nodeDisconnected(String nodeID) {
-            heartbeatManager.removeNode(nodeID);
-            registerWorker.remove(nodeID);
-        }
     }
 }

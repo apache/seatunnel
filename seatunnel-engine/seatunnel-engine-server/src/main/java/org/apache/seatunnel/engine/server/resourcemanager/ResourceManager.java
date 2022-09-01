@@ -21,6 +21,8 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfi
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
+import com.hazelcast.internal.services.MembershipServiceEvent;
+
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -36,14 +38,14 @@ public interface ResourceManager {
     CompletableFuture<Void> releaseResource(long jobId, SlotProfile profile);
 
     /**
-     * Every time ResourceManager and Worker communicate, workerTouch method should be called to
+     * Every time ResourceManager and Worker communicate, heartbeat method should be called to
      * record the latest Worker status
      *
      * @param workerProfile the worker current worker's profile
      */
-    void workerTouch(WorkerProfile workerProfile);
+    void heartbeat(WorkerProfile workerProfile);
 
-    void heartbeatFromWorker(String workerID);
+    void memberRemoved(MembershipServiceEvent event);
 
     void close();
 
