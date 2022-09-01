@@ -232,6 +232,7 @@
         <awaitility.version>4.2.0</awaitility.version>
         <neo4j-java-driver.version>4.4.9</neo4j-java-driver.version>
         <datahub.version>2.19.0-public</datahub.version>
+        <commons-io.version>2.11.0</commons-io.version>
     </properties>
 
     <dependencyManagement>
@@ -989,6 +990,11 @@
                 <groupId>com.aliyun.datahub</groupId>
                 <artifactId>aliyun-sdk-datahub</artifactId>
                 <version>${datahub.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>${commons-io.version}</version>
             </dependency>
         </dependencies>
 
