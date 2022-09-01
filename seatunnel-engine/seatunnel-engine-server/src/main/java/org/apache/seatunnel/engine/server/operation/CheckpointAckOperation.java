@@ -61,6 +61,7 @@ public class CheckpointAckOperation extends AsyncOperation {
     @Override
     protected PassiveCompletableFuture<?> doRun() throws Exception {
         CheckpointCoordinator checkpointCoordinator = ((SeaTunnelServer) getService())
+            .getCoordinatorServer()
             .getJobMaster(taskInfo.getJobId())
             .getCheckpointManager()
             .getCheckpointCoordinator(taskInfo.getPipelineId());

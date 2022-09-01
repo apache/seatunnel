@@ -82,7 +82,7 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
             nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
 
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
-            server.submitJob(jobImmutableInformation.getJobId(),
+            server.getCoordinatorServer().submitJob(jobImmutableInformation.getJobId(),
                 nodeEngine.getSerializationService().toData(jobImmutableInformation));
 
         Assert.assertNotNull(voidPassiveCompletableFuture);

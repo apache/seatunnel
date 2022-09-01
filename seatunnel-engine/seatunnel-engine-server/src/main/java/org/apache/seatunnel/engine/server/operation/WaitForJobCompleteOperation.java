@@ -34,7 +34,7 @@ public class WaitForJobCompleteOperation extends AbstractJobAsyncOperation {
     @Override
     protected PassiveCompletableFuture<?> doRun() throws Exception {
         SeaTunnelServer service = getService();
-        return service.waitForJobComplete(jobId);
+        return service.getCoordinatorServer().waitForJobComplete(jobId);
     }
 
     @Override

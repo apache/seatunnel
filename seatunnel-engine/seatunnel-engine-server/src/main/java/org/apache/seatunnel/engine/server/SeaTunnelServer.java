@@ -17,11 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
-import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
-import org.apache.seatunnel.engine.core.job.JobStatus;
-import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
@@ -29,7 +25,6 @@ import org.apache.seatunnel.engine.server.service.slot.SlotService;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.hazelcast.instance.impl.Node;
-import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.services.ManagedService;
 import com.hazelcast.internal.services.MembershipAwareService;
 import com.hazelcast.internal.services.MembershipServiceEvent;
@@ -42,10 +37,7 @@ import com.hazelcast.spi.impl.operationservice.LiveOperations;
 import com.hazelcast.spi.impl.operationservice.LiveOperationsTracker;
 import lombok.NonNull;
 
-import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -58,18 +50,13 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     private final LiveOperationRegistry liveOperationRegistry;
 
     private volatile SlotService slotService;
+    private CoordinatorServer coordinatorServer;
     private TaskExecutionService taskExecutionService;
 
     private final ExecutorService executorService;
     private volatile ResourceManager resourceManager;
 
     private final SeaTunnelConfig seaTunnelConfig;
-
-    /**
-     * key: job id;
-     * <br> value: job master;
-     */
-    private Map<Long, JobMaster> runningJobMasterMap = new ConcurrentHashMap<>();
 
     public SeaTunnelServer(@NonNull Node node, @NonNull SeaTunnelConfig seaTunnelConfig) {
         this.logger = node.getLogger(getClass());
@@ -97,10 +84,6 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         return slotService;
     }
 
-    public JobMaster getJobMaster(Long jobId) {
-        return runningJobMasterMap.get(jobId);
-    }
-
     @Override
     public void init(NodeEngine engine, Properties hzProperties) {
         this.nodeEngine = (NodeEngineImpl) engine;
@@ -109,6 +92,11 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
             nodeEngine, nodeEngine.getProperties()
         );
         taskExecutionService.start();
+        coordinatorServer = new CoordinatorServer(
+            nodeEngine,
+            executorService,
+            this
+        );
         getSlotService();
     }
 
@@ -175,66 +163,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         return taskExecutionService;
     }
 
-    /**
-     * call by client to submit job
-     */
-    public PassiveCompletableFuture<Void> submitJob(long jobId, Data jobImmutableInformation) {
-        CompletableFuture<Void> voidCompletableFuture = new CompletableFuture<>();
-        JobMaster jobMaster = new JobMaster(jobImmutableInformation, this.nodeEngine, executorService, getResourceManager());
-        executorService.submit(() -> {
-            try {
-                jobMaster.init();
-                jobMaster.getPhysicalPlan().initStateFuture();
-                runningJobMasterMap.put(jobId, jobMaster);
-            } catch (Throwable e) {
-                LOGGER.severe(String.format("submit job %s error %s ", jobId, ExceptionUtils.getMessage(e)));
-                voidCompletableFuture.completeExceptionally(e);
-            } finally {
-                // We specify that when init is complete, the submitJob is complete
-                voidCompletableFuture.complete(null);
-            }
-
-            try {
-                jobMaster.run();
-            } finally {
-                runningJobMasterMap.remove(jobId);
-            }
-        });
-        return new PassiveCompletableFuture(voidCompletableFuture);
-    }
-
-    public PassiveCompletableFuture<JobStatus> waitForJobComplete(long jobId) {
-        JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
-        if (runningJobMaster == null) {
-            // TODO Get Job Status from JobHistoryStorage
-            CompletableFuture<JobStatus> future = new CompletableFuture<>();
-            future.complete(JobStatus.FINISHED);
-            return new PassiveCompletableFuture<>(future);
-        } else {
-            return runningJobMaster.getJobMasterCompleteFuture();
-        }
-    }
-
-    public PassiveCompletableFuture<Void> cancelJob(long jodId) {
-        JobMaster runningJobMaster = runningJobMasterMap.get(jodId);
-        if (runningJobMaster == null) {
-            CompletableFuture<Void> future = new CompletableFuture<>();
-            future.complete(null);
-            return new PassiveCompletableFuture<>(future);
-        } else {
-            return new PassiveCompletableFuture<>(CompletableFuture.supplyAsync(() -> {
-                runningJobMaster.cancelJob();
-                return null;
-            }));
-        }
-    }
-
-    public JobStatus getJobStatus(long jobId) {
-        JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
-        if (runningJobMaster == null) {
-            // TODO Get Job Status from JobHistoryStorage
-            return JobStatus.FINISHED;
-        }
-        return runningJobMaster.getJobStatus();
+    public CoordinatorServer getCoordinatorServer() {
+        return coordinatorServer;
     }
 }

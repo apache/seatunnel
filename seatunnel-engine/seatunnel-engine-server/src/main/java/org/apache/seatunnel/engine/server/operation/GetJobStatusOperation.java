@@ -65,7 +65,7 @@ public class GetJobStatusOperation extends Operation implements IdentifiedDataSe
     @Override
     public void run() {
         SeaTunnelServer service = getService();
-        response = service.getJobStatus(jobId).ordinal();
+        response = service.getCoordinatorServer().getJobStatus(jobId).ordinal();
     }
 
     @Override

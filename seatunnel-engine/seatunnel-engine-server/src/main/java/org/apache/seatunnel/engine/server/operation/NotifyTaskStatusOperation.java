@@ -38,7 +38,7 @@ public class NotifyTaskStatusOperation extends Operation {
     @Override
     public void run() throws Exception {
         SeaTunnelServer service = getService();
-        JobMaster jobMaster = service.getJobMaster(taskGroupLocation.getJobId());
+        JobMaster jobMaster = service.getCoordinatorServer().getJobMaster(taskGroupLocation.getJobId());
         //TODO Notify jobMaster of TaskGroup State
     }
 
