@@ -17,14 +17,8 @@
 
 package org.apache.seatunnel.app.config;
 
-import com.fasterxml.classmate.TypeResolver;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.EnableWebMvc;
-import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
-import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import springfox.documentation.builders.ApiInfoBuilder;
 import springfox.documentation.builders.PathSelectors;
 import springfox.documentation.builders.RequestHandlerSelectors;
@@ -35,11 +29,7 @@ import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 @Configuration
 @EnableSwagger2
-@EnableWebMvc
-public class Swagger2 implements WebMvcConfigurer {
-    @Autowired
-    private TypeResolver typeResolver;
-
+public class Swagger2{
     @Bean
     public Docket createRestApi() {
 
@@ -49,30 +39,6 @@ public class Swagger2 implements WebMvcConfigurer {
                 .apis(RequestHandlerSelectors.basePackage("org.apache.seatunnel.app.controller"))
                 .paths(PathSelectors.any())
                 .build();
-
-    }
-
-    @Override
-    public void addViewControllers(ViewControllerRegistry registry) {
-        registry.addRedirectViewController("/api/v2/api-docs", "/v2/api-docs");
-        registry.addRedirectViewController("/api/swagger-resources/configuration/ui", "/swagger-resources/configuration/ui");
-        registry.addRedirectViewController("/api/swagger-resources/configuration/security", "/swagger-resources/configuration/security");
-        registry.addRedirectViewController("/api/swagger-resources", "/swagger-resources");
-
-        registry.addRedirectViewController("/api/null/api-docs",
-                "/api-docs").setKeepQueryParams(true);
-        registry.addRedirectViewController("/api/null/swagger-resources/configuration/ui",
-                "/swagger-resources/configuration/ui");
-        registry.addRedirectViewController("/api/null/swagger-resources/configuration/security",
-                "/swagger-resources/configuration/security");
-        registry.addRedirectViewController("/api/null/swagger-resources", "/swagger-resources");
-    }
-
-    @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("/api/swagger-ui.html**").addResourceLocations("classpath:/META-INF/resources/swagger-ui.html");
-        registry.addResourceHandler("/api/webjars/**").addResourceLocations("classpath:/META-INF/resources/webjars/");
-        registry.addResourceHandler("/doc.html**").addResourceLocations("classpath:/META-INF/resources/");
     }
 
     private ApiInfo apiInfo() {

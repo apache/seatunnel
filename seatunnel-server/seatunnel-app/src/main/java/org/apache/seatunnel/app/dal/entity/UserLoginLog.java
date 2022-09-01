@@ -15,14 +15,23 @@
  * limitations under the License.
  */
 
-export default {
-  jobs: 'Jobs',
-  search: 'Search',
-  data_pipe_name: 'Data Pipe Name',
-  plan: 'Plan',
-  create_date: 'Create Date',
-  publish: 'Publish',
-  operation: 'Operation',
-  executed_immediately: 'Executed Immediately',
-  stop_plan: 'Stop Plan'
+package org.apache.seatunnel.app.dal.entity;
+
+import lombok.Data;
+
+import java.util.Date;
+
+@Data
+public class UserLoginLog {
+    private Long id;
+
+    private Integer userId;
+
+    private String token;
+
+    private Boolean tokenStatus;
+
+    private Date createTime;
+
+    private Date updateTime;
 }

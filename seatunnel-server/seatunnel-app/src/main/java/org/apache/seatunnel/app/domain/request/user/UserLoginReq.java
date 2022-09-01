@@ -15,14 +15,12 @@
  * limitations under the License.
  */
 
-export default {
-  jobs: 'Jobs',
-  search: 'Search',
-  data_pipe_name: 'Data Pipe Name',
-  plan: 'Plan',
-  create_date: 'Create Date',
-  publish: 'Publish',
-  operation: 'Operation',
-  executed_immediately: 'Executed Immediately',
-  stop_plan: 'Stop Plan'
+package org.apache.seatunnel.app.domain.request.user;
+
+import lombok.Data;
+
+@Data
+public class UserLoginReq {
+    private String username;
+    private String password;
 }
