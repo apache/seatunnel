@@ -17,14 +17,36 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
-import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
-import com.hazelcast.cluster.Address;
-import lombok.NonNull;
+import com.hazelcast.internal.services.MembershipServiceEvent;
+
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public interface ResourceManager {
-    Address applyForResource(long jobId, TaskGroupLocation taskGroupLocation);
+    void init();
 
-    @NonNull
-    Address getAppliedResource(long jobId, TaskGroupLocation taskGroupLocation);
+    CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile) throws NoEnoughResourceException;
+
+    CompletableFuture<List<SlotProfile>> applyResources(long jobId, List<ResourceProfile> resourceProfile) throws NoEnoughResourceException;
+
+    CompletableFuture<Void> releaseResources(long jobId, List<SlotProfile> profiles);
+
+    CompletableFuture<Void> releaseResource(long jobId, SlotProfile profile);
+
+    /**
+     * Every time ResourceManager and Worker communicate, heartbeat method should be called to
+     * record the latest Worker status
+     *
+     * @param workerProfile the worker current worker's profile
+     */
+    void heartbeat(WorkerProfile workerProfile);
+
+    void memberRemoved(MembershipServiceEvent event);
+
+    void close();
+
 }

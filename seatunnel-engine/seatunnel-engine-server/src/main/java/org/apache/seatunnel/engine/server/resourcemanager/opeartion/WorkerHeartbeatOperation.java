@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.operation.sink;
+package org.apache.seatunnel.engine.server.resourcemanager.opeartion;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
-import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
+import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
+import org.apache.seatunnel.engine.server.serializable.ResourceDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -29,46 +28,45 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class SinkUnregisterOperation extends Operation implements IdentifiedDataSerializable {
+public class WorkerHeartbeatOperation extends Operation implements IdentifiedDataSerializable {
 
-    private TaskLocation currentTaskID;
-    private TaskLocation committerTaskID;
+    private WorkerProfile workerProfile;
 
-    public SinkUnregisterOperation() {
+    public WorkerHeartbeatOperation() {
     }
 
-    public SinkUnregisterOperation(TaskLocation currentTaskID, TaskLocation committerTaskID) {
-        this.currentTaskID = currentTaskID;
-        this.committerTaskID = committerTaskID;
+    public WorkerHeartbeatOperation(WorkerProfile workerProfile) {
+        this.workerProfile = workerProfile;
     }
 
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        SinkAggregatedCommitterTask<?> task =
-                server.getTaskExecutionService().getTask(committerTaskID);
-        task.receivedWriterUnregister(currentTaskID);
+        server.getResourceManager().heartbeat(workerProfile);
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        currentTaskID.writeData(out);
-        committerTaskID.writeData(out);
+        out.writeObject(workerProfile);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        currentTaskID.readData(in);
-        committerTaskID.readData(in);
+        workerProfile = in.readObject();
+    }
+
+    @Override
+    public String getServiceName() {
+        return SeaTunnelServer.SERVICE_NAME;
     }
 
     @Override
     public int getFactoryId() {
-        return TaskDataSerializerHook.FACTORY_ID;
+        return ResourceDataSerializerHook.FACTORY_ID;
     }
 
     @Override
     public int getClassId() {
-        return TaskDataSerializerHook.SINK_UNREGISTER_TYPE;
+        return ResourceDataSerializerHook.WORKER_HEARTBEAT_TYPE;
     }
 }

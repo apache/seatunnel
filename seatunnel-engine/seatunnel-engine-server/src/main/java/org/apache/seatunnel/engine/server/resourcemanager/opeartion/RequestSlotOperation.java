@@ -15,14 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.operation.source;
+package org.apache.seatunnel.engine.server.resourcemanager.opeartion;
 
-import org.apache.seatunnel.common.utils.RetryUtils;
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
-import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
+import org.apache.seatunnel.engine.server.serializable.ResourceDataSerializerHook;
+import org.apache.seatunnel.engine.server.service.slot.SlotAndWorkerProfile;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -31,26 +29,41 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class CloseRequestOperation extends Operation implements IdentifiedDataSerializable {
+public class RequestSlotOperation extends Operation implements IdentifiedDataSerializable {
 
-    private TaskLocation readerLocation;
+    private ResourceProfile resourceProfile;
+    private long jobID;
+    private SlotAndWorkerProfile result;
 
-    public CloseRequestOperation() {
+    public RequestSlotOperation() {
     }
 
-    public CloseRequestOperation(TaskLocation readerLocation) {
-        this.readerLocation = readerLocation;
+    public RequestSlotOperation(long jobID, ResourceProfile resourceProfile) {
+        this.resourceProfile = resourceProfile;
+        this.jobID = jobID;
     }
 
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        RetryUtils.retryWithException(() -> {
-            SourceSeaTunnelTask<?, ?> task = server.getTaskExecutionService().getTask(readerLocation);
-            task.close();
-            return null;
-        }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException, Constant.OPERATION_RETRY_SLEEP));
+        result = server.getSlotService().requestSlot(jobID, resourceProfile);
+    }
+
+    @Override
+    protected void writeInternal(ObjectDataOutput out) throws IOException {
+        out.writeObject(resourceProfile);
+        out.writeLong(jobID);
+    }
+
+    @Override
+    public Object getResponse() {
+        return result;
+    }
+
+    @Override
+    protected void readInternal(ObjectDataInput in) throws IOException {
+        resourceProfile = in.readObject();
+        jobID = in.readLong();
     }
 
     @Override
@@ -59,24 +72,12 @@ public class CloseRequestOperation extends Operation implements IdentifiedDataSe
     }
 
     @Override
-    protected void writeInternal(ObjectDataOutput out) throws IOException {
-        super.writeInternal(out);
-        readerLocation.writeData(out);
-    }
-
-    @Override
-    protected void readInternal(ObjectDataInput in) throws IOException {
-        super.readInternal(in);
-        readerLocation.readData(in);
-    }
-
-    @Override
     public int getFactoryId() {
-        return TaskDataSerializerHook.FACTORY_ID;
+        return ResourceDataSerializerHook.FACTORY_ID;
     }
 
     @Override
     public int getClassId() {
-        return TaskDataSerializerHook.CLOSE_REQUEST_TYPE;
+        return ResourceDataSerializerHook.REQUEST_SLOT_TYPE;
     }
 }

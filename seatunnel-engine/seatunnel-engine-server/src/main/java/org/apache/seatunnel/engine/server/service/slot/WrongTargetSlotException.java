@@ -15,32 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.service.slot;
 
-import lombok.NonNull;
+public class WrongTargetSlotException extends RuntimeException {
 
-import java.io.IOException;
-import java.io.Serializable;
-
-public interface Task extends Serializable {
-
-    default void init() throws Exception {
+    public WrongTargetSlotException() {
     }
 
-    @NonNull
-    ProgressState call() throws Exception;
-
-    @NonNull
-    Long getTaskID();
-
-    default boolean isThreadsShare() {
-        return false;
+    public WrongTargetSlotException(String message) {
+        super(message);
     }
-
-    default void close() throws IOException {
-    }
-
-    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
-    }
-
 }

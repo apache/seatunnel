@@ -15,32 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.service.slot;
 
-import lombok.NonNull;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
-import java.io.IOException;
-import java.io.Serializable;
+public interface SlotService {
 
-public interface Task extends Serializable {
+    void init();
 
-    default void init() throws Exception {
-    }
+    void reset();
 
-    @NonNull
-    ProgressState call() throws Exception;
+    SlotAndWorkerProfile requestSlot(long jobID, ResourceProfile resourceProfile);
 
-    @NonNull
-    Long getTaskID();
+    SlotContext getSlotContext(int slotID);
 
-    default boolean isThreadsShare() {
-        return false;
-    }
+    void releaseSlot(long jobId, SlotProfile slotProfile);
 
-    default void close() throws IOException {
-    }
-
-    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
-    }
+    void close();
 
 }

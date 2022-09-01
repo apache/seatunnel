@@ -15,32 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.resourcemanager;
 
-import lombok.NonNull;
+public class NoEnoughResourceException extends RuntimeException {
 
-import java.io.IOException;
-import java.io.Serializable;
-
-public interface Task extends Serializable {
-
-    default void init() throws Exception {
+    public NoEnoughResourceException() {
     }
 
-    @NonNull
-    ProgressState call() throws Exception;
-
-    @NonNull
-    Long getTaskID();
-
-    default boolean isThreadsShare() {
-        return false;
+    public NoEnoughResourceException(String message) {
+        super(message);
     }
-
-    default void close() throws IOException {
-    }
-
-    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
-    }
-
 }
