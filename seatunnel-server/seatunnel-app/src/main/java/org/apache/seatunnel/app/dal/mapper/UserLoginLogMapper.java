@@ -15,14 +15,20 @@
  * limitations under the License.
  */
 
-export default {
-  jobs: 'Jobs',
-  search: 'Search',
-  data_pipe_name: 'Data Pipe Name',
-  plan: 'Plan',
-  create_date: 'Create Date',
-  publish: 'Publish',
-  operation: 'Operation',
-  executed_immediately: 'Executed Immediately',
-  stop_plan: 'Stop Plan'
+package org.apache.seatunnel.app.dal.mapper;
+
+import org.apache.seatunnel.app.dal.entity.UserLoginLog;
+
+import org.apache.ibatis.annotations.Param;
+
+public interface UserLoginLogMapper {
+    int insert(UserLoginLog userLoginLog);
+
+    int updateStatus(@Param("userId") int userId, @Param("enable") boolean enable);
+
+    UserLoginLog checkLastTokenEnable(@Param("userId") Integer userId);
 }
+
+
+
+

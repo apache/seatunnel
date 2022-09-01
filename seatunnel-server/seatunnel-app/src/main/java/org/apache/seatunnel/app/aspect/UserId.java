@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-export default {
-  jobs: 'Jobs',
-  search: 'Search',
-  data_pipe_name: 'Data Pipe Name',
-  plan: 'Plan',
-  create_date: 'Create Date',
-  publish: 'Publish',
-  operation: 'Operation',
-  executed_immediately: 'Executed Immediately',
-  stop_plan: 'Stop Plan'
+package org.apache.seatunnel.app.aspect;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Target({ElementType.PARAMETER})
+@Retention(RetentionPolicy.RUNTIME)
+public @interface UserId {
 }
