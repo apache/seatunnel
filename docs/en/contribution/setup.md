@@ -35,6 +35,12 @@ Otherwise, your code could not start in JetBrains IntelliJ IDEA correctly.
 ./mvnw install -Dmaven.test.skip
 ```
 
+### Building SeaTunnel from source
+After you install the maven, you can use the follow command to compile and package.
+```
+mvn clean package -pl seatunnel-dist -am -Dmaven.test.skip=true
+```
+
 ### Install JetBrains IDEA Scala Plugin
 
 Now, you can open your JetBrains IntelliJ IDEA and explore the source code, but allow building Scala code in IDEA,

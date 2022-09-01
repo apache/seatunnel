@@ -35,6 +35,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -114,7 +115,7 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
 
         // check partition field must in seaTunnelRowTypeInfo
         if (!CollectionUtils.isEmpty(this.partitionFieldList)
-            && (CollectionUtils.isEmpty(this.sinkColumnList) || !this.sinkColumnList.containsAll(this.partitionFieldList))) {
+            && (CollectionUtils.isEmpty(this.sinkColumnList) || !new HashSet<>(this.sinkColumnList).containsAll(this.partitionFieldList))) {
             throw new RuntimeException("partition fields must in sink columns");
         }
 
@@ -136,12 +137,12 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
 
         // init sink column index and partition field index, we will use the column index to found the data in SeaTunnelRow
         this.sinkColumnsIndexInRow = this.sinkColumnList.stream()
-            .map(columnName -> columnsMap.get(columnName))
+            .map(columnsMap::get)
             .collect(Collectors.toList());
 
         if (!CollectionUtils.isEmpty(this.partitionFieldList)) {
             this.partitionFieldsIndexInRow = this.partitionFieldList.stream()
-                .map(columnName -> columnsMap.get(columnName))
+                .map(columnsMap::get)
                 .collect(Collectors.toList());
         }
     }
