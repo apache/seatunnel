@@ -111,7 +111,7 @@ jobs:
           -D"maven.wagon.httpconnectionManager.ttlSeconds"=120
 
   dependency-license:
-    if: github.repository == 'apache/incubator-seatunnel'
+    if: github.repository == 'apache/incubator-seatunnel' && "contains(toJSON(github.event.commits.*.message), '[ci-auto-license]')"
     name: Dependency licenses
     needs: [ sanity-check ]
     runs-on: ubuntu-latest
