@@ -15,36 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.resourcemanager.resource;
 
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
-import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
+public class CPU implements Resource {
 
-import lombok.NonNull;
+    private final int core;
 
-import java.io.IOException;
-import java.io.Serializable;
-
-public interface Task extends InternalCheckpointListener, Serializable {
-
-    default void init() throws Exception {
+    private CPU(int core) {
+        this.core = core;
     }
 
-    @NonNull
-    ProgressState call() throws Exception;
-
-    @NonNull
-    Long getTaskID();
-
-    default boolean isThreadsShare() {
-        return false;
+    public int getCore() {
+        return core;
     }
 
-    default void close() throws IOException {
+    public static CPU of(int core) {
+        return new CPU(core);
     }
 
-    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
+    @Override
+    public String toString() {
+        return "CPU{" +
+            "core=" + core +
+            '}';
     }
-
-    default void triggerCheckpoint(CheckpointBarrier checkpointBarrier) throws Exception {}
 }

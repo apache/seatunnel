@@ -36,8 +36,10 @@ import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
 import org.apache.seatunnel.engine.server.operation.NotifyTaskStatusOperation;
+import org.apache.seatunnel.engine.server.service.slot.SlotContext;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 
 import com.google.common.collect.Lists;
@@ -83,6 +85,7 @@ public class TaskExecutionService {
     // key: TaskID
     private final ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts = new ConcurrentHashMap<>();
     private final ConcurrentMap<TaskGroupLocation, CompletableFuture<Void>> cancellationFutures = new ConcurrentHashMap<>();
+    private SlotContext slotContext;
 
     public TaskExecutionService(NodeEngineImpl nodeEngine, HazelcastProperties properties) {
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
@@ -97,6 +100,10 @@ public class TaskExecutionService {
     public void shutdown() {
         isShutdown = true;
         executorService.shutdownNow();
+    }
+
+    public void setSlotContext(SlotContext slotContext) {
+        this.slotContext = slotContext;
     }
 
     public TaskGroupContext getExecutionContext(TaskGroupLocation taskGroupLocation) {
@@ -125,14 +132,21 @@ public class TaskExecutionService {
         uncheckRun(startedLatch::await);
     }
 
+    public synchronized PassiveCompletableFuture<TaskExecutionState> deployTask(@NonNull Data taskImmutableInformation) {
+        TaskGroupImmutableInformation taskImmutableInfo =
+            nodeEngine.getSerializationService().toObject(taskImmutableInformation);
+        return deployTask(taskImmutableInfo);
+    }
+
+    public <T extends Task> T getTask(TaskLocation taskLocation) {
+        return this.getExecutionContext(taskLocation.getTaskGroupLocation()).getTaskGroup().getTask(taskLocation.getTaskID());
+    }
+
     public synchronized PassiveCompletableFuture<TaskExecutionState> deployTask(
-        @NonNull Data taskImmutableInformation
-    ) {
+        @NonNull TaskGroupImmutableInformation taskImmutableInfo) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
         TaskGroup taskGroup = null;
         try {
-            TaskGroupImmutableInformation taskImmutableInfo =
-                nodeEngine.getSerializationService().toObject(taskImmutableInformation);
             Set<URL> jars = taskImmutableInfo.getJars();
 
             if (!CollectionUtils.isEmpty(jars)) {
@@ -171,10 +185,11 @@ public class TaskExecutionService {
             ConcurrentMap<Long, TaskExecutionContext> taskExecutionContextMap = new ConcurrentHashMap<>();
             final Map<Boolean, List<Task>> byCooperation =
                 tasks.stream()
-                    .peek(x -> {
-                        TaskExecutionContext taskExecutionContext = new TaskExecutionContext(x, nodeEngine);
-                        x.setTaskExecutionContext(taskExecutionContext);
-                        taskExecutionContextMap.put(x.getTaskID(), taskExecutionContext);
+                    .peek(task -> {
+                        TaskExecutionContext taskExecutionContext = new TaskExecutionContext(task, nodeEngine,
+                                slotContext);
+                        task.setTaskExecutionContext(taskExecutionContext);
+                        taskExecutionContextMap.put(task.getTaskID(), taskExecutionContext);
                     })
                     .collect(partitioningBy(Task::isThreadsShare));
             submitThreadShareTask(executionTracker, byCooperation.get(true));

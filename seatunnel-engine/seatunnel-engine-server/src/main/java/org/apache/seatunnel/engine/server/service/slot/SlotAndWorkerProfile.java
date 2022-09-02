@@ -15,36 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.service.slot;
 
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
-import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
-import lombok.NonNull;
-
-import java.io.IOException;
 import java.io.Serializable;
 
-public interface Task extends InternalCheckpointListener, Serializable {
+public class SlotAndWorkerProfile implements Serializable {
 
-    default void init() throws Exception {
+    private final WorkerProfile workerProfile;
+
+    private final SlotProfile slotProfile;
+
+    public SlotAndWorkerProfile(WorkerProfile workerProfile, SlotProfile slotProfile) {
+        this.workerProfile = workerProfile;
+        this.slotProfile = slotProfile;
     }
 
-    @NonNull
-    ProgressState call() throws Exception;
-
-    @NonNull
-    Long getTaskID();
-
-    default boolean isThreadsShare() {
-        return false;
+    public WorkerProfile getWorkerProfile() {
+        return workerProfile;
     }
 
-    default void close() throws IOException {
+    /**
+     * Get slot profile of worker return. Could be null if no slot can be provided.
+     */
+    public SlotProfile getSlotProfile() {
+        return slotProfile;
     }
-
-    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
-    }
-
-    default void triggerCheckpoint(CheckpointBarrier checkpointBarrier) throws Exception {}
 }

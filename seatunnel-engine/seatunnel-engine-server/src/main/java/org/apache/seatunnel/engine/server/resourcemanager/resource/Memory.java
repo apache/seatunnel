@@ -15,36 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.resourcemanager.resource;
 
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
-import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
+public class Memory implements Resource {
 
-import lombok.NonNull;
+    private final long bytes;
 
-import java.io.IOException;
-import java.io.Serializable;
-
-public interface Task extends InternalCheckpointListener, Serializable {
-
-    default void init() throws Exception {
+    private Memory(long bytes) {
+        this.bytes = bytes;
     }
 
-    @NonNull
-    ProgressState call() throws Exception;
-
-    @NonNull
-    Long getTaskID();
-
-    default boolean isThreadsShare() {
-        return false;
+    public long getBytes() {
+        return bytes;
     }
 
-    default void close() throws IOException {
+    public static Memory of(long bytes) {
+        return new Memory(bytes);
     }
 
-    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
+    @Override
+    public String toString() {
+        return "Memory{" +
+            "bytes=" + bytes +
+            '}';
     }
-
-    default void triggerCheckpoint(CheckpointBarrier checkpointBarrier) throws Exception {}
 }

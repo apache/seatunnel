@@ -22,11 +22,13 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
 import org.apache.seatunnel.engine.server.task.operation.DeployTaskOperation;
@@ -43,6 +45,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 
 /**
  * PhysicalVertex is responsible for the scheduling and execution of a single task parallel
@@ -94,11 +97,6 @@ public class PhysicalVertex {
      */
     private final long[] stateTimestamps;
 
-    /**
-     * This future only can completion by the task run in {@link com.hazelcast.spi.impl.executionservice.ExecutionService }
-     */
-    private PassiveCompletableFuture<TaskExecutionState> waitForCompleteByExecutionService;
-
     private final JobImmutableInformation jobImmutableInformation;
 
     private final long initializationTimestamp;
@@ -106,8 +104,6 @@ public class PhysicalVertex {
     private final NodeEngine nodeEngine;
 
     private Address currentExecutionAddress;
-
-    private TaskGroupImmutableInformation taskGroupImmutableInformation;
 
     public PhysicalVertex(long physicalVertexId,
                           int subTaskGroupIndex,
@@ -155,23 +151,33 @@ public class PhysicalVertex {
         return new PassiveCompletableFuture<>(this.taskFuture);
     }
 
+    public void deployOnMaster() {
+        currentExecutionAddress = nodeEngine.getMasterAddress();
+        deployInternal(taskGroupImmutableInformation -> {
+            SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
+            return new PassiveCompletableFuture<>(server.getTaskExecutionService()
+                .deployTask(taskGroupImmutableInformation));
+        });
+    }
+
     @SuppressWarnings("checkstyle:MagicNumber")
     // This method must not throw an exception
-    public void deploy(@NonNull Address address) {
-        currentExecutionAddress = address;
-        taskGroupImmutableInformation = new TaskGroupImmutableInformation(flakeIdGenerator.newId(),
-            nodeEngine.getSerializationService().toData(this.taskGroup),
-            this.pluginJarsUrls);
+    public void deploy(@NonNull SlotProfile slotProfile) {
+        currentExecutionAddress = slotProfile.getWorker();
+        deployInternal(taskGroupImmutableInformation -> new PassiveCompletableFuture<>(
+            nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
+                    new DeployTaskOperation(slotProfile,
+                        nodeEngine.getSerializationService().toData(taskGroupImmutableInformation)),
+                    slotProfile.getWorker())
+                .invoke()));
+    }
 
+    private void deployInternal(Function<TaskGroupImmutableInformation, PassiveCompletableFuture<TaskExecutionState>> deployMethod) {
+        TaskGroupImmutableInformation taskGroupImmutableInformation = getTaskGroupImmutableInformation();
+        PassiveCompletableFuture<TaskExecutionState> completeFuture;
         try {
             if (ExecutionState.DEPLOYING.equals(executionState.get())) {
-                waitForCompleteByExecutionService = new PassiveCompletableFuture<>(
-                    nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
-                            new DeployTaskOperation(
-                                nodeEngine.getSerializationService().toData(taskGroupImmutableInformation)),
-                            currentExecutionAddress)
-                        .invoke());
-
+                completeFuture = deployMethod.apply(taskGroupImmutableInformation);
                 // may be canceling
                 if (!updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING)) {
                     // If we found the task state turned to CANCELING after deployed to TaskExecutionService. We need
@@ -188,29 +194,42 @@ public class PhysicalVertex {
                                 this.getTaskFullName(), executionState.get()))));
                     }
                 }
+                monitorTask(completeFuture);
             } else if (ExecutionState.CANCELING.equals(this.getExecutionState().get())) {
                 turnToEndState(ExecutionState.CANCELED);
                 taskFuture.complete(new TaskExecutionState(this.taskGroupLocation, executionState.get(), null));
             } else {
                 turnToEndState(ExecutionState.FAILED);
                 taskFuture.complete(new TaskExecutionState(this.taskGroupLocation, executionState.get(),
-                    new JobException(String.format("%s turn to a unexpected state"))));
+                    new JobException(String.format("%s turn to a unexpected state", getTaskFullName()))));
             }
 
         } catch (Throwable th) {
-            LOGGER.severe(String.format("%s deploy error with Exception: %s",
-                this.taskFullName,
-                ExceptionUtils.getMessage(th)));
-            turnToEndState(ExecutionState.FAILED);
-            taskFuture.complete(
-                new TaskExecutionState(this.taskGroupLocation, ExecutionState.FAILED, th));
+            failedByException(th);
         }
+    }
 
-        if (waitForCompleteByExecutionService == null) {
-            return;
-        }
+    private void failedByException(Throwable th) {
+        LOGGER.severe(String.format("%s deploy error with Exception: %s",
+            this.taskFullName,
+            ExceptionUtils.getMessage(th)));
+        turnToEndState(ExecutionState.FAILED);
+        taskFuture.complete(
+            new TaskExecutionState(this.taskGroupLocation, ExecutionState.FAILED, th));
+    }
 
-        waitForCompleteByExecutionService.whenComplete((v, t) -> {
+    private TaskGroupImmutableInformation getTaskGroupImmutableInformation() {
+        return new TaskGroupImmutableInformation(flakeIdGenerator.newId(),
+                nodeEngine.getSerializationService().toData(this.taskGroup),
+                this.pluginJarsUrls);
+    }
+
+    /**
+     * @param completeFuture This future only can completion by the task run in
+     *                       {@link com.hazelcast.spi.impl.executionservice.ExecutionService }
+     */
+    private void monitorTask(PassiveCompletableFuture<TaskExecutionState> completeFuture) {
+        completeFuture.whenComplete((v, t) -> {
             try {
                 if (t != null) {
                     LOGGER.severe("An unexpected error occurred while the task was running", t);

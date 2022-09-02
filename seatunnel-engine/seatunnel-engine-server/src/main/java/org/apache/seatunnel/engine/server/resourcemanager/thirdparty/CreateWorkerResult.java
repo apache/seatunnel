@@ -15,36 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.resourcemanager.thirdparty;
 
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
-import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
+import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
-import lombok.NonNull;
+public class CreateWorkerResult {
 
-import java.io.IOException;
-import java.io.Serializable;
+    private String message;
 
-public interface Task extends InternalCheckpointListener, Serializable {
+    private WorkerProfile workerProfile;
 
-    default void init() throws Exception {
-    }
+    private Throwable error;
 
-    @NonNull
-    ProgressState call() throws Exception;
-
-    @NonNull
-    Long getTaskID();
-
-    default boolean isThreadsShare() {
-        return false;
-    }
-
-    default void close() throws IOException {
-    }
-
-    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
-    }
-
-    default void triggerCheckpoint(CheckpointBarrier checkpointBarrier) throws Exception {}
 }

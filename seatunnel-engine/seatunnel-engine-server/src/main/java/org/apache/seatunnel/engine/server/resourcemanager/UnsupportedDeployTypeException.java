@@ -15,36 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.resourcemanager;
 
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
-import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
+import org.apache.seatunnel.engine.common.runtime.DeployType;
 
-import lombok.NonNull;
+public class UnsupportedDeployTypeException extends RuntimeException {
 
-import java.io.IOException;
-import java.io.Serializable;
-
-public interface Task extends InternalCheckpointListener, Serializable {
-
-    default void init() throws Exception {
+    public UnsupportedDeployTypeException(DeployType type) {
+        super("Unknown deploy type: " + (type != null ? type.name() : "null"));
     }
-
-    @NonNull
-    ProgressState call() throws Exception;
-
-    @NonNull
-    Long getTaskID();
-
-    default boolean isThreadsShare() {
-        return false;
-    }
-
-    default void close() throws IOException {
-    }
-
-    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
-    }
-
-    default void triggerCheckpoint(CheckpointBarrier checkpointBarrier) throws Exception {}
 }
