@@ -29,7 +29,7 @@ import java.io.Serializable;
 public class TaskGroupLocation implements Serializable {
     private final long jobId;
 
-    private final long pipelineId;
+    private final int pipelineId;
 
     private final long taskGroupId;
 

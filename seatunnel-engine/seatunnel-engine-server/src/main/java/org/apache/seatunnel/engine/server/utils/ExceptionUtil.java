@@ -15,36 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.utils;
 
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
-import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
-
-import lombok.NonNull;
-
-import java.io.IOException;
-import java.io.Serializable;
-
-public interface Task extends InternalCheckpointListener, Serializable {
-
-    default void init() throws Exception {
+public class ExceptionUtil {
+    private ExceptionUtil() {
     }
 
-    @NonNull
-    ProgressState call() throws Exception;
-
-    @NonNull
-    Long getTaskID();
-
-    default boolean isThreadsShare() {
-        return false;
+    /** javac hack for unchecking the checked exception. */
+    @SuppressWarnings("unchecked")
+    public static <T extends Exception> void sneakyThrow(Exception t) throws T {
+        throw (T) t;
     }
-
-    default void close() throws IOException {
-    }
-
-    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
-    }
-
-    default void triggerCheckpoint(CheckpointBarrier checkpointBarrier) throws Exception {}
 }

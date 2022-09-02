@@ -20,6 +20,7 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.api;
 
+import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 
 import java.util.Map;
@@ -27,12 +28,7 @@ import java.util.Map;
 /**
  * All checkpoint storage plugins need to implement it
  */
-public interface CheckpointStorageFactory {
-
-    /**
-     * Returns the name of the storage plugin
-     */
-    String name();
+public interface CheckpointStorageFactory extends Factory {
 
     /**
      * create storage plugin instance

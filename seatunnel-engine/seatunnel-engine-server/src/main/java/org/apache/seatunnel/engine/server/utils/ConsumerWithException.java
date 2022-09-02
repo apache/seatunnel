@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.checkpoint;
+package org.apache.seatunnel.engine.server.utils;
 
-/** A checkpoint, pending or completed. */
-public interface Checkpoint {
-
-    long getCheckpointId();
-
-    int getPipelineId();
-
-    long getJobId();
-
-    long getCheckpointTimestamp();
+@FunctionalInterface
+public interface ConsumerWithException<T>  {
+    /**
+     * Performs this operation on the given argument.
+     *
+     * @param t the input argument
+     */
+    void accept(T t) throws Exception;
 }

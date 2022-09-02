@@ -62,6 +62,8 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
 
     public static final int FILE_NAME_PIPELINE_ID_INDEX = 2;
 
+    public static final int FILE_NAME_CHECKPOINT_ID_INDEX = 3;
+
     public static final int FILE_SORT_ID_INDEX = 0;
 
     public static final int FILE_NAME_RANDOM_RANGE = 1000;
@@ -150,13 +152,23 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
     }
 
     /**
-     * get the latest checkpoint file name
+     * get the pipeline id of the file name
      *
      * @param fileName file names. note: file name cannot contain parent path
-     * @return latest checkpoint file name
+     * @return the pipeline id of the file.
      */
     public String getPipelineIdByFileName(String fileName) {
         return fileName.split(FILE_NAME_SPLIT)[FILE_NAME_PIPELINE_ID_INDEX];
+    }
+
+    /**
+     * get the checkpoint id of the file name
+     *
+     * @param fileName file names. note: file name cannot contain parent path
+     * @return the checkpoint id of the file.
+     */
+    public String getCheckpointIdByFileName(String fileName) {
+        return fileName.split(FILE_NAME_SPLIT)[FILE_NAME_CHECKPOINT_ID_INDEX];
     }
 
     @Override

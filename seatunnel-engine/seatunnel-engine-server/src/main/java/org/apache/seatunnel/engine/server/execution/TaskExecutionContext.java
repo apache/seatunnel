@@ -17,13 +17,12 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
-import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.service.slot.SlotContext;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.NodeEngineImpl;
-import com.hazelcast.spi.impl.operationservice.InvocationBuilder;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
@@ -41,13 +40,11 @@ public class TaskExecutionContext {
     }
 
     public <E> InvocationFuture<E> sendToMaster(Operation operation) {
-        InvocationBuilder invocationBuilder = nodeEngine.getOperationService().createInvocationBuilder(SeaTunnelServer.SERVICE_NAME, operation, nodeEngine.getMasterAddress());
-        return invocationBuilder.invoke();
+        return NodeEngineUtil.sendOperationToMasterNode(nodeEngine, operation);
     }
 
     public <E> InvocationFuture<E> sendToMember(Operation operation, Address memberID) {
-        InvocationBuilder invocationBuilder = nodeEngine.getOperationService().createInvocationBuilder(SeaTunnelServer.SERVICE_NAME, operation, memberID);
-        return invocationBuilder.invoke();
+        return NodeEngineUtil.sendOperationToMemberNode(nodeEngine, operation, memberID);
     }
 
     public ILogger getLogger() {

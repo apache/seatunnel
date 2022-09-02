@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.engine.core.checkpoint;
 
-public interface CheckpointListener {
+import org.apache.seatunnel.api.state.CheckpointListener;
+
+public interface InternalCheckpointListener extends CheckpointListener {
 
     /**
      * Notifies the listener that the checkpoint with the given {@code checkpointId} completed and
@@ -27,7 +29,8 @@ public interface CheckpointListener {
      * @throws Exception This method can propagate exceptions, which leads to a failure/recovery for
      *     the task. Note that this will NOT lead to the checkpoint being revoked.
      */
-    void notifyCheckpointComplete(long checkpointId) throws Exception;
+    @Override
+    default void notifyCheckpointComplete(long checkpointId) throws Exception {}
 
     /**
      * This method is called as a notification once a distributed checkpoint has been aborted.
@@ -36,5 +39,6 @@ public interface CheckpointListener {
      * @throws Exception This method can propagate exceptions, which leads to a failure/recovery for
      *     the task or job.
      */
+    @Override
     default void notifyCheckpointAborted(long checkpointId) throws Exception {}
 }

@@ -18,14 +18,14 @@
 package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
+import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishedOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointTriggerOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.TaskCompletedOperation;
 import org.apache.seatunnel.engine.server.operation.CancelJobOperation;
-import org.apache.seatunnel.engine.server.operation.CheckpointAckOperation;
-import org.apache.seatunnel.engine.server.operation.CheckpointFinishedOperation;
-import org.apache.seatunnel.engine.server.operation.CheckpointTriggerOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
-import org.apache.seatunnel.engine.server.operation.TaskCompletedOperation;
 import org.apache.seatunnel.engine.server.operation.WaitForJobCompleteOperation;
 import org.apache.seatunnel.engine.server.task.operation.DeployTaskOperation;
 
@@ -95,7 +95,7 @@ public final class OperationDataSerializerHook implements DataSerializerHook {
                 case GET_JOB_STATUS_OPERATOR:
                     return new GetJobStatusOperation();
                 case CHECKPOINT_ACK_OPERATOR:
-                    return new CheckpointAckOperation();
+                    return new TaskAcknowledgeOperation();
                 case CHECKPOINT_FINISHED_OPERATOR:
                     return new CheckpointFinishedOperation();
                 default:
