@@ -89,7 +89,6 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
 
     @Override
     public void close() throws IOException {
-        collector.close();
         reader.close();
         super.close();
     }

@@ -64,12 +64,15 @@ public class TransformSeaTunnelTask extends SeaTunnelTask {
         throw new UnsupportedOperationException("TransformSeaTunnelTask can't create SourceFlowLifeCycle");
     }
 
+    @Override
+    protected void collect() throws Exception {
+        ((OneOutputFlowLifeCycle<Record<?>>) startFlowLifeCycle).collect(collector);
+    }
+
     @NonNull
     @Override
-    @SuppressWarnings("unchecked")
     public ProgressState call() throws Exception {
-        ((OneOutputFlowLifeCycle<Record<?>>) startFlowLifeCycle).collect(collector);
-        checkDone();
+        stateProcess();
         return progress.toState();
     }
 

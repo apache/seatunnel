@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.record.ClosedSign;
+import org.apache.seatunnel.engine.server.task.record.PrepareCloseSign;
 
 import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
@@ -66,6 +67,8 @@ public class IntermediateQueueFlowLifeCycle extends AbstractFlowLifeCycle implem
                 } else if (record.getData() instanceof CheckpointBarrier) {
                     CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
                     runningTask.ack(barrier.getId());
+                } else if (record.getData() instanceof PrepareCloseSign) {
+                    runningTask.prepareCloseDone();
                 }
             } else {
                 break;

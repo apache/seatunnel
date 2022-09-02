@@ -26,6 +26,8 @@ import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
+import org.apache.seatunnel.engine.server.task.record.ClosedSign;
+import org.apache.seatunnel.engine.server.task.record.PrepareCloseSign;
 
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
@@ -65,18 +67,27 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
         return new SourceFlowLifeCycle<>(sourceAction, indexID, config.getEnumeratorTask(), this, taskLocation, completableFuture);
     }
 
+    @Override
+    protected void collect() throws Exception {
+        ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).collect();
+    }
+
     @NonNull
     @Override
-    @SuppressWarnings("unchecked")
     public ProgressState call() throws Exception {
-        ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).collect();
+        stateProcess();
         return progress.toState();
+    }
+
+    public void prepareClose() throws IOException {
+        collector.sendRecordToNext(new Record<>(new PrepareCloseSign()));
+        prepareCloseDone();
     }
 
     @Override
     public void close() throws IOException {
+        collector.sendRecordToNext(new Record<>(new ClosedSign()));
         startFlowLifeCycle.close();
-        progress.done();
     }
 
     public void receivedSourceSplit(List<SplitT> splits) {

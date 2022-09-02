@@ -20,7 +20,6 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
-import org.apache.seatunnel.engine.server.task.record.ClosedSign;
 
 import java.io.IOException;
 import java.util.List;
@@ -48,10 +47,6 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     @Override
     public Object getCheckpointLock() {
         return checkpointLock;
-    }
-
-    public void close() throws IOException {
-        sendRecordToNext(new Record<>(new ClosedSign()));
     }
 
     public void sendRecordToNext(Record<?> record) throws IOException {

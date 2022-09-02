@@ -20,7 +20,7 @@ package org.apache.seatunnel.engine.server.task.operation.checkpoint;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
@@ -49,8 +49,7 @@ public class ReportReadyRestoreOperation extends Operation implements Identified
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(() -> {
-            CheckpointCoordinator checkpointCoordinator = server.getJobMaster(jobID).getCheckpointManager()
-                .getCheckpointCoordinator(taskLocation.getTaskGroupLocation().getPipelineId());
+            CheckpointManager checkpointCoordinator = server.getJobMaster(jobID).getCheckpointManager();
             // TODO tell coordinator task ready restore.
             return null;
         }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,

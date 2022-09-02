@@ -44,6 +44,7 @@ import org.apache.seatunnel.engine.server.task.flow.SinkFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.TransformFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateQueue;
+import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import lombok.NonNull;
 
@@ -60,6 +61,8 @@ import java.util.concurrent.CompletableFuture;
 public abstract class SeaTunnelTask extends AbstractTask {
 
     private static final long serialVersionUID = 2604309561613784425L;
+
+    protected volatile SeaTunnelTaskState currState;
     private final Flow executionFlow;
 
     protected FlowLifeCycle startFlowLifeCycle;
@@ -82,16 +85,63 @@ public abstract class SeaTunnelTask extends AbstractTask {
         super(jobID, taskID);
         this.indexID = indexID;
         this.executionFlow = executionFlow;
+        this.currState = SeaTunnelTaskState.CREATED;
     }
 
     @Override
     public void init() throws Exception {
         super.init();
+        this.currState = SeaTunnelTaskState.INIT;
         flowFutures = new ArrayList<>();
         allCycles = new ArrayList<>();
         startFlowLifeCycle = convertFlowToActionLifeCycle(executionFlow);
         for (FlowLifeCycle cycle : allCycles) {
             cycle.init();
+        }
+        CompletableFuture.allOf(flowFutures.toArray(new CompletableFuture[0])).whenComplete((s, e) -> closeCalled = true);
+    }
+
+    protected void stateProcess() throws Exception {
+        switch (currState) {
+            case INIT:
+                reportReadyRestore();
+                currState = SeaTunnelTaskState.WAITING_RESTORE;
+                break;
+            case WAITING_RESTORE:
+                if (restoreComplete) {
+                    reportReadyStart();
+                    currState = SeaTunnelTaskState.READY_START;
+                }
+                break;
+            case READY_START:
+                if (startCalled) {
+                    currState = SeaTunnelTaskState.STARTING;
+                }
+                break;
+            case STARTING:
+                currState = SeaTunnelTaskState.RUNNING;
+                break;
+            case RUNNING:
+                collect();
+                if (prepareCloseStatus) {
+                    currState = SeaTunnelTaskState.PREPARE_CLOSE;
+                }
+                break;
+            case PREPARE_CLOSE:
+                if (closeCalled) {
+                    currState = SeaTunnelTaskState.CLOSED;
+                }
+                break;
+            case CLOSED:
+                this.close();
+                return;
+            // TODO support cancel by outside
+            case CANCELLING:
+                this.close();
+                currState = SeaTunnelTaskState.CANCELED;
+                return;
+            default:
+                throw new IllegalArgumentException("Unknown Enumerator State: " + currState);
         }
     }
 
@@ -115,16 +165,16 @@ public abstract class SeaTunnelTask extends AbstractTask {
             PhysicalExecutionFlow f = (PhysicalExecutionFlow) flow;
             if (f.getAction() instanceof SourceAction) {
                 lifeCycle = createSourceFlowLifeCycle((SourceAction<?, ?, ?>) f.getAction(),
-                        (SourceConfig) f.getConfig(), completableFuture);
+                    (SourceConfig) f.getConfig(), completableFuture);
                 outputs = flowLifeCycles;
             } else if (f.getAction() instanceof SinkAction) {
                 lifeCycle = new SinkFlowLifeCycle<>((SinkAction) f.getAction(), taskLocation, indexID, this,
-                        ((SinkConfig) f.getConfig()).getCommitterTask(),
-                        ((SinkConfig) f.getConfig()).isContainCommitter(), completableFuture);
+                    ((SinkConfig) f.getConfig()).getCommitterTask(),
+                    ((SinkConfig) f.getConfig()).isContainCommitter(), completableFuture);
             } else if (f.getAction() instanceof TransformChainAction) {
                 lifeCycle =
-                        new TransformFlowLifeCycle<SeaTunnelRow>((TransformChainAction) f.getAction(), this,
-                                new SeaTunnelTransformCollector(flowLifeCycles), completableFuture);
+                    new TransformFlowLifeCycle<SeaTunnelRow>((TransformChainAction) f.getAction(), this,
+                        new SeaTunnelTransformCollector(flowLifeCycles), completableFuture);
             } else if (f.getAction() instanceof PartitionTransformAction) {
                 // TODO use index and taskID to create ringbuffer list
                 if (executionFlow.getNext().isEmpty()) {
@@ -137,10 +187,10 @@ public abstract class SeaTunnelTask extends AbstractTask {
             }
         } else if (flow instanceof IntermediateExecutionFlow) {
             IntermediateQueueConfig config =
-                    ((IntermediateExecutionFlow<IntermediateQueueConfig>) flow).getConfig();
+                ((IntermediateExecutionFlow<IntermediateQueueConfig>) flow).getConfig();
             lifeCycle = new IntermediateQueueFlowLifeCycle(this, completableFuture,
-                    ((TaskGroupWithIntermediateQueue) taskBelongGroup)
-                            .getBlockingQueueCache(config.getQueueID()));
+                ((TaskGroupWithIntermediateQueue) taskBelongGroup)
+                    .getBlockingQueueCache(config.getQueueID()));
             outputs = flowLifeCycles;
         } else {
             throw new UnknownFlowException(flow);
@@ -153,11 +203,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                                                                            SourceConfig config,
                                                                            CompletableFuture<Void> completableFuture);
 
-    protected void checkDone() {
-        if (flowFutures.stream().allMatch(CompletableFuture::isDone)) {
-            progress.done();
-        }
-    }
+    protected abstract void collect() throws Exception;
 
     @Override
     public Set<URL> getJarsUrl() {

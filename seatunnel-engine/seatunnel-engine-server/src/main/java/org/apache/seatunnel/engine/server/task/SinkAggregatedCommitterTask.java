@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.task.statemachine.CommitterState;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
@@ -51,6 +52,8 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
 
     private static final ILogger LOGGER = Logger.getLogger(SinkAggregatedCommitterTask.class);
     private static final long serialVersionUID = 5906594537520393503L;
+
+    private CommitterState currState;
     private final SinkAction<?, ?, ?, AggregatedCommitInfoT> sink;
     private final int maxWriterSize;
 
@@ -78,6 +81,7 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
     @Override
     public void init() throws Exception {
         super.init();
+        currState = CommitterState.INIT;
         this.closeLock = new Object();
         this.alreadyReceivedCommitInfo = new ConcurrentHashMap<>();
         this.writerAddressMap = new ConcurrentHashMap<>();
@@ -107,10 +111,51 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
     @NonNull
     @Override
     public ProgressState call() throws Exception {
-        if (completableFuture.isDone()) {
-            completableFuture.get();
-        }
+        stateProcess();
         return progress.toState();
+    }
+
+    protected void stateProcess() throws Exception {
+        switch (currState) {
+            case INIT:
+                reportReadyRestore();
+                currState = CommitterState.WAITING_RESTORE;
+                break;
+            case WAITING_RESTORE:
+                if (restoreComplete) {
+                    reportReadyStart();
+                    currState = CommitterState.READY_START;
+                }
+                break;
+            case READY_START:
+                if (startCalled) {
+                    currState = CommitterState.STARTING;
+                }
+                break;
+            case STARTING:
+                currState = CommitterState.RUNNING;
+                break;
+            case RUNNING:
+                if (prepareCloseStatus) {
+                    currState = CommitterState.PREPARE_CLOSE;
+                }
+                break;
+            case PREPARE_CLOSE:
+                if (closeCalled) {
+                    currState = CommitterState.CLOSED;
+                }
+                break;
+            case CLOSED:
+                this.close();
+                return;
+            // TODO support cancel by outside
+            case CANCELLING:
+                this.close();
+                currState = CommitterState.CANCELED;
+                return;
+            default:
+                throw new IllegalArgumentException("Unknown Enumerator State: " + currState);
+        }
     }
 
     @Override

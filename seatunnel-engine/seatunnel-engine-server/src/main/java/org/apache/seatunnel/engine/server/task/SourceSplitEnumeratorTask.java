@@ -191,7 +191,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             case WAITING_READER_FEEDBACK:
                 if (readerFinish) {
                     prepareCloseAllReader();
-                    prepareClose();
+                    prepareCloseDone();
                     currState = EnumeratorState.PREPARE_CLOSE;
                 }
                 break;
@@ -227,7 +227,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             futures.add(this.getExecutionContext().sendToMember(function.apply(location), address)));
         futures.forEach(InvocationFuture::join);
     }
-
 
     @Override
     public Set<URL> getJarsUrl() {

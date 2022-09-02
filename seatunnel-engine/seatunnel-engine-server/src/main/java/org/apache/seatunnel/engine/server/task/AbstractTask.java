@@ -27,7 +27,6 @@ import org.apache.seatunnel.engine.server.task.operation.checkpoint.ReportReadyS
 
 import lombok.NonNull;
 
-import java.io.IOException;
 import java.net.URL;
 import java.util.Set;
 
@@ -40,6 +39,7 @@ public abstract class AbstractTask implements Task {
     protected volatile boolean restoreComplete;
     protected volatile boolean startCalled;
     protected volatile boolean closeCalled;
+    protected volatile boolean prepareCloseStatus;
 
     protected Progress progress;
 
@@ -50,6 +50,7 @@ public abstract class AbstractTask implements Task {
         this.restoreComplete = false;
         this.startCalled = false;
         this.closeCalled = false;
+        this.prepareCloseStatus = false;
     }
 
     public abstract Set<URL> getJarsUrl();
@@ -85,15 +86,16 @@ public abstract class AbstractTask implements Task {
     }
 
     protected void reportReadyRestore() {
-        getExecutionContext().sendToMaster(new ReportReadyRestoreOperation(jobID, taskLocation));
+        getExecutionContext().sendToMaster(new ReportReadyRestoreOperation(jobID, taskLocation)).join();
     }
 
     protected void reportReadyStart() {
-        getExecutionContext().sendToMaster(new ReportReadyStartOperation(jobID, taskLocation));
+        getExecutionContext().sendToMaster(new ReportReadyStartOperation(jobID, taskLocation)).join();
     }
 
-    public void prepareClose() throws IOException {
-        getExecutionContext().sendToMaster(new PrepareCloseDoneOperation(jobID, taskLocation));
+    public void prepareCloseDone() {
+        prepareCloseStatus = true;
+        getExecutionContext().sendToMaster(new PrepareCloseDoneOperation(jobID, taskLocation)).join();
     }
 
     protected void restoreState() {
