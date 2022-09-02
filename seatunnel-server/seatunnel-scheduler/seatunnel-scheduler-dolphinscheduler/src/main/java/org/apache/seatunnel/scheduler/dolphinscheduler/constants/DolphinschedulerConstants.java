@@ -168,6 +168,9 @@ public class DolphinschedulerConstants {
     public static final String EXEC_TYPE_COMPLEMENT = "COMPLEMENT_DATA";
     public static final String DEPENDENT_MODE_DEFAULT = "OFF_MODE";
 
+    public static final long MAX_WAITING_TIMES_DEFAULT = 10;
+    public static final long WAITING_SLEEP_TIME_DEFAULT = 10;
+
     /**
      * response param
      */

@@ -76,8 +76,8 @@ public class JobServiceImpl implements IJobService {
         this.instanceService = instanceService;
     }
 
-    private long maxWaitingTimes = 10;
-    private long waitingSleepTime = 100;
+    private long maxWaitingTimes = MAX_WAITING_TIMES_DEFAULT;
+    private long waitingSleepTime = WAITING_SLEEP_TIME_DEFAULT;
 
     @Override
     public long submitJob(JobDto dto) {
