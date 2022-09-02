@@ -17,14 +17,20 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 public class AbstractFlowLifeCycle implements FlowLifeCycle {
 
-    private final CompletableFuture<Void> completableFuture;
+    protected final SeaTunnelTask runningTask;
 
-    public AbstractFlowLifeCycle(CompletableFuture<Void> completableFuture) {
+    protected final CompletableFuture<Void> completableFuture;
+
+    public AbstractFlowLifeCycle(SeaTunnelTask runningTask,
+                                 CompletableFuture<Void> completableFuture) {
+        this.runningTask = runningTask;
         this.completableFuture = completableFuture;
     }
 

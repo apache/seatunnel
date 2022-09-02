@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import static org.apache.seatunnel.engine.server.utils.ExceptionUtil.sneakyThrow;
+
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
@@ -26,6 +30,7 @@ import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.flow.OneOutputFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
+import org.apache.seatunnel.engine.server.utils.ConsumerWithException;
 
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
@@ -66,5 +71,33 @@ public class TransformSeaTunnelTask extends SeaTunnelTask {
         ((OneOutputFlowLifeCycle<Record<?>>) startFlowLifeCycle).collect(collector);
         checkDone();
         return progress.toState();
+    }
+
+    @Override
+    public void triggerCheckpoint(CheckpointBarrier checkpointBarrier) throws Exception {
+        // nothing
+    }
+
+    @Override
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+        notifyAllAction(listener -> listener.notifyCheckpointComplete(checkpointId));
+    }
+
+    @Override
+    public void notifyCheckpointAborted(long checkpointId) throws Exception {
+        notifyAllAction(listener -> listener.notifyCheckpointAborted(checkpointId));
+    }
+
+    public void notifyAllAction(ConsumerWithException<InternalCheckpointListener> consumer){
+        allCycles.stream()
+            .filter(cycle -> cycle instanceof InternalCheckpointListener)
+            .map(cycle -> (InternalCheckpointListener) cycle)
+            .forEach(listener -> {
+                try {
+                    consumer.accept(listener);
+                } catch (Exception e) {
+                    sneakyThrow(e);
+                }
+            });
     }
 }

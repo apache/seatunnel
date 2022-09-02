@@ -36,15 +36,15 @@ public abstract class AbstractTask implements Task {
 
     protected TaskExecutionContext executionContext;
     protected final long jobID;
-    protected final TaskLocation taskID;
+    protected final TaskLocation taskLocation;
     protected volatile boolean restoreComplete;
     protected volatile boolean startCalled;
     protected volatile boolean closeCalled;
 
     protected Progress progress;
 
-    public AbstractTask(long jobID, TaskLocation taskID) {
-        this.taskID = taskID;
+    public AbstractTask(long jobID, TaskLocation taskLocation) {
+        this.taskLocation = taskLocation;
         this.jobID = jobID;
         this.progress = new Progress();
         this.restoreComplete = false;
@@ -74,22 +74,26 @@ public abstract class AbstractTask implements Task {
         return progress.toState();
     }
 
+    public TaskLocation getTaskLocation() {
+        return this.taskLocation;
+    }
+
     @NonNull
     @Override
     public Long getTaskID() {
-        return taskID.getTaskID();
+        return taskLocation.getTaskID();
     }
 
     protected void reportReadyRestore() {
-        getExecutionContext().sendToMaster(new ReportReadyRestoreOperation(jobID, taskID));
+        getExecutionContext().sendToMaster(new ReportReadyRestoreOperation(jobID, taskLocation));
     }
 
     protected void reportReadyStart() {
-        getExecutionContext().sendToMaster(new ReportReadyStartOperation(jobID, taskID));
+        getExecutionContext().sendToMaster(new ReportReadyStartOperation(jobID, taskLocation));
     }
 
     public void prepareClose() throws IOException {
-        getExecutionContext().sendToMaster(new PrepareCloseDoneOperation(jobID, taskID));
+        getExecutionContext().sendToMaster(new PrepareCloseDoneOperation(jobID, taskLocation));
     }
 
     protected void restoreState() {

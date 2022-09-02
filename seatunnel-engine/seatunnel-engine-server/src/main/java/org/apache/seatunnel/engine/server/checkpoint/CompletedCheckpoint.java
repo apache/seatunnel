@@ -26,7 +26,7 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
     private static final long serialVersionUID = 1L;
     private final long jobId;
 
-    private final long pipelineId;
+    private final int pipelineId;
 
     private final long checkpointId;
 
@@ -34,20 +34,24 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
 
     private final long completedTimestamp;
 
-    private final Map<Long, TaskState> taskStates;
+    private final Map<Long, ActionState> taskStates;
+
+    private final Map<Long, TaskStatistics> taskStatistics;
 
     public CompletedCheckpoint(long jobId,
-                             long pipelineId,
-                             long checkpointId,
-                             long triggerTimestamp,
-                             long completedTimestamp,
-                             Map<Long, TaskState> taskStates) {
+                               int pipelineId,
+                               long checkpointId,
+                               long triggerTimestamp,
+                               long completedTimestamp,
+                               Map<Long, ActionState> taskStates,
+                               Map<Long, TaskStatistics> taskStatistics) {
         this.jobId = jobId;
         this.pipelineId = pipelineId;
         this.checkpointId = checkpointId;
         this.triggerTimestamp = triggerTimestamp;
         this.completedTimestamp = completedTimestamp;
         this.taskStates = taskStates;
+        this.taskStatistics = taskStatistics;
     }
 
     @Override
@@ -56,7 +60,7 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
     }
 
     @Override
-    public long getPipelineId() {
+    public int getPipelineId() {
         return this.pipelineId;
     }
 
@@ -68,5 +72,17 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
     @Override
     public long getCheckpointTimestamp() {
         return this.triggerTimestamp;
+    }
+
+    public long getCompletedTimestamp() {
+        return completedTimestamp;
+    }
+
+    public Map<Long, ActionState> getTaskStates() {
+        return taskStates;
+    }
+
+    public Map<Long, TaskStatistics> getTaskStatistics() {
+        return taskStatistics;
     }
 }

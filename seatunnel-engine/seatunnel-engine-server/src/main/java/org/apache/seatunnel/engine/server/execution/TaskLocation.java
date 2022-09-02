@@ -36,21 +36,44 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
     public TaskLocation() {
     }
 
-    public TaskLocation(TaskGroupLocation taskGroupLocation, long taskID) {
+    public TaskLocation(TaskGroupLocation taskGroupLocation, long idPrefix, int index) {
         this.taskGroupLocation = taskGroupLocation;
-        this.taskID = taskID;
+        this.taskID = mixIDPrefixAndIndex(idPrefix, index);
+    }
+
+    @SuppressWarnings("checkstyle:MagicNumber")
+    private long mixIDPrefixAndIndex(long idPrefix, int index) {
+        return idPrefix * 10000 + index;
     }
 
     public TaskGroupLocation getTaskGroupLocation() {
         return taskGroupLocation;
     }
 
-    public void setTaskGroupLocation(TaskGroupLocation taskGroupLocation) {
-        this.taskGroupLocation = taskGroupLocation;
+    public long getJobId() {
+        return taskGroupLocation.getJobId();
+    }
+
+    public int getPipelineId() {
+        return taskGroupLocation.getPipelineId();
     }
 
     public long getTaskID() {
         return taskID;
+    }
+
+    @SuppressWarnings("checkstyle:MagicNumber")
+    public long getTaskVertexId() {
+        return taskID / 10000;
+    }
+
+    @SuppressWarnings("checkstyle:MagicNumber")
+    public int getTaskIndex() {
+        return (int) (taskID % 10000);
+    }
+
+    public void setTaskGroupLocation(TaskGroupLocation taskGroupLocation) {
+        this.taskGroupLocation = taskGroupLocation;
     }
 
     public void setTaskID(long taskID) {

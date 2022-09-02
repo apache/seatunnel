@@ -24,8 +24,10 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorConfiguration;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointStorageConfiguration;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
@@ -42,6 +44,7 @@ import com.hazelcast.spi.impl.NodeEngine;
 import lombok.NonNull;
 import org.apache.commons.collections4.CollectionUtils;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
@@ -93,13 +96,20 @@ public class JobMaster implements Runnable {
         } else {
             this.logicalDag = nodeEngine.getSerializationService().toObject(jobImmutableInformation.getLogicalDag());
         }
-        final Tuple2<PhysicalPlan, CheckpointPlan> planTuple = PlanUtils.fromLogicalDAG(logicalDag,
+        final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple = PlanUtils.fromLogicalDAG(logicalDag,
             nodeEngine,
             jobImmutableInformation,
             System.currentTimeMillis(),
             executorService,
             flakeIdGenerator);
-        physicalPlan = planTuple.f0();
+        this.physicalPlan = planTuple.f0();
+        this.checkpointManager = new CheckpointManager(
+            jobImmutableInformation.getJobId(),
+            nodeEngine,
+            planTuple.f1(),
+            // TODO: checkpoint config
+            CheckpointCoordinatorConfiguration.builder().build(),
+            CheckpointStorageConfiguration.builder().build());
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")

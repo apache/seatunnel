@@ -23,14 +23,10 @@ import org.apache.seatunnel.engine.server.task.Progress;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
 import org.apache.seatunnel.engine.server.task.operation.DeployTaskOperation;
-import org.apache.seatunnel.engine.server.task.operation.checkpoint.CloseRequestOperation;
-import org.apache.seatunnel.engine.server.task.operation.checkpoint.PrepareCloseDoneOperation;
-import org.apache.seatunnel.engine.server.task.operation.checkpoint.ReportReadyRestoreOperation;
-import org.apache.seatunnel.engine.server.task.operation.checkpoint.ReportReadyStartOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkUnregisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
-import org.apache.seatunnel.engine.server.task.operation.source.PrepareCloseOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.CloseRequestOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceNoMoreElementOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
@@ -56,23 +52,25 @@ public class TaskDataSerializerHook implements DataSerializerHook {
 
     public static final int SINK_REGISTER_TYPE = 7;
 
-    public static final int TASK_LOCATION_TYPE = 8;
+    public static final int SINK_PREPARE_COMMIT_TYPE = 8;
 
-    public static final int PROGRESS_TYPE = 9;
+    public static final int TASK_LOCATION_TYPE = 9;
 
-    public static final int CLOSE_REQUEST_TYPE = 10;
+    public static final int PROGRESS_TYPE = 10;
 
-    public static final int DEPLOY_TASK_OPERATOR = 11;
+    public static final int CLOSE_REQUEST_TYPE = 11;
 
-    public static final int CANCEL_TASK_OPERATOR = 12;
+    public static final int DEPLOY_TASK_OPERATOR = 12;
 
-    public static final int REPORT_READY_RESTORE_TYPE = 13;
+    public static final int CANCEL_TASK_OPERATOR = 13;
 
-    public static final int REPORT_READY_START_TYPE = 14;
+    public static final int REPORT_READY_RESTORE_TYPE = 14;
 
-    public static final int PREPARE_CLOSE_TYPE = 15;
+    public static final int REPORT_READY_START_TYPE = 15;
 
-    public static final int PREPARE_CLOSE_DONE_TYPE = 16;
+    public static final int PREPARE_CLOSE_TYPE = 16;
+
+    public static final int PREPARE_CLOSE_DONE_TYPE = 17;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -108,6 +106,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new SinkRegisterOperation();
                 case SINK_UNREGISTER_TYPE:
                     return new SinkUnregisterOperation();
+                case SINK_PREPARE_COMMIT_TYPE:
+                    return new SinkPrepareCommitOperation();
                 case TASK_LOCATION_TYPE:
                     return new TaskLocation();
                 case PROGRESS_TYPE:
