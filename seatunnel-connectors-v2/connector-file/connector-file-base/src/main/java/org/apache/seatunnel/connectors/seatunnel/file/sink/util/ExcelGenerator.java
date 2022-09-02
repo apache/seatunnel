@@ -45,12 +45,13 @@ public class ExcelGenerator {
     private int row = 0;
     private List<Integer> sinkColumnsIndexInRow;
     private SeaTunnelRowType seaTunnelRowType;
+    private Sheet st;
 
     public ExcelGenerator(List<Integer> sinkColumnsIndexInRow, SeaTunnelRowType seaTunnelRowType) {
         this.sinkColumnsIndexInRow = sinkColumnsIndexInRow;
         this.seaTunnelRowType = seaTunnelRowType;
         wb = new XSSFWorkbook();
-        Sheet st = wb.createSheet("Sheet1");
+        this.st = wb.createSheet("Sheet1");
         Row row = st.createRow(this.row);
         for (Integer i : sinkColumnsIndexInRow) {
             String fieldName = seaTunnelRowType.getFieldName(i);
@@ -63,8 +64,7 @@ public class ExcelGenerator {
     }
 
     public void writeData(SeaTunnelRow seaTunnelRow) {
-        Sheet st = wb.getSheet("Sheet1");
-        Row excelRow = st.createRow(this.row);
+        Row excelRow = this.st.createRow(this.row);
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         for (Integer i : sinkColumnsIndexInRow) {
             Cell cell = excelRow.createCell(i);
