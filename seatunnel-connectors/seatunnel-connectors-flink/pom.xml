@@ -87,6 +87,7 @@
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-table-common</artifactId>
                 <version>${flink.1.13.6.version}</version>
+                <scope>${flink.scope}</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
