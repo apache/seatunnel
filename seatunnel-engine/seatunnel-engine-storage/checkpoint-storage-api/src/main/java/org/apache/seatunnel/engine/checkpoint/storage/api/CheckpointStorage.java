@@ -95,4 +95,12 @@ public interface CheckpointStorage {
      */
     void deleteCheckpoint(String jobId);
 
+    /**
+     * Delete the checkpoint data.
+     *
+     * @param jobId job id
+     * @param pipelineId pipeline id
+     * @param checkpointId checkpoint id
+     */
+    void deleteCheckpoint(String jobId, String pipelineId, String checkpointId) throws CheckpointStorageException;
 }

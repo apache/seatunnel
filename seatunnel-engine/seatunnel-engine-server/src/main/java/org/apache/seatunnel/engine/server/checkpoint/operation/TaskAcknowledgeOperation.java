@@ -15,56 +15,64 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.operation;
+package org.apache.seatunnel.engine.server.checkpoint.operation;
 
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import com.hazelcast.spi.impl.operationservice.Operation;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
 import java.io.IOException;
+import java.util.List;
 
-public class CheckpointFinishedOperation extends AsyncOperation {
-    private long jobId;
-
-    private long pipelineId;
-
+@Getter
+@AllArgsConstructor
+public class TaskAcknowledgeOperation extends Operation implements IdentifiedDataSerializable {
     private long checkpointId;
 
-    public CheckpointFinishedOperation() {
+    private TaskLocation taskLocation;
+
+    private List<ActionSubtaskState> states;
+
+    public TaskAcknowledgeOperation() {
     }
 
-    public CheckpointFinishedOperation(long jobId,
-                                       long pipelineId,
-                                       long checkpointId) {
-        this.jobId = jobId;
-        this.pipelineId = pipelineId;
-        this.checkpointId = checkpointId;
+    @Override
+    public int getFactoryId() {
+        return OperationDataSerializerHook.FACTORY_ID;
     }
 
     @Override
     public int getClassId() {
-        return OperationDataSerializerHook.CHECKPOINT_FINISHED_OPERATOR;
+        return OperationDataSerializerHook.CHECKPOINT_ACK_OPERATOR;
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        out.writeLong(jobId);
-        out.writeLong(pipelineId);
         out.writeLong(checkpointId);
+        out.writeObject(taskLocation);
+        out.writeObject(states);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        jobId = in.readLong();
-        pipelineId = in.readLong();
         checkpointId = in.readLong();
+        taskLocation = in.readObject(TaskLocation.class);
+        states = in.readObject();
     }
 
     @Override
-    protected PassiveCompletableFuture<?> doRun() throws Exception {
-        // TODO: Notifies all tasks of the pipeline about the status of the checkpoint
-        return null;
+    public void run() {
+        ((SeaTunnelServer) getService())
+            .getJobMaster(taskLocation.getJobId())
+            .getCheckpointManager()
+            .acknowledgeTask(this, getCallerAddress());
     }
 }

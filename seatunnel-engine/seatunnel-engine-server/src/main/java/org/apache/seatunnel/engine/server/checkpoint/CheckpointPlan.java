@@ -17,9 +17,79 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
+
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
 /**
- * plan info
+ * checkpoint plan info
  */
+@Getter
+@Builder(builderClassName = "Builder")
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class CheckpointPlan {
 
+    private final int pipelineId;
+
+    /**
+     * All task locations of the pipeline.
+     */
+    private final Set<TaskLocation> pipelineSubtasks;
+
+    /**
+     * All starting task of a pipeline.
+     */
+    private final Set<TaskLocation> startingSubtasks;
+
+    /**
+     * Restored task state.
+     * <br> key: job vertex id;
+     * <br> value: job vertex state;
+     */
+    private final Map<Long, ActionState> restoredTaskState;
+
+    /**
+     * All actions in this pipeline.
+     * <br> key: the action id;
+     * <br> value: the parallelism of the action;
+     */
+    private final Map<Long, Integer> pipelineActions;
+
+    public static final class Builder {
+        private final Set<TaskLocation> pipelineSubtasks = new HashSet<>();
+        private final Set<TaskLocation> startingSubtasks = new HashSet<>();
+        private final Map<Long, ActionState> restoredTaskState = new HashMap<>();
+        private final Map<Long, Integer> pipelineActions = new HashMap<>();
+
+        private Builder() {
+        }
+
+        public Builder pipelineSubtasks(Set<TaskLocation> pipelineTaskIds) {
+            this.pipelineSubtasks.addAll(pipelineTaskIds);
+            return this;
+        }
+
+        public Builder startingSubtasks(Set<TaskLocation> startingVertices) {
+            this.startingSubtasks.addAll(startingVertices);
+            return this;
+        }
+
+        public Builder restoredTaskState(Map<Long, ActionState> restoredTaskState) {
+            this.restoredTaskState.putAll(restoredTaskState);
+            return this;
+        }
+
+        public Builder pipelineActions(Map<Long, Integer> pipelineActions) {
+            this.pipelineActions.putAll(pipelineActions);
+            return this;
+        }
+    }
 }

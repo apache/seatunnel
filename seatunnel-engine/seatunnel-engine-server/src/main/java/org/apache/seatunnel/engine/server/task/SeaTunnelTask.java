@@ -24,6 +24,8 @@ import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
 import org.apache.seatunnel.engine.core.dag.actions.UnknownActionException;
+import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
+import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.dag.physical.config.IntermediateQueueConfig;
 import org.apache.seatunnel.engine.server.dag.physical.config.SinkConfig;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
@@ -48,8 +50,10 @@ import lombok.NonNull;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -60,11 +64,15 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     protected FlowLifeCycle startFlowLifeCycle;
 
-    private List<FlowLifeCycle> allCycles;
+    protected List<FlowLifeCycle> allCycles;
 
     protected List<OneInputFlowLifeCycle<Record<?>>> outputs;
 
     protected List<CompletableFuture<Void>> flowFutures;
+
+    protected final Map<Long, List<ActionSubtaskState>> checkpointStates = new HashMap<>();
+
+    private final Map<Long, Integer> cycleAcks = new HashMap<>();
 
     protected int indexID;
 
@@ -110,19 +118,19 @@ public abstract class SeaTunnelTask extends AbstractTask {
                         (SourceConfig) f.getConfig(), completableFuture);
                 outputs = flowLifeCycles;
             } else if (f.getAction() instanceof SinkAction) {
-                lifeCycle = new SinkFlowLifeCycle<>((SinkAction) f.getAction(), taskID, indexID, this,
+                lifeCycle = new SinkFlowLifeCycle<>((SinkAction) f.getAction(), taskLocation, indexID, this,
                         ((SinkConfig) f.getConfig()).getCommitterTask(),
                         ((SinkConfig) f.getConfig()).isContainCommitter(), completableFuture);
             } else if (f.getAction() instanceof TransformChainAction) {
                 lifeCycle =
-                        new TransformFlowLifeCycle<SeaTunnelRow>(((TransformChainAction) f.getAction()).getTransforms(),
+                        new TransformFlowLifeCycle<SeaTunnelRow>((TransformChainAction) f.getAction(), this,
                                 new SeaTunnelTransformCollector(flowLifeCycles), completableFuture);
             } else if (f.getAction() instanceof PartitionTransformAction) {
                 // TODO use index and taskID to create ringbuffer list
                 if (executionFlow.getNext().isEmpty()) {
-                    lifeCycle = new PartitionTransformSinkFlowLifeCycle(completableFuture);
+                    lifeCycle = new PartitionTransformSinkFlowLifeCycle(this, completableFuture);
                 } else {
-                    lifeCycle = new PartitionTransformSourceFlowLifeCycle(completableFuture);
+                    lifeCycle = new PartitionTransformSourceFlowLifeCycle(this, completableFuture);
                 }
             } else {
                 throw new UnknownActionException(f.getAction());
@@ -130,7 +138,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
         } else if (flow instanceof IntermediateExecutionFlow) {
             IntermediateQueueConfig config =
                     ((IntermediateExecutionFlow<IntermediateQueueConfig>) flow).getConfig();
-            lifeCycle = new IntermediateQueueFlowLifeCycle(completableFuture,
+            lifeCycle = new IntermediateQueueFlowLifeCycle(this, completableFuture,
                     ((TaskGroupWithIntermediateQueue) taskBelongGroup)
                             .getBlockingQueueCache(config.getQueueID()));
             outputs = flowLifeCycles;
@@ -167,5 +175,18 @@ public abstract class SeaTunnelTask extends AbstractTask {
             now = next;
         }
         return urls;
+    }
+
+    public void ack(long checkpointId) {
+        cycleAcks.compute(checkpointId, (id, count) -> count == null ? 1 : ++count);
+    }
+
+    public void addState(long checkpointId, long actionId, byte[] state) {
+        List<ActionSubtaskState> states = checkpointStates.computeIfAbsent(checkpointId, id -> new ArrayList<>());
+        states.add(new ActionSubtaskState(actionId, indexID, state));
+        if (cycleAcks.size() == allCycles.size()) {
+            this.getExecutionContext().sendToMaster(
+                new TaskAcknowledgeOperation(checkpointId, this.taskLocation, states));
+        }
     }
 }
