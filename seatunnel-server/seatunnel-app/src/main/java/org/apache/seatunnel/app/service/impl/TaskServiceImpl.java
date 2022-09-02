@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.app.service.impl;
 
+import static org.apache.seatunnel.scheduler.api.constants.SchedulerConstant.NEVER_TRIGGER_EXPRESSION;
+import static org.apache.seatunnel.scheduler.api.constants.SchedulerConstant.RETRY_INTERVAL_DEFAULT;
+import static org.apache.seatunnel.scheduler.api.constants.SchedulerConstant.RETRY_TIMES_DEFAULT;
 import static org.apache.seatunnel.server.common.Constants.UNDERLINE;
 import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.NO_SUCH_SCRIPT;
 import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.SCHEDULER_CONFIG_NOT_EXIST;
-import static org.apache.seatunnel.spi.scheduler.constants.SchedulerConstant.NEVER_TRIGGER_EXPRESSION;
-import static org.apache.seatunnel.spi.scheduler.constants.SchedulerConstant.RETRY_INTERVAL_DEFAULT;
-import static org.apache.seatunnel.spi.scheduler.constants.SchedulerConstant.RETRY_TIMES_DEFAULT;
 
 import org.apache.seatunnel.app.dal.dao.ISchedulerConfigDao;
 import org.apache.seatunnel.app.dal.dao.IScriptDao;
@@ -42,18 +42,18 @@ import org.apache.seatunnel.app.domain.response.PageInfo;
 import org.apache.seatunnel.app.domain.response.task.InstanceSimpleInfoRes;
 import org.apache.seatunnel.app.domain.response.task.JobSimpleInfoRes;
 import org.apache.seatunnel.app.service.ITaskService;
+import org.apache.seatunnel.scheduler.api.IInstanceService;
+import org.apache.seatunnel.scheduler.api.IJobService;
+import org.apache.seatunnel.scheduler.api.dto.ExecuteDto;
+import org.apache.seatunnel.scheduler.api.dto.InstanceDto;
+import org.apache.seatunnel.scheduler.api.dto.InstanceListDto;
+import org.apache.seatunnel.scheduler.api.dto.JobDto;
+import org.apache.seatunnel.scheduler.api.dto.JobListDto;
+import org.apache.seatunnel.scheduler.api.dto.JobSimpleInfoDto;
+import org.apache.seatunnel.scheduler.api.dto.SchedulerConfigDto;
+import org.apache.seatunnel.scheduler.api.enums.ExecuteTypeEnum;
 import org.apache.seatunnel.server.common.PageData;
 import org.apache.seatunnel.server.common.SeatunnelException;
-import org.apache.seatunnel.spi.scheduler.IInstanceService;
-import org.apache.seatunnel.spi.scheduler.IJobService;
-import org.apache.seatunnel.spi.scheduler.dto.ExecuteDto;
-import org.apache.seatunnel.spi.scheduler.dto.InstanceDto;
-import org.apache.seatunnel.spi.scheduler.dto.InstanceListDto;
-import org.apache.seatunnel.spi.scheduler.dto.JobDto;
-import org.apache.seatunnel.spi.scheduler.dto.JobListDto;
-import org.apache.seatunnel.spi.scheduler.dto.JobSimpleInfoDto;
-import org.apache.seatunnel.spi.scheduler.dto.SchedulerConfigDto;
-import org.apache.seatunnel.spi.scheduler.enums.ExecuteTypeEnum;
 
 import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
