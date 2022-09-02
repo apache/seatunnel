@@ -27,7 +27,6 @@
     <packaging>pom</packaging>
     <modules>
         <module>seatunnel-app</module>
-        <module>seatunnel-spi</module>
         <module>seatunnel-scheduler</module>
         <module>seatunnel-server-common</module>
     </modules>
