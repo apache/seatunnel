@@ -20,26 +20,25 @@ package org.apache.seatunnel.engine.server.task.statemachine;
 import java.io.Serializable;
 
 /**
- * The state of {@link  org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask},
- * The task usually start in the state {@code CREATED} and switch states according to this diagram:
+ * The state of {@link  org.apache.seatunnel.engine.server.task.SeaTunnelTask},
+ * The task usually startCall in the state {@code CREATED} and switch states according to this diagram:
  * <p>
- * CREATED -> INIT  -> WAITING_RESTORE -> READY_START -> READER_REGISTER_COMPLETE  -> ASSIGN -> WAITING_FEEDBACK -> PREPARE_CLOSE -> CLOSED
- * |        |          |                          |              |                       |              |
- * |        |          |                          |              |                       |              |
- * |        |          |                          |              |                       |              |
- * |        |          |                          |              |                       |              |
- * +--------+----------+--------------------------+--------------+-----------------------+--------------+> CANCELLING ----> CANCELED
+ * CREATED -> INIT  -> WAITING_RESTORE -> READY_START -> STARTING  -> RUNNING -> CHECKPOINT -> PREPARE_CLOSE -> CLOSED
+ * |        |          |                          |            |         ^             |              |
+ * |        |          |                          |            |         |             |              |
+ * |        |          |                          |            |         --------------|              |
+ * |        |          |                          |            |                       |              |
+ * +--------+----------+--------------------------+------------+-----------------------+--------------+> CANCELLING ----> CANCELED
  * ... -> FAILED
  */
-public enum EnumeratorState implements Serializable {
+public enum SeaTunnelTaskState implements Serializable {
     CREATED,
     INIT,
     WAITING_RESTORE,
     READY_START,
     STARTING,
-    READER_REGISTER_COMPLETE,
-    ASSIGN,
-    WAITING_READER_FEEDBACK,
+    RUNNING,
+    CHECKPOINT,
     PREPARE_CLOSE,
     CLOSED,
     CANCELLING,

@@ -31,14 +31,14 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class CloseRequestOperation extends Operation implements IdentifiedDataSerializable {
+public class PrepareCloseOperation extends Operation implements IdentifiedDataSerializable {
 
     private TaskLocation readerLocation;
 
-    public CloseRequestOperation() {
+    public PrepareCloseOperation() {
     }
 
-    public CloseRequestOperation(TaskLocation readerLocation) {
+    public PrepareCloseOperation(TaskLocation readerLocation) {
         this.readerLocation = readerLocation;
     }
 
@@ -47,7 +47,7 @@ public class CloseRequestOperation extends Operation implements IdentifiedDataSe
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(() -> {
             SourceSeaTunnelTask<?, ?> task = server.getTaskExecutionService().getTask(readerLocation);
-            task.close();
+            task.prepareClose();
             return null;
         }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
             exception -> exception instanceof NullPointerException, Constant.OPERATION_RETRY_SLEEP));
@@ -77,6 +77,6 @@ public class CloseRequestOperation extends Operation implements IdentifiedDataSe
 
     @Override
     public int getClassId() {
-        return TaskDataSerializerHook.CLOSE_REQUEST_TYPE;
+        return TaskDataSerializerHook.PREPARE_CLOSE_TYPE;
     }
 }

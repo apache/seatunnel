@@ -23,7 +23,7 @@ import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.context.SeaTunnelSplitEnumeratorContext;
-import org.apache.seatunnel.engine.server.task.operation.source.CloseRequestOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.PrepareCloseOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.EnumeratorState;
 
 import com.hazelcast.cluster.Address;
@@ -39,7 +39,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.stream.Collectors;
@@ -59,15 +58,15 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     private volatile EnumeratorState currState;
 
-    private CompletableFuture<Void> readerRegisterFuture;
-    private CompletableFuture<Void> readerFinishFuture;
+    private volatile boolean readerRegisterComplete;
+    private volatile boolean readerFinish;
 
     @Override
     public void init() throws Exception {
         currState = EnumeratorState.INIT;
         super.init();
-        readerRegisterFuture = new CompletableFuture<>();
-        readerFinishFuture = new CompletableFuture<>();
+        readerRegisterComplete = false;
+        readerFinish = false;
         LOGGER.info("starting seatunnel source split enumerator task, source name: " + source.getName());
         SeaTunnelSplitEnumeratorContext<SplitT> context = new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this);
         enumerator = this.source.getSource().createEnumerator(context);
@@ -104,7 +103,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         this.addTaskMemberMapping(readerId, memberAddr);
         enumerator.registerReader((int) readerId.getTaskID());
         if (maxReaderSize == taskMemberMapping.size()) {
-            readerRegisterFuture.complete(null);
+            readerRegisterComplete = true;
         }
     }
 
@@ -128,15 +127,29 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     public void readerFinished(long taskID) {
         unfinishedReaders.remove(taskID);
         if (unfinishedReaders.isEmpty()) {
-            readerFinishFuture.complete(null);
+            readerFinish = true;
         }
     }
 
     private void stateProcess() throws Exception {
         switch (currState) {
             case INIT:
-                if (readerRegisterFuture.isDone()) {
-                    readerRegisterFuture.get();
+                reportReadyRestore();
+                currState = EnumeratorState.WAITING_RESTORE;
+                break;
+            case WAITING_RESTORE:
+                if (restoreComplete) {
+                    reportReadyStart();
+                    currState = EnumeratorState.READY_START;
+                }
+                break;
+            case READY_START:
+                if (startCalled) {
+                    currState = EnumeratorState.STARTING;
+                }
+                break;
+            case STARTING:
+                if (readerRegisterComplete) {
                     currState = EnumeratorState.READER_REGISTER_COMPLETE;
                 }
                 break;
@@ -146,17 +159,19 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 enumerator.run();
                 break;
             case ASSIGN:
-                currState = EnumeratorState.WAITING_FEEDBACK;
+                currState = EnumeratorState.WAITING_READER_FEEDBACK;
                 break;
-            case WAITING_FEEDBACK:
-                if (readerFinishFuture.isDone()) {
-                    readerFinishFuture.get();
-                    currState = EnumeratorState.READER_CLOSED;
+            case WAITING_READER_FEEDBACK:
+                if (readerFinish) {
+                    prepareCloseAllReader();
+                    prepareClose();
+                    currState = EnumeratorState.PREPARE_CLOSE;
                 }
                 break;
-            case READER_CLOSED:
-                closeAllReader();
-                currState = EnumeratorState.CLOSED;
+            case PREPARE_CLOSE:
+                if (closeCalled) {
+                    currState = EnumeratorState.CLOSED;
+                }
                 break;
             case CLOSED:
                 this.close();
@@ -175,10 +190,10 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         return taskMemberMapping.keySet().stream().map(TaskLocation::getTaskID).collect(Collectors.toSet());
     }
 
-    private void closeAllReader() {
+    private void prepareCloseAllReader() {
         List<InvocationFuture<?>> futures = new ArrayList<>();
         taskMemberMapping.forEach((location, address) -> {
-            futures.add(this.getExecutionContext().sendToMember(new CloseRequestOperation(location),
+            futures.add(this.getExecutionContext().sendToMember(new PrepareCloseOperation(location),
                     address));
         });
         futures.forEach(InvocationFuture::join);

@@ -21,9 +21,13 @@ import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.task.operation.checkpoint.PrepareCloseDoneOperation;
+import org.apache.seatunnel.engine.server.task.operation.checkpoint.ReportReadyRestoreOperation;
+import org.apache.seatunnel.engine.server.task.operation.checkpoint.ReportReadyStartOperation;
 
 import lombok.NonNull;
 
+import java.io.IOException;
 import java.net.URL;
 import java.util.Set;
 
@@ -33,6 +37,9 @@ public abstract class AbstractTask implements Task {
     protected TaskExecutionContext executionContext;
     protected final long jobID;
     protected final TaskLocation taskID;
+    protected volatile boolean restoreComplete;
+    protected volatile boolean startCalled;
+    protected volatile boolean closeCalled;
 
     protected Progress progress;
 
@@ -40,6 +47,9 @@ public abstract class AbstractTask implements Task {
         this.taskID = taskID;
         this.jobID = jobID;
         this.progress = new Progress();
+        this.restoreComplete = false;
+        this.startCalled = false;
+        this.closeCalled = false;
     }
 
     public abstract Set<URL> getJarsUrl();
@@ -68,5 +78,30 @@ public abstract class AbstractTask implements Task {
     @Override
     public Long getTaskID() {
         return taskID.getTaskID();
+    }
+
+    protected void reportReadyRestore() {
+        getExecutionContext().sendToMaster(new ReportReadyRestoreOperation(jobID, taskID));
+    }
+
+    protected void reportReadyStart() {
+        getExecutionContext().sendToMaster(new ReportReadyStartOperation(jobID, taskID));
+    }
+
+    public void prepareClose() throws IOException {
+        getExecutionContext().sendToMaster(new PrepareCloseDoneOperation(jobID, taskID));
+    }
+
+    protected void restoreState() {
+        // TODO add restore state logic
+        restoreComplete = true;
+    }
+
+    public void startCall() {
+        startCalled = true;
+    }
+
+    public void closeCall() {
+        closeCalled = true;
     }
 }
