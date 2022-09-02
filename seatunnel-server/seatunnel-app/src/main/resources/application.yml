@@ -23,12 +23,30 @@ spring:
     url: jdbc:mysql://127.0.0.1:3306/seatunnel?useSSL=false&useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true
     username: root
     password: 123456
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+ds:
+  script:
+    dir: /dj
+  project:
+    default: test_dj
+  tenant:
+    default: default
+  api:
+    token: 12345678
+    prefix: http://127.0.0.1:12345/dolphinscheduler
+
+jwt:
+  expireTime: 86400
+  secretKey: https://github.com/apache/incubator-seatunnel
+  algorithm: HS256
 
 seatunnel:
   scheduler:
     type: dolphinscheduler
     dolphinscheduler:
-      service-url: http://dolphinscheduler.dev.xxx.com/dolphinscheduler
+      service-url: http://dolphinscheduler.xxx.com/dolphinscheduler
       project-code: 5811145128992
       tenant-code: xxx
       token: xxx

@@ -32,8 +32,4 @@ interface UserUpdate extends UserAdd {
   id: number
 }
 
-export {
-  UserList,
-  UserAdd,
-  UserUpdate
-}
+export { UserList, UserAdd, UserUpdate }
