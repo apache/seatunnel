@@ -8,20 +8,20 @@ Output data to local file. Support bounded and unbounded job.
 
 ## Options
 
-| name                              | type   | required | default value                                                 |
-| --------------------------------- | ------ | -------- | ------------------------------------------------------------- |
-| path                              | string | yes      | -                                                             |
-| file_name_expression              | string | no       | "${transactionId}"                                            |
-| file_format                       | string | no       | "text"                                                        |
-| filename_time_format              | string | no       | "yyyy.MM.dd"                                                  |
-| field_delimiter                   | string | no       | '\001'                                                        |
-| row_delimiter                     | string | no       | "\n"                                                          |
-| partition_by                      | array  | no       | -                                                             |
-| partition_dir_expression          | string | no       | "\${k0}=\${v0}\/\${k1}=\${v1}\/...\/\${kn}=\${vn}\/"          |
-| is_partition_field_write_in_file  | boolean| no       | false                                                         |
-| sink_columns                      | array  | no       | When this parameter is empty, all fields are sink columns     |
-| is_enable_transaction             | boolean| no       | true                                                          |
-| save_mode                         | string | no       | "error"                                                       |
+| name                              | type   | required | default value                                       |
+| --------------------------------- | ------ | -------- | --------------------------------------------------- |
+| path                              | string | yes      | -                                                   |
+| file_name_expression              | string | no       | "${transactionId}"                                  |
+| file_format                       | string | no       | "text"                                              |
+| filename_time_format              | string | no       | "yyyy.MM.dd"                                        |
+| field_delimiter                   | string | no       | '\001'                                              |
+| row_delimiter                     | string | no       | "\n"                                                |
+| partition_by                      | array  | no       | -                                                   |
+| partition_dir_expression          | string | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"          |
+| is_partition_field_write_in_file  | boolean| no       | false                                               |
+| sink_columns                      | array  | no       | When this parameter is empty, all fields are sink columns |
+| is_enable_transaction             | boolean| no       | true                                                |
+| save_mode                         | string | no       | "error"                                             |
 
 ### path [string]
 
