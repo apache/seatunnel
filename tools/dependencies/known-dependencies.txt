@@ -308,7 +308,7 @@ jcodings-1.0.18.jar
 jcodings-1.0.43.jar
 jcommander-1.81.jar
 jdbi-2.63.1.jar
-jedis-3.7.1.jar
+jedis-4.2.2.jar
 jersey-client-1.19.jar
 jersey-client-1.9.jar
 jersey-client-2.35.jar
@@ -360,6 +360,7 @@ jpam-1.1.jar
 jsch-0.1.54.jar
 json-path-2.6.0.jar
 json-smart-2.4.8.jar
+json-20211205.jar
 jsoup-1.14.3.jar
 jsp-api-2.1.jar
 jsr305-1.3.9.jar
