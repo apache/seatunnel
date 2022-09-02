@@ -27,6 +27,7 @@ import org.apache.seatunnel.flink.enums.FormatType;
 import org.apache.seatunnel.flink.util.SchemaUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -59,7 +60,14 @@ public class FileSource implements FlinkBatchSource {
     private InputFormat<Row, ?> inputFormat;
 
     private static final String PATH = "path";
+
+    /**
+     * please using {@link #FORMAT} instead
+     */
+    @Deprecated
     private static final String SOURCE_FORMAT = "format.type";
+    private static final String FORMAT = "format";
+
     private static final String SCHEMA = "schema";
     private static final String PARALLELISM = "parallelism";
 
@@ -85,13 +93,29 @@ public class FileSource implements FlinkBatchSource {
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.checkAllExists(config, PATH, SOURCE_FORMAT, SCHEMA);
+        CheckResult checkResult = CheckConfigUtil.checkAllExists(config, PATH, FORMAT, SCHEMA);
+        if (!checkResult.isSuccess()) {
+            CheckResult checkResult4Old = CheckConfigUtil.checkAllExists(config, PATH, SOURCE_FORMAT, SCHEMA);
+            if (!checkResult4Old.isSuccess()) {
+                return checkResult;
+            }
+            return checkResult4Old;
+        }
+
+        return checkResult;
     }
 
     @Override
     public void prepare(FlinkEnvironment env) {
         String path = config.getString(PATH);
-        FormatType format = FormatType.from(config.getString(SOURCE_FORMAT).trim().toLowerCase());
+        String formatStr;
+        try {
+            formatStr = config.getString(FORMAT);
+        } catch (ConfigException.Missing e) {
+            formatStr = config.getString(SOURCE_FORMAT);
+        }
+
+        FormatType format = FormatType.from(formatStr.trim().toLowerCase());
         Path filePath = new Path(path);
         switch (format) {
             case JSON:

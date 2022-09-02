@@ -21,7 +21,8 @@ object Config extends Serializable {
 
   final val PATH = "path"
   final val PARTITION_BY = "partition_by"
-  final val SAVE_MODE = "save_mode"
+  @deprecated(message = "use WRITE_MODE instead") final val SAVE_MODE = "save_mode"
+  final val WRITE_MODE = "write_mode"
   final val SERIALIZER = "serializer"
   final val PATH_TIME_FORMAT = "path_time_format"
   final val DEFAULT_TIME_FORMAT = "yyyyMMddHHmmss"

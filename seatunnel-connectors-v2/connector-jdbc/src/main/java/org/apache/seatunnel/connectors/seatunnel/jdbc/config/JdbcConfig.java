@@ -33,7 +33,10 @@ public class JdbcConfig implements Serializable {
 
     public static final String MAX_RETRIES = "max_retries";
 
+    @Deprecated
     public static final String USER = "user";
+
+    public static final String USERNAME = "username";
 
     public static final String PASSWORD = "password";
 
@@ -65,7 +68,9 @@ public class JdbcConfig implements Serializable {
         JdbcConnectionOptions jdbcOptions = new JdbcConnectionOptions();
         jdbcOptions.url = config.getString(JdbcConfig.URL);
         jdbcOptions.driverName = config.getString(JdbcConfig.DRIVER);
-        if (config.hasPath(JdbcConfig.USER)) {
+        if (config.hasPath(JdbcConfig.USERNAME)) {
+            jdbcOptions.username = config.getString(JdbcConfig.USERNAME);
+        } else if (config.hasPath(JdbcConfig.USER)) {
             jdbcOptions.username = config.getString(JdbcConfig.USER);
         }
         if (config.hasPath(JdbcConfig.PASSWORD)) {

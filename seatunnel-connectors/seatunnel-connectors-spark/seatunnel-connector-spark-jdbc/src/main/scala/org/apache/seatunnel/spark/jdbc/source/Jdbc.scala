@@ -22,6 +22,7 @@ import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
+import org.apache.seatunnel.spark.jdbc.Config
 import org.apache.seatunnel.spark.jdbc.source.util.HiveDialect
 import org.apache.spark.sql.jdbc.JdbcDialects
 import org.apache.spark.sql.{DataFrameReader, Dataset, Row, SparkSession}
@@ -33,17 +34,33 @@ class Jdbc extends SparkBatchSource {
   }
 
   override def checkConfig(): CheckResult = {
-    checkAllExists(config, "url", "table", "user", "password")
+    var checkResult =
+      checkAllExists(config, Config.URL, Config.TABLE, Config.USERNAME, Config.PASSWORD)
+    if (!checkResult.isSuccess) {
+      val checkResultOld = checkAllExists(config, Config.URL, Config.TABLE, Config.USE, Config.PASSWORD)
+      if(checkResultOld.isSuccess) {
+        checkResult = checkResultOld
+      }
+    }
+    checkResult
   }
 
   def jdbcReader(sparkSession: SparkSession, driver: String): DataFrameReader = {
+    var user: String = null
+
+    try {
+      user = config.getString(Config.USERNAME)
+    } catch {
+      case _: RuntimeException =>
+        user = config.getString(Config.USE)
+    }
 
     val reader = sparkSession.read
       .format("jdbc")
-      .option("url", config.getString("url"))
-      .option("dbtable", config.getString("table"))
-      .option("user", config.getString("user"))
-      .option("password", config.getString("password"))
+      .option("url", config.getString(Config.URL))
+      .option("dbtable", config.getString(Config.TABLE))
+      .option("user", user)
+      .option("password", config.getString(Config.PASSWORD))
       .option("driver", driver)
 
     Try(TypesafeConfigUtils.extractSubConfigThrowable(config, "jdbc.", false)) match {

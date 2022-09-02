@@ -20,6 +20,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.common.config.TypesafeConfigUtils.extractSubConfigThrowable
 import org.apache.seatunnel.common.utils.StringTemplate
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigException
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.file.Config._
 import org.apache.seatunnel.spark.SparkEnvironment
@@ -40,7 +41,7 @@ class File extends SparkBatchSink {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         PARTITION_BY -> util.Arrays.asList(),
-        SAVE_MODE -> SAVE_MODE_ERROR, // allowed values: overwrite, append, ignore, error
+        WRITE_MODE -> SAVE_MODE_ERROR, // allowed values: overwrite, append, ignore, error
         SERIALIZER -> JSON, // allowed values: csv, json, parquet, text
         PATH_TIME_FORMAT -> DEFAULT_TIME_FORMAT // if variable 'now' is used in path, this option specifies its time_format
       ))
@@ -48,7 +49,16 @@ class File extends SparkBatchSink {
   }
 
   override def output(ds: Dataset[Row], env: SparkEnvironment): Unit = {
-    val writer = ds.write.mode(config.getString(SAVE_MODE))
+    var mode: String = null
+
+    try {
+      mode = config.getString(WRITE_MODE)
+    } catch {
+      case _: RuntimeException =>
+        mode = config.getString(SAVE_MODE)
+    }
+
+    val writer = ds.write.mode(mode)
     if (config.getStringList(PARTITION_BY).nonEmpty) {
       writer.partitionBy(config.getStringList(PARTITION_BY): _*)
     }

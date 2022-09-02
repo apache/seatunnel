@@ -30,10 +30,10 @@ Engine Supported and plugin name
 <TabItem value="spark">
 
 | name             | type   | required | default value |
-|------------------| ------ |----------|---------------|
+| ---------------- | ------ | -------- | ------------- |
 | driver           | string | yes      | -             |
 | url              | string | yes      | -             |
-| user             | string | yes      | -             |
+| username         | string | yes      | -             |
 | password         | string | yes      | -             |
 | dbTable          | string | yes      | -             |
 | saveMode         | string | no       | update         |
@@ -46,7 +46,7 @@ Engine Supported and plugin name
 
 The URL of the JDBC connection. Refer to a case: `jdbc:mysql://localhost/dbName`
 
-### user [string]
+### username [string]
 
 username
 
@@ -170,7 +170,7 @@ jdbc {
     driver = "com.mysql.cj.jdbc.Driver",
     saveMode = "update",
     url = "jdbc:mysql://ip:3306/database",
-    user = "userName",
+    username = "userName",
     password = "***********",
     dbTable = "tableName",
     customUpdateStmt = "INSERT INTO table (column1, column2, created, modified, yn) values(?, ?, now(), now(), 1) ON DUPLICATE KEY UPDATE column1 = IFNULL(VALUES (column1), column1), column2 = IFNULL(VALUES (column2), column2)"
@@ -185,7 +185,7 @@ jdbc {
     saveMode = "update",
     truncate = "true",
     url = "jdbc:mysql://ip:3306/database",
-    user = "userName",
+    username = "userName",
     password = "***********",
     dbTable = "tableName",
     customUpdateStmt = "INSERT INTO tableName (column1, column2, created, modified, yn) values(?, ?, now(), now(), 1) ON DUPLICATE KEY UPDATE column1 = IFNULL(VALUES (column1), column1), column2 = IFNULL(VALUES (column2), column2)"

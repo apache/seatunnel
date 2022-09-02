@@ -22,7 +22,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 |------------------------------|---------|----------|---------------|
 | url                          | String  | Yes      | -             |
 | driver                       | String  | Yes      | -             |
-| user                         | String  | No       | -             |
+| username                     | String  | No       | -             |
 | password                     | String  | No       | -             |
 | query                        | String  | Yes      | -             |
 | connection_check_timeout_sec | Int     | No       | 30            |
@@ -41,7 +41,7 @@ The jdbc class name used to connect to the remote data source, if you use MySQL 
 Warn: for license compliance, you have to provide any driver yourself like MySQL JDBC Driver, e.g. copy mysql-connector-java-xxx.jar to
 $SEATNUNNEL_HOME/lib for Standalone.
 
-### user [string]
+### username [string]
 
 userName
 
@@ -128,7 +128,7 @@ Simple
 jdbc {
     url = "jdbc:mysql://localhost/test"
     driver = "com.mysql.cj.jdbc.Driver"
-    user = "root"
+    username = "root"
     password = "123456"
     query = "insert into test_table(name,age) values(?,?)"
 }
@@ -144,7 +144,7 @@ jdbc {
     driver = "com.mysql.cj.jdbc.Driver"
 
     max_retries = 0
-    user = "root"
+    username = "root"
     password = "123456"
     query = "insert into test_table(name,age) values(?,?)"
 
