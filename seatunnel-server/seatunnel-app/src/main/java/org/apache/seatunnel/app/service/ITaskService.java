@@ -38,5 +38,5 @@ public interface ITaskService {
 
     InstanceSimpleInfoRes tmpExecute(ExecuteReq req);
 
-    InstanceLogRes queryInstanceLog(long instanceId, int skipLine, int limit);
+    InstanceLogRes queryInstanceLog(long instanceId);
 }

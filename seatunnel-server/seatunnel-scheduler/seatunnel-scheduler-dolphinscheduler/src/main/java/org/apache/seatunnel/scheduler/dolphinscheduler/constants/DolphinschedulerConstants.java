@@ -33,7 +33,7 @@ public class DolphinschedulerConstants {
     public static final String QUERY_RESOURCE = "/resources/%s";
     public static final String ONLINE_CREATE_RESOURCE = "/resources/online-create";
     public static final String UPDATE_CONTENT = "/resources/%s/update-content";
-    public static final String LOG_DETAIL = "/log/detail?taskInstanceId={}&limit={}&skipLineNum={}";
+    public static final String LOG_DETAIL = "/log/detail";
     public static final String RELEASE = "/projects/%s/process-definition/%s/release";
     public static final String START_PROCESS_INSTANCE = "/projects/%s/executors/start-process-instance";
     public static final String QUERY_PROCESS_DEFINITION_BY_NAME = "/projects/%s/process-definition/query-by-name";
@@ -167,6 +167,8 @@ public class DolphinschedulerConstants {
     public static final String EXEC_TYPE_DEFAULT = "START_PROCESS";
     public static final String EXEC_TYPE_COMPLEMENT = "COMPLEMENT_DATA";
     public static final String DEPENDENT_MODE_DEFAULT = "OFF_MODE";
+    public static final int LOG_SKIP_LINE_NUM_DEFAULT = 0;
+    public static final int LOG_LIMIT_NUM_DEFAULT = Integer.MAX_VALUE;
 
     /**
      * response param
@@ -177,4 +179,5 @@ public class DolphinschedulerConstants {
     public static final String CODE = "code";
     public static final int CODE_SUCCESS = 0;
     public static final String MSG = "msg";
+    public static final String LOG_MESSAGE = "message";
 }

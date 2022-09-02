@@ -227,15 +227,12 @@ public class TaskServiceImpl implements ITaskService {
     }
 
     @Override
-    public InstanceLogRes queryInstanceLog(long instanceId, int skipLine, int limit) {
-        final InstanceLogDto dto = iInstanceService.queryInstanceLog(instanceId, skipLine, limit);
+    public InstanceLogRes queryInstanceLog(long instanceId) {
+        final InstanceLogDto dto = iInstanceService.queryInstanceLog(instanceId);
 
         return InstanceLogRes.builder()
             .instanceId(instanceId)
             .logContent(dto.getLogContent())
-            .lastSkipLine(skipLine)
-            .lastLimit(limit)
-            .isEnd(dto.isEnd())
             .build();
     }
 

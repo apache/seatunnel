@@ -25,5 +25,5 @@ import org.apache.seatunnel.spi.scheduler.dto.InstanceLogDto;
 public interface IInstanceService {
     PageData<InstanceDto> list(InstanceListDto dto);
 
-    InstanceLogDto queryInstanceLog(long instanceId, int skipLine, int limit);
+    InstanceLogDto queryInstanceLog(long instanceId);
 }

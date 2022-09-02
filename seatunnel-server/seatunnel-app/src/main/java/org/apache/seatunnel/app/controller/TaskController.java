@@ -74,9 +74,7 @@ public class TaskController {
 
     @GetMapping("/queryInstanceLog")
     @ApiOperation(value = "query instance log", httpMethod = "GET")
-    Result<InstanceLogRes> queryInstanceLog(@RequestParam long taskInstanceId,
-                                            @RequestParam int skipLine,
-                                            @RequestParam int limit) {
-        return Result.success(iTaskService.queryInstanceLog(taskInstanceId, skipLine, limit));
+    Result<InstanceLogRes> queryInstanceLog(@RequestParam long taskInstanceId) {
+        return Result.success(iTaskService.queryInstanceLog(taskInstanceId));
     }
 }

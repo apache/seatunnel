@@ -24,5 +24,4 @@ import lombok.Data;
 @Data
 public class InstanceLogDto {
     private String logContent;
-    private boolean isEnd;
 }

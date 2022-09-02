@@ -59,5 +59,5 @@ public interface IDolphinschedulerService {
 
     void deleteProcessDefinition(long code);
 
-    InstanceLogDto queryInstanceLog(long instanceId, int skipLine, int limit);
+    InstanceLogDto queryInstanceLog(long instanceId);
 }
