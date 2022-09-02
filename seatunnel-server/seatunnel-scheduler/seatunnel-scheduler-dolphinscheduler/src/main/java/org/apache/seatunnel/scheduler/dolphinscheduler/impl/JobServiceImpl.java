@@ -22,6 +22,7 @@ import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.Dolphins
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.EXEC_TYPE_COMPLEMENT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.EXEC_TYPE_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.FAILURE_STRATEGY_DEFAULT;
+import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.MAX_WAITING_TIMES_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PAGE_NO_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PAGE_SIZE_MIN;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_INSTANCE_PRIORITY_DEFAULT;
@@ -30,6 +31,7 @@ import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.Dolphins
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.RUN_MODE_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.RUN_MODE_PARALLEL;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TASK_DEPEND_TYPE_DEFAULT;
+import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.WAITING_SLEEP_TIME_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.WARNING_GROUP_ID_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.WARNING_TYPE_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.WORKER_GROUP_DEFAULT;
