@@ -34,6 +34,6 @@ public enum ExecuteTypeEnum {
                 return value;
             }
         }
-        throw new SeatunnelException(SeatunnelErrorEnum.NO_SUCH_ELEMENT);
+        throw new SeatunnelException(NO_SUCH_ELEMENT);
     }
 }

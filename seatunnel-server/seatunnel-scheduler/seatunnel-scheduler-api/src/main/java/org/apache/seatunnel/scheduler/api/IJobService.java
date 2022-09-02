@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.scheduler.api;
 
-import org.apache.seatunnel.scheduler.api.dto.*;
+import org.apache.seatunnel.scheduler.api.dto.ExecuteDto;
+import org.apache.seatunnel.scheduler.api.dto.InstanceDto;
+import org.apache.seatunnel.scheduler.api.dto.JobDto;
+import org.apache.seatunnel.scheduler.api.dto.JobListDto;
+import org.apache.seatunnel.scheduler.api.dto.JobSimpleInfoDto;
 import org.apache.seatunnel.server.common.PageData;
 
 public interface IJobService {

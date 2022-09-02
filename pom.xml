@@ -243,6 +243,12 @@
                 <artifactId>seatunnel-config-shade</artifactId>
                 <version>${seatunnel.config.shade.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-scheduler-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
             <!--spark-->
             <dependency>
                 <groupId>org.apache.spark</groupId>

@@ -27,15 +27,8 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-aop</artifactId>
-            <version>${spring.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-context</artifactId>
-            <version>${spring.version}</version>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-scheduler-api</artifactId>
             <scope>provided</scope>
         </dependency>
         <!--      http      -->

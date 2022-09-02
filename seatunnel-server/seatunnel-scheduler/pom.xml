@@ -27,6 +27,7 @@
     <packaging>pom</packaging>
     <modules>
         <module>seatunnel-scheduler-dolphinscheduler</module>
+        <module>seatunnel-scheduler-api</module>
     </modules>
 
     <dependencies>

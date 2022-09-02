@@ -17,28 +17,24 @@
 
 package org.apache.seatunnel.scheduler.dolphinscheduler.impl;
 
-import org.apache.seatunnel.scheduler.dolphinscheduler.IDolphinschedulerService;
+import org.apache.seatunnel.scheduler.api.IInstanceService;
+import org.apache.seatunnel.scheduler.api.dto.InstanceDto;
+import org.apache.seatunnel.scheduler.api.dto.InstanceListDto;
+import org.apache.seatunnel.scheduler.dolphinscheduler.IDolphinSchedulerService;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ListProcessInstanceDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.TaskInstanceDto;
 import org.apache.seatunnel.server.common.PageData;
-import org.apache.seatunnel.spi.scheduler.IInstanceService;
-import org.apache.seatunnel.spi.scheduler.dto.InstanceDto;
-import org.apache.seatunnel.spi.scheduler.dto.InstanceListDto;
-
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import javax.annotation.Resource;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Slf4j
-@Component
 public class InstanceServiceImpl implements IInstanceService {
 
-    @Resource
-    private IDolphinschedulerService iDolphinschedulerService;
+    private final IDolphinSchedulerService dolphinSchedulerService;
+
+    public InstanceServiceImpl(IDolphinSchedulerService dolphinSchedulerService) {
+        this.dolphinSchedulerService = dolphinSchedulerService;
+    }
 
     @Override
     public PageData<InstanceDto> list(InstanceListDto dto) {
@@ -48,7 +44,7 @@ public class InstanceServiceImpl implements IInstanceService {
                 .pageNo(dto.getPageNo())
                 .pageSize(dto.getPageSize())
                 .build();
-        final PageData<TaskInstanceDto> instancePageData = iDolphinschedulerService.listTaskInstance(listDto);
+        final PageData<TaskInstanceDto> instancePageData = dolphinSchedulerService.listTaskInstance(listDto);
 
         final List<InstanceDto> data = instancePageData.getData().stream().map(t -> InstanceDto.builder()
                 .instanceId(t.getId())

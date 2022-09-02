@@ -17,31 +17,9 @@
 
 package org.apache.seatunnel.scheduler.api;
 
-import lombok.Data;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.Configuration;
+public interface ISchedulerManager extends AutoCloseable {
 
-import java.util.Objects;
+    IJobService getJobService();
 
-@Data
-@Configuration
-@ConfigurationProperties(prefix = "seatunnel.scheduler")
-public class SchedulerProperties {
-
-    private SchedulerTypeEnum type;
-    private DolphinScheduler dolphinscheduler = new DolphinScheduler();
-
-    @Data
-    public static class DolphinScheduler {
-        private String serviceUrl;
-        private String token;
-        private String projectName;
-        private String tenantCode;
-        private String scriptDir;
-
-        public String getTenantCode() {
-            return Objects.isNull(tenantCode) || "".equals(tenantCode.trim()) ? "default" : tenantCode;
-        }
-    }
-
+    IInstanceService getInstanceService();
 }
