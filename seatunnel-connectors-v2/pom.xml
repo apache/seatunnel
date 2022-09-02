@@ -51,6 +51,8 @@
         <module>connector-iotdb</module>
         <module>connector-neo4j</module>
         <module>connector-druid</module>
+        <module>connector-redis</module>
+        <module>connector-datahub</module>
     </modules>
 
     <dependencies>
