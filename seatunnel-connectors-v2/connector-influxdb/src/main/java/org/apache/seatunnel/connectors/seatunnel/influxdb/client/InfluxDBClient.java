@@ -35,11 +35,10 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class InfluxDBClient {
-    private static final long CONNECT_TIMEOUT = 15000;
     public static InfluxDB getInfluxDB(InfluxDBConfig config) throws ConnectException {
         OkHttpClient.Builder clientBuilder =
                 new OkHttpClient.Builder()
-                        .connectTimeout(CONNECT_TIMEOUT, TimeUnit.MILLISECONDS)
+                        .connectTimeout(config.getConnectTimeOut(), TimeUnit.MILLISECONDS)
                         .readTimeout(config.getQueryTimeOut(), TimeUnit.SECONDS);
         InfluxDB.ResponseFormat format = InfluxDB.ResponseFormat.valueOf(config.getFormat());
         clientBuilder.addInterceptor(

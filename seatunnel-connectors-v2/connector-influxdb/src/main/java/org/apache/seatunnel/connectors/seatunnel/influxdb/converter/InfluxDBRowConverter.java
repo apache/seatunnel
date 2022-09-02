@@ -28,31 +28,32 @@ import java.util.List;
 
 public class InfluxDBRowConverter {
 
-    public static SeaTunnelRow convert(List<Object> values, SeaTunnelRowType typeInfo) {
+    public static SeaTunnelRow convert(List<Object> values, SeaTunnelRowType typeInfo, List<Integer> indexList) {
 
         List<Object> fields = new ArrayList<>();
         SeaTunnelDataType<?>[] seaTunnelDataTypes = typeInfo.getFieldTypes();
 
         for (int i = 0; i <= seaTunnelDataTypes.length - 1; i++) {
             Object seatunnelField;
+            int columnIndex = indexList.get(i);
             SeaTunnelDataType<?> seaTunnelDataType = seaTunnelDataTypes[i];
-            if (null == values.get(i)) {
+            if (null == values.get(columnIndex)) {
                 seatunnelField = null;
             }
             else if (BasicType.BOOLEAN_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = Boolean.parseBoolean(values.get(i).toString());
+                seatunnelField = Boolean.parseBoolean(values.get(columnIndex).toString());
             }  else if (BasicType.INT_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = (Integer) values.get(i);
+                seatunnelField = (Integer) values.get(columnIndex);
             } else if (BasicType.LONG_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = (Long) values.get(i);
+                seatunnelField = (Long) values.get(columnIndex);
             } else if (BasicType.FLOAT_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = ((Double) values.get(i)).floatValue();
+                seatunnelField = ((Double) values.get(columnIndex)).floatValue();
             } else if (BasicType.DOUBLE_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = (Double) values.get(i);
+                seatunnelField = (Double) values.get(columnIndex);
             } else if (PrimitiveByteArrayType.INSTANCE.equals(seaTunnelDataType)) {
                 seatunnelField = (byte[]) values.get(i);
             } else if (BasicType.STRING_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = values.get(i);
+                seatunnelField = values.get(columnIndex);
             } else {
                 throw new IllegalStateException("Unexpected value: " + seaTunnelDataType);
             }

@@ -51,11 +51,14 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
 
     private SeaTunnelRowType seaTunnelRowType;
 
-    InfluxdbSourceReader(InfluxDBConfig config, SourceReader.Context readerContext, SeaTunnelRowType seaTunnelRowType) {
+    List<Integer> columnsIndexList;
+
+    InfluxdbSourceReader(InfluxDBConfig config, SourceReader.Context readerContext, SeaTunnelRowType seaTunnelRowType, List<Integer> columnsIndexList) {
         this.config = config;
         this.sourceSplits = new HashSet<>();
         this.context = readerContext;
         this.seaTunnelRowType = seaTunnelRowType;
+        this.columnsIndexList = columnsIndexList;
     }
 
     public void connect() throws ConnectException {
@@ -134,7 +137,7 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
             if (CollectionUtils.isNotEmpty(serieList)) {
                 for (QueryResult.Series series : serieList) {
                     for (List<Object> values : series.getValues()) {
-                        SeaTunnelRow row = InfluxDBRowConverter.convert(values, seaTunnelRowType);
+                        SeaTunnelRow row = InfluxDBRowConverter.convert(values, seaTunnelRowType, columnsIndexList);
                         output.collect(row);
                     }
                 }

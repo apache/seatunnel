@@ -17,11 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.QUERY_FIELD_SQL;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.QUERY_TAG_SQL;
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.SQL;
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.URL;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.converter.InfluxDBTypeMapper.INFLUXDB_BIGINT;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -34,32 +31,33 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.client.InfluxDBClient;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig;
-import org.apache.seatunnel.connectors.seatunnel.influxdb.converter.InfluxDBTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.state.InfluxDBSourceState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.Query;
 import org.influxdb.dto.QueryResult;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @AutoService(SeaTunnelSource.class)
 public class InfluxDBSource implements SeaTunnelSource<SeaTunnelRow, InfluxDBSourceSplit, InfluxDBSourceState>  {
-    private SeaTunnelRowType seaTunnelRowType;
+    private SeaTunnelRowType typeInfo;
     private InfluxDBConfig influxDBConfig;
 
-    private static final String INFLUXDB_TIME_KEY = "time";
-    private static final String INFLUXDB_TIME_DATATYPE = INFLUXDB_BIGINT;
+    private List<Integer> columnsIndexList;
+
+    private static final String QUERY_LIMIT = " limit 1";
 
     @Override
     public String getPluginName() {
@@ -74,8 +72,9 @@ public class InfluxDBSource implements SeaTunnelSource<SeaTunnelRow, InfluxDBSou
         }
         try {
             this.influxDBConfig = new InfluxDBConfig(config);
-            InfluxDB influxDB = InfluxDBClient.getInfluxDB(influxDBConfig);
-            seaTunnelRowType = initTableField(influxDB, influxDBConfig);
+            SeaTunnelSchema seatunnelSchema = SeaTunnelSchema.buildWithConfig(config);
+            this.typeInfo = seatunnelSchema.getSeaTunnelRowType();
+            this.columnsIndexList = initColumnsIndex(InfluxDBClient.getInfluxDB(influxDBConfig));
         } catch (Exception e) {
             throw new PrepareFailException("InfluxDB", PluginType.SOURCE, e.toString());
         }
@@ -88,12 +87,12 @@ public class InfluxDBSource implements SeaTunnelSource<SeaTunnelRow, InfluxDBSou
 
     @Override
     public SeaTunnelDataType getProducedType() {
-        return seaTunnelRowType;
+        return typeInfo;
     }
 
     @Override
     public SourceReader createReader(SourceReader.Context readerContext) throws Exception {
-        return new InfluxdbSourceReader(influxDBConfig, readerContext, seaTunnelRowType);
+        return new InfluxdbSourceReader(influxDBConfig, readerContext, typeInfo, columnsIndexList);
     }
 
     @Override
@@ -106,61 +105,20 @@ public class InfluxDBSource implements SeaTunnelSource<SeaTunnelRow, InfluxDBSou
         return new InfluxDBSourceSplitEnumerator(enumeratorContext, checkpointState, influxDBConfig);
     }
 
-    SeaTunnelRowType initTableField(InfluxDB influxDB, InfluxDBConfig config)  {
-        ArrayList<SeaTunnelDataType<?>> seaTunnelDataTypes = new ArrayList<>();
-        String query = config.getSql() + " limit 1";
+    private List<Integer> initColumnsIndex(InfluxDB influxDB)  {
+        //query one row to get column info
+        String query = influxDBConfig.getSql() + QUERY_LIMIT;
         List<String> fieldNames = new ArrayList<>();
         try {
             QueryResult queryResult = influxDB.query(
-                    new Query(query, config.getDatabase()));
+                    new Query(query, influxDBConfig.getDatabase()));
 
             List<QueryResult.Series> serieList = queryResult.getResults().get(0).getSeries();
-            Pair<List<String>, List<String>> resultSetMetaData = getTableMetadata(influxDB, config);
-
             fieldNames.addAll(serieList.get(0).getColumns());
-            if (!CollectionUtils.isEmpty(serieList)) {
-                for (int i = 0; i < fieldNames.size(); i++) {
-                    seaTunnelDataTypes.add(InfluxDBTypeMapper.mapping(resultSetMetaData, fieldNames.get(i)));
-                }
-            }
+
+            return Arrays.stream(typeInfo.getFieldNames()).map(x -> fieldNames.indexOf(x)).collect(Collectors.toList());
         } catch (Exception e) {
-            log.warn("get row type info exception", e);
+            throw new RuntimeException("get column index of query result exception", e);
         }
-        return new SeaTunnelRowType(fieldNames.toArray(new String[fieldNames.size()]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));
-    }
-
-    private Pair<List<String>, List<String>> getTableMetadata(InfluxDB influxDB, InfluxDBConfig config) {
-        List<String> columnNames = new ArrayList<>();
-        List<String> columnTypes = new ArrayList<>();
-        QueryResult queryResult =
-                influxDB.query(
-                        new Query(
-                                QUERY_FIELD_SQL.replace("${measurement}", config.getMeasurement()),
-                                config.getDatabase()));
-        List<QueryResult.Series> serieList = queryResult.getResults().get(0).getSeries();
-        if (!CollectionUtils.isEmpty(serieList)) {
-            for (List<Object> value : serieList.get(0).getValues()) {
-                columnNames.add(String.valueOf(value.get(0)));
-                columnTypes.add(String.valueOf(value.get(1)));
-            }
-        }
-
-        queryResult =
-                influxDB.query(
-                        new Query(
-                                QUERY_TAG_SQL.replace("${measurement}", config.getMeasurement()),
-                                config.getDatabase()));
-        serieList = queryResult.getResults().get(0).getSeries();
-        if (!CollectionUtils.isEmpty(serieList)) {
-            for (List<Object> value : serieList.get(0).getValues()) {
-                columnNames.add(String.valueOf(value.get(0)));
-                // Tag keys and tag values are both strings.
-                columnTypes.add("string");
-            }
-        }
-        // add time field.
-        columnNames.add(INFLUXDB_TIME_KEY);
-        columnTypes.add(INFLUXDB_TIME_DATATYPE);
-        return Pair.of(columnNames, columnTypes);
     }
 }

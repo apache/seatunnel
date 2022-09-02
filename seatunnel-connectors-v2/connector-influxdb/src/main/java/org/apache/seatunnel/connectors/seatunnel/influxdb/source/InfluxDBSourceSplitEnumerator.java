@@ -24,6 +24,8 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.state.InfluxDBSourceState;
 
+import org.apache.commons.lang3.tuple.Pair;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -112,27 +114,18 @@ public class InfluxDBSourceSplitEnumerator implements SourceSplitEnumerator<Infl
             influxDBSourceSplits.add(new InfluxDBSourceSplit(InfluxDBConfig.DEFAULT_PARTITIONS, sql));
             return influxDBSourceSplits;
         }
-        long start = config.getLowerBound();
-        long end = config.getUpperBound();
-        int numPartitions = config.getPartitionNum();
+        //calculate numRange base on (lowerBound upperBound partitionNum)
+        List<Pair<Long, Long>> rangePairs = genSplitNumRange(config.getLowerBound(), config.getUpperBound(), config.getPartitionNum());
+
         String[] sqls = sql.split(SQL_WHERE);
         if (sqls.length > 2) {
             throw new IllegalArgumentException("sql should not contain more than one where");
         }
-        int size = (int) (end - start) / numPartitions + 1;
-        int remainder = (int) ((end + 1 - start) % numPartitions);
-        if (end - start < numPartitions) {
-            numPartitions = (int) (end - start);
-        }
-        long currentStart = start;
+
         int i = 0;
-        while (i < numPartitions) {
-            String query = " where (" + config.getSplitKey() + " >= " + currentStart + " and " + config.getSplitKey()  + " < " + (currentStart + size) + ") ";
+        while (i < rangePairs.size()) {
+            String query = " where (" + config.getSplitKey() + " >= " + rangePairs.get(i).getLeft() + " and " + config.getSplitKey()  + " < " + rangePairs.get(i).getRight() + ") ";
             i++;
-            currentStart += size;
-            if (i + 1 <= numPartitions) {
-                currentStart = currentStart - remainder;
-            }
             query = sqls[0] + query;
             if (sqls.length > 1) {
                 query = query + " and ( " + sqls[1] + " ) ";
@@ -140,6 +133,27 @@ public class InfluxDBSourceSplitEnumerator implements SourceSplitEnumerator<Infl
             influxDBSourceSplits.add(new InfluxDBSourceSplit(String.valueOf(i + System.nanoTime()), query));
         }
         return influxDBSourceSplits;
+    }
+
+    public static List<Pair<Long, Long>> genSplitNumRange(long lowerBound, long upperBound, int splitNum) {
+        List<Pair<Long, Long>> rangeList = new ArrayList<>();
+        int numPartitions = splitNum;
+        int size = (int) (upperBound - lowerBound) / numPartitions + 1;
+        int remainder = (int) ((upperBound + 1 - lowerBound) % numPartitions);
+        if (upperBound - lowerBound < numPartitions) {
+            numPartitions = (int) (upperBound - lowerBound);
+        }
+        long currentStart = lowerBound;
+        int i = 0;
+        while (i < numPartitions) {
+            rangeList.add(Pair.of(currentStart, currentStart + size));
+            i++;
+            currentStart += size;
+            if (i + 1 <= numPartitions) {
+                currentStart = currentStart - remainder;
+            }
+        }
+        return rangeList;
     }
 
     private void assignSplit(Collection<Integer> taskIDList) {

@@ -9,17 +9,20 @@ Read external data source data through InfluxDB. Currently supports Batch mode.
 ## Options
 
 | name        | type    | required | default value |
-|-------------|---------|----------|------------|
-| url         | string  | yes      | -          |
-| sql         | string  | yes      | -          |
-| database            | string  | yes      |            |
-| username    | string  | no       | -          |
-| password    | string  | no       | -          |
-| lower_bound | long    | no       | -          |
-| upper_bound | long    | no       | -          |
-| partition_num | int     | no       | -          |
-| split_column | string     | no       | -          |
-| epoch | string     | no       | n           |
+|-------------|---------|----------|---------------|
+| url         | string  | yes      | -             |
+| sql         | string  | yes      | -             |
+| fields                     | config  | yes      | -             |
+| database            | string  | yes      |               |
+| username    | string  | no       | -             |
+| password    | string  | no       | -             |
+| lower_bound | long    | no       | -             |
+| upper_bound | long    | no       | -             |
+| partition_num | int     | no       | -             |
+| split_column | string     | no       | -             |
+| epoch | string     | no       | n             |
+| connect_timeout_ms | long     | no       | 15000         |
+| query_timeout_sec | int     | no       | 3             |
 
 ### url
 the url to connect to influxDB e.g.
@@ -32,6 +35,21 @@ The query sql used to search data
 
 ```
 select name,age from test
+```
+
+### fields [string]
+
+the fields of the InfluxDB when you select
+
+the field type is SeaTunnel field type `org.apache.seatunnel.api.table.type.SqlType`
+
+e.g.
+
+```
+fields{
+    name=STRING
+    age=INT
+    }
 ```
 
 ### database [string]
@@ -79,12 +97,18 @@ lower bound of the `split_column` column
 
 ```
 
-### partition_num [string]
+### partition_num [int]
 
 the `partition_num` of the InfluxDB when you select
 > Tips: Ensure that `upper_bound` minus `lower_bound` is divided `bypartition_num`, otherwise the query results will overlap
 
-### epoch [int]
+### epoch [string]
 returned time precision
 - Optional values: H, m, s, MS, u, n
 - default value: n
+
+### query_timeout_sec [int]
+the `query_timeout` of the InfluxDB when you select, in seconds
+
+### connect_timeout_ms [long]
+the timeout for connecting to InfluxDB, in milliseconds 
