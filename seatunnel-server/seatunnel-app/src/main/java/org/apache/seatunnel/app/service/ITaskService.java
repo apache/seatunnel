@@ -36,4 +36,6 @@ public interface ITaskService {
     PageInfo<InstanceSimpleInfoRes> listInstance(InstanceListReq req);
 
     InstanceSimpleInfoRes tmpExecute(ExecuteReq req);
+
+    void kill(Long instanceId);
 }

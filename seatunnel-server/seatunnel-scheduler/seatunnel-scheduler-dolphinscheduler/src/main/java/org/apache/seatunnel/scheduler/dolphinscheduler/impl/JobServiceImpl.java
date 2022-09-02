@@ -214,6 +214,11 @@ public class JobServiceImpl implements IJobService {
         }
     }
 
+    @Override
+    public void kill(Long instanceId) {
+        iDolphinschedulerService.killProcessInstance(instanceId);
+    }
+
     private ProcessDefinitionDto getProcessDefinitionDto(JobDto dto) {
         final TaskDescriptionDto taskDescriptionDto = TaskDescriptionDto.builder()
                 .name(dto.getJobName())
