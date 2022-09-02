@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeatunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.source.config.OssConf;
@@ -70,7 +70,7 @@ public class OssFileSource extends BaseFileSource {
         // support user-defined schema
         if (pluginConfig.hasPath(OssSourceConfig.SCHEMA)) {
             Config schemaConfig = pluginConfig.getConfig(OssSourceConfig.SCHEMA);
-            rowType = SeatunnelSchema
+            rowType = SeaTunnelSchema
                     .buildWithConfig(schemaConfig)
                     .getSeaTunnelRowType();
             readStrategy.setSeaTunnelRowTypeInfo(rowType);
