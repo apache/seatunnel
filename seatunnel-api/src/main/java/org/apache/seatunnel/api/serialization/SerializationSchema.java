@@ -19,7 +19,9 @@ package org.apache.seatunnel.api.serialization;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-public interface SerializationSchema {
+import java.io.Serializable;
+
+public interface SerializationSchema extends Serializable {
     /**
      * Serializes the incoming element to a specified type.
      *

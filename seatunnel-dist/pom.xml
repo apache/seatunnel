@@ -57,6 +57,37 @@
                     <artifactId>seatunnel-connectors-flink-dist</artifactId>
                     <version>${project.version}</version>
                 </dependency>
+
+                <!--     seatunnel core dependencies    -->
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-core-flink</artifactId>
+                    <version>${project.version}</version>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-core-flink-sql</artifactId>
+                    <version>${project.version}</version>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-core-spark</artifactId>
+                    <version>${project.version}</version>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-flink-starter</artifactId>
+                    <version>${project.version}</version>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-spark-starter</artifactId>
+                    <version>${project.version}</version>
+                </dependency>
             </dependencies>
             <build>
                 <plugins>

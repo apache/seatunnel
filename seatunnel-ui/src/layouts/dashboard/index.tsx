@@ -28,7 +28,7 @@ const Dashboard = defineComponent({
           <Header />
         </NLayoutHeader>
         <NLayoutContent>
-          <router-view class='px-32 py-12'/>
+          <router-view class='px-32 py-12' />
         </NLayoutContent>
       </NLayout>
     )
