@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.scheduler.api.dto;
 
-import org.apache.seatunnel.spi.scheduler.enums.ExecuteTypeEnum;
+import org.apache.seatunnel.scheduler.api.enums.ExecuteTypeEnum;
 
 import lombok.Builder;
 import lombok.Data;
