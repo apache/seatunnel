@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.engine.server.scheduler;
 
+import com.hazelcast.cluster.Address;
+
 public interface JobScheduler {
     void startScheduling();
+
+    Address queryTaskGroupAddress(long taskGroupId);
 }

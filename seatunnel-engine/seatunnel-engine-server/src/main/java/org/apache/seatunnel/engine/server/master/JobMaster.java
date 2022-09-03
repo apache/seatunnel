@@ -69,6 +69,8 @@ public class JobMaster implements Runnable {
 
     private JobImmutableInformation jobImmutableInformation;
 
+    private JobScheduler jobScheduler;
+
     public JobMaster(@NonNull Data jobImmutableInformationData,
                      @NonNull NodeEngine nodeEngine,
                      @NonNull ExecutorService executorService, @NonNull ResourceManager resourceManager) {
@@ -76,7 +78,7 @@ public class JobMaster implements Runnable {
         this.nodeEngine = nodeEngine;
         this.executorService = executorService;
         flakeIdGenerator =
-                this.nodeEngine.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME);
+            this.nodeEngine.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME);
 
         this.resourceManager = resourceManager;
     }
@@ -128,7 +130,7 @@ public class JobMaster implements Runnable {
                 jobMasterCompleteFuture.complete(physicalPlan.getJobStatus());
             });
 
-            JobScheduler jobScheduler = new PipelineBaseScheduler(physicalPlan, this);
+            jobScheduler = new PipelineBaseScheduler(physicalPlan, this);
             jobScheduler.startScheduling();
         } catch (Throwable e) {
             LOGGER.severe(String.format("Job %s (%s) run error with: %s",
@@ -144,6 +146,10 @@ public class JobMaster implements Runnable {
 
     public void cleanJob() {
         // TODO Add some job clean operation
+    }
+
+    public JobScheduler getJobScheduler() {
+        return jobScheduler;
     }
 
     public void cancelJob() {
