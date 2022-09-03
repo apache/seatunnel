@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.db2;
 
-
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -25,6 +24,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,12 +55,11 @@ public class DB2TypeMapper implements JdbcDialectTypeMapper {
     private static final String DB2_DOUBLE = "DOUBLE";
     private static final String DB2_DOUBLE_PRECISION = "DOUBLE PRECISION";
     private static final String DB2_DECFLOAT = "DECFLOAT";
-    private static final String DB2_DECDOUBLE = "DECDOUBLE";
     // string
     private static final String DB2_CHAR = "CHAR";
     private static final String DB2_VARCHAR = "VARCHAR";
-    private static final String DB2_CLOB = "CLOB";
     private static final String DB2_LONG_VARCHAR = "LONG VARCHAR";
+    private static final String DB2_CLOB = "CLOB";
     // graphic
     private static final String DB2_GRAPHIC = "GRAPHIC";
     private static final String DB2_VARGRAPHIC = "VARGRAPHIC";
@@ -79,13 +78,9 @@ public class DB2TypeMapper implements JdbcDialectTypeMapper {
 
     // ------------------------------blob-------------------------
     private static final String DB2_BLOB = "BLOB";
-    private static final String DB2_NCHAR_MAPPING = "NCHAR_MAPPING";
 
     // other
     private static final String DB2_XML = "XML";
-    private static final String DB2_LOB = "LOB";
-    private static final String DB2_DATALINK = "DATALINK";
-
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
@@ -109,6 +104,7 @@ public class DB2TypeMapper implements JdbcDialectTypeMapper {
                 if (precision > 0) {
                     return new DecimalType(precision, metadata.getScale(colIndex));
                 }
+                LOG.warn("decimal did define precision,scale, will be Decimal(38,18)");
                 return new DecimalType(38, 18);
             case DB2_REAL:
                 return BasicType.FLOAT_TYPE;
@@ -116,12 +112,11 @@ public class DB2TypeMapper implements JdbcDialectTypeMapper {
             case DB2_DOUBLE:
             case DB2_DOUBLE_PRECISION:
             case DB2_DECFLOAT:
-            case DB2_DECDOUBLE:
                 return BasicType.DOUBLE_TYPE;
             case DB2_CHAR:
             case DB2_VARCHAR:
-            case DB2_CLOB:
             case DB2_LONG_VARCHAR:
+            case DB2_CLOB:
             case DB2_GRAPHIC:
             case DB2_VARGRAPHIC:
             case DB2_LONG_VARGRAPHIC:
@@ -130,7 +125,6 @@ public class DB2TypeMapper implements JdbcDialectTypeMapper {
             case DB2_BINARY:
             case DB2_VARBINARY:
             case DB2_BLOB:
-            case DB2_NCHAR_MAPPING:
                 return PrimitiveByteArrayType.INSTANCE;
             case DB2_DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;
@@ -139,10 +133,8 @@ public class DB2TypeMapper implements JdbcDialectTypeMapper {
             case DB2_TIMESTAMP:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case DB2_ROWID:
-                // should support
+                // maybe should support
             case DB2_XML:
-            case DB2_LOB:
-            case DB2_DATALINK:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
                 throw new UnsupportedOperationException(

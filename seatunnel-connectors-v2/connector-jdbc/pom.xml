@@ -36,6 +36,7 @@
         <sqlserver.version>9.2.1.jre8</sqlserver.version>
         <phoenix.version>5.2.5-HBase-2.x</phoenix.version>
         <oracle.version>12.2.0.1</oracle.version>
+        <db2.version>db2jcc4</db2.version>
     </properties>
 
     <dependencyManagement>
@@ -109,8 +110,9 @@
             <artifactId>ojdbc8</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.ibm.db2</groupId>
-            <artifactId>jcc</artifactId>
+            <groupId>com.ibm.db2.jcc</groupId>
+            <artifactId>db2jcc</artifactId>
+            <version>${db2.version}</version>
         </dependency>
     </dependencies>
 

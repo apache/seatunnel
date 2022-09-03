@@ -23,18 +23,18 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 
 public class DB2Dialect implements JdbcDialect {
 
-  @Override
-  public String dialectName() {
-    return "DB2";
-  }
+    @Override
+    public String dialectName() {
+        return "DB2";
+    }
 
-  @Override
-  public JdbcRowConverter getRowConverter() {
-    return new DB2JdbcRowConverter();
-  }
+    @Override
+    public JdbcRowConverter getRowConverter() {
+        return new DB2JdbcRowConverter();
+    }
 
-  @Override
-  public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
-    return new DB2TypeMapper();
-  }
+    @Override
+    public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
+        return new DB2TypeMapper();
+    }
 }
