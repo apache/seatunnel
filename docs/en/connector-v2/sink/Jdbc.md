@@ -6,11 +6,11 @@
 Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once semantics (using XA transaction guarantee).
 
 ## Key features
-- [x] exactly-once
+- [x] [exactly-once](key-features.md)
 
 Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
-- [ ] schema projection
+- [ ] [schema projection](key-features.md)
 
 ## Options
 

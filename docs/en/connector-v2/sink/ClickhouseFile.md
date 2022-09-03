@@ -9,8 +9,8 @@ server, also call bulk load. This connector only support clickhouse table which 
 should be `true`. Supports Batch and Streaming mode.
 
 ## Key features
-- [ ] exactly-once
-- [ ] schema projection
+- [ ] [exactly-once](key-features.md)
+- [ ] [schema projection](key-features.md)
 
 :::tip
 

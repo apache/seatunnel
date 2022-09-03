@@ -8,14 +8,14 @@ Read external data source data through JDBC.
 
 ## Key features
 
-- [x] batch
-- [ ] stream
-- [x] exactly-once
-- [x] schema projection
+- [x] [batch](key-features.md)
+- [ ] [stream](key-features.md)
+- [x] [exactly-once](key-features.md)
+- [x] [schema projection](key-features.md)
 
 supports query SQL and can achieve projection effect.
 
-- [x] parallelism
+- [x] [parallelism](key-features.md)
 
 ##  Options
 

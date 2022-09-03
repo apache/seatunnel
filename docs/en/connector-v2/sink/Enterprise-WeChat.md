@@ -15,9 +15,9 @@ A sink plugin which use Enterprise WeChat robot send message
 
 ## Key features
 
-- [ ] exactly-once
+- [ ] [exactly-once](key-features.md)
 
-- [ ] schema projection
+- [ ] [schema projection](key-features.md)
 
 ##  Options
 

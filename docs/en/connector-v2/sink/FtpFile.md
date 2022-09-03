@@ -8,9 +8,9 @@ Output data to Ftp .
 
 ## Key features
 
-- [x] exactly-once
+- [x] [exactly-once](key-features.md)
 
-- [ ] schema projection
+- [ ] [schema projection](key-features.md)
 
 ##  Options
 

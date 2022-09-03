@@ -10,9 +10,9 @@ Write data to Neo4j.
 
 ## Key features
 
-- [ ] exactly-once
+- [ ] [exactly-once](key-features.md)
 
-- [ ] schema projection
+- [ ] [schema projection](key-features.md)
 
 ## Options
 

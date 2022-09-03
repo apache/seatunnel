@@ -9,9 +9,9 @@ Used to send data to Socket Server. Both support streaming and batch mode.
 
 ## Key features
 
-- [ ] exactly-once
+- [ ] [exactly-once](key-features.md)
 
-- [ ] schema projection
+- [ ] [schema projection](key-features.md)
 
 ##  Options
 

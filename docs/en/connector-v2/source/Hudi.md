@@ -10,14 +10,14 @@ In order to use this connector, You must ensure your spark/flink cluster already
 
 ## Key features
 
-- [x] batch
+- [x] [batch](key-features.md)
 
 Currently, only supports hudi cow table and Snapshot Query with Batch Mode
 
-- [ ] stream
-- [x] exactly-once
-- [ ] schema projection
-- [x] parallelism
+- [ ] [stream](key-features.md)
+- [x] [exactly-once](key-features.md)
+- [ ] [schema projection](key-features.md)
+- [x] [parallelism](key-features.md)
 
 ## Options
 

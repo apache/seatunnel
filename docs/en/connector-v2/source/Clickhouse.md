@@ -8,14 +8,14 @@ Used to read data from Clickhouse.
 
 ## Key features
 
-- [x] batch
-- [ ] stream
-- [ ] exactly-once
-- [x] schema projection
+- [x] [batch](key-features.md)
+- [ ] [stream](key-features.md)
+- [ ] [exactly-once](key-features.md)
+- [x] [schema projection](key-features.md)
 
 supports query SQL and can achieve projection effect.
 
-- [ ] parallelism
+- [ ] [parallelism](key-features.md)
 
 :::tip
 

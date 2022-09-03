@@ -8,11 +8,11 @@ Source connector for Apache Pulsar.
 
 ## Key features
 
-- [x] batch
-- [x] stream
-- [x] exactly-once
-- [x] schema projection
-- [x] parallelism
+- [x] [batch](key-features.md)
+- [x] [stream](key-features.md)
+- [x] [exactly-once](key-features.md)
+- [x] [schema projection](key-features.md)
+- [x] [parallelism](key-features.md)
 
 ##  Options
 

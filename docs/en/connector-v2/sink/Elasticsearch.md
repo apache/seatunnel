@@ -6,9 +6,9 @@ Output data to `Elasticsearch`.
 
 ## Key features
 
-- [ ] exactly-once
+- [ ] [exactly-once](key-features.md)
 
-- [ ] schema projection
+- [ ] [schema projection](key-features.md)
 
 :::tip
 

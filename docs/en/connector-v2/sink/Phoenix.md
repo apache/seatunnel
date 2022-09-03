@@ -14,9 +14,9 @@ Two ways of connecting Phoenix with Java JDBC. One is to connect to zookeeper th
 
 ## Key features
 
-- [ ] exactly-once
+- [ ] [exactly-once](key-features.md)
 
-- [ ] schema projection
+- [ ] [schema projection](key-features.md)
 
 ## Options
 

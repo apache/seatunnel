@@ -9,11 +9,11 @@ just for testing, such as type conversion and feature testing
 
 ## Key features
 
-- [x] batch
-- [x] stream
-- [ ] exactly-once
-- [x] schema projection
-- [ ] parallelism
+- [x] [batch](key-features.md)
+- [x] [stream](key-features.md)
+- [ ] [exactly-once](key-features.md)
+- [x] [schema projection](key-features.md)
+- [ ] [parallelism](key-features.md)
 
 ## Options
 

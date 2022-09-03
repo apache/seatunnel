@@ -8,12 +8,12 @@ Used to write data to IoTDB.
 
 ## Key features
 
-- [x] exactly-once
+- [x] [exactly-once](key-features.md)
 
 IoTDB supports the `exactly-once` feature through idempotent writing. If two pieces of data have
 the same `key` and `timestamp`, the new data will overwrite the old one.
 
-- [ ] schema projection
+- [ ] [schema projection](key-features.md)
 
 :::tip
 

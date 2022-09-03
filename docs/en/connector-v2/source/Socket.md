@@ -8,11 +8,11 @@ Used to read data from Socket.
 
 ## Key features
 
-- [x] batch
-- [x] stream
-- [ ] exactly-once
-- [ ] schema projection
-- [ ] parallelism
+- [x] [batch](key-features.md)
+- [x] [stream](key-features.md)
+- [ ] [exactly-once](key-features.md)
+- [ ] [schema projection](key-features.md)
+- [ ] [parallelism](key-features.md)
 
 ##  Options
 

@@ -8,11 +8,11 @@ Read data from hdfs file system.
 
 ## Key features
 
-- [x] batch
-- [ ] stream
-- [ ] exactly-once
-- [x] schema projection
-- [x] parallelism
+- [x] [batch](key-features.md)
+- [ ] [stream](key-features.md)
+- [ ] [exactly-once](key-features.md)
+- [x] [schema projection](key-features.md)
+- [x] [parallelism](key-features.md)
 - [x] file format
     - [x] text
     - [x] csv

@@ -8,11 +8,11 @@ Used to write data to Clickhouse.
 
 ## Key features
 
-- [ ] exactly-once
+- [ ] [exactly-once](key-features.md)
 
 The Clickhouse sink plug-in can achieve accuracy once by implementing idempotent writing, and needs to cooperate with aggregatingmergetree and other engines that support deduplication.
 
-- [ ] schema projection 
+- [ ] [schema projection](key-features.md)
 
 :::tip
 

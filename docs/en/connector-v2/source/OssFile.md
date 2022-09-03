@@ -11,10 +11,10 @@ Read data from aliyun oss file system.
 
 ## Key features
 
-- [x] batch
-- [ ] stream
-- [ ] exactly-once
-- [x] schema projection
+- [x] [batch](key-features.md)
+- [ ] [stream](key-features.md)
+- [ ] [exactly-once](key-features.md)
+- [x] [schema projection](key-features.md)
 - [x] file format
     - [x] text
     - [x] csv
@@ -24,7 +24,7 @@ Read data from aliyun oss file system.
 
 supports query SQL and can achieve projection effect.
 
-- [x] parallelism
+- [x] [parallelism](key-features.md)
 
 ## Options
 

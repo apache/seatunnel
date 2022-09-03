@@ -8,11 +8,11 @@ Used to read data from Redis.
 
 ## Key features
 
-- [x] batch
-- [ ] stream
-- [ ] exactly-once
-- [x] schema projection
-- [ ] parallelism
+- [x] [batch](key-features.md)
+- [ ] [stream](key-features.md)
+- [ ] [exactly-once](key-features.md)
+- [x] [schema projection](key-features.md)
+- [ ] [parallelism](key-features.md)
 
 ##  Options
 

@@ -10,8 +10,8 @@ Send the data as a file to email.
 
 ## Key features
 
-- [ ] exactly-once
-- [ ] schema projection
+- [ ] [exactly-once](key-features.md)
+- [ ] [schema projection](key-features.md)
 
 ## Options
 

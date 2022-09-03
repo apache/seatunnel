@@ -8,9 +8,9 @@ Write data to Greenplum using [Jdbc connector](Jdbc.md).
 
 ## Key features
 
-- [ ] exactly-once
+- [ ] [exactly-once](key-features.md)
 
-- [ ] schema projection
+- [ ] [schema projection](key-features.md)
 
 :::tip
 
