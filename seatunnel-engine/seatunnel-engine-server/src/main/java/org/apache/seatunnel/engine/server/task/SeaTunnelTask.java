@@ -260,7 +260,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
     public void addState(Barrier barrier, long actionId, List<byte[]> state) {
         List<ActionSubtaskState> states = checkpointStates.computeIfAbsent(barrier.getId(), id -> new ArrayList<>());
         states.add(new ActionSubtaskState(actionId, indexID, state));
-        if (cycleAcks.size() == allCycles.size()) {
+        if (cycleAcks.get(barrier.getId()) == allCycles.size()) {
             this.getExecutionContext().sendToMaster(
                 new TaskAcknowledgeOperation(this.taskLocation, (CheckpointBarrier) barrier, states));
         }
