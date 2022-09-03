@@ -4,7 +4,15 @@
 
 ## Description
 
-Used to write data to Clickhouse. Supports Batch and Streaming mode.
+Used to write data to Clickhouse.
+
+## Key features
+
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
+
+The Clickhouse sink plug-in can achieve accuracy once by implementing idempotent writing, and needs to cooperate with aggregatingmergetree and other engines that support deduplication.
+
+- [ ] [schema projection](../../concept/connector-v2-features.md)
 
 :::tip
 
