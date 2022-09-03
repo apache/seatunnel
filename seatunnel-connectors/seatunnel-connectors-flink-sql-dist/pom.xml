@@ -26,29 +26,11 @@
   <artifactId>seatunnel-connectors-flink-sql-dist</artifactId>
 
   <dependencies>
-    <dependency>
-      <groupId>org.apache.seatunnel</groupId>
-      <artifactId>flink-sql-connector-jdbc</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.seatunnel</groupId>
-      <artifactId>flink-sql-connector-kafka</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.seatunnel</groupId>
-      <artifactId>flink-sql-connector-elasticsearch-6</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.seatunnel</groupId>
-      <artifactId>flink-sql-connector-elasticsearch-7</artifactId>
-      <version>${project.version}</version>
-    </dependency>
+      <dependency>
+          <groupId>org.apache.seatunnel</groupId>
+          <artifactId>seatunnel-connectors-flink-sql</artifactId>
+          <version>${project.version}</version>
+      </dependency>
   </dependencies>
 
   <build>
