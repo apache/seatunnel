@@ -28,23 +28,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-connector-flink-clickhouse</artifactId>
+    
+    <properties>
+        <clickhouse-jdbc.version>0.2</clickhouse-jdbc.version>
+        <sshd.version>2.7.0</sshd.version>
+    </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-api-flink</artifactId>
-            <version>${project.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-common</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-java</artifactId>
-        </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
@@ -57,11 +47,13 @@
         <dependency>
             <groupId>ru.yandex.clickhouse</groupId>
             <artifactId>clickhouse-jdbc</artifactId>
+            <version>${clickhouse-jdbc.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.sshd</groupId>
             <artifactId>sshd-scp</artifactId>
+            <version>${sshd.version}</version>
         </dependency>
 
 
