@@ -111,7 +111,8 @@ jobs:
           -D"maven.wagon.httpconnectionManager.ttlSeconds"=120
 
   dependency-license:
-    if: github.repository == 'apache/incubator-seatunnel'
+    # This job has somethings need todo, and it is not a blocker for the release.
+    if: "contains(toJSON(github.event.commits.*.message), '[ci-auto-license]')"
     name: Dependency licenses
     needs: [ sanity-check ]
     runs-on: ubuntu-latest
