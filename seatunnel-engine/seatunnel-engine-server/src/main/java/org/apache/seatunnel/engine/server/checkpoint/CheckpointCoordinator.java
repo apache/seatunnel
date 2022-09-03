@@ -97,6 +97,7 @@ public class CheckpointCoordinator {
 
     private final CheckpointCoordinatorConfiguration coordinatorConfig;
 
+    private int tolerableFailureCheckpoints;
     private final transient ScheduledExecutorService scheduler;
 
     private final AtomicLong latestTriggerTimestamp = new AtomicLong(0);
@@ -122,6 +123,7 @@ public class CheckpointCoordinator {
         this.plan = plan;
         this.coordinatorConfig = coordinatorConfig;
         this.latestCompletedCheckpoint = restoredCheckpoint;
+        this.tolerableFailureCheckpoints = coordinatorConfig.getTolerableFailureCheckpoints();
         this.pendingCheckpoints = new ConcurrentHashMap<>();
         this.completedCheckpoints = new ArrayDeque<>(storageConfig.getMaxRetainedCheckpoints() + 1);
         this.scheduler = Executors.newScheduledThreadPool(
@@ -172,6 +174,7 @@ public class CheckpointCoordinator {
     }
 
     private void startTriggerPendingCheckpoint(CompletableFuture<PendingCheckpoint> pendingCompletableFuture) {
+        // Trigger the barrier and wait for all tasks to ACK
         pendingCompletableFuture.thenAcceptAsync(pendingCheckpoint -> {
             if (CheckpointType.AUTO_SAVEPOINT_TYPE != pendingCheckpoint.getCheckpointType()) {
                 CompletableFuture.supplyAsync(() ->
@@ -185,6 +188,18 @@ public class CheckpointCoordinator {
             pendingCheckpoint.getCompletableFuture()
                 .thenAcceptAsync(this::completePendingCheckpoint);
         });
+
+        // If any task is not acked within the checkpoint timeout
+        pendingCompletableFuture.thenAcceptAsync(pendingCheckpoint ->
+            scheduler.schedule(() -> {
+                if (pendingCheckpoints.get(pendingCheckpoint.getCheckpointId()) != null && !pendingCheckpoint.isFullyAcknowledged()) {
+                    if (tolerableFailureCheckpoints-- <= 0) {
+                        cleanPendingCheckpoint();
+                        // TODO: notify job master to restore the pipeline.
+                    }
+                }}, coordinatorConfig.getCheckpointTimeout(),
+                TimeUnit.MILLISECONDS)
+        );
     }
 
     CompletableFuture<PendingCheckpoint> createPendingCheckpoint(long triggerTimestamp, CheckpointType checkpointType) {
@@ -254,7 +269,7 @@ public class CheckpointCoordinator {
     }
 
     protected void cleanPendingCheckpoint() {
-        // TODO: clear related future
+        // TODO: clear related future & scheduler task
         pendingCheckpoints.clear();
     }
 

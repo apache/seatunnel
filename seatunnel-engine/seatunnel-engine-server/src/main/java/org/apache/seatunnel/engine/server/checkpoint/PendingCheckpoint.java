@@ -115,7 +115,7 @@ public class PendingCheckpoint implements Checkpoint {
         }
     }
 
-    private boolean isFullyAcknowledged() {
+    protected boolean isFullyAcknowledged() {
         return notYetAcknowledgedTasks.size() == 0;
     }
 
