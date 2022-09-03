@@ -4,7 +4,21 @@
 
 ## Description
 
-Output data to hdfs file. Support bounded and unbounded job.
+Output data to hdfs file
+
+## Key features
+
+- [x] [exactly-once](../../concept/connector-v2-features.md)
+
+By default, we use 2PC commit to ensure `exactly-once`
+
+- [ ] [schema projection](../../concept/connector-v2-features.md)
+- [x] file format
+  - [x] text
+  - [x] csv
+  - [x] parquet
+  - [x] orc
+  - [x] json
 
 ## Options
 
