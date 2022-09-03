@@ -36,6 +36,7 @@ import org.apache.seatunnel.engine.server.task.operation.sink.SinkUnregisterOper
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -142,14 +143,15 @@ public class SinkFlowLifeCycle<T, StateT> extends ActionFlowLifeCycle implements
 
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
+        List<StateT> states = new ArrayList<>();
         if (writerStateSerializer.isPresent()) {
-            return;
+            states = actionStateList.stream()
+                .filter(state -> writerStateSerializer.isPresent())
+                .map(ActionSubtaskState::getState)
+                .flatMap(Collection::stream)
+                .map(bytes -> sneaky(() -> writerStateSerializer.get().deserialize(bytes)))
+                .collect(Collectors.toList());
         }
-        List<StateT> states = actionStateList.stream()
-            .map(ActionSubtaskState::getState)
-            .flatMap(Collection::stream)
-            .map(bytes -> sneaky(() -> writerStateSerializer.get().deserialize(bytes)))
-            .collect(Collectors.toList());
         if (states.isEmpty()) {
             this.writer = sinkAction.getSink().createWriter(new SinkWriterContext(indexID));
         } else {
