@@ -34,6 +34,22 @@ Output data to oss file system.
 
 The target dir path is required.
 
+### bucket [string]
+
+The bucket address of oss file system, for example: `oss://tyrantlucifer-image-bed`
+
+### access_key [string]
+
+The access key of oss file system.
+
+### access_secret [string]
+
+The access secret of oss file system.
+
+### endpoint [string]
+
+The endpoint of oss file system.
+
 ### file_name_expression [string]
 
 `file_name_expression` describes the file expression which will be created into the `path`. We can add the variable `${now}` or `${uuid}` in the `file_name_expression`, like `test_${uuid}_${now}`,
