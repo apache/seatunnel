@@ -12,10 +12,8 @@ Read data from local file system.
 - [ ] [stream](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [schema projection](../../concept/connector-v2-features.md)
-
-supports query SQL and can achieve projection effect.
-
 - [x] [parallelism](../../concept/connector-v2-features.md)
+- [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] file format
     - [x] text
     - [x] csv

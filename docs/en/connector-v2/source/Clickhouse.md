@@ -16,6 +16,7 @@ Used to read data from Clickhouse.
 supports query SQL and can achieve projection effect.
 
 - [ ] [parallelism](../../concept/connector-v2-features.md)
+- [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
 :::tip
 

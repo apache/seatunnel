@@ -20,6 +20,7 @@ Two ways of connecting Phoenix with Java JDBC. One is to connect to zookeeper th
 supports query SQL and can achieve projection effect.
 
 - [ ] [parallelism](../../concept/connector-v2-features.md)
+- [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
 ## Options
 

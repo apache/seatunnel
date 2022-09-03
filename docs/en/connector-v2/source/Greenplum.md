@@ -16,6 +16,7 @@ Read Greenplum data through [Jdbc connector](Jdbc.md).
 supports query SQL and can achieve projection effect.
 
 - [x] [parallelism](../../concept/connector-v2-features.md)
+- [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
 :::tip
 

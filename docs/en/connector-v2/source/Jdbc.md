@@ -16,6 +16,7 @@ Read external data source data through JDBC.
 supports query SQL and can achieve projection effect.
 
 - [x] [parallelism](../../concept/connector-v2-features.md)
+- [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
 ##  Options
 
