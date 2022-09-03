@@ -42,61 +42,81 @@ public class SqlserverTypeMapper implements JdbcDialectTypeMapper {
     private static final String SQLSERVER_TINYINT = "TINYINT";
     private static final String SQLSERVER_SMALLINT = "SMALLINT";
     private static final String SQLSERVER_INTEGER = "INTEGER";
+    private static final String SQLSERVER_INT = "INT";
     private static final String SQLSERVER_BIGINT = "BIGINT";
     private static final String SQLSERVER_DECIMAL = "DECIMAL";
-    private static final String SQLSERVER_INT = "INT";
     private static final String SQLSERVER_FLOAT = "FLOAT";
+    private static final String SQLSERVER_REAL = "REAL";
     private static final String SQLSERVER_NUMERIC = "NUMERIC";
-
+    private static final String SQLSERVER_MONEY = "MONEY";
+    private static final String SQLSERVER_SMALLMONEY = "SMALLMONEY";
     // -------------------------string----------------------------
-    private static final String SQLSERVER_BINARY = "BINARY";
     private static final String SQLSERVER_CHAR = "CHAR";
+    private static final String SQLSERVER_VARCHAR = "VARCHAR";
     private static final String SQLSERVER_NTEXT = "NTEXT";
+    private static final String SQLSERVER_NCHAR = "NCHAR";
     private static final String SQLSERVER_NVARCHAR = "NVARCHAR";
     private static final String SQLSERVER_TEXT = "TEXT";
-    private static final String SQLSERVER_VARBINARY = "VARBINARY";
-    private static final String SQLSERVER_XML = "XML";
 
     // ------------------------------time-------------------------
     private static final String SQLSERVER_DATE = "DATE";
     private static final String SQLSERVER_TIME = "TIME";
+    private static final String SQLSERVER_DATETIME = "DATETIME";
+    private static final String SQLSERVER_DATETIME2 = "DATETIME2";
+    private static final String SQLSERVER_SMALLDATETIME = "SMALLDATETIME";
+    private static final String SQLSERVER_DATETIMEOFFSET = "DATETIMEOFFSET";
     private static final String SQLSERVER_TIMESTAMP = "TIMESTAMP";
-    private static final String SQLSERVER_TIME_WITHOUT_TIME_ZONE = "TIME WITHOUT TIME ZONE";
-    private static final String SQLSERVER_TIMESTAMP_WITHOUT_TIME_ZONE = "TIMESTAMP WITHOUT TIME ZONE";
+
+    // ------------------------------blob-------------------------
+    private static final String SQLSERVER_BINARY = "BINARY";
+    private static final String SQLSERVER_VARBINARY = "VARBINARY";
+    private static final String SQLSERVER_IMAGE = "IMAGE";
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
         String sqlServerType = metadata.getColumnTypeName(colIndex).toUpperCase();
-        String columnName = metadata.getColumnName(colIndex);
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
         switch (sqlServerType) {
             case SQLSERVER_BIT:
                 return BasicType.BOOLEAN_TYPE;
+            case SQLSERVER_TINYINT:
+            case SQLSERVER_SMALLINT:
+                return BasicType.SHORT_TYPE;
+            case SQLSERVER_INTEGER:
+            case SQLSERVER_INT:
+                return BasicType.INT_TYPE;
+            case SQLSERVER_BIGINT:
+                return BasicType.LONG_TYPE;
+            case SQLSERVER_DECIMAL:
+            case SQLSERVER_NUMERIC:
+            case SQLSERVER_MONEY:
+            case SQLSERVER_SMALLMONEY:
+                return new DecimalType(precision, scale);
             case SQLSERVER_FLOAT:
-            case SQLSERVER_BINARY_DOUBLE:
-                return BasicType.DOUBLE_TYPE;
-            case SQLSERVER_BINARY_FLOAT:
+            case SQLSERVER_REAL:
                 return BasicType.FLOAT_TYPE;
             case SQLSERVER_CHAR:
             case SQLSERVER_NCHAR:
-            case SQLSERVER_NVARCHAR2:
-            case SQLSERVER_VARCHAR2:
-            case SQLSERVER_LONG:
-            case SQLSERVER_ROWID:
-            case SQLSERVER_NCLOB:
-            case SQLSERVER_CLOB:
+            case SQLSERVER_VARCHAR:
+            case SQLSERVER_NTEXT:
+            case SQLSERVER_NVARCHAR:
+            case SQLSERVER_TEXT:
                 return BasicType.STRING_TYPE;
             case SQLSERVER_DATE:
+                return LocalTimeType.LOCAL_DATE_TYPE;
+            case SQLSERVER_TIME:
+                return LocalTimeType.LOCAL_TIME_TYPE;
+            case SQLSERVER_DATETIME:
+            case SQLSERVER_DATETIME2:
             case SQLSERVER_TIMESTAMP:
-            case SQLSERVER_TIME_WITHOUT_TIME_ZONE:
-            case SQLSERVER_TIMESTAMP_WITHOUT_TIME_ZONE:
+            case SQLSERVER_SMALLDATETIME:
+            case SQLSERVER_DATETIMEOFFSET:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-            case SQLSERVER_BLOB:
-            case SQLSERVER_RAW:
-            case SQLSERVER_LONG_RAW:
-            case SQLSERVER_BFILE:
+            case SQLSERVER_BINARY:
+            case SQLSERVER_VARBINARY:
+            case SQLSERVER_IMAGE:
                 return PrimitiveByteArrayType.INSTANCE;
             //Doesn't support yet
             case SQLSERVER_UNKNOWN:
