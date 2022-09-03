@@ -77,4 +77,9 @@ public class TaskAcknowledgeOperation extends Operation implements IdentifiedDat
             .getCheckpointManager()
             .acknowledgeTask(this);
     }
+
+    @Override
+    public String toString() {
+        return String.format("task[%s](%s/%s) ack. %s", taskLocation.getTaskID(), taskLocation.getPipelineId(), taskLocation.getJobId(), barrier.toString());
+    }
 }

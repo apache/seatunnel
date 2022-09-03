@@ -330,10 +330,8 @@ public class CheckpointCoordinator {
     protected void acknowledgeTask(TaskAcknowledgeOperation ackOperation) {
         final long checkpointId = ackOperation.getBarrier().getId();
         final PendingCheckpoint pendingCheckpoint = pendingCheckpoints.get(checkpointId);
-        if (pendingCheckpoint == null) {
-            LOG.debug("job: {}, pipeline: {}, the checkpoint({}) don't exist.", jobId, pipelineId, checkpointId);
-            return;
-        } else if (checkpointId == Barrier.PREPARE_CLOSE_BARRIER_ID) {
+        LOG.debug(ackOperation.toString());
+        if (checkpointId == Barrier.PREPARE_CLOSE_BARRIER_ID) {
             synchronized (autoSavepointLock) {
                 if (pendingCheckpoints.get(checkpointId) == null) {
                     CompletableFuture<PendingCheckpoint> future = createPendingCheckpoint(
@@ -345,6 +343,9 @@ public class CheckpointCoordinator {
             }
             pendingCheckpoints.values().parallelStream()
                 .forEach(cp -> cp.acknowledgeTask(ackOperation.getTaskLocation(), ackOperation.getStates(), SubtaskStatus.AUTO_PREPARE_CLOSE));
+            return;
+        } else if (pendingCheckpoint == null) {
+            LOG.info("job: {}, pipeline: {}, the checkpoint({}) don't exist.", jobId, pipelineId, checkpointId);
             return;
         }
 
