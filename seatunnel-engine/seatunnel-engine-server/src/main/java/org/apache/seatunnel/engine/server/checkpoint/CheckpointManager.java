@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointBarrierTriggerOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishedOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
@@ -77,6 +78,17 @@ public class CheckpointManager {
         this.subtaskWithAddresses = new HashMap<>();
         this.checkpointStorage = FactoryUtil.discoverFactory(Thread.currentThread().getContextClassLoader(), CheckpointStorageFactory.class, storageConfig.getStorage())
             .create(new HashMap<>());
+    }
+
+    public PassiveCompletableFuture<PendingCheckpoint>[] triggerSavepoints() {
+        return coordinatorMap.values()
+            .parallelStream()
+            .map(CheckpointCoordinator::startSavepoint)
+            .toArray(new PassiveCompletableFuture<>[0]);
+    }
+
+    public PassiveCompletableFuture<PendingCheckpoint> triggerSavepoint(int pipelineId) {
+        return coordinatorMap.get(pipelineId).startSavepoint();
     }
 
     private CheckpointCoordinator getCheckpointCoordinator(TaskLocation taskLocation) {

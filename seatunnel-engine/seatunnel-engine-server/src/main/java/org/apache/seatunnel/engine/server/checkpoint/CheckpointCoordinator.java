@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.common.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.checkpoint.storage.common.Serializer;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
@@ -146,7 +147,8 @@ public class CheckpointCoordinator {
             final long currentTimestamp = Instant.now().toEpochMilli();
             if (currentTimestamp - latestTriggerTimestamp.get() >= coordinatorConfig.getCheckpointInterval() &&
                 pendingCounter.get() < coordinatorConfig.getMaxConcurrentCheckpoints()) {
-                startTriggerPendingCheckpoint(currentTimestamp, CheckpointType.CHECKPOINT_TYPE);
+                CompletableFuture<PendingCheckpoint> pendingCheckpoint = createPendingCheckpoint(currentTimestamp, CheckpointType.CHECKPOINT_TYPE);
+                startTriggerPendingCheckpoint(pendingCheckpoint);
                 pendingCounter.incrementAndGet();
                 scheduleTriggerPendingCheckpoint(coordinatorConfig.getCheckpointInterval());
             }
@@ -160,18 +162,10 @@ public class CheckpointCoordinator {
             .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().size()));
     }
 
-    public void startTriggerPendingCheckpoint(long triggerTimestamp, CheckpointType checkpointType) {
-        CompletableFuture<Long> idFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                // this must happen outside the coordinator-wide lock,
-                // because it communicates with external services
-                // (in HA mode) and may block for a while.
-                return checkpointIdCounter.getAndIncrement();
-            } catch (Throwable e) {
-                throw new CompletionException(e);
-            }
-        });
-        startTriggerPendingCheckpoint(createPendingCheckpoint(triggerTimestamp, idFuture, checkpointType));
+    public PassiveCompletableFuture<PendingCheckpoint> startSavepoint() {
+        CompletableFuture<PendingCheckpoint> savepoint = createPendingCheckpoint(Instant.now().toEpochMilli(), CheckpointType.SAVEPOINT_TYPE);
+        startTriggerPendingCheckpoint(savepoint);
+        return new PassiveCompletableFuture<>(savepoint);
     }
 
     private void startTriggerPendingCheckpoint(CompletableFuture<PendingCheckpoint> pendingCompletableFuture) {
@@ -188,6 +182,20 @@ public class CheckpointCoordinator {
             pendingCheckpoint.getCompletableFuture()
                 .thenAcceptAsync(this::completePendingCheckpoint);
         });
+    }
+
+    CompletableFuture<PendingCheckpoint> createPendingCheckpoint(long triggerTimestamp, CheckpointType checkpointType) {
+        CompletableFuture<Long> idFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                // this must happen outside the coordinator-wide lock,
+                // because it communicates with external services
+                // (in HA mode) and may block for a while.
+                return checkpointIdCounter.getAndIncrement();
+            } catch (Throwable e) {
+                throw new CompletionException(e);
+            }
+        });
+        return createPendingCheckpoint(triggerTimestamp, idFuture, checkpointType);
     }
 
     CompletableFuture<PendingCheckpoint> createPendingCheckpoint(long triggerTimestamp, CompletableFuture<Long> idFuture, CheckpointType checkpointType) {
