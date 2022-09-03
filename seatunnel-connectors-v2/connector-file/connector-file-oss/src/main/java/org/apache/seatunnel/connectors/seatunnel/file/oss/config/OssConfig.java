@@ -20,8 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.file.oss.config;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 
 public class OssConfig extends BaseSourceConfig {
-    public static final String ACCESS_KEY = "accessKey";
-    public static final String ACCESS_SECRET = "accessSecret";
+    public static final String ACCESS_KEY = "access_key";
+    public static final String ACCESS_SECRET = "access_secret";
     public static final String ENDPOINT = "endpoint";
     public static final String BUCKET = "bucket";
 }
