@@ -22,11 +22,17 @@ import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointBarrierTriggerOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishedOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.execution.TaskGroup;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
@@ -80,6 +86,10 @@ public class CheckpointManager {
             .create(new HashMap<>());
     }
 
+    /**
+     * Called by the JobMaster, actually triggered by the user.
+     * <br> After the savepoint is triggered, it will cause the job to stop automatically.
+     */
     public PassiveCompletableFuture<PendingCheckpoint>[] triggerSavepoints() {
         return coordinatorMap.values()
             .parallelStream()
@@ -87,6 +97,10 @@ public class CheckpointManager {
             .toArray(new PassiveCompletableFuture<>[0]);
     }
 
+    /**
+     * Called by the JobMaster, actually triggered by the user.
+     * <br> After the savepoint is triggered, it will cause the pipeline to stop automatically.
+     */
     public PassiveCompletableFuture<PendingCheckpoint> triggerSavepoint(int pipelineId) {
         return coordinatorMap.get(pipelineId).startSavepoint();
     }
@@ -95,20 +109,47 @@ public class CheckpointManager {
         return coordinatorMap.get(taskLocation.getPipelineId());
     }
 
+    /**
+     * Called by the {@link Task}.
+     * <br> used by Task to report the {@link SeaTunnelTaskState} of the state machine.
+     */
     public void reportedTask(TaskReportStatusOperation reportStatusOperation, Address address) {
-        subtaskWithAddresses.putIfAbsent(reportStatusOperation.getLocation().getTaskID(), address);
+        // task address may change during restore.
+        subtaskWithAddresses.put(reportStatusOperation.getLocation().getTaskID(), address);
         getCheckpointCoordinator(reportStatusOperation.getLocation()).reportedTask(reportStatusOperation);
     }
 
+    /**
+     * Called by the JobMaster.
+     * <br> Listen to the {@link ExecutionState} of the {@link TaskGroup}, which is used to cancel the running {@link PendingCheckpoint} when the task group is abnormal.
+     */
+    public void listenTaskGroup(TaskGroupLocation groupLocation, ExecutionState executionState) {
+        if (jobId != groupLocation.getJobId()) {
+            return;
+        }
+        switch (executionState) {
+            case FAILED:
+            case CANCELED:
+            case CANCELING:
+                coordinatorMap.get(groupLocation.getPipelineId()).cleanPendingCheckpoint();
+                return;
+            default:
+        }
+    }
+
+    /**
+     * Called by the {@link Task}.
+     * <br> used for the ack of the checkpoint, including the state snapshot of all {@link Action} within the {@link Task}.
+     */
     public void acknowledgeTask(TaskAcknowledgeOperation ackOperation) {
         getCheckpointCoordinator(ackOperation.getTaskLocation()).acknowledgeTask(ackOperation);
     }
 
-    public InvocationFuture<?> triggerCheckpoint(CheckpointBarrierTriggerOperation operation) {
+    protected InvocationFuture<?> triggerCheckpoint(CheckpointBarrierTriggerOperation operation) {
         return NodeEngineUtil.sendOperationToMasterNode(nodeEngine, operation);
     }
 
-    public InvocationFuture<?> notifyCheckpointFinished(CheckpointFinishedOperation operation) {
+    protected InvocationFuture<?> notifyCheckpointFinished(CheckpointFinishedOperation operation) {
         return NodeEngineUtil.sendOperationToMemberNode(nodeEngine, operation, subtaskWithAddresses.get(operation.getTaskLocation().getTaskID()));
     }
 }
