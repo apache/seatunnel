@@ -17,14 +17,14 @@
 
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
-import static org.apache.seatunnel.engine.server.utils.ExceptionUtil.sneakyThrow;
+import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
+import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -50,12 +50,12 @@ public class CheckpointFinishedOperation extends Operation implements Identified
 
     @Override
     public int getFactoryId() {
-        return OperationDataSerializerHook.FACTORY_ID;
+        return CheckpointDataSerializerHook.FACTORY_ID;
     }
 
     @Override
     public int getClassId() {
-        return OperationDataSerializerHook.CHECKPOINT_FINISHED_OPERATOR;
+        return CheckpointDataSerializerHook.CHECKPOINT_FINISHED_OPERATOR;
     }
 
     @Override

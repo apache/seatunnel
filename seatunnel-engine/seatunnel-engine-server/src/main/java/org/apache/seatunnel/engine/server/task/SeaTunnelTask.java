@@ -17,14 +17,26 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CANCELED;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CLOSED;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.PREPARE_CLOSE;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.READY_START;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.RUNNING;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.STARTING;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.WAITING_RESTORE;
+
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.engine.common.utils.ConsumerWithException;
+import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.PartitionTransformAction;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
 import org.apache.seatunnel.engine.core.dag.actions.UnknownActionException;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.dag.physical.config.IntermediateQueueConfig;
 import org.apache.seatunnel.engine.server.dag.physical.config.SinkConfig;
@@ -44,10 +56,12 @@ import org.apache.seatunnel.engine.server.task.flow.SinkFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.TransformFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateQueue;
+import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import lombok.NonNull;
 
+import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -104,32 +118,32 @@ public abstract class SeaTunnelTask extends AbstractTask {
     protected void stateProcess() throws Exception {
         switch (currState) {
             case INIT:
-                reportReadyRestore();
-                currState = SeaTunnelTaskState.WAITING_RESTORE;
+                currState = WAITING_RESTORE;
+                reportTaskStatus(WAITING_RESTORE);
                 break;
             case WAITING_RESTORE:
                 if (restoreComplete) {
+                    currState = READY_START;
                     reportReadyStart();
-                    currState = SeaTunnelTaskState.READY_START;
                 }
                 break;
             case READY_START:
                 if (startCalled) {
-                    currState = SeaTunnelTaskState.STARTING;
+                    currState = STARTING;
                 }
                 break;
             case STARTING:
-                currState = SeaTunnelTaskState.RUNNING;
+                currState = RUNNING;
                 break;
             case RUNNING:
                 collect();
                 if (prepareCloseStatus) {
-                    currState = SeaTunnelTaskState.PREPARE_CLOSE;
+                    currState = PREPARE_CLOSE;
                 }
                 break;
             case PREPARE_CLOSE:
                 if (closeCalled) {
-                    currState = SeaTunnelTaskState.CLOSED;
+                    currState = CLOSED;
                 }
                 break;
             case CLOSED:
@@ -138,7 +152,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
             // TODO support cancel by outside
             case CANCELLING:
                 this.close();
-                currState = SeaTunnelTaskState.CANCELED;
+                currState = CANCELED;
                 return;
             default:
                 throw new IllegalArgumentException("Unknown Enumerator State: " + currState);
@@ -223,16 +237,44 @@ public abstract class SeaTunnelTask extends AbstractTask {
         return urls;
     }
 
-    public void ack(long checkpointId) {
-        cycleAcks.compute(checkpointId, (id, count) -> count == null ? 1 : ++count);
+    @Override
+    public void close() throws IOException {
+        allCycles.parallelStream().forEach(cycle -> sneaky(cycle::close));
     }
 
-    public void addState(long checkpointId, long actionId, byte[] state) {
-        List<ActionSubtaskState> states = checkpointStates.computeIfAbsent(checkpointId, id -> new ArrayList<>());
+    public void ack(Barrier barrier) {
+        cycleAcks.compute(barrier.getId(), (id, count) -> count == null ? 1 : ++count);
+    }
+
+    public void addState(Barrier barrier, long actionId, List<byte[]> state) {
+        List<ActionSubtaskState> states = checkpointStates.computeIfAbsent(barrier.getId(), id -> new ArrayList<>());
         states.add(new ActionSubtaskState(actionId, indexID, state));
         if (cycleAcks.size() == allCycles.size()) {
             this.getExecutionContext().sendToMaster(
-                new TaskAcknowledgeOperation(checkpointId, this.taskLocation, states));
+                new TaskAcknowledgeOperation(this.taskLocation, (CheckpointBarrier) barrier, states));
         }
+    }
+
+    @Override
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+        notifyAllAction(listener -> listener.notifyCheckpointComplete(checkpointId));
+        if (prepareCloseStatus) {
+            closeCall();
+        }
+    }
+
+    @Override
+    public void notifyCheckpointAborted(long checkpointId) throws Exception {
+        notifyAllAction(listener -> listener.notifyCheckpointAborted(checkpointId));
+        if (prepareCloseStatus) {
+            closeCall();
+        }
+    }
+
+    public void notifyAllAction(ConsumerWithException<InternalCheckpointListener> consumer){
+        allCycles.stream()
+            .filter(cycle -> cycle instanceof InternalCheckpointListener)
+            .map(cycle -> (InternalCheckpointListener) cycle)
+            .forEach(listener -> sneaky(consumer, listener));
     }
 }

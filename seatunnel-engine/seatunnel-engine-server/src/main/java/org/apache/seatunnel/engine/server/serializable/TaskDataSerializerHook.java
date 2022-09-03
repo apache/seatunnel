@@ -24,14 +24,12 @@ import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
 import org.apache.seatunnel.engine.server.task.operation.DeployTaskOperation;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.CloseRequestOperation;
-import org.apache.seatunnel.engine.server.task.operation.checkpoint.PrepareCloseDoneOperation;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.ReportReadyRestoreOperation;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.ReportReadyStartOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkPrepareCommitOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkUnregisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
-import org.apache.seatunnel.engine.server.task.operation.source.PrepareCloseOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceNoMoreElementOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
@@ -72,10 +70,6 @@ public class TaskDataSerializerHook implements DataSerializerHook {
     public static final int REPORT_READY_RESTORE_TYPE = 14;
 
     public static final int REPORT_READY_START_TYPE = 15;
-
-    public static final int PREPARE_CLOSE_TYPE = 16;
-
-    public static final int PREPARE_CLOSE_DONE_TYPE = 17;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -127,10 +121,6 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new ReportReadyRestoreOperation();
                 case REPORT_READY_START_TYPE:
                     return new ReportReadyStartOperation();
-                case PREPARE_CLOSE_TYPE:
-                    return new PrepareCloseOperation();
-                case PREPARE_CLOSE_DONE_TYPE:
-                    return new PrepareCloseDoneOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

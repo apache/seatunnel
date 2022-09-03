@@ -19,8 +19,9 @@ package org.apache.seatunnel.engine.server.checkpoint.operation;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
+import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -35,9 +36,10 @@ import java.util.List;
 @Getter
 @AllArgsConstructor
 public class TaskAcknowledgeOperation extends Operation implements IdentifiedDataSerializable {
-    private long checkpointId;
 
     private TaskLocation taskLocation;
+
+    private CheckpointBarrier barrier;
 
     private List<ActionSubtaskState> states;
 
@@ -46,25 +48,25 @@ public class TaskAcknowledgeOperation extends Operation implements IdentifiedDat
 
     @Override
     public int getFactoryId() {
-        return OperationDataSerializerHook.FACTORY_ID;
+        return CheckpointDataSerializerHook.FACTORY_ID;
     }
 
     @Override
     public int getClassId() {
-        return OperationDataSerializerHook.CHECKPOINT_ACK_OPERATOR;
+        return CheckpointDataSerializerHook.TASK_ACK_OPERATOR;
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        out.writeLong(checkpointId);
         out.writeObject(taskLocation);
+        out.writeObject(barrier);
         out.writeObject(states);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        checkpointId = in.readLong();
         taskLocation = in.readObject(TaskLocation.class);
+        barrier = in.readObject(CheckpointBarrier.class);
         states = in.readObject();
     }
 
@@ -73,6 +75,6 @@ public class TaskAcknowledgeOperation extends Operation implements IdentifiedDat
         ((SeaTunnelServer) getService())
             .getJobMaster(taskLocation.getJobId())
             .getCheckpointManager()
-            .acknowledgeTask(this, getCallerAddress());
+            .acknowledgeTask(this);
     }
 }

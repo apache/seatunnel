@@ -19,50 +19,52 @@ package org.apache.seatunnel.engine.server.checkpoint.operation;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
+import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.io.IOException;
 
-public class TaskCompletedOperation extends Operation implements IdentifiedDataSerializable {
-    private TaskLocation taskLocation;
+@Getter
+@NoArgsConstructor
+@AllArgsConstructor
+public class TaskReportStatusOperation extends Operation implements IdentifiedDataSerializable {
 
-    public TaskCompletedOperation() {
-    }
-
-    public TaskCompletedOperation(TaskLocation taskLocation) {
-        this.taskLocation = taskLocation;
-    }
+    private TaskLocation location;
+    private SeaTunnelTaskState status;
 
     @Override
     public int getFactoryId() {
-        return OperationDataSerializerHook.FACTORY_ID;
+        return CheckpointDataSerializerHook.FACTORY_ID;
     }
 
     @Override
     public int getClassId() {
-        return OperationDataSerializerHook.TASK_COMPLETED_OPERATOR;
+        return CheckpointDataSerializerHook.TASK_REPORT_STATUS_OPERATOR;
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        out.writeObject(taskLocation);
+        out.writeObject(location);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        taskLocation = in.readObject(TaskLocation.class);
+        location = in.readObject(TaskLocation.class);
     }
 
     @Override
     public void run() {
         ((SeaTunnelServer) getService())
-            .getJobMaster(taskLocation.getJobId())
+            .getJobMaster(location.getJobId())
             .getCheckpointManager()
-            .taskCompleted(taskLocation);
+            .reportedTask(this, getCallerAddress());
     }
 }

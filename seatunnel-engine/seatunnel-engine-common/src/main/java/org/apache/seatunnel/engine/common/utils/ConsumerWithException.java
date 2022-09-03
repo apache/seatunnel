@@ -15,13 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.record;
+package org.apache.seatunnel.engine.common.utils;
 
-/**
- * This sign used for flow closed, send this sign in the
- * {@link org.apache.seatunnel.api.table.type.Record} to next flow
- */
-public class ClosedSign {
-    public ClosedSign() {
-    }
+@FunctionalInterface
+public interface ConsumerWithException<T>  {
+    /**
+     * Performs this operation on the given argument.
+     *
+     * @param t the input argument
+     */
+    void accept(T t) throws Exception;
 }

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 
 import java.io.Serializable;
 import java.util.Map;
@@ -32,6 +33,8 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
 
     private final long triggerTimestamp;
 
+    private final CheckpointType checkpointType;
+
     private final long completedTimestamp;
 
     private final Map<Long, ActionState> taskStates;
@@ -42,6 +45,7 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
                                int pipelineId,
                                long checkpointId,
                                long triggerTimestamp,
+                               CheckpointType checkpointType,
                                long completedTimestamp,
                                Map<Long, ActionState> taskStates,
                                Map<Long, TaskStatistics> taskStatistics) {
@@ -49,6 +53,7 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
         this.pipelineId = pipelineId;
         this.checkpointId = checkpointId;
         this.triggerTimestamp = triggerTimestamp;
+        this.checkpointType = checkpointType;
         this.completedTimestamp = completedTimestamp;
         this.taskStates = taskStates;
         this.taskStatistics = taskStatistics;
@@ -72,6 +77,11 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
     @Override
     public long getCheckpointTimestamp() {
         return this.triggerTimestamp;
+    }
+
+    @Override
+    public CheckpointType getCheckpointType() {
+        return this.checkpointType;
     }
 
     public long getCompletedTimestamp() {

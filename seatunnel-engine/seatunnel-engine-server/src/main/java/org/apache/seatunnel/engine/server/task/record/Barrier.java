@@ -15,14 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.utils;
+package org.apache.seatunnel.engine.server.task.record;
 
-@FunctionalInterface
-public interface ConsumerWithException<T>  {
+/**
+ * barrier flowing in data flow
+ */
+public interface Barrier {
+    Long PREPARE_CLOSE_BARRIER_ID = 0L;
+
     /**
-     * Performs this operation on the given argument.
-     *
-     * @param t the input argument
+     * The ID of the barrier.
      */
-    void accept(T t) throws Exception;
+    long getId();
+
+    /**
+     * Whether the task needs to perform a status snapshot after the barrier is aligned.
+     * For example, DDL barrier does not require a snapshot.
+     */
+    boolean snapshot();
+
+    /**
+     * Barrier indicating that the task should prepare to close.
+     */
+    boolean prepareClose();
 }

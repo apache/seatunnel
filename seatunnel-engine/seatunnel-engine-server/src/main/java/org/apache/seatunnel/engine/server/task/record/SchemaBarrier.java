@@ -17,11 +17,22 @@
 
 package org.apache.seatunnel.engine.server.task.record;
 
-/* This sign used for flow prepare close, send this sign in the
- * {@link org.apache.seatunnel.api.table.type.Record} to next flow
+/**
+ * Change the schema of the task and flow.
  */
-public class PrepareCloseSign {
+public class SchemaBarrier implements Barrier {
+    @Override
+    public long getId() {
+        return -1;
+    }
 
-    public PrepareCloseSign() {
+    @Override
+    public boolean snapshot() {
+        return false;
+    }
+
+    @Override
+    public boolean prepareClose() {
+        return false;
     }
 }

@@ -18,10 +18,6 @@
 package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
-import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishedOperation;
-import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointTriggerOperation;
-import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
-import org.apache.seatunnel.engine.server.checkpoint.operation.TaskCompletedOperation;
 import org.apache.seatunnel.engine.server.operation.CancelJobOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
@@ -47,16 +43,11 @@ public final class OperationDataSerializerHook implements DataSerializerHook {
 
     public static final int DEPLOY_TASK_OPERATOR = 2;
 
-    public static final int TASK_COMPLETED_OPERATOR = 3;
-    public static final int WAIT_FORM_JOB_COMPLETE_OPERATOR = 4;
+    public static final int WAIT_FORM_JOB_COMPLETE_OPERATOR = 3;
 
-    public static final int CHECKPOINT_TRIGGER_OPERATOR = 5;
+    public static final int CANCEL_JOB_OPERATOR = 4;
 
-    public static final int CHECKPOINT_ACK_OPERATOR = 6;
-
-    public static final int CHECKPOINT_FINISHED_OPERATOR = 7;
-    public static final int CANCEL_JOB_OPERATOR = 8;
-    public static final int GET_JOB_STATUS_OPERATOR = 9;
+    public static final int GET_JOB_STATUS_OPERATOR = 5;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_OPERATION_DATA_SERIALIZER_FACTORY,
@@ -84,20 +75,12 @@ public final class OperationDataSerializerHook implements DataSerializerHook {
                     return new SubmitJobOperation();
                 case DEPLOY_TASK_OPERATOR:
                     return new DeployTaskOperation();
-                case TASK_COMPLETED_OPERATOR:
-                    return new TaskCompletedOperation();
                 case WAIT_FORM_JOB_COMPLETE_OPERATOR:
                     return new WaitForJobCompleteOperation();
-                case CHECKPOINT_TRIGGER_OPERATOR:
-                    return new CheckpointTriggerOperation();
                 case CANCEL_JOB_OPERATOR:
                     return new CancelJobOperation();
                 case GET_JOB_STATUS_OPERATOR:
                     return new GetJobStatusOperation();
-                case CHECKPOINT_ACK_OPERATOR:
-                    return new TaskAcknowledgeOperation();
-                case CHECKPOINT_FINISHED_OPERATOR:
-                    return new CheckpointFinishedOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

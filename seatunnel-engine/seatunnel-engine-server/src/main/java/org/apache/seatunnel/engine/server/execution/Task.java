@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
+import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import lombok.NonNull;
 
@@ -46,5 +46,5 @@ public interface Task extends InternalCheckpointListener, Serializable {
     default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
     }
 
-    default void triggerCheckpoint(CheckpointBarrier checkpointBarrier) throws Exception {}
+    default void triggerBarrier(Barrier barrier) throws Exception {}
 }

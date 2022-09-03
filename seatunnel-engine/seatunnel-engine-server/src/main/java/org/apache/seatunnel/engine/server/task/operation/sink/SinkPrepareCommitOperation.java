@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.engine.server.task.operation.sink;
 
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
-import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointTriggerOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointBarrierTriggerOperation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -29,10 +29,10 @@ import lombok.NoArgsConstructor;
 import java.io.IOException;
 
 @NoArgsConstructor
-public class SinkPrepareCommitOperation extends CheckpointTriggerOperation {
+public class SinkPrepareCommitOperation extends CheckpointBarrierTriggerOperation {
     private byte[] commitInfos;
 
-    public SinkPrepareCommitOperation(CheckpointBarrier checkpointBarrier, TaskLocation taskLocation, byte[] commitInfos) {
+    public SinkPrepareCommitOperation(Barrier checkpointBarrier, TaskLocation taskLocation, byte[] commitInfos) {
         super(checkpointBarrier, taskLocation);
         this.commitInfos = commitInfos;
     }

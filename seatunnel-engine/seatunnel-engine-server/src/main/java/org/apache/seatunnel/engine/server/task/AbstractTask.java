@@ -17,18 +17,22 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
+
+import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.task.operation.checkpoint.PrepareCloseDoneOperation;
-import org.apache.seatunnel.engine.server.task.operation.checkpoint.ReportReadyRestoreOperation;
-import org.apache.seatunnel.engine.server.task.operation.checkpoint.ReportReadyStartOperation;
+import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import lombok.NonNull;
 
 import java.net.URL;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public abstract class AbstractTask implements Task {
     private static final long serialVersionUID = -2524701323779523718L;
@@ -85,17 +89,14 @@ public abstract class AbstractTask implements Task {
         return taskLocation.getTaskID();
     }
 
-    protected void reportReadyRestore() {
-        getExecutionContext().sendToMaster(new ReportReadyRestoreOperation(jobID, taskLocation)).join();
+    protected void reportTaskStatus(SeaTunnelTaskState status) {
+        getExecutionContext().sendToMaster(new TaskReportStatusOperation(taskLocation, status)).join();
     }
 
-    protected void reportReadyStart() {
-        getExecutionContext().sendToMaster(new ReportReadyStartOperation(jobID, taskLocation)).join();
-    }
-
-    public void prepareCloseDone() {
-        prepareCloseStatus = true;
-        getExecutionContext().sendToMaster(new PrepareCloseDoneOperation(jobID, taskLocation)).join();
+    public static <T> List<byte[]> serializeStates(Serializer<T> serializer, List<T> states) {
+        return states.stream()
+            .map(state -> sneaky(() -> serializer.serialize(state)))
+                .collect(Collectors.toList());
     }
 
     protected void restoreState() {

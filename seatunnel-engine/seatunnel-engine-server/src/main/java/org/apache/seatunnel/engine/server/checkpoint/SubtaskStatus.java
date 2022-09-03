@@ -15,15 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.utils;
+package org.apache.seatunnel.engine.server.checkpoint;
 
-public class ExceptionUtil {
-    private ExceptionUtil() {
-    }
-
-    /** javac hack for unchecking the checked exception. */
-    @SuppressWarnings("unchecked")
-    public static <T extends Exception> void sneakyThrow(Exception t) throws T {
-        throw (T) t;
-    }
+public enum SubtaskStatus {
+    RUNNING,
+    SAVEPOINT_PREPARE_CLOSE,
+    AUTO_PREPARE_CLOSE;
 }

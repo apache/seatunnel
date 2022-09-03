@@ -21,9 +21,10 @@ import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointBarrierTriggerOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishedOperation;
-import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointTriggerOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
@@ -82,16 +83,16 @@ public class CheckpointManager {
         return coordinatorMap.get(taskLocation.getPipelineId());
     }
 
-    public void acknowledgeTask(TaskAcknowledgeOperation ackOperation, Address address) {
-        subtaskWithAddresses.putIfAbsent(ackOperation.getTaskLocation().getTaskID(), address);
+    public void reportedTask(TaskReportStatusOperation reportStatusOperation, Address address) {
+        subtaskWithAddresses.putIfAbsent(reportStatusOperation.getLocation().getTaskID(), address);
+        getCheckpointCoordinator(reportStatusOperation.getLocation()).reportedTask(reportStatusOperation);
+    }
+
+    public void acknowledgeTask(TaskAcknowledgeOperation ackOperation) {
         getCheckpointCoordinator(ackOperation.getTaskLocation()).acknowledgeTask(ackOperation);
     }
 
-    public void taskCompleted(TaskLocation taskLocation) {
-        getCheckpointCoordinator(taskLocation).taskCompleted(taskLocation);
-    }
-
-    public InvocationFuture<?> triggerCheckpoint(CheckpointTriggerOperation operation) {
+    public InvocationFuture<?> triggerCheckpoint(CheckpointBarrierTriggerOperation operation) {
         return NodeEngineUtil.sendOperationToMasterNode(nodeEngine, operation);
     }
 

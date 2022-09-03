@@ -17,19 +17,28 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CANCELED;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CLOSED;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.PREPARE_CLOSE;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.READY_START;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.RUNNING;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.STARTING;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.WAITING_RESTORE;
+
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
-import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointTriggerOperation;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointBarrierTriggerOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.context.SeaTunnelSplitEnumeratorContext;
-import org.apache.seatunnel.engine.server.task.operation.source.PrepareCloseOperation;
-import org.apache.seatunnel.engine.server.task.statemachine.EnumeratorState;
+import org.apache.seatunnel.engine.server.task.record.Barrier;
+import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
@@ -41,6 +50,7 @@ import lombok.NonNull;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URL;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -69,17 +79,15 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private Map<TaskLocation, Address> taskMemberMapping;
     private Map<Long, TaskLocation> taskIDToTaskLocationMapping;
 
-    private volatile EnumeratorState currState;
+    private volatile SeaTunnelTaskState currState;
 
     private volatile boolean readerRegisterComplete;
-    private volatile boolean readerFinish;
 
     @Override
     public void init() throws Exception {
-        currState = EnumeratorState.INIT;
+        currState = SeaTunnelTaskState.INIT;
         super.init();
         readerRegisterComplete = false;
-        readerFinish = false;
         LOGGER.info("starting seatunnel source split enumerator task, source name: " + source.getName());
         enumeratorContext = new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this);
         enumerator = this.source.getSource().createEnumerator(enumeratorContext);
@@ -88,7 +96,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         taskIDToTaskLocationMapping = new ConcurrentHashMap<>();
         maxReaderSize = source.getParallelism();
         unfinishedReaders = new CopyOnWriteArraySet<>();
-        enumerator.open();
     }
 
     @Override
@@ -103,7 +110,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     public SourceSplitEnumeratorTask(long jobID, TaskLocation taskID, SourceAction<?, SplitT, ?> source) {
         super(jobID, taskID);
         this.source = (SourceAction<?, SplitT, Serializable>) source;
-        this.currState = EnumeratorState.CREATED;
+        this.currState = SeaTunnelTaskState.CREATED;
     }
 
     @NonNull
@@ -114,15 +121,23 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     }
 
     @Override
-    public void triggerCheckpoint(CheckpointBarrier barrier) throws Exception {
-        Serializable snapshotState;
-        synchronized (enumeratorContext) {
-            snapshotState = enumerator.snapshotState(barrier.getId());
-            sendToAllReader(location -> new CheckpointTriggerOperation(barrier, location));
+    public void triggerBarrier(Barrier barrier) throws Exception {
+        if (barrier.prepareClose()) {
+            this.currState = PREPARE_CLOSE;
         }
-        byte[] serialize = enumeratorStateSerializer.serialize(snapshotState);
-        this.getExecutionContext().sendToMaster(new TaskAcknowledgeOperation(barrier.getId(), this.taskLocation,
-            Collections.singletonList(new ActionSubtaskState(source.getId(), -1, serialize))));
+        final long barrierId = barrier.getId();
+        Serializable snapshotState = null;
+        synchronized (enumeratorContext) {
+            if (barrier.snapshot()) {
+                snapshotState = enumerator.snapshotState(barrierId);
+            }
+            sendToAllReader(location -> new CheckpointBarrierTriggerOperation(barrier, location));
+        }
+        if (barrier.snapshot()) {
+            byte[] serialize = enumeratorStateSerializer.serialize(snapshotState);
+            this.getExecutionContext().sendToMaster(new TaskAcknowledgeOperation(this.taskLocation, (CheckpointBarrier) barrier,
+                Collections.singletonList(new ActionSubtaskState(source.getId(), -1, Collections.singletonList(serialize)))));
+        }
     }
 
     public void receivedReader(TaskLocation readerId, Address memberAddr) {
@@ -154,50 +169,43 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     public void readerFinished(long taskID) {
         unfinishedReaders.remove(taskID);
         if (unfinishedReaders.isEmpty()) {
-            readerFinish = true;
+            prepareCloseStatus = true;
         }
     }
 
     private void stateProcess() throws Exception {
         switch (currState) {
             case INIT:
-                reportReadyRestore();
-                currState = EnumeratorState.WAITING_RESTORE;
+                currState = WAITING_RESTORE;
+                reportTaskStatus(WAITING_RESTORE);
                 break;
             case WAITING_RESTORE:
                 if (restoreComplete) {
-                    reportReadyStart();
-                    currState = EnumeratorState.READY_START;
+                    currState = READY_START;
+                    reportTaskStatus(READY_START);
                 }
                 break;
             case READY_START:
-                if (startCalled) {
-                    currState = EnumeratorState.STARTING;
+                if (startCalled && readerRegisterComplete) {
+                    currState = STARTING;
+                    enumerator.open();
                 }
                 break;
             case STARTING:
-                if (readerRegisterComplete) {
-                    currState = EnumeratorState.READER_REGISTER_COMPLETE;
-                }
-                break;
-            case READER_REGISTER_COMPLETE:
-                currState = EnumeratorState.ASSIGN;
+                currState = RUNNING;
                 LOGGER.info("received enough reader, starting enumerator...");
                 enumerator.run();
                 break;
-            case ASSIGN:
-                currState = EnumeratorState.WAITING_READER_FEEDBACK;
-                break;
-            case WAITING_READER_FEEDBACK:
-                if (readerFinish) {
-                    prepareCloseAllReader();
-                    prepareCloseDone();
-                    currState = EnumeratorState.PREPARE_CLOSE;
+            case RUNNING:
+                // The reader closes automatically after reading
+                if (prepareCloseStatus) {
+                    triggerBarrier(new CheckpointBarrier(Barrier.PREPARE_CLOSE_BARRIER_ID, Instant.now().toEpochMilli(), CheckpointType.AUTO_SAVEPOINT_TYPE));
+                    currState = PREPARE_CLOSE;
                 }
                 break;
             case PREPARE_CLOSE:
                 if (closeCalled) {
-                    currState = EnumeratorState.CLOSED;
+                    currState = CLOSED;
                 }
                 break;
             case CLOSED:
@@ -206,7 +214,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             // TODO support cancel by outside
             case CANCELLING:
                 this.close();
-                currState = EnumeratorState.CANCELED;
+                currState = CANCELED;
                 return;
             default:
                 throw new IllegalArgumentException("Unknown Enumerator State: " + currState);
@@ -215,10 +223,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     public Set<Long> getRegisteredReaders() {
         return taskMemberMapping.keySet().stream().map(TaskLocation::getTaskID).collect(Collectors.toSet());
-    }
-
-    private void prepareCloseAllReader() {
-        sendToAllReader(PrepareCloseOperation::new);
     }
 
     private void sendToAllReader(Function<TaskLocation, Operation> function) {
@@ -236,10 +240,16 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         enumerator.notifyCheckpointComplete(checkpointId);
+        if (prepareCloseStatus) {
+            closeCall();
+        }
     }
 
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         enumerator.notifyCheckpointAborted(checkpointId);
+        if (prepareCloseStatus) {
+            closeCall();
+        }
     }
 }
