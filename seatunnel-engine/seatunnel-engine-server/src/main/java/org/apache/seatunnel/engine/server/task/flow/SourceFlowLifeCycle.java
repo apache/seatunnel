@@ -174,5 +174,6 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             .flatMap(Collection::stream)
             .map(bytes -> sneaky(() -> splitSerializer.deserialize(bytes)))
             .collect(Collectors.toList());
+        // TODO: send to enumerator
     }
 }
