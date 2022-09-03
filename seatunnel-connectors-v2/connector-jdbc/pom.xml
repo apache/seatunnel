@@ -28,6 +28,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>connector-jdbc</artifactId>
+    
+    <properties>
+        <phoenix.version>5.2.5-HBase-2.x</phoenix.version>
+        <pg.version>42.3.3</pg.version>
+        <mysql.version>8.0.16</mysql.version>
+    </properties>
 
     <dependencies>
 
@@ -40,17 +46,20 @@
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
+            <version>${mysql.version}</version>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
+            <version>${pg.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.aliyun.phoenix</groupId>
             <artifactId>ali-phoenix-shaded-thin-client</artifactId>
+            <version>${phoenix.version}</version>
         </dependency>
     </dependencies>
 

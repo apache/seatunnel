@@ -28,7 +28,9 @@
     </parent>
 
     <artifactId>connector-neo4j</artifactId>
-
+    <properties>
+        <neo4j-java-driver.version>4.4.9</neo4j-java-driver.version>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
