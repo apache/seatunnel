@@ -28,25 +28,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-connector-spark-tidb</artifactId>
+    
+    <properties>
+        <tis.version>2.4.1</tis.version>
+    </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-api-spark</artifactId>
-            <version>${project.version}</version>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-core_${scala.binary.version}</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-sql_${scala.binary.version}</artifactId>
-        </dependency>
-
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-streaming_${scala.binary.version}</artifactId>
@@ -55,6 +42,7 @@
         <dependency>
             <groupId>com.pingcap.tispark</groupId>
             <artifactId>tispark-assembly</artifactId>
+            <version>${tis.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>mysql</groupId>
