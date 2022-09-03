@@ -30,5 +30,4 @@ public class MongodbParameters implements Serializable {
 
     private String collection;
 
-    private Object schema;
 }

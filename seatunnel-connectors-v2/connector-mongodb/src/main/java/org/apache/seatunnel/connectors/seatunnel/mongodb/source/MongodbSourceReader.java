@@ -42,13 +42,13 @@ public class MongodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MongodbSourceReader.class);
 
-    protected final SingleSplitReaderContext context;
+    private final SingleSplitReaderContext context;
 
     private MongoClient client;
 
-    protected final MongodbParameters params;
+    private final MongodbParameters params;
 
-    protected final DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
 
     MongodbSourceReader(SingleSplitReaderContext context, MongodbParameters params, DeserializationSchema<SeaTunnelRow> deserializationSchema) {
         this.context = context;

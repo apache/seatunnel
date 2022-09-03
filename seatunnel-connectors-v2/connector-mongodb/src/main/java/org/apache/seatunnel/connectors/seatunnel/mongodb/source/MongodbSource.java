@@ -52,13 +52,13 @@ import com.google.auto.service.AutoService;
 @AutoService(SeaTunnelSource.class)
 public class MongodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
-    protected SeaTunnelContext seaTunnelContext;
+    private SeaTunnelContext seaTunnelContext;
 
-    protected SeaTunnelRowType rowType;
+    private SeaTunnelRowType rowType;
 
     private MongodbParameters params;
 
-    protected DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    private DeserializationSchema<SeaTunnelRow> deserializationSchema;
 
     private static final String CONF_PREFIX = "readconfig.";
 
