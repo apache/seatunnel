@@ -15,19 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.oss.source.config;
+package org.apache.seatunnel.connectors.seatunnel.file.oss.config;
 
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 
-public class OssConf extends HadoopConf {
-    private final String fsHdfsImpl = "org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem";
-
-    @Override
-    public String getFsHdfsImpl() {
-        return fsHdfsImpl;
-    }
-
-    public OssConf(String hdfsNameKey) {
-        super(hdfsNameKey);
-    }
+public class OssConfig extends BaseSourceConfig {
+    public static final String ACCESS_KEY = "accessKey";
+    public static final String ACCESS_SECRET = "accessSecret";
+    public static final String ENDPOINT = "endpoint";
+    public static final String BUCKET = "bucket";
 }
