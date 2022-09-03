@@ -206,6 +206,25 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         }
     }
 
+    @Override
+    public void deleteCheckpoint(String jobId, String pipelineId, String checkpointId) throws CheckpointStorageException {
+        String path = getStorageParentDirectory() + jobId;
+        List<String> fileNames = getFileNames(path);
+        if (fileNames.isEmpty()) {
+            throw new CheckpointStorageException("No checkpoint found for job, job id is: " + jobId);
+        }
+        fileNames.forEach(fileName -> {
+            if (pipelineId.equals(getPipelineIdByFileName(fileName)) &&
+                checkpointId.equals(getCheckpointIdByFileName(fileName))) {
+                try {
+                    fs.delete(new Path(fileName), false);
+                } catch (Exception e) {
+                    log.error("Failed to delete checkpoint {} for job {}, pipeline {}", checkpointId, jobId, pipelineId, e);
+                }
+            }
+        });
+    }
+
     /**
      * Authenticate kerberos
      *

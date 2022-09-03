@@ -17,41 +17,67 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.record.ClosedSign;
 
 import com.hazelcast.ringbuffer.Ringbuffer;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public class PartitionTransformSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle implements OneOutputFlowLifeCycle<T> {
 
+    // TODO: init ring buffer
     private Ringbuffer<T>[] ringbuffers;
-    // TODO checkpoint offset
-    private long[] offset;
 
-    public PartitionTransformSourceFlowLifeCycle(CompletableFuture<Void> completableFuture) {
-        super(completableFuture);
+    private final Map<Integer, CheckpointBarrier> alignedBarriers = new HashMap<>();
+
+    private long currentCheckpointId = Long.MAX_VALUE;
+
+    private int alignedBarriersCounter = 0;
+    private int closedSignCounter = 0;
+    public PartitionTransformSourceFlowLifeCycle(SeaTunnelTask runningTask, CompletableFuture<Void> completableFuture) {
+        super(runningTask, completableFuture);
     }
 
     @Override
     public void collect(Collector<T> collector) throws Exception {
         for (int i = 0; i < ringbuffers.length; i++) {
             Ringbuffer<T> ringbuffer = ringbuffers[i];
-            long tail = ringbuffer.tailSequence();
-            if (tail < 0) {
+            if (ringbuffer.size() <= 0) {
                 continue;
             }
-            // TODO Optimize the size of batch reads
-            int size = ringbuffer.readManyAsync(offset[i], 0, (int) (tail - offset[i]), null)
-                    .thenApply(rs -> {
-                        for (T record : rs) {
-                            // TODO checkpoint check
-                            collector.collect(record);
-                        }
-                        return rs.size();
-                    }).toCompletableFuture().join();
-            offset[i] += size;
+            // aligned barrier
+            if (alignedBarriers.get(i) != null && alignedBarriers.get(i).getId() == currentCheckpointId) {
+                continue;
+            }
+            // Batch reads are not used because of aligned barriers & closed sign.
+            // get the oldest item
+            T item = ringbuffer.readOne(ringbuffer.headSequence());
+            Record<?> record = (Record<?>) item;
+            if (record.getData() instanceof ClosedSign) {
+                closedSignCounter++;
+                if (closedSignCounter == ringbuffers.length) {
+                    collector.collect(item);
+                    this.close();
+                }
+            } else if (record.getData() instanceof CheckpointBarrier) {
+                CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
+                alignedBarriers.put(i, barrier);
+                alignedBarriersCounter++;
+                currentCheckpointId = barrier.getId();
+                if (alignedBarriersCounter == ringbuffers.length) {
+                    runningTask.ack(barrier.getId());
+                    collector.collect(item);
+                    alignedBarriersCounter = 0;
+                }
+            } else {
+                collector.collect(item);
+            }
         }
-        // TODO received ClosedSign to close this FlowLifeCycle.
     }
 }

@@ -52,7 +52,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     FlakeIdGenerator flakeIdGenerator;
     long taskRunTime = 2000;
     long jobId = 10001;
-    long pipeLineId = 100001;
+    int pipeLineId = 100001;
 
     @Before
     @Override

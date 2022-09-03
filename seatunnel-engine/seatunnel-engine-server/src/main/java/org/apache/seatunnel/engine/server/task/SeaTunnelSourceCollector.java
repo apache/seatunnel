@@ -54,7 +54,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
         sendRecordToNext(new Record<>(new ClosedSign()));
     }
 
-    private void sendRecordToNext(Record<?> record) throws IOException {
+    public void sendRecordToNext(Record<?> record) throws IOException {
         synchronized (checkpointLock) {
             for (OneInputFlowLifeCycle<Record<?>> output : outputs) {
                 output.received(record);

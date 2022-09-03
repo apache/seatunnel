@@ -19,6 +19,8 @@ package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.record.ClosedSign;
 
 import java.io.IOException;
@@ -30,19 +32,23 @@ public class IntermediateQueueFlowLifeCycle extends AbstractFlowLifeCycle implem
 
     private final BlockingQueue<Record<?>> queue;
 
-    public IntermediateQueueFlowLifeCycle(CompletableFuture<Void> completableFuture,
+    public IntermediateQueueFlowLifeCycle(SeaTunnelTask runningTask,
+                                          CompletableFuture<Void> completableFuture,
                                           BlockingQueue<Record<?>> queue) {
-        super(completableFuture);
+        super(runningTask, completableFuture);
         this.queue = queue;
     }
 
     @Override
-    public void received(Record<?> row) {
+    public void received(Record<?> record) {
         try {
             // TODO support batch put
-            queue.put(row);
-            if (row.getData() instanceof ClosedSign) {
+            queue.put(record);
+            if (record.getData() instanceof ClosedSign) {
                 this.close();
+            } else if (record.getData() instanceof CheckpointBarrier) {
+                CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
+                runningTask.ack(barrier.getId());
             }
         } catch (InterruptedException | IOException e) {
             throw new RuntimeException(e);
@@ -57,6 +63,9 @@ public class IntermediateQueueFlowLifeCycle extends AbstractFlowLifeCycle implem
                 collector.collect(record);
                 if (record.getData() instanceof ClosedSign) {
                     this.close();
+                } else if (record.getData() instanceof CheckpointBarrier) {
+                    CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
+                    runningTask.ack(barrier.getId());
                 }
             } else {
                 break;

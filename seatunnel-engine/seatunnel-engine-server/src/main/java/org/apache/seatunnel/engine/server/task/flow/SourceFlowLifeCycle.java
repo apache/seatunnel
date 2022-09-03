@@ -17,8 +17,13 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import static org.apache.seatunnel.engine.server.utils.ExceptionUtil.sneakyThrow;
+
+import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.engine.checkpoint.storage.common.ProtoStuffSerializer;
+import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelSourceCollector;
@@ -35,17 +40,20 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
-public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends AbstractFlowLifeCycle {
+public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends AbstractFlowLifeCycle implements InternalCheckpointListener {
 
     private static final ILogger LOGGER = Logger.getLogger(SourceFlowLifeCycle.class);
 
     private final SourceAction<T, SplitT, ?> sourceAction;
     private final TaskLocation enumeratorTaskID;
-    private final SeaTunnelTask runningTask;
 
     private SourceReader<T, SplitT> reader;
 
+    private transient Serializer<SplitT> splitSerializer;
+
+    private transient org.apache.seatunnel.engine.checkpoint.storage.common.Serializer protoStuffSerializer;
     private final int indexID;
 
     private final TaskLocation currentTaskID;
@@ -57,11 +65,10 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
     public SourceFlowLifeCycle(SourceAction<T, SplitT, ?> sourceAction, int indexID,
                                TaskLocation enumeratorTaskID, SeaTunnelTask runningTask,
                                TaskLocation currentTaskID, CompletableFuture<Void> completableFuture) {
-        super(completableFuture);
+        super(runningTask, completableFuture);
         this.sourceAction = sourceAction;
         this.indexID = indexID;
         this.enumeratorTaskID = enumeratorTaskID;
-        this.runningTask = runningTask;
         this.currentTaskID = currentTaskID;
     }
 
@@ -72,6 +79,8 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
     @Override
     public void init() throws Exception {
         this.closed = false;
+        this.splitSerializer = sourceAction.getSource().getSplitSerializer();
+        this.protoStuffSerializer = new ProtoStuffSerializer();
         reader = sourceAction.getSource()
                 .createReader(new SourceReaderContext(indexID, sourceAction.getSource().getBoundedness(), this));
         reader.open();
@@ -129,5 +138,31 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
         } else {
             reader.addSplits(splits);
         }
+    }
+
+    public void snapshotState(long checkpointId) throws Exception {
+        List<byte[]> state = reader.snapshotState(checkpointId)
+            .stream()
+            .map(info -> {
+                try {
+                    return splitSerializer.serialize(info);
+                } catch (IOException e) {
+                    sneakyThrow(e);
+                }
+                // This method wouldn't be executed.
+                throw new RuntimeException("Never throw here.");
+            }).collect(Collectors.toList());
+        runningTask.ack(checkpointId);
+        runningTask.addState(checkpointId, sourceAction.getId(),  protoStuffSerializer.serialize(state));
+    }
+
+    @Override
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+        reader.notifyCheckpointComplete(checkpointId);
+    }
+
+    @Override
+    public void notifyCheckpointAborted(long checkpointId) throws Exception {
+        reader.notifyCheckpointAborted(checkpointId);
     }
 }

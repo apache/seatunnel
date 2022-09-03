@@ -17,8 +17,15 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import static org.apache.seatunnel.engine.server.utils.ExceptionUtil.sneakyThrow;
+
+import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.engine.checkpoint.storage.common.ProtoStuffSerializer;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
+import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
@@ -30,6 +37,7 @@ import lombok.NonNull;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +45,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends CoordinatorTask {
 
@@ -47,9 +56,13 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
 
     private final SinkAggregatedCommitter<?, AggregatedCommitInfoT> aggregatedCommitter;
 
+    private transient Serializer<AggregatedCommitInfoT> aggregatedCommitInfoSerializer;
     private Map<Long, Address> writerAddressMap;
 
     private Map<Long, List<AggregatedCommitInfoT>> checkpointCommitInfoMap;
+
+    private transient org.apache.seatunnel.engine.checkpoint.storage.common.Serializer protoStuffSerializer;
+    private Map<Long, Integer> checkpointBarrierCounter;
     private Map<Long, Map<Long, Long>> alreadyReceivedCommitInfo;
     private Object closeLock;
     private CompletableFuture<Void> completableFuture;
@@ -70,6 +83,8 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
         this.writerAddressMap = new ConcurrentHashMap<>();
         this.checkpointCommitInfoMap = new ConcurrentHashMap<>();
         this.completableFuture = new CompletableFuture<>();
+        this.aggregatedCommitInfoSerializer = sink.getSink().getAggregatedCommitInfoSerializer().get();
+        this.protoStuffSerializer = new ProtoStuffSerializer();
         LOGGER.info("starting seatunnel sink aggregated committer task, sink name: " + sink.getName());
     }
 
@@ -107,6 +122,27 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
         }
     }
 
+    @Override
+    public void triggerCheckpoint(CheckpointBarrier barrier) throws Exception {
+        Integer count = checkpointBarrierCounter.compute(barrier.getId(), (id, num) -> num == null ? 1 : ++num);
+        if (count != maxWriterSize) {
+            return;
+        }
+        List<byte[]> states = checkpointCommitInfoMap.get(barrier.getId())
+            .stream()
+            .map(info -> {
+                try {
+                    return aggregatedCommitInfoSerializer.serialize(info);
+                } catch (IOException e) {
+                    sneakyThrow(e);
+                }
+                // This method wouldn't be executed.
+                throw new RuntimeException("Never throw here.");
+            }).collect(Collectors.toList());
+        this.getExecutionContext().sendToMaster(new TaskAcknowledgeOperation(barrier.getId(), this.taskLocation,
+            Collections.singletonList(new ActionSubtaskState(sink.getId(), -1, protoStuffSerializer.serialize(states)))));
+    }
+
     public void receivedWriterCommitInfo(long checkpointID, long subTaskId,
                                          AggregatedCommitInfoT[] commitInfos) {
         checkpointCommitInfoMap.computeIfAbsent(checkpointID, id -> new CopyOnWriteArrayList<>());
@@ -133,5 +169,15 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
     @Override
     public Set<URL> getJarsUrl() {
         return new HashSet<>(sink.getJarUrls());
+    }
+
+    @Override
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+        aggregatedCommitter.commit(checkpointCommitInfoMap.get(checkpointId));
+    }
+
+    @Override
+    public void notifyCheckpointAborted(long checkpointId) throws Exception {
+        aggregatedCommitter.abort(checkpointCommitInfoMap.get(checkpointId));
     }
 }

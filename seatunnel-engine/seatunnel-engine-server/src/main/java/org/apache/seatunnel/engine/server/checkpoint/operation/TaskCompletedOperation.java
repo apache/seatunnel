@@ -15,45 +15,54 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.operation;
+package org.apache.seatunnel.engine.server.checkpoint.operation;
 
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class CheckpointTriggerOperation extends AsyncOperation {
-    private CheckpointBarrier checkpointBarrier;
+public class TaskCompletedOperation extends Operation implements IdentifiedDataSerializable {
+    private TaskLocation taskLocation;
 
-    public CheckpointTriggerOperation() {
+    public TaskCompletedOperation() {
     }
 
-    public CheckpointTriggerOperation(CheckpointBarrier checkpointBarrier) {
-        this.checkpointBarrier = checkpointBarrier;
+    public TaskCompletedOperation(TaskLocation taskLocation) {
+        this.taskLocation = taskLocation;
+    }
+
+    @Override
+    public int getFactoryId() {
+        return OperationDataSerializerHook.FACTORY_ID;
     }
 
     @Override
     public int getClassId() {
-        return OperationDataSerializerHook.CHECKPOINT_TRIGGER_OPERATOR;
+        return OperationDataSerializerHook.TASK_COMPLETED_OPERATOR;
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        out.writeObject(checkpointBarrier);
+        out.writeObject(taskLocation);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        checkpointBarrier = in.readObject(CheckpointBarrier.class);
+        taskLocation = in.readObject(TaskLocation.class);
     }
 
     @Override
-    protected PassiveCompletableFuture<?> doRun() throws Exception {
-        // TODO: All source Vertexes executed
-        return null;
+    public void run() {
+        ((SeaTunnelServer) getService())
+            .getJobMaster(taskLocation.getJobId())
+            .getCheckpointManager()
+            .taskCompleted(taskLocation);
     }
 }
