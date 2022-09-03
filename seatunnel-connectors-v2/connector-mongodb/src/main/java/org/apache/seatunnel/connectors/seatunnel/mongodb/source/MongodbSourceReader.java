@@ -94,7 +94,7 @@ public class MongodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
         } finally {
             if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
                 // signal to the source that we have reached the end of the data.
-                LOGGER.info("Closed the bounded http source");
+                LOGGER.info("Closed the bounded mongodb source");
                 context.signalNoMoreElement();
             }
         }

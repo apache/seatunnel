@@ -60,7 +60,7 @@ public class MongodbSourceToConsoleIT extends FlinkContainer {
     private MongoClient client;
 
     @BeforeEach
-    public void startRedisContainer() {
+    public void startMongoContainer() {
         mongodbContainer = new GenericContainer<>(MONGODB_IMAGE)
             .withNetwork(NETWORK)
             .withNetworkAliases(MONGODB_CONTAINER_HOST)
@@ -98,7 +98,7 @@ public class MongodbSourceToConsoleIT extends FlinkContainer {
     }
 
     @Test
-    public void testRedisSource() throws IOException, InterruptedException {
+    public void testMongodbSource() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/mongodb/mongodb_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
