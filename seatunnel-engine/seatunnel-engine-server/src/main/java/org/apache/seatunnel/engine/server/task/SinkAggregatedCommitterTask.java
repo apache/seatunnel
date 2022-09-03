@@ -17,7 +17,13 @@
 
 package org.apache.seatunnel.engine.server.task;
 
-import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.*;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CANCELED;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CLOSED;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.INIT;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.PREPARE_CLOSE;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.READY_START;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.RUNNING;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.STARTING;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.WAITING_RESTORE;
 
 import org.apache.seatunnel.api.serialization.Serializer;
