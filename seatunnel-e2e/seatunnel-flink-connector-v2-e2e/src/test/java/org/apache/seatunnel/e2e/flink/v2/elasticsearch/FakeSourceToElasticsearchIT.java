@@ -51,7 +51,6 @@ public class FakeSourceToElasticsearchIT extends FlinkContainer {
     public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/elasticsearch/fakesource_to_elasticsearch.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        container.stop();
     }
 
     @AfterEach
