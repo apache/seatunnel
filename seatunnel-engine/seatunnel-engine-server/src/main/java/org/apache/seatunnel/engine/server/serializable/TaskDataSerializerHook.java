@@ -24,8 +24,6 @@ import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
 import org.apache.seatunnel.engine.server.task.operation.DeployTaskOperation;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.CloseRequestOperation;
-import org.apache.seatunnel.engine.server.task.operation.checkpoint.ReportReadyRestoreOperation;
-import org.apache.seatunnel.engine.server.task.operation.checkpoint.ReportReadyStartOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkPrepareCommitOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkUnregisterOperation;
@@ -66,10 +64,6 @@ public class TaskDataSerializerHook implements DataSerializerHook {
     public static final int DEPLOY_TASK_OPERATOR = 12;
 
     public static final int CANCEL_TASK_OPERATOR = 13;
-
-    public static final int REPORT_READY_RESTORE_TYPE = 14;
-
-    public static final int REPORT_READY_START_TYPE = 15;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -117,10 +111,6 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new DeployTaskOperation();
                 case CANCEL_TASK_OPERATOR:
                     return new CancelTaskOperation();
-                case REPORT_READY_RESTORE_TYPE:
-                    return new ReportReadyRestoreOperation();
-                case REPORT_READY_START_TYPE:
-                    return new ReportReadyStartOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }
