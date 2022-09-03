@@ -12,6 +12,12 @@ Two ways of connecting Phoenix with Java JDBC. One is to connect to zookeeper th
 
 > Tips: Not support exactly-once semantics (XA transaction is not yet supported in Phoenix).
 
+## Key features
+
+- [ ] exactly-once
+
+- [ ] schema projection
+
 ## Options
 
 ### driver [string]

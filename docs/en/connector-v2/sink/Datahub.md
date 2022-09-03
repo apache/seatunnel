@@ -6,6 +6,12 @@
 
 A sink plugin which use send message to datahub
 
+## Key features
+
+- [ ] exactly-once
+
+- [ ] schema projection
+
 ## Options
 
 | name       | type   | required | default value |

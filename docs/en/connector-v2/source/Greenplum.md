@@ -6,6 +6,17 @@
 
 Read Greenplum data through [Jdbc connector](Jdbc.md).
 
+## Key features
+
+- [x] batch
+- [ ] stream
+- [ ] exactly-once
+- [x] schema projection   
+
+supports query SQL and can achieve projection effect.
+
+- [x] parallelism
+
 :::tip
 
 Optional jdbc drivers:

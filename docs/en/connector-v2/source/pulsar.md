@@ -4,7 +4,15 @@
 
 ## Description
 
-Source connector for Apache Pulsar. It can support both off-line and real-time jobs.
+Source connector for Apache Pulsar.
+
+## Key features
+
+- [x] batch
+- [x] stream
+- [x] exactly-once
+- [x] schema projection
+- [x] parallelism
 
 ##  Options
 

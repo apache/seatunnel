@@ -6,6 +6,12 @@
 
 Write data to Greenplum using [Jdbc connector](Jdbc.md).
 
+## Key features
+
+- [ ] exactly-once
+
+- [ ] schema projection
+
 :::tip
 
 Not support exactly-once semantics (XA transaction is not yet supported in Greenplum database).

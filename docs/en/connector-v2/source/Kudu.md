@@ -4,9 +4,17 @@
 
 ## Description
 
-Used to read data from Kudu. Currently, only supports Query with Batch Mode.
+Used to read data from Kudu.
 
  The tested kudu version is 1.11.1.
+
+## Key features
+
+- [x] batch
+- [ ] stream
+- [ ] exactly-once
+- [ ] schema projection
+- [ ] parallelism
 
 ## Options
 

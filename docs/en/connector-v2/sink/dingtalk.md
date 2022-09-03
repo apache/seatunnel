@@ -6,6 +6,12 @@
 
 A sink plugin which use DingTalk robot send message
 
+## Key features
+
+- [ ] exactly-once
+
+- [ ] schema projection
+
 ## Options
 
 | name                         | type        | required | default value |

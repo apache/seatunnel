@@ -9,6 +9,23 @@ Read data from aliyun oss file system.
 > Tips: We made some trade-offs in order to support more file types, so we used the HDFS protocol for internal access to OSS and this connector need some hadoop dependencies. 
 > It's only support hadoop version **2.9.X+**.
 
+## Key features
+
+- [x] batch
+- [ ] stream
+- [ ] exactly-once
+- [x] schema projection
+- [x] file format
+    - [x] text
+    - [x] csv
+    - [x] parquet
+    - [x] orc
+    - [x] json
+
+supports query SQL and can achieve projection effect.
+
+- [x] parallelism
+
 ## Options
 
 | name         | type   | required | default value |

@@ -4,6 +4,12 @@
 
 Output data to `Elasticsearch`.
 
+## Key features
+
+- [ ] exactly-once
+
+- [ ] schema projection
+
 :::tip
 
 Engine Supported

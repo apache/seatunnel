@@ -4,11 +4,17 @@
 
 ## Description
 
-Used to launch web hooks using data. Both support streaming and batch mode.
+Used to launch web hooks using data.
 
 > For example, if the data from upstream is [`age: 12, name: tyrantlucifer`], the body content is the following: `{"age": 12, "name": "tyrantlucifer"}`
 
 **Tips: Http sink only support `post json` webhook and the data from source will be treated as body content in web hook.**
+
+## Key features
+
+- [ ] exactly-once
+
+- [ ] schema projection
 
 ##  Options
 

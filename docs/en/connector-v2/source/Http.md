@@ -4,7 +4,15 @@
 
 ## Description
 
-Used to read data from Http. Both support streaming and batch mode.
+Used to read data from Http.
+
+## Key features
+
+- [x] batch
+- [x] stream
+- [ ] exactly-once
+- [x] schema projection
+- [ ] parallelism
 
 ##  Options
 

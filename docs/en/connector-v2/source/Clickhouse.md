@@ -4,7 +4,18 @@
 
 ## Description
 
-Used to read data from Clickhouse. Currently, only supports Batch mode.
+Used to read data from Clickhouse.
+
+## Key features
+
+- [x] batch
+- [ ] stream
+- [ ] exactly-once
+- [x] schema projection
+
+supports query SQL and can achieve projection effect.
+
+- [ ] parallelism
 
 :::tip
 

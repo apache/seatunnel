@@ -6,6 +6,11 @@
 
 A flink sink plugin which can assert illegal data by user defined rules
 
+## Key features
+
+- [ ] exactly-once
+- [ ] schema projection
+
 ## Options
 
 | name                          | type        | required | default value |

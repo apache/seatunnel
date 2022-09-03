@@ -4,7 +4,18 @@
 
 ## Description
 
-Read external data source data through IoTDB. Currently supports Batch mode.
+Read external data source data through IoTDB.
+
+## Key features
+
+- [x] batch
+- [ ] stream
+- [x] exactly-once
+- [x] schema projection
+
+supports query SQL and can achieve projection effect.
+
+- [x] parallelism
 
 ## Options
 

@@ -6,6 +6,23 @@
 
 Read data from local file system.
 
+## Key features
+
+- [x] batch
+- [ ] stream
+- [ ] exactly-once
+- [x] schema projection
+
+supports query SQL and can achieve projection effect.
+
+- [x] parallelism
+- [x] file format
+    - [x] text
+    - [x] csv
+    - [x] parquet
+    - [x] orc
+    - [x] json
+
 ## Options
 
 | name   | type   | required | default value |

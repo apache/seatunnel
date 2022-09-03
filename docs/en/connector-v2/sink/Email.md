@@ -8,6 +8,11 @@ Send the data as a file to email.
 
  The tested email version is 1.5.6.
 
+## Key features
+
+- [ ] exactly-once
+- [ ] schema projection
+
 ## Options
 
 | name                     | type    | required | default value |

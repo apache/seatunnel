@@ -4,7 +4,18 @@
 
 ## Description
 
-Read external data source data through JDBC. Currently supports mysql and Postgres databases, and supports Batch mode.
+Read external data source data through JDBC.
+
+## Key features
+
+- [x] batch
+- [ ] stream
+- [x] exactly-once
+- [x] schema projection
+
+supports query SQL and can achieve projection effect.
+
+- [x] parallelism
 
 ##  Options
 

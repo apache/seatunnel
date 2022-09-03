@@ -8,6 +8,12 @@ Write data to Kudu.
 
  The tested kudu version is 1.11.1.
 
+## Key features
+
+- [ ] exactly-once
+
+- [ ] schema projection
+
 ## Options
 
 | name                     | type    | required | default value |

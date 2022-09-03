@@ -8,6 +8,12 @@ Write data to Neo4j.
 
 `neo4j-java-driver` version 4.4.9
 
+## Key features
+
+- [ ] exactly-once
+
+- [ ] schema projection
+
 ## Options
 
 | name                       | type   | required | default value |

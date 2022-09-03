@@ -4,7 +4,15 @@
 
 ## Description
 
-Used to read data from Socket. Both support streaming and batch mode.
+Used to read data from Socket.
+
+## Key features
+
+- [x] batch
+- [x] stream
+- [ ] exactly-once
+- [ ] schema projection
+- [ ] parallelism
 
 ##  Options
 

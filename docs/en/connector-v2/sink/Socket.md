@@ -7,6 +7,11 @@
 Used to send data to Socket Server. Both support streaming and batch mode.
 > For example, if the data from upstream is [`age: 12, name: jared`], the content send to socket server is the following: `{"name":"jared","age":17}`
 
+## Key features
+
+- [ ] exactly-once
+
+- [ ] schema projection
 
 ##  Options
 

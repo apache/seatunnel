@@ -10,6 +10,17 @@ Two ways of connecting Phoenix with Java JDBC. One is to connect to zookeeper th
 
 > Tips: By default, the (thin) driver jar is used. If you want to use the (thick) driver  or other versions of Phoenix (thin) driver, you need to recompile the jdbc connector module
 
+## Key features
+
+- [x] batch
+- [x] stream
+- [ ] exactly-once
+- [x] schema projection
+
+supports query SQL and can achieve projection effect.
+
+- [ ] parallelism
+
 ## Options
 
 ### driver [string]

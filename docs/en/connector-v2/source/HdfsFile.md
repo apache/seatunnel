@@ -6,6 +6,20 @@
 
 Read data from hdfs file system.
 
+## Key features
+
+- [x] batch
+- [ ] stream
+- [ ] exactly-once
+- [x] schema projection
+- [x] parallelism
+- [x] file format
+    - [x] text
+    - [x] csv
+    - [x] parquet
+    - [x] orc
+    - [x] json
+
 ## Options
 
 | name          | type   | required | default value |

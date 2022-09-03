@@ -8,6 +8,18 @@ Write data to Hive.
 
 In order to use this connector, You must ensure your spark/flink cluster already integrated hive. The tested hive version is 2.3.9.
 
+## Key features
+
+- [x] exactly-once
+
+By default, we use 2PC commit to ensure `exactly-once`
+
+- [ ] schema projection
+- [x] file format
+  - [x] text
+  - [x] parquet
+  - [x] orc
+
 ## Options
 
 | name                              | type   | required | default value                                                 |

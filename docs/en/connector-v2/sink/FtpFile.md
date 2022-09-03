@@ -6,7 +6,13 @@
 
 Output data to Ftp . 
 
+## Key features
 
+- [x] exactly-once
+
+- [ ] schema projection
+
+##  Options
 
 | name                             | type    | required | default value                                             |
 |----------------------------------|---------|----------|-----------------------------------------------------------|
