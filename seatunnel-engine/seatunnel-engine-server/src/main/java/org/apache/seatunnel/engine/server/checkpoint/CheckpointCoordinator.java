@@ -112,8 +112,7 @@ public class CheckpointCoordinator {
                                  CheckpointStorageConfiguration storageConfig,
                                  long jobId,
                                  CheckpointPlan plan,
-                                 CheckpointCoordinatorConfiguration coordinatorConfig,
-                                 CompletedCheckpoint restoredCheckpoint) {
+                                 CheckpointCoordinatorConfiguration coordinatorConfig) {
 
         this.checkpointManager = manager;
         this.checkpointStorage = checkpointStorage;
@@ -122,7 +121,7 @@ public class CheckpointCoordinator {
         this.pipelineId = plan.getPipelineId();
         this.plan = plan;
         this.coordinatorConfig = coordinatorConfig;
-        this.latestCompletedCheckpoint = restoredCheckpoint;
+        this.latestCompletedCheckpoint = plan.getRestoredCheckpoint();
         this.tolerableFailureCheckpoints = coordinatorConfig.getTolerableFailureCheckpoints();
         this.pendingCheckpoints = new ConcurrentHashMap<>();
         this.completedCheckpoints = new ArrayDeque<>(storageConfig.getMaxRetainedCheckpoints() + 1);
@@ -141,6 +140,10 @@ public class CheckpointCoordinator {
             .collect(Collectors.toMap(id -> id, id -> SeaTunnelTaskState.CREATED));
         // TODO: IDCounter SPI
         this.checkpointIdCounter = new StandaloneCheckpointIDCounter();
+    }
+
+    public int getPipelineId() {
+        return pipelineId;
     }
 
     private void scheduleTriggerPendingCheckpoint(long delayMills) {

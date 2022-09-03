@@ -40,6 +40,8 @@ import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Used to manage all checkpoints for a job.
@@ -57,18 +59,11 @@ public class CheckpointManager {
 
     /**
      * key: the pipeline id of the job;
-     * <br> value: the checkpoint plan of the pipeline;
-     */
-    private final Map<Integer, CheckpointPlan> checkpointPlanMap;
-
-    /**
-     * key: the pipeline id of the job;
      * <br> value: the checkpoint coordinator of the pipeline;
      */
     private final Map<Integer, CheckpointCoordinator> coordinatorMap;
 
     private final CheckpointStorage checkpointStorage;
-    private final CheckpointCoordinatorConfiguration coordinatorConfig;
 
     public CheckpointManager(long jobId,
                              NodeEngine nodeEngine,
@@ -77,12 +72,17 @@ public class CheckpointManager {
                              CheckpointStorageConfiguration storageConfig) throws CheckpointStorageException {
         this.jobId = jobId;
         this.nodeEngine = nodeEngine;
-        this.checkpointPlanMap = checkpointPlanMap;
-        this.coordinatorConfig = coordinatorConfig;
-        this.coordinatorMap = new HashMap<>(checkpointPlanMap.size());
         this.subtaskWithAddresses = new HashMap<>();
         this.checkpointStorage = FactoryUtil.discoverFactory(Thread.currentThread().getContextClassLoader(), CheckpointStorageFactory.class, storageConfig.getStorage())
             .create(new HashMap<>());
+        this.coordinatorMap = checkpointPlanMap.values().parallelStream()
+            .map(plan -> new CheckpointCoordinator(this,
+                checkpointStorage,
+                storageConfig,
+                jobId,
+                plan,
+                coordinatorConfig)
+            ).collect(Collectors.toMap(CheckpointCoordinator::getPipelineId, Function.identity()));
     }
 
     /**
