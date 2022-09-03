@@ -34,8 +34,8 @@ export function useTable() {
   const createColumns = (state: any) => {
     state.columns = [
       {
-        title: t('jobs.data_pipes_name'),
-        key: 'data_pipes_name'
+        title: t('jobs.data_pipe_name'),
+        key: 'data_pipe_name'
       },
       {
         title: t('jobs.plan'),

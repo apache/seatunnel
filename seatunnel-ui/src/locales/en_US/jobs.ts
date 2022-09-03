@@ -18,8 +18,7 @@
 export default {
   jobs: 'Jobs',
   search: 'Search',
-  search_data_pipes_name: 'Search Data Pipes Name',
-  data_pipes_name: 'Data Pipes Name',
+  data_pipe_name: 'Data Pipe Name',
   plan: 'Plan',
   create_date: 'Create Date',
   publish: 'Publish',
