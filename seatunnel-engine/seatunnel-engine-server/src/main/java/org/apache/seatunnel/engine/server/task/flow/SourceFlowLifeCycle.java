@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
 import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
 
 import org.apache.seatunnel.api.serialization.Serializer;
@@ -25,6 +26,7 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelSourceCollector;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
@@ -38,11 +40,13 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
-public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends AbstractFlowLifeCycle implements InternalCheckpointListener {
+public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFlowLifeCycle implements InternalCheckpointListener {
 
     private static final ILogger LOGGER = Logger.getLogger(SourceFlowLifeCycle.class);
 
@@ -62,7 +66,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
     public SourceFlowLifeCycle(SourceAction<T, SplitT, ?> sourceAction, int indexID,
                                TaskLocation enumeratorTaskID, SeaTunnelTask runningTask,
                                TaskLocation currentTaskID, CompletableFuture<Void> completableFuture) {
-        super(runningTask, completableFuture);
+        super(sourceAction, runningTask, completableFuture);
         this.sourceAction = sourceAction;
         this.indexID = indexID;
         this.enumeratorTaskID = enumeratorTaskID;
@@ -76,8 +80,12 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
     @Override
     public void init() throws Exception {
         this.splitSerializer = sourceAction.getSource().getSplitSerializer();
-        reader = sourceAction.getSource()
+        this.reader = sourceAction.getSource()
                 .createReader(new SourceReaderContext(indexID, sourceAction.getSource().getBoundedness(), this));
+    }
+
+    @Override
+    public void open() throws Exception {
         reader.open();
         register();
     }
@@ -157,5 +165,14 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         reader.notifyCheckpointAborted(checkpointId);
+    }
+
+    @Override
+    public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
+        List<SplitT> splits = actionStateList.stream()
+            .map(ActionSubtaskState::getState)
+            .flatMap(Collection::stream)
+            .map(bytes -> sneaky(() -> splitSerializer.deserialize(bytes)))
+            .collect(Collectors.toList());
     }
 }

@@ -17,19 +17,22 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
-import java.io.IOException;
+import org.apache.seatunnel.engine.core.dag.actions.Action;
+import org.apache.seatunnel.engine.server.checkpoint.Stateful;
+import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 
-public interface FlowLifeCycle {
+import java.util.concurrent.CompletableFuture;
 
-    default void init() throws Exception {
+public abstract class ActionFlowLifeCycle extends AbstractFlowLifeCycle implements Stateful {
+
+    protected Action action;
+
+    public ActionFlowLifeCycle(Action action, SeaTunnelTask runningTask, CompletableFuture<Void> completableFuture) {
+        super(runningTask, completableFuture);
+        this.action = action;
     }
 
-    default void open() throws Exception {}
-
-    default void close() throws IOException {
+    public Action getAction() {
+        return action;
     }
-
-    default void prepareClose() throws IOException {
-    }
-
 }

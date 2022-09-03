@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
+import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.READY_START;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
@@ -134,16 +135,44 @@ public class CheckpointCoordinator {
             });
         this.serializer = new ProtoStuffSerializer();
         this.pipelineTasks = getPipelineTasks(plan.getPipelineSubtasks());
-        this.pipelineTaskStatus = plan.getPipelineSubtasks()
-            .stream()
-            .map(TaskLocation::getTaskID)
-            .collect(Collectors.toMap(id -> id, id -> SeaTunnelTaskState.CREATED));
+        this.pipelineTaskStatus = new ConcurrentHashMap<>();
         // TODO: IDCounter SPI
         this.checkpointIdCounter = new StandaloneCheckpointIDCounter();
     }
 
     public int getPipelineId() {
         return pipelineId;
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // The start step of the coordinator
+    // --------------------------------------------------------------------------------------------
+
+    protected void reportedTask(TaskReportStatusOperation reportStatusOperation) {
+        pipelineTaskStatus.put(reportStatusOperation.getLocation().getTaskID(), reportStatusOperation.getStatus());
+        CompletableFuture.runAsync(() -> {
+            switch (reportStatusOperation.getStatus()) {
+                case WAITING_RESTORE:
+                    // TODO: Whether the parallelism of the action has changed
+                    break;
+                case READY_START:
+                    break;
+                default:
+                    break;
+            }
+        });
+    }
+
+    private void allTaskReady() {
+        if (pipelineTaskStatus.size() != plan.getPipelineSubtasks().size()) {
+            return;
+        }
+        for (SeaTunnelTaskState status : pipelineTaskStatus.values()) {
+            if (READY_START != status) {
+                return;
+            }
+        }
+
     }
 
     private void scheduleTriggerPendingCheckpoint(long delayMills) {
@@ -264,11 +293,6 @@ public class CheckpointCoordinator {
             .map(taskLocation -> new CheckpointBarrierTriggerOperation(checkpointBarrier, taskLocation))
             .map(checkpointManager::sendOperationToMemberNode)
             .toArray(InvocationFuture[]::new);
-    }
-
-    protected void reportedTask(TaskReportStatusOperation reportStatusOperation) {
-        pipelineTaskStatus.put(reportStatusOperation.getLocation().getTaskID(), reportStatusOperation.getStatus());
-
     }
 
     protected void cleanPendingCheckpoint() {

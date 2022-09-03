@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CANCELED;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CLOSED;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.PREPARE_CLOSE;
@@ -52,15 +53,18 @@ import java.io.Serializable;
 import java.net.URL;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends CoordinatorTask {
 
@@ -90,7 +94,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         readerRegisterComplete = false;
         LOGGER.info("starting seatunnel source split enumerator task, source name: " + source.getName());
         enumeratorContext = new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this);
-        enumerator = this.source.getSource().createEnumerator(enumeratorContext);
         enumeratorStateSerializer = this.source.getSource().getEnumeratorStateSerializer();
         taskMemberMapping = new ConcurrentHashMap<>();
         taskIDToTaskLocationMapping = new ConcurrentHashMap<>();
@@ -138,6 +141,23 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             this.getExecutionContext().sendToMaster(new TaskAcknowledgeOperation(this.taskLocation, (CheckpointBarrier) barrier,
                 Collections.singletonList(new ActionSubtaskState(source.getId(), -1, Collections.singletonList(serialize)))));
         }
+    }
+
+    @Override
+    public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
+        Optional<Serializable> state = actionStateList.stream()
+            .map(ActionSubtaskState::getState)
+            .flatMap(Collection::stream)
+            .map(bytes -> sneaky(() -> enumeratorStateSerializer.deserialize(bytes)))
+            .findFirst();
+        if (state.isPresent()) {
+            this.enumerator = this.source.getSource()
+                .restoreEnumerator(enumeratorContext, state.get());
+        } else {
+            this.enumerator = this.source.getSource()
+                .createEnumerator(enumeratorContext);
+        }
+        restoreComplete = true;
     }
 
     public void receivedReader(TaskLocation readerId, Address memberAddr) {

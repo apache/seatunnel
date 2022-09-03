@@ -15,21 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.flow;
+package org.apache.seatunnel.engine.server.checkpoint;
 
-import java.io.IOException;
+import java.util.List;
 
-public interface FlowLifeCycle {
-
-    default void init() throws Exception {
-    }
-
-    default void open() throws Exception {}
-
-    default void close() throws IOException {
-    }
-
-    default void prepareClose() throws IOException {
-    }
-
+public interface Stateful {
+    void restoreState(List<ActionSubtaskState> actionStateList) throws Exception;
 }

@@ -99,11 +99,6 @@ public abstract class AbstractTask implements Task {
                 .collect(Collectors.toList());
     }
 
-    protected void restoreState() {
-        // TODO add restore state logic
-        restoreComplete = true;
-    }
-
     public void startCall() {
         startCalled = true;
     }

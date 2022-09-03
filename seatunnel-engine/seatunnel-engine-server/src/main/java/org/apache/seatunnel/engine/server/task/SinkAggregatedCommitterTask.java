@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CANCELED;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CLOSED;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.INIT;
@@ -46,7 +47,9 @@ import lombok.NonNull;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +57,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends CoordinatorTask {
 
@@ -71,7 +75,6 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
 
     private Map<Long, List<AggregatedCommitInfoT>> checkpointCommitInfoMap;
 
-    private transient org.apache.seatunnel.engine.checkpoint.storage.common.Serializer protoStuffSerializer;
     private Map<Long, Integer> checkpointBarrierCounter;
     private Map<Long, Map<Long, Long>> alreadyReceivedCommitInfo;
     private Object closeLock;
@@ -90,12 +93,12 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
         super.init();
         currState = INIT;
         this.closeLock = new Object();
+        this.checkpointBarrierCounter = new HashMap<>();
         this.alreadyReceivedCommitInfo = new ConcurrentHashMap<>();
         this.writerAddressMap = new ConcurrentHashMap<>();
         this.checkpointCommitInfoMap = new ConcurrentHashMap<>();
         this.completableFuture = new CompletableFuture<>();
         this.aggregatedCommitInfoSerializer = sink.getSink().getAggregatedCommitInfoSerializer().get();
-        this.protoStuffSerializer = new ProtoStuffSerializer();
         LOGGER.info("starting seatunnel sink aggregated committer task, sink name: " + sink.getName());
     }
 
@@ -188,6 +191,17 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
             this.getExecutionContext().sendToMaster(new TaskAcknowledgeOperation(this.taskLocation, (CheckpointBarrier) barrier,
                 Collections.singletonList(new ActionSubtaskState(sink.getId(), -1, states))));
         }
+    }
+
+    @Override
+    public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
+        List<AggregatedCommitInfoT> aggregatedCommitInfos = actionStateList.stream()
+            .map(ActionSubtaskState::getState)
+            .flatMap(Collection::stream)
+            .map(bytes -> sneaky(() -> aggregatedCommitInfoSerializer.deserialize(bytes)))
+            .collect(Collectors.toList());
+        // TODO: commit?
+        restoreComplete = true;
     }
 
     public void receivedWriterCommitInfo(long checkpointID, long subTaskId,

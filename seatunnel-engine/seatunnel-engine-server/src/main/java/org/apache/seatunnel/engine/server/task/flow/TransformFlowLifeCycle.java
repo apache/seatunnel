@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
+import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
@@ -29,7 +30,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public class TransformFlowLifeCycle<T> extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>> {
+public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>> {
 
     private final TransformChainAction<T> action;
 
@@ -41,7 +42,7 @@ public class TransformFlowLifeCycle<T> extends AbstractFlowLifeCycle implements 
                                   SeaTunnelTask runningTask,
                                   Collector<Record<?>> collector,
                                   CompletableFuture<Void> completableFuture) {
-        super(runningTask, completableFuture);
+        super(action, runningTask, completableFuture);
         this.action = action;
         this.transform = action.getTransforms();
         this.collector = collector;
@@ -69,5 +70,10 @@ public class TransformFlowLifeCycle<T> extends AbstractFlowLifeCycle implements 
             }
             collector.collect(new Record<>(r));
         }
+    }
+
+    @Override
+    public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
+        // nothing
     }
 }

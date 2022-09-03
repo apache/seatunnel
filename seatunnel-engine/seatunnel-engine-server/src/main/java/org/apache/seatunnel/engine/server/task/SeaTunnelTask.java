@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task;
 
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
+import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CANCELED;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CLOSED;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.PREPARE_CLOSE;
@@ -47,6 +48,7 @@ import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlo
 import org.apache.seatunnel.engine.server.dag.physical.flow.UnknownFlowException;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.task.flow.ActionFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.FlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
@@ -71,6 +73,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public abstract class SeaTunnelTask extends AbstractTask {
 
@@ -123,6 +127,9 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 break;
             case WAITING_RESTORE:
                 if (restoreComplete) {
+                    for (FlowLifeCycle cycle : allCycles) {
+                        cycle.open();
+                    }
                     currState = READY_START;
                     reportTaskStatus(READY_START);
                 }
@@ -281,5 +288,21 @@ public abstract class SeaTunnelTask extends AbstractTask {
             .filter(cycle -> cycle instanceof InternalCheckpointListener)
             .map(cycle -> (InternalCheckpointListener) cycle)
             .forEach(listener -> sneaky(consumer, listener));
+    }
+
+    @Override
+    public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
+        Map<Long, List<ActionSubtaskState>> stateMap = actionStateList.stream()
+            .collect(Collectors.groupingBy(ActionSubtaskState::getActionId, Collectors.toList()));
+        allCycles.stream().filter(cycle -> cycle instanceof ActionFlowLifeCycle)
+            .map(cycle -> (ActionFlowLifeCycle) cycle)
+            .forEach(actionFlowLifeCycle -> {
+                try {
+                    actionFlowLifeCycle.restoreState(stateMap.getOrDefault(actionFlowLifeCycle.getAction().getId(), Collections.emptyList()));
+                } catch (Exception e) {
+                    sneakyThrow(e);
+                }
+            });
+        restoreComplete = true;
     }
 }

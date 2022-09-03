@@ -20,6 +20,8 @@ package org.apache.seatunnel.engine.server.serializable;
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointBarrierTriggerOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishedOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskRestoreOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskStartOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 
@@ -32,10 +34,12 @@ public final class CheckpointDataSerializerHook implements DataSerializerHook {
 
     public static final int CHECKPOINT_BARRIER_TRIGGER_OPERATOR = 1;
     public static final int CHECKPOINT_FINISHED_OPERATOR = 2;
-
     public static final int TASK_ACK_OPERATOR = 3;
 
     public static final int TASK_REPORT_STATUS_OPERATOR = 4;
+
+    public static final int NOTIFY_TASK_RESTORE_OPERATOR = 5;
+    public static final int NOTIFY_TASK_START_OPERATOR = 6;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_CHECKPOINT_DATA_SERIALIZER_FACTORY,
@@ -65,6 +69,10 @@ public final class CheckpointDataSerializerHook implements DataSerializerHook {
                     return new TaskAcknowledgeOperation();
                 case TASK_REPORT_STATUS_OPERATOR:
                     return new TaskReportStatusOperation();
+                case NOTIFY_TASK_RESTORE_OPERATOR:
+                    return new NotifyTaskRestoreOperation();
+                case NOTIFY_TASK_START_OPERATOR:
+                    return new NotifyTaskStartOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

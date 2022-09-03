@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
 import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
 
 import org.apache.seatunnel.api.serialization.Serializer;
@@ -24,6 +25,7 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointBarrierTriggerOperation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
@@ -34,20 +36,19 @@ import org.apache.seatunnel.engine.server.task.operation.sink.SinkUnregisterOper
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
-public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>>, InternalCheckpointListener {
+public class SinkFlowLifeCycle<T, StateT> extends ActionFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>>, InternalCheckpointListener {
 
     private final SinkAction<T, StateT, ?, ?> sinkAction;
     private SinkWriter<T, ?, StateT> writer;
 
     private transient Optional<Serializer<StateT>> writerStateSerializer;
-
-    // TODO init states
-    private List<StateT> states;
 
     private final int indexID;
 
@@ -60,7 +61,7 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
     public SinkFlowLifeCycle(SinkAction<T, StateT, ?, ?> sinkAction, TaskLocation taskLocation, int indexID,
                              SeaTunnelTask runningTask, TaskLocation committerTaskID,
                              boolean containCommitter, CompletableFuture<Void> completableFuture) {
-        super(runningTask, completableFuture);
+        super(sinkAction, runningTask, completableFuture);
         this.sinkAction = sinkAction;
         this.indexID = indexID;
         this.taskLocation = taskLocation;
@@ -70,13 +71,12 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
 
     @Override
     public void init() throws Exception {
-        if (states == null || states.isEmpty()) {
-            this.writer = sinkAction.getSink().createWriter(new SinkWriterContext(indexID));
-        } else {
-            this.writer = sinkAction.getSink().restoreWriter(new SinkWriterContext(indexID), states);
-        }
         this.writerStateSerializer = sinkAction.getSink().getWriterStateSerializer();
-        states = null;
+    }
+
+    @Override
+    public void open() throws Exception {
+        super.open();
         registerCommitter();
     }
 
@@ -138,5 +138,22 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         // TODO: committer abort
+    }
+
+    @Override
+    public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
+        if (writerStateSerializer.isPresent()) {
+            return;
+        }
+        List<StateT> states = actionStateList.stream()
+            .map(ActionSubtaskState::getState)
+            .flatMap(Collection::stream)
+            .map(bytes -> sneaky(() -> writerStateSerializer.get().deserialize(bytes)))
+            .collect(Collectors.toList());
+        if (states.isEmpty()) {
+            this.writer = sinkAction.getSink().createWriter(new SinkWriterContext(indexID));
+        } else {
+            this.writer = sinkAction.getSink().restoreWriter(new SinkWriterContext(indexID), states);
+        }
     }
 }
