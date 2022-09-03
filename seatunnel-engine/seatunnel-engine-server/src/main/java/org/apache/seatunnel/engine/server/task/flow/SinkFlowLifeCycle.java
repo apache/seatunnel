@@ -115,10 +115,10 @@ public class SinkFlowLifeCycle<T, StateT> extends ActionFlowLifeCycle implements
                         runningTask.addState(barrier, sinkAction.getId(), serializeStates(writerStateSerializer.get(), states));
                     }
                     // TODO: prepare commit
-                    runningTask.getExecutionContext().sendToMaster(new SinkPrepareCommitOperation(barrier, taskLocation,
+                    runningTask.getExecutionContext().sendToMaster(new SinkPrepareCommitOperation(barrier, committerTaskID,
                         new byte[0]));
                 } else {
-                    runningTask.getExecutionContext().sendToMaster(new CheckpointBarrierTriggerOperation(barrier, taskLocation));
+                    runningTask.getExecutionContext().sendToMaster(new CheckpointBarrierTriggerOperation(barrier, committerTaskID));
                 }
             } else {
                 if (prepareClose) {
