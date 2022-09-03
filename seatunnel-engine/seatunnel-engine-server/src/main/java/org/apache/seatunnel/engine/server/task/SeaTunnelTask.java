@@ -249,8 +249,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
     }
 
     public void ack(Barrier barrier) {
-        cycleAcks.compute(barrier.getId(), (id, count) -> count == null ? 1 : ++count);
-        if (cycleAcks.size() == allCycles.size()) {
+        Integer ackSize = cycleAcks.compute(barrier.getId(), (id, count) -> count == null ? 1 : ++count);
+        if (ackSize == allCycles.size()) {
             if (barrier.prepareClose()) {
                 prepareCloseStatus = true;
             }
