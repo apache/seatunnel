@@ -15,16 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.source;
+package org.apache.seatunnel.connectors.seatunnel.mongodb.config;
 
-import org.apache.seatunnel.api.source.SourceSplit;
+import java.io.Serializable;
 
-public class MongodbSourceSplit implements SourceSplit {
+/**
+ * The config of mongodb
+ */
+public class MongodbConfig implements Serializable {
 
-    private static final long serialVersionUID = -1L;
+    public static final String URI = "uri";
 
-    @Override
-    public String splitId() {
-        return null;
-    }
+    public static final String DATABASE = "database";
+
+    public static final String COLLECTION = "collection";
+
+    public static final String SCHEMA = "schema";
+
+    public static final String FORMAT = "format";
+
+    public static final String DEFAULT_FORMAT = "json";
+
 }

@@ -17,19 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.config;
 
+import lombok.Data;
+
 import java.io.Serializable;
 
-/**
- * The config of mongodb
- */
-public class Config implements Serializable {
+@Data
+public class MongodbParameters implements Serializable {
 
-    public static final String URI = "uri";
+    private String uri;
 
-    public static final String DATABASE = "database";
+    private String database;
 
-    public static final String COLLECTION = "collection";
+    private String collection;
 
-    public static final String SCHEMA = "schema";
-
+    private Object schema;
 }

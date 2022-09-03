@@ -9,12 +9,12 @@ Read data from MongoDB.
 ## Options
 
 | name                  | type   | required | default value |
-|-----------------------| ------ |----------|---------------|
+|-----------------------|--------|----------|---------------|
 | readconfig.uri        | string | yes      | -             |
 | readconfig.database   | string | yes      | -             |
 | readconfig.collection | string | yes      | -             |
 | readconfig.*          | string | no       | -             |
-| schema                | string | yes      | -             |
+| schema                | object | yes      | -             |
 | common-options        | string | yes      | -             |
 
 ### readconfig.uri [string]
@@ -33,9 +33,21 @@ MongoDB collection
 
 More other parameters can be configured here, see [MongoDB Configuration](https://docs.mongodb.com/spark-connector/current/configuration/) for details, see the Input Configuration section. The way to specify parameters is to prefix the original parameter name `readconfig.` For example, the way to set `spark.mongodb.input.partitioner` is `readconfig.spark.mongodb.input.partitioner="MongoPaginateBySizePartitioner"` . If you do not specify these optional parameters, the default values of the official MongoDB documentation will be used.
 
-### schema [string]
+### schema [object]
 
-Because `MongoDB` does not have the concept of `schema`, when spark reads `MongoDB` , it will sample `MongoDB` data and infer the `schema` . In fact, this process will be slow and may be inaccurate. This parameter can be manually specified. Avoid these problems. `schema` is a `json` string, such as `{\"name\":\"string\",\"age\":\"integer\",\"addrs\":{\"country\":\"string\ ",\"city\":\"string\"}}`
+Because `MongoDB` does not have the concept of `schema`, when spark reads `MongoDB` , it will sample `MongoDB` data and infer the `schema` . In fact, this process will be slow and may be inaccurate. This parameter can be manually specified. Avoid these problems. `schema` is a `json` string, 
+
+such as
+
+```
+readconfig.schema {
+  fields {
+    id = int
+    key_aa = string
+    key_bb = string
+  }
+}
+```
 
 ### common options [string]
 
@@ -49,7 +61,13 @@ mongodb {
     readconfig.database = "mydatabase"
     readconfig.collection = "mycollection"
     readconfig.spark.mongodb.input.partitioner = "MongoPaginateBySizePartitioner"
-    schema="{\"name\":\"string\",\"age\":\"integer\",\"addrs\":{\"country\":\"string\",\"city\":\"string\"}}"
+    readconfig.schema {
+      fields {
+        id = int
+        key_aa = string
+        key_bb = string
+      }
+    }
     result_table_name = "mongodb_result_table"
 }
 ```

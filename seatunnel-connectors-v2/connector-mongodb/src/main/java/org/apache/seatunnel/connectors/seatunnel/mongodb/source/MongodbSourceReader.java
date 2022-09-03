@@ -17,39 +17,43 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.source;
 
+import org.apache.seatunnel.api.serialization.DeserializationSchema;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbParameters;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCursor;
 import org.bson.Document;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-public class MongodbSourceReader implements SourceReader<SeaTunnelRow, MongodbSourceSplit> {
+public class MongodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
-    private final SourceReader.Context context;
+    private static final Logger LOGGER = LoggerFactory.getLogger(MongodbSourceReader.class);
+
+    protected final SingleSplitReaderContext context;
 
     private MongoClient client;
 
-    private final MongodbSourceEvent params;
+    protected final MongodbParameters params;
 
-    private final SeaTunnelRowType rowTypeInfo;
+    protected final DeserializationSchema<SeaTunnelRow> deserializationSchema;
 
-    private final List<MongodbSourceSplit> splits;
-
-    MongodbSourceReader(SourceReader.Context context, MongodbSourceEvent params, SeaTunnelRowType rowTypeInfo) {
+    MongodbSourceReader(SingleSplitReaderContext context, MongodbParameters params, DeserializationSchema<SeaTunnelRow> deserializationSchema) {
         this.context = context;
         this.params = params;
-        this.rowTypeInfo = rowTypeInfo;
-        this.splits = new ArrayList<>();
+        this.deserializationSchema = deserializationSchema;
     }
 
     @Override
@@ -66,50 +70,34 @@ public class MongodbSourceReader implements SourceReader<SeaTunnelRow, MongodbSo
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        if (!splits.isEmpty()) {
-            try (MongoCursor<Document> mongoCursor = client
-                .getDatabase(params.getDatabase())
-                .getCollection(params.getCollection())
-                .find()
-                .iterator()) {
+        try (MongoCursor<Document> mongoCursor = client.getDatabase(params.getDatabase()).getCollection(params.getCollection()).find().iterator()) {
 
-                while (mongoCursor.hasNext()) {
-                    Document doc = mongoCursor.next();
-                    Object[] values = new Object[this.rowTypeInfo.getFieldNames().length];
-                    Set<Map.Entry<String, Object>> entries = doc.entrySet();
-                    int i = 0;
-                    for (Map.Entry<String, Object> entry : entries) {
-                        if (!"_id".equalsIgnoreCase(entry.getKey())) {
-                            values[i] = entry.getValue();
-                            i++;
-                        }
+            while (mongoCursor.hasNext()) {
+                Document doc = mongoCursor.next();
+                HashMap<String, Object> map = new HashMap<>(doc.size());
+                Set<Map.Entry<String, Object>> entries = doc.entrySet();
+                for (Map.Entry<String, Object> entry : entries) {
+                    if (!"_id".equalsIgnoreCase(entry.getKey())) {
+                        String key = entry.getKey();
+                        Object value = entry.getValue();
+                        map.put(key, value);
                     }
-                    output.collect(new SeaTunnelRow(values));
                 }
-            } finally {
+                String content = JsonUtils.toJsonString(map);
+                if (deserializationSchema != null) {
+                    deserializationSchema.deserialize(content.getBytes(), output);
+                } else {
+                    // TODO: use seatunnel-text-format
+                    output.collect(new SeaTunnelRow(new Object[]{content}));
+                }
+            }
+        } finally {
+            if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
                 // signal to the source that we have reached the end of the data.
-                this.context.signalNoMoreElement();
+                LOGGER.info("Closed the bounded http source");
+                context.signalNoMoreElement();
             }
         }
     }
 
-    @Override
-    public List<MongodbSourceSplit> snapshotState(long checkpointId) throws Exception {
-        return null;
-    }
-
-    @Override
-    public void addSplits(List<MongodbSourceSplit> splits) {
-        this.splits.addAll(splits);
-    }
-
-    @Override
-    public void handleNoMoreSplits() {
-
-    }
-
-    @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-
-    }
 }
