@@ -41,6 +41,7 @@ import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Used to manage all checkpoints for a job.
@@ -90,11 +91,12 @@ public class CheckpointManager {
      * Called by the JobMaster, actually triggered by the user.
      * <br> After the savepoint is triggered, it will cause the job to stop automatically.
      */
+    @SuppressWarnings("unchecked")
     public PassiveCompletableFuture<PendingCheckpoint>[] triggerSavepoints() {
         return coordinatorMap.values()
             .parallelStream()
             .map(CheckpointCoordinator::startSavepoint)
-            .toArray(new PassiveCompletableFuture<>[0]);
+            .toArray(PassiveCompletableFuture[]::new);
     }
 
     /**
