@@ -61,6 +61,7 @@ public class TaskCompletedOperation extends Operation implements IdentifiedDataS
     @Override
     public void run() {
         ((SeaTunnelServer) getService())
+            .getCoordinatorServer()
             .getJobMaster(taskLocation.getJobId())
             .getCheckpointManager()
             .taskCompleted(taskLocation);

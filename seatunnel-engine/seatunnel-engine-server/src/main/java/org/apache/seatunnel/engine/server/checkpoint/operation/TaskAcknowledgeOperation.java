@@ -71,6 +71,7 @@ public class TaskAcknowledgeOperation extends Operation implements IdentifiedDat
     @Override
     public void run() {
         ((SeaTunnelServer) getService())
+            .getCoordinatorServer()
             .getJobMaster(taskLocation.getJobId())
             .getCheckpointManager()
             .acknowledgeTask(this, getCallerAddress());
