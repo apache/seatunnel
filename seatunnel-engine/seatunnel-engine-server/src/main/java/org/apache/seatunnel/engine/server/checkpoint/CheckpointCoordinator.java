@@ -338,6 +338,7 @@ public class CheckpointCoordinator {
                         Instant.now().toEpochMilli(),
                         CompletableFuture.completedFuture(Barrier.PREPARE_CLOSE_BARRIER_ID),
                         CheckpointType.AUTO_SAVEPOINT_TYPE);
+                    startTriggerPendingCheckpoint(future);
                     future.join();
                 }
             }
