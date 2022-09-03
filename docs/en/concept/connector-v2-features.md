@@ -25,7 +25,7 @@ For example `File`, `Kafka`.
 
 ### schema projection
 
-If the source connector supports selective reading of certain columns or supports the data format read through `schema` params, we think it supports schema projection.
+If the source connector supports selective reading of certain columns or redefine columns order or supports the data format read through `schema` params, we think it supports schema projection.
 
 For example `JDBCSource` can use sql define read columns, `KafkaSource` can use `schema` params to define the read schema.
 
@@ -39,7 +39,8 @@ Streaming Job Mode, The data read is unbounded and the job never stop.
 
 ### parallelism
 
-Parallelism Source Connector support config `parallelism`, every parallelism will create a task to read the data.
+Parallelism Source Connector support config `parallelism`, every parallelism will create a task to read the data. 
+In the **Parallelism Source Connector**, the source will be split into multiple splits, and then the enumerator will allocate the splits to the SourceReader for processing.
 
 ### support user-defined split
 
@@ -60,4 +61,4 @@ For sink connector, the sink connector supports exactly-once if any piece of dat
 
 ### schema projection
 
-If a sink connector supports the fields and their types written in the configuration, we think it supports schema projection.
+If a sink connector supports the fields and their types or redefine columns order written in the configuration, we think it supports schema projection.
