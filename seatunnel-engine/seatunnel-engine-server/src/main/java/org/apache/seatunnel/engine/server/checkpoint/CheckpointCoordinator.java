@@ -53,6 +53,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -236,6 +237,7 @@ public class CheckpointCoordinator {
         // Trigger the barrier and wait for all tasks to ACK
         pendingCompletableFuture.thenAcceptAsync(pendingCheckpoint -> {
             if (CheckpointType.AUTO_SAVEPOINT_TYPE != pendingCheckpoint.getCheckpointType()) {
+                LOG.debug("trigger checkpoint barrier" + pendingCheckpoint);
                 CompletableFuture.supplyAsync(() ->
                         new CheckpointBarrier(pendingCheckpoint.getCheckpointId(),
                             pendingCheckpoint.getCheckpointTimestamp(),
@@ -243,22 +245,24 @@ public class CheckpointCoordinator {
                     .thenApplyAsync(this::triggerCheckpoint)
                     .thenApplyAsync(invocationFutures -> CompletableFuture.allOf(invocationFutures).join());
             }
-
+            LOG.debug("wait checkpoint completed: " + pendingCheckpoint);
             pendingCheckpoint.getCompletableFuture()
                 .thenAcceptAsync(this::completePendingCheckpoint);
         });
 
         // If any task is not acked within the checkpoint timeout
-        pendingCompletableFuture.thenAcceptAsync(pendingCheckpoint ->
+        pendingCompletableFuture.thenAcceptAsync(pendingCheckpoint -> {
+            LOG.debug("Start a scheduled task to prevent checkpoint timeouts");
             scheduler.schedule(() -> {
-                if (pendingCheckpoints.get(pendingCheckpoint.getCheckpointId()) != null && !pendingCheckpoint.isFullyAcknowledged()) {
-                    if (tolerableFailureCheckpoints-- <= 0) {
-                        cleanPendingCheckpoint();
-                        // TODO: notify job master to restore the pipeline.
+                    if (pendingCheckpoints.get(pendingCheckpoint.getCheckpointId()) != null && !pendingCheckpoint.isFullyAcknowledged()) {
+                        if (tolerableFailureCheckpoints-- <= 0) {
+                            cleanPendingCheckpoint();
+                            // TODO: notify job master to restore the pipeline.
+                        }
                     }
-                }}, coordinatorConfig.getCheckpointTimeout(),
-                TimeUnit.MILLISECONDS)
-        );
+                }, coordinatorConfig.getCheckpointTimeout(),
+                TimeUnit.MILLISECONDS);
+        });
     }
 
     CompletableFuture<PendingCheckpoint> createPendingCheckpoint(long triggerTimestamp, CheckpointType checkpointType) {
@@ -276,6 +280,7 @@ public class CheckpointCoordinator {
     }
 
     CompletableFuture<PendingCheckpoint> createPendingCheckpoint(long triggerTimestamp, CompletableFuture<Long> idFuture, CheckpointType checkpointType) {
+        latestTriggerTimestamp.set(triggerTimestamp);
         CompletableFuture<PendingCheckpoint> completableFuture = new CompletableFuture<>();
         return idFuture.thenApplyAsync(checkpointId ->
             new PendingCheckpoint(this.jobId,
@@ -287,14 +292,20 @@ public class CheckpointCoordinator {
                 getTaskStatistics(),
                 getActionStates(),
                 completableFuture)
-        ).thenApplyAsync(pendingCheckpoint -> pendingCheckpoints.put(pendingCheckpoint.getCheckpointId(), pendingCheckpoint));
+        ).thenApplyAsync(pendingCheckpoint -> {
+            pendingCheckpoints.put(pendingCheckpoint.getCheckpointId(), pendingCheckpoint);
+            return pendingCheckpoint;
+        });
     }
 
     private Set<Long> getNotYetAcknowledgedTasks() {
         // TODO: some tasks have completed and don't need to be ack
-        return plan.getPipelineSubtasks()
+        Set<Long> set = new CopyOnWriteArraySet<>();
+        Set<Long> threadUnsafe = plan.getPipelineSubtasks()
             .stream().map(TaskLocation::getTaskID)
             .collect(Collectors.toSet());
+        set.addAll(threadUnsafe);
+        return set;
     }
 
     private Map<Long, ActionState> getActionStates() {
@@ -330,7 +341,8 @@ public class CheckpointCoordinator {
     protected void acknowledgeTask(TaskAcknowledgeOperation ackOperation) {
         final long checkpointId = ackOperation.getBarrier().getId();
         final PendingCheckpoint pendingCheckpoint = pendingCheckpoints.get(checkpointId);
-        LOG.debug(ackOperation.toString());
+        TaskLocation location = ackOperation.getTaskLocation();
+        LOG.debug("task[{}]({}/{}) ack. {}", location.getTaskID(), location.getPipelineId(), location.getJobId(), ackOperation.getBarrier().toString());
         if (checkpointId == Barrier.PREPARE_CLOSE_BARRIER_ID) {
             synchronized (autoSavepointLock) {
                 if (pendingCheckpoints.get(checkpointId) == null) {
@@ -350,13 +362,14 @@ public class CheckpointCoordinator {
             return;
         }
 
-        pendingCheckpoint.acknowledgeTask(ackOperation.getTaskLocation(), ackOperation.getStates(),
+        pendingCheckpoint.acknowledgeTask(location, ackOperation.getStates(),
             CheckpointType.SAVEPOINT_TYPE == pendingCheckpoint.getCheckpointType() ?
                 SubtaskStatus.SAVEPOINT_PREPARE_CLOSE :
                 SubtaskStatus.RUNNING);
     }
 
     public void completePendingCheckpoint(PendingCheckpoint pendingCheckpoint) {
+        LOG.info("pending checkpoint({}/{}@{}) completed!", pendingCheckpoint.getCheckpointId(), pendingCheckpoint.getPipelineId(), pendingCheckpoint.getJobId());
         pendingCounter.decrementAndGet();
         final long checkpointId = pendingCheckpoint.getCheckpointId();
         InvocationFuture<?>[] invocationFutures = notifyCheckpointCompleted(checkpointId);

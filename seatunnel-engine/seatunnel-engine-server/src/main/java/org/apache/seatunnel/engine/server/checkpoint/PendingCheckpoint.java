@@ -23,6 +23,8 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
 import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.List;
@@ -32,7 +34,7 @@ import java.util.concurrent.CompletableFuture;
 
 @AllArgsConstructor
 public class PendingCheckpoint implements Checkpoint {
-
+    private static final Logger LOG = LoggerFactory.getLogger(PendingCheckpoint.class);
     private final long jobId;
 
     private final int pipelineId;
@@ -111,6 +113,7 @@ public class PendingCheckpoint implements Checkpoint {
             subtaskStatus));
 
         if (isFullyAcknowledged()) {
+            LOG.debug("checkpoint is full ack!");
             completableFuture.complete(this);
         }
     }

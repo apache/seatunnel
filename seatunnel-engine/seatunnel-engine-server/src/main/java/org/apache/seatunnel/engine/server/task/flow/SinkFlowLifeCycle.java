@@ -85,10 +85,6 @@ public class SinkFlowLifeCycle<T, StateT> extends ActionFlowLifeCycle implements
     public void close() throws IOException {
         super.close();
         writer.close();
-        if (containCommitter) {
-            runningTask.getExecutionContext().sendToMaster(new SinkUnregisterOperation(taskLocation,
-                    committerTaskID)).join();
-        }
     }
 
     private void registerCommitter() {
