@@ -26,23 +26,22 @@ import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
-import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import com.hazelcast.spi.impl.operationservice.Operation;
-import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 
 import java.io.IOException;
 
-@AllArgsConstructor
-public class CheckpointBarrierTriggerOperation extends Operation implements IdentifiedDataSerializable {
+@NoArgsConstructor
+public class CheckpointBarrierTriggerOperation extends TaskOperation {
     private Barrier barrier;
 
-    private TaskLocation taskLocation;
-
-    public CheckpointBarrierTriggerOperation() {
+    public CheckpointBarrierTriggerOperation(Barrier barrier, TaskLocation taskLocation) {
+        super(taskLocation);
+        this.barrier = barrier;
     }
 
     @Override
@@ -56,21 +55,16 @@ public class CheckpointBarrierTriggerOperation extends Operation implements Iden
     }
 
     @Override
-    public String getServiceName() {
-        return SeaTunnelServer.SERVICE_NAME;
-    }
-
-    @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
+        super.writeInternal(out);
         out.writeObject(barrier);
-        out.writeObject(taskLocation);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
+        super.readInternal(in);
         // TODO: support another barrier
         barrier = in.readObject(CheckpointBarrier.class);
-        taskLocation = in.readObject(TaskLocation.class);
     }
 
     @Override

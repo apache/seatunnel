@@ -25,27 +25,27 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
-import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import com.hazelcast.spi.impl.operationservice.Operation;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.io.IOException;
 
 @Getter
-@AllArgsConstructor
-public class CheckpointFinishedOperation extends Operation implements IdentifiedDataSerializable {
+@NoArgsConstructor
+public class CheckpointFinishedOperation extends TaskOperation {
 
     private long checkpointId;
 
-    private TaskLocation taskLocation;
-
     private boolean successful;
 
-    public CheckpointFinishedOperation() {
+    public CheckpointFinishedOperation(TaskLocation taskLocation, long checkpointId, boolean successful) {
+        super(taskLocation);
+        this.checkpointId = checkpointId;
+        this.successful = successful;
     }
 
     @Override
@@ -60,15 +60,15 @@ public class CheckpointFinishedOperation extends Operation implements Identified
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
+        super.writeInternal(out);
         out.writeLong(checkpointId);
-        out.writeObject(taskLocation);
         out.writeBoolean(successful);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
+        super.readInternal(in);
         checkpointId = in.readLong();
-        taskLocation = in.readObject(TaskLocation.class);
         successful = in.readBoolean();
     }
 

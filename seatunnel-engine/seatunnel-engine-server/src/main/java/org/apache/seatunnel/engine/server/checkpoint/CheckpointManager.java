@@ -23,8 +23,6 @@ import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFacto
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
-import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointBarrierTriggerOperation;
-import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishedOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
@@ -32,6 +30,7 @@ import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
@@ -41,7 +40,6 @@ import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Used to manage all checkpoints for a job.
@@ -147,11 +145,7 @@ public class CheckpointManager {
         getCheckpointCoordinator(ackOperation.getTaskLocation()).acknowledgeTask(ackOperation);
     }
 
-    protected InvocationFuture<?> triggerCheckpoint(CheckpointBarrierTriggerOperation operation) {
-        return NodeEngineUtil.sendOperationToMasterNode(nodeEngine, operation);
-    }
-
-    protected InvocationFuture<?> notifyCheckpointFinished(CheckpointFinishedOperation operation) {
+    protected InvocationFuture<?> sendOperationToMemberNode(TaskOperation operation) {
         return NodeEngineUtil.sendOperationToMemberNode(nodeEngine, operation, subtaskWithAddresses.get(operation.getTaskLocation().getTaskID()));
     }
 }

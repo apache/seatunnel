@@ -259,7 +259,7 @@ public class CheckpointCoordinator {
         return plan.getStartingSubtasks()
             .stream()
             .map(taskLocation -> new CheckpointBarrierTriggerOperation(checkpointBarrier, taskLocation))
-            .map(checkpointManager::triggerCheckpoint)
+            .map(checkpointManager::sendOperationToMemberNode)
             .toArray(InvocationFuture[]::new);
     }
 
@@ -336,8 +336,8 @@ public class CheckpointCoordinator {
     public InvocationFuture<?>[] notifyCheckpointCompleted(long checkpointId) {
         return plan.getPipelineSubtasks()
             .stream()
-            .map(taskLocation -> new CheckpointFinishedOperation(checkpointId, taskLocation, true))
-            .map(checkpointManager::notifyCheckpointFinished)
+            .map(taskLocation -> new CheckpointFinishedOperation(taskLocation, checkpointId, true))
+            .map(checkpointManager::sendOperationToMemberNode)
             .toArray(InvocationFuture[]::new);
     }
 }
