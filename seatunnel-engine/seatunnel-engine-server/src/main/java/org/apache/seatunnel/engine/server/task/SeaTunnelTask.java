@@ -62,6 +62,8 @@ import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import lombok.NonNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URL;
@@ -76,7 +78,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 public abstract class SeaTunnelTask extends AbstractTask {
-
+    private static final Logger LOG = LoggerFactory.getLogger(SeaTunnelTask.class);
     private static final long serialVersionUID = 2604309561613784425L;
 
     protected volatile SeaTunnelTaskState currState;
@@ -254,16 +256,16 @@ public abstract class SeaTunnelTask extends AbstractTask {
             if (barrier.prepareClose()) {
                 prepareCloseStatus = true;
             }
+            if (barrier.snapshot()) {
+                this.getExecutionContext().sendToMaster(
+                    new TaskAcknowledgeOperation(this.taskLocation, (CheckpointBarrier) barrier, checkpointStates.get(barrier.getId())));
+            }
         }
     }
 
     public void addState(Barrier barrier, long actionId, List<byte[]> state) {
         List<ActionSubtaskState> states = checkpointStates.computeIfAbsent(barrier.getId(), id -> new ArrayList<>());
         states.add(new ActionSubtaskState(actionId, indexID, state));
-        if (cycleAcks.get(barrier.getId()) == allCycles.size()) {
-            this.getExecutionContext().sendToMaster(
-                new TaskAcknowledgeOperation(this.taskLocation, (CheckpointBarrier) barrier, states));
-        }
     }
 
     @Override

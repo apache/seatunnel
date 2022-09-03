@@ -103,7 +103,6 @@ public class SinkFlowLifeCycle<T, StateT> extends ActionFlowLifeCycle implements
         try {
             if (record.getData() instanceof Barrier) {
                 Barrier barrier = (Barrier) record.getData();
-                runningTask.ack(barrier);
                 if (barrier.prepareClose()) {
                     prepareClose = true;
                 }
@@ -120,6 +119,7 @@ public class SinkFlowLifeCycle<T, StateT> extends ActionFlowLifeCycle implements
                 } else {
                     runningTask.getExecutionContext().sendToMaster(new CheckpointBarrierTriggerOperation(barrier, committerTaskID));
                 }
+                runningTask.ack(barrier);
             } else {
                 if (prepareClose) {
                     return;

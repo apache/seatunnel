@@ -52,13 +52,14 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle implements On
     public void received(Record<?> record) {
         if (record.getData() instanceof Barrier) {
             CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
-            runningTask.ack(barrier);
             if (barrier.prepareClose()) {
                 prepareClose = true;
             }
             if (barrier.snapshot()) {
                 runningTask.addState(barrier, action.getId(), Collections.emptyList());
             }
+            // ack after #addState
+            runningTask.ack(barrier);
             collector.collect(record);
         } else {
             if (prepareClose) {

@@ -145,7 +145,6 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     public void triggerBarrier(Barrier barrier) throws Exception {
         // Block the reader from adding barrier to the collector.
         synchronized (collector.getCheckpointLock()) {
-            runningTask.ack(barrier);
             if (barrier.prepareClose()) {
                 this.prepareClose = true;
             }
@@ -153,6 +152,8 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                 List<byte[]> states = serializeStates(splitSerializer, reader.snapshotState(barrier.getId()));
                 runningTask.addState(barrier, sourceAction.getId(), states);
             }
+            // ack after #addState
+            runningTask.ack(barrier);
             collector.sendRecordToNext(new Record<>(barrier));
         }
     }

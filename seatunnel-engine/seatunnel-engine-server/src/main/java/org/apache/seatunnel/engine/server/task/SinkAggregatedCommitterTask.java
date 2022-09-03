@@ -84,7 +84,7 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
         super(jobID, taskID);
         this.sink = sink;
         this.aggregatedCommitter = aggregatedCommitter;
-        this.maxWriterSize = sink.getParallelism();
+        this.maxWriterSize = 1;
     }
 
     @Override
@@ -185,8 +185,8 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
         if (barrier.prepareClose()) {
             prepareCloseStatus = true;
         }
-        if (barrier.snapshot()){
-            List<byte[]> states = serializeStates(aggregatedCommitInfoSerializer, checkpointCommitInfoMap.get(barrier.getId()));
+        if (barrier.snapshot()) {
+            List<byte[]> states = serializeStates(aggregatedCommitInfoSerializer, checkpointCommitInfoMap.getOrDefault(barrier.getId(), Collections.emptyList()));
             this.getExecutionContext().sendToMaster(new TaskAcknowledgeOperation(this.taskLocation, (CheckpointBarrier) barrier,
                 Collections.singletonList(new ActionSubtaskState(sink.getId(), -1, states))));
         }
