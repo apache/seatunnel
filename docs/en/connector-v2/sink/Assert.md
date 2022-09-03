@@ -6,6 +6,11 @@
 
 A flink sink plugin which can assert illegal data by user defined rules
 
+## Key features
+
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [schema projection](../../concept/connector-v2-features.md)
+
 ## Options
 
 | name                          | type        | required | default value |
