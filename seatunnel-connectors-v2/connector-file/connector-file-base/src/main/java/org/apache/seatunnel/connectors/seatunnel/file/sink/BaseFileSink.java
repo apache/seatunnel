@@ -78,11 +78,6 @@ public abstract class BaseFileSink implements SeaTunnelSink<SeaTunnelRow, FileSi
     }
 
     @Override
-    public Optional<SinkCommitter<FileCommitInfo2>> createCommitter() throws IOException {
-        return Optional.of(new FileSinkCommitter2());
-    }
-
-    @Override
     public Optional<SinkAggregatedCommitter<FileCommitInfo2, FileAggregatedCommitInfo2>> createAggregatedCommitter() throws IOException {
         return Optional.of(new FileSinkAggregatedCommitter2());
     }
