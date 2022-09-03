@@ -31,6 +31,8 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointBarrierTriggerOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishedOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskRestoreOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskStartOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -44,6 +46,8 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -148,19 +152,32 @@ public class CheckpointCoordinator {
     // The start step of the coordinator
     // --------------------------------------------------------------------------------------------
 
-    protected void reportedTask(TaskReportStatusOperation reportStatusOperation) {
-        pipelineTaskStatus.put(reportStatusOperation.getLocation().getTaskID(), reportStatusOperation.getStatus());
+    protected void reportedTask(TaskReportStatusOperation operation) {
+        pipelineTaskStatus.put(operation.getLocation().getTaskID(), operation.getStatus());
         CompletableFuture.runAsync(() -> {
-            switch (reportStatusOperation.getStatus()) {
+            switch (operation.getStatus()) {
                 case WAITING_RESTORE:
-                    // TODO: Whether the parallelism of the action has changed
+                    restoreTaskState(operation.getLocation());
                     break;
                 case READY_START:
+                    allTaskReady();
                     break;
                 default:
                     break;
             }
         });
+    }
+
+    private void restoreTaskState(TaskLocation taskLocation) {
+        List<ActionSubtaskState> states = new ArrayList<>();
+        if (latestCompletedCheckpoint != null) {
+            final Integer currentParallelism = pipelineTasks.get(taskLocation.getTaskVertexId());
+            final ActionState actionState = latestCompletedCheckpoint.getTaskStates().get(taskLocation.getTaskVertexId());
+            for (int i = taskLocation.getTaskIndex(); i < actionState.getParallelism(); i += currentParallelism) {
+                states.add(actionState.getSubtaskStates()[i]);
+            }
+        }
+        checkpointManager.sendOperationToMemberNode(new NotifyTaskRestoreOperation(taskLocation, states));
     }
 
     private void allTaskReady() {
@@ -172,7 +189,17 @@ public class CheckpointCoordinator {
                 return;
             }
         }
+        InvocationFuture<?>[] futures = notifyTaskStart();
+        CompletableFuture.allOf(futures).join();
+        scheduleTriggerPendingCheckpoint(coordinatorConfig.getCheckpointInterval());
+    }
 
+    public InvocationFuture<?>[] notifyTaskStart() {
+        return plan.getPipelineSubtasks()
+            .stream()
+            .map(NotifyTaskStartOperation::new)
+            .map(checkpointManager::sendOperationToMemberNode)
+            .toArray(InvocationFuture[]::new);
     }
 
     private void scheduleTriggerPendingCheckpoint(long delayMills) {
