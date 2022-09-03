@@ -124,7 +124,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
             case WAITING_RESTORE:
                 if (restoreComplete) {
                     currState = READY_START;
-                    reportReadyStart();
+                    reportTaskStatus(READY_START);
                 }
                 break;
             case READY_START:
