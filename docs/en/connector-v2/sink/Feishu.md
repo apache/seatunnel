@@ -10,6 +10,11 @@ Used to launch feishu web hooks using data.
 
 **Tips: Feishu sink only support `post json` webhook and the data from source will be treated as body content in web hook.**
 
+## Key features
+
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [schema projection](../../concept/connector-v2-features.md)
+
 ##  Options
 
 | name | type   | required | default value |

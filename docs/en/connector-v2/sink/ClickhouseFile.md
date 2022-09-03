@@ -8,6 +8,11 @@ Generate the clickhouse data file with the clickhouse-local program, and then se
 server, also call bulk load. This connector only support clickhouse table which engine is 'Distributed'.And `internal_replication` option
 should be `true`. Supports Batch and Streaming mode.
 
+## Key features
+
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [schema projection](../../concept/connector-v2-features.md)
+
 :::tip
 
 Write data to Clickhouse can also be done using JDBC
