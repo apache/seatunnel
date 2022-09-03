@@ -238,7 +238,7 @@ public class TaskServiceImpl implements ITaskService {
     private InstanceSimpleInfoRes translate(InstanceDto dto) {
         return InstanceSimpleInfoRes.builder()
                 .instanceId(dto.getInstanceId())
-                .instanceCode(dto.getInstanceCode())
+                .jobId(dto.getJobId())
                 .instanceName(dto.getInstanceName())
                 .submitTime(dto.getSubmitTime())
                 .startTime(dto.getStartTime())
