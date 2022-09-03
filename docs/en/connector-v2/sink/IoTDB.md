@@ -8,12 +8,12 @@ Used to write data to IoTDB.
 
 ## Key features
 
-- [x] [exactly-once](key-features.md)
+- [x] [exactly-once](../../concept/connector-v2-features.md)
 
 IoTDB supports the `exactly-once` feature through idempotent writing. If two pieces of data have
 the same `key` and `timestamp`, the new data will overwrite the old one.
 
-- [ ] [schema projection](key-features.md)
+- [ ] [schema projection](../../concept/connector-v2-features.md)
 
 :::tip
 

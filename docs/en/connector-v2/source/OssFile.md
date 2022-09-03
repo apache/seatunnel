@@ -11,10 +11,10 @@ Read data from aliyun oss file system.
 
 ## Key features
 
-- [x] [batch](key-features.md)
-- [ ] [stream](key-features.md)
-- [ ] [exactly-once](key-features.md)
-- [x] [schema projection](key-features.md)
+- [x] [batch](../../concept/connector-v2-features.md)
+- [ ] [stream](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [schema projection](../../concept/connector-v2-features.md)
 - [x] file format
     - [x] text
     - [x] csv
@@ -24,7 +24,7 @@ Read data from aliyun oss file system.
 
 supports query SQL and can achieve projection effect.
 
-- [x] [parallelism](key-features.md)
+- [x] [parallelism](../../concept/connector-v2-features.md)
 
 ## Options
 

@@ -15,9 +15,9 @@ A sink plugin which use Enterprise WeChat robot send message
 
 ## Key features
 
-- [ ] [exactly-once](key-features.md)
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
 
-- [ ] [schema projection](key-features.md)
+- [ ] [schema projection](../../concept/connector-v2-features.md)
 
 ##  Options
 

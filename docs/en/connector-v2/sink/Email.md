@@ -10,8 +10,8 @@ Send the data as a file to email.
 
 ## Key features
 
-- [ ] [exactly-once](key-features.md)
-- [ ] [schema projection](key-features.md)
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [schema projection](../../concept/connector-v2-features.md)
 
 ## Options
 

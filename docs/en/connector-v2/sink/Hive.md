@@ -10,11 +10,11 @@ In order to use this connector, You must ensure your spark/flink cluster already
 
 ## Key features
 
-- [x] [exactly-once](key-features.md)
+- [x] [exactly-once](../../concept/connector-v2-features.md)
 
 By default, we use 2PC commit to ensure `exactly-once`
 
-- [ ] [schema projection](key-features.md)
+- [ ] [schema projection](../../concept/connector-v2-features.md)
 - [x] file format
   - [x] text
   - [x] parquet

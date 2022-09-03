@@ -12,9 +12,9 @@ Used to launch feishu web hooks using data.
 
 ## Key features
 
-- [ ] [exactly-once](key-features.md)
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
 
-- [ ] [schema projection](key-features.md)
+- [ ] [schema projection](../../concept/connector-v2-features.md)
 
 ##  Options
 

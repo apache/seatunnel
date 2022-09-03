@@ -8,9 +8,9 @@ Output data to Ftp .
 
 ## Key features
 
-- [x] [exactly-once](key-features.md)
+- [x] [exactly-once](../../concept/connector-v2-features.md)
 
-- [ ] [schema projection](key-features.md)
+- [ ] [schema projection](../../concept/connector-v2-features.md)
 
 ##  Options
 

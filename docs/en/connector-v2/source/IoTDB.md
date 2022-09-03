@@ -8,14 +8,14 @@ Read external data source data through IoTDB.
 
 ## Key features
 
-- [x] [batch](key-features.md)
-- [ ] [stream](key-features.md)
-- [x] [exactly-once](key-features.md)
-- [x] [schema projection](key-features.md)
+- [x] [batch](../../concept/connector-v2-features.md)
+- [ ] [stream](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [schema projection](../../concept/connector-v2-features.md)
 
 supports query SQL and can achieve projection effect.
 
-- [x] [parallelism](key-features.md)
+- [x] [parallelism](../../concept/connector-v2-features.md)
 
 ## Options
 

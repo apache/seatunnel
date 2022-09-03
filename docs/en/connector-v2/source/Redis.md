@@ -8,11 +8,11 @@ Used to read data from Redis.
 
 ## Key features
 
-- [x] [batch](key-features.md)
-- [ ] [stream](key-features.md)
-- [ ] [exactly-once](key-features.md)
-- [x] [schema projection](key-features.md)
-- [ ] [parallelism](key-features.md)
+- [x] [batch](../../concept/connector-v2-features.md)
+- [ ] [stream](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [schema projection](../../concept/connector-v2-features.md)
+- [ ] [parallelism](../../concept/connector-v2-features.md)
 
 ##  Options
 

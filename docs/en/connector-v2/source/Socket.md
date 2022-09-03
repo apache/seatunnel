@@ -8,11 +8,11 @@ Used to read data from Socket.
 
 ## Key features
 
-- [x] [batch](key-features.md)
-- [x] [stream](key-features.md)
-- [ ] [exactly-once](key-features.md)
-- [ ] [schema projection](key-features.md)
-- [ ] [parallelism](key-features.md)
+- [x] [batch](../../concept/connector-v2-features.md)
+- [x] [stream](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [schema projection](../../concept/connector-v2-features.md)
+- [ ] [parallelism](../../concept/connector-v2-features.md)
 
 ##  Options
 
