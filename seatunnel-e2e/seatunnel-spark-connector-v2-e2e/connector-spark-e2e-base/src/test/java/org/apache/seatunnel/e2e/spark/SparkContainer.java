@@ -30,6 +30,7 @@ import org.testcontainers.utility.MountableFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -40,8 +41,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * This class is the base class of SparkEnvironment test. The before method will create a Spark master, and after method will close the Spark master.
- * You can use {@link SparkContainer#executeSeaTunnelSparkJob} to submit a seatunnel conf and a seatunnel spark job.
+ * This class is the base class of SparkEnvironment test. The before method will create a Spark master, and after method will close the Spark master. You can use {@link SparkContainer#executeSeaTunnelSparkJob} to submit a seatunnel conf and a seatunnel spark job.
  */
 public abstract class SparkContainer {
 
@@ -97,14 +97,15 @@ public abstract class SparkContainer {
         // Running IT use cases under Windows requires replacing \ with /
         String conf = targetConfInContainer.replaceAll("\\\\", "/");
         final List<String> command = new ArrayList<>();
-        command.add(Paths.get(SEATUNNEL_HOME, "bin", SEATUNNEL_SPARK_BIN).toString());
+        String sparkSh = Paths.get(SEATUNNEL_HOME, "bin", SEATUNNEL_SPARK_BIN).toString();
+        command.add(sparkSh.replaceAll("\\\\", "/"));
         command.add("--master");
         command.add("local");
         command.add("--deploy-mode");
         command.add("client");
         command.add("--config " + conf);
 
-        Container.ExecResult execResult = master.execInContainer("bash", "-c", String.join(" ", command));
+        Container.ExecResult execResult = master.execInContainer(StandardCharsets.UTF_8,"bash", "-c", String.join(" ", command));
         LOG.info(execResult.getStdout());
         LOG.error(execResult.getStderr());
         // wait job start
