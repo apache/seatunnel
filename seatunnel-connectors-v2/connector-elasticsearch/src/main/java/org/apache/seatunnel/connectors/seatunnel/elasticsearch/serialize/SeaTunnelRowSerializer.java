@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize;
 
-
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 public interface SeaTunnelRowSerializer {

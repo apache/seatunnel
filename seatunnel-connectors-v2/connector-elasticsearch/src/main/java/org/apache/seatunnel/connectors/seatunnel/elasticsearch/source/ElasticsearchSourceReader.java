@@ -23,18 +23,24 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.SourceIndexInfo;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 public class ElasticsearchSourceReader implements SourceReader<SeaTunnelRow, ElasticsearchSourceSplit> {
 
     protected static final Logger LOG = LoggerFactory.getLogger(ElasticsearchSourceReader.class);
 
-    Context context;
+    SourceReader.Context context;
 
     private Config pluginConfig;
 
@@ -43,7 +49,9 @@ public class ElasticsearchSourceReader implements SourceReader<SeaTunnelRow, Ela
     Deque<ElasticsearchSourceSplit> splits = new LinkedList<>();
     boolean noMoreSplit;
 
-    public ElasticsearchSourceReader(Context context, Config pluginConfig) {
+    private final long pollNextWaitTime = 1000L;
+
+    public ElasticsearchSourceReader(SourceReader.Context context, Config pluginConfig) {
         this.context = context;
         this.pluginConfig = pluginConfig;
     }
@@ -58,9 +66,7 @@ public class ElasticsearchSourceReader implements SourceReader<SeaTunnelRow, Ela
         esRestClient.close();
     }
 
-
     @Override
-    @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         ElasticsearchSourceSplit split = splits.poll();
         if (null != split) {
@@ -77,7 +83,7 @@ public class ElasticsearchSourceReader implements SourceReader<SeaTunnelRow, Ela
             LOG.info("Closed the bounded ELasticsearch source");
             context.signalNoMoreElement();
         } else {
-            Thread.sleep(1000L);
+            Thread.sleep(pollNextWaitTime);
         }
     }
 

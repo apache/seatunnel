@@ -19,13 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception;
 
 public class GetIndexDocsCountException extends RuntimeException {
 
-
     public GetIndexDocsCountException(String message) {
         super(message);
     }
 
     public GetIndexDocsCountException(Throwable cause) {
-        super( cause);
+        super(cause);
     }
 
 }

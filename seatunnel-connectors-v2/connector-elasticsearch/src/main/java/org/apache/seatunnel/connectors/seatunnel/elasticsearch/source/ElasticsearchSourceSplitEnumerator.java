@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.source.Sou
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.source.SourceConfigDeaultConstant;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.SourceIndexInfo;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.io.IOException;
@@ -39,7 +40,7 @@ public class ElasticsearchSourceSplitEnumerator implements SourceSplitEnumerator
 
     private EsRestClient esRestClient;
 
-    public ElasticsearchSourceSplitEnumerator(Context<ElasticsearchSourceSplit> enumeratorContext, Config pluginConfig) {
+    public ElasticsearchSourceSplitEnumerator(SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext, Config pluginConfig) {
         this.enumeratorContext = enumeratorContext;
         this.pluginConfig = pluginConfig;
     }

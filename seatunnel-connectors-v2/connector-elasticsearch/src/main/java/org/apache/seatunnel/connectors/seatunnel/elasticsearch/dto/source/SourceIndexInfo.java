@@ -41,7 +41,6 @@ public class SourceIndexInfo implements Serializable {
         this.index = index;
     }
 
-
     public List<String> getSource() {
         return source;
     }

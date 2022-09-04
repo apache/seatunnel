@@ -17,6 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.client;
 
+import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.BulkElasticsearchException;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.GetElasticsearchVersionException;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.GetIndexDocsCountException;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ScrollRequestException;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -29,25 +41,23 @@ import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.util.Asserts;
 import org.apache.http.util.EntityUtils;
-import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.BulkElasticsearchException;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.GetElasticsearchVersionException;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.GetIndexDocsCountException;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ScrollRequestException;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 public class EsRestClient {
+
+    private static final int CONNECTION_REQUEST_TIMEOUT = 10 * 1000;
+
+    private static final int SOCKET_TIMEOUT = 5 * 60 * 1000;
 
     private final RestClient restClient;
 
@@ -55,7 +65,7 @@ public class EsRestClient {
         this.restClient = restClient;
     }
 
-    public static EsRestClient createInstance(Config pluginConfig){
+    public static EsRestClient createInstance(Config pluginConfig) {
         List<String> hosts = pluginConfig.getStringList(EsClusterConnectionConfig.HOSTS);
         String username = null;
         String password = null;
@@ -73,7 +83,6 @@ public class EsRestClient {
         return new EsRestClient(restClientBuilder.build());
     }
 
-
     private static RestClientBuilder getRestClientBuilder(List<String> hosts, String username, String password) {
         HttpHost[] httpHosts = new HttpHost[hosts.size()];
         for (int i = 0; i < hosts.size(); i++) {
@@ -83,8 +92,8 @@ public class EsRestClient {
 
         RestClientBuilder builder = RestClient.builder(httpHosts)
                 .setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder
-                        .setConnectionRequestTimeout(10 * 1000)
-                        .setSocketTimeout(5 * 60 * 1000));
+                        .setConnectionRequestTimeout(CONNECTION_REQUEST_TIMEOUT)
+                        .setSocketTimeout(SOCKET_TIMEOUT));
 
         if (StringUtils.isNotEmpty(username)) {
             CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
@@ -93,7 +102,6 @@ public class EsRestClient {
         }
         return builder;
     }
-
 
     public BulkResponse bulk(String requestBody) {
         Request request = new Request("POST", "_bulk");
@@ -143,10 +151,10 @@ public class EsRestClient {
      * first time to request search documents by scroll
      * call /${index}/_search?scroll=${scroll}
      *
-     * @param index  index name
-     * @param source select fields
+     * @param index      index name
+     * @param source     select fields
      * @param scrollTime such as:1m
-     * @param scrollSize       fetch documents count in one request
+     * @param scrollSize fetch documents count in one request
      */
     public ScrollResult searchByScroll(String index, List<String> source, String scrollTime, int scrollSize) {
         Map<String, Object> param = new HashMap<>();
@@ -160,7 +168,6 @@ public class EsRestClient {
         ScrollResult scrollResult = getDocsFromScrollRequest(endpoint, JsonUtils.toJsonString(param));
         return scrollResult;
     }
-
 
     /**
      * scroll to get result
@@ -176,7 +183,6 @@ public class EsRestClient {
         ScrollResult scrollResult = getDocsFromScrollRequest("_search/scroll", JsonUtils.toJsonString(param));
         return scrollResult;
     }
-
 
     private ScrollResult getDocsFromScrollRequest(String endpoint, String requestBody) {
         Request request = new Request("POST", endpoint);
@@ -228,22 +234,22 @@ public class EsRestClient {
         return scrollResult;
     }
 
-    public List<IndexDocsCount> getIndexDocsCount(String index){
-        String endpoint = String.format("_cat/indices/%s?h=index,docsCount&format=json",index);
+    public List<IndexDocsCount> getIndexDocsCount(String index) {
+        String endpoint = String.format("_cat/indices/%s?h=index,docsCount&format=json", index);
         Request request = new Request("GET", endpoint);
         try {
             Response response = restClient.performRequest(request);
             if (response == null) {
-
+                throw new GetIndexDocsCountException("POST " + endpoint + " response null");
             }
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
                 String entity = EntityUtils.toString(response.getEntity());
                 List<IndexDocsCount> indexDocsCounts = JsonUtils.toList(entity, IndexDocsCount.class);
                 return indexDocsCounts;
-            }else{
+            } else {
                 throw new GetIndexDocsCountException(String.format("POST %s response status code=%d", endpoint, response.getStatusLine().getStatusCode()));
             }
-        }catch (IOException ex){
+        } catch (IOException ex) {
             throw new GetIndexDocsCountException(ex);
         }
     }

@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.SourceIndexInfo;
 
-
 public class ElasticsearchSourceSplit implements SourceSplit {
 
     private SourceIndexInfo sourceIndexInfo;

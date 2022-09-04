@@ -23,7 +23,7 @@ import java.util.Map;
 public class ScrollResult {
 
     private String scrollId;
-    private List<Map<String,Object>> docs;
+    private List<Map<String, Object>> docs;
 
     public String getScrollId() {
         return scrollId;

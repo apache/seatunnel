@@ -17,15 +17,20 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.table.type.*;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.source.SourceConfig;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import com.google.auto.service.AutoService;
 
 import java.util.List;
 
@@ -64,13 +69,12 @@ public class ElasticsearchSource implements SeaTunnelSource<SeaTunnelRow, Elasti
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, ElasticsearchSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
-        // new ElasticsearchSourceReader();
+    public SourceReader<SeaTunnelRow, ElasticsearchSourceSplit> createReader(SourceReader.Context readerContext) {
         return new ElasticsearchSourceReader(readerContext, pluginConfig);
     }
 
     @Override
-    public SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState> createEnumerator(SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext) throws Exception {
+    public SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState> createEnumerator(SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext) {
         return new ElasticsearchSourceSplitEnumerator(enumeratorContext, pluginConfig);
     }
 
@@ -79,5 +83,5 @@ public class ElasticsearchSource implements SeaTunnelSource<SeaTunnelRow, Elasti
         return new ElasticsearchSourceSplitEnumerator(enumeratorContext, pluginConfig);
     }
 
-
 }
+

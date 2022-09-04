@@ -17,24 +17,25 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.IndexInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.ElasticsearchVersion;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.IndexInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.index.IndexSerializer;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.index.IndexSerializerFactory;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type.IndexTypeSerializer;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type.IndexTypeSerializerFactory;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- *  use in elasticsearch version >= 7.*
+ * use in elasticsearch version >= 7.*
  */
-public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer{
+public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
     private final SeaTunnelRowType seaTunnelRowType;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -43,13 +44,13 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer{
     private final IndexTypeSerializer indexTypeSerializer;
 
     public ElasticsearchRowSerializer(ElasticsearchVersion elasticsearchVersion, IndexInfo indexInfo, SeaTunnelRowType seaTunnelRowType) {
-        this.indexTypeSerializer = IndexTypeSerializerFactory.getIndexTypeSerializer(elasticsearchVersion,indexInfo.getType());
-        this.indexSerializer = IndexSerializerFactory.getIndexSerializer(indexInfo.getIndex(),seaTunnelRowType);
+        this.indexTypeSerializer = IndexTypeSerializerFactory.getIndexTypeSerializer(elasticsearchVersion, indexInfo.getType());
+        this.indexSerializer = IndexSerializerFactory.getIndexSerializer(indexInfo.getIndex(), seaTunnelRowType);
         this.seaTunnelRowType = seaTunnelRowType;
     }
 
     @Override
-    public String serializeRow(SeaTunnelRow row){
+    public String serializeRow(SeaTunnelRow row) {
         String[] fieldNames = seaTunnelRowType.getFieldNames();
         Map<String, Object> doc = new HashMap<>(fieldNames.length);
         Object[] fields = row.getFields();
@@ -59,13 +60,13 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer{
 
         StringBuilder sb = new StringBuilder();
 
-        Map<String,String> indexInner = new HashMap<>();
+        Map<String, String> indexInner = new HashMap<>();
         String index = indexSerializer.serialize(row);
-        indexInner.put("_index",index);
+        indexInner.put("_index", index);
         indexTypeSerializer.fillType(indexInner);
 
-        Map<String, Map<String,String>> indexParam = new HashMap<>();
-        indexParam.put("index",indexInner);
+        Map<String, Map<String, String>> indexParam = new HashMap<>();
+        indexParam.put("index", indexInner);
         try {
             sb.append(objectMapper.writeValueAsString(indexParam));
             sb.append("\n");
