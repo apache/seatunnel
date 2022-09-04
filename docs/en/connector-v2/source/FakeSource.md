@@ -7,6 +7,15 @@
 The FakeSource is a virtual data source, which randomly generates the number of rows according to the data structure of the user-defined schema,
 just for testing, such as type conversion and feature testing
 
+## Key features
+
+- [x] [batch](../../concept/connector-v2-features.md)
+- [x] [stream](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [schema projection](../../concept/connector-v2-features.md)
+- [ ] [parallelism](../../concept/connector-v2-features.md)
+- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+
 ## Options
 
 | name              | type   | required | default value |

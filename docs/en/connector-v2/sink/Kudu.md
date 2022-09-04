@@ -8,6 +8,11 @@ Write data to Kudu.
 
  The tested kudu version is 1.11.1.
 
+## Key features
+
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [schema projection](../../concept/connector-v2-features.md)
+
 ## Options
 
 | name                     | type    | required | default value |
