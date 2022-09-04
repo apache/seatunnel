@@ -28,19 +28,13 @@
   <modelVersion>4.0.0</modelVersion>
 
   <artifactId>seatunnel-connector-flink-http</artifactId>
+    
+  <properties>
+      <httpcore.version>4.4.4</httpcore.version>
+      <httpclient.version>4.5.13</httpclient.version>
+  </properties>
 
   <dependencies>
-    <dependency>
-      <groupId>org.apache.seatunnel</groupId>
-      <artifactId>seatunnel-api-flink</artifactId>
-      <version>${project.version}</version>
-      <scope>provided</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.flink</groupId>
-      <artifactId>flink-java</artifactId>
-    </dependency>
     <dependency>
       <groupId>org.apache.flink</groupId>
       <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
@@ -49,16 +43,17 @@
       <groupId>org.apache.flink</groupId>
       <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
     </dependency>
-
+    <!--http dependency-->
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>httpcore</artifactId>
+      <version>${httpcore.version}</version>  
     </dependency>
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>httpclient</artifactId>
+      <version>${httpclient.version}</version>  
     </dependency>
-
   </dependencies>
 
 </project>

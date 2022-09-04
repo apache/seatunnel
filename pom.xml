@@ -117,11 +117,10 @@
         <scala.binary.version>2.11</scala.binary.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
-        <spark.version>2.4.0</spark.version>
-        <spark.binary.version>2.4</spark.binary.version>
-        <neo4j.connector.spark.version>4.1.0</neo4j.connector.spark.version>
         <iceberg.version>0.13.1</iceberg.version>
-        <flink.version>1.13.6</flink.version>
+        <flink.1.13.6.version>1.13.6</flink.1.13.6.version>
+        <spark.2.4.0.version>2.4.0</spark.2.4.0.version>
+        <spark.binary.2.4.version>2.4</spark.binary.2.4.version>
         <hudi.version>0.11.1</hudi.version>
         <orc.version>1.5.6</orc.version>
         <avro.version>1.8.2</avro.version>
@@ -153,22 +152,16 @@
         <maven-javadoc-plugin.version>2.9.1</maven-javadoc-plugin.version>
         <maven-deploy-plugin.version>2.8.2</maven-deploy-plugin.version>
         <scala-maven-plugin.version>3.3.1</scala-maven-plugin.version>
-        <maven-compiler-plugin.version>2.0.2</maven-compiler-plugin.version>
+        <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
         <maven-pmd-plugin.version>3.8</maven-pmd-plugin.version>
         <spoiwo.version>1.8.0</spoiwo.version>
         <play-mailer.version>7.0.2</play-mailer.version>
-        <phoenix-spark.version>5.0.0-HBase-2.0</phoenix-spark.version>
         <zkclient.version>0.3</zkclient.version>
         <elasticsearch6.client.version>6.3.1</elasticsearch6.client.version>
         <elasticsearch7.client.version>7.5.1</elasticsearch7.client.version>
         <flink-shaded-hadoop-2.version>2.7.5-7.0</flink-shaded-hadoop-2.version>
         <parquet-avro.version>1.10.0</parquet-avro.version>
-        <elasticsearch-spark.version>6.8.3</elasticsearch-spark.version>
         <clickhouse-jdbc.version>0.2</clickhouse-jdbc.version>
-        <hbase-spark.version>1.0.0</hbase-spark.version>
-        <kudu-spark.version>1.7.0</kudu-spark.version>
-        <mongo-spark.version>2.2.0</mongo-spark.version>
-        <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
         <commons-net.version>3.6</commons-net.version>
         <kudu.version>1.11.1</kudu.version>
@@ -188,14 +181,13 @@
         <docker.tag>${project.version}</docker.tag>
         <jcommander.version>1.81</jcommander.version>
         <junit.version>5.9.0</junit.version>
-        <tispark.version>2.4.1</tispark.version>
         <druid.version>0.22.1</druid.version>
         <sshd.version>2.7.0</sshd.version>
         <calcite-druid.version>1.29.0</calcite-druid.version>
         <config.version>1.3.3</config.version>
-        <maven-shade-plugin.version>3.2.4</maven-shade-plugin.version>
+        <maven-shade-plugin.version>3.3.0</maven-shade-plugin.version>
         <maven-helper-plugin.version>3.2.0</maven-helper-plugin.version>
-        <flatten-maven-plugin.version>1.2.7</flatten-maven-plugin.version>
+        <flatten-maven-plugin.version>1.3.0</flatten-maven-plugin.version>
         <maven-license-maven-plugin>1.20</maven-license-maven-plugin>
         <influxdb-java.version>2.22</influxdb-java.version>
         <log4j-core.version>2.17.1</log4j-core.version>
@@ -243,40 +235,6 @@
                 <artifactId>seatunnel-config-shade</artifactId>
                 <version>${seatunnel.config.shade.version}</version>
             </dependency>
-            <!--spark-->
-            <dependency>
-                <groupId>org.apache.spark</groupId>
-                <artifactId>spark-streaming_${scala.binary.version}</artifactId>
-                <version>${spark.version}</version>
-                <scope>${spark.scope}</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.spark</groupId>
-                <artifactId>spark-core_${scala.binary.version}</artifactId>
-                <version>${spark.version}</version>
-                <scope>${spark.scope}</scope>
-                <exclusions>
-                    <exclusion>
-                        <artifactId>RoaringBitmap</artifactId>
-                        <groupId>org.roaringbitmap</groupId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.spark</groupId>
-                <artifactId>spark-sql_${scala.binary.version}</artifactId>
-                <version>${spark.version}</version>
-                <scope>${spark.scope}</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.spark</groupId>
-                <artifactId>spark-hive_${scala.binary.version}</artifactId>
-                <version>${spark.version}</version>
-                <scope>${spark.scope}</scope>
-            </dependency>
             <dependency>
                 <groupId>net.jpountz.lz4</groupId>
                 <artifactId>lz4</artifactId>
@@ -293,64 +251,6 @@
                 <groupId>com.sun.mail</groupId>
                 <artifactId>javax.mail</artifactId>
                 <version>${email.version}</version>
-            </dependency>
-            <!--flink-->
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-java</artifactId>
-                <version>${flink.version}</version>
-                <scope>${flink.scope}</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
-                <version>${flink.version}</version>
-                <scope>${flink.scope}</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-table-planner-blink_${scala.binary.version}</artifactId>
-                <version>${flink.version}</version>
-                <scope>${flink.scope}</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
-                <version>${flink.version}</version>
-                <scope>${flink.scope}</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-table-common</artifactId>
-                <version>${flink.version}</version>
-                <scope>${flink.scope}</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-table-api-java-bridge_${scala.binary.version}</artifactId>
-                <version>${flink.version}</version>
-                <scope>${flink.scope}</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-optimizer_${scala.binary.version}</artifactId>
-                <version>${flink.version}</version>
-                <scope>${flink.scope}</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-clients_${scala.binary.version}</artifactId>
-                <version>${flink.version}</version>
-                <scope>${flink.scope}</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-runtime-web_${scala.binary.version}</artifactId>
-                <version>${flink.version}</version>
-                <scope>${flink.scope}</scope>
             </dependency>
 
             <!--Because the license is not in compliance, if you need to use MySQL, you can add it yourself-->
@@ -386,24 +286,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.apache.phoenix</groupId>
-                <artifactId>phoenix-spark</artifactId>
-                <version>${phoenix-spark.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.glassfish.web</groupId>
-                        <artifactId>javax.servlet.jsp</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>org.mongodb.spark</groupId>
-                <artifactId>mongo-spark-connector_${scala.binary.version}</artifactId>
-                <version>${mongo-spark.version}</version>
-            </dependency>
-
-            <dependency>
                 <groupId>com.101tec</groupId>
                 <artifactId>zkclient</artifactId>
                 <version>${zkclient.version}</version>
@@ -428,73 +310,9 @@
             </dependency>
 
             <dependency>
-                <groupId>org.elasticsearch</groupId>
-                <artifactId>elasticsearch-spark-20_${scala.binary.version}</artifactId>
-                <version>${elasticsearch-spark.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-connector-elasticsearch${elasticsearch}_${scala.binary.version}</artifactId>
-                <version>${flink.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-connector-elasticsearch6_${scala.binary.version}</artifactId>
-                <version>${flink.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-connector-jdbc_${scala.binary.version}</artifactId>
-                <version>${flink.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-connector-kafka_${scala.binary.version}</artifactId>
-                <version>${flink.version}</version>
-            </dependency>
-
-            <dependency>
                 <groupId>ru.yandex.clickhouse</groupId>
                 <artifactId>clickhouse-jdbc</artifactId>
                 <version>${clickhouse-jdbc.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.hbase.connectors.spark</groupId>
-                <artifactId>hbase-spark</artifactId>
-                <version>${hbase-spark.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.glassfish.web</groupId>
-                        <artifactId>javax.servlet.jsp</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>junit</groupId>
-                        <artifactId>junit</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.kudu</groupId>
-                <artifactId>kudu-spark2_${scala.binary.version}</artifactId>
-                <version>${kudu-spark.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.redislabs</groupId>
-                <artifactId>spark-redis_${scala.binary.version}</artifactId>
-                <version>${spark-redis.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.spark</groupId>
-                <artifactId>spark-streaming-kafka-0-10_${scala.binary.version}</artifactId>
-                <version>${spark.version}</version>
             </dependency>
 
             <dependency>
@@ -516,38 +334,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-csv</artifactId>
-                <version>${flink.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-orc_${scala.binary.version}</artifactId>
-                <version>${flink.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-parquet_${scala.binary.version}</artifactId>
-                <version>${flink.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-json</artifactId>
-                <version>${flink.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-avro</artifactId>
-                <version>${flink.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-statebackend-rocksdb_${scala.binary.version}</artifactId>
-                <version>${flink.version}</version>
-            </dependency>
-
-            <dependency>
                 <groupId>org.apache.hadoop</groupId>
                 <artifactId>hadoop-aliyun</artifactId>
                 <version>${hadoop-aliyun.version}</version>
@@ -556,12 +342,6 @@
             <dependency>
                 <groupId>org.apache.hudi</groupId>
                 <artifactId>hudi-hadoop-mr-bundle</artifactId>
-                <version>${hudi.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.hudi</groupId>
-                <artifactId>hudi-spark-bundle_${scala.binary.version}</artifactId>
                 <version>${hudi.version}</version>
             </dependency>
 
@@ -575,19 +355,6 @@
                 <artifactId>httpcore</artifactId>
                 <version>${httpcore.version}</version>
             </dependency>
-
-            <dependency>
-                <groupId>org.apache.httpcomponents</groupId>
-                <artifactId>httpcore-nio</artifactId>
-                <version>${httpcore-nio.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.httpcomponents</groupId>
-                <artifactId>httpasyncclient</artifactId>
-                <version>${httpasyncclient.version}</version>
-            </dependency>
-
             <dependency>
                 <groupId>com.beust</groupId>
                 <artifactId>jcommander</artifactId>
@@ -660,12 +427,6 @@
                     </exclusion>
                 </exclusions>
             </dependency>
-
-            <dependency>
-                <groupId>com.pingcap.tispark</groupId>
-                <artifactId>tispark-assembly</artifactId>
-                <version>${tispark.version}</version>
-            </dependency>
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
                 <artifactId>log4j-core</artifactId>
@@ -685,30 +446,6 @@
                 <groupId>com.typesafe</groupId>
                 <artifactId>config</artifactId>
                 <version>${config.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.neo4j</groupId>
-                <artifactId>neo4j-connector-apache-spark_${scala.binary.version}</artifactId>
-                <version>${neo4j.connector.spark.version}_for_spark_${spark.binary.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.influxdb</groupId>
-                <artifactId>influxdb-java</artifactId>
-                <version>${influxdb-java.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.iceberg</groupId>
-                <artifactId>iceberg-core</artifactId>
-                <version>${iceberg.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.iceberg</groupId>
-                <artifactId>iceberg-spark-runtime</artifactId>
-                <version>${iceberg.version}</version>
-                <scope>provided</scope>
             </dependency>
 
             <dependency>
@@ -1161,7 +898,10 @@
                     <artifactId>maven-shade-plugin</artifactId>
                     <version>${maven-shade-plugin.version}</version>
                     <configuration>
-                        <createDependencyReducedPom>false</createDependencyReducedPom>
+                        <shadedArtifactAttached>false</shadedArtifactAttached>
+                        <createDependencyReducedPom>true</createDependencyReducedPom>
+                        <!-- Make sure the transitive dependencies are written to the generated pom under <dependencies> -->
+                        <promoteTransitiveDependencies>true</promoteTransitiveDependencies>
                         <filters>
                             <filter>
                                 <artifact>*:*</artifact>
@@ -1329,37 +1069,36 @@
                     </configuration>
                 </plugin>
 
+                <!-- make sure that flatten runs after shaded -->
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>flatten-maven-plugin</artifactId>
+                    <version>${flatten-maven-plugin.version}</version>
+                    <configuration>
+                        <updatePomFile>true</updatePomFile>
+                        <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>flatten</id>
+                            <phase>process-resources</phase>
+                            <goals>
+                                <goal>flatten</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>flatten.clean</id>
+                            <phase>clean</phase>
+                            <goals>
+                                <goal>clean</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
             </plugins>
         </pluginManagement>
 
         <plugins>
-
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>flatten-maven-plugin</artifactId>
-                <version>${flatten-maven-plugin.version}</version>
-                <configuration>
-                    <!-- <updatePomFile>true</updatePomFile> -->
-                    <flattenMode>resolveCiFriendliesOnly</flattenMode>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>flatten</id>
-                        <phase>process-resources</phase>
-                        <goals>
-                            <goal>flatten</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>flatten.clean</id>
-                        <phase>clean</phase>
-                        <goals>
-                            <goal>clean</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -1392,6 +1131,12 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
+            </plugin>
+
+            <!-- make sure that flatten runs after maven-shade-plugin -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
             </plugin>
 
             <plugin>

@@ -28,19 +28,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-connector-flink-fake</artifactId>
+    
+    <properties>
+        <jmockdata.version>4.3.0</jmockdata.version>
+    </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-api-flink</artifactId>
-            <version>${project.version}</version>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-java</artifactId>
-        </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
@@ -52,6 +45,7 @@
         <dependency>
             <groupId>com.github.jsonzou</groupId>
             <artifactId>jmockdata</artifactId>
+            <version>${jmockdata.version}</version>
         </dependency>
     </dependencies>
 
