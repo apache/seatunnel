@@ -25,9 +25,10 @@ import java.util.Map;
 
 @Getter
 @Setter
-public class Neo4jConfig implements Serializable {
+public class Neo4jSourceConfig implements Serializable {
 
     public static final String PLUGIN_NAME = "Neo4j";
+
     public static final String KEY_NEO4J_URI = "uri";
     public static final String KEY_USERNAME = "username";
     public static final String KEY_PASSWORD = "password";
@@ -36,13 +37,10 @@ public class Neo4jConfig implements Serializable {
 
     public static final String KEY_DATABASE = "database";
     public static final String KEY_QUERY = "query";
-    public static final String KEY_QUERY_PARAM_POSITION = "queryParamPosition";
     public static final String KEY_MAX_TRANSACTION_RETRY_TIME = "max_transaction_retry_time";
     public static final String KEY_MAX_CONNECTION_TIMEOUT = "max_connection_timeout";
 
 
     private DriverBuilder driverBuilder;
     private String query;
-    private Map<String, Object> queryParamPosition;
-
 }

@@ -17,17 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.neo4j.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jConfig.KEY_BEARER_TOKEN;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jConfig.KEY_DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jConfig.KEY_KERBEROS_TICKET;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jConfig.KEY_MAX_CONNECTION_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jConfig.KEY_MAX_TRANSACTION_RETRY_TIME;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jConfig.KEY_NEO4J_URI;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jConfig.KEY_PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jConfig.KEY_QUERY;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jConfig.KEY_QUERY_PARAM_POSITION;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jConfig.KEY_USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jConfig.PLUGIN_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_BEARER_TOKEN;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_KERBEROS_TICKET;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_MAX_CONNECTION_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_MAX_TRANSACTION_RETRY_TIME;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_NEO4J_URI;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_QUERY;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_QUERY_PARAM_POSITION;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.PLUGIN_NAME;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -39,7 +39,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.DriverBuilder;
-import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jConfig;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -53,7 +53,7 @@ import java.net.URI;
 public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> {
 
     private SeaTunnelRowType rowType;
-    private final Neo4jConfig neo4jConfig = new Neo4jConfig();
+    private final Neo4jSinkConfig neo4JSinkConfig = new Neo4jSinkConfig();
 
     @Override
     public String getPluginName() {
@@ -62,14 +62,14 @@ public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> 
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        neo4jConfig.setDriverBuilder(prepareDriver(config));
+        neo4JSinkConfig.setDriverBuilder(prepareDriver(config));
 
         final CheckResult queryConfigCheck = CheckConfigUtil.checkAllExists(config, KEY_QUERY, KEY_QUERY_PARAM_POSITION);
         if (!queryConfigCheck.isSuccess()) {
             throw new PrepareFailException(PLUGIN_NAME, PluginType.SINK, queryConfigCheck.getMsg());
         }
-        neo4jConfig.setQuery(config.getString(KEY_QUERY));
-        neo4jConfig.setQueryParamPosition(config.getObject(KEY_QUERY_PARAM_POSITION).unwrapped());
+        neo4JSinkConfig.setQuery(config.getString(KEY_QUERY));
+        neo4JSinkConfig.setQueryParamPosition(config.getObject(KEY_QUERY_PARAM_POSITION).unwrapped());
 
     }
 
@@ -132,7 +132,7 @@ public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> 
 
     @Override
     public SinkWriter<SeaTunnelRow, Void, Void> createWriter(SinkWriter.Context context) throws IOException {
-        return new Neo4jSinkWriter(neo4jConfig);
+        return new Neo4jSinkWriter(neo4JSinkConfig);
     }
 
 }
