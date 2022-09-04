@@ -58,7 +58,7 @@ public class DruidOutputFormat implements Serializable {
 
     private static final String DEFAULT_TIMESTAMP_COLUMN = "timestamp";
     private static final String DEFAULT_TIMESTAMP_FORMAT = "auto";
-    private static final DateTime DEFAULT_TIMESTAMP_MISSING_VALUE = null;
+    private static final DateTime DEFAULT_TIMESTAMP_MISSING_VALUE = new DateTime();
     public static final String DEFAULT_LINE_DELIMITER = "\n";
     public static final String DEFAULT_FIELD_DELIMITER = ",";
 
