@@ -191,7 +191,7 @@ public class SparkStarter implements Starter {
             return stream
                     .filter(it -> pluginRootDir.relativize(it).getNameCount() == PLUGIN_LIB_DIR_DEPTH)
                     .filter(it -> it.getParent().endsWith("lib"))
-                    .filter(it -> it.getFileName().endsWith("jar"))
+                    .filter(it -> it.getFileName().toString().endsWith(".jar"))
                     .collect(Collectors.toList());
         }
     }
