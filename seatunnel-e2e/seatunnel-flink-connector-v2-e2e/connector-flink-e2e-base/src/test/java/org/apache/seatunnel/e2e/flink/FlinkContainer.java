@@ -163,6 +163,7 @@ public abstract class FlinkContainer {
             jar -> jobManager.copyFileToContainer(MountableFile.forHostPath(jar.getAbsolutePath()),
                 getPluginLibInContainer(jar.getName()))
         );
+
     }
 
     private String getResource(String confFile) {
