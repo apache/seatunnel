@@ -49,7 +49,7 @@ public class JdbcSqlserverIT extends FlinkContainer {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
-    public void startPostgreSqlContainer() throws ClassNotFoundException, SQLException {
+    public void startSqlserverContainer() throws ClassNotFoundException, SQLException {
         mssqlServerContainer = new MSSQLServerContainer<>(DockerImageName.parse("mcr.microsoft.com/mssql/server:2022-latest"))
             .withNetwork(NETWORK)
             .withNetworkAliases("sqlserver")
