@@ -43,11 +43,9 @@ import org.apache.spark.unsafe.types.UTF8String;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -74,13 +72,12 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
                 return convert(seaTunnelRow, rowType);
             case DATE:
-                return Date.valueOf((LocalDate) field);
+                return (int) ((LocalDate) field).toEpochDay();
             case TIME:
-                //TODO: how reconvert?
-                LocalTime localTime = (LocalTime) field;
-                return Timestamp.valueOf(LocalDateTime.of(LocalDate.ofEpochDay(0), localTime));
+                // TODO: how reconvert? there are not Support for Spark Type,we must define the Type in spark
+                throw new RuntimeException("we not support for time type now");
             case TIMESTAMP:
-                return Timestamp.valueOf((LocalDateTime) field);
+                return Timestamp.valueOf((LocalDateTime) field).toInstant().toEpochMilli();
             case MAP:
                 return convertMap((Map<?, ?>) field, (MapType<?, ?>) dataType, InternalRowConverter::convert);
             case STRING:
@@ -102,10 +99,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             if (TypeConverterUtils.ROW_KIND_FIELD.equals(rowType.getFieldName(i))) {
                 values[i].update(seaTunnelRow.getRowKind().toByteValue());
             } else {
-                Object fieldValue = convert(seaTunnelRow.getField(i), rowType.getFieldType(i));
-                if (fieldValue != null) {
-                    values[i].update(fieldValue);
-                }
+                values[i].update(convert(seaTunnelRow.getField(i), rowType.getFieldType(i)));
             }
         }
         return new SpecificInternalRow(values);
@@ -141,8 +135,10 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case SMALLINT:
                 return new MutableShort();
             case INT:
+            case DATE:
                 return new MutableInt();
             case BIGINT:
+            case TIMESTAMP:
                 return new MutableLong();
             case FLOAT:
                 return new MutableFloat();
@@ -167,11 +163,12 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case ROW:
                 return reconvert((InternalRow) field, (SeaTunnelRowType) dataType);
             case DATE:
-                return ((Date) field).toLocalDate();
+                return LocalDate.ofEpochDay((int) field);
             case TIME:
-                return ((Timestamp) field).toLocalDateTime().toLocalTime();
+                // todo: support this Type
+                throw new RuntimeException("not support now but will");
             case TIMESTAMP:
-                return ((Timestamp) field).toLocalDateTime();
+                return Timestamp.from(Instant.ofEpochMilli((long) field)).toLocalDateTime();
             case MAP:
                 return convertMap((Map<?, ?>) field, (MapType<?, ?>) dataType, InternalRowConverter::reconvert);
             case STRING:
