@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.flink;
 
+import com.google.common.collect.Lists;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.Logger;
@@ -39,9 +40,7 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 /**
- * This class is the base class of FlinkEnvironment test for new seatunnel connector API.
- * The before method will create a Flink cluster, and after method will close the Flink cluster.
- * You can use {@link FlinkContainer#executeSeaTunnelFlinkJob} to submit a seatunnel config and run a seatunnel job.
+ * This class is the base class of FlinkEnvironment test for new seatunnel connector API. The before method will create a Flink cluster, and after method will close the Flink cluster. You can use {@link FlinkContainer#executeSeaTunnelFlinkJob} to submit a seatunnel config and run a seatunnel job.
  */
 public abstract class FlinkContainer {
 
@@ -60,6 +59,8 @@ public abstract class FlinkContainer {
     private static final String SEATUNNEL_BIN = Paths.get(SEATUNNEL_HOME, "bin").toString();
     private static final String SEATUNNEL_LIB = Paths.get(SEATUNNEL_HOME, "lib").toString();
     private static final String SEATUNNEL_CONNECTORS = Paths.get(SEATUNNEL_HOME, "connectors").toString();
+
+    private static final String PLUGIN_LIB_PATH = PROJECT_ROOT_PATH + "/seatunnel-e2e/target/lib";
 
     private static final int WAIT_FLINK_JOB_SUBMIT = 5000;
 
@@ -156,6 +157,12 @@ public abstract class FlinkContainer {
         jobManager.copyFileToContainer(
             MountableFile.forHostPath(PROJECT_ROOT_PATH + "/plugin-mapping.properties"),
             Paths.get(SEATUNNEL_CONNECTORS, PLUGIN_MAPPING_FILE).toString());
+
+        // copy plugins lib
+        getPluginLib().forEach(
+            jar -> jobManager.copyFileToContainer(MountableFile.forHostPath(jar.getAbsolutePath()),
+                getPluginLibInContainer(jar.getName()))
+        );
     }
 
     private String getResource(String confFile) {
@@ -164,5 +171,18 @@ public abstract class FlinkContainer {
 
     private String getConnectorPath(String fileName) {
         return Paths.get(SEATUNNEL_CONNECTORS, "seatunnel", fileName).toString();
+    }
+
+    /**
+     * Subclasses only need to put plugin-lib-jar in this directory before the before of method, so Subclasses should to do this in static
+     */
+    private List<File> getPluginLib() {
+        File jars = new File(PLUGIN_LIB_PATH);
+        File[] files = jars.listFiles();
+        return files == null ? new ArrayList<>() : Lists.newArrayList(files);
+    }
+
+    private String getPluginLibInContainer(String fileName) {
+        return Paths.get(SEATUNNEL_HOME, "plugins", "e2e", "lib", fileName).toString();
     }
 }
