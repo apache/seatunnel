@@ -43,7 +43,7 @@ if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
     . "${CONF_DIR}/seatunnel-env.sh"
 fi
 
-if [ $# -eq 0 ]
+if [ $# == 0 ]
 then
     args="-h"
 else
