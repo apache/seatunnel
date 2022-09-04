@@ -29,6 +29,10 @@
 
     <artifactId>connector-mongodb</artifactId>
 
+    <properties>
+        <mongodb.version>3.12.11</mongodb.version>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -51,6 +55,7 @@
         <dependency>
             <groupId>org.mongodb</groupId>
             <artifactId>mongodb-driver</artifactId>
+            <version>${mongodb.version}</version>
         </dependency>
     </dependencies>
 </project>

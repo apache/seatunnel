@@ -17,39 +17,34 @@ Read data from MongoDB.
 
 ## Options
 
-| name                  | type   | required | default value |
-|-----------------------|--------|----------|---------------|
-| readconfig.uri        | string | yes      | -             |
-| readconfig.database   | string | yes      | -             |
-| readconfig.collection | string | yes      | -             |
-| readconfig.*          | string | no       | -             |
-| schema                | object | yes      | -             |
-| common-options        | string | yes      | -             |
+| name           | type   | required | default value |
+|----------------|--------|----------|---------------|
+| uri            | string | yes      | -             |
+| database       | string | yes      | -             |
+| collection     | string | yes      | -             |
+| schema         | object | yes      | -             |
+| common-options | string | yes      | -             |
 
-### readconfig.uri [string]
+### uri [string]
 
 MongoDB uri
 
-### readconfig.database [string]
+### database [string]
 
 MongoDB database
 
-### readconfig.collection [string]
+### collection [string]
 
 MongoDB collection
 
-### readconfig.* [string]
-
-More other parameters can be configured here, see [MongoDB Configuration](https://docs.mongodb.com/spark-connector/current/configuration/) for details, see the Input Configuration section. The way to specify parameters is to prefix the original parameter name `readconfig.` For example, the way to set `spark.mongodb.input.partitioner` is `readconfig.spark.mongodb.input.partitioner="MongoPaginateBySizePartitioner"` . If you do not specify these optional parameters, the default values of the official MongoDB documentation will be used.
-
 ### schema [object]
 
-Because `MongoDB` does not have the concept of `schema`, when spark reads `MongoDB` , it will sample `MongoDB` data and infer the `schema` . In fact, this process will be slow and may be inaccurate. This parameter can be manually specified. Avoid these problems. `schema` is a `json` string, 
+Because `MongoDB` does not have the concept of `schema`, when engine reads `MongoDB` , it will sample `MongoDB` data and infer the `schema` . In fact, this process will be slow and may be inaccurate. This parameter can be manually specified. Avoid these problems. 
 
-such as
+such as:
 
 ```
-readconfig.schema {
+schema {
   fields {
     id = int
     key_aa = string
@@ -66,11 +61,10 @@ Source Plugin common parameters, refer to [Source Plugin](common-options.md) for
 
 ```bash
 mongodb {
-    readconfig.uri = "mongodb://username:password@127.0.0.1:27017/mypost?retryWrites=true&writeConcern=majority"
-    readconfig.database = "mydatabase"
-    readconfig.collection = "mycollection"
-    readconfig.spark.mongodb.input.partitioner = "MongoPaginateBySizePartitioner"
-    readconfig.schema {
+    uri = "mongodb://username:password@127.0.0.1:27017/mypost?retryWrites=true&writeConcern=majority"
+    database = "mydatabase"
+    collection = "mycollection"
+    schema {
       fields {
         id = int
         key_aa = string

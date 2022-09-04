@@ -34,7 +34,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
@@ -59,8 +58,6 @@ public class MongodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
 
-    private static final String CONF_PREFIX = "readconfig.";
-
     @Override
     public String getPluginName() {
         return "MongoDB";
@@ -68,17 +65,15 @@ public class MongodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        Config extractConfig = TypesafeConfigUtils.extractSubConfig(config, CONF_PREFIX, false);
-
-        CheckResult result = CheckConfigUtil.checkAllExists(extractConfig, URI, DATABASE, COLLECTION);
+        CheckResult result = CheckConfigUtil.checkAllExists(config, URI, DATABASE, COLLECTION);
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
 
-        this.params = ConfigBeanFactory.create(extractConfig, MongodbParameters.class);
+        this.params = ConfigBeanFactory.create(config, MongodbParameters.class);
 
-        if (extractConfig.hasPath(SCHEMA)) {
-            Config schema = extractConfig.getConfig(SCHEMA);
+        if (config.hasPath(SCHEMA)) {
+            Config schema = config.getConfig(SCHEMA);
             this.rowType = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
         } else {
             this.rowType = SeaTunnelSchema.buildSimpleTextSchema();
@@ -87,8 +82,8 @@ public class MongodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         // TODO: use format SPI
         // default use json format
         String format;
-        if (extractConfig.hasPath(FORMAT)) {
-            format = extractConfig.getString(FORMAT);
+        if (config.hasPath(FORMAT)) {
+            format = config.getString(FORMAT);
             this.deserializationSchema = null;
         } else {
             format = DEFAULT_FORMAT;
