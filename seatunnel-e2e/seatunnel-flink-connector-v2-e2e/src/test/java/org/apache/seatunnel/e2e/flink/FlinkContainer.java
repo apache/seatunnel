@@ -72,7 +72,7 @@ public abstract class FlinkContainer {
             "env.java.opts: -Doracle.jdbc.timezoneAsRegion=false"));
 
     @BeforeEach
-    public void before() {
+    public void before() throws ClassNotFoundException, InterruptedException {
         jobManager = new GenericContainer<>(FLINK_DOCKER_IMAGE)
             .withCommand("jobmanager")
             .withNetwork(NETWORK)
