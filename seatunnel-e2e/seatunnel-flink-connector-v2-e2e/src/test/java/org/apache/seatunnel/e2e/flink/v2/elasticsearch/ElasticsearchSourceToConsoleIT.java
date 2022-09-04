@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.e2e.flink.v2.elasticsearch;
 
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
+import com.google.common.collect.Lists;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,7 +42,7 @@ public class ElasticsearchSourceToConsoleIT extends FlinkContainer {
 
     @SuppressWarnings({"checkstyle:MagicNumber", "checkstyle:Indentation"})
     @BeforeEach
-    public void startElasticsearchContainer() throws InterruptedException{
+    public void startElasticsearchContainer() throws InterruptedException {
         container = new ElasticsearchContainer(DockerImageName.parse("elasticsearch:6.8.23").asCompatibleSubstituteFor("docker.elastic.co/elasticsearch/elasticsearch"))
                 .withNetwork(NETWORK)
                 .withNetworkAliases("elasticsearch")
@@ -48,15 +50,32 @@ public class ElasticsearchSourceToConsoleIT extends FlinkContainer {
         container.start();
         LOGGER.info("Elasticsearch container started");
         Thread.sleep(5000L);
+        createIndexDocs();
+    }
 
+    /**
+     * create a index,and bulk some documents
+     */
+    private void createIndexDocs() {
+        EsRestClient esRestClient = EsRestClient.createInstance(Lists.newArrayList(container.getHttpHostAddress()), "", "");
+        String requestBody = "{\"index\":{\"_index\":\"st_index\",\"_type\":\"st\"}}\n" +
+                "{\"name\":\"EbvYoFkXtS\",\"age\":18}\n" +
+                "{\"index\":{\"_index\":\"st_index\",\"_type\":\"st\"}}\n" +
+                "{\"name\":\"LjFMprGLJZ\",\"age\":19}\n" +
+                "{\"index\":{\"_index\":\"st_index\",\"_type\":\"st\"}}\n" +
+                "{\"name\":\"uJTtAVuSyI\",\"age\":20}\n";
+        esRestClient.bulk(requestBody);
+        try {
+            esRestClient.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Test
     public void testElasticsearchSourceToConsoleSink() throws IOException, InterruptedException {
-        Container.ExecResult sinkEsResult = executeSeaTunnelFlinkJob("/elasticsearch/fakesource_to_elasticsearch.conf");
-        Assertions.assertEquals(0, sinkEsResult.getExitCode());
-        Container.ExecResult sourceEsResult = executeSeaTunnelFlinkJob("/elasticsearch/elasticsearch_to_console.conf");
-        Assertions.assertEquals(0, sourceEsResult.getExitCode());
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/elasticsearch/elasticsearch_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @AfterEach
