@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.spark;
 
+import com.google.common.collect.Lists;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.Logger;
@@ -59,7 +60,7 @@ public abstract class SparkContainer {
     private static final String SEATUNNEL_BIN = Paths.get(SEATUNNEL_HOME, "bin").toString();
     private static final String SPARK_JAR_PATH = Paths.get(SEATUNNEL_HOME, "lib", SEATUNNEL_SPARK_JAR).toString();
     private static final String CONNECTORS_PATH = Paths.get(SEATUNNEL_HOME, "connectors").toString();
-
+    private static final String PLUGIN_LIB_PATH = PROJECT_ROOT_PATH + "/seatunnel-e2e/target/lib";
     private static final int WAIT_SPARK_JOB_SUBMIT = 5000;
 
     @BeforeEach
@@ -135,6 +136,13 @@ public abstract class SparkContainer {
         master.copyFileToContainer(
             MountableFile.forHostPath(PROJECT_ROOT_PATH + "/plugin-mapping.properties"),
             Paths.get(CONNECTORS_PATH, PLUGIN_MAPPING_FILE).toString());
+
+        // copy plugins lib
+        getPluginLib().forEach(
+            jar -> master.copyFileToContainer(MountableFile.forHostPath(jar.getAbsolutePath()),
+                getPluginLibInContainer(jar.getName()))
+        );
+
     }
 
     private String getResource(String confFile) {
@@ -157,5 +165,18 @@ public abstract class SparkContainer {
 
     private String adaptPathForWin(String path) {
         return path == null ? "" : path.replaceAll("\\\\", "/");
+    }
+
+    /**
+     * Subclasses only need to put plugin-lib-jar in this directory before the before of method, so Subclasses should to do this in static
+     */
+    private List<File> getPluginLib() {
+        File jars = new File(PLUGIN_LIB_PATH);
+        File[] files = jars.listFiles();
+        return files == null ? new ArrayList<>() : Lists.newArrayList(files);
+    }
+
+    private String getPluginLibInContainer(String fileName) {
+        return Paths.get(SEATUNNEL_HOME, "plugins", "e2e", "lib", fileName).toString();
     }
 }
