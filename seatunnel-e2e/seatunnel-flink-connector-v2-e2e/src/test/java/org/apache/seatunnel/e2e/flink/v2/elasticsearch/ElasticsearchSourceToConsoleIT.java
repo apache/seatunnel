@@ -52,7 +52,7 @@ public class ElasticsearchSourceToConsoleIT extends FlinkContainer {
     }
 
     @Test
-    public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
+    public void testElasticsearchSourceToConsoleSink() throws IOException, InterruptedException {
         Container.ExecResult sinkEsResult = executeSeaTunnelFlinkJob("/elasticsearch/fakesource_to_elasticsearch.conf");
         Assertions.assertEquals(0, sinkEsResult.getExitCode());
         Container.ExecResult sourceEsResult = executeSeaTunnelFlinkJob("/elasticsearch/elasticsearch_to_console.conf");
