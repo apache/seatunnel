@@ -63,10 +63,12 @@ public class HdfsExcelTransactionStateFileWriter extends AbstractTransactionStat
     public void finishAndCloseWriteFile() {
         this.beingWrittenWriter.forEach((k, v) -> {
             try {
-                HdfsUtils.createFile(k);
-                FSDataOutputStream outputStream = HdfsUtils.getOutputStream(k);
-                v.flushAndCloseExcel(outputStream);
-                outputStream.close();
+                if (!HdfsUtils.fileExist(k)) {
+                    HdfsUtils.createFile(k);
+                    FSDataOutputStream outputStream = HdfsUtils.getOutputStream(k);
+                    v.flushAndCloseExcel(outputStream);
+                    outputStream.close();
+                }
             } catch (IOException e) {
                 LOGGER.error("can not get output file stream");
                 throw new RuntimeException(e);

@@ -75,8 +75,11 @@ public class ExcelGenerator {
     }
 
     public void flushAndCloseExcel(OutputStream output) throws IOException {
-        wb.write(output);
-        wb.close();
+        if (wb != null) {
+            wb.write(output);
+            wb.close();
+            wb = null;
+        }
     }
 
     private void makeConverter(SeaTunnelDataType<?> type, Object value, Cell cell) {
