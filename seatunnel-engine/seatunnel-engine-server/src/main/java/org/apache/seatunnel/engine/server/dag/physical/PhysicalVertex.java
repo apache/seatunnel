@@ -56,8 +56,6 @@ public class PhysicalVertex {
 
     private static final ILogger LOGGER = Logger.getLogger(PhysicalVertex.class);
 
-    private final long physicalVertexId;
-
     private final TaskGroupLocation taskGroupLocation;
 
     /**
@@ -105,8 +103,7 @@ public class PhysicalVertex {
 
     private Address currentExecutionAddress;
 
-    public PhysicalVertex(long physicalVertexId,
-                          int subTaskGroupIndex,
+    public PhysicalVertex(int subTaskGroupIndex,
                           @NonNull ExecutorService executorService,
                           int parallelism,
                           @NonNull TaskGroupDefaultImpl taskGroup,
@@ -117,7 +114,6 @@ public class PhysicalVertex {
                           @NonNull JobImmutableInformation jobImmutableInformation,
                           long initializationTimestamp,
                           @NonNull NodeEngine nodeEngine) {
-        this.physicalVertexId = physicalVertexId;
         this.subTaskGroupIndex = subTaskGroupIndex;
         this.executorService = executorService;
         this.parallelism = parallelism;
@@ -235,10 +231,6 @@ public class PhysicalVertex {
         return new TaskGroupImmutableInformation(flakeIdGenerator.newId(),
             nodeEngine.getSerializationService().toData(this.taskGroup),
             this.pluginJarsUrls);
-    }
-
-    public long getPhysicalVertexId() {
-        return physicalVertexId;
     }
 
     private void turnToEndState(@NonNull ExecutionState endState) {
@@ -362,5 +354,9 @@ public class PhysicalVertex {
                 taskExecutionState.getExecutionState()));
         }
         taskFuture.complete(taskExecutionState);
+    }
+
+    public TaskGroupLocation getTaskGroupLocation() {
+        return taskGroupLocation;
     }
 }

@@ -198,7 +198,7 @@ public class JobMaster implements Runnable {
             }
 
             pipeline.getCoordinatorVertexList().forEach(task -> {
-                if (task.getPhysicalVertexId() != taskExecutionState.getTaskGroupLocation().getTaskGroupId()) {
+                if (task.getTaskGroupLocation().equals(taskExecutionState.getTaskGroupLocation())) {
                     return;
                 }
 
@@ -206,7 +206,7 @@ public class JobMaster implements Runnable {
             });
 
             pipeline.getPhysicalVertexList().forEach(task -> {
-                if (task.getPhysicalVertexId() != taskExecutionState.getTaskGroupLocation().getTaskGroupId()) {
+                if (task.getTaskGroupLocation().equals(taskExecutionState.getTaskGroupLocation())) {
                     return;
                 }
 
