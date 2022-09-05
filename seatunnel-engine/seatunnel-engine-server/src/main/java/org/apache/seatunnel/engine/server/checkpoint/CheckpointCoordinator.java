@@ -261,7 +261,8 @@ public class CheckpointCoordinator {
                         }
                     }
                 }, coordinatorConfig.getCheckpointTimeout(),
-                TimeUnit.MILLISECONDS);
+                TimeUnit.MILLISECONDS
+            );
         });
     }
 
