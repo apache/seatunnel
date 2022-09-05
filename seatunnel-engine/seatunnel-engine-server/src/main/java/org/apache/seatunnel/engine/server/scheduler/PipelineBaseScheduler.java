@@ -26,19 +26,30 @@ import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
+import com.google.common.collect.Lists;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.NonNull;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 public class PipelineBaseScheduler implements JobScheduler {
     private static final ILogger LOGGER = Logger.getLogger(PipelineBaseScheduler.class);
     private final PhysicalPlan physicalPlan;
+
+    private final long jobId;
     private final JobMaster jobMaster;
     private final ResourceManager resourceManager;
 
@@ -46,28 +57,38 @@ public class PipelineBaseScheduler implements JobScheduler {
         this.physicalPlan = physicalPlan;
         this.jobMaster = jobMaster;
         this.resourceManager = jobMaster.getResourceManager();
+        this.jobId = physicalPlan.getJobImmutableInformation().getJobId();
     }
 
     @Override
-    public void startScheduling() {
+    public Map<Integer, Map<PhysicalVertex, SlotProfile>> startScheduling() {
+        Map<Integer, Map<PhysicalVertex, SlotProfile>> ownedSlotProfiles = new ConcurrentHashMap<>();
         if (physicalPlan.turnToRunning()) {
             List<CompletableFuture<Object>> collect = physicalPlan.getPipelineList().stream().map(pipeline -> {
                 if (!pipeline.updatePipelineState(PipelineState.CREATED, PipelineState.SCHEDULED)) {
                     handlePipelineStateUpdateError(pipeline, PipelineState.SCHEDULED);
                     return null;
                 }
-                if (!applyResourceForPipeline(pipeline)) {
-                    return null;
+                Map<PhysicalVertex, SlotProfile> slotProfiles;
+                try {
+                    slotProfiles = applyResourceForPipeline(pipeline);
+                    ownedSlotProfiles.put(pipeline.getPipelineIndex(), slotProfiles);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
                 }
+                pipeline.whenComplete((state, error) -> {
+                    releasePipelineResource(Lists.newArrayList(slotProfiles.values()));
+                });
                 // deploy pipeline
                 return CompletableFuture.supplyAsync(() -> {
-                    deployPipeline(pipeline);
+                    // TODO before deploy should check slotProfiles is exist, because it maybe can't use when retry.
+                    deployPipeline(pipeline, slotProfiles);
                     return null;
                 });
-            }).filter(x -> x != null).collect(Collectors.toList());
+            }).filter(Objects::nonNull).collect(Collectors.toList());
             try {
                 CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
-                    collect.toArray(new CompletableFuture[collect.size()]));
+                    collect.toArray(new CompletableFuture[0]));
                 voidCompletableFuture.get();
             } catch (Exception e) {
                 // cancel pipeline and throw an exception
@@ -78,44 +99,55 @@ public class PipelineBaseScheduler implements JobScheduler {
             throw new JobException(String.format("%s turn to a unexpected state: %s", physicalPlan.getJobFullName(),
                 physicalPlan.getJobStatus()));
         }
+        return ownedSlotProfiles;
     }
 
-    private boolean applyResourceForPipeline(@NonNull SubPlan subPlan) {
-        try {
-            // apply resource for coordinators
-            subPlan.getCoordinatorVertexList().forEach(coordinator -> applyResourceForTask(coordinator));
-
-            // apply resource for other tasks
-            subPlan.getPhysicalVertexList().forEach(task -> applyResourceForTask(task));
-        } catch (JobNoEnoughResourceException e) {
-            LOGGER.severe(e);
-            return false;
+    private void releasePipelineResource(List<SlotProfile> slotProfiles) {
+        if (null == slotProfiles || slotProfiles.isEmpty()) {
+            return;
         }
-
-        return true;
+        resourceManager.releaseResources(jobId, slotProfiles).join();
     }
 
-    private void applyResourceForTask(PhysicalVertex task) {
+    private Map<PhysicalVertex, SlotProfile> applyResourceForPipeline(@NonNull SubPlan subPlan) throws Exception {
         try {
+            Map<PhysicalVertex, CompletableFuture<SlotProfile>> futures = new HashMap<>();
+            Map<PhysicalVertex, SlotProfile> slotProfiles = new HashMap<>();
             // TODO If there is no enough resources for tasks, we need add some wait profile
-            if (task.updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED)) {
-                resourceManager.applyForResource(physicalPlan.getJobImmutableInformation().getJobId(),
-                    task.getTaskGroup().getTaskGroupLocation());
-            } else {
-                handleTaskStateUpdateError(task, ExecutionState.SCHEDULED);
+            subPlan.getCoordinatorVertexList().forEach(coordinator -> futures.put(coordinator, applyResourceForTask(coordinator)));
+
+            subPlan.getPhysicalVertexList().forEach(task -> futures.put(task, applyResourceForTask(task)));
+
+            for (Map.Entry<PhysicalVertex, CompletableFuture<SlotProfile>> future : futures.entrySet()) {
+                try {
+                    slotProfiles.put(future.getKey(), future.getValue().get());
+                } catch (NoEnoughResourceException e) {
+                    // TODO custom exception with pipelineID, jobName etc.
+                    throw new JobNoEnoughResourceException("No enough resource to execute pipeline", e);
+                }
             }
-        } catch (JobNoEnoughResourceException e) {
+            return slotProfiles;
+        } catch (JobNoEnoughResourceException | ExecutionException | InterruptedException e) {
             LOGGER.severe(e);
+            throw e;
         }
     }
 
-    private CompletableFuture<Void> deployTask(PhysicalVertex task) {
+    private CompletableFuture<SlotProfile> applyResourceForTask(PhysicalVertex task) {
+        if (task.updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED)) {
+            // TODO custom resource size
+            return resourceManager.applyResource(jobId, new ResourceProfile());
+        } else {
+            handleTaskStateUpdateError(task, ExecutionState.SCHEDULED);
+            return null;
+        }
+    }
+
+    private CompletableFuture<Void> deployTask(PhysicalVertex task, SlotProfile slotProfile) {
         if (task.updateTaskState(ExecutionState.SCHEDULED, ExecutionState.DEPLOYING)) {
             // deploy is a time-consuming operation, so we do it async
             return CompletableFuture.supplyAsync(() -> {
-                task.deploy(
-                    resourceManager.getAppliedResource(physicalPlan.getJobImmutableInformation().getJobId(),
-                        task.getTaskGroup().getTaskGroupLocation()));
+                task.deploy(slotProfile);
                 return null;
             });
         } else {
@@ -124,20 +156,21 @@ public class PipelineBaseScheduler implements JobScheduler {
         return null;
     }
 
-    private void deployPipeline(@NonNull SubPlan pipeline) {
+    private void deployPipeline(@NonNull SubPlan pipeline, Map<PhysicalVertex, SlotProfile> slotProfiles) {
         if (pipeline.updatePipelineState(PipelineState.SCHEDULED, PipelineState.DEPLOYING)) {
-            List<CompletableFuture> deployCoordinatorFuture =
-                pipeline.getCoordinatorVertexList().stream().map(task -> deployTask(task)).filter(x -> x != null)
-                    .collect(Collectors.toList());
-
-            List<CompletableFuture> deployTaskFuture =
-                pipeline.getPhysicalVertexList().stream().map(task -> deployTask(task)).filter(x -> x != null)
-                    .collect(Collectors.toList());
 
             try {
+                List<CompletableFuture<?>> deployCoordinatorFuture =
+                    pipeline.getCoordinatorVertexList().stream().map(coordinator -> deployTask(coordinator, slotProfiles.get(coordinator)))
+                        .filter(Objects::nonNull).collect(Collectors.toList());
+
+                List<CompletableFuture<?>> deployTaskFuture =
+                    pipeline.getPhysicalVertexList().stream().map(task -> deployTask(task, slotProfiles.get(task)))
+                        .filter(Objects::nonNull).collect(Collectors.toList());
+
                 deployCoordinatorFuture.addAll(deployTaskFuture);
                 CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
-                    deployCoordinatorFuture.toArray(new CompletableFuture[deployCoordinatorFuture.size()]));
+                    deployCoordinatorFuture.toArray(new CompletableFuture[0]));
                 voidCompletableFuture.get();
                 if (!pipeline.updatePipelineState(PipelineState.DEPLOYING, PipelineState.RUNNING)) {
                     LOGGER.info(

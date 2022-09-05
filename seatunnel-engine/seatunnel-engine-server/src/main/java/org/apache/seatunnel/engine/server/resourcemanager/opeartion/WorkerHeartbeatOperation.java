@@ -15,51 +15,58 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.operation;
+package org.apache.seatunnel.engine.server.resourcemanager.opeartion;
 
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
-import org.apache.seatunnel.engine.server.execution.TaskInfo;
-import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
+import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
+import org.apache.seatunnel.engine.server.serializable.ResourceDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class TaskCompletedOperation extends AsyncOperation {
-    private TaskInfo taskInfo;
+public class WorkerHeartbeatOperation extends Operation implements IdentifiedDataSerializable {
 
-    public TaskCompletedOperation() {
+    private WorkerProfile workerProfile;
+
+    public WorkerHeartbeatOperation() {
     }
 
-    public TaskCompletedOperation(TaskInfo taskInfo) {
-        this.taskInfo = taskInfo;
+    public WorkerHeartbeatOperation(WorkerProfile workerProfile) {
+        this.workerProfile = workerProfile;
     }
 
     @Override
-    public int getClassId() {
-        return OperationDataSerializerHook.TASK_COMPLETED_OPERATOR;
+    public void run() throws Exception {
+        SeaTunnelServer server = getService();
+        server.getResourceManager().heartbeat(workerProfile);
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        out.writeObject(taskInfo);
+        out.writeObject(workerProfile);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        taskInfo = in.readObject(TaskInfo.class);
+        workerProfile = in.readObject();
     }
 
     @Override
-    protected PassiveCompletableFuture<?> doRun() throws Exception {
-        CheckpointCoordinator checkpointCoordinator = ((SeaTunnelServer) getService())
-            .getJobMaster(taskInfo.getJobId())
-            .getCheckpointManager()
-            .getCheckpointCoordinator(taskInfo.getPipelineId());
-        // TODO: notify coordinator
-        return null;
+    public String getServiceName() {
+        return SeaTunnelServer.SERVICE_NAME;
+    }
+
+    @Override
+    public int getFactoryId() {
+        return ResourceDataSerializerHook.FACTORY_ID;
+    }
+
+    @Override
+    public int getClassId() {
+        return ResourceDataSerializerHook.WORKER_HEARTBEAT_TYPE;
     }
 }

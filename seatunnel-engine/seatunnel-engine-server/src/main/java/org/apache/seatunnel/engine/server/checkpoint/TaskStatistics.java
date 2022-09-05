@@ -20,13 +20,22 @@ package org.apache.seatunnel.engine.server.checkpoint;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class TaskStatistics {
-    /** ID of the task the statistics belong to. */
+import java.io.Serializable;
+
+public class TaskStatistics implements Serializable {
+    /**
+     * ID of the task the statistics belong to.
+     */
     private final Long jobVertexId;
 
     private final SubtaskStatistics[] subtaskStats;
 
-    private int numAcknowledgedSubtasks;
+    /**
+     * Marks whether a subtask is complete;
+     */
+    private final boolean[] subtaskCompleted;
+
+    private int numAcknowledgedSubtasks = 0;
 
     private SubtaskStatistics latestAckedSubtaskStatistics;
 
@@ -34,9 +43,10 @@ public class TaskStatistics {
         this.jobVertexId = checkNotNull(jobVertexId, "JobVertexID");
         checkArgument(parallelism > 0, "the parallelism of task <= 0");
         this.subtaskStats = new SubtaskStatistics[parallelism];
+        this.subtaskCompleted = new boolean[parallelism];
     }
 
-    boolean reportSubtaskStats(SubtaskStatistics subtask) {
+    boolean reportSubtaskStatistics(SubtaskStatistics subtask) {
         checkNotNull(subtask, "Subtask stats");
         int subtaskIndex = subtask.getSubtaskIndex();
 
@@ -55,7 +65,7 @@ public class TaskStatistics {
 
     /**
      * @return The latest acknowledged subtask stats or <code>null</code> if none was acknowledged
-     *     yet.
+     * yet.
      */
     public SubtaskStatistics getLatestAcknowledgedSubtaskStatistics() {
         return latestAckedSubtaskStatistics;
@@ -63,7 +73,7 @@ public class TaskStatistics {
 
     /**
      * @return Ack timestamp of the latest acknowledged subtask or <code>-1</code> if none was
-     *     acknowledged yet..
+     * acknowledged yet..
      */
     public long getLatestAckTimestamp() {
         return latestAckedSubtaskStatistics != null ?
@@ -77,5 +87,18 @@ public class TaskStatistics {
 
     public SubtaskStatistics[] getSubtaskStats() {
         return subtaskStats;
+    }
+
+    public void completed(int subtaskIndex) {
+        subtaskCompleted[subtaskIndex] = true;
+    }
+
+    public boolean isCompleted() {
+        for (boolean completed : subtaskCompleted) {
+            if (!completed) {
+                return false;
+            }
+        }
+        return true;
     }
 }

@@ -22,7 +22,7 @@ public interface Checkpoint {
 
     long getCheckpointId();
 
-    long getPipelineId();
+    int getPipelineId();
 
     long getJobId();
 

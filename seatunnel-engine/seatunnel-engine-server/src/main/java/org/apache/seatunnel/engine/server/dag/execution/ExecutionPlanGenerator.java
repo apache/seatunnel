@@ -157,7 +157,7 @@ public class ExecutionPlanGenerator {
         final long newId = idGenerator.getNextId();
         Action newAction;
         if (chainedVertices.size() < 1) {
-            newAction = recreateAction(logicalVertex.getAction(), newId);
+            newAction = recreateAction(logicalVertex.getAction(), newId, logicalVertex.getParallelism());
         } else {
             List<SeaTunnelTransform> transforms = new ArrayList<>(chainedVertices.size());
             List<String> names = new ArrayList<>(chainedVertices.size());
@@ -182,7 +182,7 @@ public class ExecutionPlanGenerator {
         logicalToExecutionMap.put(logicalVertex.getVertexId(), executionVertex.getVertexId());
     }
 
-    public static Action recreateAction(Action action, Long id) {
+    public static Action recreateAction(Action action, Long id, int parallelism) {
         Action newAction;
         if (action instanceof PartitionTransformAction) {
             newAction = new PartitionTransformAction(id,
@@ -209,7 +209,7 @@ public class ExecutionPlanGenerator {
         } else {
             throw new UnknownActionException(action);
         }
-        newAction.setParallelism(action.getParallelism());
+        newAction.setParallelism(parallelism);
         return newAction;
     }
 

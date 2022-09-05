@@ -158,7 +158,7 @@ public class PipelineGenerator {
     private ExecutionVertex recreateVertex(ExecutionVertex vertex, int parallelism) {
         long id = idGenerator.getNextId();
         Action action = vertex.getAction();
-        return new ExecutionVertex(id, ExecutionPlanGenerator.recreateAction(action, id), action instanceof PartitionTransformAction ? vertex.getParallelism() : parallelism);
+        return new ExecutionVertex(id, ExecutionPlanGenerator.recreateAction(action, id, parallelism), action instanceof PartitionTransformAction ? vertex.getParallelism() : parallelism);
     }
 
     private void fillVerticesMap(List<ExecutionEdge> edges) {

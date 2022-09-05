@@ -17,38 +17,14 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import lombok.Data;
+
 import java.io.Serializable;
-import java.util.HashMap;
-import java.util.Map;
 
-public class TaskState implements Serializable {
-
+@Data
+public class ActionSubtaskState implements Serializable {
     private static final long serialVersionUID = 1L;
-
-    /** The id of the task. */
-    private final String taskId;
-
-    /** The handles to states created by the parallel tasks: subtaskIndex -> subtask state. */
-    private final Map<Integer, byte[]> subtaskStates;
-
-    /** The parallelism of the operator when it was checkpointed. */
-    private final int parallelism;
-
-    public TaskState(String taskId, int parallelism) {
-        this.taskId = taskId;
-        this.subtaskStates = new HashMap<>(parallelism);
-        this.parallelism = parallelism;
-    }
-
-    public String getTaskId() {
-        return taskId;
-    }
-
-    public Map<Integer, byte[]> getSubtaskStates() {
-        return subtaskStates;
-    }
-
-    public int getParallelism() {
-        return parallelism;
-    }
+    private final long actionId;
+    private final int index;
+    private final byte[] state;
 }

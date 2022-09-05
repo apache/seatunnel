@@ -15,42 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.service.slot;
 
-import java.io.Serializable;
+public class WrongTargetSlotException extends RuntimeException {
 
-public class TaskInfo implements Serializable {
-
-    private static final long serialVersionUID = 1L;
-
-    private final Long jobId;
-
-    private final Long pipelineId;
-
-    private final Long jobVertexId;
-
-    private final Integer index;
-
-    public TaskInfo(Long jobId, Long pipelineId, Long jobVertexId, Integer index) {
-        this.jobId = jobId;
-        this.pipelineId = pipelineId;
-        this.jobVertexId = jobVertexId;
-        this.index = index;
+    public WrongTargetSlotException() {
     }
 
-    public Long getJobId() {
-        return jobId;
-    }
-
-    public Long getPipelineId() {
-        return pipelineId;
-    }
-
-    public Long getJobVertexId() {
-        return jobVertexId;
-    }
-
-    public Integer getIndex() {
-        return index;
+    public WrongTargetSlotException(String message) {
+        super(message);
     }
 }

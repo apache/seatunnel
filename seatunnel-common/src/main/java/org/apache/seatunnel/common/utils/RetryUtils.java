@@ -34,12 +34,14 @@ public class RetryUtils {
         if (retryMaterial.getRetryTimes() < 0) {
             throw new IllegalArgumentException("Retry times must be greater than 0");
         }
+        Exception lastE;
         int i = 0;
         do {
             i++;
             try {
                 return execution.execute();
             } catch (Exception e) {
+                lastE = e;
                 if (retryCondition != null && !retryCondition.canRetry(e)) {
                     if (retryMaterial.shouldThrowException()) {
                         throw e;
@@ -50,7 +52,7 @@ public class RetryUtils {
             }
         } while (i <= retryTimes);
         if (retryMaterial.shouldThrowException()) {
-            throw new RuntimeException("Execute given execution failed after retry " + retryTimes + " times");
+            throw new RuntimeException("Execute given execution failed after retry " + retryTimes + " times", lastE);
         }
         return null;
     }

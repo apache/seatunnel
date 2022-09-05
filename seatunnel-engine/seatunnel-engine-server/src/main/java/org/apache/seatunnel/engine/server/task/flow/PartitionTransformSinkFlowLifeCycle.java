@@ -18,6 +18,8 @@
 package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.record.ClosedSign;
 
 import com.hazelcast.ringbuffer.Ringbuffer;
@@ -33,22 +35,26 @@ public class PartitionTransformSinkFlowLifeCycle extends AbstractFlowLifeCycle i
     private AtomicInteger closeSigns;
     private final Random random = new Random();
 
-    public PartitionTransformSinkFlowLifeCycle(CompletableFuture<Void> completableFuture) {
-        super(completableFuture);
+    public PartitionTransformSinkFlowLifeCycle(SeaTunnelTask runningTask, CompletableFuture<Void> completableFuture) {
+        super(runningTask, completableFuture);
         closeSigns = new AtomicInteger();
     }
 
     @Override
     public void received(Record<?> row) throws IOException {
+        // TODO: No space in the buffer
         getRingBuffer(row).add(row);
         if (row.getData() instanceof ClosedSign) {
             if (closeSigns.incrementAndGet() == ringbuffers.length) {
                 this.close();
             }
+        } else if (row.getData() instanceof CheckpointBarrier) {
+            runningTask.ack(((CheckpointBarrier) row.getData()).getId());
         }
     }
 
     private Ringbuffer<Record<?>> getRingBuffer(Record<?> row) {
+        // TODO: choose partition
         return ringbuffers[random.nextInt(ringbuffers.length)];
     }
 }

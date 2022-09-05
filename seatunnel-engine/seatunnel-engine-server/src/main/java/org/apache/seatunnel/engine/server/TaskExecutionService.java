@@ -36,6 +36,7 @@ import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
 import org.apache.seatunnel.engine.server.operation.NotifyTaskStatusOperation;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
@@ -125,14 +126,21 @@ public class TaskExecutionService {
         uncheckRun(startedLatch::await);
     }
 
+    public synchronized PassiveCompletableFuture<TaskExecutionState> deployTask(@NonNull Data taskImmutableInformation) {
+        TaskGroupImmutableInformation taskImmutableInfo =
+            nodeEngine.getSerializationService().toObject(taskImmutableInformation);
+        return deployTask(taskImmutableInfo);
+    }
+
+    public <T extends Task> T getTask(TaskLocation taskLocation) {
+        return this.getExecutionContext(taskLocation.getTaskGroupLocation()).getTaskGroup().getTask(taskLocation.getTaskID());
+    }
+
     public synchronized PassiveCompletableFuture<TaskExecutionState> deployTask(
-        @NonNull Data taskImmutableInformation
-    ) {
+        @NonNull TaskGroupImmutableInformation taskImmutableInfo) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
         TaskGroup taskGroup = null;
         try {
-            TaskGroupImmutableInformation taskImmutableInfo =
-                nodeEngine.getSerializationService().toObject(taskImmutableInformation);
             Set<URL> jars = taskImmutableInfo.getJars();
 
             if (!CollectionUtils.isEmpty(jars)) {
@@ -171,10 +179,10 @@ public class TaskExecutionService {
             ConcurrentMap<Long, TaskExecutionContext> taskExecutionContextMap = new ConcurrentHashMap<>();
             final Map<Boolean, List<Task>> byCooperation =
                 tasks.stream()
-                    .peek(x -> {
-                        TaskExecutionContext taskExecutionContext = new TaskExecutionContext(x, nodeEngine);
-                        x.setTaskExecutionContext(taskExecutionContext);
-                        taskExecutionContextMap.put(x.getTaskID(), taskExecutionContext);
+                    .peek(task -> {
+                        TaskExecutionContext taskExecutionContext = new TaskExecutionContext(task, nodeEngine);
+                        task.setTaskExecutionContext(taskExecutionContext);
+                        taskExecutionContextMap.put(task.getTaskID(), taskExecutionContext);
                     })
                     .collect(partitioningBy(Task::isThreadsShare));
             submitThreadShareTask(executionTracker, byCooperation.get(true));

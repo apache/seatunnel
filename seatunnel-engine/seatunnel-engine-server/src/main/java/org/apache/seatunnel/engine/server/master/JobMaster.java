@@ -24,16 +24,19 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorConfiguration;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointStorageConfiguration;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
-import org.apache.seatunnel.engine.server.resourcemanager.SimpleResourceManager;
-import org.apache.seatunnel.engine.server.scheduler.JobScheduler;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.scheduler.PipelineBaseScheduler;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.jet.datamodel.Tuple2;
@@ -44,7 +47,10 @@ import com.hazelcast.spi.impl.NodeEngine;
 import lombok.NonNull;
 import org.apache.commons.collections4.CollectionUtils;
 
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
 public class JobMaster implements Runnable {
@@ -68,16 +74,18 @@ public class JobMaster implements Runnable {
 
     private JobImmutableInformation jobImmutableInformation;
 
+    private final Map<Integer, Map<PhysicalVertex, SlotProfile>> ownedSlotProfiles;
+
     public JobMaster(@NonNull Data jobImmutableInformationData,
                      @NonNull NodeEngine nodeEngine,
-                     @NonNull ExecutorService executorService) {
+                     @NonNull ExecutorService executorService, @NonNull ResourceManager resourceManager) {
         this.jobImmutableInformationData = jobImmutableInformationData;
         this.nodeEngine = nodeEngine;
         this.executorService = executorService;
         flakeIdGenerator =
             this.nodeEngine.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME);
-
-        this.resourceManager = new SimpleResourceManager(this.nodeEngine);
+        this.ownedSlotProfiles = new ConcurrentHashMap<>();
+        this.resourceManager = resourceManager;
     }
 
     public void init() throws Exception {
@@ -95,13 +103,20 @@ public class JobMaster implements Runnable {
         } else {
             this.logicalDag = nodeEngine.getSerializationService().toObject(jobImmutableInformation.getLogicalDag());
         }
-        final Tuple2<PhysicalPlan, CheckpointPlan> planTuple = PlanUtils.fromLogicalDAG(logicalDag,
+        final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple = PlanUtils.fromLogicalDAG(logicalDag,
             nodeEngine,
             jobImmutableInformation,
             System.currentTimeMillis(),
             executorService,
             flakeIdGenerator);
-        physicalPlan = planTuple.f0();
+        this.physicalPlan = planTuple.f0();
+        this.checkpointManager = new CheckpointManager(
+            jobImmutableInformation.getJobId(),
+            nodeEngine,
+            planTuple.f1(),
+            // TODO: checkpoint config
+            CheckpointCoordinatorConfiguration.builder().build(),
+            CheckpointStorageConfiguration.builder().build());
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -119,9 +134,7 @@ public class JobMaster implements Runnable {
                 }
                 jobMasterCompleteFuture.complete(physicalPlan.getJobStatus());
             });
-
-            JobScheduler jobScheduler = new PipelineBaseScheduler(physicalPlan, this);
-            jobScheduler.startScheduling();
+            ownedSlotProfiles.putAll(new PipelineBaseScheduler(physicalPlan, this).startScheduling());
         } catch (Throwable e) {
             LOGGER.severe(String.format("Job %s (%s) run error with: %s",
                 physicalPlan.getJobImmutableInformation().getJobConfig().getName(),
@@ -136,6 +149,18 @@ public class JobMaster implements Runnable {
 
     public void cleanJob() {
         // TODO Add some job clean operation
+    }
+
+    public Address queryTaskGroupAddress(long taskGroupId) {
+        for (Integer pipelineIndex : ownedSlotProfiles.keySet()) {
+            Optional<PhysicalVertex> currentVertex = ownedSlotProfiles.get(pipelineIndex).keySet().stream()
+                .filter(physicalVertex -> physicalVertex.getTaskGroup().getTaskGroupLocation().getTaskGroupId() == taskGroupId)
+                .findFirst();
+            if (currentVertex.isPresent()) {
+                return ownedSlotProfiles.get(pipelineIndex).get(currentVertex.get()).getWorker();
+            }
+        }
+        throw new IllegalArgumentException("can't find task group address from task group id: " + taskGroupId);
     }
 
     public void cancelJob() {

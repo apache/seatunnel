@@ -46,7 +46,7 @@ public class SinkUnregisterOperation extends Operation implements IdentifiedData
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         SinkAggregatedCommitterTask<?> task =
-                server.getTaskExecutionService().getExecutionContext(committerTaskID.getTaskGroupLocation()).getTaskGroup().getTask(committerTaskID.getTaskID());
+                server.getTaskExecutionService().getTask(committerTaskID);
         task.receivedWriterUnregister(currentTaskID);
     }
 

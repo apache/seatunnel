@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task.operation;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
 import com.hazelcast.internal.nio.IOUtil;
@@ -32,18 +33,21 @@ import java.io.IOException;
 
 public class DeployTaskOperation extends Operation implements IdentifiedDataSerializable {
     private Data taskImmutableInformation;
+    private SlotProfile slotProfile;
 
     public DeployTaskOperation() {
     }
 
-    public DeployTaskOperation(@NonNull Data taskImmutableInformation) {
+    public DeployTaskOperation(@NonNull SlotProfile slotProfile, @NonNull Data taskImmutableInformation) {
         this.taskImmutableInformation = taskImmutableInformation;
+        this.slotProfile = slotProfile;
     }
 
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        server.getTaskExecutionService().deployTask(taskImmutableInformation);
+        server.getSlotService().getSlotContext(slotProfile)
+            .getTaskExecutionService().deployTask(taskImmutableInformation);
     }
 
     @Override
@@ -60,11 +64,13 @@ public class DeployTaskOperation extends Operation implements IdentifiedDataSeri
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
         IOUtil.writeData(out, taskImmutableInformation);
+        out.writeObject(slotProfile);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
         taskImmutableInformation = IOUtil.readData(in);
+        slotProfile = in.readObject();
     }
 }

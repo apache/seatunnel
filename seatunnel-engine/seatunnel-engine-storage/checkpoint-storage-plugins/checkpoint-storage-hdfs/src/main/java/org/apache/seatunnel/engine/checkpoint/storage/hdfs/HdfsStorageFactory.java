@@ -20,6 +20,7 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.hdfs;
 
+import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
@@ -28,10 +29,10 @@ import com.google.auto.service.AutoService;
 
 import java.util.Map;
 
-@AutoService(CheckpointStorageFactory.class)
+@AutoService(Factory.class)
 public class HdfsStorageFactory implements CheckpointStorageFactory {
     @Override
-    public String name() {
+    public String factoryIdentifier() {
         return "hdfs";
     }
 

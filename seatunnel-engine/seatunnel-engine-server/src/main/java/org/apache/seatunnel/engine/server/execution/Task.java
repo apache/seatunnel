@@ -17,12 +17,15 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
+
 import lombok.NonNull;
 
 import java.io.IOException;
 import java.io.Serializable;
 
-public interface Task extends Serializable {
+public interface Task extends InternalCheckpointListener, Serializable {
 
     default void init() throws Exception {
     }
@@ -40,7 +43,8 @@ public interface Task extends Serializable {
     default void close() throws IOException {
     }
 
-    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext){
+    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
     }
 
+    default void triggerCheckpoint(CheckpointBarrier checkpointBarrier) throws Exception {}
 }

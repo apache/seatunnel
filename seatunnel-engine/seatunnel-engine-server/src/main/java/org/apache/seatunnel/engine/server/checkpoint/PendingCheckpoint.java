@@ -18,15 +18,21 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
+import lombok.AllArgsConstructor;
+
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
+@AllArgsConstructor
 public class PendingCheckpoint implements Checkpoint {
 
     private final long jobId;
 
-    private final long pipelineId;
+    private final int pipelineId;
 
     private final long checkpointId;
 
@@ -34,21 +40,11 @@ public class PendingCheckpoint implements Checkpoint {
 
     private final Set<Long> notYetAcknowledgedTasks;
 
-    private final Map<Long, TaskState> taskStates;
+    private final Map<Long, TaskStatistics> taskStatistics;
 
-    public PendingCheckpoint(long jobId,
-                             long pipelineId,
-                             long checkpointId,
-                             long triggerTimestamp,
-                             Set<Long> notYetAcknowledgedTasks,
-                             Map<Long, TaskState> taskStates) {
-        this.jobId = jobId;
-        this.pipelineId = pipelineId;
-        this.checkpointId = checkpointId;
-        this.triggerTimestamp = triggerTimestamp;
-        this.notYetAcknowledgedTasks = notYetAcknowledgedTasks;
-        this.taskStates = taskStates;
-    }
+    private final Map<Long, ActionState> actionStates;
+
+    private final CompletableFuture<PendingCheckpoint> completableFuture;
 
     @Override
     public long getCheckpointId() {
@@ -56,7 +52,7 @@ public class PendingCheckpoint implements Checkpoint {
     }
 
     @Override
-    public long getPipelineId() {
+    public int getPipelineId() {
         return this.pipelineId;
     }
 
@@ -68,5 +64,56 @@ public class PendingCheckpoint implements Checkpoint {
     @Override
     public long getCheckpointTimestamp() {
         return this.triggerTimestamp;
+    }
+
+    protected Map<Long, TaskStatistics> getTaskStatistics() {
+        return taskStatistics;
+    }
+
+    protected Map<Long, ActionState> getActionStates() {
+        return actionStates;
+    }
+
+    public void acknowledgeTask(TaskLocation taskLocation, List<ActionSubtaskState> states) {
+        notYetAcknowledgedTasks.remove(taskLocation.getTaskID());
+        TaskStatistics statistics = taskStatistics.get(taskLocation.getTaskVertexId());
+
+        long stateSize = 0;
+        for (ActionSubtaskState state : states) {
+            ActionState actionState = actionStates.get(state.getActionId());
+            if (actionState == null) {
+                return;
+            }
+            stateSize += state.getState().length;
+            actionState.reportState(state.getIndex(), state);
+        }
+        statistics.reportSubtaskStatistics(new SubtaskStatistics(
+            taskLocation.getTaskIndex(),
+            System.currentTimeMillis(),
+            stateSize));
+
+        if (isFullyAcknowledged()) {
+            completableFuture.complete(this);
+        }
+    }
+
+    public void taskCompleted(TaskLocation taskLocation) {
+        taskStatistics.get(taskLocation.getTaskVertexId())
+            .completed(taskLocation.getTaskIndex());
+    }
+
+    private boolean isFullyAcknowledged() {
+        return notYetAcknowledgedTasks.size() == 0;
+    }
+
+    public CompletedCheckpoint toCompletedCheckpoint() {
+        return new CompletedCheckpoint(
+            jobId,
+            pipelineId,
+            checkpointId,
+            triggerTimestamp,
+            System.currentTimeMillis(),
+            actionStates,
+            taskStatistics);
     }
 }
