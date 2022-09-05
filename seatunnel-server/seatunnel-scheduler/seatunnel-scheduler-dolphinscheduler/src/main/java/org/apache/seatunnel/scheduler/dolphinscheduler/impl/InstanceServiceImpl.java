@@ -51,7 +51,8 @@ public class InstanceServiceImpl implements IInstanceService {
         final PageData<TaskInstanceDto> instancePageData = iDolphinschedulerService.listTaskInstance(listDto);
 
         final List<InstanceDto> data = instancePageData.getData().stream().map(t -> InstanceDto.builder()
-                .instanceId(t.getId())
+                // use processInstanceId instead of origin task instance id.
+                .instanceId(t.getProcessInstanceId())
                 .instanceCode(t.getProcessInstanceId())
                 .instanceName(t.getProcessInstanceName())
                 .status(t.getState())

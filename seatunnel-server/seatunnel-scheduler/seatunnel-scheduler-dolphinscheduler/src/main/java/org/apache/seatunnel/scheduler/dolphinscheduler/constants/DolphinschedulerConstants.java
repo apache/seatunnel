@@ -44,6 +44,7 @@ public class DolphinschedulerConstants {
     public static final String SCHEDULE_ONLINE = "/projects/%s/schedules/%s/online";
     public static final String SCHEDULE_OFFLINE = "/projects/%s/schedules/%s/offline";
     public static final String DELETE_PROCESS_DEFINITION = "/projects/%s/process-definition/%s";
+    public static final String EXECUTE = "/projects/%s/executors/execute";
 
     /**
      * request param
@@ -167,6 +168,8 @@ public class DolphinschedulerConstants {
     public static final String EXEC_TYPE_DEFAULT = "START_PROCESS";
     public static final String EXEC_TYPE_COMPLEMENT = "COMPLEMENT_DATA";
     public static final String DEPENDENT_MODE_DEFAULT = "OFF_MODE";
+    public static final String PROCESS_INSTANCE_ID = "processInstanceId";
+    public static final String EXECUTE_TYPE = "executeType";
 
     /**
      * response param
