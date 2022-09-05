@@ -31,7 +31,7 @@
     
     <properties>
         <elasticsearch-rest-client.version>7.5.1</elasticsearch-rest-client.version>
-        <jackson.databind.version>2.12.6</jackson.databind.version>
+        <jackson.databind.version>2.12.6.1</jackson.databind.version>
     </properties>
 
     <dependencies>
