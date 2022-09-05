@@ -17,8 +17,21 @@
 
 package org.apache.seatunnel.app.domain.response.user;
 
+import com.google.common.collect.Maps;
 import io.swagger.annotations.ApiModel;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @ApiModel(value = "userSimpleInfoRes", description = "user simple information")
-public class UserSimpleInfoRes extends BaseUserInfoRes{
+public class UserSimpleInfoRes extends BaseUserInfoRes {
+
+    public Map<String, Object> toMap() {
+        final HashMap<String, Object> userMap = Maps.newHashMap();
+        userMap.put("id", getId());
+        userMap.put("name", getName());
+        userMap.put("status", getStatus());
+        userMap.put("type", getType());
+        return userMap;
+    }
 }

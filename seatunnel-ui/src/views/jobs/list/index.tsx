@@ -48,7 +48,7 @@ const JobsList = defineComponent({
             'header-extra': () => (
               <NSpace>
                 <NInput
-                  placeholder={this.t('jobs.search_data_pipes_name')}
+                  placeholder={this.t('jobs.data_pipe_name')}
                   style={{ width: '200px' }}
                 />
                 <NButton onClick={this.handleSearch}>

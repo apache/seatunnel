@@ -9,8 +9,8 @@ With elasticsearch connector, you can use the Flink SQL to write data into Elast
 ## Usage
 Let us have a brief example to show how to use the connector.
 
-### 1. kafka prepare
-Please refer to the [Eleastic Doc](https://www.elastic.co/guide/index.html) to prepare elastic environment.
+### 1. Elastic prepare
+Please refer to the [Elastic Doc](https://www.elastic.co/guide/index.html) to prepare elastic environment.
 
 ### 2. prepare seatunnel configuration
 ElasticSearch provide different connectors for different version:

@@ -326,6 +326,9 @@ The text of each license is the standard Apache 2.0 license.
      (Apache License 2.0) swagger-annotations (io.swagger:swagger-annotations:1.5.10 - https://github.com/swagger-api/swagger-core/modules/swagger-annotations)
      (Apache License 2.0) swagger-models (io.swagger:swagger-models:1.5.10 - https://github.com/swagger-api/swagger-core/modules/swagger-models)
      (Apache License 2.0) swagger-models (io.swagger:swagger-models:1.5.10 - https://github.com/swagger-api/swagger-core/modules/swagger-models)
+     (Apache License 2.0) jjwt (io.jsonwebtoken:jjwt-api:0.10.7 - https://github.com/jwtk/jjwt)
+     (Apache License 2.0) jjwt (io.jsonwebtoken:impl-:0.10.7 - https://github.com/jwtk/jjwt)
+     (Apache License 2.0) jjwt (io.jsonwebtoken:jjwt-jackson:0.10.7 - https://github.com/jwtk/jjwt)
      (Apache License Version 2) HikariCP (com.zaxxer:HikariCP:4.0.3 - https://github.com/brettwooldridge/HikariCP)
      (Apache License) HttpClient (commons-httpclient:commons-httpclient:3.1 - http://jakarta.apache.org/httpcomponents/httpclient-3.x/)
      (Apache License) HttpClient (org.apache.httpcomponents:httpclient:4.0.1 - http://hc.apache.org/httpcomponents-client)
@@ -585,6 +588,7 @@ The text of each license is the standard Apache 2.0 license.
      (Apache License, Version 2.0) spring-boot (org.springframework.boot:spring-boot:2.6.8 - https://spring.io/projects/spring-boot)
      (Apache License, Version 2.0) spring-boot-autoconfigure (org.springframework.boot:spring-boot-autoconfigure:2.6.8 - https://spring.io/projects/spring-boot)
      (Apache License, Version 2.0) spring-boot-starter (org.springframework.boot:spring-boot-starter:2.6.8 - https://spring.io/projects/spring-boot)
+     (Apache License, Version 2.0) spring-boot-starter-aop (org.springframework.boot:spring-boot-starter-aop:2.6.8 - https://spring.io/projects/spring-boot)
      (Apache License, Version 2.0) spring-boot-starter-jdbc (org.springframework.boot:spring-boot-starter-jdbc:2.6.3 - https://spring.io/projects/spring-boot)
      (Apache License, Version 2.0) spring-boot-starter-jetty (org.springframework.boot:spring-boot-starter-jetty:2.6.8 - https://spring.io/projects/spring-boot)
      (Apache License, Version 2.0) spring-boot-starter-json (org.springframework.boot:spring-boot-starter-json:2.6.8 - https://spring.io/projects/spring-boot)
@@ -1198,7 +1202,7 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
      (Eclipse Public License, Version 1.0) Aether Utilities (org.eclipse.aether:aether-util:0.9.0.M2 - http://www.eclipse.org/aether/aether-util/)
      (The Eclipse Public License, Version 1.0) OkHttp Aether Connector (io.tesla.aether:aether-connector-okhttp:0.0.9 - http://tesla.io/aether-connector-okhttp)
      (The Eclipse Public License, Version 1.0) tesla-aether (io.tesla.aether:tesla-aether:0.0.5 - http://tesla.io/tesla-aether)
-
+     (Eclipse Public License - v 2.0) aspectjweaver (org.aspectj:aspectjweaver:1.9.7 - https://github.com/eclipse/org.aspectj/)
 
 ========================================================================
 Public Domain License
