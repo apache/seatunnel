@@ -57,4 +57,6 @@ public interface IDolphinschedulerService {
     PageData<TaskInstanceDto> listTaskInstance(ListProcessInstanceDto dto);
 
     void deleteProcessDefinition(long code);
+
+    void killProcessInstance(long processInstanceId);
 }
