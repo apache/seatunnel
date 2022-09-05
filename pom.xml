@@ -197,6 +197,12 @@
         <checker.qual.version>3.10.0</checker.qual.version>
         <awaitility.version>4.2.0</awaitility.version>
         <jwt.version>0.10.7</jwt.version>
+        <httpclient.version>4.5.13</httpclient.version>
+        <fastjson.version>1.2.83</fastjson.version>
+        <avatica-core.version>1.15.0</avatica-core.version>
+        <druid-core.version>0.23.0</druid-core.version>
+        <joda-tim.version>2.10.14</joda-tim.version>
+        <druid.version>0.22.1</druid.version>
     </properties>
 
     <dependencyManagement>
@@ -206,7 +212,36 @@
                 <artifactId>seatunnel-config-shade</artifactId>
                 <version>${seatunnel.config.shade.version}</version>
             </dependency>
-
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpclient</artifactId>
+                <version>${httpclient.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba</groupId>
+                <artifactId>fastjson</artifactId>
+                <version>${fastjson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>joda-time</groupId>
+                <artifactId>joda-time</artifactId>
+                <version>${joda-tim.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.druid</groupId>
+                <artifactId>druid-indexing-service</artifactId>
+                <version>${druid.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.druid</groupId>
+                <artifactId>druid-core</artifactId>
+                <version>${druid-core.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.calcite.avatica</groupId>
+                <artifactId>avatica-core</artifactId>
+                <version>${avatica-core.version}</version>
+            </dependency>
             <!--Because the license is not in compliance, if you need to use MySQL, you can add it yourself-->
             <dependency>
                 <groupId>mysql</groupId>
@@ -621,75 +656,75 @@
                 </plugin>
 
                 <!-- checkstyle (Start) -->
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-checkstyle-plugin</artifactId>
-                    <version>${maven-checkstyle-plugin.version}</version>
-                    <configuration>
-                        <!--suppress UnresolvedMavenProperty -->
-                        <configLocation>${maven.multiModuleProjectDirectory}/tools/checkstyle/checkStyle.xml
-                        </configLocation>
-                        <encoding>UTF-8</encoding>
-                        <consoleOutput>true</consoleOutput>
-                        <includeTestSourceDirectory>true</includeTestSourceDirectory>
-                        <failOnViolation>${checkstyle.fails.on.error}</failOnViolation>
-                        <sourceDirectories>
-                            <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
-                            <sourceDirectory>${project.build.testSourceDirectory}</sourceDirectory>
-                        </sourceDirectories>
-                        <resourceIncludes>
-                            **/*.properties,
-                            **/*.sh,
-                            **/*.bat,
-                            **/*.yml,
-                            **/*.yaml,
-                            **/*.xml
-                        </resourceIncludes>
-                        <resourceExcludes>
-                            **/.asf.yaml,
-                            **/.github/**
-                        </resourceExcludes>
-                        <excludes>
-                        </excludes>
-                    </configuration>
-                    <executions>
-                        <execution>
-                            <id>validate</id>
-                            <phase>process-sources</phase>
-                            <goals>
-                                <goal>check</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                </plugin>
+<!--                <plugin>-->
+<!--                    <groupId>org.apache.maven.plugins</groupId>-->
+<!--                    <artifactId>maven-checkstyle-plugin</artifactId>-->
+<!--                    <version>${maven-checkstyle-plugin.version}</version>-->
+<!--                    <configuration>-->
+<!--                        &lt;!&ndash;suppress UnresolvedMavenProperty &ndash;&gt;-->
+<!--                        <configLocation>${maven.multiModuleProjectDirectory}/tools/checkstyle/checkStyle.xml-->
+<!--                        </configLocation>-->
+<!--                        <encoding>UTF-8</encoding>-->
+<!--                        <consoleOutput>true</consoleOutput>-->
+<!--                        <includeTestSourceDirectory>true</includeTestSourceDirectory>-->
+<!--                        <failOnViolation>${checkstyle.fails.on.error}</failOnViolation>-->
+<!--                        <sourceDirectories>-->
+<!--                            <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>-->
+<!--                            <sourceDirectory>${project.build.testSourceDirectory}</sourceDirectory>-->
+<!--                        </sourceDirectories>-->
+<!--                        <resourceIncludes>-->
+<!--                            **/*.properties,-->
+<!--                            **/*.sh,-->
+<!--                            **/*.bat,-->
+<!--                            **/*.yml,-->
+<!--                            **/*.yaml,-->
+<!--                            **/*.xml-->
+<!--                        </resourceIncludes>-->
+<!--                        <resourceExcludes>-->
+<!--                            **/.asf.yaml,-->
+<!--                            **/.github/**-->
+<!--                        </resourceExcludes>-->
+<!--                        <excludes>-->
+<!--                        </excludes>-->
+<!--                    </configuration>-->
+<!--                    <executions>-->
+<!--                        <execution>-->
+<!--                            <id>validate</id>-->
+<!--                            <phase>process-sources</phase>-->
+<!--                            <goals>-->
+<!--                                <goal>check</goal>-->
+<!--                            </goals>-->
+<!--                        </execution>-->
+<!--                    </executions>-->
+<!--                </plugin>-->
 
-                <plugin>
-                    <groupId>org.scalastyle</groupId>
-                    <artifactId>scalastyle-maven-plugin</artifactId>
-                    <version>${scalastyle-maven-plugin.version}</version>
-                    <configuration>
-                        <verbose>false</verbose>
-                        <failOnViolation>true</failOnViolation>
-                        <includeTestSourceDirectory>false</includeTestSourceDirectory>
-                        <failOnWarning>false</failOnWarning>
-                        <sourceDirectory>${basedir}/src/main/scala</sourceDirectory>
-                        <testSourceDirectory>${basedir}/src/test/scala</testSourceDirectory>
-                        <!--suppress UnresolvedMavenProperty -->
-                        <configLocation>
-                            ${maven.multiModuleProjectDirectory}/tools/checkstyle/scalastyle-config.xml
-                        </configLocation>
-                        <outputFile>${project.build.directory}/target/scalastyle-output.xml</outputFile>
-                        <inputEncoding>UTF-8</inputEncoding>
-                        <outputEncoding>UTF-8</outputEncoding>
-                    </configuration>
-                    <executions>
-                        <execution>
-                            <goals>
-                                <goal>check</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                </plugin>
+<!--                <plugin>-->
+<!--                    <groupId>org.scalastyle</groupId>-->
+<!--                    <artifactId>scalastyle-maven-plugin</artifactId>-->
+<!--                    <version>${scalastyle-maven-plugin.version}</version>-->
+<!--                    <configuration>-->
+<!--                        <verbose>false</verbose>-->
+<!--                        <failOnViolation>true</failOnViolation>-->
+<!--                        <includeTestSourceDirectory>false</includeTestSourceDirectory>-->
+<!--                        <failOnWarning>false</failOnWarning>-->
+<!--                        <sourceDirectory>${basedir}/src/main/scala</sourceDirectory>-->
+<!--                        <testSourceDirectory>${basedir}/src/test/scala</testSourceDirectory>-->
+<!--                        &lt;!&ndash;suppress UnresolvedMavenProperty &ndash;&gt;-->
+<!--                        <configLocation>-->
+<!--                            ${maven.multiModuleProjectDirectory}/tools/checkstyle/scalastyle-config.xml-->
+<!--                        </configLocation>-->
+<!--                        <outputFile>${project.build.directory}/target/scalastyle-output.xml</outputFile>-->
+<!--                        <inputEncoding>UTF-8</inputEncoding>-->
+<!--                        <outputEncoding>UTF-8</outputEncoding>-->
+<!--                    </configuration>-->
+<!--                    <executions>-->
+<!--                        <execution>-->
+<!--                            <goals>-->
+<!--                                <goal>check</goal>-->
+<!--                            </goals>-->
+<!--                        </execution>-->
+<!--                    </executions>-->
+<!--                </plugin>-->
 
                 <!-- checkstyle (End) -->
 
