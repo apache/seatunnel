@@ -152,12 +152,12 @@ public class JobMaster implements Runnable {
     }
 
     public Address queryTaskGroupAddress(long taskGroupId) {
-        for (Integer pipelineIndex : ownedSlotProfiles.keySet()) {
-            Optional<PhysicalVertex> currentVertex = ownedSlotProfiles.get(pipelineIndex).keySet().stream()
+        for (Integer pipelineId : ownedSlotProfiles.keySet()) {
+            Optional<PhysicalVertex> currentVertex = ownedSlotProfiles.get(pipelineId).keySet().stream()
                 .filter(physicalVertex -> physicalVertex.getTaskGroup().getTaskGroupLocation().getTaskGroupId() == taskGroupId)
                 .findFirst();
             if (currentVertex.isPresent()) {
-                return ownedSlotProfiles.get(pipelineIndex).get(currentVertex.get()).getWorker();
+                return ownedSlotProfiles.get(pipelineId).get(currentVertex.get()).getWorker();
             }
         }
         throw new IllegalArgumentException("can't find task group address from task group id: " + taskGroupId);
@@ -193,12 +193,12 @@ public class JobMaster implements Runnable {
 
     public void updateTaskExecutionState(TaskExecutionState taskExecutionState) {
         this.physicalPlan.getPipelineList().forEach(pipeline -> {
-            if (pipeline.getPipelineIndex() != taskExecutionState.getTaskGroupLocation().getPipelineId()) {
+            if (pipeline.getPipelineId() != taskExecutionState.getTaskGroupLocation().getPipelineId()) {
                 return;
             }
 
             pipeline.getCoordinatorVertexList().forEach(task -> {
-                if (task.getTaskGroupLocation().equals(taskExecutionState.getTaskGroupLocation())) {
+                if (!task.getTaskGroupLocation().equals(taskExecutionState.getTaskGroupLocation())) {
                     return;
                 }
 
@@ -206,7 +206,7 @@ public class JobMaster implements Runnable {
             });
 
             pipeline.getPhysicalVertexList().forEach(task -> {
-                if (task.getTaskGroupLocation().equals(taskExecutionState.getTaskGroupLocation())) {
+                if (!task.getTaskGroupLocation().equals(taskExecutionState.getTaskGroupLocation())) {
                     return;
                 }
 

@@ -45,7 +45,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
+import java.util.function.Consumer;
 
 /**
  * PhysicalVertex is responsible for the scheduling and execution of a single task parallel
@@ -73,7 +73,7 @@ public class PhysicalVertex {
 
     private final FlakeIdGenerator flakeIdGenerator;
 
-    private final int pipelineIndex;
+    private final int pipelineId;
 
     private final int totalPipelineNum;
 
@@ -108,7 +108,7 @@ public class PhysicalVertex {
                           int parallelism,
                           @NonNull TaskGroupDefaultImpl taskGroup,
                           @NonNull FlakeIdGenerator flakeIdGenerator,
-                          int pipelineIndex,
+                          int pipelineId,
                           int totalPipelineNum,
                           Set<URL> pluginJarsUrls,
                           @NonNull JobImmutableInformation jobImmutableInformation,
@@ -119,7 +119,7 @@ public class PhysicalVertex {
         this.parallelism = parallelism;
         this.taskGroup = taskGroup;
         this.flakeIdGenerator = flakeIdGenerator;
-        this.pipelineIndex = pipelineIndex;
+        this.pipelineId = pipelineId;
         this.totalPipelineNum = totalPipelineNum;
         this.pluginJarsUrls = pluginJarsUrls;
         this.jobImmutableInformation = jobImmutableInformation;
@@ -134,7 +134,7 @@ public class PhysicalVertex {
                 "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)]",
                 jobImmutableInformation.getJobConfig().getName(),
                 jobImmutableInformation.getJobId(),
-                pipelineIndex,
+                pipelineId,
                 totalPipelineNum,
                 taskGroup.getTaskGroupName(),
                 subTaskGroupIndex + 1,
@@ -152,7 +152,6 @@ public class PhysicalVertex {
             SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
             server.getSlotService().getSlotContext(slotProfile)
                 .getTaskExecutionService().deployTask(taskGroupImmutableInformation);
-            return null;
         });
     }
 
@@ -167,7 +166,6 @@ public class PhysicalVertex {
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-            return null;
         });
     }
 
@@ -186,12 +184,10 @@ public class PhysicalVertex {
         }
     }
 
-    private void deployInternal(
-        Function<TaskGroupImmutableInformation, PassiveCompletableFuture<TaskExecutionState>> deployMethod) {
+    private void deployInternal(Consumer<TaskGroupImmutableInformation> taskGroupConsumer) {
         TaskGroupImmutableInformation taskGroupImmutableInformation = getTaskGroupImmutableInformation();
-        PassiveCompletableFuture<TaskExecutionState> completeFuture;
         if (ExecutionState.DEPLOYING.equals(executionState.get())) {
-            deployMethod.apply(taskGroupImmutableInformation);
+            taskGroupConsumer.accept(taskGroupImmutableInformation);
             // may be canceling
             if (!updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING)) {
                 // If we found the task state turned to CANCELING after deployed to TaskExecutionService. We need

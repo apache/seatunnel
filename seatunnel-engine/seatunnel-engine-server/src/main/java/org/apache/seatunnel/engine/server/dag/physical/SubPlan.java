@@ -43,7 +43,7 @@ public class SubPlan {
 
     private final List<PhysicalVertex> coordinatorVertexList;
 
-    private final int pipelineIndex;
+    private final int pipelineId;
 
     private final int totalPipelineNum;
 
@@ -75,14 +75,14 @@ public class SubPlan {
 
     private final ExecutorService executorService;
 
-    public SubPlan(int pipelineIndex,
+    public SubPlan(int pipelineId,
                    int totalPipelineNum,
                    long initializationTimestamp,
                    @NonNull List<PhysicalVertex> physicalVertexList,
                    @NonNull List<PhysicalVertex> coordinatorVertexList,
                    @NonNull JobImmutableInformation jobImmutableInformation,
                    @NonNull ExecutorService executorService) {
-        this.pipelineIndex = pipelineIndex;
+        this.pipelineId = pipelineId;
         this.pipelineFuture = new CompletableFuture<>();
         this.totalPipelineNum = totalPipelineNum;
         this.physicalVertexList = physicalVertexList;
@@ -96,7 +96,7 @@ public class SubPlan {
             "Job %s (%s), Pipeline: [(%d/%d)]",
             jobImmutableInformation.getJobConfig().getName(),
             jobImmutableInformation.getJobId(),
-            pipelineIndex,
+            pipelineId,
             totalPipelineNum);
 
         this.executorService = executorService;
@@ -264,8 +264,8 @@ public class SubPlan {
         cancelPipeline();
     }
 
-    public int getPipelineIndex() {
-        return pipelineIndex;
+    public int getPipelineId() {
+        return pipelineId;
     }
 
     public List<PhysicalVertex> getPhysicalVertexList() {
