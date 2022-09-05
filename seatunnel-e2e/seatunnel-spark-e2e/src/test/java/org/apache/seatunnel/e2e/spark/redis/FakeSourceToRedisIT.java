@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.e2e.spark.redis;
 
-import lombok.extern.slf4j.Slf4j;
+import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
+
 import org.apache.seatunnel.e2e.spark.SparkContainer;
+
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,8 +36,6 @@ import redis.clients.jedis.Jedis;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-
-import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class FakeSourceToRedisIT extends SparkContainer {
