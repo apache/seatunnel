@@ -85,7 +85,7 @@ there are some reference value for params above.
 | postgresql | org.postgresql.Driver    | jdbc:postgresql://localhost:5432/postgres | org.postgresql.xa.PGXADataSource    | https://mvnrepository.com/artifact/org.postgresql/postgresql  |                                                             |
 | dm         | dm.jdbc.driver.DmDriver  | jdbc:dm://localhost:5236                  | dm.jdbc.driver.DmdbXADataSource     | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18  |
 
-## Example for mysql
+## Example
 Simple
 ```
 jdbc {
@@ -115,7 +115,3 @@ jdbc {
     xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
 }
 ```
-
-
-## Example for DM
-
