@@ -144,32 +144,39 @@ public class PhysicalVertex {
                 subTaskGroupIndex + 1,
                 parallelism);
         this.taskFuture = new CompletableFuture<>();
-        this.taskGroupLocation = new TaskGroupLocation(jobImmutableInformation.getJobId(), pipelineIndex, physicalVertexId);
+        this.taskGroupLocation = taskGroup.getTaskGroupLocation();
     }
 
     public PassiveCompletableFuture<TaskExecutionState> initStateFuture() {
         return new PassiveCompletableFuture<>(this.taskFuture);
     }
 
-    public void deployOnMaster() {
-        currentExecutionAddress = nodeEngine.getMasterAddress();
+    private void deployOnLocal(@NonNull SlotProfile slotProfile) {
         deployInternal(taskGroupImmutableInformation -> {
             SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
-            return new PassiveCompletableFuture<>(server.getTaskExecutionService()
-                .deployTask(taskGroupImmutableInformation));
+            return new PassiveCompletableFuture<>(server.getSlotService().getSlotContext(slotProfile)
+                .getTaskExecutionService().deployTask(taskGroupImmutableInformation));
         });
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
-    // This method must not throw an exception
-    public void deploy(@NonNull SlotProfile slotProfile) {
-        currentExecutionAddress = slotProfile.getWorker();
+    private void deployOnRemote(@NonNull SlotProfile slotProfile) {
         deployInternal(taskGroupImmutableInformation -> new PassiveCompletableFuture<>(
             nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
                     new DeployTaskOperation(slotProfile,
                         nodeEngine.getSerializationService().toData(taskGroupImmutableInformation)),
                     slotProfile.getWorker())
                 .invoke()));
+    }
+
+    @SuppressWarnings("checkstyle:MagicNumber")
+    // This method must not throw an exception
+    public void deploy(@NonNull SlotProfile slotProfile) {
+        currentExecutionAddress = slotProfile.getWorker();
+        if (slotProfile.getWorker().equals(nodeEngine.getThisAddress())) {
+            deployOnLocal(slotProfile);
+        } else {
+            deployOnRemote(slotProfile);
+        }
     }
 
     private void deployInternal(Function<TaskGroupImmutableInformation, PassiveCompletableFuture<TaskExecutionState>> deployMethod) {

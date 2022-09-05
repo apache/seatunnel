@@ -27,15 +27,19 @@ import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
+import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkPrepareCommitOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkUnregisterOperation;
 import org.apache.seatunnel.engine.server.task.record.ClosedSign;
 
+import com.hazelcast.cluster.Address;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>>, InternalCheckpointListener {
 
@@ -53,18 +57,20 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
 
     private final TaskLocation taskLocation;
 
-    private final TaskLocation committerTaskID;
+    private Address committerTaskAddress;
+
+    private final TaskLocation committerTaskLocation;
 
     private final boolean containCommitter;
 
     public SinkFlowLifeCycle(SinkAction<T, StateT, ?, ?> sinkAction, TaskLocation taskLocation, int indexID,
-                             SeaTunnelTask runningTask, TaskLocation committerTaskID,
+                             SeaTunnelTask runningTask, TaskLocation committerTaskLocation,
                              boolean containCommitter, CompletableFuture<Void> completableFuture) {
         super(runningTask, completableFuture);
         this.sinkAction = sinkAction;
         this.indexID = indexID;
         this.taskLocation = taskLocation;
-        this.committerTaskID = committerTaskID;
+        this.committerTaskLocation = committerTaskLocation;
         this.containCommitter = containCommitter;
     }
 
@@ -78,7 +84,15 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
         this.writerStateSerializer = sinkAction.getSink().getWriterStateSerializer();
         this.protoStuffSerializer = new ProtoStuffSerializer();
         states = null;
+        if (containCommitter) {
+            committerTaskAddress = getCommitterTaskAddress();
+        }
         registerCommitter();
+    }
+
+    private Address getCommitterTaskAddress() throws ExecutionException, InterruptedException {
+        return (Address) runningTask.getExecutionContext()
+            .sendToMaster(new GetTaskGroupAddressOperation(committerTaskLocation)).get();
     }
 
     @Override
@@ -86,15 +100,15 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
         super.close();
         writer.close();
         if (containCommitter) {
-            runningTask.getExecutionContext().sendToMaster(new SinkUnregisterOperation(taskLocation,
-                    committerTaskID)).join();
+            runningTask.getExecutionContext().sendToMember(new SinkUnregisterOperation(taskLocation,
+                committerTaskLocation), committerTaskAddress).join();
         }
     }
 
     private void registerCommitter() {
         if (containCommitter) {
-            runningTask.getExecutionContext().sendToMaster(new SinkRegisterOperation(taskLocation,
-                    committerTaskID)).join();
+            runningTask.getExecutionContext().sendToMember(new SinkRegisterOperation(taskLocation,
+                committerTaskLocation), committerTaskAddress).join();
         }
     }
 

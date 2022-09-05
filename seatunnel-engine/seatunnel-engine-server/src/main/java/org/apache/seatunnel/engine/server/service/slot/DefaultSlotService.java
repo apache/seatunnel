@@ -134,8 +134,11 @@ public class DefaultSlotService implements SlotService {
         return new SlotAndWorkerProfile(toWorkerProfile(), profile);
     }
 
-    public SlotContext getSlotContext(int slotID) {
-        return contexts.get(slotID);
+    public SlotContext getSlotContext(SlotProfile slotProfile) {
+        if (!contexts.containsKey(slotProfile.getSlotID())) {
+            throw new WrongTargetSlotException("Unknown slot in slot service, slot profile: " + slotProfile);
+        }
+        return contexts.get(slotProfile.getSlotID());
     }
 
     @Override
