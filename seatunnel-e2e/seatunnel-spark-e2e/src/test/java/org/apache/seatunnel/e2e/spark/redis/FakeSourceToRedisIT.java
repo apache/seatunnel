@@ -17,14 +17,52 @@
 
 package org.apache.seatunnel.e2e.spark.redis;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.e2e.spark.SparkContainer;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.shaded.com.google.common.collect.Lists;
+import redis.clients.jedis.Jedis;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
+import static org.awaitility.Awaitility.given;
+
+@Slf4j
 public class FakeSourceToRedisIT extends SparkContainer {
+    private static final String REDIS_IMAGE = "redis:latest";
+    private static final String REDIS_CONTAINER_HOST = "spark_e2e_redis";
+    private static final String REDIS_HOST = "localhost";
+    private static final int REDIS_PORT = 6379;
+    private GenericContainer<?> redisContainer;
+    private Jedis jedis;
+
+    @BeforeEach
+    public void startRedisContainer() {
+        redisContainer = new GenericContainer<>(REDIS_IMAGE)
+                .withNetwork(NETWORK)
+                .withNetworkAliases(REDIS_CONTAINER_HOST)
+                .withLogConsumer(new Slf4jLogConsumer(log));
+        redisContainer.setPortBindings(Lists.newArrayList(String.format("%s:%s", REDIS_PORT, REDIS_PORT)));
+        Startables.deepStart(Stream.of(redisContainer)).join();
+        log.info("Redis container started");
+        given().ignoreExceptions()
+                .await()
+                .atMost(180, TimeUnit.SECONDS)
+                .untilAsserted(this::initJedis);
+    }
+
+    private void initJedis() {
+        jedis = new Jedis(REDIS_HOST, REDIS_PORT);
+    }
 
     @Test
     public void testFakeSourceToRedisSink() throws IOException, InterruptedException {
@@ -32,4 +70,10 @@ public class FakeSourceToRedisIT extends SparkContainer {
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
+    @AfterEach
+    public void close() {
+        super.close();
+        jedis.close();
+        redisContainer.close();
+    }
 }
