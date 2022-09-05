@@ -19,4 +19,6 @@ package org.apache.seatunnel.engine.server.scheduler;
 
 public interface JobScheduler {
     void startScheduling();
+
+    void reSchedulerPipeline(int pipelineId);
 }

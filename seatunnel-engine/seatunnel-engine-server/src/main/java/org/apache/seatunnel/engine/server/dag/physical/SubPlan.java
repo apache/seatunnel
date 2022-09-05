@@ -108,7 +108,7 @@ public class SubPlan {
         return new PassiveCompletableFuture<>(pipelineFuture);
     }
 
-    private void addPhysicalVertexCallBack(CompletableFuture<TaskExecutionState> future) {
+    private void addPhysicalVertexCallBack(PassiveCompletableFuture<TaskExecutionState> future) {
         future.whenComplete((v, t) -> {
             // We need not handle t, Because we will not return t from PhysicalVertex
             if (ExecutionState.CANCELED.equals(v.getExecutionState())) {
@@ -162,6 +162,17 @@ public class SubPlan {
 
         pipelineState.set(endState);
         stateTimestamps[endState.ordinal()] = System.currentTimeMillis();
+    }
+
+    private void resetPipelineState() {
+        if (!pipelineState.get().isEndState()) {
+            String message = "Only end state can be reset";
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+
+        pipelineState.set(PipelineState.CREATED);
+        stateTimestamps[PipelineState.CREATED.ordinal()] = System.currentTimeMillis();
     }
 
     public boolean updatePipelineState(@NonNull PipelineState current, @NonNull PipelineState targetState) {
@@ -256,6 +267,24 @@ public class SubPlan {
     public void failedWithNoEnoughResource() {
         LOGGER.severe(String.format("%s failed with have no enough resource to run.", this.getPipelineFullName()));
         cancelPipeline();
+    }
+
+    /**
+     * Before restore a pipeline, the pipeline must do reset
+     */
+    public void reset() {
+        resetPipelineState();
+        finishedTaskNum.set(0);
+        canceledTaskNum.set(0);
+        failedTaskNum.set(0);
+
+        coordinatorVertexList.forEach(coordinate -> {
+            coordinate.reset();
+        });
+
+        physicalVertexList.forEach(task -> {
+            task.reset();
+        });
     }
 
     public int getPipelineIndex() {

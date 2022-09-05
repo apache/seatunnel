@@ -364,6 +364,20 @@ public class PhysicalVertex {
         }
     }
 
+    private void resetExecutionState() {
+        if (!executionState.get().isEndState()) {
+            String message = "Only end state can be reset";
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+        executionState.set(ExecutionState.CREATED);
+        stateTimestamps[ExecutionState.CREATED.ordinal()] = System.currentTimeMillis();
+    }
+
+    public void reset() {
+        resetExecutionState();
+    }
+
     public AtomicReference<ExecutionState> getExecutionState() {
         return executionState;
     }

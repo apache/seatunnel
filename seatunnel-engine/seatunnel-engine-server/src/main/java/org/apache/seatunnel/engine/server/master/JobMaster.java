@@ -69,14 +69,17 @@ public class JobMaster implements Runnable {
 
     private JobImmutableInformation jobImmutableInformation;
 
+    private JobScheduler jobScheduler;
+
     public JobMaster(@NonNull Data jobImmutableInformationData,
                      @NonNull NodeEngine nodeEngine,
-                     @NonNull ExecutorService executorService, @NonNull ResourceManager resourceManager) {
+                     @NonNull ExecutorService executorService,
+                     @NonNull ResourceManager resourceManager) {
         this.jobImmutableInformationData = jobImmutableInformationData;
         this.nodeEngine = nodeEngine;
         this.executorService = executorService;
         flakeIdGenerator =
-                this.nodeEngine.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME);
+            this.nodeEngine.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME);
 
         this.resourceManager = resourceManager;
     }
@@ -116,6 +119,8 @@ public class JobMaster implements Runnable {
     @Override
     public void run() {
         try {
+            physicalPlan.initJobMaster(this);
+
             PassiveCompletableFuture<JobStatus> jobStatusPassiveCompletableFuture =
                 physicalPlan.getJobEndCompletableFuture();
 
@@ -128,7 +133,7 @@ public class JobMaster implements Runnable {
                 jobMasterCompleteFuture.complete(physicalPlan.getJobStatus());
             });
 
-            JobScheduler jobScheduler = new PipelineBaseScheduler(physicalPlan, this);
+            jobScheduler = new PipelineBaseScheduler(physicalPlan, this);
             jobScheduler.startScheduling();
         } catch (Throwable e) {
             LOGGER.severe(String.format("Job %s (%s) run error with: %s",
@@ -142,11 +147,28 @@ public class JobMaster implements Runnable {
         }
     }
 
+    public void handleCheckpointTimeout(long pipelineId) {
+        this.physicalPlan.getPipelineList().forEach(pipeline -> {
+            if (pipeline.getPipelineIndex() == pipelineId) {
+                pipeline.cancelPipeline();
+            }
+        });
+    }
+
+    public void reSchedulerPipeline(int pipelineIndex) {
+        jobScheduler.reSchedulerPipeline(pipelineIndex);
+    }
+
+    public void releasePipelineResource(int pipelineIndex) {
+        // TODO release pipeline resource
+    }
+
     public void cleanJob() {
         // TODO Add some job clean operation
     }
 
     public void cancelJob() {
+        physicalPlan.neverNeedRestore();
         this.physicalPlan.cancelJob();
     }
 

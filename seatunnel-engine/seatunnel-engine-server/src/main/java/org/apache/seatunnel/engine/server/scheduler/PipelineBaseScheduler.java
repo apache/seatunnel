@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.scheduler;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.exception.JobNoEnoughResourceException;
 import org.apache.seatunnel.engine.core.job.JobStatus;
@@ -31,7 +32,6 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
-import com.google.common.collect.Lists;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.NonNull;
@@ -63,25 +63,9 @@ public class PipelineBaseScheduler implements JobScheduler {
     @Override
     public void startScheduling() {
         if (physicalPlan.turnToRunning()) {
-            List<CompletableFuture<Object>> collect = physicalPlan.getPipelineList().stream().map(pipeline -> {
-                if (!pipeline.updatePipelineState(PipelineState.CREATED, PipelineState.SCHEDULED)) {
-                    handlePipelineStateUpdateError(pipeline, PipelineState.SCHEDULED);
-                    return null;
-                }
-                Map<PhysicalVertex, SlotProfile> slotProfiles;
-                try {
-                    slotProfiles = applyResourceForPipeline(pipeline);
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-                pipeline.whenComplete((state, error) -> releasePipelineResource(Lists.newArrayList(slotProfiles.values())));
-                // deploy pipeline
-                return CompletableFuture.supplyAsync(() -> {
-                    // TODO before deploy should check slotProfiles is exist, because it maybe can't use when retry.
-                    deployPipeline(pipeline, slotProfiles);
-                    return null;
-                });
-            }).filter(Objects::nonNull).collect(Collectors.toList());
+            List<CompletableFuture<Object>> collect =
+                physicalPlan.getPipelineList().stream().map(pipeline -> schedulerPipeline(pipeline))
+                    .filter(Objects::nonNull).collect(Collectors.toList());
             try {
                 CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
                     collect.toArray(new CompletableFuture[0]));
@@ -97,11 +81,23 @@ public class PipelineBaseScheduler implements JobScheduler {
         }
     }
 
-    private void releasePipelineResource(List<SlotProfile> slotProfiles) {
-        if (null == slotProfiles || slotProfiles.isEmpty()) {
-            return;
+    private CompletableFuture<Object> schedulerPipeline(SubPlan pipeline) {
+        if (!pipeline.updatePipelineState(PipelineState.CREATED, PipelineState.SCHEDULED)) {
+            handlePipelineStateUpdateError(pipeline, PipelineState.SCHEDULED);
+            return null;
         }
-        resourceManager.releaseResources(jobId, slotProfiles).join();
+        Map<PhysicalVertex, SlotProfile> slotProfiles;
+        try {
+            slotProfiles = applyResourceForPipeline(pipeline);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        // deploy pipeline
+        return CompletableFuture.supplyAsync(() -> {
+            // TODO before deploy should check slotProfiles is exist, because it maybe can't use when retry.
+            deployPipeline(pipeline, slotProfiles);
+            return null;
+        });
     }
 
     private Map<PhysicalVertex, SlotProfile> applyResourceForPipeline(@NonNull SubPlan subPlan) throws Exception {
@@ -201,5 +197,23 @@ public class PipelineBaseScheduler implements JobScheduler {
             throw new JobException(String.format("%s turn to a unexpected state: %s, stop scheduler job.",
                 task.getTaskFullName(), task.getExecutionState().get()));
         }
+    }
+
+    @Override
+    public void reSchedulerPipeline(int pipelineId) {
+        physicalPlan.getPipelineList().forEach(pipeline -> {
+            if (pipelineId != pipeline.getPipelineIndex()) {
+                return;
+            }
+
+            CompletableFuture<Object> schedulerPipelineFuture = schedulerPipeline(pipeline);
+            try {
+                schedulerPipelineFuture.get();
+            } catch (Exception e) {
+                LOGGER.severe(String.format("%s restore failed with Exception: %s", pipeline.getPipelineFullName(),
+                    ExceptionUtils.getMessage(e)));
+                throw new RuntimeException(e);
+            }
+        });
     }
 }

@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineState;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
@@ -51,6 +52,11 @@ public class PhysicalPlan {
     private final JobImmutableInformation jobImmutableInformation;
 
     /**
+     * If the job or pipeline cancel by user, needRestore will be false
+     **/
+    private volatile boolean needRestore = true;
+
+    /**
      * Timestamps (in milliseconds as returned by {@code System.currentTimeMillis()} when the
      * execution graph transitioned into a certain state. The index into this array is the ordinal
      * of the enum value, i.e. the timestamp when the graph went into state "RUNNING" is at {@code
@@ -67,6 +73,8 @@ public class PhysicalPlan {
     private final ExecutorService executorService;
 
     private final String jobFullName;
+
+    private JobMaster jobMaster;
 
     public PhysicalPlan(@NonNull List<SubPlan> pipelineList,
                         @NonNull ExecutorService executorService,
@@ -87,35 +95,51 @@ public class PhysicalPlan {
             jobImmutableInformation.getJobId());
     }
 
-    public void initStateFuture() {
-        pipelineList.forEach(subPlan -> {
-            PassiveCompletableFuture<PipelineState> future = subPlan.initStateFuture();
-            future.whenComplete((v, t) -> {
-                // We need not handle t, Because we will not return t from Pipeline
-                if (PipelineState.CANCELED.equals(v)) {
-                    canceledPipelineNum.incrementAndGet();
-                } else if (PipelineState.FAILED.equals(v)) {
-                    LOGGER.severe("Pipeline Failed, Begin to cancel other pipelines in this job.");
-                    failedPipelineNum.incrementAndGet();
-                    cancelJob();
-                } else if (!PipelineState.FINISHED.equals(v)) {
-                    LOGGER.severe(
-                        "Pipeline Failed with Unknown PipelineState, Begin to cancel other pipelines in this job.");
-                    failedPipelineNum.incrementAndGet();
-                    cancelJob();
-                }
+    public void initJobMaster(JobMaster jobMaster) {
+        this.jobMaster = jobMaster;
+    }
 
-                if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
-                    if (failedPipelineNum.get() > 0) {
-                        updateJobState(JobStatus.FAILING);
-                    } else if (canceledPipelineNum.get() > 0) {
-                        turnToEndState(JobStatus.CANCELED);
-                    } else {
-                        turnToEndState(JobStatus.FINISHED);
-                    }
-                    jobEndFuture.complete(jobStatus.get());
+    public void initStateFuture() {
+        pipelineList.forEach(subPlan -> addPipelineEndCallback(subPlan));
+    }
+
+    private void addPipelineEndCallback(SubPlan subPlan) {
+        PassiveCompletableFuture<PipelineState> future = subPlan.initStateFuture();
+        future.whenComplete((v, t) -> {
+            // We need not handle t, Because we will not return t from Pipeline
+            if (PipelineState.CANCELED.equals(v)) {
+                if (needRestore) {
+                    restorePipeline(subPlan);
+                    return;
                 }
-            });
+                jobMaster.releasePipelineResource(subPlan.getPipelineIndex());
+                canceledPipelineNum.incrementAndGet();
+            } else if (PipelineState.FAILED.equals(v)) {
+                if (needRestore) {
+                    restorePipeline(subPlan);
+                    return;
+                }
+                jobMaster.releasePipelineResource(subPlan.getPipelineIndex());
+                LOGGER.severe("Pipeline Failed, Begin to cancel other pipelines in this job.");
+                failedPipelineNum.incrementAndGet();
+                cancelJob();
+            } else if (!PipelineState.FINISHED.equals(v)) { // this will be remove in next pr
+                LOGGER.severe(
+                    "Pipeline Failed with Unknown PipelineState, Begin to cancel other pipelines in this job.");
+                failedPipelineNum.incrementAndGet();
+                cancelJob();
+            }
+
+            if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
+                if (failedPipelineNum.get() > 0) {
+                    updateJobState(JobStatus.FAILING);
+                } else if (canceledPipelineNum.get() > 0) {
+                    turnToEndState(JobStatus.CANCELED);
+                } else {
+                    turnToEndState(JobStatus.FINISHED);
+                }
+                jobEndFuture.complete(jobStatus.get());
+            }
         });
     }
 
@@ -207,6 +231,12 @@ public class PhysicalPlan {
         }
     }
 
+    private void restorePipeline(SubPlan subPlan) {
+        subPlan.reset();
+        addPipelineEndCallback(subPlan);
+        jobMaster.reSchedulerPipeline(subPlan.getPipelineIndex());
+    }
+
     public PassiveCompletableFuture<JobStatus> getJobEndCompletableFuture() {
         return new PassiveCompletableFuture<>(jobEndFuture);
     }
@@ -221,5 +251,9 @@ public class PhysicalPlan {
 
     public String getJobFullName() {
         return jobFullName;
+    }
+
+    public void neverNeedRestore() {
+        this.needRestore = false;
     }
 }
