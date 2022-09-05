@@ -97,8 +97,8 @@ public abstract class SparkContainer {
         // Running IT use cases under Windows requires replacing \ with /
         String conf = targetConfInContainer.replaceAll("\\\\", "/");
         final List<String> command = new ArrayList<>();
-        String sparkSh = Paths.get(SEATUNNEL_HOME, "bin", SEATUNNEL_SPARK_BIN).toString();
-        command.add(sparkSh.replaceAll("\\\\", "/"));
+        String sparkBinPath = Paths.get(SEATUNNEL_HOME, "bin", SEATUNNEL_SPARK_BIN).toString();
+        command.add(sparkBinPath.replaceAll("\\\\", "/"));
         command.add("--master");
         command.add("local");
         command.add("--deploy-mode");
