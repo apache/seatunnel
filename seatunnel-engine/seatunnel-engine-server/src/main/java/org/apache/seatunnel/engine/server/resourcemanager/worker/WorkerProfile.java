@@ -31,8 +31,6 @@ import java.io.Serializable;
 @Data
 public class WorkerProfile implements Serializable {
 
-    private final String workerID;
-
     private final Address address;
 
     private ResourceProfile profile;
@@ -43,8 +41,7 @@ public class WorkerProfile implements Serializable {
 
     private SlotProfile[] unassignedSlots;
 
-    public WorkerProfile(String workerID, Address address) {
-        this.workerID = workerID;
+    public WorkerProfile(Address address) {
         this.address = address;
         this.unassignedResource = new ResourceProfile();
     }
