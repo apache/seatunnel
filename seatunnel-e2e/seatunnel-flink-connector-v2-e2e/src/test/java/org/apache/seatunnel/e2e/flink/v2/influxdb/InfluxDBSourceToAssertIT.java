@@ -102,7 +102,7 @@ public class InfluxDBSourceToAssertIT extends FlinkContainer {
     }
 
     @AfterEach
-    public void closeIoTDBContainer() {
+    public void closeInfluxDBContainer() {
         if (influxDBServer != null) {
             influxDBServer.stop();
         }
