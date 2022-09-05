@@ -19,19 +19,23 @@ package org.apache.seatunnel.engine.server.resourcemanager.worker;
 
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.serializable.ResourceDataSerializerHook;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import lombok.Data;
 
-import java.io.Serializable;
+import java.io.IOException;
 
 /**
  * Used to describe the status of the current Worker, including address and resource assign status
  */
 @Data
-public class WorkerProfile implements Serializable {
+public class WorkerProfile implements IdentifiedDataSerializable {
 
-    private final Address address;
+    private Address address;
 
     private ResourceProfile profile;
 
@@ -44,5 +48,54 @@ public class WorkerProfile implements Serializable {
     public WorkerProfile(Address address) {
         this.address = address;
         this.unassignedResource = new ResourceProfile();
+    }
+
+    public WorkerProfile() {
+        address = new Address();
+    }
+
+    @Override
+    public int getFactoryId() {
+        return ResourceDataSerializerHook.FACTORY_ID;
+    }
+
+    @Override
+    public int getClassId() {
+        return ResourceDataSerializerHook.WORKER_PROFILE_TYPE;
+    }
+
+    @Override
+    public void writeData(ObjectDataOutput out) throws IOException {
+        address.writeData(out);
+        out.writeObject(profile);
+        out.writeObject(unassignedResource);
+        out.writeInt(assignedSlots.length);
+        for (SlotProfile assignedSlot : assignedSlots) {
+            assignedSlot.writeData(out);
+        }
+        out.writeInt(unassignedSlots.length);
+        for (SlotProfile unassignedSlot : unassignedSlots) {
+            unassignedSlot.writeData(out);
+        }
+        out.writeObject(unassignedSlots);
+    }
+
+    @Override
+    public void readData(ObjectDataInput in) throws IOException {
+        address.readData(in);
+        profile = in.readObject();
+        unassignedResource = in.readObject();
+        int assignedSlotsLength = in.readInt();
+        assignedSlots = new SlotProfile[assignedSlotsLength];
+        for (int i = 0; i < assignedSlots.length; i++) {
+            assignedSlots[i] = new SlotProfile();
+            assignedSlots[i].readData(in);
+        }
+        int unassignedSlotsLength = in.readInt();
+        unassignedSlots = new SlotProfile[unassignedSlotsLength];
+        for (int i = 0; i < unassignedSlots.length; i++) {
+            unassignedSlots[i] = new SlotProfile();
+            unassignedSlots[i].readData(in);
+        }
     }
 }
