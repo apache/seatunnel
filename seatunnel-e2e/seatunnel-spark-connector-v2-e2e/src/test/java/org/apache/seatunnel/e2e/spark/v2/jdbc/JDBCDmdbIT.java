@@ -59,18 +59,18 @@ public class JDBCDmdbIT extends SparkContainer {
     private static final String DATABASE = "SYSDBA";
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SINK_TABLE = "e2e_table_sink";
-    private GenericContainer<?> DM_SERVER;
+    private GenericContainer<?> dmServer;
     private Connection jdbcConnection;
 
     @BeforeEach
     public void beforeAllForDM() {
         try {
-            DM_SERVER = new GenericContainer<>(DM_DOCKER_IMAGE)
+            dmServer = new GenericContainer<>(DM_DOCKER_IMAGE)
                 .withNetwork(NETWORK)
                 .withNetworkAliases(HOST)
                 .withLogConsumer(new Slf4jLogConsumer(log));
-            DM_SERVER.setPortBindings(Lists.newArrayList("5236:5236"));
-            Startables.deepStart(Stream.of(DM_SERVER)).join();
+            dmServer.setPortBindings(Lists.newArrayList("5236:5236"));
+            Startables.deepStart(Stream.of(dmServer)).join();
             log.info("dm container started");
             Class.forName(DRIVER_CLASS);
             given().ignoreExceptions()
