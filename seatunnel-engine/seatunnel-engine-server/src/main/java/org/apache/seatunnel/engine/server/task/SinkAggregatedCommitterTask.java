@@ -84,8 +84,7 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
         super(jobID, taskID);
         this.sink = sink;
         this.aggregatedCommitter = aggregatedCommitter;
-        // TODO: DAG error
-        this.maxWriterSize = 1;
+        this.maxWriterSize = sink.getParallelism();
     }
 
     @Override
