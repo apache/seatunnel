@@ -26,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.BatchPoints;
 import org.influxdb.dto.Point;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,7 +43,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
-public class InfluxDBSourceToConsoleIT extends FlinkContainer {
+public class InfluxDBSourceToAssertIT extends FlinkContainer {
 
     private static final String INFLUXDB_DOCKER_IMAGE = "influxdb:1.8";
     private static final String INFLUXDB_CONTAINER_HOST = "influxdb-host";
@@ -74,7 +75,7 @@ public class InfluxDBSourceToConsoleIT extends FlinkContainer {
 
     @Test
     public void testInfluxDBSource() throws IOException, InterruptedException, SQLException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/influxdb/influxdb_source_to_console.conf");
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/influxdb/influxdb_source_to_assert.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -98,5 +99,12 @@ public class InfluxDBSourceToConsoleIT extends FlinkContainer {
             batchPoints.point(point);
         }
         influxDB.write(batchPoints);
+    }
+
+    @AfterEach
+    public void closeIoTDBContainer() {
+        if (influxDBServer != null) {
+            influxDBServer.stop();
+        }
     }
 }
