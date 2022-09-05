@@ -19,8 +19,11 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
@@ -225,7 +228,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
             return new PassiveCompletableFuture<>(CompletableFuture.supplyAsync(() -> {
                 runningJobMaster.cancelJob();
                 return null;
-            }));
+            }, executorService));
         }
     }
 
@@ -236,5 +239,17 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
             return JobStatus.FINISHED;
         }
         return runningJobMaster.getJobStatus();
+    }
+
+    /**
+     * When TaskGroup ends, it is called by {@link TaskExecutionService} to notify JobMaster the TaskGroup's state.
+     */
+    public void updateTaskExecutionState(TaskExecutionState taskExecutionState) {
+        TaskGroupLocation taskGroupLocation = taskExecutionState.getTaskGroupLocation();
+        JobMaster runningJobMaster = runningJobMasterMap.get(taskGroupLocation.getJobId());
+        if (runningJobMaster == null) {
+            throw new JobException(String.format("Job %s not running", taskGroupLocation.getJobId()));
+        }
+        runningJobMaster.updateTaskExecutionState(taskExecutionState);
     }
 }

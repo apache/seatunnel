@@ -30,6 +30,7 @@ import lombok.NonNull;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
@@ -42,7 +43,7 @@ public class SubPlan {
 
     private final List<PhysicalVertex> coordinatorVertexList;
 
-    private final int pipelineIndex;
+    private final int pipelineId;
 
     private final int totalPipelineNum;
 
@@ -72,13 +73,16 @@ public class SubPlan {
      */
     private final CompletableFuture<PipelineState> pipelineFuture;
 
-    public SubPlan(int pipelineIndex,
+    private final ExecutorService executorService;
+
+    public SubPlan(int pipelineId,
                    int totalPipelineNum,
                    long initializationTimestamp,
                    @NonNull List<PhysicalVertex> physicalVertexList,
                    @NonNull List<PhysicalVertex> coordinatorVertexList,
-                   @NonNull JobImmutableInformation jobImmutableInformation) {
-        this.pipelineIndex = pipelineIndex;
+                   @NonNull JobImmutableInformation jobImmutableInformation,
+                   @NonNull ExecutorService executorService) {
+        this.pipelineId = pipelineId;
         this.pipelineFuture = new CompletableFuture<>();
         this.totalPipelineNum = totalPipelineNum;
         this.physicalVertexList = physicalVertexList;
@@ -92,8 +96,10 @@ public class SubPlan {
             "Job %s (%s), Pipeline: [(%d/%d)]",
             jobImmutableInformation.getJobConfig().getName(),
             jobImmutableInformation.getJobId(),
-            pipelineIndex,
+            pipelineId,
             totalPipelineNum);
+
+        this.executorService = executorService;
     }
 
     public PassiveCompletableFuture<PipelineState> initStateFuture() {
@@ -247,7 +253,7 @@ public class SubPlan {
             CompletableFuture<Void> future = CompletableFuture.supplyAsync(() -> {
                 task.cancel();
                 return null;
-            });
+            }, executorService);
             return future;
         }
         return null;
@@ -258,8 +264,8 @@ public class SubPlan {
         cancelPipeline();
     }
 
-    public int getPipelineIndex() {
-        return pipelineIndex;
+    public int getPipelineId() {
+        return pipelineId;
     }
 
     public List<PhysicalVertex> getPhysicalVertexList() {
