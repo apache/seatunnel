@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
-import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
-
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.core.starter.config.EngineType;
@@ -34,16 +32,12 @@ import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Used to execute a SeaTunnelTask.
@@ -51,7 +45,6 @@ import java.util.stream.Stream;
 public class FlinkExecution implements TaskExecution {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FlinkExecution.class);
-    private static final int PLUGIN_LIB_DIR_DEPTH = 3;
 
     private final Config config;
     private final FlinkEnvironment flinkEnvironment;
@@ -66,7 +59,16 @@ public class FlinkExecution implements TaskExecution {
         this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(flinkEnvironment, config.getConfigList("source"));
         this.transformPluginExecuteProcessor = new TransformExecuteProcessor(flinkEnvironment, config.getConfigList("transform"));
         this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(flinkEnvironment, config.getConfigList("sink"));
-        List<URL> pluginsJarDependencies = getPluginsJarDependencies();
+        List<URL> pluginsJarDependencies = Common.getPluginsJarDependencies().stream()
+            .map(Path::toUri)
+            .map(uri -> {
+                try {
+                    return uri.toURL();
+                } catch (MalformedURLException e) {
+                    throw new RuntimeException("the uri of jar illegal:" + uri, e);
+                }
+            })
+            .collect(Collectors.toList());
         flinkEnvironment.registerPlugin(pluginsJarDependencies);
     }
 
@@ -82,33 +84,6 @@ public class FlinkExecution implements TaskExecution {
             flinkEnvironment.getStreamExecutionEnvironment().execute(flinkEnvironment.getJobName());
         } catch (Exception e) {
             throw new TaskExecuteException("Execute Flink job error", e);
-        }
-    }
-
-    /**
-     * return plugin's dependent jars, which located in 'plugins/${pluginName}/lib/*'.
-     */
-    private List<URL> getPluginsJarDependencies() {
-        Path pluginRootDir = Common.pluginRootDir();
-        if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
-            return Collections.emptyList();
-        }
-        try (Stream<Path> stream = Files.walk(pluginRootDir, PLUGIN_LIB_DIR_DEPTH, FOLLOW_LINKS)) {
-            return stream
-                .filter(it -> pluginRootDir.relativize(it).getNameCount() == PLUGIN_LIB_DIR_DEPTH)
-                .filter(it -> it.getParent().endsWith("lib"))
-                .filter(it -> it.getFileName().toString().endsWith(".jar"))
-                .map(Path::toUri)
-                .map(pluginJar -> {
-                    try {
-                        return pluginJar.toURL();
-                    } catch (MalformedURLException e) {
-                        throw new RuntimeException("the plugin jar URL is illegal: " + pluginJar, e);
-                    }
-                })
-                .collect(Collectors.toList());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
     }
 

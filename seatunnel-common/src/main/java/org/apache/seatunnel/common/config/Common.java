@@ -17,10 +17,18 @@
 
 package org.apache.seatunnel.common.config;
 
+import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
+
 import java.io.File;
+import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class Common {
 
@@ -32,6 +40,9 @@ public class Common {
      * Used to set the size when create a new collection(just to pass the checkstyle).
      */
     public static final int COLLECTION_SIZE = 16;
+
+
+    private static final int PLUGIN_LIB_DIR_DEPTH = 3;
 
     private static DeployMode MODE;
 
@@ -130,6 +141,25 @@ public class Common {
      */
     public static Path pluginLibDir(String pluginName) {
         return Paths.get(pluginDir(pluginName).toString(), "lib");
+    }
+
+    /**
+     * return plugin's dependent jars, which located in 'plugins/${pluginName}/lib/*'.
+     */
+    public static List<Path> getPluginsJarDependencies(){
+        Path pluginRootDir = Common.pluginRootDir();
+        if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
+            return Collections.emptyList();
+        }
+        try (Stream<Path> stream = Files.walk(pluginRootDir, PLUGIN_LIB_DIR_DEPTH, FOLLOW_LINKS)) {
+            return stream
+                .filter(it -> pluginRootDir.relativize(it).getNameCount() == PLUGIN_LIB_DIR_DEPTH)
+                .filter(it -> it.getParent().endsWith("lib"))
+                .filter(it -> it.getFileName().toString().endsWith(".jar"))
+                .collect(Collectors.toList());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
 }
