@@ -64,6 +64,7 @@ public class RedisIT extends SparkContainer {
 
     private void initJedis() {
         jedis = new Jedis(REDIS_HOST, REDIS_PORT);
+        jedis.connect();
     }
 
     private void generateTestData() {
