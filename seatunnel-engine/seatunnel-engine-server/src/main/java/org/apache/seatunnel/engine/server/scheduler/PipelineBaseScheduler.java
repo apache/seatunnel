@@ -72,7 +72,7 @@ public class PipelineBaseScheduler implements JobScheduler {
                 Map<PhysicalVertex, SlotProfile> slotProfiles;
                 try {
                     slotProfiles = applyResourceForPipeline(pipeline);
-                    ownedSlotProfiles.put(pipeline.getPipelineIndex(), slotProfiles);
+                    ownedSlotProfiles.put(pipeline.getPipelineId(), slotProfiles);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }

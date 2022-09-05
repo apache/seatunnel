@@ -59,7 +59,7 @@ public class SinkRegisterOperation extends Operation implements IdentifiedDataSe
                 task = server.getTaskExecutionService().getTask(committerTaskID);
                 break;
             } catch (NullPointerException e) {
-                LOGGER.warning("can't get committer task , waiting task started");
+                LOGGER.warning("can't get committer task , waiting task started, retry " + i);
                 Thread.sleep(RETRY_INTERVAL);
             }
         }

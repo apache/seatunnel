@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.operation;
 
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.operation.AsyncOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
@@ -27,11 +25,13 @@ import com.hazelcast.internal.nio.IOUtil;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import com.hazelcast.spi.impl.operationservice.Operation;
 import lombok.NonNull;
 
 import java.io.IOException;
 
-public class DeployTaskOperation extends AsyncOperation {
+public class DeployTaskOperation extends Operation implements IdentifiedDataSerializable {
     private Data taskImmutableInformation;
     private SlotProfile slotProfile;
 
@@ -44,10 +44,15 @@ public class DeployTaskOperation extends AsyncOperation {
     }
 
     @Override
-    protected PassiveCompletableFuture<?> doRun() throws Exception {
+    public void run() throws Exception {
         SeaTunnelServer server = getService();
-        return server.getSlotService().getSlotContext(slotProfile)
+        server.getSlotService().getSlotContext(slotProfile)
             .getTaskExecutionService().deployTask(taskImmutableInformation);
+    }
+
+    @Override
+    public int getFactoryId() {
+        return TaskDataSerializerHook.FACTORY_ID;
     }
 
     @Override
