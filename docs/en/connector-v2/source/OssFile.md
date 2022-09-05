@@ -27,15 +27,15 @@ Read data from aliyun oss file system.
 
 ## Options
 
-| name         | type   | required | default value |
-|--------------|--------|----------|---------------|
-| path         | string | yes      | -             |
-| type         | string | yes      | -             |
-| bucket       | string | yes      | -             |
-| accessKey    | string | yes      | -             |
-| accessSecret | string | yes      | -             |
-| endpoint     | string | yes      | -             |
-| schema       | config | no       | -             |
+| name          | type   | required | default value |
+|---------------|--------|----------|---------------|
+| path          | string | yes      | -             |
+| type          | string | yes      | -             |
+| bucket        | string | yes      | -             |
+| access_key    | string | yes      | -             |
+| access_secret | string | yes      | -             |
+| endpoint      | string | yes      | -             |
+| schema        | config | no       | -             |
 
 ### path [string]
 
@@ -93,11 +93,11 @@ Now connector will treat the upstream data as the following:
 
 The bucket address of oss file system, for example: `oss://tyrantlucifer-image-bed`
 
-### accessKey [string]
+### access_key [string]
 
 The access key of oss file system.
 
-### accessSecret [string]
+### access_secret [string]
 
 The access secret of oss file system.
 
@@ -116,8 +116,8 @@ The schema of upstream data.
   OssFile {
     path = "/seatunnel/orc"
     bucket = "oss://tyrantlucifer-image-bed"
-    accessKey = "xxxxxxxxxxxxxxxxx"
-    accessSecret = "xxxxxxxxxxxxxxxxxxxxxx"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
     endpoint = "oss-cn-beijing.aliyuncs.com"
     type = "orc"
   }
@@ -129,8 +129,8 @@ The schema of upstream data.
   OssFile {
     path = "/seatunnel/json"
     bucket = "oss://tyrantlucifer-image-bed"
-    accessKey = "xxxxxxxxxxxxxxxxx"
-    accessSecret = "xxxxxxxxxxxxxxxxxxxxxx"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
     endpoint = "oss-cn-beijing.aliyuncs.com"
     type = "json"
     schema {
