@@ -26,7 +26,6 @@ public class SlotContext {
     public SlotContext(int slotID, TaskExecutionService taskExecutionService) {
         this.slotID = slotID;
         this.taskExecutionService = taskExecutionService;
-        this.taskExecutionService.setSlotContext(this);
     }
 
     public int getSlotID() {
