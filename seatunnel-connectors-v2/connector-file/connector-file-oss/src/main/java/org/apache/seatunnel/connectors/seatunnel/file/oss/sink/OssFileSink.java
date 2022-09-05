@@ -15,29 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.oss.source;
+package org.apache.seatunnel.connectors.seatunnel.file.oss.sink;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConf;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
-import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 
-import java.io.IOException;
-
-@AutoService(SeaTunnelSource.class)
-public class OssFileSource extends BaseFileSource {
+@AutoService(SeaTunnelSink.class)
+public class OssFileSink extends BaseFileSink {
     @Override
     public String getPluginName() {
         return FileSystemType.OSS.getFileSystemPluginName();
@@ -45,34 +40,14 @@ public class OssFileSource extends BaseFileSource {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
+        super.prepare(pluginConfig);
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
-                OssConfig.FILE_PATH, OssConfig.FILE_TYPE,
+                OssConfig.FILE_PATH,
                 OssConfig.BUCKET, OssConfig.ACCESS_KEY,
                 OssConfig.ACCESS_SECRET, OssConfig.BUCKET);
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
+            throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
         }
-        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(OssConfig.FILE_TYPE));
-        String path = pluginConfig.getString(OssConfig.FILE_PATH);
         hadoopConf = OssConf.buildWithConfig(pluginConfig);
-        try {
-            filePaths = readStrategy.getFileNamesByPath(hadoopConf, path);
-        } catch (IOException e) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Check file path fail.");
-        }
-        // support user-defined schema
-        if (pluginConfig.hasPath(OssConfig.SCHEMA)) {
-            Config schemaConfig = pluginConfig.getConfig(OssConfig.SCHEMA);
-            rowType = SeaTunnelSchema
-                    .buildWithConfig(schemaConfig)
-                    .getSeaTunnelRowType();
-            readStrategy.setSeaTunnelRowTypeInfo(rowType);
-        } else {
-            try {
-                rowType = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filePaths.get(0));
-            } catch (FilePluginException e) {
-                throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Read file schema error.", e);
-            }
-        }
     }
 }
