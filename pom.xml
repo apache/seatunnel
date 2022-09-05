@@ -197,6 +197,7 @@
         <checker.qual.version>3.10.0</checker.qual.version>
         <awaitility.version>4.2.0</awaitility.version>
         <jwt.version>0.10.7</jwt.version>
+        <httpclient.version>4.5.13</httpclient.version>
     </properties>
 
     <dependencyManagement>
