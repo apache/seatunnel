@@ -9,26 +9,40 @@ Output data to oss file system.
 > Tips: We made some trade-offs in order to support more file types, so we used the HDFS protocol for internal access to OSS and this connector need some hadoop dependencies.
 > It's only support hadoop version **2.9.X+**.
 
+## Key features
+
+- [x] [exactly-once](../../concept/connector-v2-features.md)
+
+By default, we use 2PC commit to ensure `exactly-once`
+
+- [ ] [schema projection](../../concept/connector-v2-features.md)
+- [x] file format
+    - [x] text
+    - [x] csv
+    - [x] parquet
+    - [x] orc
+    - [x] json
+
 ## Options
 
-| name                             | type   | required | default value                                             |
-|----------------------------------| ------ |---------|-----------------------------------------------------------|
-| path                             | string | yes     | -------                                                   |
-| bucket                           | string | yes     | -------                                                   |
-| access_key                       | string | yes     | -------                                                   |
-| access_secret                    | string | yes     | -------                                                   |
-| endpoint                         | string | yes     | -------                                                   |
-| file_name_expression             | string | no      | "${transactionId}"                                        |
-| file_format                      | string | no      | "text"                                                    |
-| filename_time_format             | string | no      | "yyyy.MM.dd"                                              |
-| field_delimiter                  | string | no      | '\001'                                                    |
-| row_delimiter                    | string | no      | "\n"                                                      |
-| partition_by                     | array  | no      | -                                                         |
-| partition_dir_expression         | string | no      | "\${k0}=\${v0}\/\${k1}=\${v1}\/...\/\${kn}=\${vn}\/"      |
-| is_partition_field_write_in_file | boolean| no      | false                                                     |
+| name                             | type   | required | default value               |
+|----------------------------------| ------ |---------|-----------------------------|
+| path                             | string | yes     | -                           |
+| bucket                           | string | yes     | -                           |
+| access_key                       | string | yes     | -                           |
+| access_secret                    | string | yes     | -                           |
+| endpoint                         | string | yes     | -                           |
+| file_name_expression             | string | no      | "${transactionId}"          |
+| file_format                      | string | no      | "text"                      |
+| filename_time_format             | string | no      | "yyyy.MM.dd"                |
+| field_delimiter                  | string | no      | '\001'                      |
+| row_delimiter                    | string | no      | "\n"                        |
+| partition_by                     | array  | no      | -                           |
+| partition_dir_expression         | string | no      | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" |
+| is_partition_field_write_in_file | boolean| no      | false                       |
 | sink_columns                     | array  | no      | When this parameter is empty, all fields are sink columns |
-| is_enable_transaction            | boolean| no      | true                                                      |
-| save_mode                        | string | no      | "error"                                                   |
+| is_enable_transaction            | boolean| no      | true                        |
+| save_mode                        | string | no      | "error"                     |
 
 ### path [string]
 
