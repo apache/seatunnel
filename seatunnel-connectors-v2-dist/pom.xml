@@ -156,6 +156,11 @@
             <artifactId>connector-datahub</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-doris</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>

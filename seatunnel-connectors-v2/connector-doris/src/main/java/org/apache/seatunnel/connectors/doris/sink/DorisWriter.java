@@ -30,6 +30,7 @@ import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,6 +83,9 @@ public class DorisWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     }
 
     private synchronized void flush() {
+        if (CollectionUtils.isEmpty(batch)) {
+            return;
+        }
         String request = JsonUtils.toJsonString(batch);
         String label = String.format(LABEL_TEMPLATE, context.getIndexOfSubtask(),
             formatter.format(Instant.now()), UUID.randomUUID());

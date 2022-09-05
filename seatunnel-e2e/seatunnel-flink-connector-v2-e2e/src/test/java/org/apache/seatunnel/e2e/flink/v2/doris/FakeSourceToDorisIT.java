@@ -38,6 +38,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 /**
@@ -46,15 +47,17 @@ import java.util.stream.Stream;
 public class FakeSourceToDorisIT extends FlinkContainer {
     private static final Logger LOG = LoggerFactory.getLogger(FakeSourceToDorisIT.class);
 
+    private static final long DORIS_WAIT_TIMEOUT = TimeUnit.MINUTES.toMillis(5);
+    private static final String DORIS_FE_HEALTHY_ADDRESS = "http://localhost:8030/api/bootstarp";
     private static final String DORIS_DRIVER = "com.mysql.cj.jdbc.Driver";
-    private static final String DORIS_CONNECTION_URL = "jdbc:mysql://localhost:8030?rewriteBatchedStatements=true";
+    private static final String DORIS_CONNECTION_URL = "jdbc:mysql://localhost:9030?rewriteBatchedStatements=true";
     private static final String DORIS_PASSWD = "";
     private static final String DORIS_USERNAME = "root";
 
     private static final String DORIS_DATABASE = "test";
     private static final String DORIS_TABLE = "seatunnel";
     private static final String DORIS_DATABASE_DDL = "CREATE DATABASE IF NOT EXISTS `" + DORIS_DATABASE + "`";
-    private static final String DORIS_USE_DATABASE = "USE DATABASE `" + DORIS_DATABASE + "`";
+    private static final String DORIS_USE_DATABASE = "USE `" + DORIS_DATABASE + "`";
     private static final String DORIS_TABLE_DDL = "CREATE TABLE " +
         "IF NOT EXISTS `" + DORIS_TABLE + "` " +
         "(`name` varchar(255) NULL ) " +
@@ -76,9 +79,11 @@ public class FakeSourceToDorisIT extends FlinkContainer {
     private Connection connection;
 
     @BeforeEach
-    public void before() throws InterruptedException {
+    public void before() throws InterruptedException, ClassNotFoundException {
+        super.before();
         dorisStandaloneServer = new GenericContainer<>(DORIS_IMAGE_NAME)
             .withNetwork(NETWORK)
+            .withNetworkAliases("seatunnel-doris-network")
             .withLogConsumer(new Slf4jLogConsumer(LOG));
         List<String> portBindings = Lists.newArrayList();
         portBindings.add(String.format("%s:%s", DORIS_FE_PORT, DORIS_FE_PORT));
@@ -86,7 +91,7 @@ public class FakeSourceToDorisIT extends FlinkContainer {
         portBindings.add(String.format("%s:%s", DORIS_BE_PORT, DORIS_BE_PORT));
         dorisStandaloneServer.setPortBindings(portBindings);
         Startables.deepStart(Stream.of(dorisStandaloneServer)).join();
-        Thread.sleep(5000L);
+        Thread.sleep(TimeUnit.MINUTES.toMillis(1));
         LOG.info("Doris frontend endpoint and backend endpoint started.");
         initializeDoris();
     }
@@ -99,6 +104,7 @@ public class FakeSourceToDorisIT extends FlinkContainer {
             statement.execute(DORIS_USE_DATABASE);
             statement.execute(DORIS_TABLE_DDL);
             statement.execute(DORIS_TABLE_TRUNCATE_TABLE);
+            statement.close();
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
@@ -110,12 +116,17 @@ public class FakeSourceToDorisIT extends FlinkContainer {
     }
 
     @AfterEach
-    public void after() {
+    public void after() throws SQLException {
+        if (Objects.nonNull(connection)) {
+            connection.close();
+        }
         if (Objects.nonNull(dorisStandaloneServer)) {
             dorisStandaloneServer.close();
         }
+        super.close();
     }
 
+    //Caused by some reasons, doris image can't run in Mac M1.
     @Test
     public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/doris/fakesource_to_doris.conf");
