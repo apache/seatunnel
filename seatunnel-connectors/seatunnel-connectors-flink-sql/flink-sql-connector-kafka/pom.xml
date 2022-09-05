@@ -29,6 +29,7 @@
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-connector-kafka_${scala.binary.version}</artifactId>
+            <version>${flink.1.13.6.version}</version>
         </dependency>
 
     </dependencies>
