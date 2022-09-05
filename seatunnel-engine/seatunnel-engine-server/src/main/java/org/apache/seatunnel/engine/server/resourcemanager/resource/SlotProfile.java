@@ -29,7 +29,7 @@ import java.io.IOException;
 /**
  * Used to describe the status of the current slot, including resource size and assign status
  */
-public class SlotProfile  implements IdentifiedDataSerializable {
+public class SlotProfile implements IdentifiedDataSerializable {
 
     private final Address worker;
 
