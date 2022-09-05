@@ -32,13 +32,6 @@
         <sshd.scp.version>2.7.0</sshd.scp.version>
     </properties>
     <dependencies>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-api</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
         <dependency>
             <groupId>org.apache.sshd</groupId>
             <artifactId>sshd-scp</artifactId>

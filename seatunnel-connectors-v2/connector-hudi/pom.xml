@@ -90,12 +90,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-api</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
             <groupId>org.apache.hudi</groupId>
             <artifactId>hudi-hadoop-mr-bundle</artifactId>
             <version>${hudi.version}</version>

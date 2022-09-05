@@ -35,12 +35,6 @@
 
     <dependencies>
 
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-api</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
         <!-- TODO add to dependency management after version unify-->
         <dependency>
             <groupId>org.apache.kafka</groupId>
