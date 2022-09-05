@@ -53,7 +53,7 @@ public class MongodbSourceToConsoleIT extends FlinkContainer {
     private static final int MONGODB_PORT = 27017;
     private static final String MONGODB_DATABASE = "test_db";
     private static final String MONGODB_COLLECTION = "test_table";
-    private static final String MONGODB_URL = String.format("mongodb://%s:%d/%s?retryWrites=true&writeConcern=majority", MONGODB_HOST, MONGODB_PORT, MONGODB_DATABASE);
+    private static final String MONGODB_URL = String.format("mongodb://%s:%d/%s?keepAlive=true&poolSize=30&autoReconnect=true&socketTimeoutMS=360000&connectTimeoutMS=360000&retryWrites=true", MONGODB_HOST, MONGODB_PORT, MONGODB_DATABASE);
 
     private GenericContainer<?> mongodbContainer;
 
@@ -87,7 +87,6 @@ public class MongodbSourceToConsoleIT extends FlinkContainer {
         MongoCollection<Document> mongoCollection = client
             .getDatabase(MONGODB_DATABASE)
             .getCollection(MONGODB_COLLECTION);
-        mongoCollection.deleteMany(new Document());
 
         HashMap<String, Object> map = new HashMap<>();
         map.put("id", 1);
