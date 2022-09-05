@@ -32,7 +32,6 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfi
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import com.google.common.collect.Lists;
-import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.NonNull;
@@ -41,7 +40,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -54,18 +52,17 @@ public class PipelineBaseScheduler implements JobScheduler {
     private final long jobId;
     private final JobMaster jobMaster;
     private final ResourceManager resourceManager;
-    private final Map<Integer, Map<PhysicalVertex, SlotProfile>> ownedSlotProfiles;
 
     public PipelineBaseScheduler(@NonNull PhysicalPlan physicalPlan, @NonNull JobMaster jobMaster) {
         this.physicalPlan = physicalPlan;
         this.jobMaster = jobMaster;
         this.resourceManager = jobMaster.getResourceManager();
         this.jobId = physicalPlan.getJobImmutableInformation().getJobId();
-        this.ownedSlotProfiles = new ConcurrentHashMap<>();
     }
 
     @Override
-    public void startScheduling() {
+    public Map<Integer, Map<PhysicalVertex, SlotProfile>> startScheduling() {
+        Map<Integer, Map<PhysicalVertex, SlotProfile>> ownedSlotProfiles = new ConcurrentHashMap<>();
         if (physicalPlan.turnToRunning()) {
             List<CompletableFuture<Object>> collect = physicalPlan.getPipelineList().stream().map(pipeline -> {
                 if (!pipeline.updatePipelineState(PipelineState.CREATED, PipelineState.SCHEDULED)) {
@@ -81,7 +78,6 @@ public class PipelineBaseScheduler implements JobScheduler {
                 }
                 pipeline.whenComplete((state, error) -> {
                     releasePipelineResource(Lists.newArrayList(slotProfiles.values()));
-                    ownedSlotProfiles.remove(pipeline.getPipelineIndex());
                 });
                 // deploy pipeline
                 return CompletableFuture.supplyAsync(() -> {
@@ -103,19 +99,7 @@ public class PipelineBaseScheduler implements JobScheduler {
             throw new JobException(String.format("%s turn to a unexpected state: %s", physicalPlan.getJobFullName(),
                 physicalPlan.getJobStatus()));
         }
-    }
-
-    @Override
-    public Address queryTaskGroupAddress(long taskGroupId) {
-        for (Integer pipelineIndex : ownedSlotProfiles.keySet()) {
-            Optional<PhysicalVertex> currentVertex = ownedSlotProfiles.get(pipelineIndex).keySet().stream()
-                .filter(physicalVertex -> physicalVertex.getTaskGroup().getTaskGroupLocation().getTaskGroupId() == taskGroupId)
-                .findFirst();
-            if (currentVertex.isPresent()) {
-                return ownedSlotProfiles.get(pipelineIndex).get(currentVertex.get()).getWorker();
-            }
-        }
-        throw new IllegalArgumentException("can't find task group address from task group id: " + taskGroupId);
+        return ownedSlotProfiles;
     }
 
     private void releasePipelineResource(List<SlotProfile> slotProfiles) {

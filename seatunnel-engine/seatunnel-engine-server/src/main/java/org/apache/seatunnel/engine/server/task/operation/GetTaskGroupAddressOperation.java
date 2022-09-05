@@ -47,7 +47,7 @@ public class GetTaskGroupAddressOperation extends Operation implements Identifie
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        response = RetryUtils.retryWithException(() -> server.getJobMaster(taskLocation.getJobId()).getJobScheduler()
+        response = RetryUtils.retryWithException(() -> server.getJobMaster(taskLocation.getJobId())
                 .queryTaskGroupAddress(taskLocation.getTaskGroupLocation().getTaskGroupId()),
             new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
                 exception -> exception instanceof NullPointerException, Constant.OPERATION_RETRY_SLEEP));

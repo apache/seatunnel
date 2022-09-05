@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.engine.server.scheduler;
 
-import com.hazelcast.cluster.Address;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+
+import java.util.Map;
 
 public interface JobScheduler {
-    void startScheduling();
-
-    Address queryTaskGroupAddress(long taskGroupId);
+    Map<Integer, Map<PhysicalVertex, SlotProfile>> startScheduling();
 }
