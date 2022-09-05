@@ -28,11 +28,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>connector-jdbc</artifactId>
-    
+
     <properties>
         <phoenix.version>5.2.5-HBase-2.x</phoenix.version>
         <pg.version>42.3.3</pg.version>
         <mysql.version>8.0.16</mysql.version>
+        <oracle.version>12.2.0.1</oracle.version>
     </properties>
 
     <dependencies>
@@ -54,6 +55,13 @@
             <groupId>com.aliyun.phoenix</groupId>
             <artifactId>ali-phoenix-shaded-thin-client</artifactId>
             <version>${phoenix.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ojdbc8</artifactId>
+            <version>${oracle.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
