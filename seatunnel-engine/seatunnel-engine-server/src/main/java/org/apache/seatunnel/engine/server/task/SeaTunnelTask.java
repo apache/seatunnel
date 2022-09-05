@@ -156,11 +156,13 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 break;
             case CLOSED:
                 this.close();
+                progress.done();
                 return;
             // TODO support cancel by outside
             case CANCELLING:
                 this.close();
                 currState = CANCELED;
+                progress.done();
                 return;
             default:
                 throw new IllegalArgumentException("Unknown Enumerator State: " + currState);
