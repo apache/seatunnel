@@ -41,7 +41,7 @@ public class NotifyTaskStartOperation extends TaskOperation {
 
     @Override
     public int getClassId() {
-        return CheckpointDataSerializerHook.NOTIFY_TASK_RESTORE_OPERATOR;
+        return CheckpointDataSerializerHook.NOTIFY_TASK_START_OPERATOR;
     }
 
     @Override
