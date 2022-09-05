@@ -1,10 +1,10 @@
-# DingTalk
+# Doris
 
-> DinkTalk sink connector
+> Doris sink connector
 
 ## Description
 
-A sink plugin which use DingTalk robot send message
+A sink plugin which use stream load to write data to doris.
 
 ## Key features
 
