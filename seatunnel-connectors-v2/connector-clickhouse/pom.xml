@@ -27,18 +27,15 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>connector-clickhouse</artifactId>
-
+    <properties>
+        <clickhouse.version>0.3.2-patch9</clickhouse.version>
+        <sshd.scp.version>2.7.0</sshd.scp.version>
+    </properties>
     <dependencies>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-api</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
         <dependency>
             <groupId>org.apache.sshd</groupId>
             <artifactId>sshd-scp</artifactId>
+            <version>${sshd.scp.version}</version>
         </dependency>
 
         <dependency>
@@ -50,7 +47,7 @@
         <dependency>
             <groupId>com.clickhouse</groupId>
             <artifactId>clickhouse-http-client</artifactId>
-            <version>0.3.2-patch9</version>
+            <version>${clickhouse.version}</version>
         </dependency>
 
         <dependency>
@@ -62,7 +59,7 @@
         <dependency>
             <groupId>com.clickhouse</groupId>
             <artifactId>clickhouse-jdbc</artifactId>
-            <version>0.3.2-patch9</version>
+            <version>${clickhouse.version}</version>
         </dependency>
 
     </dependencies>
