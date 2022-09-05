@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.redis.config;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.Data;
+import org.apache.commons.lang3.StringUtils;
+import redis.clients.jedis.Jedis;
 
 import java.io.Serializable;
 
@@ -49,5 +51,14 @@ public class RedisParameters implements Serializable {
         } catch (IllegalArgumentException e) {
             throw new RuntimeException("Redis source connector only support these data types [key, hash, list, set, zset]", e);
         }
+    }
+
+    public Jedis buildJedis() {
+        Jedis jedis;
+        jedis = new Jedis(host, port);
+        if (StringUtils.isNotBlank(auth)) {
+            jedis.auth(auth);
+        }
+        return jedis;
     }
 }
