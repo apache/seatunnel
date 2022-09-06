@@ -44,8 +44,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 public class SinkFlowLifeCycle<T, StateT> extends ActionFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>>, InternalCheckpointListener {
 
@@ -123,10 +123,10 @@ public class SinkFlowLifeCycle<T, StateT> extends ActionFlowLifeCycle implements
                         runningTask.addState(barrier, sinkAction.getId(), serializeStates(writerStateSerializer.get(), states));
                     }
                     // TODO: prepare commit
-                    runningTask.getExecutionContext().sendToMaster(new SinkPrepareCommitOperation(barrier, committerTaskLocation,
-                        new byte[0]));
+                    runningTask.getExecutionContext().sendToMember(new SinkPrepareCommitOperation(barrier, committerTaskLocation,
+                        new byte[0]), committerTaskAddress);
                 } else {
-                    runningTask.getExecutionContext().sendToMaster(new CheckpointBarrierTriggerOperation(barrier, committerTaskLocation));
+                    runningTask.getExecutionContext().sendToMember(new CheckpointBarrierTriggerOperation(barrier, committerTaskLocation), committerTaskAddress);
                 }
                 runningTask.ack(barrier);
             } else {
