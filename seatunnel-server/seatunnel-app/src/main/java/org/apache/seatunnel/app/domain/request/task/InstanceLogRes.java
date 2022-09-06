@@ -15,13 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.spi.scheduler.dto;
+package org.apache.seatunnel.app.domain.request.task;
 
+import io.swagger.annotations.ApiModel;
+import io.swagger.annotations.ApiModelProperty;
 import lombok.Builder;
 import lombok.Data;
 
-@Builder
 @Data
-public class InstanceLogDto {
+@ApiModel(value = "instanceLogRes", description = "instance log")
+@Builder
+public class InstanceLogRes {
+    @ApiModelProperty(value = "instance id", dataType = "long")
+    private long instanceId;
+
+    @ApiModelProperty(value = "instance id", dataType = "String")
     private String logContent;
 }
