@@ -20,7 +20,6 @@ package org.apache.seatunnel.engine.server.operation;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
-import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import com.hazelcast.spi.impl.operationservice.Operation;
 
@@ -38,8 +37,7 @@ public class NotifyTaskStatusOperation extends Operation {
     @Override
     public void run() throws Exception {
         SeaTunnelServer service = getService();
-        JobMaster jobMaster = service.getJobMaster(taskGroupLocation.getJobId());
-        //TODO Notify jobMaster of TaskGroup State
+        service.updateTaskExecutionState(taskExecutionState);
     }
 
     @Override

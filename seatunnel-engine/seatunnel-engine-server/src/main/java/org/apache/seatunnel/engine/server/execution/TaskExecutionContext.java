@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
-import org.apache.seatunnel.engine.server.service.slot.SlotContext;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
@@ -31,12 +30,9 @@ public class TaskExecutionContext {
     private final Task task;
     private final NodeEngineImpl nodeEngine;
 
-    private final SlotContext slotContext;
-
-    public TaskExecutionContext(Task task, NodeEngineImpl nodeEngine, SlotContext slotContext) {
+    public TaskExecutionContext(Task task, NodeEngineImpl nodeEngine) {
         this.task = task;
         this.nodeEngine = nodeEngine;
-        this.slotContext = slotContext;
     }
 
     public <E> InvocationFuture<E> sendToMaster(Operation operation) {
@@ -55,7 +51,4 @@ public class TaskExecutionContext {
         return (T) task;
     }
 
-    public SlotContext getSlotContext() {
-        return slotContext;
-    }
 }

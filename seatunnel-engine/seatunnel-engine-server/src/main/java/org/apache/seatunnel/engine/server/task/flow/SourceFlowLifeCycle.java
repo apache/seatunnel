@@ -31,11 +31,13 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelSourceCollector;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SourceReaderContext;
+import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceNoMoreElementOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 
@@ -51,7 +53,9 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     private static final ILogger LOGGER = Logger.getLogger(SourceFlowLifeCycle.class);
 
     private final SourceAction<T, SplitT, ?> sourceAction;
-    private final TaskLocation enumeratorTaskID;
+    private final TaskLocation enumeratorTaskLocation;
+
+    private Address enumeratorTaskAddress;
 
     private SourceReader<T, SplitT> reader;
 
@@ -59,18 +63,18 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     private final int indexID;
 
-    private final TaskLocation currentTaskID;
+    private final TaskLocation currentTaskLocation;
 
     private SeaTunnelSourceCollector<T> collector;
 
     public SourceFlowLifeCycle(SourceAction<T, SplitT, ?> sourceAction, int indexID,
-                               TaskLocation enumeratorTaskID, SeaTunnelTask runningTask,
-                               TaskLocation currentTaskID, CompletableFuture<Void> completableFuture) {
+                               TaskLocation enumeratorTaskLocation, SeaTunnelTask runningTask,
+                               TaskLocation currentTaskLocation, CompletableFuture<Void> completableFuture) {
         super(sourceAction, runningTask, completableFuture);
         this.sourceAction = sourceAction;
         this.indexID = indexID;
-        this.enumeratorTaskID = enumeratorTaskID;
-        this.currentTaskID = currentTaskID;
+        this.enumeratorTaskLocation = enumeratorTaskLocation;
+        this.currentTaskLocation = currentTaskLocation;
     }
 
     public void setCollector(SeaTunnelSourceCollector<T> collector) {
@@ -87,7 +91,13 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     @Override
     public void open() throws Exception {
         reader.open();
+        enumeratorTaskAddress = getEnumeratorTaskAddress();
         register();
+    }
+
+    private Address getEnumeratorTaskAddress() throws ExecutionException, InterruptedException {
+        return (Address) runningTask.getExecutionContext()
+            .sendToMaster(new GetTaskGroupAddressOperation(enumeratorTaskLocation)).get();
     }
 
     @Override
@@ -106,8 +116,8 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         // ready close this reader
         try {
             this.prepareClose = true;
-            runningTask.getExecutionContext().sendToMaster(new SourceNoMoreElementOperation(currentTaskID,
-                    enumeratorTaskID)).get();
+            runningTask.getExecutionContext().sendToMember(new SourceNoMoreElementOperation(currentTaskLocation,
+                enumeratorTaskLocation), enumeratorTaskAddress).get();
         } catch (Exception e) {
             LOGGER.warning("source close failed ", e);
             throw new RuntimeException(e);
@@ -116,8 +126,8 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     private void register() {
         try {
-            runningTask.getExecutionContext().sendToMaster(new SourceRegisterOperation(currentTaskID,
-                    enumeratorTaskID)).get();
+            runningTask.getExecutionContext().sendToMember(new SourceRegisterOperation(currentTaskLocation,
+                enumeratorTaskLocation), enumeratorTaskAddress).get();
         } catch (InterruptedException | ExecutionException e) {
             LOGGER.warning("source register failed ", e);
             throw new RuntimeException(e);
@@ -126,8 +136,8 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     public void requestSplit() {
         try {
-            runningTask.getExecutionContext().sendToMaster(new RequestSplitOperation(currentTaskID,
-                    enumeratorTaskID)).get();
+            runningTask.getExecutionContext().sendToMember(new RequestSplitOperation(currentTaskLocation,
+                enumeratorTaskLocation), enumeratorTaskAddress).get();
         } catch (InterruptedException | ExecutionException e) {
             LOGGER.warning("source request split failed", e);
             throw new RuntimeException(e);

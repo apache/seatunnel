@@ -39,7 +39,6 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
 import org.apache.seatunnel.engine.server.operation.NotifyTaskStatusOperation;
-import org.apache.seatunnel.engine.server.service.slot.SlotContext;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 
 import com.google.common.collect.Lists;
@@ -85,7 +84,6 @@ public class TaskExecutionService {
     // key: TaskID
     private final ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts = new ConcurrentHashMap<>();
     private final ConcurrentMap<TaskGroupLocation, CompletableFuture<Void>> cancellationFutures = new ConcurrentHashMap<>();
-    private SlotContext slotContext;
 
     public TaskExecutionService(NodeEngineImpl nodeEngine, HazelcastProperties properties) {
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
@@ -100,10 +98,6 @@ public class TaskExecutionService {
     public void shutdown() {
         isShutdown = true;
         executorService.shutdownNow();
-    }
-
-    public void setSlotContext(SlotContext slotContext) {
-        this.slotContext = slotContext;
     }
 
     public TaskGroupContext getExecutionContext(TaskGroupLocation taskGroupLocation) {
@@ -186,8 +180,7 @@ public class TaskExecutionService {
             final Map<Boolean, List<Task>> byCooperation =
                 tasks.stream()
                     .peek(task -> {
-                        TaskExecutionContext taskExecutionContext = new TaskExecutionContext(task, nodeEngine,
-                                slotContext);
+                        TaskExecutionContext taskExecutionContext = new TaskExecutionContext(task, nodeEngine);
                         task.setTaskExecutionContext(taskExecutionContext);
                         taskExecutionContextMap.put(task.getTaskID(), taskExecutionContext);
                     })

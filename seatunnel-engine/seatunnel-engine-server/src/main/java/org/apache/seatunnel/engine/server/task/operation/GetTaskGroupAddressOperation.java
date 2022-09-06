@@ -17,37 +17,62 @@
 
 package org.apache.seatunnel.engine.server.task.operation;
 
+import org.apache.seatunnel.common.utils.RetryUtils;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
-import com.hazelcast.internal.nio.IOUtil;
-import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.cluster.Address;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
-import lombok.NonNull;
 
 import java.io.IOException;
 
-public class DeployTaskOperation extends Operation implements IdentifiedDataSerializable {
-    private Data taskImmutableInformation;
-    private SlotProfile slotProfile;
+public class GetTaskGroupAddressOperation extends Operation implements IdentifiedDataSerializable {
 
-    public DeployTaskOperation() {
+    private TaskLocation taskLocation;
+
+    private Address response;
+
+    public GetTaskGroupAddressOperation() {
     }
 
-    public DeployTaskOperation(@NonNull SlotProfile slotProfile, @NonNull Data taskImmutableInformation) {
-        this.taskImmutableInformation = taskImmutableInformation;
-        this.slotProfile = slotProfile;
+    public GetTaskGroupAddressOperation(TaskLocation taskLocation) {
+        this.taskLocation = taskLocation;
     }
 
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        server.getSlotService().getSlotContext(slotProfile)
-            .getTaskExecutionService().deployTask(taskImmutableInformation);
+        response = RetryUtils.retryWithException(() -> server.getJobMaster(taskLocation.getJobId())
+                .queryTaskGroupAddress(taskLocation.getTaskGroupLocation().getTaskGroupId()),
+            new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
+                exception -> exception instanceof IllegalArgumentException, Constant.OPERATION_RETRY_SLEEP));
+    }
+
+    @Override
+    public Object getResponse() {
+        return response;
+    }
+
+    @Override
+    public String getServiceName() {
+        return SeaTunnelServer.SERVICE_NAME;
+    }
+
+    @Override
+    protected void writeInternal(ObjectDataOutput out) throws IOException {
+        super.writeInternal(out);
+        taskLocation.writeData(out);
+    }
+
+    @Override
+    protected void readInternal(ObjectDataInput in) throws IOException {
+        super.readInternal(in);
+        taskLocation.readData(in);
     }
 
     @Override
@@ -57,20 +82,6 @@ public class DeployTaskOperation extends Operation implements IdentifiedDataSeri
 
     @Override
     public int getClassId() {
-        return TaskDataSerializerHook.DEPLOY_TASK_OPERATOR;
-    }
-
-    @Override
-    protected void writeInternal(ObjectDataOutput out) throws IOException {
-        super.writeInternal(out);
-        IOUtil.writeData(out, taskImmutableInformation);
-        out.writeObject(slotProfile);
-    }
-
-    @Override
-    protected void readInternal(ObjectDataInput in) throws IOException {
-        super.readInternal(in);
-        taskImmutableInformation = IOUtil.readData(in);
-        slotProfile = in.readObject();
+        return TaskDataSerializerHook.CLOSE_REQUEST_TYPE;
     }
 }

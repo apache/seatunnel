@@ -30,9 +30,12 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointBarrier
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
+import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkPrepareCommitOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
+
+import com.hazelcast.cluster.Address;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -42,6 +45,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import java.util.concurrent.ExecutionException;
 
 public class SinkFlowLifeCycle<T, StateT> extends ActionFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>>, InternalCheckpointListener {
 
@@ -54,18 +58,20 @@ public class SinkFlowLifeCycle<T, StateT> extends ActionFlowLifeCycle implements
 
     private final TaskLocation taskLocation;
 
-    private final TaskLocation committerTaskID;
+    private Address committerTaskAddress;
+
+    private final TaskLocation committerTaskLocation;
 
     private final boolean containCommitter;
 
     public SinkFlowLifeCycle(SinkAction<T, StateT, ?, ?> sinkAction, TaskLocation taskLocation, int indexID,
-                             SeaTunnelTask runningTask, TaskLocation committerTaskID,
+                             SeaTunnelTask runningTask, TaskLocation committerTaskLocation,
                              boolean containCommitter, CompletableFuture<Void> completableFuture) {
         super(sinkAction, runningTask, completableFuture);
         this.sinkAction = sinkAction;
         this.indexID = indexID;
         this.taskLocation = taskLocation;
-        this.committerTaskID = committerTaskID;
+        this.committerTaskLocation = committerTaskLocation;
         this.containCommitter = containCommitter;
     }
 
@@ -77,7 +83,15 @@ public class SinkFlowLifeCycle<T, StateT> extends ActionFlowLifeCycle implements
     @Override
     public void open() throws Exception {
         super.open();
+        if (containCommitter) {
+            committerTaskAddress = getCommitterTaskAddress();
+        }
         registerCommitter();
+    }
+
+    private Address getCommitterTaskAddress() throws ExecutionException, InterruptedException {
+        return (Address) runningTask.getExecutionContext()
+            .sendToMaster(new GetTaskGroupAddressOperation(committerTaskLocation)).get();
     }
 
     @Override
@@ -88,8 +102,8 @@ public class SinkFlowLifeCycle<T, StateT> extends ActionFlowLifeCycle implements
 
     private void registerCommitter() {
         if (containCommitter) {
-            runningTask.getExecutionContext().sendToMaster(new SinkRegisterOperation(taskLocation,
-                    committerTaskID)).join();
+            runningTask.getExecutionContext().sendToMember(new SinkRegisterOperation(taskLocation,
+                committerTaskLocation), committerTaskAddress).join();
         }
     }
 
@@ -109,10 +123,10 @@ public class SinkFlowLifeCycle<T, StateT> extends ActionFlowLifeCycle implements
                         runningTask.addState(barrier, sinkAction.getId(), serializeStates(writerStateSerializer.get(), states));
                     }
                     // TODO: prepare commit
-                    runningTask.getExecutionContext().sendToMaster(new SinkPrepareCommitOperation(barrier, committerTaskID,
+                    runningTask.getExecutionContext().sendToMaster(new SinkPrepareCommitOperation(barrier, committerTaskLocation,
                         new byte[0]));
                 } else {
-                    runningTask.getExecutionContext().sendToMaster(new CheckpointBarrierTriggerOperation(barrier, committerTaskID));
+                    runningTask.getExecutionContext().sendToMaster(new CheckpointBarrierTriggerOperation(barrier, committerTaskLocation));
                 }
                 runningTask.ack(barrier);
             } else {

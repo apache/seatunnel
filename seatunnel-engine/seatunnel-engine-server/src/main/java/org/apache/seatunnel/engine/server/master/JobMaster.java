@@ -29,11 +29,14 @@ import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointStorageConfiguration;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
-import org.apache.seatunnel.engine.server.scheduler.JobScheduler;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.scheduler.PipelineBaseScheduler;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.jet.datamodel.Tuple2;
@@ -45,7 +48,9 @@ import lombok.NonNull;
 import org.apache.commons.collections4.CollectionUtils;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
 public class JobMaster implements Runnable {
@@ -69,6 +74,8 @@ public class JobMaster implements Runnable {
 
     private JobImmutableInformation jobImmutableInformation;
 
+    private final Map<Integer, Map<PhysicalVertex, SlotProfile>> ownedSlotProfiles;
+
     public JobMaster(@NonNull Data jobImmutableInformationData,
                      @NonNull NodeEngine nodeEngine,
                      @NonNull ExecutorService executorService, @NonNull ResourceManager resourceManager) {
@@ -76,8 +83,8 @@ public class JobMaster implements Runnable {
         this.nodeEngine = nodeEngine;
         this.executorService = executorService;
         flakeIdGenerator =
-                this.nodeEngine.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME);
-
+            this.nodeEngine.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME);
+        this.ownedSlotProfiles = new ConcurrentHashMap<>();
         this.resourceManager = resourceManager;
     }
 
@@ -127,9 +134,7 @@ public class JobMaster implements Runnable {
                 }
                 jobMasterCompleteFuture.complete(physicalPlan.getJobStatus());
             });
-
-            JobScheduler jobScheduler = new PipelineBaseScheduler(physicalPlan, this);
-            jobScheduler.startScheduling();
+            ownedSlotProfiles.putAll(new PipelineBaseScheduler(physicalPlan, this).startScheduling());
         } catch (Throwable e) {
             LOGGER.severe(String.format("Job %s (%s) run error with: %s",
                 physicalPlan.getJobImmutableInformation().getJobConfig().getName(),
@@ -144,6 +149,18 @@ public class JobMaster implements Runnable {
 
     public void cleanJob() {
         // TODO Add some job clean operation
+    }
+
+    public Address queryTaskGroupAddress(long taskGroupId) {
+        for (Integer pipelineId : ownedSlotProfiles.keySet()) {
+            Optional<PhysicalVertex> currentVertex = ownedSlotProfiles.get(pipelineId).keySet().stream()
+                .filter(physicalVertex -> physicalVertex.getTaskGroup().getTaskGroupLocation().getTaskGroupId() == taskGroupId)
+                .findFirst();
+            if (currentVertex.isPresent()) {
+                return ownedSlotProfiles.get(pipelineId).get(currentVertex.get()).getWorker();
+            }
+        }
+        throw new IllegalArgumentException("can't find task group address from task group id: " + taskGroupId);
     }
 
     public void cancelJob() {
@@ -172,5 +189,29 @@ public class JobMaster implements Runnable {
 
     public PhysicalPlan getPhysicalPlan() {
         return physicalPlan;
+    }
+
+    public void updateTaskExecutionState(TaskExecutionState taskExecutionState) {
+        this.physicalPlan.getPipelineList().forEach(pipeline -> {
+            if (pipeline.getPipelineId() != taskExecutionState.getTaskGroupLocation().getPipelineId()) {
+                return;
+            }
+
+            pipeline.getCoordinatorVertexList().forEach(task -> {
+                if (!task.getTaskGroupLocation().equals(taskExecutionState.getTaskGroupLocation())) {
+                    return;
+                }
+
+                task.updateTaskExecutionState(taskExecutionState);
+            });
+
+            pipeline.getPhysicalVertexList().forEach(task -> {
+                if (!task.getTaskGroupLocation().equals(taskExecutionState.getTaskGroupLocation())) {
+                    return;
+                }
+
+                task.updateTaskExecutionState(taskExecutionState);
+            });
+        });
     }
 }
