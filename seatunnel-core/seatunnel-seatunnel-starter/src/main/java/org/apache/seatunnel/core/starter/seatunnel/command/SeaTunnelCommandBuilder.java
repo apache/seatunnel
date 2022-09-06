@@ -15,23 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.config;
+package org.apache.seatunnel.core.starter.seatunnel.command;
 
-import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
+import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.command.CommandBuilder;
+import org.apache.seatunnel.core.starter.seatunnel.args.SeaTunnelCommandArgs;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+public class SeaTunnelCommandBuilder implements CommandBuilder<SeaTunnelCommandArgs> {
 
-/**
- * Check the config is valid.
- *
- */
-public interface ConfigChecker {
-
-    /**
-     * Check if the config is validated, if check fails, throw exception.
-     *
-     * @param config given config.
-     */
-    void checkConfig(Config config) throws ConfigCheckException;
-
+    @Override
+    public Command<SeaTunnelCommandArgs> buildCommand(SeaTunnelCommandArgs commandArgs) {
+        Common.setDeployMode(commandArgs.getDeployMode());
+        return commandArgs.isCheckConfig() ? new SeaTunnelApiConfValidateCommand(commandArgs)
+            : new SeaTunnelApiTaskExecuteCommand(commandArgs);
+    }
 }

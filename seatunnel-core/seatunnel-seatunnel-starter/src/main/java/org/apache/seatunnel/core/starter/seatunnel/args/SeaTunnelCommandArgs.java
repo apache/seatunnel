@@ -21,14 +21,28 @@ import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
 import org.apache.seatunnel.core.starter.config.EngineType;
 
+import com.beust.jcommander.Parameter;
+
 import java.util.List;
 
 public class SeaTunnelCommandArgs extends AbstractCommandArgs {
 
     /**
-     * Undefined parameters parsed will be stored here as seatunnel engint command parameters.
+     * Undefined parameters parsed will be stored here as seatunnel engine command parameters.
      */
     private List<String> seatunnelParams;
+
+    @Parameter(names = {"-n", "--name"},
+        description = "The name of job")
+    private String name = "seatunnel_job";
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
 
     @Override
     public EngineType getEngineType() {

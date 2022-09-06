@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.seatunnel;
+package org.apache.seatunnel.core.starter.seatunnel.command;
 
-import org.apache.seatunnel.common.config.Common;
-import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.seatunnel.args.SeaTunnelCommandArgs;
 import org.apache.seatunnel.core.starter.utils.FileUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
@@ -32,13 +32,23 @@ import com.hazelcast.client.config.ClientConfig;
 import java.nio.file.Path;
 import java.util.concurrent.ExecutionException;
 
-public class SeaTunnelStarter {
-    public static void main(String[] args) {
-        SeaTunnelCommandArgs seaTunnelCommandArgs = CommandLineUtils.parseSeaTunnelArgs(args);
+/**
+ * This command is used to execute the SeaTunnel engine job by SeaTunnel API.
+ */
+public class SeaTunnelApiTaskExecuteCommand implements Command<SeaTunnelCommandArgs> {
+
+    private final SeaTunnelCommandArgs seaTunnelCommandArgs;
+
+    public SeaTunnelApiTaskExecuteCommand(SeaTunnelCommandArgs seaTunnelCommandArgs) {
+        this.seaTunnelCommandArgs = seaTunnelCommandArgs;
+    }
+
+    @Override
+    public void execute() throws CommandExecuteException {
         Path configFile = FileUtils.getConfigPath(seaTunnelCommandArgs);
-        Common.setDeployMode(DeployMode.CLIENT);
+
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setName("fake_to_file");
+        jobConfig.setName(seaTunnelCommandArgs.getName());
 
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
@@ -49,7 +59,8 @@ public class SeaTunnelStarter {
             clientJobProxy = jobExecutionEnv.execute();
             clientJobProxy.waitForJobComplete();
         } catch (ExecutionException | InterruptedException e) {
-            throw new RuntimeException(e);
+            throw new CommandExecuteException("SeaTunnel job executed failed", e);
         }
     }
+
 }
