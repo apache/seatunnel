@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.e2e.flink.v2.mongodb;
 
-import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
+import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
 
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
@@ -37,6 +37,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -48,12 +49,14 @@ import java.util.stream.Stream;
 public class MongodbSourceToConsoleIT extends FlinkContainer {
 
     private static final String MONGODB_IMAGE = "mongo:latest";
+
     private static final String MONGODB_CONTAINER_HOST = "flink_e2e_mongodb";
-    private static final String MONGODB_HOST = "localhost";
+
     private static final int MONGODB_PORT = 27017;
+
     private static final String MONGODB_DATABASE = "test_db";
+
     private static final String MONGODB_COLLECTION = "test_table";
-    private static final String MONGODB_URL = String.format("mongodb://%s:%d/%s?keepAlive=true&poolSize=30&autoReconnect=true&socketTimeoutMS=360000&connectTimeoutMS=360000&retryWrites=true", MONGODB_HOST, MONGODB_PORT, MONGODB_DATABASE);
 
     private GenericContainer<?> mongodbContainer;
 
@@ -61,7 +64,8 @@ public class MongodbSourceToConsoleIT extends FlinkContainer {
 
     @BeforeEach
     public void startMongoContainer() {
-        mongodbContainer = new GenericContainer<>(MONGODB_IMAGE)
+        DockerImageName imageName = DockerImageName.parse(MONGODB_IMAGE);
+        mongodbContainer = new GenericContainer<>(imageName)
             .withNetwork(NETWORK)
             .withNetworkAliases(MONGODB_CONTAINER_HOST)
             .withExposedPorts(MONGODB_PORT)
@@ -79,8 +83,12 @@ public class MongodbSourceToConsoleIT extends FlinkContainer {
         this.generateTestData();
     }
 
-    private void initConnection() {
-        client = MongoClients.create(MONGODB_URL);
+    public void initConnection() {
+        String host = mongodbContainer.getContainerIpAddress();
+        int port = mongodbContainer.getFirstMappedPort();
+        String url = String.format("mongodb://%s:%d/%s", host, port, MONGODB_DATABASE);
+
+        client = MongoClients.create(url);
     }
 
     private void generateTestData() {
