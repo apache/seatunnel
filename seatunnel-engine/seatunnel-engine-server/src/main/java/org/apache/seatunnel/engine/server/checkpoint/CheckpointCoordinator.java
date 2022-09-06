@@ -373,15 +373,12 @@ public class CheckpointCoordinator {
         LOG.info("pending checkpoint({}/{}@{}) completed!", pendingCheckpoint.getCheckpointId(), pendingCheckpoint.getPipelineId(), pendingCheckpoint.getJobId());
         pendingCounter.decrementAndGet();
         final long checkpointId = pendingCheckpoint.getCheckpointId();
-        InvocationFuture<?>[] invocationFutures = notifyCheckpointCompleted(checkpointId);
-        CompletableFuture.allOf(invocationFutures).join();
         CompletedCheckpoint completedCheckpoint = pendingCheckpoint.toCompletedCheckpoint();
         pendingCheckpoints.remove(checkpointId);
         if (pendingCheckpoints.size() + 1 == coordinatorConfig.getMaxConcurrentCheckpoints()) {
             // latest checkpoint completed time > checkpoint interval
             tryTriggerPendingCheckpoint();
         }
-        latestCompletedCheckpoint = completedCheckpoint;
         completedCheckpoints.addLast(completedCheckpoint);
         try {
             byte[] states = serializer.serialize(completedCheckpoint);
@@ -401,6 +398,10 @@ public class CheckpointCoordinator {
         } catch (IOException | CheckpointStorageException e) {
             sneakyThrow(e);
         }
+        InvocationFuture<?>[] invocationFutures = notifyCheckpointCompleted(checkpointId);
+        CompletableFuture.allOf(invocationFutures).join();
+        // TODO: notifyCheckpointCompleted fail
+        latestCompletedCheckpoint = completedCheckpoint;
     }
 
     public InvocationFuture<?>[] notifyCheckpointCompleted(long checkpointId) {
