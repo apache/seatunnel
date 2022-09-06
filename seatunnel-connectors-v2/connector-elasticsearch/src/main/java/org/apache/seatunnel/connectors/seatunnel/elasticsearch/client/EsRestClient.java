@@ -29,6 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ScrollR
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -60,6 +61,8 @@ public class EsRestClient {
     private static final int SOCKET_TIMEOUT = 5 * 60 * 1000;
 
     private final RestClient restClient;
+
+    private final ObjectMapper mapper = new ObjectMapper();
 
     private EsRestClient(RestClient restClient) {
         this.restClient = restClient;
@@ -227,7 +230,7 @@ public class EsRestClient {
             JsonNode hitNode = iter.next();
             doc.put("_index", hitNode.get("_index").textValue());
             doc.put("_id", hitNode.get("_id").textValue());
-            Map<String, Object> source = JsonUtils.parseObject(hitNode.get("_source").toPrettyString(), Map.class);
+            Map<String, Object> source = mapper.convertValue(hitNode.get("_source"), new TypeReference<Map<String, Object>>(){});
             doc.putAll(source);
             docs.add(doc);
         }
