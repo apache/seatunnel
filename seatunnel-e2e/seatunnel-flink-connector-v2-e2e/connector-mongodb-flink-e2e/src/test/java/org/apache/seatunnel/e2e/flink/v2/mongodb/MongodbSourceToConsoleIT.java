@@ -19,7 +19,6 @@ package org.apache.seatunnel.e2e.flink.v2.mongodb;
 
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
-import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
 
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
@@ -37,6 +36,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
@@ -50,7 +50,7 @@ public class MongodbSourceToConsoleIT extends FlinkContainer {
 
     private static final String MONGODB_IMAGE = "mongo:latest";
 
-    private static final String MONGODB_CONTAINER_HOST = "flink_e2e_mongodb";
+    private static final String MONGODB_CONTAINER_HOST = "flink_e2e_mongodb_source";
 
     private static final int MONGODB_PORT = 27017;
 
@@ -76,7 +76,7 @@ public class MongodbSourceToConsoleIT extends FlinkContainer {
             .withLogConsumer(new Slf4jLogConsumer(log));
         Startables.deepStart(Stream.of(mongodbContainer)).join();
         log.info("Mongodb container started");
-        given().ignoreExceptions()
+        Awaitility.given().ignoreExceptions()
             .await()
             .atMost(180, TimeUnit.SECONDS)
             .untilAsserted(this::initConnection);
@@ -95,6 +95,8 @@ public class MongodbSourceToConsoleIT extends FlinkContainer {
         MongoCollection<Document> mongoCollection = client
             .getDatabase(MONGODB_DATABASE)
             .getCollection(MONGODB_COLLECTION);
+
+        mongoCollection.deleteMany(new Document());
 
         HashMap<String, Object> map = new HashMap<>();
         map.put("id", 1);
