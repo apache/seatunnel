@@ -21,55 +21,51 @@ import static org.awaitility.Awaitility.await;
 
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.TestUtils;
-import org.apache.seatunnel.engine.server.resourcemanager.StandaloneResourceManager;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.hazelcast.internal.serialization.Data;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Collections;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
  * JobMaster Tester.
  */
 public class JobMasterTest extends AbstractSeaTunnelServerTest {
+    private Long jobId;
+
+    @Before
+    public void before() {
+        super.before();
+        jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+    }
 
     @Test
     public void testHandleCheckpointTimeout() throws Exception {
-
         SeaTunnelContext.getContext().setJobMode(JobMode.STREAMING);
         LogicalDag testLogicalDag = TestUtils.getTestLogicalDag();
         JobConfig config = new JobConfig();
         config.setName("test_checkpoint_timeout");
 
-        JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
+        JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(jobId,
             nodeEngine.getSerializationService().toData(testLogicalDag), config, Collections.emptyList());
 
         Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
 
-        ExecutorService executorService = Executors.newCachedThreadPool(new ThreadFactoryBuilder()
-            .setNameFormat("seatunnel-server-executor-%d").build());
-        JobMaster jobMaster =
-            new JobMaster(data, nodeEngine, executorService, new StandaloneResourceManager(nodeEngine));
+        PassiveCompletableFuture<Void> voidPassiveCompletableFuture = server.submitJob(jobId, data);
+        voidPassiveCompletableFuture.join();
 
-        jobMaster.init();
-        jobMaster.getPhysicalPlan().initStateFuture();
-
-        CompletableFuture.supplyAsync(() -> {
-            jobMaster.run();
-            return null;
-        }, executorService);
+        JobMaster jobMaster = server.getJobMaster(jobId);
 
         // waiting for job status turn to running
         await().atMost(10000, TimeUnit.MILLISECONDS)
@@ -78,14 +74,14 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         // call checkpoint timeout
         jobMaster.handleCheckpointTimeout(1);
         // test job still run
-        await().atMost(10000, TimeUnit.MILLISECONDS)
+        await().atMost(20000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assert.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
 
         // cancel job
         jobMaster.cancelJob();
 
         // test job turn to complete
-        await().atMost(10000, TimeUnit.MILLISECONDS)
+        await().atMost(2000000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assert.assertEquals(JobStatus.CANCELED, jobMaster.getJobStatus()));
     }
 }

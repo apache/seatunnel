@@ -43,7 +43,6 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>checkpoint-storage-local-file</artifactId>
             <version>${project.version}</version>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.hazelcast</groupId>

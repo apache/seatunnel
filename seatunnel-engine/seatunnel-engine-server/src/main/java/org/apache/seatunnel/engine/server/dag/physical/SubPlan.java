@@ -30,9 +30,9 @@ import lombok.NonNull;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 public class SubPlan {
@@ -42,7 +42,7 @@ public class SubPlan {
 
     private final List<PhysicalVertex> coordinatorVertexList;
 
-    private final int pipelineIndex;
+    private final int pipelineId;
 
     private final int totalPipelineNum;
 
@@ -70,15 +70,18 @@ public class SubPlan {
      * Complete this future when this sub plan complete. When this future completed, the waitForCompleteBySubPlan in {@link PhysicalPlan }
      * whenComplete method will be called.
      */
-    private final CompletableFuture<PipelineState> pipelineFuture;
+    private CompletableFuture<PipelineState> pipelineFuture;
 
-    public SubPlan(int pipelineIndex,
+    private final ExecutorService executorService;
+
+    public SubPlan(int pipelineId,
                    int totalPipelineNum,
                    long initializationTimestamp,
                    @NonNull List<PhysicalVertex> physicalVertexList,
                    @NonNull List<PhysicalVertex> coordinatorVertexList,
-                   @NonNull JobImmutableInformation jobImmutableInformation) {
-        this.pipelineIndex = pipelineIndex;
+                   @NonNull JobImmutableInformation jobImmutableInformation,
+                   @NonNull ExecutorService executorService) {
+        this.pipelineId = pipelineId;
         this.pipelineFuture = new CompletableFuture<>();
         this.totalPipelineNum = totalPipelineNum;
         this.physicalVertexList = physicalVertexList;
@@ -92,8 +95,10 @@ public class SubPlan {
             "Job %s (%s), Pipeline: [(%d/%d)]",
             jobImmutableInformation.getJobConfig().getName(),
             jobImmutableInformation.getJobId(),
-            pipelineIndex,
+            pipelineId,
             totalPipelineNum);
+
+        this.executorService = executorService;
     }
 
     public PassiveCompletableFuture<PipelineState> initStateFuture() {
@@ -105,6 +110,7 @@ public class SubPlan {
             addPhysicalVertexCallBack(m.initStateFuture());
         });
 
+        this.pipelineFuture = new CompletableFuture<>();
         return new PassiveCompletableFuture<>(pipelineFuture);
     }
 
@@ -142,10 +148,6 @@ public class SubPlan {
         });
     }
 
-    public void whenComplete(BiConsumer<? super PipelineState, ? super Throwable> action) {
-        this.pipelineFuture.whenComplete(action);
-    }
-
     private void turnToEndState(@NonNull PipelineState endState) {
         // consistency check
         if (pipelineState.get().isEndState()) {
@@ -166,7 +168,8 @@ public class SubPlan {
 
     private void resetPipelineState() {
         if (!pipelineState.get().isEndState()) {
-            String message = "Only end state can be reset";
+            String message = String.format("%s reset state failed, only end state can be reset, current is %s",
+                getPipelineFullName(), pipelineState.get());
             LOGGER.severe(message);
             throw new IllegalStateException(message);
         }
@@ -216,23 +219,15 @@ public class SubPlan {
     }
 
     public void cancelPipeline() {
-        if (!updatePipelineState(PipelineState.CREATED, PipelineState.CANCELED) &&
-            !updatePipelineState(PipelineState.SCHEDULED, PipelineState.CANCELED)) {
-            // may be deploying, running, failed, canceling , canceled, finished
-            if (updatePipelineState(PipelineState.DEPLOYING, PipelineState.CANCELING) ||
-                updatePipelineState(PipelineState.RUNNING, PipelineState.CANCELING)) {
-                cancelRunningPipeline();
-            } else {
-                LOGGER.info(
-                    String.format("%s in a non cancellable state: %s, skip cancel", pipelineFullName,
-                        pipelineState.get()));
-            }
-        } else {
-            pipelineFuture.complete(PipelineState.CANCELED);
+        if (pipelineState.get().isEndState()) {
+            LOGGER.warning(String.format("%s is in end state %s, can not be cancel", pipelineFullName, pipelineState.get()));
+            return;
         }
+        updatePipelineState(pipelineState.get(), PipelineState.CANCELING);
+        cancelPipelineTasks();
     }
 
-    private void cancelRunningPipeline() {
+    private void cancelPipelineTasks() {
         List<CompletableFuture<Void>> coordinatorCancelList =
             coordinatorVertexList.stream().map(coordinator -> cancelTask(coordinator)).filter(x -> x != null)
                 .collect(Collectors.toList());
@@ -258,15 +253,10 @@ public class SubPlan {
             CompletableFuture<Void> future = CompletableFuture.supplyAsync(() -> {
                 task.cancel();
                 return null;
-            });
+            }, executorService);
             return future;
         }
         return null;
-    }
-
-    public void failedWithNoEnoughResource() {
-        LOGGER.severe(String.format("%s failed with have no enough resource to run.", this.getPipelineFullName()));
-        cancelPipeline();
     }
 
     /**
@@ -287,8 +277,8 @@ public class SubPlan {
         });
     }
 
-    public int getPipelineIndex() {
-        return pipelineIndex;
+    public int getPipelineId() {
+        return pipelineId;
     }
 
     public List<PhysicalVertex> getPhysicalVertexList() {
