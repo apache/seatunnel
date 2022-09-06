@@ -4,7 +4,16 @@
 
 ## Description
 
-Used to write data to IoTDB. Supports Batch and Streaming mode.
+Used to write data to IoTDB.
+
+## Key features
+
+- [x] [exactly-once](../../concept/connector-v2-features.md)
+
+IoTDB supports the `exactly-once` feature through idempotent writing. If two pieces of data have
+the same `key` and `timestamp`, the new data will overwrite the old one.
+
+- [ ] [schema projection](../../concept/connector-v2-features.md)
 
 :::tip
 

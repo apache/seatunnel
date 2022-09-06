@@ -28,25 +28,11 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-connector-spark-kudu</artifactId>
+    <properties>
+        <kudu.version>1.7.0</kudu.version>
+    </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-api-spark</artifactId>
-            <version>${project.version}</version>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-core_${scala.binary.version}</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-sql_${scala.binary.version}</artifactId>
-        </dependency>
-
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-streaming_${scala.binary.version}</artifactId>
@@ -55,6 +41,7 @@
         <dependency>
             <groupId>org.apache.kudu</groupId>
             <artifactId>kudu-spark2_${scala.binary.version}</artifactId>
+            <version>${kudu.version}</version>
         </dependency>
     </dependencies>
 

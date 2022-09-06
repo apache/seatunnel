@@ -23,8 +23,5 @@ import lombok.Data;
 @Builder
 @Data
 public class InstanceLogDto {
-    private long instanceId;
-    private int lastSkipNum;
-    private int lastLimitNum;
-    private String content;
+    private String logContent;
 }

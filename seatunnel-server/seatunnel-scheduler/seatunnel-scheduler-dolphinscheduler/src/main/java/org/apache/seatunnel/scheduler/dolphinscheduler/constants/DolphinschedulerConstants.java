@@ -45,6 +45,7 @@ public class DolphinschedulerConstants {
     public static final String SCHEDULE_OFFLINE = "/projects/%s/schedules/%s/offline";
     public static final String DELETE_PROCESS_DEFINITION = "/projects/%s/process-definition/%s";
     public static final String PROCESS_INSTANCE_LIST = "/projects/%s/process-instances";
+    public static final String EXECUTE = "/projects/%s/executors/execute";
 
     /**
      * request param
@@ -168,6 +169,10 @@ public class DolphinschedulerConstants {
     public static final String EXEC_TYPE_DEFAULT = "START_PROCESS";
     public static final String EXEC_TYPE_COMPLEMENT = "COMPLEMENT_DATA";
     public static final String DEPENDENT_MODE_DEFAULT = "OFF_MODE";
+    public static final String PROCESS_INSTANCE_ID = "processInstanceId";
+    public static final String EXECUTE_TYPE = "executeType";
+    public static final int LOG_SKIP_LINE_NUM_DEFAULT = 0;
+    public static final int LOG_LIMIT_NUM_DEFAULT = Integer.MAX_VALUE;
 
     /**
      * response param
@@ -178,4 +183,5 @@ public class DolphinschedulerConstants {
     public static final String CODE = "code";
     public static final int CODE_SUCCESS = 0;
     public static final String MSG = "msg";
+    public static final String LOG_MESSAGE = "message";
 }

@@ -28,41 +28,29 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-connector-spark-clickhouse</artifactId>
+    
+    <properties>
+        <clickhouse.jdbc.version>0.2</clickhouse.jdbc.version>
+        <sshd.scp.version>2.7.0</sshd.scp.version>
+    </properties>
 
     <dependencies>
         <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-api-spark</artifactId>
-            <scope>provided</scope>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
             <groupId>ru.yandex.clickhouse</groupId>
             <artifactId>clickhouse-jdbc</artifactId>
+            <version>${clickhouse.jdbc.version}</version>
         </dependency>
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-core_${scala.binary.version}</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-sql_${scala.binary.version}</artifactId>
-        </dependency>
-
         <dependency>
             <groupId>org.apache.sshd</groupId>
             <artifactId>sshd-scp</artifactId>
+            <version>${sshd.scp.version}</version>
         </dependency>
-
         <dependency>
             <groupId>org.scalatest</groupId>
             <artifactId>scalatest_${scala.binary.version}</artifactId>
             <version>3.2.3</version>
             <scope>test</scope>
         </dependency>
-
     </dependencies>
 
 </project>
