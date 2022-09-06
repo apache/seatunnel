@@ -226,8 +226,6 @@
         <jwt.version>0.10.7</jwt.version>
         <jedis.version>4.2.2</jedis.version>
         <datahub.version>2.19.0-public</datahub.version>
-        <poi.version>4.1.2</poi.version>
-        <poi-ooxml.version>4.1.2</poi-ooxml.version>
     </properties>
 
     <dependencyManagement>
@@ -760,19 +758,6 @@
                 <artifactId>aliyun-sdk-datahub</artifactId>
                 <version>${datahub.version}</version>
             </dependency>
-
-            <dependency>
-                <groupId>org.apache.poi</groupId>
-                <artifactId>poi</artifactId>
-                <version>${poi.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.poi</groupId>
-                <artifactId>poi-ooxml</artifactId>
-                <version>${poi-ooxml.version}</version>
-            </dependency>
-
         </dependencies>
 
     </dependencyManagement>
