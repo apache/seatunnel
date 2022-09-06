@@ -8,6 +8,11 @@ Write data to Neo4j.
 
 `neo4j-java-driver` version 4.4.9
 
+## Key features
+
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [schema projection](../../concept/connector-v2-features.md)
+
 ## Options
 
 | name                       | type   | required | default value |

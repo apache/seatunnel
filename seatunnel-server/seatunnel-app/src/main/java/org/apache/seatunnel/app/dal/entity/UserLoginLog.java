@@ -15,19 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.oss.source.config;
+package org.apache.seatunnel.app.dal.entity;
 
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import lombok.Data;
 
-public class OssConf extends HadoopConf {
-    private final String fsHdfsImpl = "org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem";
+import java.util.Date;
 
-    @Override
-    public String getFsHdfsImpl() {
-        return fsHdfsImpl;
-    }
+@Data
+public class UserLoginLog {
+    private Long id;
 
-    public OssConf(String hdfsNameKey) {
-        super(hdfsNameKey);
-    }
+    private Integer userId;
+
+    private String token;
+
+    private Boolean tokenStatus;
+
+    private Date createTime;
+
+    private Date updateTime;
 }

@@ -29,7 +29,7 @@
     <dependency>
       <groupId>org.apache.flink</groupId>
       <artifactId>flink-connector-jdbc_2.11</artifactId>
-      <version>${flink.version}</version>
+        <version>${flink.1.13.6.version}</version>
     </dependency>
   </dependencies>
 </project>

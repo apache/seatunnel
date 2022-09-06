@@ -22,9 +22,13 @@ public enum SeatunnelErrorEnum {
     SCRIPT_ALREADY_EXIST(10001, "script already exist", "You already have a script with the same name : '%s'"),
     NO_SUCH_SCRIPT(10002, "no such script", "No such script. Maybe deleted by others."),
     USER_ALREADY_EXISTS(10003, "user already exist", "The same username [%s] is exist."),
-    NO_SUCH_USER(10002, "no such user", "No such user. Maybe deleted by others."),
-    SCHEDULER_CONFIG_NOT_EXIST(10003, "scheduler config not exist", "This script's scheduler config not exist, please check your config."),
-    JSON_TRANSFORM_FAILED(10004, "json transform failed", "Json transform failed, it may be a bug."),
+    NO_SUCH_USER(10004, "no such user", "No such user. Maybe deleted by others."),
+    SCHEDULER_CONFIG_NOT_EXIST(10005, "scheduler config not exist", "This script's scheduler config not exist, please check your config."),
+    JSON_TRANSFORM_FAILED(10006, "json transform failed", "Json transform failed, it may be a bug."),
+
+    USERNAME_PASSWORD_NO_MATCHED(10007, "username and password no matched", "The user name and password do not match, please check your input"),
+
+    TOKEN_ILLEGAL(10008, "token illegal", "The token is expired or invalid, please login again."),
 
     /**
      * request dolphinscheduler failed

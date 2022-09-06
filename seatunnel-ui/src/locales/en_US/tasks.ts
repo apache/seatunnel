@@ -15,13 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.oss.source.config;
-
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
-
-public class OssSourceConfig extends BaseSourceConfig {
-    public static final String ACCESS_KEY = "accessKey";
-    public static final String ACCESS_SECRET = "accessSecret";
-    public static final String ENDPOINT = "endpoint";
-    public static final String BUCKET = "bucket";
+export default {
+  tasks: 'Tasks',
+  search: 'Search',
+  tasks_name: 'Tasks Name',
+  success: 'Success',
+  fail: 'Fail',
+  running: 'Running',
+  task_name: 'Task Name',
+  state: 'State',
+  run_frequency: 'Run Frequency',
+  once: 'Once',
+  crontab: 'Crontab',
+  next_run: 'Next Run',
+  last_run: 'Last Run',
+  last_total_bytes: 'Last Total Bytes',
+  last_total_records: 'Last Total Records',
+  rerun: 'Rerun',
+  kill: 'Kill',
+  view_log: 'View Log'
 }

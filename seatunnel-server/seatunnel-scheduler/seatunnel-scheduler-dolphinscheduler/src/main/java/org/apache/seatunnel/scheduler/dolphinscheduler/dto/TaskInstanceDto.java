@@ -32,7 +32,7 @@ public class TaskInstanceDto {
     private boolean firstRun;
     private int dryRun;
     private String flag;
-    private int environmentCode;
+    private long environmentCode;
     private String processInstance;
     private int pid;
     private String taskParams;

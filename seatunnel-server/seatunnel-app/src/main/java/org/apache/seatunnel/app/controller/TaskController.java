@@ -33,6 +33,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
@@ -68,5 +69,12 @@ public class TaskController {
     @ApiOperation(value = "execute script temporary", httpMethod = "GET")
     Result<InstanceSimpleInfoRes> tmpExecute(@RequestBody @NotNull ExecuteReq req) {
         return Result.success(iTaskService.tmpExecute(req));
+    }
+
+    @PostMapping("/kill")
+    @ApiOperation(value = "kill running instance", httpMethod = "POST")
+    Result<Void> kill(@RequestParam Long instanceId) {
+        iTaskService.kill(instanceId);
+        return Result.success();
     }
 }

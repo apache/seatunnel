@@ -8,6 +8,11 @@ Send the data as a file to email.
 
  The tested email version is 1.5.6.
 
+## Key features
+
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [schema projection](../../concept/connector-v2-features.md)
+
 ## Options
 
 | name                     | type    | required | default value |
