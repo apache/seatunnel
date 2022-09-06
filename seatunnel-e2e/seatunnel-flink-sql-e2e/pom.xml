@@ -27,8 +27,8 @@
     <artifactId>seatunnel-flink-sql-e2e</artifactId>
 
     <modules>
-        <module>setunnel-connector-flink-sql-e2e-base</module>
-        <module>setunnel-connector-flink-sql-fake-e2e</module>
+        <module>base-flink-sql</module>
+        <module>fake-flink-sql</module>
     </modules>
 
     <dependencies>

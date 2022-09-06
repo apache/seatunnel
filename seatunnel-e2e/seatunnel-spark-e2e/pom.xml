@@ -27,10 +27,10 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>seatunnel-connector-spark-e2e-base</module>
-        <module>seatunnel-connector-spark-jdbc-e2e</module>
-        <module>seatunnel-connector-spark-http-e2e</module>
-        <module>seatunnel-connector-spark-fake-e2e</module>
+        <module>base-s1</module>
+        <module>jdbc-s1</module>
+        <module>http-s1</module>
+        <module>fake-s1</module>
     </modules>
 
     <dependencies>

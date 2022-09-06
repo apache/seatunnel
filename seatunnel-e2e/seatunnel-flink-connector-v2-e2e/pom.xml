@@ -27,14 +27,14 @@
     <artifactId>seatunnel-flink-connector-v2-e2e</artifactId>
 
     <modules>
-        <module>connector-flink-e2e-base</module>
-        <module>connector-redis-flink-e2e</module>
-        <module>connector-file-flink-e2e</module>
-        <module>connector-jdbc-flink-e2e</module>
-        <module>connector-iotdb-flink-e2e</module>
-        <module>connector-datahub-flink-e2e</module>
-        <module>connector-assert-flink-e2e</module>
-        <module>connector-fake-flink-e2e</module>
+        <module>base-f2</module>
+        <module>redis-f2</module>
+        <module>file-f2</module>
+        <module>jdbc-f2</module>
+        <module>iotdb-f2</module>
+        <module>datahub-f2</module>
+        <module>assert-f2</module>
+        <module>fake-f2</module>
     </modules>
 
     <dependencies>

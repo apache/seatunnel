@@ -27,13 +27,13 @@
     <artifactId>seatunnel-spark-connector-v2-e2e</artifactId>
 
     <modules>
-        <module>connector-spark-e2e-base</module>
-        <module>connector-datahub-spark-e2e</module>
-        <module>connector-fake-spark-e2e</module>
-        <module>connector-file-spark-e2e</module>
-        <module>connector-iotdb-spark-e2e</module>
-        <module>connector-jdbc-spark-e2e</module>
-        <module>connector-redis-spark-e2e</module>
+        <module>base-s2</module>
+        <module>datahub-s2</module>
+        <module>fake-s2</module>
+        <module>file-s2</module>
+        <module>iotdb-s2</module>
+        <module>jdbc-s2</module>
+        <module>redis-s2</module>
     </modules>
 
     <dependencies>

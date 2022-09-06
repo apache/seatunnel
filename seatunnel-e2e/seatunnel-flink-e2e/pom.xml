@@ -27,12 +27,12 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>seatunnel-connector-flink-e2e-base</module>
-        <module>seatunnel-connector-flink-clickhouse-e2e</module>
-        <module>seatunnel-connector-flink-file-e2e</module>
-        <module>seatunnel-connector-flink-http-e2e</module>
-        <module>seatunnel-connector-flink-fake-e2e</module>
-        <module>seatunnel-connector-flink-assert-e2e</module>
+        <module>base-f1</module>
+        <module>clickhouse-f1</module>
+        <module>file-f1</module>
+        <module>http-f1</module>
+        <module>fake-f1</module>
+        <module>assert-f1</module>
     </modules>
 
     <dependencies>
