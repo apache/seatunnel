@@ -13,6 +13,10 @@ A sink plugin which use Enterprise WeChat robot send message
 > ```
 **Tips: WeChat sink only support `string` webhook and the data from source will be treated as body content in web hook.**
 
+## Key features
+
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [schema projection](../../concept/connector-v2-features.md)
 
 ##  Options
 

@@ -8,6 +8,18 @@ Used to read data from Hudi. Currently, only supports hudi cow table and Snapsho
 
 In order to use this connector, You must ensure your spark/flink cluster already integrated hive. The tested hive version is 2.3.9.
 
+## Key features
+
+- [x] [batch](../../concept/connector-v2-features.md)
+
+Currently, only supports hudi cow table and Snapshot Query with Batch Mode
+
+- [ ] [stream](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [schema projection](../../concept/connector-v2-features.md)
+- [x] [parallelism](../../concept/connector-v2-features.md)
+- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+
 ## Options
 
 | name                     | type    | required | default value |
