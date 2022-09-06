@@ -47,6 +47,11 @@
             <artifactId>slf4j-log4j12</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+            <scope>test</scope>
+        </dependency>
         <!-- Testcontainers 1.x is tightly coupled with the JUnit 4.x rule API-->
         <dependency>
             <groupId>junit</groupId>
