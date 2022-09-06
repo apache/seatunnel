@@ -43,9 +43,9 @@ public class RedisParameters implements Serializable {
         if (config.hasPath(RedisConfig.AUTH)) {
             this.auth = config.getString(RedisConfig.AUTH);
         }
-        // set keyField
-        if (config.hasPath(RedisConfig.KEY_FIELD)) {
-            this.keyField = config.getString(RedisConfig.KEY_FIELD);
+        // set key
+        if (config.hasPath(RedisConfig.KEY)) {
+            this.keyField = config.getString(RedisConfig.KEY);
         }
         // set keysPattern
         if (config.hasPath(RedisConfig.KEY_PATTERN)) {

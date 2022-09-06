@@ -17,7 +17,7 @@ Used to write data to Redis.
 |-----------|--------|----------|---------------|
 | host      | string | yes      | -             |
 | port      | int    | yes      | -             |
-| key_field | string | yes      | -             |
+| key       | string | yes      | -             |
 | data_type | string | yes      | -             |
 | auth      | string | No       | -             |
 | format    | string | No       | json          |
@@ -30,7 +30,7 @@ Redis host
 
 Redis port
 
-### key_field [string]
+### key [string]
 
 The value of key you want to write to redis. 
 
@@ -47,7 +47,7 @@ If you assign field name to `code` and data_type to `key`, two data will be writ
 1. `200 -> {code: 200, message: true, data: get success}`
 2. `500 -> {code: 500, message: false, data: internal error}`
 
-If you assign field name to `value` and data_type to `key`, only one data will be written to redis because the key_field is not existed in upstream data:
+If you assign field name to `value` and data_type to `key`, only one data will be written to redis because `value` is not existed in upstream data's fields:
 
 1. `value -> {code: 500, message: false, data: internal error}` 
 
@@ -106,7 +106,7 @@ simple:
   Redis {
     host = localhost
     port = 6379
-    key_field = age
+    key = age
     data_type = list
   }
 ```
