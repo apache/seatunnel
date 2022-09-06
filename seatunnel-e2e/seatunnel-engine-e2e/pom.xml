@@ -27,6 +27,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-engine-e2e</artifactId>
+    <packaging>pom</packaging>
+
+    <modules>
+        <module>seatunnel-engine-e2e-base</module>
+        <module>seatunnel-engine-connector-file-e2e</module>
+    </modules>
 
     <dependencies>
         <dependency>
@@ -69,6 +75,7 @@
         <dependency>
             <groupId>org.awaitility</groupId>
             <artifactId>awaitility</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>
