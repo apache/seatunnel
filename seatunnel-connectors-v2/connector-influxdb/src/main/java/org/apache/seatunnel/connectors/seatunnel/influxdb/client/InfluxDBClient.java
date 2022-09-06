@@ -60,8 +60,8 @@ public class InfluxDBClient {
         InfluxDB influxDB =
                 new InfluxDBImpl(
                         config.getUrl(),
-                        StringUtils.isEmpty(config.getUsername()) ? null : config.getUsername(),
-                        StringUtils.isEmpty(config.getPassword()) ? null : config.getPassword(),
+                        StringUtils.isEmpty(config.getUsername()) ? StringUtils.EMPTY : config.getUsername(),
+                        StringUtils.isEmpty(config.getPassword()) ? StringUtils.EMPTY : config.getPassword(),
                         clientBuilder,
                         format);
         String version = influxDB.version();

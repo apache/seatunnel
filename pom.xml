@@ -196,10 +196,7 @@
         <javax.annotation-api.version>1.3.2</javax.annotation-api.version>
         <checker.qual.version>3.10.0</checker.qual.version>
         <awaitility.version>4.2.0</awaitility.version>
-        <neo4j-java-driver.version>4.4.9</neo4j-java-driver.version>
         <jwt.version>0.10.7</jwt.version>
-        <jedis.version>4.2.2</jedis.version>
-        <datahub.version>2.19.0-public</datahub.version>
         <influxdb.version>2.21</influxdb.version>
     </properties>
 
