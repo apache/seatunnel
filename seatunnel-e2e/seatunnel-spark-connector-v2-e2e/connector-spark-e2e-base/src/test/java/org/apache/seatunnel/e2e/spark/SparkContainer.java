@@ -40,8 +40,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * This class is the base class of SparkEnvironment test. The before method will create a Spark master, and after method will close the Spark master.
- * You can use {@link SparkContainer#executeSeaTunnelSparkJob} to submit a seatunnel conf and a seatunnel spark job.
+ * This class is the base class of SparkEnvironment test. The before method will create a Spark master, and after method will close the Spark master. You can use {@link SparkContainer#executeSeaTunnelSparkJob} to submit a seatunnel conf and a seatunnel spark job.
  */
 public abstract class SparkContainer {
 
@@ -98,12 +97,12 @@ public abstract class SparkContainer {
         String conf = targetConfInContainer.replaceAll("\\\\", "/");
         final List<String> command = new ArrayList<>();
         String sparkBinPath = Paths.get(SEATUNNEL_HOME, "bin", SEATUNNEL_SPARK_BIN).toString();
-        command.add(sparkBinPath.replaceAll("\\\\", "/"));
+        command.add(adaptPathForWin(sparkBinPath));
         command.add("--master");
         command.add("local");
         command.add("--deploy-mode");
         command.add("client");
-        command.add("--config " + conf);
+        command.add("--config " + adaptPathForWin(targetConfInContainer));
 
         Container.ExecResult execResult = master.execInContainer("bash", "-c", String.join(" ", command));
         LOG.info(execResult.getStdout());
@@ -120,10 +119,10 @@ public abstract class SparkContainer {
         master.copyFileToContainer(MountableFile.forHostPath(seatunnelCoreSparkJarPath), SPARK_JAR_PATH);
 
         // copy bin
-        String seatunnelFlinkBinPath = Paths.get(PROJECT_ROOT_PATH.toString(),
+        String seatunnelSparkBinPath = Paths.get(PROJECT_ROOT_PATH.toString(),
             "seatunnel-core", "seatunnel-spark-starter", "src", "main", "bin", SEATUNNEL_SPARK_BIN).toString();
         master.copyFileToContainer(
-            MountableFile.forHostPath(seatunnelFlinkBinPath),
+            MountableFile.forHostPath(seatunnelSparkBinPath),
             Paths.get(SEATUNNEL_BIN, SEATUNNEL_SPARK_BIN).toString());
 
         // copy connectors
@@ -155,5 +154,9 @@ public abstract class SparkContainer {
                     jars.listFiles(
                         f -> f.getName().contains("connector-"))))
             .collect(Collectors.toList());
+    }
+
+    private String adaptPathForWin(String path) {
+        return path == null ? "" : path.replaceAll("\\\\", "/");
     }
 }
