@@ -41,7 +41,6 @@ public class Common {
      */
     public static final int COLLECTION_SIZE = 16;
 
-
     private static final int PLUGIN_LIB_DIR_DEPTH = 3;
 
     private static DeployMode MODE;

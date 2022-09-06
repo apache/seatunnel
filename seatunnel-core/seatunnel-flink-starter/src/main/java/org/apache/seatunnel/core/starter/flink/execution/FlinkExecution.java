@@ -86,5 +86,4 @@ public class FlinkExecution implements TaskExecution {
             throw new TaskExecuteException("Execute Flink job error", e);
         }
     }
-
 }
