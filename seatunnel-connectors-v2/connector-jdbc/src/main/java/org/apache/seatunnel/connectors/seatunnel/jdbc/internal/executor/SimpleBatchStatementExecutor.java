@@ -68,7 +68,9 @@ public class SimpleBatchStatementExecutor<T> implements JdbcBatchStatementExecut
             batch.clear();
 
             // cache commit
-            st.getConnection().commit();
+            if (!st.getConnection().getAutoCommit()) {
+                st.getConnection().commit();
+            }
             st.clearParameters();
             st.clearBatch();
 
@@ -78,6 +80,9 @@ public class SimpleBatchStatementExecutor<T> implements JdbcBatchStatementExecut
     @Override
     public void closeStatements() throws SQLException {
         if (st != null) {
+            if (!st.getConnection().getAutoCommit()) {
+                st.getConnection().commit();
+            }
             st.close();
             st = null;
         }

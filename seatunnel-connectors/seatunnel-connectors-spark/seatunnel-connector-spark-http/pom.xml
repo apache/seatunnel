@@ -25,8 +25,26 @@
         <artifactId>seatunnel-connectors-spark</artifactId>
         <version>${revision}</version>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-connector-spark-http</artifactId>
+    
+    <properties>
+        <httpcore.version>4.4</httpcore.version>
+        <httpclient.version>4.5.13</httpclient.version>
+    </properties>
+    <modelVersion>4.0.0</modelVersion>
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpcore</artifactId>
+            <version>${httpcore.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>${httpclient.version}</version>
+        </dependency>
+    </dependencies>
+
 
 </project>
