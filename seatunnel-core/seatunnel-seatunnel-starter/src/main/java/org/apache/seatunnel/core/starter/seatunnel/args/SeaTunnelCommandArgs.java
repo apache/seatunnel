@@ -20,6 +20,7 @@ package org.apache.seatunnel.core.starter.seatunnel.args;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
 import org.apache.seatunnel.core.starter.config.EngineType;
+import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 
 import com.beust.jcommander.Parameter;
 
@@ -35,6 +36,19 @@ public class SeaTunnelCommandArgs extends AbstractCommandArgs {
     @Parameter(names = {"-n", "--name"},
         description = "The name of job")
     private String name = "seatunnel_job";
+
+    @Parameter(names = {"-e", "--deploy-mode"},
+        description = "SeaTunnel deploy mode",
+        converter = ExecutionModeConverter.class)
+    private ExecutionMode executionMode = ExecutionMode.LOCAL;
+
+    public ExecutionMode getExecutionMode() {
+        return executionMode;
+    }
+
+    public void setExecutionMode(ExecutionMode executionMode) {
+        this.executionMode = executionMode;
+    }
 
     public String getName() {
         return name;

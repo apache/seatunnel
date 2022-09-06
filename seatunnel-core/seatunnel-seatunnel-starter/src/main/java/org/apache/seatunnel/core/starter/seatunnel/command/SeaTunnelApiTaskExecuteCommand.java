@@ -26,8 +26,13 @@ import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
+import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 
 import java.nio.file.Path;
 import java.util.concurrent.ExecutionException;
@@ -38,6 +43,9 @@ import java.util.concurrent.ExecutionException;
 public class SeaTunnelApiTaskExecuteCommand implements Command<SeaTunnelCommandArgs> {
 
     private final SeaTunnelCommandArgs seaTunnelCommandArgs;
+
+    // TODO custom cluster name on cluster execution mode
+    private static final String CLUSTER_NAME = "SeaTunnelCluster";
 
     public SeaTunnelApiTaskExecuteCommand(SeaTunnelCommandArgs seaTunnelCommandArgs) {
         this.seaTunnelCommandArgs = seaTunnelCommandArgs;
@@ -50,7 +58,13 @@ public class SeaTunnelApiTaskExecuteCommand implements Command<SeaTunnelCommandA
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName(seaTunnelCommandArgs.getName());
 
+        HazelcastInstance instance = null;
+        if (seaTunnelCommandArgs.getExecutionMode().equals(ExecutionMode.LOCAL)) {
+            instance = createServerInLocal();
+        }
+
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(CLUSTER_NAME);
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(configFile.toString(), jobConfig);
 
@@ -60,7 +74,19 @@ public class SeaTunnelApiTaskExecuteCommand implements Command<SeaTunnelCommandA
             clientJobProxy.waitForJobComplete();
         } catch (ExecutionException | InterruptedException e) {
             throw new CommandExecuteException("SeaTunnel job executed failed", e);
+        } finally {
+            if (instance != null) {
+                instance.shutdown();
+            }
         }
+    }
+
+    private HazelcastInstance createServerInLocal() {
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.getHazelcastConfig().setClusterName(CLUSTER_NAME);
+        return HazelcastInstanceFactory.newHazelcastInstance(seaTunnelConfig.getHazelcastConfig(),
+            Thread.currentThread().getName(),
+            new SeaTunnelNodeContext(ConfigProvider.locateAndGetSeaTunnelConfig()));
     }
 
 }
