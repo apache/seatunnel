@@ -40,7 +40,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * This class is the base class of SparkEnvironment test. The before method will create a Spark master, and after method will close the Spark master. You can use {@link SparkContainer#executeSeaTunnelSparkJob} to submit a seatunnel conf and a seatunnel spark job.
+ * This class is the base class of SparkEnvironment test. The before method will create a Spark master, and after method will close the Spark master.
+ * You can use {@link SparkContainer#executeSeaTunnelSparkJob} to submit a seatunnel conf and a seatunnel spark job.
  */
 public abstract class SparkContainer {
 
@@ -56,7 +57,7 @@ public abstract class SparkContainer {
     private static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
     private static final String SEATUNNEL_HOME = "/tmp/spark/seatunnel";
     private static final String SEATUNNEL_BIN = Paths.get(SEATUNNEL_HOME, "bin").toString();
-    protected static final String SPARK_JAR_PATH = Paths.get(SEATUNNEL_HOME, "lib", SEATUNNEL_SPARK_JAR).toString();
+    private static final String SPARK_JAR_PATH = Paths.get(SEATUNNEL_HOME, "lib", SEATUNNEL_SPARK_JAR).toString();
     private static final String CONNECTORS_PATH = Paths.get(SEATUNNEL_HOME, "connectors").toString();
 
     private static final int WAIT_SPARK_JOB_SUBMIT = 5000;
