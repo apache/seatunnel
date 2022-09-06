@@ -24,6 +24,7 @@ import org.apache.seatunnel.server.common.PageData;
 import org.apache.seatunnel.spi.scheduler.IInstanceService;
 import org.apache.seatunnel.spi.scheduler.dto.InstanceDto;
 import org.apache.seatunnel.spi.scheduler.dto.InstanceListDto;
+import org.apache.seatunnel.spi.scheduler.dto.InstanceLogDto;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -63,5 +64,10 @@ public class InstanceServiceImpl implements IInstanceService {
                 .retryTimes(t.getRetryTimes())
                 .build()).collect(Collectors.toList());
         return new PageData<>(instancePageData.getTotalCount(), data);
+    }
+
+    @Override
+    public InstanceLogDto queryInstanceLog(long instanceId) {
+        return iDolphinschedulerService.queryInstanceLog(instanceId);
     }
 }

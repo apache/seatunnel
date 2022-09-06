@@ -51,7 +51,10 @@ import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.Dolphins
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOCATIONS_Y_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOG_DETAIL;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOG_LIMIT_NUM;
+import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOG_LIMIT_NUM_DEFAULT;
+import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOG_MESSAGE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOG_SKIP_LINE_NUM;
+import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOG_SKIP_LINE_NUM_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.MSG;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.ONLINE_CREATE_RESOURCE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PAGE_NO;
@@ -451,6 +454,25 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
         execute(processInstanceId, ExecuteTypeEnum.STOP);
     }
 
+    @Override
+    public InstanceLogDto queryInstanceLog(long instanceId) {
+
+        final Map result = HttpUtils.builder()
+            .withUrl(apiPrefix.concat(LOG_DETAIL))
+            .withData(createParamMap(TASK_INSTANCE_ID, instanceId, LOG_SKIP_LINE_NUM, LOG_SKIP_LINE_NUM_DEFAULT, LOG_LIMIT_NUM, LOG_LIMIT_NUM_DEFAULT))
+            .withMethod(Connection.Method.GET)
+            .withToken(TOKEN, token)
+            .execute(Map.class);
+        checkResult(result, false);
+
+        final Map map = MapUtils.getMap(result, DATA);
+        final String logContent = MapUtils.getString(map, LOG_MESSAGE);
+
+        return InstanceLogDto.builder()
+            .logContent(logContent)
+            .build();
+    }
+
     private ProjectDto queryProjectCodeByName(String projectName) throws IOException {
         final Map result = HttpUtils.builder()
                 .withUrl(apiPrefix.concat(QUERY_PROJECT_LIST_PAGING))
@@ -597,23 +619,6 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
         }
         final Map<String, Object> map = MapUtils.getMap(result, DATA);
         return this.mapToPojo(map, ResourceDto.class);
-    }
-
-    public InstanceLogDto getInstanceLog(long instanceId, int skipNum, int limitNum) {
-        final Map result = HttpUtils.builder()
-                .withUrl(apiPrefix.concat(LOG_DETAIL))
-                .withMethod(Connection.Method.GET)
-                .withData(createParamMap(TASK_INSTANCE_ID, instanceId, LOG_SKIP_LINE_NUM, skipNum, LOG_LIMIT_NUM, limitNum))
-                .withToken(TOKEN, token)
-                .execute(Map.class);
-        checkResult(result, false);
-        final String logContent = MapUtils.getString(result, DATA);
-        return InstanceLogDto.builder()
-                .lastSkipNum(skipNum)
-                .lastLimitNum(limitNum)
-                .instanceId(instanceId)
-                .content(logContent)
-                .build();
     }
 
     private int checkResult(Map result, boolean ignore) {
