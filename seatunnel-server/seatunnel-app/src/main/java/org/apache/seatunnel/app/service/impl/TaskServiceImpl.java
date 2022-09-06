@@ -36,6 +36,7 @@ import org.apache.seatunnel.app.domain.dto.job.PushScriptDto;
 import org.apache.seatunnel.app.domain.dto.job.ScriptJobApplyDto;
 import org.apache.seatunnel.app.domain.request.task.ExecuteReq;
 import org.apache.seatunnel.app.domain.request.task.InstanceListReq;
+import org.apache.seatunnel.app.domain.request.task.InstanceLogRes;
 import org.apache.seatunnel.app.domain.request.task.JobListReq;
 import org.apache.seatunnel.app.domain.request.task.RecycleScriptReq;
 import org.apache.seatunnel.app.domain.response.PageInfo;
@@ -49,6 +50,7 @@ import org.apache.seatunnel.spi.scheduler.IJobService;
 import org.apache.seatunnel.spi.scheduler.dto.ExecuteDto;
 import org.apache.seatunnel.spi.scheduler.dto.InstanceDto;
 import org.apache.seatunnel.spi.scheduler.dto.InstanceListDto;
+import org.apache.seatunnel.spi.scheduler.dto.InstanceLogDto;
 import org.apache.seatunnel.spi.scheduler.dto.JobDto;
 import org.apache.seatunnel.spi.scheduler.dto.JobListDto;
 import org.apache.seatunnel.spi.scheduler.dto.JobSimpleInfoDto;
@@ -222,6 +224,16 @@ public class TaskServiceImpl implements ITaskService {
                 .build();
 
         return this.translate(iJobService.execute(dto));
+    }
+
+    @Override
+    public InstanceLogRes queryInstanceLog(long instanceId) {
+        final InstanceLogDto dto = iInstanceService.queryInstanceLog(instanceId);
+
+        return InstanceLogRes.builder()
+            .instanceId(instanceId)
+            .logContent(dto.getLogContent())
+            .build();
     }
 
     @Override

@@ -170,6 +170,8 @@ public class DolphinschedulerConstants {
     public static final String DEPENDENT_MODE_DEFAULT = "OFF_MODE";
     public static final String PROCESS_INSTANCE_ID = "processInstanceId";
     public static final String EXECUTE_TYPE = "executeType";
+    public static final int LOG_SKIP_LINE_NUM_DEFAULT = 0;
+    public static final int LOG_LIMIT_NUM_DEFAULT = Integer.MAX_VALUE;
 
     /**
      * response param
@@ -180,4 +182,5 @@ public class DolphinschedulerConstants {
     public static final String CODE = "code";
     public static final int CODE_SUCCESS = 0;
     public static final String MSG = "msg";
+    public static final String LOG_MESSAGE = "message";
 }
