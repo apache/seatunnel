@@ -31,6 +31,7 @@ public class RedisParameters implements Serializable {
     private int port;
     private String auth = "";
     private String keysPattern;
+    private String keyField;
     private RedisDataType redisDataType;
 
     public void buildWithConfig(Config config) {
@@ -42,8 +43,14 @@ public class RedisParameters implements Serializable {
         if (config.hasPath(RedisConfig.AUTH)) {
             this.auth = config.getString(RedisConfig.AUTH);
         }
+        // set keyField
+        if (config.hasPath(RedisConfig.KEY_FIELD)) {
+            this.keyField = config.getString(RedisConfig.KEY_FIELD);
+        }
         // set keysPattern
-        this.keysPattern = config.getString(RedisConfig.KEY_PATTERN);
+        if (config.hasPath(RedisConfig.KEY_PATTERN)) {
+            this.keysPattern = config.getString(RedisConfig.KEY_PATTERN);
+        }
         // set redis data type
         try {
             String dataType = config.getString(RedisConfig.DATA_TYPE);

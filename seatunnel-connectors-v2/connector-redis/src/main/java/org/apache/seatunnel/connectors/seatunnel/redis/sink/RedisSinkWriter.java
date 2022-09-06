@@ -28,6 +28,8 @@ import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import redis.clients.jedis.Jedis;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 
 public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
@@ -49,7 +51,15 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     public void write(SeaTunnelRow element) throws IOException {
         String data = new String(serializationSchema.serialize(element));
         RedisDataType redisDataType = redisParameters.getRedisDataType();
-        redisDataType.set(jedis, redisParameters.getKeysPattern(), data);
+        String keyField = redisParameters.getKeyField();
+        List<String> fields = Arrays.asList(seaTunnelRowType.getFieldNames());
+        String key;
+        if (fields.contains(keyField)) {
+            key = element.getField(fields.indexOf(keyField)).toString();
+        } else {
+            key = keyField;
+        }
+        redisDataType.set(jedis, key, data);
     }
 
     @Override
