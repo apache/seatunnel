@@ -236,6 +236,11 @@ public class TaskServiceImpl implements ITaskService {
             .build();
     }
 
+    @Override
+    public void kill(Long instanceId) {
+        iJobService.kill(instanceId);
+    }
+
     private JobSimpleInfoRes translate(JobSimpleInfoDto dto) {
         return JobSimpleInfoRes.builder()
                 .jobId(dto.getJobId())

@@ -77,4 +77,11 @@ public class TaskController {
     Result<InstanceLogRes> queryInstanceLog(@RequestParam long taskInstanceId) {
         return Result.success(iTaskService.queryInstanceLog(taskInstanceId));
     }
+
+    @PostMapping("/kill")
+    @ApiOperation(value = "kill running instance", httpMethod = "POST")
+    Result<Void> kill(@RequestParam Long instanceId) {
+        iTaskService.kill(instanceId);
+        return Result.success();
+    }
 }

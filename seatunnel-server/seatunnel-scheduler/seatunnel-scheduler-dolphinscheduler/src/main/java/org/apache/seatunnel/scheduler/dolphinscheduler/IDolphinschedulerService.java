@@ -60,4 +60,6 @@ public interface IDolphinschedulerService {
     void deleteProcessDefinition(long code);
 
     InstanceLogDto queryInstanceLog(long instanceId);
+
+    void killProcessInstance(long processInstanceId);
 }

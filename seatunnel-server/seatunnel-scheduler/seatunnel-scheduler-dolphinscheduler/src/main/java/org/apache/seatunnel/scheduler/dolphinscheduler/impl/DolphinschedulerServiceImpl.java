@@ -34,6 +34,8 @@ import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.Dolphins
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.END_TIME;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.ENVIRONMENT_CODE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.ENVIRONMENT_CODE_DEFAULT;
+import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.EXECUTE;
+import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.EXECUTE_TYPE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.FAILED_NODE_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.FAILURE_STRATEGY;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.FAILURE_STRATEGY_DEFAULT;
@@ -65,6 +67,7 @@ import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.Dolphins
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_DEFINITION;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_DEFINITION_CODE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_DEFINITION_NAME;
+import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_INSTANCE_ID;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_INSTANCE_NAME;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_INSTANCE_PRIORITY;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_INSTANCE_PRIORITY_DEFAULT;
@@ -119,6 +122,7 @@ import static org.apache.seatunnel.server.common.Constants.BLANK_SPACE;
 import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.NO_MATCHED_PROJECT;
 import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.UNEXPECTED_RETURN_CODE;
 
+import org.apache.seatunnel.scheduler.dolphinscheduler.ExecuteTypeEnum;
 import org.apache.seatunnel.scheduler.dolphinscheduler.IDolphinschedulerService;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ConditionResult;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ListProcessDefinitionDto;
@@ -190,7 +194,7 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
     }
 
     @Override
-            public ProcessDefinitionDto createOrUpdateProcessDefinition(UpdateProcessDefinitionDto dto) {
+    public ProcessDefinitionDto createOrUpdateProcessDefinition(UpdateProcessDefinitionDto dto) {
         // gen task code
         final List<Long> taskCodes = genTaskCodes(defaultProjectCode, GEN_NUM_DEFAULT);
 
@@ -446,6 +450,11 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
     }
 
     @Override
+    public void killProcessInstance(long processInstanceId) {
+        execute(processInstanceId, ExecuteTypeEnum.STOP);
+    }
+
+    @Override
     public InstanceLogDto queryInstanceLog(long instanceId) {
 
         final Map result = HttpUtils.builder()
@@ -479,6 +488,17 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
             throw new SeatunnelException(NO_MATCHED_PROJECT, projectName);
         }
         return projectDto;
+    }
+
+    private void execute(long processInstanceId, ExecuteTypeEnum executeType) {
+        final Map result = HttpUtils.builder()
+            .withUrl(apiPrefix.concat(String.format(EXECUTE, defaultProjectCode)))
+            .withMethod(Connection.Method.POST)
+            .withRequestBody(this.objectToString(null))
+            .withData(createParamMap(PROCESS_INSTANCE_ID, processInstanceId, EXECUTE_TYPE, executeType.name()))
+            .withToken(TOKEN, token)
+            .execute(Map.class);
+        checkResult(result, false);
     }
 
     private TaskDefinitionDto buildTaskDefinitionJson(Long taskCode, TaskDescriptionDto taskDescriptionDto) {
