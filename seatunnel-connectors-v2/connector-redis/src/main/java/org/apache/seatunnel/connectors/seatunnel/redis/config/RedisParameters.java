@@ -54,8 +54,7 @@ public class RedisParameters implements Serializable {
     }
 
     public Jedis buildJedis() {
-        Jedis jedis;
-        jedis = new Jedis(host, port);
+        Jedis jedis = new Jedis(host, port);
         if (StringUtils.isNotBlank(auth)) {
             jedis.auth(auth);
         }
