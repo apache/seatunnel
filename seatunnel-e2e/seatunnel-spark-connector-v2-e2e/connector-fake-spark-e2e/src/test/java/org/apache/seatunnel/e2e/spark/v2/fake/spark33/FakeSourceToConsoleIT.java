@@ -18,6 +18,7 @@
 package org.apache.seatunnel.e2e.spark.v2.fake.spark33;
 
 import org.apache.seatunnel.e2e.spark.Spark33Container;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
