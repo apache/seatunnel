@@ -76,9 +76,10 @@ public class RedisIT extends SparkContainer {
     }
 
     @Test
-    public void testRedisSource() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelSparkJob("/redis/redis_source.conf");
+    public void testRedisSourceAndSink() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/redis/redis_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(5, jedis.llen("key_list"));
     }
 
     @AfterEach
