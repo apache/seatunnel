@@ -42,6 +42,12 @@
       <groupId>com.aliyun</groupId>
       <artifactId>alibaba-dingtalk-service-sdk</artifactId>
       <version>${dingtalk.service.version}</version>
+      <exclusions>
+        <exclusion>
+          <artifactId>log4j</artifactId>
+          <groupId>log4j</groupId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
