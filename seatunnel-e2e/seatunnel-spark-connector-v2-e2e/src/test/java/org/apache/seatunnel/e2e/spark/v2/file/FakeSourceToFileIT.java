@@ -84,5 +84,4 @@ public class FakeSourceToFileIT extends SparkContainer {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_hdfs_json.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
-
 }
