@@ -75,7 +75,7 @@ public class FakeSourceToDorisIT extends SparkContainer {
     private Connection connection;
 
     @BeforeEach
-    public void before() throws InterruptedException {
+    public void beforeInDoris() throws InterruptedException {
         super.before();
         dorisStandaloneServer = new GenericContainer<>(DORIS_IMAGE_NAME)
             .withNetwork(NETWORK)
@@ -113,7 +113,7 @@ public class FakeSourceToDorisIT extends SparkContainer {
     }
 
     @AfterEach
-    public void after() throws SQLException {
+    public void afterInDoris() throws SQLException {
         if (Objects.nonNull(connection)) {
             connection.close();
         }
@@ -125,7 +125,7 @@ public class FakeSourceToDorisIT extends SparkContainer {
 
     //Caused by some reasons, doris image can't run in Mac M1.
     @Test
-    public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
+    public void testFakeSourceToDorisSink() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/doris/fakesource_to_doris.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 

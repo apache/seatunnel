@@ -125,7 +125,7 @@ public class FakeSourceToDorisIT extends FlinkContainer {
 
     //Caused by some reasons, doris image can't run in Mac M1.
     @Test
-    public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
+    public void testFakeSourceToDorisSink() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/doris/fakesource_to_doris.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
