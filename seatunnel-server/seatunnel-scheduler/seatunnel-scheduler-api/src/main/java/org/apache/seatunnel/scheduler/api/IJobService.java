@@ -33,4 +33,6 @@ public interface IJobService {
     PageData<JobSimpleInfoDto> list(JobListDto dto);
 
     InstanceDto execute(ExecuteDto dto);
+
+    void kill(Long instanceId);
 }

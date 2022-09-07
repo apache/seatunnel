@@ -17,16 +17,28 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.local.sink;
 
+import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.AbstractFileSink;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.SinkFileSystemPlugin;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
+import org.apache.seatunnel.connectors.seatunnel.file.local.config.LocalConf;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
+import org.apache.hadoop.fs.CommonConfigurationKeys;
 
 @AutoService(SeaTunnelSink.class)
-public class LocalFileSink extends AbstractFileSink {
+public class LocalFileSink extends BaseFileSink {
+
     @Override
-    public SinkFileSystemPlugin getSinkFileSystemPlugin() {
-        return new LocalFileSinkPlugin();
+    public String getPluginName() {
+        return FileSystemType.LOCAL.getFileSystemPluginName();
+    }
+
+    @Override
+    public void prepare(Config pluginConfig) throws PrepareFailException {
+        super.prepare(pluginConfig);
+        hadoopConf = new LocalConf(CommonConfigurationKeys.FS_DEFAULT_NAME_DEFAULT);
     }
 }

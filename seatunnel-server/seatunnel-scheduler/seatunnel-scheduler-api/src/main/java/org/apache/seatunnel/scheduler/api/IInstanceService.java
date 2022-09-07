@@ -19,8 +19,11 @@ package org.apache.seatunnel.scheduler.api;
 
 import org.apache.seatunnel.scheduler.api.dto.InstanceDto;
 import org.apache.seatunnel.scheduler.api.dto.InstanceListDto;
+import org.apache.seatunnel.scheduler.api.dto.InstanceLogDto;
 import org.apache.seatunnel.server.common.PageData;
 
 public interface IInstanceService {
     PageData<InstanceDto> list(InstanceListDto dto);
+
+    InstanceLogDto queryInstanceLog(long instanceId);
 }

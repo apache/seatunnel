@@ -36,6 +36,7 @@ import org.apache.seatunnel.app.domain.dto.job.PushScriptDto;
 import org.apache.seatunnel.app.domain.dto.job.ScriptJobApplyDto;
 import org.apache.seatunnel.app.domain.request.task.ExecuteReq;
 import org.apache.seatunnel.app.domain.request.task.InstanceListReq;
+import org.apache.seatunnel.app.domain.request.task.InstanceLogRes;
 import org.apache.seatunnel.app.domain.request.task.JobListReq;
 import org.apache.seatunnel.app.domain.request.task.RecycleScriptReq;
 import org.apache.seatunnel.app.domain.response.PageInfo;
@@ -54,6 +55,20 @@ import org.apache.seatunnel.scheduler.api.dto.SchedulerConfigDto;
 import org.apache.seatunnel.scheduler.api.enums.ExecuteTypeEnum;
 import org.apache.seatunnel.server.common.PageData;
 import org.apache.seatunnel.server.common.SeatunnelException;
+<<<<<<< HEAD
+=======
+import org.apache.seatunnel.spi.scheduler.IInstanceService;
+import org.apache.seatunnel.spi.scheduler.IJobService;
+import org.apache.seatunnel.spi.scheduler.dto.ExecuteDto;
+import org.apache.seatunnel.spi.scheduler.dto.InstanceDto;
+import org.apache.seatunnel.spi.scheduler.dto.InstanceListDto;
+import org.apache.seatunnel.spi.scheduler.dto.InstanceLogDto;
+import org.apache.seatunnel.spi.scheduler.dto.JobDto;
+import org.apache.seatunnel.spi.scheduler.dto.JobListDto;
+import org.apache.seatunnel.spi.scheduler.dto.JobSimpleInfoDto;
+import org.apache.seatunnel.spi.scheduler.dto.SchedulerConfigDto;
+import org.apache.seatunnel.spi.scheduler.enums.ExecuteTypeEnum;
+>>>>>>> dev
 
 import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
@@ -224,6 +239,21 @@ public class TaskServiceImpl implements ITaskService {
         return this.translate(iJobService.execute(dto));
     }
 
+    @Override
+    public InstanceLogRes queryInstanceLog(long instanceId) {
+        final InstanceLogDto dto = iInstanceService.queryInstanceLog(instanceId);
+
+        return InstanceLogRes.builder()
+            .instanceId(instanceId)
+            .logContent(dto.getLogContent())
+            .build();
+    }
+
+    @Override
+    public void kill(Long instanceId) {
+        iJobService.kill(instanceId);
+    }
+
     private JobSimpleInfoRes translate(JobSimpleInfoDto dto) {
         return JobSimpleInfoRes.builder()
                 .jobId(dto.getJobId())
@@ -238,7 +268,7 @@ public class TaskServiceImpl implements ITaskService {
     private InstanceSimpleInfoRes translate(InstanceDto dto) {
         return InstanceSimpleInfoRes.builder()
                 .instanceId(dto.getInstanceId())
-                .instanceCode(dto.getInstanceCode())
+                .jobId(dto.getJobId())
                 .instanceName(dto.getInstanceName())
                 .submitTime(dto.getSubmitTime())
                 .startTime(dto.getStartTime())

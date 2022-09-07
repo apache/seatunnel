@@ -26,7 +26,7 @@ import java.util.Date;
 @Builder
 public class InstanceDto {
     private long instanceId;
-    private long instanceCode;
+    private long jobId;
     private String instanceName;
     private Date submitTime;
     private Date startTime;
