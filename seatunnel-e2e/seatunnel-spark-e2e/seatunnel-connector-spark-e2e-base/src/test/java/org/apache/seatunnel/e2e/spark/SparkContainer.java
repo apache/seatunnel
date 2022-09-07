@@ -60,8 +60,6 @@ public abstract class SparkContainer {
     private static final String SPARK_JAR_PATH = Paths.get(SEATUNNEL_HOME, "lib", SEATUNNEL_SPARK_JAR).toString();
     private static final String CONNECTORS_PATH = Paths.get(SEATUNNEL_HOME, "connectors").toString();
 
-    private static final int WAIT_SPARK_JOB_SUBMIT = 5000;
-
     @BeforeEach
     public void before() {
         master = new GenericContainer<>(SPARK_DOCKER_IMAGE)
@@ -107,8 +105,6 @@ public abstract class SparkContainer {
         Container.ExecResult execResult = master.execInContainer("bash", "-c", String.join(" ", command));
         LOG.info(execResult.getStdout());
         LOG.error(execResult.getStderr());
-        // wait job start
-        Thread.sleep(WAIT_SPARK_JOB_SUBMIT);
         return execResult;
     }
 

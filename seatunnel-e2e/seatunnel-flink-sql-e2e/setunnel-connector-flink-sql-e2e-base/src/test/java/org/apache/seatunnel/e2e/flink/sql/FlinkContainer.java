@@ -59,8 +59,6 @@ public abstract class FlinkContainer {
     private static final String SEATUNNEL_BIN = Paths.get(SEATUNNEL_HOME, "bin", SEATUNNEL_FLINK_BIN).toString();
     private static final String FLINK_JAR_PATH = Paths.get(SEATUNNEL_HOME, "lib", SEATUNNEL_FLINK_SQL_JAR).toString();
 
-    private static final int WAIT_FLINK_JOB_SUBMIT = 5000;
-
     private static final String FLINK_PROPERTIES = String.join(
         "\n",
         Arrays.asList(
@@ -122,8 +120,6 @@ public abstract class FlinkContainer {
         Container.ExecResult execResult = jobManager.execInContainer("bash", "-c", String.join(" ", command));
         LOG.info(execResult.getStdout());
         LOG.error(execResult.getStderr());
-        // wait job start
-        Thread.sleep(WAIT_FLINK_JOB_SUBMIT);
         return execResult;
     }
 
