@@ -132,3 +132,46 @@ the `query_timeout` of the InfluxDB when you select, in seconds
 
 ### connect_timeout_ms [long]
 the timeout for connecting to InfluxDB, in milliseconds 
+
+## Examples
+Example of multi parallelism and multi partition scanning 
+```hocon
+source {
+
+    InfluxDB {
+        url = "http://influxdb-host:8086"
+        sql = "select label, value, rt, time from test"
+        database = "test"
+        upper_bound = 100
+        lower_bound = 1
+        partition_num = 4
+        split_column = "value"
+        fields {
+            label = STRING
+            value = INT
+            rt = STRING
+            time = BIGINT
+            }
+    }
+
+}
+
+```
+Example of not using partition scan 
+```hocon
+source {
+
+    InfluxDB {
+        url = "http://influxdb-host:8086"
+        sql = "select label, value, rt, time from test"
+        database = "test"
+        fields {
+            label = STRING
+            value = INT
+            rt = STRING
+            time = BIGINT
+            }
+    }
+
+}
+```
