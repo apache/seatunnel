@@ -34,6 +34,8 @@ import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.Dolphins
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.END_TIME;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.ENVIRONMENT_CODE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.ENVIRONMENT_CODE_DEFAULT;
+import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.EXECUTE;
+import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.EXECUTE_TYPE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.FAILED_NODE_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.FAILURE_STRATEGY;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.FAILURE_STRATEGY_DEFAULT;
@@ -49,7 +51,10 @@ import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.Dolphins
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOCATIONS_Y_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOG_DETAIL;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOG_LIMIT_NUM;
+import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOG_LIMIT_NUM_DEFAULT;
+import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOG_MESSAGE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOG_SKIP_LINE_NUM;
+import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOG_SKIP_LINE_NUM_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.MSG;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.ONLINE_CREATE_RESOURCE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PAGE_NO;
@@ -62,6 +67,8 @@ import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.Dolphins
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_DEFINITION;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_DEFINITION_CODE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_DEFINITION_NAME;
+import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_INSTANCE_ID;
+import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_INSTANCE_LIST;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_INSTANCE_NAME;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_INSTANCE_PRIORITY;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_INSTANCE_PRIORITY_DEFAULT;
@@ -116,14 +123,17 @@ import static org.apache.seatunnel.server.common.Constants.BLANK_SPACE;
 import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.NO_MATCHED_PROJECT;
 import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.UNEXPECTED_RETURN_CODE;
 
+import org.apache.seatunnel.scheduler.dolphinscheduler.ExecuteTypeEnum;
 import org.apache.seatunnel.scheduler.dolphinscheduler.IDolphinschedulerService;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ConditionResult;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ListProcessDefinitionDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ListProcessInstanceDto;
+import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ListTaskInstanceDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.LocalParam;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.LocationDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.OnlineCreateResourceDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ProcessDefinitionDto;
+import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ProcessInstanceDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ProjectDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ResourceDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.SchedulerDto;
@@ -187,7 +197,7 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
     }
 
     @Override
-            public ProcessDefinitionDto createOrUpdateProcessDefinition(UpdateProcessDefinitionDto dto) {
+    public ProcessDefinitionDto createOrUpdateProcessDefinition(UpdateProcessDefinitionDto dto) {
         // gen task code
         final List<Long> taskCodes = genTaskCodes(defaultProjectCode, GEN_NUM_DEFAULT);
 
@@ -412,11 +422,11 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
     }
 
     @Override
-    public PageData<TaskInstanceDto> listTaskInstance(ListProcessInstanceDto dto) {
+    public PageData<TaskInstanceDto> listTaskInstance(ListTaskInstanceDto dto) {
         final Map result = HttpUtils.builder()
                 .withUrl(apiPrefix.concat(String.format(QUERY_TASK_LIST_PAGING, defaultProjectCode)))
                 .withMethod(Connection.Method.GET)
-                .withData(createParamMap(PROCESS_INSTANCE_NAME, dto.getProcessInstanceName(), PAGE_NO, dto.getPageNo(), PAGE_SIZE, dto.getPageSize()))
+                .withData(createParamMap(PROCESS_INSTANCE_NAME, dto.getName(), PAGE_NO, dto.getPageNo(), PAGE_SIZE, dto.getPageSize()))
                 .withToken(TOKEN, token)
                 .execute(Map.class);
 
@@ -442,6 +452,50 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
         checkResult(result, false);
     }
 
+    @Override
+    public PageData<ProcessInstanceDto> listProcessInstance(ListProcessInstanceDto dto) {
+        final Map result = HttpUtils.builder()
+            .withUrl(apiPrefix.concat(String.format(PROCESS_INSTANCE_LIST, defaultProjectCode)))
+            .withMethod(Connection.Method.GET)
+            .withData(createParamMap(SEARCH_VAL, dto.getName(), PAGE_NO, dto.getPageNo(), PAGE_SIZE, dto.getPageSize()))
+            .withToken(TOKEN, token)
+            .execute(Map.class);
+
+        final Map map = MapUtils.getMap(result, DATA);
+        final List<Map<String, Object>> processInstanceList = (List<Map<String, Object>>) map.get(DATA_TOTAL_LIST);
+        final int total = MapUtils.getIntValue(map, DATA_TOTAL);
+        if (CollectionUtils.isEmpty(processInstanceList)) {
+            return PageData.empty();
+        }
+
+        final List<ProcessInstanceDto> data = processInstanceList.stream().map(m -> this.mapToPojo(m, ProcessInstanceDto.class)).collect(Collectors.toList());
+        return new PageData<>(total, data);
+    }
+
+    @Override
+    public void killProcessInstance(long processInstanceId) {
+        execute(processInstanceId, ExecuteTypeEnum.STOP);
+    }
+
+    @Override
+    public InstanceLogDto queryInstanceLog(long instanceId) {
+
+        final Map result = HttpUtils.builder()
+            .withUrl(apiPrefix.concat(LOG_DETAIL))
+            .withData(createParamMap(TASK_INSTANCE_ID, instanceId, LOG_SKIP_LINE_NUM, LOG_SKIP_LINE_NUM_DEFAULT, LOG_LIMIT_NUM, LOG_LIMIT_NUM_DEFAULT))
+            .withMethod(Connection.Method.GET)
+            .withToken(TOKEN, token)
+            .execute(Map.class);
+        checkResult(result, false);
+
+        final Map map = MapUtils.getMap(result, DATA);
+        final String logContent = MapUtils.getString(map, LOG_MESSAGE);
+
+        return InstanceLogDto.builder()
+            .logContent(logContent)
+            .build();
+    }
+
     private ProjectDto queryProjectCodeByName(String projectName) throws IOException {
         final Map result = HttpUtils.builder()
                 .withUrl(apiPrefix.concat(QUERY_PROJECT_LIST_PAGING))
@@ -457,6 +511,17 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
             throw new SeatunnelException(NO_MATCHED_PROJECT, projectName);
         }
         return projectDto;
+    }
+
+    private void execute(long processInstanceId, ExecuteTypeEnum executeType) {
+        final Map result = HttpUtils.builder()
+            .withUrl(apiPrefix.concat(String.format(EXECUTE, defaultProjectCode)))
+            .withMethod(Connection.Method.POST)
+            .withRequestBody(this.objectToString(null))
+            .withData(createParamMap(PROCESS_INSTANCE_ID, processInstanceId, EXECUTE_TYPE, executeType.name()))
+            .withToken(TOKEN, token)
+            .execute(Map.class);
+        checkResult(result, false);
     }
 
     private TaskDefinitionDto buildTaskDefinitionJson(Long taskCode, TaskDescriptionDto taskDescriptionDto) {
@@ -577,23 +642,6 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
         }
         final Map<String, Object> map = MapUtils.getMap(result, DATA);
         return this.mapToPojo(map, ResourceDto.class);
-    }
-
-    public InstanceLogDto getInstanceLog(long instanceId, int skipNum, int limitNum) {
-        final Map result = HttpUtils.builder()
-                .withUrl(apiPrefix.concat(LOG_DETAIL))
-                .withMethod(Connection.Method.GET)
-                .withData(createParamMap(TASK_INSTANCE_ID, instanceId, LOG_SKIP_LINE_NUM, skipNum, LOG_LIMIT_NUM, limitNum))
-                .withToken(TOKEN, token)
-                .execute(Map.class);
-        checkResult(result, false);
-        final String logContent = MapUtils.getString(result, DATA);
-        return InstanceLogDto.builder()
-                .lastSkipNum(skipNum)
-                .lastLimitNum(limitNum)
-                .instanceId(instanceId)
-                .content(logContent)
-                .build();
     }
 
     private int checkResult(Map result, boolean ignore) {

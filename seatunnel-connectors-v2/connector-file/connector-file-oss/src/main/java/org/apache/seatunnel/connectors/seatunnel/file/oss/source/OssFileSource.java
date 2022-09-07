@@ -25,18 +25,16 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.source.config.OssConf;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.source.config.OssSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConf;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
-import org.apache.hadoop.fs.aliyun.oss.Constants;
 
 import java.io.IOException;
-import java.util.HashMap;
 
 @AutoService(SeaTunnelSource.class)
 public class OssFileSource extends BaseFileSource {
@@ -48,28 +46,23 @@ public class OssFileSource extends BaseFileSource {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
-                OssSourceConfig.FILE_PATH, OssSourceConfig.FILE_TYPE,
-                OssSourceConfig.BUCKET, OssSourceConfig.ACCESS_KEY,
-                OssSourceConfig.ACCESS_SECRET, OssSourceConfig.BUCKET);
+                OssConfig.FILE_PATH, OssConfig.FILE_TYPE,
+                OssConfig.BUCKET, OssConfig.ACCESS_KEY,
+                OssConfig.ACCESS_SECRET, OssConfig.BUCKET);
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
-        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(OssSourceConfig.FILE_TYPE));
-        String path = pluginConfig.getString(OssSourceConfig.FILE_PATH);
-        hadoopConf = new OssConf(pluginConfig.getString(OssSourceConfig.BUCKET));
-        HashMap<String, String> ossOptions = new HashMap<>();
-        ossOptions.put(Constants.ACCESS_KEY_ID, pluginConfig.getString(OssSourceConfig.ACCESS_KEY));
-        ossOptions.put(Constants.ACCESS_KEY_SECRET, pluginConfig.getString(OssSourceConfig.ACCESS_SECRET));
-        ossOptions.put(Constants.ENDPOINT_KEY, pluginConfig.getString(OssSourceConfig.ENDPOINT));
-        hadoopConf.setExtraOptions(ossOptions);
+        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(OssConfig.FILE_TYPE));
+        String path = pluginConfig.getString(OssConfig.FILE_PATH);
+        hadoopConf = OssConf.buildWithConfig(pluginConfig);
         try {
             filePaths = readStrategy.getFileNamesByPath(hadoopConf, path);
         } catch (IOException e) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Check file path fail.");
         }
         // support user-defined schema
-        if (pluginConfig.hasPath(OssSourceConfig.SCHEMA)) {
-            Config schemaConfig = pluginConfig.getConfig(OssSourceConfig.SCHEMA);
+        if (pluginConfig.hasPath(OssConfig.SCHEMA)) {
+            Config schemaConfig = pluginConfig.getConfig(OssConfig.SCHEMA);
             rowType = SeaTunnelSchema
                     .buildWithConfig(schemaConfig)
                     .getSeaTunnelRowType();

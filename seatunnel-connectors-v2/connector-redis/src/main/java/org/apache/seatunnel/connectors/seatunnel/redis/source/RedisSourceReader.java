@@ -25,7 +25,6 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReader
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 
-import org.apache.commons.lang3.StringUtils;
 import redis.clients.jedis.Jedis;
 
 import java.io.IOException;
@@ -47,10 +46,7 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     @Override
     public void open() throws Exception {
-        this.jedis = new Jedis(redisParameters.getHost(), redisParameters.getPort());
-        if (StringUtils.isNotBlank(redisParameters.getAuth())) {
-            this.jedis.auth(redisParameters.getAuth());
-        }
+        this.jedis = redisParameters.buildJedis();
     }
 
     @Override

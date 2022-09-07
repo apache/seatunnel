@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
-import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -32,7 +31,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo2;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo2;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter2;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkCommitter2;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState2;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
@@ -75,11 +73,6 @@ public abstract class BaseFileSink implements SeaTunnelSink<SeaTunnelRow, FileSi
     @Override
     public SinkWriter<SeaTunnelRow, FileCommitInfo2, FileSinkState2> restoreWriter(SinkWriter.Context context, List<FileSinkState2> states) throws IOException {
         return new BaseFileSinkWriter(writeStrategy, hadoopConf, context, jobId, states);
-    }
-
-    @Override
-    public Optional<SinkCommitter<FileCommitInfo2>> createCommitter() throws IOException {
-        return Optional.of(new FileSinkCommitter2());
     }
 
     @Override
