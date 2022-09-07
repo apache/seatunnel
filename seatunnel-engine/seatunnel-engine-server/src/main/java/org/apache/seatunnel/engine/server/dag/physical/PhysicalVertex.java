@@ -230,18 +230,17 @@ public class PhysicalVertex {
             this.pluginJarsUrls);
     }
 
-    private void turnToEndState(@NonNull ExecutionState endState) {
+    private boolean turnToEndState(@NonNull ExecutionState endState) {
         // consistency check
         if (executionState.get().isEndState()) {
-            String message = "Task is trying to leave terminal state " + executionState.get();
-            LOGGER.severe(message);
-            throw new IllegalStateException(message);
+            String message = "Task is already in terminal state " + executionState.get();
+            LOGGER.warning(message);
+            return false;
         }
-
         if (!endState.isEndState()) {
             String message = "Need a end state, not " + endState;
-            LOGGER.severe(message);
-            throw new IllegalStateException(message);
+            LOGGER.warning(message);
+            return false;
         }
 
         LOGGER.info(String.format("%s turn to end state %s.",
@@ -249,6 +248,7 @@ public class PhysicalVertex {
             endState));
         executionState.set(endState);
         stateTimestamps[endState.ordinal()] = System.currentTimeMillis();
+        return true;
     }
 
     public boolean updateTaskState(@NonNull ExecutionState current, @NonNull ExecutionState targetState) {
