@@ -15,29 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.local.sink.filesystem;
+package org.apache.seatunnel.connectors.seatunnel.file.local.config;
 
-import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.FileSystem;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
+public class LocalConf extends HadoopConf {
+    private final String fsHdfsImpl = "org.apache.hadoop.fs.LocalFileSystem";
 
-public class LocalFileSystem implements FileSystem {
-    @Override
-    public void deleteFile(String path) throws IOException {
-        File file = new File(path);
-        file.delete();
-    }
-
-    @Override
-    public List<String> dirList(String dirPath) throws IOException {
-        File file = new File(dirPath);
-        String[] list = file.list();
-        if (list == null) {
-            return null;
-        }
-        return Arrays.asList(list);
+    public LocalConf(String hdfsNameKey) {
+        super(hdfsNameKey);
     }
 }
