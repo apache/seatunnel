@@ -17,13 +17,8 @@
 
 package org.apache.seatunnel.scheduler.dolphinscheduler.dto;
 
-import lombok.Builder;
 import lombok.Data;
 
 @Data
-@Builder
-public class ListProcessDefinitionDto {
-    private String name;
-    private int pageNo;
-    private int pageSize;
+public class ListProcessDefinitionDto extends BaseListDto{
 }

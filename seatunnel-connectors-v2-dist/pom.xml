@@ -156,6 +156,16 @@
             <artifactId>connector-datahub</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-sentry</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-mongodb</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>

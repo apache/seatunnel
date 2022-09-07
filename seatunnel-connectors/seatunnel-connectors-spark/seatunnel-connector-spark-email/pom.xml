@@ -28,31 +28,21 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-connector-spark-email</artifactId>
+    <properties>
+        <spoiwo.version>1.8.0</spoiwo.version>
+        <play-mailer.version>7.0.2</play-mailer.version>
+    </properties>
 
     <dependencies>
         <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-api-spark</artifactId>
-            <version>${project.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
             <groupId>com.norbitltd</groupId>
             <artifactId>spoiwo_${scala.binary.version}</artifactId>
+            <version>${spoiwo.version}</version>
         </dependency>
         <dependency>
             <groupId>com.typesafe.play</groupId>
             <artifactId>play-mailer_${scala.binary.version}</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-core_${scala.binary.version}</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-sql_${scala.binary.version}</artifactId>
+            <version>${play-mailer.version}</version>
         </dependency>
     </dependencies>
 

@@ -29,4 +29,30 @@
         <module>seatunnel-translation-spark-2.4</module>
         <module>seatunnel-translation-spark-common</module>
     </modules>
+    
+    <dependencyManagement>
+        <dependencies>
+            <!--spark-->
+            <dependency>
+                <groupId>org.apache.spark</groupId>
+                <artifactId>spark-streaming_${scala.binary.version}</artifactId>
+                <version>${spark.2.4.0.version}</version>
+                <scope>${spark.scope}</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.spark</groupId>
+                <artifactId>spark-core_${scala.binary.version}</artifactId>
+                <version>${spark.2.4.0.version}</version>
+                <scope>${spark.scope}</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.spark</groupId>
+                <artifactId>spark-sql_${scala.binary.version}</artifactId>
+                <version>${spark.2.4.0.version}</version>
+                <scope>${spark.scope}</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 </project>

@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.redis.config;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.Data;
+import org.apache.commons.lang3.StringUtils;
+import redis.clients.jedis.Jedis;
 
 import java.io.Serializable;
 
@@ -29,6 +31,7 @@ public class RedisParameters implements Serializable {
     private int port;
     private String auth = "";
     private String keysPattern;
+    private String keyField;
     private RedisDataType redisDataType;
 
     public void buildWithConfig(Config config) {
@@ -40,8 +43,14 @@ public class RedisParameters implements Serializable {
         if (config.hasPath(RedisConfig.AUTH)) {
             this.auth = config.getString(RedisConfig.AUTH);
         }
+        // set key
+        if (config.hasPath(RedisConfig.KEY)) {
+            this.keyField = config.getString(RedisConfig.KEY);
+        }
         // set keysPattern
-        this.keysPattern = config.getString(RedisConfig.KEY_PATTERN);
+        if (config.hasPath(RedisConfig.KEY_PATTERN)) {
+            this.keysPattern = config.getString(RedisConfig.KEY_PATTERN);
+        }
         // set redis data type
         try {
             String dataType = config.getString(RedisConfig.DATA_TYPE);
@@ -49,5 +58,13 @@ public class RedisParameters implements Serializable {
         } catch (IllegalArgumentException e) {
             throw new RuntimeException("Redis source connector only support these data types [key, hash, list, set, zset]", e);
         }
+    }
+
+    public Jedis buildJedis() {
+        Jedis jedis = new Jedis(host, port);
+        if (StringUtils.isNotBlank(auth)) {
+            jedis.auth(auth);
+        }
+        return jedis;
     }
 }

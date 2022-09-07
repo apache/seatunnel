@@ -9,17 +9,33 @@ Read data from aliyun oss file system.
 > Tips: We made some trade-offs in order to support more file types, so we used the HDFS protocol for internal access to OSS and this connector need some hadoop dependencies. 
 > It's only support hadoop version **2.9.X+**.
 
+## Key features
+
+- [x] [batch](../../concept/connector-v2-features.md)
+- [ ] [stream](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [schema projection](../../concept/connector-v2-features.md)
+- [x] file format
+    - [x] text
+    - [x] csv
+    - [x] parquet
+    - [x] orc
+    - [x] json
+
+- [x] [parallelism](../../concept/connector-v2-features.md)
+- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+
 ## Options
 
-| name         | type   | required | default value |
-|--------------|--------|----------|---------------|
-| path         | string | yes      | -             |
-| type         | string | yes      | -             |
-| bucket       | string | yes      | -             |
-| accessKey    | string | yes      | -             |
-| accessSecret | string | yes      | -             |
-| endpoint     | string | yes      | -             |
-| schema       | config | no       | -             |
+| name          | type   | required | default value |
+|---------------|--------|----------|---------------|
+| path          | string | yes      | -             |
+| type          | string | yes      | -             |
+| bucket        | string | yes      | -             |
+| access_key    | string | yes      | -             |
+| access_secret | string | yes      | -             |
+| endpoint      | string | yes      | -             |
+| schema        | config | no       | -             |
 
 ### path [string]
 
@@ -77,11 +93,11 @@ Now connector will treat the upstream data as the following:
 
 The bucket address of oss file system, for example: `oss://tyrantlucifer-image-bed`
 
-### accessKey [string]
+### access_key [string]
 
 The access key of oss file system.
 
-### accessSecret [string]
+### access_secret [string]
 
 The access secret of oss file system.
 
@@ -100,8 +116,8 @@ The schema of upstream data.
   OssFile {
     path = "/seatunnel/orc"
     bucket = "oss://tyrantlucifer-image-bed"
-    accessKey = "xxxxxxxxxxxxxxxxx"
-    accessSecret = "xxxxxxxxxxxxxxxxxxxxxx"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
     endpoint = "oss-cn-beijing.aliyuncs.com"
     type = "orc"
   }
@@ -113,8 +129,8 @@ The schema of upstream data.
   OssFile {
     path = "/seatunnel/json"
     bucket = "oss://tyrantlucifer-image-bed"
-    accessKey = "xxxxxxxxxxxxxxxxx"
-    accessSecret = "xxxxxxxxxxxxxxxxxxxxxx"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
     endpoint = "oss-cn-beijing.aliyuncs.com"
     type = "json"
     schema {

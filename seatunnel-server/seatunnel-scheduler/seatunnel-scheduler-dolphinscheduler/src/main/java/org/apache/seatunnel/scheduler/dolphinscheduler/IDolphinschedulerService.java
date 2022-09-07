@@ -19,13 +19,16 @@ package org.apache.seatunnel.scheduler.dolphinscheduler;
 
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ListProcessDefinitionDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ListProcessInstanceDto;
+import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ListTaskInstanceDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ProcessDefinitionDto;
+import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ProcessInstanceDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ResourceDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.SchedulerDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.StartProcessDefinitionDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.TaskInstanceDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.UpdateProcessDefinitionDto;
 import org.apache.seatunnel.server.common.PageData;
+import org.apache.seatunnel.spi.scheduler.dto.InstanceLogDto;
 import org.apache.seatunnel.spi.scheduler.dto.JobDto;
 
 import java.util.List;
@@ -54,7 +57,13 @@ public interface IDolphinschedulerService {
 
     ResourceDto createOrUpdateScriptContent(String resourceName, String content);
 
-    PageData<TaskInstanceDto> listTaskInstance(ListProcessInstanceDto dto);
+    PageData<TaskInstanceDto> listTaskInstance(ListTaskInstanceDto dto);
 
     void deleteProcessDefinition(long code);
+
+    PageData<ProcessInstanceDto> listProcessInstance(ListProcessInstanceDto dto);
+
+    InstanceLogDto queryInstanceLog(long instanceId);
+
+    void killProcessInstance(long processInstanceId);
 }

@@ -147,7 +147,7 @@ Source plugin common parameters, please refer to [Source Plugin](common-options.
 
 ```bash
 jdbc {
-    driver = "com.mysql.jdbc.Driver"
+    driver = "com.mysql.cj.jdbc.Driver"
     url = "jdbc:mysql://localhost:3306/info"
     table = "access"
     result_table_name = "access_log"
@@ -160,7 +160,7 @@ jdbc {
 
 ```bash
 jdbc {
-    driver = "com.mysql.jdbc.Driver"
+    driver = "com.mysql.cj.jdbc.Driver"
     url = "jdbc:mysql://localhost:3306/info"
     table = "access"
     result_table_name = "access_log"
@@ -178,7 +178,7 @@ jdbc {
 
 ```bash
 jdbc {
-    driver = "com.mysql.jdbc.Driver"
+    driver = "com.mysql.cj.jdbc.Driver"
     url = "jdbc:mysql://localhost:3306/info"
     table = "access"
     result_table_name = "access_log"
@@ -196,7 +196,7 @@ jdbc {
 
 ```bash
 JdbcSource {
-    driver = com.mysql.jdbc.Driver
+    driver = com.mysql.cj.jdbc.Driver
     url = "jdbc:mysql://localhost/test"
     username = root
     query = "select * from test"

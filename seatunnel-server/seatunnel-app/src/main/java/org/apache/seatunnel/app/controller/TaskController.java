@@ -20,6 +20,7 @@ package org.apache.seatunnel.app.controller;
 import org.apache.seatunnel.app.common.Result;
 import org.apache.seatunnel.app.domain.request.task.ExecuteReq;
 import org.apache.seatunnel.app.domain.request.task.InstanceListReq;
+import org.apache.seatunnel.app.domain.request.task.InstanceLogRes;
 import org.apache.seatunnel.app.domain.request.task.JobListReq;
 import org.apache.seatunnel.app.domain.request.task.RecycleScriptReq;
 import org.apache.seatunnel.app.domain.response.PageInfo;
@@ -33,6 +34,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
@@ -68,5 +70,18 @@ public class TaskController {
     @ApiOperation(value = "execute script temporary", httpMethod = "GET")
     Result<InstanceSimpleInfoRes> tmpExecute(@RequestBody @NotNull ExecuteReq req) {
         return Result.success(iTaskService.tmpExecute(req));
+    }
+
+    @GetMapping("/queryInstanceLog")
+    @ApiOperation(value = "query instance log", httpMethod = "GET")
+    Result<InstanceLogRes> queryInstanceLog(@RequestParam long taskInstanceId) {
+        return Result.success(iTaskService.queryInstanceLog(taskInstanceId));
+    }
+
+    @PostMapping("/kill")
+    @ApiOperation(value = "kill running instance", httpMethod = "POST")
+    Result<Void> kill(@RequestParam Long instanceId) {
+        iTaskService.kill(instanceId);
+        return Result.success();
     }
 }
