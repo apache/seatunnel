@@ -15,18 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.spark.config;
+package org.apache.seatunnel.core.starter.flink.config;
 
-import org.apache.seatunnel.core.starter.config.ConfigChecker;
-import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
-import org.apache.seatunnel.spark.SparkEnvironment;
+import org.apache.seatunnel.core.starter.config.EnvironmentFactory;
+import org.apache.seatunnel.flink.FlinkEnvironment;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-public class SparkApiConfigChecker implements ConfigChecker<SparkEnvironment> {
+public class FlinkEnvironmentFactory extends EnvironmentFactory<FlinkEnvironment> {
+
+    public FlinkEnvironmentFactory(Config config) {
+        super(config);
+    }
 
     @Override
-    public void checkConfig(Config config) throws ConfigCheckException {
-        // todo: implement
+    protected FlinkEnvironment newEnvironment() {
+        return new FlinkEnvironment();
     }
 }
