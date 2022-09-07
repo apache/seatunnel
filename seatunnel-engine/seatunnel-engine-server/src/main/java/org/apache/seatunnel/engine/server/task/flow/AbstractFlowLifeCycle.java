@@ -28,10 +28,13 @@ public class AbstractFlowLifeCycle implements FlowLifeCycle {
 
     protected final CompletableFuture<Void> completableFuture;
 
+    protected Boolean prepareClose;
+
     public AbstractFlowLifeCycle(SeaTunnelTask runningTask,
                                  CompletableFuture<Void> completableFuture) {
         this.runningTask = runningTask;
         this.completableFuture = completableFuture;
+        this.prepareClose = false;
     }
 
     @Override

@@ -18,10 +18,9 @@
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -29,22 +28,17 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.io.IOException;
-import java.util.List;
 
 @Getter
+@NoArgsConstructor
 @AllArgsConstructor
-public class TaskAcknowledgeOperation extends Operation implements IdentifiedDataSerializable {
+public class TaskReportStatusOperation extends Operation implements IdentifiedDataSerializable {
 
-    private TaskLocation taskLocation;
-
-    private CheckpointBarrier barrier;
-
-    private List<ActionSubtaskState> states;
-
-    public TaskAcknowledgeOperation() {
-    }
+    private TaskLocation location;
+    private SeaTunnelTaskState status;
 
     @Override
     public int getFactoryId() {
@@ -53,28 +47,24 @@ public class TaskAcknowledgeOperation extends Operation implements IdentifiedDat
 
     @Override
     public int getClassId() {
-        return CheckpointDataSerializerHook.TASK_ACK_OPERATOR;
+        return CheckpointDataSerializerHook.TASK_REPORT_STATUS_OPERATOR;
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        out.writeObject(taskLocation);
-        out.writeObject(barrier);
-        out.writeObject(states);
+        out.writeObject(location);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        taskLocation = in.readObject(TaskLocation.class);
-        barrier = in.readObject(CheckpointBarrier.class);
-        states = in.readObject();
+        location = in.readObject(TaskLocation.class);
     }
 
     @Override
     public void run() {
         ((SeaTunnelServer) getService())
-            .getJobMaster(taskLocation.getJobId())
+            .getJobMaster(location.getJobId())
             .getCheckpointManager()
-            .acknowledgeTask(this);
+            .reportedTask(this, getCallerAddress());
     }
 }

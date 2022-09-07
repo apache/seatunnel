@@ -24,7 +24,12 @@ public interface FlowLifeCycle {
     default void init() throws Exception {
     }
 
+    default void open() throws Exception {}
+
     default void close() throws IOException {
+    }
+
+    default void prepareClose() throws IOException {
     }
 
 }

@@ -15,13 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.record;
+package org.apache.seatunnel.engine.server.checkpoint;
 
-/**
- * This sign used for flow closed, send this sign in the
- * {@link org.apache.seatunnel.api.table.type.Record} to next flow
- */
-public class ClosedSign {
-    public ClosedSign() {
-    }
+public enum SubtaskStatus {
+    RUNNING,
+    SAVEPOINT_PREPARE_CLOSE,
+    AUTO_PREPARE_CLOSE;
 }

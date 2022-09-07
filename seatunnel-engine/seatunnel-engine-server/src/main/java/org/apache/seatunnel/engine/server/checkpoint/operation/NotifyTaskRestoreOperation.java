@@ -22,6 +22,7 @@ import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
@@ -29,23 +30,20 @@ import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
-import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
-@Getter
 @NoArgsConstructor
-public class CheckpointFinishedOperation extends TaskOperation {
+public class NotifyTaskRestoreOperation extends TaskOperation {
 
-    private long checkpointId;
+    private List<ActionSubtaskState> restoredState;
 
-    private boolean successful;
-
-    public CheckpointFinishedOperation(TaskLocation taskLocation, long checkpointId, boolean successful) {
+    public NotifyTaskRestoreOperation(TaskLocation taskLocation, List<ActionSubtaskState> restoredState) {
         super(taskLocation);
-        this.checkpointId = checkpointId;
-        this.successful = successful;
+        this.restoredState = restoredState;
     }
 
     @Override
@@ -55,21 +53,26 @@ public class CheckpointFinishedOperation extends TaskOperation {
 
     @Override
     public int getClassId() {
-        return CheckpointDataSerializerHook.CHECKPOINT_FINISHED_OPERATOR;
+        return CheckpointDataSerializerHook.NOTIFY_TASK_RESTORE_OPERATOR;
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        out.writeLong(checkpointId);
-        out.writeBoolean(successful);
+        out.writeInt(restoredState.size());
+        for (ActionSubtaskState state : restoredState) {
+            out.writeObject(state);
+        }
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        checkpointId = in.readLong();
-        successful = in.readBoolean();
+        int size = in.readInt();
+        this.restoredState = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            restoredState.add(in.readObject(ActionSubtaskState.class));
+        }
     }
 
     @Override
@@ -79,11 +82,7 @@ public class CheckpointFinishedOperation extends TaskOperation {
             Task task = server.getTaskExecutionService().getExecutionContext(taskLocation.getTaskGroupLocation())
                 .getTaskGroup().getTask(taskLocation.getTaskID());
             try {
-                if (successful) {
-                    task.notifyCheckpointComplete(checkpointId);
-                } else {
-                    task.notifyCheckpointAborted(checkpointId);
-                }
+                task.restoreState(restoredState);
             } catch (Exception e) {
                 sneakyThrow(e);
             }

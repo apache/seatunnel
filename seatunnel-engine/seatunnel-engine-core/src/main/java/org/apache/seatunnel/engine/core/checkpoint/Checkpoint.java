@@ -27,4 +27,6 @@ public interface Checkpoint {
     long getJobId();
 
     long getCheckpointTimestamp();
+
+    CheckpointType getCheckpointType();
 }

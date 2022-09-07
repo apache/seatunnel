@@ -17,53 +17,54 @@
 
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
-import static org.apache.seatunnel.engine.server.utils.ExceptionUtil.sneakyThrow;
+import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
 
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
+import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
+import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
-import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import com.hazelcast.spi.impl.operationservice.Operation;
-import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 
 import java.io.IOException;
 
-@AllArgsConstructor
-public class CheckpointTriggerOperation extends Operation implements IdentifiedDataSerializable {
-    private CheckpointBarrier checkpointBarrier;
+@NoArgsConstructor
+public class CheckpointBarrierTriggerOperation extends TaskOperation {
+    private Barrier barrier;
 
-    private TaskLocation taskLocation;
-
-    public CheckpointTriggerOperation() {
+    public CheckpointBarrierTriggerOperation(Barrier barrier, TaskLocation taskLocation) {
+        super(taskLocation);
+        this.barrier = barrier;
     }
 
     @Override
     public int getFactoryId() {
-        return OperationDataSerializerHook.FACTORY_ID;
+        return CheckpointDataSerializerHook.FACTORY_ID;
     }
 
     @Override
     public int getClassId() {
-        return OperationDataSerializerHook.CHECKPOINT_TRIGGER_OPERATOR;
+        return CheckpointDataSerializerHook.CHECKPOINT_BARRIER_TRIGGER_OPERATOR;
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        out.writeObject(checkpointBarrier);
-        out.writeObject(taskLocation);
+        super.writeInternal(out);
+        out.writeObject(barrier);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        checkpointBarrier = in.readObject(CheckpointBarrier.class);
-        taskLocation = in.readObject(TaskLocation.class);
+        super.readInternal(in);
+        // TODO: support another barrier
+        barrier = in.readObject(CheckpointBarrier.class);
     }
 
     @Override
@@ -74,7 +75,7 @@ public class CheckpointTriggerOperation extends Operation implements IdentifiedD
                 .getExecutionContext(taskLocation.getTaskGroupLocation()).getTaskGroup()
                 .getTask(taskLocation.getTaskID());
             try {
-                task.triggerCheckpoint(checkpointBarrier);
+                task.triggerBarrier(barrier);
             } catch (Exception e) {
                 sneakyThrow(e);
             }
