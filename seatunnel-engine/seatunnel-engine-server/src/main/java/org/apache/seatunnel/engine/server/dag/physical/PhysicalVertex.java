@@ -233,12 +233,12 @@ public class PhysicalVertex {
     private boolean turnToEndState(@NonNull ExecutionState endState) {
         // consistency check
         if (executionState.get().isEndState()) {
-            String message = "Task is already in terminal state " + executionState.get();
+            String message = String.format("Task %s is already in terminal state %s", taskFullName, executionState.get());
             LOGGER.warning(message);
             return false;
         }
         if (!endState.isEndState()) {
-            String message = "Need a end state, not " + endState;
+            String message = String.format("Turn task %s state to end state need gave a end state, not %s", taskFullName, endState);
             LOGGER.warning(message);
             return false;
         }

@@ -129,7 +129,7 @@ public class JobMaster implements Runnable {
     @Override
     public void run() {
         try {
-            physicalPlan.initJobMaster(this);
+            physicalPlan.setJobMaster(this);
 
             PassiveCompletableFuture<JobStatus> jobStatusPassiveCompletableFuture =
                 physicalPlan.getJobEndCompletableFuture();
@@ -146,6 +146,7 @@ public class JobMaster implements Runnable {
             scheduleFuture = CompletableFuture.runAsync(() -> {
                 ownedSlotProfiles.putAll(jobScheduler.startScheduling());
             }, executorService);
+            LOGGER.info(String.format("Job %s waiting for scheduler finished", physicalPlan.getJobFullName()));
             scheduleFuture.join();
             LOGGER.info(String.format("%s scheduler finished", physicalPlan.getJobFullName()));
         } catch (Throwable e) {
@@ -194,7 +195,7 @@ public class JobMaster implements Runnable {
 
     public void cancelJob() {
         physicalPlan.neverNeedRestore();
-        this.physicalPlan.cancelJob();
+        physicalPlan.cancelJob();
     }
 
     public ResourceManager getResourceManager() {
