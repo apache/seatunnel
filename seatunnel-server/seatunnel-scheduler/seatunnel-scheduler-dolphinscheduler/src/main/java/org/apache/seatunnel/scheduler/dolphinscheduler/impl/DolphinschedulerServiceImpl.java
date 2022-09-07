@@ -68,6 +68,7 @@ import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.Dolphins
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_DEFINITION_CODE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_DEFINITION_NAME;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_INSTANCE_ID;
+import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_INSTANCE_LIST;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_INSTANCE_NAME;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_INSTANCE_PRIORITY;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_INSTANCE_PRIORITY_DEFAULT;
@@ -127,10 +128,12 @@ import org.apache.seatunnel.scheduler.dolphinscheduler.IDolphinschedulerService;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ConditionResult;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ListProcessDefinitionDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ListProcessInstanceDto;
+import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ListTaskInstanceDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.LocalParam;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.LocationDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.OnlineCreateResourceDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ProcessDefinitionDto;
+import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ProcessInstanceDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ProjectDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ResourceDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.SchedulerDto;
@@ -419,11 +422,11 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
     }
 
     @Override
-    public PageData<TaskInstanceDto> listTaskInstance(ListProcessInstanceDto dto) {
+    public PageData<TaskInstanceDto> listTaskInstance(ListTaskInstanceDto dto) {
         final Map result = HttpUtils.builder()
                 .withUrl(apiPrefix.concat(String.format(QUERY_TASK_LIST_PAGING, defaultProjectCode)))
                 .withMethod(Connection.Method.GET)
-                .withData(createParamMap(PROCESS_INSTANCE_NAME, dto.getProcessInstanceName(), PAGE_NO, dto.getPageNo(), PAGE_SIZE, dto.getPageSize()))
+                .withData(createParamMap(PROCESS_INSTANCE_NAME, dto.getName(), PAGE_NO, dto.getPageNo(), PAGE_SIZE, dto.getPageSize()))
                 .withToken(TOKEN, token)
                 .execute(Map.class);
 
@@ -447,6 +450,26 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
                 .withToken(TOKEN, token)
                 .execute(Map.class);
         checkResult(result, false);
+    }
+
+    @Override
+    public PageData<ProcessInstanceDto> listProcessInstance(ListProcessInstanceDto dto) {
+        final Map result = HttpUtils.builder()
+            .withUrl(apiPrefix.concat(String.format(PROCESS_INSTANCE_LIST, defaultProjectCode)))
+            .withMethod(Connection.Method.GET)
+            .withData(createParamMap(SEARCH_VAL, dto.getName(), PAGE_NO, dto.getPageNo(), PAGE_SIZE, dto.getPageSize()))
+            .withToken(TOKEN, token)
+            .execute(Map.class);
+
+        final Map map = MapUtils.getMap(result, DATA);
+        final List<Map<String, Object>> processInstanceList = (List<Map<String, Object>>) map.get(DATA_TOTAL_LIST);
+        final int total = MapUtils.getIntValue(map, DATA_TOTAL);
+        if (CollectionUtils.isEmpty(processInstanceList)) {
+            return PageData.empty();
+        }
+
+        final List<ProcessInstanceDto> data = processInstanceList.stream().map(m -> this.mapToPojo(m, ProcessInstanceDto.class)).collect(Collectors.toList());
+        return new PageData<>(total, data);
     }
 
     @Override
