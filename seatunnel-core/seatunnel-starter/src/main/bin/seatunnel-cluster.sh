@@ -37,7 +37,7 @@ PRG_DIR=`dirname "$PRG"`
 APP_DIR=`cd "$PRG_DIR/.." >/dev/null; pwd`
 CONF_DIR=${APP_DIR}/config
 APP_JAR=${APP_DIR}/lib/seatunnel-starter.jar
-APP_MAIN="org.apache.seatunnel.core.starter.seatunnel.SeaTunnelClient"
+APP_MAIN="org.apache.seatunnel.core.starter.seatunnel.SeaTunnelServer"
 
 if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
     . "${CONF_DIR}/seatunnel-env.sh"

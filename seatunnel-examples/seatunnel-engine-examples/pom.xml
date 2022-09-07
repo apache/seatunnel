@@ -30,7 +30,7 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-seatunnel-starter</artifactId>
+            <artifactId>seatunnel-starter</artifactId>
             <version>${project.version}</version>
         </dependency>
 

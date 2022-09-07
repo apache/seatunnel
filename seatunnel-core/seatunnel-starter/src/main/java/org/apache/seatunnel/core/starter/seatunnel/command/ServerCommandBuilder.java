@@ -15,19 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.seatunnel;
+package org.apache.seatunnel.core.starter.seatunnel.command;
 
-import org.apache.seatunnel.core.starter.Seatunnel;
 import org.apache.seatunnel.core.starter.command.Command;
-import org.apache.seatunnel.core.starter.exception.CommandException;
-import org.apache.seatunnel.core.starter.seatunnel.args.SeaTunnelCommandArgs;
-import org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelCommandBuilder;
+import org.apache.seatunnel.core.starter.command.CommandBuilder;
+import org.apache.seatunnel.core.starter.seatunnel.args.ServerCommandArgs;
 
-public class SeaTunnel {
-    public static void main(String[] args) throws CommandException {
-        SeaTunnelCommandArgs seaTunnelCommandArgs = CommandLineUtils.parseSeaTunnelArgs(args);
-        Command<SeaTunnelCommandArgs> command =
-            new SeaTunnelCommandBuilder().buildCommand(seaTunnelCommandArgs);
-        Seatunnel.run(command);
+public class ServerCommandBuilder implements CommandBuilder<ServerCommandArgs> {
+
+    @Override
+    public Command<ServerCommandArgs> buildCommand(ServerCommandArgs commandArgs) {
+        return new ServerExecuteCommand(commandArgs);
     }
 }

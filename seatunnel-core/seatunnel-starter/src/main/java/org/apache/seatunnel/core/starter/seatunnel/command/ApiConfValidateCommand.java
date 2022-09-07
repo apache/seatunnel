@@ -20,7 +20,7 @@ package org.apache.seatunnel.core.starter.seatunnel.command;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.config.ConfigBuilder;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
-import org.apache.seatunnel.core.starter.seatunnel.args.SeaTunnelCommandArgs;
+import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
 import org.apache.seatunnel.core.starter.seatunnel.config.SeaTunnelApiConfigChecker;
 import org.apache.seatunnel.core.starter.utils.FileUtils;
 
@@ -32,19 +32,19 @@ import java.nio.file.Path;
 /**
  * Use to validate the configuration of the SeaTunnel API.
  */
-public class SeaTunnelApiConfValidateCommand implements Command<SeaTunnelCommandArgs> {
+public class ApiConfValidateCommand implements Command<ClientCommandArgs> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(SeaTunnelApiConfValidateCommand.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ApiConfValidateCommand.class);
 
-    private final SeaTunnelCommandArgs seaTunnelCommandArgs;
+    private final ClientCommandArgs clientCommandArgs;
 
-    public SeaTunnelApiConfValidateCommand(SeaTunnelCommandArgs seaTunnelCommandArgs) {
-        this.seaTunnelCommandArgs = seaTunnelCommandArgs;
+    public ApiConfValidateCommand(ClientCommandArgs clientCommandArgs) {
+        this.clientCommandArgs = clientCommandArgs;
     }
 
     @Override
     public void execute() throws ConfigCheckException {
-        Path configPath = FileUtils.getConfigPath(seaTunnelCommandArgs);
+        Path configPath = FileUtils.getConfigPath(clientCommandArgs);
         ConfigBuilder configBuilder = new ConfigBuilder(configPath);
         new SeaTunnelApiConfigChecker().checkConfig(configBuilder.getConfig());
         LOGGER.info("config OK !");

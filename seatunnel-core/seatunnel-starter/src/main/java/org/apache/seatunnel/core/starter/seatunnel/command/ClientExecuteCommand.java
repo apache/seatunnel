@@ -19,7 +19,7 @@ package org.apache.seatunnel.core.starter.seatunnel.command;
 
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
-import org.apache.seatunnel.core.starter.seatunnel.args.SeaTunnelCommandArgs;
+import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
 import org.apache.seatunnel.core.starter.utils.FileUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
@@ -41,26 +41,24 @@ import java.util.concurrent.ExecutionException;
 /**
  * This command is used to execute the SeaTunnel engine job by SeaTunnel API.
  */
-public class SeaTunnelApiTaskExecuteCommand implements Command<SeaTunnelCommandArgs> {
+public class ClientExecuteCommand implements Command<ClientCommandArgs> {
 
-    private final SeaTunnelCommandArgs seaTunnelCommandArgs;
+    private final ClientCommandArgs clientCommandArgs;
 
-    // TODO custom cluster name on cluster execution mode
-
-    public SeaTunnelApiTaskExecuteCommand(SeaTunnelCommandArgs seaTunnelCommandArgs) {
-        this.seaTunnelCommandArgs = seaTunnelCommandArgs;
+    public ClientExecuteCommand(ClientCommandArgs clientCommandArgs) {
+        this.clientCommandArgs = clientCommandArgs;
     }
 
     @Override
     public void execute() throws CommandExecuteException {
-        Path configFile = FileUtils.getConfigPath(seaTunnelCommandArgs);
+        Path configFile = FileUtils.getConfigPath(clientCommandArgs);
 
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setName(seaTunnelCommandArgs.getName());
+        jobConfig.setName(clientCommandArgs.getName());
         HazelcastInstance instance = null;
         try {
-            String clusterName = seaTunnelCommandArgs.getClusterName();
-            if (seaTunnelCommandArgs.getExecutionMode().equals(ExecutionMode.LOCAL)) {
+            String clusterName = clientCommandArgs.getClusterName();
+            if (clientCommandArgs.getExecutionMode().equals(ExecutionMode.LOCAL)) {
                 clusterName = creatRandomClusterName(clusterName);
                 instance = createServerInLocal(clusterName);
             }
