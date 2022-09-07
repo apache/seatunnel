@@ -57,21 +57,19 @@ public class SeaTunnelApiTaskExecuteCommand implements Command<SeaTunnelCommandA
 
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName(seaTunnelCommandArgs.getName());
-
         HazelcastInstance instance = null;
-        String clusterName = seaTunnelCommandArgs.getClusterName();
-        if (seaTunnelCommandArgs.getExecutionMode().equals(ExecutionMode.LOCAL)) {
-            clusterName = creatRandomClusterName(clusterName);
-            instance = createServerInLocal(clusterName);
-        }
-
-        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        clientConfig.setClusterName(clusterName);
-        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
-        JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(configFile.toString(), jobConfig);
-
-        ClientJobProxy clientJobProxy;
         try {
+            String clusterName = seaTunnelCommandArgs.getClusterName();
+            if (seaTunnelCommandArgs.getExecutionMode().equals(ExecutionMode.LOCAL)) {
+                clusterName = creatRandomClusterName(clusterName);
+                instance = createServerInLocal(clusterName);
+            }
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(clusterName);
+            SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
+            JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(configFile.toString(), jobConfig);
+
+            ClientJobProxy clientJobProxy;
             clientJobProxy = jobExecutionEnv.execute();
             clientJobProxy.waitForJobComplete();
         } catch (ExecutionException | InterruptedException e) {
@@ -88,7 +86,7 @@ public class SeaTunnelApiTaskExecuteCommand implements Command<SeaTunnelCommandA
         seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
         return HazelcastInstanceFactory.newHazelcastInstance(seaTunnelConfig.getHazelcastConfig(),
             Thread.currentThread().getName(),
-            new SeaTunnelNodeContext(ConfigProvider.locateAndGetSeaTunnelConfig()));
+            new SeaTunnelNodeContext(seaTunnelConfig));
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
