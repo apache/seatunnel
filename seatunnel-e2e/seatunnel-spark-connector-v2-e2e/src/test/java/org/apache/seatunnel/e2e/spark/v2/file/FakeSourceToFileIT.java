@@ -58,6 +58,7 @@ public class FakeSourceToFileIT extends SparkContainer {
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
+
     /**
      * fake source -> hdfs text file sink
      */
