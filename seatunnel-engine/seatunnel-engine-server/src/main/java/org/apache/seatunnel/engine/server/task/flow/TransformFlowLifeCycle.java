@@ -20,16 +20,17 @@ package org.apache.seatunnel.engine.server.task.flow;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
+import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
-import org.apache.seatunnel.engine.server.task.TaskRuntimeException;
-import org.apache.seatunnel.engine.server.task.record.ClosedSign;
+import org.apache.seatunnel.engine.server.task.record.Barrier;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public class TransformFlowLifeCycle<T> extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>> {
+public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>> {
 
     private final TransformChainAction<T> action;
 
@@ -41,7 +42,7 @@ public class TransformFlowLifeCycle<T> extends AbstractFlowLifeCycle implements 
                                   SeaTunnelTask runningTask,
                                   Collector<Record<?>> collector,
                                   CompletableFuture<Void> completableFuture) {
-        super(runningTask, completableFuture);
+        super(action, runningTask, completableFuture);
         this.action = action;
         this.transform = action.getTransforms();
         this.collector = collector;
@@ -49,24 +50,31 @@ public class TransformFlowLifeCycle<T> extends AbstractFlowLifeCycle implements 
 
     @Override
     public void received(Record<?> record) {
-        if (record.getData() instanceof ClosedSign) {
-            collector.collect(record);
-            try {
-                this.close();
-            } catch (Exception e) {
-                throw new TaskRuntimeException(e);
-            }
-        } else if (record.getData() instanceof CheckpointBarrier) {
+        if (record.getData() instanceof Barrier) {
             CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
-            runningTask.ack(barrier.getId());
-            runningTask.addState(barrier.getId(), action.getId(), new byte[0]);
+            if (barrier.prepareClose()) {
+                prepareClose = true;
+            }
+            if (barrier.snapshot()) {
+                runningTask.addState(barrier, action.getId(), Collections.emptyList());
+            }
+            // ack after #addState
+            runningTask.ack(barrier);
             collector.collect(record);
         } else {
+            if (prepareClose) {
+                return;
+            }
             T r = (T) record.getData();
             for (SeaTunnelTransform<T> t : transform) {
                 r = t.map(r);
             }
             collector.collect(new Record<>(r));
         }
+    }
+
+    @Override
+    public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
+        // nothing
     }
 }

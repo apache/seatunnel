@@ -15,15 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.checkpoint;
+package org.apache.seatunnel.engine.server.checkpoint;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
+import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import com.google.common.base.Objects;
 
 import java.io.Serializable;
 
-public class CheckpointBarrier implements Serializable {
+public class CheckpointBarrier implements Barrier, Serializable {
     private final long id;
     private final long timestamp;
     private final CheckpointType checkpointType;
@@ -36,6 +39,16 @@ public class CheckpointBarrier implements Serializable {
 
     public long getId() {
         return id;
+    }
+
+    @Override
+    public boolean snapshot() {
+        return true;
+    }
+
+    @Override
+    public boolean prepareClose() {
+        return checkpointType != CheckpointType.CHECKPOINT_TYPE;
     }
 
     public long getTimestamp() {

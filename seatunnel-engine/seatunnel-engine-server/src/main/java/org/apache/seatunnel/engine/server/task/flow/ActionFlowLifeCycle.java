@@ -15,17 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.checkpoint;
+package org.apache.seatunnel.engine.server.task.flow;
 
-import lombok.Data;
+import org.apache.seatunnel.engine.core.dag.actions.Action;
+import org.apache.seatunnel.engine.server.checkpoint.Stateful;
+import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 
-import java.io.Serializable;
-import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
-@Data
-public class ActionSubtaskState implements Serializable {
-    private static final long serialVersionUID = 1L;
-    private final long actionId;
-    private final int index;
-    private final List<byte[]> state;
+public abstract class ActionFlowLifeCycle extends AbstractFlowLifeCycle implements Stateful {
+
+    protected Action action;
+
+    public ActionFlowLifeCycle(Action action, SeaTunnelTask runningTask, CompletableFuture<Void> completableFuture) {
+        super(runningTask, completableFuture);
+        this.action = action;
+    }
+
+    public Action getAction() {
+        return action;
+    }
 }

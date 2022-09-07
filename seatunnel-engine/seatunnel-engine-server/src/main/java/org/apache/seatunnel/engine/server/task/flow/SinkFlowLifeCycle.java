@@ -17,41 +17,42 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
+import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
+
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.Record;
-import org.apache.seatunnel.engine.checkpoint.storage.common.ProtoStuffSerializer;
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
+import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointBarrierTriggerOperation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkPrepareCommitOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
-import org.apache.seatunnel.engine.server.task.operation.sink.SinkUnregisterOperation;
-import org.apache.seatunnel.engine.server.task.record.ClosedSign;
+import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import com.hazelcast.cluster.Address;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
-public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>>, InternalCheckpointListener {
+public class SinkFlowLifeCycle<T, StateT> extends ActionFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>>, InternalCheckpointListener {
 
     private final SinkAction<T, StateT, ?, ?> sinkAction;
     private SinkWriter<T, ?, StateT> writer;
 
     private transient Optional<Serializer<StateT>> writerStateSerializer;
-
-    private transient org.apache.seatunnel.engine.checkpoint.storage.common.Serializer protoStuffSerializer;
-
-    // TODO init states
-    private List<StateT> states;
 
     private final int indexID;
 
@@ -66,7 +67,7 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
     public SinkFlowLifeCycle(SinkAction<T, StateT, ?, ?> sinkAction, TaskLocation taskLocation, int indexID,
                              SeaTunnelTask runningTask, TaskLocation committerTaskLocation,
                              boolean containCommitter, CompletableFuture<Void> completableFuture) {
-        super(runningTask, completableFuture);
+        super(sinkAction, runningTask, completableFuture);
         this.sinkAction = sinkAction;
         this.indexID = indexID;
         this.taskLocation = taskLocation;
@@ -76,14 +77,12 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
 
     @Override
     public void init() throws Exception {
-        if (states == null || states.isEmpty()) {
-            this.writer = sinkAction.getSink().createWriter(new SinkWriterContext(indexID));
-        } else {
-            this.writer = sinkAction.getSink().restoreWriter(new SinkWriterContext(indexID), states);
-        }
         this.writerStateSerializer = sinkAction.getSink().getWriterStateSerializer();
-        this.protoStuffSerializer = new ProtoStuffSerializer();
-        states = null;
+    }
+
+    @Override
+    public void open() throws Exception {
+        super.open();
         if (containCommitter) {
             committerTaskAddress = getCommitterTaskAddress();
         }
@@ -99,10 +98,6 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
     public void close() throws IOException {
         super.close();
         writer.close();
-        if (containCommitter) {
-            runningTask.getExecutionContext().sendToMember(new SinkUnregisterOperation(taskLocation,
-                committerTaskLocation), committerTaskAddress).join();
-        }
     }
 
     private void registerCommitter() {
@@ -114,23 +109,30 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
 
     @Override
     public void received(Record<?> record) {
-        // TODO maybe received barrier, need change method to support this.
         try {
-            if (record.getData() instanceof ClosedSign) {
-                this.close();
-            } else if (record.getData() instanceof CheckpointBarrier) {
-                CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
-                runningTask.ack(barrier.getId());
-                if (writerStateSerializer.isPresent()) {
-                    runningTask.addState(barrier.getId(), sinkAction.getId(), new byte[0]);
-                } else {
-                    List<StateT> states = writer.snapshotState(barrier.getId());
-                    runningTask.addState(barrier.getId(), sinkAction.getId(), protoStuffSerializer.serialize(states));
+            if (record.getData() instanceof Barrier) {
+                Barrier barrier = (Barrier) record.getData();
+                if (barrier.prepareClose()) {
+                    prepareClose = true;
                 }
-                // TODO: prepare commit
-                runningTask.getExecutionContext().sendToMaster(new SinkPrepareCommitOperation(barrier, taskLocation,
-                    new byte[0]));
+                if (barrier.snapshot()) {
+                    if (writerStateSerializer.isPresent()) {
+                        runningTask.addState(barrier, sinkAction.getId(), Collections.emptyList());
+                    } else {
+                        List<StateT> states = writer.snapshotState(barrier.getId());
+                        runningTask.addState(barrier, sinkAction.getId(), serializeStates(writerStateSerializer.get(), states));
+                    }
+                    // TODO: prepare commit
+                    runningTask.getExecutionContext().sendToMember(new SinkPrepareCommitOperation(barrier, committerTaskLocation,
+                        new byte[0]), committerTaskAddress);
+                } else {
+                    runningTask.getExecutionContext().sendToMember(new CheckpointBarrierTriggerOperation(barrier, committerTaskLocation), committerTaskAddress);
+                }
+                runningTask.ack(barrier);
             } else {
+                if (prepareClose) {
+                    return;
+                }
                 writer.write((T) record.getData());
             }
         } catch (Exception e) {
@@ -146,5 +148,23 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         // TODO: committer abort
+    }
+
+    @Override
+    public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
+        List<StateT> states = new ArrayList<>();
+        if (writerStateSerializer.isPresent()) {
+            states = actionStateList.stream()
+                .filter(state -> writerStateSerializer.isPresent())
+                .map(ActionSubtaskState::getState)
+                .flatMap(Collection::stream)
+                .map(bytes -> sneaky(() -> writerStateSerializer.get().deserialize(bytes)))
+                .collect(Collectors.toList());
+        }
+        if (states.isEmpty()) {
+            this.writer = sinkAction.getSink().createWriter(new SinkWriterContext(indexID));
+        } else {
+            this.writer = sinkAction.getSink().restoreWriter(new SinkWriterContext(indexID), states);
+        }
     }
 }

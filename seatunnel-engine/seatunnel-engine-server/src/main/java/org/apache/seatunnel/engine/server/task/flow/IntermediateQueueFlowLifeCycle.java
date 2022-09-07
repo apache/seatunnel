@@ -19,11 +19,11 @@ package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.common.utils.ConsumerWithException;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
-import org.apache.seatunnel.engine.server.task.record.ClosedSign;
+import org.apache.seatunnel.engine.server.task.record.Barrier;
 
-import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 
@@ -42,15 +42,8 @@ public class IntermediateQueueFlowLifeCycle extends AbstractFlowLifeCycle implem
     @Override
     public void received(Record<?> record) {
         try {
-            // TODO support batch put
-            queue.put(record);
-            if (record.getData() instanceof ClosedSign) {
-                this.close();
-            } else if (record.getData() instanceof CheckpointBarrier) {
-                CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
-                runningTask.ack(barrier.getId());
-            }
-        } catch (InterruptedException | IOException e) {
+            handleRecord(record, queue::put);
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
@@ -60,16 +53,26 @@ public class IntermediateQueueFlowLifeCycle extends AbstractFlowLifeCycle implem
         while (true) {
             Record<?> record = queue.poll();
             if (record != null) {
-                collector.collect(record);
-                if (record.getData() instanceof ClosedSign) {
-                    this.close();
-                } else if (record.getData() instanceof CheckpointBarrier) {
-                    CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
-                    runningTask.ack(barrier.getId());
-                }
+                handleRecord(record, collector::collect);
             } else {
                 break;
             }
+        }
+    }
+
+    private void handleRecord(Record<?> record, ConsumerWithException<Record<?>> consumer) throws Exception {
+        if (record.getData() instanceof Barrier) {
+            CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
+            runningTask.ack(barrier);
+            if (barrier.prepareClose()) {
+                prepareClose = true;
+            }
+            consumer.accept(record);
+        } else {
+            if (prepareClose) {
+                return;
+            }
+            consumer.accept(record);
         }
     }
 }

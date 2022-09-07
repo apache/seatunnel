@@ -17,14 +17,16 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
-import static org.apache.seatunnel.engine.server.utils.ExceptionUtil.sneakyThrow;
+import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
+import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
 
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.engine.checkpoint.storage.common.ProtoStuffSerializer;
+import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelSourceCollector;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
@@ -33,18 +35,20 @@ import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOper
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceNoMoreElementOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
+import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
-public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends AbstractFlowLifeCycle implements InternalCheckpointListener {
+public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFlowLifeCycle implements InternalCheckpointListener {
 
     private static final ILogger LOGGER = Logger.getLogger(SourceFlowLifeCycle.class);
 
@@ -57,19 +61,16 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
 
     private transient Serializer<SplitT> splitSerializer;
 
-    private transient org.apache.seatunnel.engine.checkpoint.storage.common.Serializer protoStuffSerializer;
     private final int indexID;
 
     private final TaskLocation currentTaskLocation;
 
     private SeaTunnelSourceCollector<T> collector;
 
-    private volatile boolean closed;
-
     public SourceFlowLifeCycle(SourceAction<T, SplitT, ?> sourceAction, int indexID,
                                TaskLocation enumeratorTaskLocation, SeaTunnelTask runningTask,
                                TaskLocation currentTaskLocation, CompletableFuture<Void> completableFuture) {
-        super(runningTask, completableFuture);
+        super(sourceAction, runningTask, completableFuture);
         this.sourceAction = sourceAction;
         this.indexID = indexID;
         this.enumeratorTaskLocation = enumeratorTaskLocation;
@@ -82,11 +83,13 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
 
     @Override
     public void init() throws Exception {
-        this.closed = false;
         this.splitSerializer = sourceAction.getSource().getSplitSerializer();
-        this.protoStuffSerializer = new ProtoStuffSerializer();
-        reader = sourceAction.getSource()
-            .createReader(new SourceReaderContext(indexID, sourceAction.getSource().getBoundedness(), this));
+        this.reader = sourceAction.getSource()
+                .createReader(new SourceReaderContext(indexID, sourceAction.getSource().getBoundedness(), this));
+    }
+
+    @Override
+    public void open() throws Exception {
         reader.open();
         enumeratorTaskAddress = getEnumeratorTaskAddress();
         register();
@@ -99,13 +102,12 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
 
     @Override
     public void close() throws IOException {
-        collector.close();
         reader.close();
         super.close();
     }
 
     public void collect() throws Exception {
-        if (!closed) {
+        if (!prepareClose) {
             reader.pollNext(collector);
         }
     }
@@ -113,7 +115,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
     public void signalNoMoreElement() {
         // ready close this reader
         try {
-            this.closed = true;
+            this.prepareClose = true;
             runningTask.getExecutionContext().sendToMember(new SourceNoMoreElementOperation(currentTaskLocation,
                 enumeratorTaskLocation), enumeratorTaskAddress).get();
         } catch (Exception e) {
@@ -150,20 +152,20 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
         }
     }
 
-    public void snapshotState(long checkpointId) throws Exception {
-        List<byte[]> state = reader.snapshotState(checkpointId)
-            .stream()
-            .map(info -> {
-                try {
-                    return splitSerializer.serialize(info);
-                } catch (IOException e) {
-                    sneakyThrow(e);
-                }
-                // This method wouldn't be executed.
-                throw new RuntimeException("Never throw here.");
-            }).collect(Collectors.toList());
-        runningTask.ack(checkpointId);
-        runningTask.addState(checkpointId, sourceAction.getId(),  protoStuffSerializer.serialize(state));
+    public void triggerBarrier(Barrier barrier) throws Exception {
+        // Block the reader from adding barrier to the collector.
+        synchronized (collector.getCheckpointLock()) {
+            if (barrier.prepareClose()) {
+                this.prepareClose = true;
+            }
+            if (barrier.snapshot()) {
+                List<byte[]> states = serializeStates(splitSerializer, reader.snapshotState(barrier.getId()));
+                runningTask.addState(barrier, sourceAction.getId(), states);
+            }
+            // ack after #addState
+            runningTask.ack(barrier);
+            collector.sendRecordToNext(new Record<>(barrier));
+        }
     }
 
     @Override
@@ -174,5 +176,15 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         reader.notifyCheckpointAborted(checkpointId);
+    }
+
+    @Override
+    public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
+        List<SplitT> splits = actionStateList.stream()
+            .map(ActionSubtaskState::getState)
+            .flatMap(Collection::stream)
+            .map(bytes -> sneaky(() -> splitSerializer.deserialize(bytes)))
+            .collect(Collectors.toList());
+        // TODO: send to enumerator
     }
 }
