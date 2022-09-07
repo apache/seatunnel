@@ -58,7 +58,6 @@
             <artifactId>ali-phoenix-shaded-thin-client</artifactId>
             <version>${phoenix.version}</version>
         </dependency>
-
     </dependencies>
 
 </project>

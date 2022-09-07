@@ -24,6 +24,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>connector-jdbc-flink-e2e</artifactId>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
