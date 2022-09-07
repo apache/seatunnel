@@ -23,7 +23,7 @@ import org.apache.seatunnel.spark.SparkEnvironment;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-public class SparkApiConfigChecker implements ConfigChecker<SparkEnvironment> {
+public class SparkApiConfigChecker implements ConfigChecker {
 
     @Override
     public void checkConfig(Config config) throws ConfigCheckException {

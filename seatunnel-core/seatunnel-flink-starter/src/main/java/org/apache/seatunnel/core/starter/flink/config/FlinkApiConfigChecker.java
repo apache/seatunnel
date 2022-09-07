@@ -19,11 +19,10 @@ package org.apache.seatunnel.core.starter.flink.config;
 
 import org.apache.seatunnel.core.starter.config.ConfigChecker;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
-import org.apache.seatunnel.flink.FlinkEnvironment;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-public class FlinkApiConfigChecker implements ConfigChecker<FlinkEnvironment> {
+public class FlinkApiConfigChecker implements ConfigChecker {
 
     @Override
     public void checkConfig(Config config) throws ConfigCheckException {
