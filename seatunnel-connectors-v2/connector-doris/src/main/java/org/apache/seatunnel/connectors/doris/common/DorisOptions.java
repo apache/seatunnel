@@ -27,9 +27,6 @@ import lombok.Data;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Created 2022/8/01
- */
 @Data
 @Builder
 public class DorisOptions {

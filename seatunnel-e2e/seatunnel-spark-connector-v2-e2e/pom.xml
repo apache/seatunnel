@@ -34,6 +34,7 @@
         <module>connector-iotdb-spark-e2e</module>
         <module>connector-jdbc-spark-e2e</module>
         <module>connector-redis-spark-e2e</module>
+        <module>connector-doris-spark-e2e</module>
     </modules>
 
     <dependencies>

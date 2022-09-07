@@ -41,9 +41,6 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 
-/**
- * Created 2022/8/01
- */
 public class HttpClient {
     private static final Logger LOG = LoggerFactory.getLogger(HttpClient.class);
 

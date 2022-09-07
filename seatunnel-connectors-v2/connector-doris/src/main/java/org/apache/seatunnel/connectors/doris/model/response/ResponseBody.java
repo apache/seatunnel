@@ -22,10 +22,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Created 2022/8/24
- *
- */
 @AllArgsConstructor
 @NoArgsConstructor
 @Data

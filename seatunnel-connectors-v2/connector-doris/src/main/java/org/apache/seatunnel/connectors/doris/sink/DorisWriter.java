@@ -42,9 +42,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Created 2022/8/01
- */
 public class DorisWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private static final Logger LOG = LoggerFactory.getLogger(DorisWriter.class);
 

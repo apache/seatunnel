@@ -63,7 +63,7 @@ public abstract class SparkContainer {
     private static final int WAIT_SPARK_JOB_SUBMIT = 5000;
 
     @BeforeEach
-    public void before() {
+    public void before() throws InterruptedException {
         master = new GenericContainer<>(SPARK_DOCKER_IMAGE)
             .withNetwork(NETWORK)
             .withNetworkAliases("spark-master")

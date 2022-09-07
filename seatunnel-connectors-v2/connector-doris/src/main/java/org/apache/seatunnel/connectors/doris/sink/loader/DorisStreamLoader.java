@@ -47,10 +47,6 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
-/**
- * Stream load
- * Created 2022/8/01
- */
 public class DorisStreamLoader implements DorisLoader<String> {
     private static final Logger LOG = LoggerFactory.getLogger(DorisStreamLoader.class);
 

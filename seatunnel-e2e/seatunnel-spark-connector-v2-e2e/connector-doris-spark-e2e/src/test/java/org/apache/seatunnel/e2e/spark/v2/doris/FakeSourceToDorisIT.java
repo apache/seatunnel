@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.v2.doris;
+package org.apache.seatunnel.e2e.spark.v2.doris;
 
-import org.apache.seatunnel.e2e.flink.FlinkContainer;
+import org.apache.seatunnel.e2e.spark.SparkContainer;
 
 import org.apache.commons.compress.utils.Lists;
 import org.junit.jupiter.api.AfterEach;
@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
 
 import java.io.IOException;
@@ -41,14 +42,9 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-/**
- * Created 2022/9/4
- */
-public class FakeSourceToDorisIT extends FlinkContainer {
+public class FakeSourceToDorisIT extends SparkContainer {
     private static final Logger LOG = LoggerFactory.getLogger(FakeSourceToDorisIT.class);
 
-    private static final long DORIS_WAIT_TIMEOUT = TimeUnit.MINUTES.toMillis(5);
-    private static final String DORIS_FE_HEALTHY_ADDRESS = "http://localhost:8030/api/bootstarp";
     private static final String DORIS_DRIVER = "com.mysql.cj.jdbc.Driver";
     private static final String DORIS_CONNECTION_URL = "jdbc:mysql://localhost:9030?rewriteBatchedStatements=true";
     private static final String DORIS_PASSWD = "";
@@ -79,7 +75,7 @@ public class FakeSourceToDorisIT extends FlinkContainer {
     private Connection connection;
 
     @BeforeEach
-    public void before() throws InterruptedException, ClassNotFoundException {
+    public void before() throws InterruptedException {
         super.before();
         dorisStandaloneServer = new GenericContainer<>(DORIS_IMAGE_NAME)
             .withNetwork(NETWORK)
@@ -92,6 +88,7 @@ public class FakeSourceToDorisIT extends FlinkContainer {
         dorisStandaloneServer.setPortBindings(portBindings);
         Startables.deepStart(Stream.of(dorisStandaloneServer)).join();
         Thread.sleep(TimeUnit.MINUTES.toMillis(1));
+        dorisStandaloneServer.waitingFor(new HostPortWaitStrategy());
         LOG.info("Doris frontend endpoint and backend endpoint started.");
         initializeDoris();
     }
@@ -129,7 +126,7 @@ public class FakeSourceToDorisIT extends FlinkContainer {
     //Caused by some reasons, doris image can't run in Mac M1.
     @Test
     public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/doris/fakesource_to_doris.conf");
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/doris/fakesource_to_doris.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
     }

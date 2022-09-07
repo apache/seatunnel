@@ -32,9 +32,6 @@ import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 
-/**
- * Created 2022/8/01
- */
 @AutoService(SeaTunnelSink.class)
 public class DorisSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private static final String DORIS_NAME = "Doris";
