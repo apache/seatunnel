@@ -332,7 +332,9 @@ public class PhysicalVertex {
 
     private void resetExecutionState() {
         if (!executionState.get().isEndState()) {
-            String message = String.format("%s reset state failed, only end state can be reset, current is %s", getTaskFullName(), executionState.get());
+            String message =
+                String.format("%s reset state failed, only end state can be reset, current is %s", getTaskFullName(),
+                    executionState.get());
             LOGGER.severe(message);
             throw new IllegalStateException(message);
         }
@@ -353,7 +355,9 @@ public class PhysicalVertex {
     }
 
     public void updateTaskExecutionState(TaskExecutionState taskExecutionState) {
-        turnToEndState(taskExecutionState.getExecutionState());
+        if (!turnToEndState(taskExecutionState.getExecutionState())) {
+            return;
+        }
         if (taskExecutionState.getThrowable() != null) {
             LOGGER.severe(String.format("%s end with state %s and Exception: %s",
                 this.taskFullName,
