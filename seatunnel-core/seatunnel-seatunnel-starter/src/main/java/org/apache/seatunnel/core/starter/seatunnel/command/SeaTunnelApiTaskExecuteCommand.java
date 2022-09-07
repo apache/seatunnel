@@ -35,6 +35,7 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 
 import java.nio.file.Path;
+import java.util.Random;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -45,7 +46,6 @@ public class SeaTunnelApiTaskExecuteCommand implements Command<SeaTunnelCommandA
     private final SeaTunnelCommandArgs seaTunnelCommandArgs;
 
     // TODO custom cluster name on cluster execution mode
-    private static final String CLUSTER_NAME = "SeaTunnelCluster";
 
     public SeaTunnelApiTaskExecuteCommand(SeaTunnelCommandArgs seaTunnelCommandArgs) {
         this.seaTunnelCommandArgs = seaTunnelCommandArgs;
@@ -59,12 +59,14 @@ public class SeaTunnelApiTaskExecuteCommand implements Command<SeaTunnelCommandA
         jobConfig.setName(seaTunnelCommandArgs.getName());
 
         HazelcastInstance instance = null;
+        String clusterName = seaTunnelCommandArgs.getClusterName();
         if (seaTunnelCommandArgs.getExecutionMode().equals(ExecutionMode.LOCAL)) {
-            instance = createServerInLocal();
+            clusterName = creatRandomClusterName(clusterName);
+            instance = createServerInLocal(clusterName);
         }
 
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        clientConfig.setClusterName(CLUSTER_NAME);
+        clientConfig.setClusterName(clusterName);
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(configFile.toString(), jobConfig);
 
@@ -81,12 +83,18 @@ public class SeaTunnelApiTaskExecuteCommand implements Command<SeaTunnelCommandA
         }
     }
 
-    private HazelcastInstance createServerInLocal() {
+    private HazelcastInstance createServerInLocal(String clusterName) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        seaTunnelConfig.getHazelcastConfig().setClusterName(CLUSTER_NAME);
+        seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
         return HazelcastInstanceFactory.newHazelcastInstance(seaTunnelConfig.getHazelcastConfig(),
             Thread.currentThread().getName(),
             new SeaTunnelNodeContext(ConfigProvider.locateAndGetSeaTunnelConfig()));
+    }
+
+    @SuppressWarnings("checkstyle:MagicNumber")
+    private String creatRandomClusterName(String namePrefix) {
+        Random random = new Random();
+        return namePrefix + "-" + random.nextInt(1000000);
     }
 
 }

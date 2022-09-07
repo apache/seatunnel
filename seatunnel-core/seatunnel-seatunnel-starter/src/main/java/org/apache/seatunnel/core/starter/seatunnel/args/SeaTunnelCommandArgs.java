@@ -37,6 +37,10 @@ public class SeaTunnelCommandArgs extends AbstractCommandArgs {
         description = "The name of job")
     private String name = "seatunnel_job";
 
+    @Parameter(names = {"-cn", "--cluster"},
+        description = "The name of cluster")
+    private String clusterName = "seatunnel_default_cluster";
+
     @Parameter(names = {"-e", "--deploy-mode"},
         description = "SeaTunnel deploy mode",
         converter = ExecutionModeConverter.class)
@@ -56,6 +60,14 @@ public class SeaTunnelCommandArgs extends AbstractCommandArgs {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getClusterName() {
+        return clusterName;
+    }
+
+    public void setClusterName(String clusterName) {
+        this.clusterName = clusterName;
     }
 
     @Override
