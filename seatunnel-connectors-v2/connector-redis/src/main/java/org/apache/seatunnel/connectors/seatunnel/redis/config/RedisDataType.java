@@ -30,24 +30,46 @@ import java.util.Set;
 public enum RedisDataType {
     KEY {
         @Override
+        public void set(Jedis jedis, String key, String value) {
+            jedis.set(key, value);
+        }
+
+        @Override
         public List<String> get(Jedis jedis, String key) {
             return Collections.singletonList(jedis.get(key));
         }
     },
     HASH {
         @Override
+        public void set(Jedis jedis, String key, String value) {
+            Map<String, String> fieldsMap = JsonUtils.toMap(value);
+            jedis.hset(key, fieldsMap);
+        }
+
+        @Override
         public List<String> get(Jedis jedis, String key) {
             Map<String, String> kvMap = jedis.hgetAll(key);
             return Collections.singletonList(JsonUtils.toJsonString(kvMap));
         }
+
     },
     LIST {
+        @Override
+        public void set(Jedis jedis, String key, String value) {
+            jedis.lpush(key, value);
+        }
+
         @Override
         public List<String> get(Jedis jedis, String key) {
             return jedis.lrange(key, 0, -1);
         }
     },
     SET {
+        @Override
+        public void set(Jedis jedis, String key, String value) {
+            jedis.sadd(key, value);
+        }
+
         @Override
         public List<String> get(Jedis jedis, String key) {
             Set<String> members = jedis.smembers(key);
@@ -56,6 +78,11 @@ public enum RedisDataType {
     },
     ZSET {
         @Override
+        public void set(Jedis jedis, String key, String value) {
+            jedis.zadd(key, 1, value);
+        }
+
+        @Override
         public List<String> get(Jedis jedis, String key) {
             return jedis.zrange(key, 0, -1);
         }
@@ -63,5 +90,9 @@ public enum RedisDataType {
 
     public List<String> get(Jedis jedis, String key) {
         return Collections.emptyList();
+    }
+
+    public void set(Jedis jedis, String key, String value) {
+        // do nothing
     }
 }
