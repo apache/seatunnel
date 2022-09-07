@@ -151,10 +151,15 @@ public class TaskExecutionService {
             } else {
                 taskGroup = nodeEngine.getSerializationService().toObject(taskImmutableInfo.getGroup());
             }
-            if (executionContexts.containsKey(taskGroup.getTaskGroupLocation())) {
-                throw new RuntimeException(String.format("TaskGroupLocation: %s already exists", taskGroup.getTaskGroupLocation()));
+            logger.info(String.format("deploying task %s", taskGroup.getTaskGroupLocation()));
+
+            synchronized (this) {
+                if (executionContexts.containsKey(taskGroup.getTaskGroupLocation())) {
+                    throw new RuntimeException(
+                        String.format("TaskGroupLocation: %s already exists", taskGroup.getTaskGroupLocation()));
+                }
+                return deployLocalTask(taskGroup, resultFuture);
             }
-            return deployLocalTask(taskGroup, resultFuture);
         } catch (Throwable t) {
             logger.severe(String.format("TaskGroupID : %s  deploy error with Exception: %s",
                 taskGroup != null && taskGroup.getTaskGroupLocation() != null ? taskGroup.getTaskGroupLocation().toString() : "taskGroupLocation is null",

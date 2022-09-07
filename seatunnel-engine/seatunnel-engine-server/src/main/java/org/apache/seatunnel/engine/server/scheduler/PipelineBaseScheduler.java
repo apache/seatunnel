@@ -60,7 +60,7 @@ public class PipelineBaseScheduler implements JobScheduler {
     @Override
     public Map<Integer, Map<PhysicalVertex, SlotProfile>> startScheduling() {
         Map<Integer, Map<PhysicalVertex, SlotProfile>> ownedSlotProfiles = new ConcurrentHashMap<>();
-        if (physicalPlan.turnToRunning()) {
+        if (physicalPlan.updateJobState(JobStatus.CREATED, JobStatus.SCHEDULED)) {
             List<CompletableFuture<Void>> collect =
                 physicalPlan.getPipelineList()
                     .stream()
@@ -70,6 +70,7 @@ public class PipelineBaseScheduler implements JobScheduler {
                 CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
                     collect.toArray(new CompletableFuture[0]));
                 voidCompletableFuture.get();
+                physicalPlan.updateJobState(JobStatus.SCHEDULED, JobStatus.RUNNING);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -146,8 +147,8 @@ public class PipelineBaseScheduler implements JobScheduler {
             if (task.updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED)) {
                 // TODO custom resource size
                 return resourceManager.applyResource(jobId, new ResourceProfile());
-            } else if (ExecutionState.CANCELING.equals(task.getExecutionState().get()) ||
-                ExecutionState.CANCELED.equals(task.getExecutionState().get())) {
+            } else if (ExecutionState.CANCELING.equals(task.getExecutionState()) ||
+                ExecutionState.CANCELED.equals(task.getExecutionState())) {
                 LOGGER.info(
                     String.format("%s be canceled, skip %s this task.", task.getTaskFullName(),
                         ExecutionState.SCHEDULED));
@@ -155,7 +156,7 @@ public class PipelineBaseScheduler implements JobScheduler {
             } else {
                 makeTaskFailed(task,
                     new JobException(String.format("%s turn to a unexpected state: %s, stop scheduler job.",
-                        task.getTaskFullName(), task.getExecutionState().get())));
+                        task.getTaskFullName(), task.getExecutionState())));
                 return null;
             }
         } catch (Throwable e) {
@@ -170,8 +171,8 @@ public class PipelineBaseScheduler implements JobScheduler {
             return CompletableFuture.runAsync(() -> {
                 task.deploy(slotProfile);
             });
-        } else if (ExecutionState.CANCELING.equals(task.getExecutionState().get()) ||
-            ExecutionState.CANCELED.equals(task.getExecutionState().get())) {
+        } else if (ExecutionState.CANCELING.equals(task.getExecutionState()) ||
+            ExecutionState.CANCELED.equals(task.getExecutionState())) {
             LOGGER.info(
                 String.format("%s be canceled, skip %s this task.", task.getTaskFullName(), ExecutionState.DEPLOYING));
             return null;
@@ -181,7 +182,7 @@ public class PipelineBaseScheduler implements JobScheduler {
                     task.getTaskGroupLocation(),
                     ExecutionState.FAILED,
                     new JobException(String.format("%s turn to a unexpected state: %s, stop scheduler job.",
-                        task.getTaskFullName(), task.getExecutionState().get()))));
+                        task.getTaskFullName(), task.getExecutionState()))));
             return null;
         }
     }
@@ -206,20 +207,20 @@ public class PipelineBaseScheduler implements JobScheduler {
                 if (!pipeline.updatePipelineState(PipelineState.DEPLOYING, PipelineState.RUNNING)) {
                     LOGGER.info(
                         String.format("%s turn to state %s, skip the running state.", pipeline.getPipelineFullName(),
-                            pipeline.getPipelineState().get()));
+                            pipeline.getPipelineState()));
                 }
             } catch (Exception e) {
                 makePipelineFailed(pipeline, e);
             }
-        } else if (PipelineState.CANCELING.equals(pipeline.getPipelineState().get()) ||
-            PipelineState.CANCELED.equals(pipeline.getPipelineState().get())) {
+        } else if (PipelineState.CANCELING.equals(pipeline.getPipelineState()) ||
+            PipelineState.CANCELED.equals(pipeline.getPipelineState())) {
             // may be canceled
             LOGGER.info(String.format("%s turn to state %s, skip %s this pipeline.", pipeline.getPipelineFullName(),
-                pipeline.getPipelineState().get(), PipelineState.DEPLOYING));
+                pipeline.getPipelineState(), PipelineState.DEPLOYING));
         } else {
             makePipelineFailed(pipeline, new JobException(
                 String.format("%s turn to a unexpected state: %s, stop scheduler job", pipeline.getPipelineFullName(),
-                    pipeline.getPipelineState().get())));
+                    pipeline.getPipelineState())));
         }
     }
 
@@ -229,17 +230,17 @@ public class PipelineBaseScheduler implements JobScheduler {
     }
 
     private void handlePipelineStateTurnError(SubPlan pipeline, PipelineState targetState) {
-        if (PipelineState.CANCELING.equals(pipeline.getPipelineState().get()) ||
-            PipelineState.CANCELED.equals(pipeline.getPipelineState().get())) {
+        if (PipelineState.CANCELING.equals(pipeline.getPipelineState()) ||
+            PipelineState.CANCELED.equals(pipeline.getPipelineState())) {
             // may be canceled
             LOGGER.info(
                 String.format("%s turn to state %s, skip %s this pipeline.", pipeline.getPipelineFullName(),
-                    pipeline.getPipelineState().get(), targetState));
+                    pipeline.getPipelineState(), targetState));
         } else {
             throw new JobException(
                 String.format("%s turn to a unexpected state: %s, stop scheduler job",
                     pipeline.getPipelineFullName(),
-                    pipeline.getPipelineState().get()));
+                    pipeline.getPipelineState()));
         }
     }
 

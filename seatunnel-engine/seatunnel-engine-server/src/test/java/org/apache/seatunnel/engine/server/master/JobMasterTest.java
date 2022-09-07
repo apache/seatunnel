@@ -36,6 +36,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Collections;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -77,11 +78,13 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         await().atMost(20000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assert.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
 
+        PassiveCompletableFuture<JobStatus> jobMasterCompleteFuture = jobMaster.getJobMasterCompleteFuture();
         // cancel job
         jobMaster.cancelJob();
 
         // test job turn to complete
-        await().atMost(2000000, TimeUnit.MILLISECONDS)
-            .untilAsserted(() -> Assert.assertEquals(JobStatus.CANCELED, jobMaster.getJobStatus()));
+        await().atMost(20000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> Assert.assertTrue(
+                jobMasterCompleteFuture.isDone() && JobStatus.CANCELED.equals(jobMasterCompleteFuture.get())));
     }
 }

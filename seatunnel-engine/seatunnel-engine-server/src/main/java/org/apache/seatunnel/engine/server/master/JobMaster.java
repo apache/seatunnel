@@ -45,6 +45,7 @@ import com.hazelcast.jet.datamodel.Tuple2;
 import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
+import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.NonNull;
 import org.apache.commons.collections4.CollectionUtils;
@@ -81,10 +82,16 @@ public class JobMaster implements Runnable {
 
     private CompletableFuture<Void> scheduleFuture = new CompletableFuture<>();
 
+    private final IMap<Object, Object> runningJobStateIMap;
+
+    private final IMap<Object, Object> runningJobStateTimestampsIMap;
+
     public JobMaster(@NonNull Data jobImmutableInformationData,
                      @NonNull NodeEngine nodeEngine,
                      @NonNull ExecutorService executorService,
-                     @NonNull ResourceManager resourceManager) {
+                     @NonNull ResourceManager resourceManager,
+                     @NonNull IMap runningJobStateIMap,
+                     @NonNull IMap runningJobStateTimestampsIMap) {
         this.jobImmutableInformationData = jobImmutableInformationData;
         this.nodeEngine = nodeEngine;
         this.executorService = executorService;
@@ -92,9 +99,11 @@ public class JobMaster implements Runnable {
             this.nodeEngine.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME);
         this.ownedSlotProfiles = new ConcurrentHashMap<>();
         this.resourceManager = resourceManager;
+        this.runningJobStateIMap = runningJobStateIMap;
+        this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
     }
 
-    public void init() throws Exception {
+    public void init(long initializationTimestamp) throws Exception {
         jobImmutableInformation = nodeEngine.getSerializationService().toObject(
             jobImmutableInformationData);
         LOGGER.info("Job [" + jobImmutableInformation.getJobId() + "] submit");
@@ -112,9 +121,11 @@ public class JobMaster implements Runnable {
         final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple = PlanUtils.fromLogicalDAG(logicalDag,
             nodeEngine,
             jobImmutableInformation,
-            System.currentTimeMillis(),
+            initializationTimestamp,
             executorService,
-            flakeIdGenerator);
+            flakeIdGenerator,
+            runningJobStateIMap,
+            runningJobStateTimestampsIMap);
         this.physicalPlan = planTuple.f0();
         this.checkpointManager = new CheckpointManager(
             jobImmutableInformation.getJobId(),

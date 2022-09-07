@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.core.job.RunningJobInfo;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
@@ -39,6 +40,7 @@ import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.jet.impl.LiveOperationRegistry;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
+import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.LiveOperations;
@@ -49,6 +51,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -67,6 +70,37 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     private volatile ResourceManager resourceManager;
 
     private final SeaTunnelConfig seaTunnelConfig;
+
+    /**
+     * IMap key is jobId and value is a Tuple2
+     * Tuple2 key is JobMaster init timestamp and value is the jobImmutableInformation which is sent by client when submit job
+     * <p>
+     * This IMap is used to recovery a JobMaster when a new master node active
+     */
+    private IMap<Long, RunningJobInfo> runningJobInfoIMap;
+
+    /**
+     * IMap key is one of jobId {@link org.apache.seatunnel.engine.server.dag.physical.PipelineLocation} and
+     * {@link org.apache.seatunnel.engine.server.execution.TaskGroupLocation}
+     * <p>
+     * The value of IMap is one of {@link JobStatus} {@link org.apache.seatunnel.engine.core.job.PipelineState}
+     * {@link org.apache.seatunnel.engine.server.execution.ExecutionState}
+     * <p>
+     * This IMap is used to recovery a JobMaster when a new master node active
+     */
+    IMap<Object, Object> runningJobStateIMap;
+
+    /**
+     * IMap key is one of jobId {@link org.apache.seatunnel.engine.server.dag.physical.PipelineLocation} and
+     * {@link org.apache.seatunnel.engine.server.execution.TaskGroupLocation}
+     * <p>
+     * The value of IMap is one of {@link org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan} stateTimestamps
+     * {@link org.apache.seatunnel.engine.server.dag.physical.SubPlan} stateTimestamps
+     * {@link org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex} stateTimestamps
+     * <p>
+     * This IMap is used to recovery a JobMaster when a new master node active
+     */
+    IMap<Object, Long[]> runningJobStateTimestampsIMap;
 
     /**
      * key: job id;
@@ -113,6 +147,10 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         );
         taskExecutionService.start();
         getSlotService();
+
+        runningJobInfoIMap = nodeEngine.getHazelcastInstance().getMap("runningJobInfo");
+        runningJobStateIMap = nodeEngine.getHazelcastInstance().getMap("runningJobState");
+        runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap("stateTimestamps");
     }
 
     @Override
@@ -183,12 +221,14 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
      */
     public PassiveCompletableFuture<Void> submitJob(long jobId, Data jobImmutableInformation) {
         CompletableFuture<Void> voidCompletableFuture = new CompletableFuture<>();
-        JobMaster jobMaster = new JobMaster(jobImmutableInformation, this.nodeEngine, executorService, getResourceManager());
+        JobMaster jobMaster = new JobMaster(jobImmutableInformation, this.nodeEngine, executorService, getResourceManager(), runningJobStateIMap,
+            runningJobStateTimestampsIMap);
         executorService.submit(() -> {
             try {
-                jobMaster.init();
-                jobMaster.getPhysicalPlan().initStateFuture();
+                runningJobInfoIMap.put(jobId, new RunningJobInfo(System.currentTimeMillis(), jobImmutableInformation));
                 runningJobMasterMap.put(jobId, jobMaster);
+                jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp());
+                jobMaster.getPhysicalPlan().initStateFuture();
             } catch (Throwable e) {
                 LOGGER.severe(String.format("submit job %s error %s ", jobId, ExceptionUtils.getMessage(e)));
                 voidCompletableFuture.completeExceptionally(e);
@@ -200,10 +240,47 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
             try {
                 jobMaster.run();
             } finally {
+                // storage job state info to HistoryStorage
+                removeJobIMap(jobMaster);
                 runningJobMasterMap.remove(jobId);
             }
         });
         return new PassiveCompletableFuture(voidCompletableFuture);
+    }
+
+    private void removeJobIMap(JobMaster jobMaster) {
+        Long jobId = jobMaster.getJobImmutableInformation().getJobId();
+        runningJobStateTimestampsIMap.remove(jobId);
+
+        jobMaster.getPhysicalPlan().getPipelineList().forEach(pipeline -> {
+            runningJobStateIMap.remove(pipeline.getPipelineLocation());
+            runningJobStateTimestampsIMap.remove(pipeline.getPipelineLocation());
+            pipeline.getCoordinatorVertexList().forEach(coordinator -> {
+                runningJobStateIMap.remove(coordinator.getTaskGroupLocation());
+                runningJobStateTimestampsIMap.remove(coordinator.getTaskGroupLocation());
+            });
+
+            pipeline.getPhysicalVertexList().forEach(task -> {
+                runningJobStateIMap.remove(task.getTaskGroupLocation());
+                runningJobStateTimestampsIMap.remove(task.getTaskGroupLocation());
+            });
+        });
+
+        // These should be deleted at the end. On the new master node
+        // 1. If runningJobStateIMap.get(jobId) == null and runningJobInfoIMap.get(jobId) != null. We will do
+        //    runningJobInfoIMap.remove(jobId)
+        //
+        // 2. If runningJobStateIMap.get(jobId) != null and the value equals JobStatus End State. We need new a
+        //    JobMaster and generate PhysicalPlan again and then try to remove all of PipelineLocation and
+        //    TaskGroupLocation key in the runningJobStateIMap.
+        //
+        // 3. If runningJobStateIMap.get(jobId) != null and the value equals JobStatus.SCHEDULED. We need cancel the job
+        //    and then call submitJob(long jobId, Data jobImmutableInformation) to resubmit it.
+        //
+        // 4. If runningJobStateIMap.get(jobId) != null and the value is CANCELING or RUNNING. We need recover the JobMaster
+        //    from runningJobStateIMap and then waiting for it complete.
+        runningJobStateIMap.remove(jobId);
+        runningJobInfoIMap.remove(jobId);
     }
 
     public PassiveCompletableFuture<JobStatus> waitForJobComplete(long jobId) {
@@ -238,7 +315,18 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
             // TODO Get Job Status from JobHistoryStorage
             return JobStatus.FINISHED;
         }
-        return runningJobMaster.getJobStatus();
+        // This method is called by operation and in the runningJobMaster.getJobStatus() we will get data from IMap.
+        // It will cause an error "Waiting for response on this thread is illegal". To solve it we need put
+        // runningJobMaster.getJobStatus() in another thread.
+        CompletableFuture<JobStatus> future = CompletableFuture.supplyAsync(() -> {
+            return runningJobMaster.getJobStatus();
+        }, executorService);
+
+        try {
+            return future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**

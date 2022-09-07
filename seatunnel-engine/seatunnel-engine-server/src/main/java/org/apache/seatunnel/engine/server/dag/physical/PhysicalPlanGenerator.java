@@ -54,6 +54,7 @@ import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateQu
 import com.google.common.collect.Lists;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.jet.datamodel.Tuple2;
+import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.NonNull;
 
@@ -110,12 +111,18 @@ public class PhysicalPlanGenerator {
      */
     private final Set<TaskLocation> startingTasks;
 
+    private final IMap<Object, Object> runningJobStateIMap;
+
+    private final IMap<Object, Object> runningJobStateTimestampsIMap;
+
     public PhysicalPlanGenerator(@NonNull ExecutionPlan executionPlan,
                                  @NonNull NodeEngine nodeEngine,
                                  @NonNull JobImmutableInformation jobImmutableInformation,
                                  long initializationTimestamp,
                                  @NonNull ExecutorService executorService,
-                                 @NonNull FlakeIdGenerator flakeIdGenerator) {
+                                 @NonNull FlakeIdGenerator flakeIdGenerator,
+                                 @NonNull IMap runningJobStateIMap,
+                                 @NonNull IMap runningJobStateTimestampsIMap) {
         this.pipelines = executionPlan.getPipelines();
         this.nodeEngine = nodeEngine;
         this.jobImmutableInformation = jobImmutableInformation;
@@ -125,6 +132,8 @@ public class PhysicalPlanGenerator {
         // the checkpoint of a pipeline
         this.pipelineTasks = new HashSet<>();
         this.startingTasks = new HashSet<>();
+        this.runningJobStateIMap = runningJobStateIMap;
+        this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
     }
 
     public Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> generate() {
@@ -170,13 +179,17 @@ public class PhysicalPlanGenerator {
                 physicalVertexList,
                 coordinatorVertexList,
                 jobImmutableInformation,
-                executorService);
+                executorService,
+                runningJobStateIMap,
+                runningJobStateTimestampsIMap);
         });
 
         PhysicalPlan physicalPlan = new PhysicalPlan(subPlanStream.collect(Collectors.toList()),
             executorService,
             jobImmutableInformation,
-            initializationTimestamp);
+            initializationTimestamp,
+            runningJobStateIMap,
+            runningJobStateTimestampsIMap);
         return Tuple2.tuple2(physicalPlan, checkpointPlans);
     }
 
@@ -227,7 +240,9 @@ public class PhysicalPlanGenerator {
                         s.getJarUrls(),
                         jobImmutableInformation,
                         initializationTimestamp,
-                        nodeEngine);
+                        nodeEngine,
+                        runningJobStateIMap,
+                        runningJobStateTimestampsIMap);
                 } else {
                     return null;
                 }
@@ -267,7 +282,9 @@ public class PhysicalPlanGenerator {
                         seaTunnelTask.getJarsUrl(),
                         jobImmutableInformation,
                         initializationTimestamp,
-                        nodeEngine));
+                        nodeEngine,
+                        runningJobStateIMap,
+                        runningJobStateTimestampsIMap));
                 }
                 return t.stream();
             }).collect(Collectors.toList());
@@ -303,7 +320,9 @@ public class PhysicalPlanGenerator {
                 t.getJarsUrl(),
                 jobImmutableInformation,
                 initializationTimestamp,
-                nodeEngine);
+                nodeEngine,
+                runningJobStateIMap,
+                runningJobStateTimestampsIMap);
         }).collect(Collectors.toList());
     }
 
@@ -363,7 +382,9 @@ public class PhysicalPlanGenerator {
                             jars,
                             jobImmutableInformation,
                             initializationTimestamp,
-                            nodeEngine));
+                            nodeEngine,
+                            runningJobStateIMap,
+                            runningJobStateTimestampsIMap));
                     } else {
                         t.add(new PhysicalVertex(
                             i,
@@ -378,7 +399,9 @@ public class PhysicalPlanGenerator {
                             jars,
                             jobImmutableInformation,
                             initializationTimestamp,
-                            nodeEngine));
+                            nodeEngine,
+                            runningJobStateIMap,
+                            runningJobStateTimestampsIMap));
                     }
                 }
                 return t.stream();
