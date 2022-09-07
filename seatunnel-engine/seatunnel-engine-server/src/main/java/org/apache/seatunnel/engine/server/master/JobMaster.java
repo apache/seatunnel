@@ -31,9 +31,11 @@ import org.apache.seatunnel.engine.server.checkpoint.CheckpointStorageConfigurat
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
+import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.scheduler.JobScheduler;
 import org.apache.seatunnel.engine.server.scheduler.PipelineBaseScheduler;
 
 import com.hazelcast.cluster.Address;
@@ -74,11 +76,15 @@ public class JobMaster implements Runnable {
 
     private JobImmutableInformation jobImmutableInformation;
 
+    private JobScheduler jobScheduler;
     private final Map<Integer, Map<PhysicalVertex, SlotProfile>> ownedSlotProfiles;
+
+    private CompletableFuture<Void> scheduleFuture = new CompletableFuture<>();
 
     public JobMaster(@NonNull Data jobImmutableInformationData,
                      @NonNull NodeEngine nodeEngine,
-                     @NonNull ExecutorService executorService, @NonNull ResourceManager resourceManager) {
+                     @NonNull ExecutorService executorService,
+                     @NonNull ResourceManager resourceManager) {
         this.jobImmutableInformationData = jobImmutableInformationData;
         this.nodeEngine = nodeEngine;
         this.executorService = executorService;
@@ -123,6 +129,8 @@ public class JobMaster implements Runnable {
     @Override
     public void run() {
         try {
+            physicalPlan.initJobMaster(this);
+
             PassiveCompletableFuture<JobStatus> jobStatusPassiveCompletableFuture =
                 physicalPlan.getJobEndCompletableFuture();
 
@@ -134,17 +142,38 @@ public class JobMaster implements Runnable {
                 }
                 jobMasterCompleteFuture.complete(physicalPlan.getJobStatus());
             });
-            ownedSlotProfiles.putAll(new PipelineBaseScheduler(physicalPlan, this).startScheduling());
+            jobScheduler = new PipelineBaseScheduler(physicalPlan, this);
+            scheduleFuture = CompletableFuture.runAsync(() -> {
+                ownedSlotProfiles.putAll(jobScheduler.startScheduling());
+            }, executorService);
+            scheduleFuture.join();
+            LOGGER.info(String.format("%s scheduler finished", physicalPlan.getJobFullName()));
         } catch (Throwable e) {
             LOGGER.severe(String.format("Job %s (%s) run error with: %s",
                 physicalPlan.getJobImmutableInformation().getJobConfig().getName(),
                 physicalPlan.getJobImmutableInformation().getJobId(),
                 ExceptionUtils.getMessage(e)));
             // try to cancel job
-            physicalPlan.cancelJob();
+            cancelJob();
         } finally {
             jobMasterCompleteFuture.join();
         }
+    }
+
+    public void handleCheckpointTimeout(long pipelineId) {
+        this.physicalPlan.getPipelineList().forEach(pipeline -> {
+            if (pipeline.getPipelineId() == pipelineId) {
+                pipeline.cancelPipeline();
+            }
+        });
+    }
+
+    public CompletableFuture<Void> reSchedulerPipeline(SubPlan subPlan) {
+        return jobScheduler.reSchedulerPipeline(subPlan);
+    }
+
+    public void releasePipelineResource(int pipelineIndex) {
+        // TODO release pipeline resource
     }
 
     public void cleanJob() {
@@ -154,7 +183,7 @@ public class JobMaster implements Runnable {
     public Address queryTaskGroupAddress(long taskGroupId) {
         for (Integer pipelineId : ownedSlotProfiles.keySet()) {
             Optional<PhysicalVertex> currentVertex = ownedSlotProfiles.get(pipelineId).keySet().stream()
-                .filter(physicalVertex -> physicalVertex.getTaskGroup().getTaskGroupLocation().getTaskGroupId() == taskGroupId)
+                .filter(task -> task.getTaskGroupLocation().getTaskGroupId() == taskGroupId)
                 .findFirst();
             if (currentVertex.isPresent()) {
                 return ownedSlotProfiles.get(pipelineId).get(currentVertex.get()).getWorker();
@@ -164,6 +193,7 @@ public class JobMaster implements Runnable {
     }
 
     public void cancelJob() {
+        physicalPlan.neverNeedRestore();
         this.physicalPlan.cancelJob();
     }
 
@@ -213,5 +243,13 @@ public class JobMaster implements Runnable {
                 task.updateTaskExecutionState(taskExecutionState);
             });
         });
+    }
+
+    public Map<Integer, Map<PhysicalVertex, SlotProfile>> getOwnedSlotProfiles() {
+        return ownedSlotProfiles;
+    }
+
+    public CompletableFuture<Void> getScheduleFuture() {
+        return scheduleFuture;
     }
 }

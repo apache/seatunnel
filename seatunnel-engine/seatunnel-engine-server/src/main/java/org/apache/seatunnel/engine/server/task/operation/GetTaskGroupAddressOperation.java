@@ -50,7 +50,7 @@ public class GetTaskGroupAddressOperation extends Operation implements Identifie
         response = RetryUtils.retryWithException(() -> server.getJobMaster(taskLocation.getJobId())
                 .queryTaskGroupAddress(taskLocation.getTaskGroupLocation().getTaskGroupId()),
             new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-                exception -> exception instanceof IllegalArgumentException, Constant.OPERATION_RETRY_SLEEP));
+                exception -> exception instanceof Exception, Constant.OPERATION_RETRY_SLEEP));
     }
 
     @Override

@@ -85,7 +85,7 @@ public class PhysicalVertex {
      * When PhysicalVertex status turn to end, complete this future. And then the waitForCompleteByPhysicalVertex
      * in {@link SubPlan} whenComplete method will be called.
      */
-    private final CompletableFuture<TaskExecutionState> taskFuture;
+    private CompletableFuture<TaskExecutionState> taskFuture;
 
     /**
      * Timestamps (in milliseconds as returned by {@code System.currentTimeMillis()} when the
@@ -144,6 +144,7 @@ public class PhysicalVertex {
     }
 
     public PassiveCompletableFuture<TaskExecutionState> initStateFuture() {
+        this.taskFuture = new CompletableFuture<>();
         return new PassiveCompletableFuture<>(this.taskFuture);
     }
 
@@ -327,6 +328,20 @@ public class PhysicalVertex {
                 }
             }
         }
+    }
+
+    private void resetExecutionState() {
+        if (!executionState.get().isEndState()) {
+            String message = String.format("%s reset state failed, only end state can be reset, current is %s", getTaskFullName(), executionState.get());
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+        executionState.set(ExecutionState.CREATED);
+        stateTimestamps[ExecutionState.CREATED.ordinal()] = System.currentTimeMillis();
+    }
+
+    public void reset() {
+        resetExecutionState();
     }
 
     public AtomicReference<ExecutionState> getExecutionState() {
