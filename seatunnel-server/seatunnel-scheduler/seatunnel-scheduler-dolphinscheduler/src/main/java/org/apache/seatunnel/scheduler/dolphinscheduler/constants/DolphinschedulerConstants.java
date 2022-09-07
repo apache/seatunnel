@@ -44,6 +44,7 @@ public class DolphinschedulerConstants {
     public static final String SCHEDULE_ONLINE = "/projects/%s/schedules/%s/online";
     public static final String SCHEDULE_OFFLINE = "/projects/%s/schedules/%s/offline";
     public static final String DELETE_PROCESS_DEFINITION = "/projects/%s/process-definition/%s";
+    public static final String PROCESS_INSTANCE_LIST = "/projects/%s/process-instances";
     public static final String EXECUTE = "/projects/%s/executors/execute";
 
     /**
