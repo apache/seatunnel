@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.app.util;
+package org.apache.seatunnel.app.utils;
 
 import org.springframework.util.DigestUtils;
 
