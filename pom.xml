@@ -197,7 +197,6 @@
         <checker.qual.version>3.10.0</checker.qual.version>
         <awaitility.version>4.2.0</awaitility.version>
         <jwt.version>0.10.7</jwt.version>
-        <influxdb.version>2.21</influxdb.version>
     </properties>
 
     <dependencyManagement>
@@ -433,12 +432,6 @@
                 <artifactId>jjwt-jackson</artifactId>
                 <version>${jwt.version}</version>
                 <scope>runtime</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.influxdb</groupId>
-                <artifactId>influxdb-java</artifactId>
-                <version>${influxdb.version}</version>
             </dependency>
         </dependencies>
 

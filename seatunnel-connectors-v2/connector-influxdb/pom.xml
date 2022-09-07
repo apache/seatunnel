@@ -28,6 +28,10 @@
 
     <artifactId>connector-influxdb</artifactId>
 
+    <properties>
+        <influxdb.version>2.21</influxdb.version>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -39,10 +43,10 @@
             <artifactId>connector-common</artifactId>
             <version>${project.version}</version>
         </dependency>
-
         <dependency>
             <groupId>org.influxdb</groupId>
             <artifactId>influxdb-java</artifactId>
+            <version>${influxdb.version}</version>
         </dependency>
     </dependencies>
 </project>
