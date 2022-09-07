@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.flink;
+package org.apache.seatunnel.core.starter.seatunnel.args;
 
-import org.apache.seatunnel.core.starter.Seatunnel;
-import org.apache.seatunnel.core.starter.command.Command;
-import org.apache.seatunnel.core.starter.exception.CommandException;
-import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
-import org.apache.seatunnel.core.starter.flink.command.FlinkCommandBuilder;
-import org.apache.seatunnel.core.starter.flink.utils.CommandLineUtils;
+import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 
-public class SeatunnelFlink {
+import com.beust.jcommander.IStringConverter;
+import com.beust.jcommander.ParameterException;
 
-    public static void main(String[] args) throws CommandException {
-        FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parseCommandArgs(args);
-        Command<FlinkCommandArgs> flinkCommand = new FlinkCommandBuilder()
-            .buildCommand(flinkCommandArgs);
-        Seatunnel.run(flinkCommand);
+public class ExecutionModeConverter implements IStringConverter<ExecutionMode> {
+    @Override
+    public ExecutionMode convert(String value) {
+        try {
+            return ExecutionMode.valueOf(value.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new ParameterException("execution-mode: " + value + " is not allowed.");
+        }
     }
-
 }

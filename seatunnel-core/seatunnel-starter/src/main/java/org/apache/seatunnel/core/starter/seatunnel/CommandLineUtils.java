@@ -18,10 +18,14 @@
 package org.apache.seatunnel.core.starter.seatunnel;
 
 import org.apache.seatunnel.core.starter.seatunnel.args.SeaTunnelCommandArgs;
+import org.apache.seatunnel.core.starter.seatunnel.constant.SeaTunnelConstant;
 
 import com.beust.jcommander.JCommander;
+import com.beust.jcommander.UnixStyleUsageFormatter;
 
 public class CommandLineUtils {
+
+    private static final String SHELL_NAME = "seatunnel.sh";
 
     private CommandLineUtils() {
         throw new UnsupportedOperationException("CommandLineUtils is a utility class and cannot be instantiated");
@@ -29,10 +33,19 @@ public class CommandLineUtils {
 
     public static SeaTunnelCommandArgs parseSeaTunnelArgs(String[] args) {
         SeaTunnelCommandArgs seatunnelCommandArgs = new SeaTunnelCommandArgs();
-        JCommander.newBuilder()
+        JCommander jCommander = JCommander.newBuilder()
+            .programName(SHELL_NAME)
             .addObject(seatunnelCommandArgs)
-            .build()
-            .parse(args);
+            .acceptUnknownOptions(true)
+            .args(args)
+            .build();
+        // The args is not belongs to seatunnel, add into flink params
+        seatunnelCommandArgs.setSeatunnelParams(jCommander.getUnknownOptions());
+        if (seatunnelCommandArgs.isHelp()) {
+            jCommander.setUsageFormatter(new UnixStyleUsageFormatter(jCommander));
+            jCommander.usage();
+            System.exit(SeaTunnelConstant.USAGE_EXIT_CODE);
+        }
         return seatunnelCommandArgs;
     }
 }

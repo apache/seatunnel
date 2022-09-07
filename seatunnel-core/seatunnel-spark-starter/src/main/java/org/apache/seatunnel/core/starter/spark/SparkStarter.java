@@ -134,7 +134,7 @@ public class SparkStarter implements Starter {
     private static SparkCommandArgs parseCommandArgs(String[] args) {
         SparkCommandArgs commandArgs = new SparkCommandArgs();
         JCommander commander = JCommander.newBuilder()
-                .programName("start-seatunnel-spark.sh")
+                .programName("start-seatunnel-spark-connector-v2.sh")
                 .addObject(commandArgs)
                 .args(args)
                 .build();

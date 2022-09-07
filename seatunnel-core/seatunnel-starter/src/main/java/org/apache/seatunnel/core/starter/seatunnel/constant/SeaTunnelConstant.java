@@ -15,22 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.flink;
+package org.apache.seatunnel.core.starter.seatunnel.constant;
 
-import org.apache.seatunnel.core.starter.Seatunnel;
-import org.apache.seatunnel.core.starter.command.Command;
-import org.apache.seatunnel.core.starter.exception.CommandException;
-import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
-import org.apache.seatunnel.core.starter.flink.command.FlinkCommandBuilder;
-import org.apache.seatunnel.core.starter.flink.utils.CommandLineUtils;
-
-public class SeatunnelFlink {
-
-    public static void main(String[] args) throws CommandException {
-        FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parseCommandArgs(args);
-        Command<FlinkCommandArgs> flinkCommand = new FlinkCommandBuilder()
-            .buildCommand(flinkCommandArgs);
-        Seatunnel.run(flinkCommand);
-    }
-
+public class SeaTunnelConstant {
+    public static final int USAGE_EXIT_CODE = 234;
 }

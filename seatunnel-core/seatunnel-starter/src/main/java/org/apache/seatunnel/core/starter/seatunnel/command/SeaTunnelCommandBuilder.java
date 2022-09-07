@@ -15,22 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.flink;
+package org.apache.seatunnel.core.starter.seatunnel.command;
 
-import org.apache.seatunnel.core.starter.Seatunnel;
+import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.core.starter.command.Command;
-import org.apache.seatunnel.core.starter.exception.CommandException;
-import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
-import org.apache.seatunnel.core.starter.flink.command.FlinkCommandBuilder;
-import org.apache.seatunnel.core.starter.flink.utils.CommandLineUtils;
+import org.apache.seatunnel.core.starter.command.CommandBuilder;
+import org.apache.seatunnel.core.starter.seatunnel.args.SeaTunnelCommandArgs;
 
-public class SeatunnelFlink {
+public class SeaTunnelCommandBuilder implements CommandBuilder<SeaTunnelCommandArgs> {
 
-    public static void main(String[] args) throws CommandException {
-        FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parseCommandArgs(args);
-        Command<FlinkCommandArgs> flinkCommand = new FlinkCommandBuilder()
-            .buildCommand(flinkCommandArgs);
-        Seatunnel.run(flinkCommand);
+    @Override
+    public Command<SeaTunnelCommandArgs> buildCommand(SeaTunnelCommandArgs commandArgs) {
+        Common.setDeployMode(commandArgs.getDeployMode());
+        return commandArgs.isCheckConfig() ? new SeaTunnelApiConfValidateCommand(commandArgs)
+            : new SeaTunnelApiTaskExecuteCommand(commandArgs);
     }
-
 }

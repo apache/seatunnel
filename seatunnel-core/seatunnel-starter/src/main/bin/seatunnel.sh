@@ -36,8 +36,8 @@ done
 PRG_DIR=`dirname "$PRG"`
 APP_DIR=`cd "$PRG_DIR/.." >/dev/null; pwd`
 CONF_DIR=${APP_DIR}/config
-APP_JAR=${APP_DIR}/lib/seatunnel-seatunnel-starter.jar
-APP_MAIN="org.apache.seatunnel.core.starter.seatunnel.SeaTunnelStarter"
+APP_JAR=${APP_DIR}/lib/seatunnel-starter.jar
+APP_MAIN="org.apache.seatunnel.core.starter.seatunnel.SeaTunnel"
 
 if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
     . "${CONF_DIR}/seatunnel-env.sh"
@@ -50,15 +50,4 @@ else
     args=$@
 fi
 
-CMD=$(java -cp ${APP_JAR} ${APP_MAIN} ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
-if [ ${EXIT_CODE} -eq 234 ]; then
-    # print usage
-    echo "${CMD}"
-    exit 0
-elif [ ${EXIT_CODE} -eq 0 ]; then
-    echo "Execute SeaTunnel Job: ${CMD}"
-    eval ${CMD}
-else
-    echo "${CMD}"
-    exit ${EXIT_CODE}
-fi
+java -cp ${APP_JAR} ${APP_MAIN} ${args}

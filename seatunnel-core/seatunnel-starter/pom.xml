@@ -26,7 +26,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>seatunnel-seatunnel-starter</artifactId>
+    <artifactId>seatunnel-starter</artifactId>
 
     <dependencies>
         <dependency>
@@ -46,6 +46,16 @@
             <artifactId>seatunnel-engine-client</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-engine-server</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
+
+    <build>
+        <finalName>${project.name}</finalName>
+    </build>
 
 </project>
