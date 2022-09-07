@@ -53,26 +53,25 @@ public class JdbcDmdbIT extends FlinkContainer {
     private static final String HOST = "flink_e2e_dmdb";
     private static final String LOCAL_HOST = "localhost";
     private static final String URL = "jdbc:dm://" + LOCAL_HOST + ":5236";
-
     private static final String USERNAME = "SYSDBA";
     private static final String PASSWORD = "SYSDBA";
     private static final String DATABASE = "SYSDBA";
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SINK_TABLE = "e2e_table_sink";
     private Connection jdbcConnection;
-    private GenericContainer<?> server;
+    private GenericContainer<?> dbServer;
 
     @BeforeEach
-    public void startGreenplumContainer() throws ClassNotFoundException, SQLException {
-        server = new GenericContainer<>(DOCKER_IMAGE)
+    public void startDmdbContainer() throws ClassNotFoundException, SQLException {
+        dbServer = new GenericContainer<>(DOCKER_IMAGE)
             .withNetwork(NETWORK)
             .withNetworkAliases(HOST)
             .withLogConsumer(new Slf4jLogConsumer(log));
-        server.setPortBindings(Lists.newArrayList(
+        dbServer.setPortBindings(Lists.newArrayList(
             String.format("%s:%s", 5236, 5236)));
-        Startables.deepStart(Stream.of(server)).join();
-        log.info("Greenplum container started");
-        // wait for Greenplum fully start
+        Startables.deepStart(Stream.of(dbServer)).join();
+        log.info("Dmdb container started");
+        // wait for Dmdb fully start
         Class.forName(DRIVER_CLASS);
         given().ignoreExceptions()
             .await()
@@ -80,6 +79,7 @@ public class JdbcDmdbIT extends FlinkContainer {
             .untilAsserted(this::initializeJdbcConnection);
         initializeJdbcTable();
     }
+
 
     private void initializeJdbcConnection() throws SQLException {
         jdbcConnection = DriverManager.getConnection(URL, USERNAME, PASSWORD);
@@ -122,9 +122,12 @@ public class JdbcDmdbIT extends FlinkContainer {
     }
 
     @AfterEach
-    public void closeGreenplumContainer() throws SQLException {
+    public void closeDmdbContainer() throws SQLException {
         if (jdbcConnection != null) {
             jdbcConnection.close();
+        }
+        if (dbServer != null) {
+            dbServer.close();
         }
     }
 

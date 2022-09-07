@@ -47,7 +47,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
-public class JDBCDmdbIT extends SparkContainer {
+public class JdbcDmdbIT extends SparkContainer {
 
     private static final String DM_DOCKER_IMAGE = "laglangyue/dmdb8";
     private static final String DRIVER_CLASS = "dm.jdbc.driver.DmDriver";
@@ -59,19 +59,19 @@ public class JDBCDmdbIT extends SparkContainer {
     private static final String DATABASE = "SYSDBA";
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SINK_TABLE = "e2e_table_sink";
-    private GenericContainer<?> dmServer;
+    private GenericContainer<?> dbServer;
     private Connection jdbcConnection;
 
     @BeforeEach
     public void beforeAllForDM() {
         try {
-            dmServer = new GenericContainer<>(DM_DOCKER_IMAGE)
+            dbServer = new GenericContainer<>(DM_DOCKER_IMAGE)
                 .withNetwork(NETWORK)
                 .withNetworkAliases(HOST)
                 .withLogConsumer(new Slf4jLogConsumer(log));
-            dmServer.setPortBindings(Lists.newArrayList("5236:5236"));
-            Startables.deepStart(Stream.of(dmServer)).join();
-            log.info("dm container started");
+            dbServer.setPortBindings(Lists.newArrayList("5236:5236"));
+            Startables.deepStart(Stream.of(dbServer)).join();
+            log.info("dmdb container started");
             Class.forName(DRIVER_CLASS);
             given().ignoreExceptions()
                 .await()
@@ -85,9 +85,12 @@ public class JDBCDmdbIT extends SparkContainer {
     }
 
     @AfterEach
-    public void closeGreenplumContainer() throws SQLException {
+    public void closeDmdbContainer() throws SQLException {
         if (jdbcConnection != null) {
             jdbcConnection.close();
+        }
+        if (dbServer != null) {
+            dbServer.close();
         }
     }
 
@@ -99,7 +102,7 @@ public class JDBCDmdbIT extends SparkContainer {
      * init the table for DM_SERVER, DDL and DML for source and sink
      */
     private void initializeJdbcTable() {
-        URL resource = JDBCDmdbIT.class.getResource("/jdbc/init_sql/dm_init.conf");
+        URL resource = JdbcDmdbIT.class.getResource("/jdbc/init_sql/dm_init.conf");
         if (resource == null) {
             throw new IllegalArgumentException("can't find find file");
         }
