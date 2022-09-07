@@ -19,7 +19,7 @@ package org.apache.seatunnel.scheduler.dolphinscheduler.impl;
 
 import org.apache.seatunnel.scheduler.dolphinscheduler.IDolphinschedulerService;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ListProcessInstanceDto;
-import org.apache.seatunnel.scheduler.dolphinscheduler.dto.TaskInstanceDto;
+import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ProcessInstanceDto;
 import org.apache.seatunnel.server.common.PageData;
 import org.apache.seatunnel.spi.scheduler.IInstanceService;
 import org.apache.seatunnel.spi.scheduler.dto.InstanceDto;
@@ -44,24 +44,24 @@ public class InstanceServiceImpl implements IInstanceService {
     @Override
     public PageData<InstanceDto> list(InstanceListDto dto) {
 
-        final ListProcessInstanceDto listDto = ListProcessInstanceDto.builder()
-                .processInstanceName(dto.getName())
-                .pageNo(dto.getPageNo())
-                .pageSize(dto.getPageSize())
-                .build();
-        final PageData<TaskInstanceDto> instancePageData = iDolphinschedulerService.listTaskInstance(listDto);
+        final ListProcessInstanceDto listDto = new ListProcessInstanceDto();
+        listDto.setName(dto.getName());
+        listDto.setPageNo(dto.getPageNo());
+        listDto.setPageSize(dto.getPageSize());
+
+        // use list process instance instead of list task instance.
+        final PageData<ProcessInstanceDto> instancePageData = iDolphinschedulerService.listProcessInstance(listDto);
 
         final List<InstanceDto> data = instancePageData.getData().stream().map(t -> InstanceDto.builder()
-                // use processInstanceId instead of origin task instance id.
-                .instanceId(t.getProcessInstanceId())
-                .instanceCode(t.getProcessInstanceId())
-                .instanceName(t.getProcessInstanceName())
+                .instanceId(t.getId())
+                .jobId(t.getProcessDefinitionCode())
+                .instanceName(t.getName())
                 .status(t.getState())
                 .startTime(t.getStartTime())
                 .endTime(t.getEndTime())
-                .submitTime(t.getSubmitTime())
+                .submitTime(t.getScheduleTime())
                 .executionDuration(t.getDuration())
-                .retryTimes(t.getRetryTimes())
+                .retryTimes(t.getRunTimes())
                 .build()).collect(Collectors.toList());
         return new PageData<>(instancePageData.getTotalCount(), data);
     }
