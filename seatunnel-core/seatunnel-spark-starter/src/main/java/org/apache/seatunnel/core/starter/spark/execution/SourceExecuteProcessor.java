@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.core.starter.spark.execution;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
@@ -43,8 +43,9 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
     private static final String PLUGIN_TYPE = "source";
 
     public SourceExecuteProcessor(SparkEnvironment sparkEnvironment,
+                                  JobContext jobContext,
                                   List<? extends Config> sourceConfigs) {
-        super(sparkEnvironment, sourceConfigs);
+        super(sparkEnvironment, jobContext, sourceConfigs);
     }
 
     @Override
@@ -74,7 +75,7 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
             jars.addAll(sourcePluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
             SeaTunnelSource<?, ?, ?> seaTunnelSource = sourcePluginDiscovery.createPluginInstance(pluginIdentifier);
             seaTunnelSource.prepare(sourceConfig);
-            seaTunnelSource.setSeaTunnelContext(SeaTunnelContext.getContext());
+            seaTunnelSource.setSeaTunnelContext(jobContext);
             sources.add(seaTunnelSource);
         }
         sparkEnvironment.registerPlugin(new ArrayList<>(jars));

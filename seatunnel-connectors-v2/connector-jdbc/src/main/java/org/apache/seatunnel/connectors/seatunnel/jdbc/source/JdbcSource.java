@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -57,7 +57,7 @@ import java.util.Map;
 public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit, JdbcSourceState> {
     protected static final Logger LOG = LoggerFactory.getLogger(JdbcSource.class);
 
-    private SeaTunnelContext seaTunnelContext;
+    private JobContext jobContext;
     private JdbcSourceOptions jdbcSourceOptions;
     private SeaTunnelRowType typeInfo;
 
@@ -97,8 +97,8 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
     }
 
     @Override
-    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
-        this.seaTunnelContext = seaTunnelContext;
+    public void setSeaTunnelContext(JobContext jobContext) {
+        this.jobContext = jobContext;
     }
 
     @Override

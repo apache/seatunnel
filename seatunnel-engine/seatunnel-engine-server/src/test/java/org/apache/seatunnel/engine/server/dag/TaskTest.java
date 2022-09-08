@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.server.dag;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
@@ -51,10 +51,10 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
     public void testTask() throws MalformedURLException {
 
         IdGenerator idGenerator = new IdGenerator();
-
-        SeaTunnelContext.getContext().setJobMode(JobMode.BATCH);
+        JobContext jobContext = new JobContext();
+        jobContext.setJobMode(JobMode.BATCH);
         FakeSource fakeSource = new FakeSource();
-        fakeSource.setSeaTunnelContext(SeaTunnelContext.getContext());
+        fakeSource.setSeaTunnelContext(jobContext);
 
         Action fake = new SourceAction<>(idGenerator.getNextId(), "fake", fakeSource,
             Sets.newHashSet(new URL("file:///fake.jar")));
@@ -62,7 +62,7 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 3);
 
         ConsoleSink consoleSink = new ConsoleSink();
-        consoleSink.setSeaTunnelContext(SeaTunnelContext.getContext());
+        consoleSink.setSeaTunnelContext(jobContext);
         Action console = new SinkAction<>(idGenerator.getNextId(), "console", consoleSink,
             Sets.newHashSet(new URL("file:///console.jar")));
         console.setParallelism(3);

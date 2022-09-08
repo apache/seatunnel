@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -41,7 +41,7 @@ import java.util.List;
 @AutoService(SeaTunnelSink.class)
 public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private static final String RULES = "rules";
-    private SeaTunnelContext seaTunnelContext;
+    private JobContext jobContext;
     private SeaTunnelRowType seaTunnelRowType;
     private List<AssertFieldRule> assertFieldRules;
 
@@ -74,8 +74,8 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
-        this.seaTunnelContext = seaTunnelContext;
+    public void setSeaTunnelContext(JobContext jobContext) {
+        this.jobContext = jobContext;
     }
 
     @Override

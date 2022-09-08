@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink;
 
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -42,12 +42,13 @@ import java.util.Optional;
 /**
  * Hive Sink implementation by using SeaTunnel sink API.
  */
-public abstract class AbstractFileSink implements SeaTunnelSink<SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo> {
+public abstract class AbstractFileSink
+    implements SeaTunnelSink<SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo> {
     private Config config;
     private String jobId;
     private Long checkpointId;
     private SeaTunnelRowType seaTunnelRowTypeInfo;
-    private SeaTunnelContext seaTunnelContext;
+    private JobContext jobContext;
     private TextFileSinkConfig textFileSinkConfig;
     private SinkFileSystemPlugin sinkFileSystemPlugin;
 
@@ -71,8 +72,10 @@ public abstract class AbstractFileSink implements SeaTunnelSink<SeaTunnelRow, Fi
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> createWriter(SinkWriter.Context context) throws IOException {
-        if (!seaTunnelContext.getJobMode().equals(JobMode.BATCH) && this.getSinkConfig().getSaveMode().equals(SaveMode.OVERWRITE)) {
+    public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> createWriter(SinkWriter.Context context)
+        throws IOException {
+        if (!jobContext.getJobMode().equals(JobMode.BATCH) &&
+            this.getSinkConfig().getSaveMode().equals(SaveMode.OVERWRITE)) {
             throw new RuntimeException("only batch job can overwrite mode");
         }
 
@@ -89,7 +92,9 @@ public abstract class AbstractFileSink implements SeaTunnelSink<SeaTunnelRow, Fi
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> restoreWriter(SinkWriter.Context context, List<FileSinkState> states) throws IOException {
+    public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> restoreWriter(SinkWriter.Context context,
+                                                                                 List<FileSinkState> states)
+        throws IOException {
         if (this.getSinkConfig().isEnableTransaction()) {
             return new FileSinkWriterWithTransaction(seaTunnelRowTypeInfo,
                 config,
@@ -104,13 +109,14 @@ public abstract class AbstractFileSink implements SeaTunnelSink<SeaTunnelRow, Fi
     }
 
     @Override
-    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
-        this.seaTunnelContext = seaTunnelContext;
-        this.jobId = seaTunnelContext.getJobId();
+    public void setSeaTunnelContext(JobContext jobContext) {
+        this.jobContext = jobContext;
+        this.jobId = jobContext.getJobId();
     }
 
     @Override
-    public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>> createAggregatedCommitter() throws IOException {
+    public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>> createAggregatedCommitter()
+        throws IOException {
         if (this.getSinkConfig().isEnableTransaction()) {
             Optional<FileSystemCommitter> fileSystemCommitter = sinkFileSystemPlugin.getFileSystemCommitter();
             if (fileSystemCommitter.isPresent()) {
@@ -139,7 +145,7 @@ public abstract class AbstractFileSink implements SeaTunnelSink<SeaTunnelRow, Fi
     }
 
     private TextFileSinkConfig getSinkConfig() {
-        if (this.textFileSinkConfig == null && (this.seaTunnelRowTypeInfo != null && this.config != null)) {
+        if (this.textFileSinkConfig == null && this.seaTunnelRowTypeInfo != null && this.config != null) {
             this.textFileSinkConfig = new TextFileSinkConfig(config, seaTunnelRowTypeInfo);
         }
         return this.textFileSinkConfig;

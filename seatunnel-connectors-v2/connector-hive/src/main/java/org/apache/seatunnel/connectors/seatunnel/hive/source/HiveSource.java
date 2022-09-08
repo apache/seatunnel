@@ -20,8 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.hive.source;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.SourceConfig.FILE_PATH;
 import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
 
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -48,7 +48,7 @@ import java.util.List;
 @AutoService(SeaTunnelSource.class)
 public class HiveSource implements SeaTunnelSource<SeaTunnelRow, HiveSourceSplit, HiveSourceState> {
 
-    private SeaTunnelContext seaTunnelContext;
+    private JobContext jobContext;
 
     private SeaTunnelRowType typeInfo;
 
@@ -91,8 +91,8 @@ public class HiveSource implements SeaTunnelSource<SeaTunnelRow, HiveSourceSplit
     }
 
     @Override
-    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
-        this.seaTunnelContext = seaTunnelContext;
+    public void setSeaTunnelContext(JobContext jobContext) {
+        this.jobContext = jobContext;
     }
 
     @Override

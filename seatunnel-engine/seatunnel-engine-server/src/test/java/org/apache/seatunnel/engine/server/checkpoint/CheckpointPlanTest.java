@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
@@ -77,16 +77,17 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
     }
 
     private static void fillVirtualVertex(IdGenerator idGenerator, LogicalDag logicalDag, int parallelism) {
-        SeaTunnelContext.getContext().setJobMode(JobMode.BATCH);
+        JobContext jobContext = new JobContext();
+        jobContext.setJobMode(JobMode.BATCH);
         FakeSource fakeSource = new FakeSource();
-        fakeSource.setSeaTunnelContext(SeaTunnelContext.getContext());
+        fakeSource.setSeaTunnelContext(jobContext);
 
         Action fake = new SourceAction<>(idGenerator.getNextId(), "fake", fakeSource, Collections.emptySet());
         fake.setParallelism(parallelism);
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, parallelism);
 
         ConsoleSink consoleSink = new ConsoleSink();
-        consoleSink.setSeaTunnelContext(SeaTunnelContext.getContext());
+        consoleSink.setSeaTunnelContext(jobContext);
         Action console = new SinkAction<>(idGenerator.getNextId(), "console", consoleSink, Collections.emptySet());
         console.setParallelism(parallelism);
         LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, parallelism);

@@ -24,8 +24,8 @@ import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceCo
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.TABLE_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.USE_KERBEROS;
 
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -48,7 +48,7 @@ import java.io.IOException;
 @AutoService(SeaTunnelSource.class)
 public class HudiSource implements SeaTunnelSource<SeaTunnelRow, HudiSourceSplit, HudiSourceState> {
 
-    private SeaTunnelContext seaTunnelContext;
+    private JobContext jobContext;
 
     private SeaTunnelRowType typeInfo;
 
@@ -104,8 +104,8 @@ public class HudiSource implements SeaTunnelSource<SeaTunnelRow, HudiSourceSplit
     }
 
     @Override
-    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
-        this.seaTunnelContext = seaTunnelContext;
+    public void setSeaTunnelContext(JobContext jobContext) {
+        this.jobContext = jobContext;
     }
 
     @Override
