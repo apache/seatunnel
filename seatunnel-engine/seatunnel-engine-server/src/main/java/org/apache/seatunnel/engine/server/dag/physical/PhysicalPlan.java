@@ -22,12 +22,15 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineState;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.NonNull;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -51,6 +54,11 @@ public class PhysicalPlan {
     private final JobImmutableInformation jobImmutableInformation;
 
     /**
+     * If the job or pipeline cancel by user, needRestore will be false
+     **/
+    private volatile boolean needRestore = true;
+
+    /**
      * Timestamps (in milliseconds as returned by {@code System.currentTimeMillis()} when the
      * execution graph transitioned into a certain state. The index into this array is the ordinal
      * of the enum value, i.e. the timestamp when the graph went into state "RUNNING" is at {@code
@@ -67,6 +75,15 @@ public class PhysicalPlan {
     private final ExecutorService executorService;
 
     private final String jobFullName;
+
+    private JobMaster jobMaster;
+
+    private final Map<Integer, CompletableFuture> pipelineSchedulerFutureMap;
+
+    /**
+     * Whether we make the job end when pipeline turn to end state.
+     */
+    private boolean makeJobEndWhenPipelineEnded = true;
 
     public PhysicalPlan(@NonNull List<SubPlan> pipelineList,
                         @NonNull ExecutorService executorService,
@@ -85,53 +102,77 @@ public class PhysicalPlan {
         }
         this.jobFullName = String.format("Job %s (%s)", jobImmutableInformation.getJobConfig().getName(),
             jobImmutableInformation.getJobId());
+
+        pipelineSchedulerFutureMap = new HashMap<>(pipelineList.size());
+    }
+
+    public void setJobMaster(JobMaster jobMaster) {
+        this.jobMaster = jobMaster;
     }
 
     public void initStateFuture() {
-        pipelineList.forEach(subPlan -> {
-            PassiveCompletableFuture<PipelineState> future = subPlan.initStateFuture();
-            future.whenComplete((v, t) -> {
-                // We need not handle t, Because we will not return t from Pipeline
-                if (PipelineState.CANCELED.equals(v)) {
-                    canceledPipelineNum.incrementAndGet();
-                } else if (PipelineState.FAILED.equals(v)) {
-                    LOGGER.severe("Pipeline Failed, Begin to cancel other pipelines in this job.");
-                    failedPipelineNum.incrementAndGet();
-                    cancelJob();
-                } else if (!PipelineState.FINISHED.equals(v)) {
-                    LOGGER.severe(
-                        "Pipeline Failed with Unknown PipelineState, Begin to cancel other pipelines in this job.");
-                    failedPipelineNum.incrementAndGet();
-                    cancelJob();
-                }
+        pipelineList.forEach(subPlan -> addPipelineEndCallback(subPlan));
+    }
 
-                if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
-                    if (failedPipelineNum.get() > 0) {
-                        updateJobState(JobStatus.FAILING);
-                    } else if (canceledPipelineNum.get() > 0) {
-                        turnToEndState(JobStatus.CANCELED);
-                    } else {
-                        turnToEndState(JobStatus.FINISHED);
+    private void addPipelineEndCallback(SubPlan subPlan) {
+        PassiveCompletableFuture<PipelineState> future = subPlan.initStateFuture();
+        future.thenAcceptAsync(pipelineState -> {
+            try {
+                if (PipelineState.CANCELED.equals(pipelineState)) {
+                    if (needRestore) {
+                        restorePipeline(subPlan);
+                        return;
                     }
-                    jobEndFuture.complete(jobStatus.get());
+                    canceledPipelineNum.incrementAndGet();
+                    if (makeJobEndWhenPipelineEnded) {
+                        LOGGER.info(
+                            String.format("cancel job %s because makeJobEndWhenPipelineEnded is %s", jobFullName,
+                                makeJobEndWhenPipelineEnded));
+                        cancelJob();
+                    }
+                    LOGGER.info(String.format("release the pipeline %s resource", subPlan.getPipelineFullName()));
+                    jobMaster.releasePipelineResource(subPlan.getPipelineId());
+                } else if (PipelineState.FAILED.equals(pipelineState)) {
+                    if (needRestore) {
+                        restorePipeline(subPlan);
+                        return;
+                    }
+                    failedPipelineNum.incrementAndGet();
+                    if (makeJobEndWhenPipelineEnded) {
+                        cancelJob();
+                    }
+                    jobMaster.releasePipelineResource(subPlan.getPipelineId());
+                    LOGGER.severe("Pipeline Failed, Begin to cancel other pipelines in this job.");
                 }
-            });
+            } catch (Throwable e) {
+                // Because only cancelJob or releasePipelineResource can throw exception, so we only output log here
+                LOGGER.severe(ExceptionUtils.getMessage(e));
+            }
+
+            if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
+                if (failedPipelineNum.get() > 0) {
+                    updateJobState(JobStatus.FAILING);
+                } else if (canceledPipelineNum.get() > 0) {
+                    turnToEndState(JobStatus.CANCELED);
+                } else {
+                    turnToEndState(JobStatus.FINISHED);
+                }
+                jobEndFuture.complete(jobStatus.get());
+            }
         });
     }
 
     public void cancelJob() {
-        if (!updateJobState(JobStatus.CREATED, JobStatus.CANCELED)) {
-            // may be running, failing, failed, canceling , canceled, finished
-            if (updateJobState(JobStatus.RUNNING, JobStatus.CANCELLING)) {
-                cancelRunningJob();
-            } else {
-                LOGGER.info(
-                    String.format("%s in a non cancellable state: %s, skip cancel", jobFullName, jobStatus.get()));
-            }
+        if (jobStatus.get().isEndState()) {
+            LOGGER.warning(String.format("%s is in end state %s, can not be cancel", jobFullName, jobStatus.get()));
+            return;
         }
+
+        updateJobState(jobStatus.get(), JobStatus.CANCELLING);
+        cancelJobPipelines();
     }
 
-    private void cancelRunningJob() {
+    private void cancelJobPipelines() {
         List<CompletableFuture<Void>> collect = pipelineList.stream().map(pipeline -> {
             if (!pipeline.getPipelineState().get().isEndState() &&
                 !PipelineState.CANCELING.equals(pipeline.getPipelineState().get())) {
@@ -176,6 +217,7 @@ public class PhysicalPlan {
             throw new IllegalStateException(message);
         }
 
+        LOGGER.info(String.format("%s turn to end state %s", jobFullName, endState));
         jobStatus.set(endState);
         stateTimestamps[endState.ordinal()] = System.currentTimeMillis();
     }
@@ -207,6 +249,28 @@ public class PhysicalPlan {
         }
     }
 
+    private void restorePipeline(SubPlan subPlan) {
+        try {
+            LOGGER.info(String.format("Restore pipeline %s", subPlan.getPipelineFullName()));
+            // We must ensure the scheduler complete and then can handle pipeline state change.
+            jobMaster.getScheduleFuture().join();
+
+            if (pipelineSchedulerFutureMap.get(subPlan.getPipelineId()) != null) {
+                pipelineSchedulerFutureMap.get(subPlan.getPipelineId()).join();
+            }
+            subPlan.reset();
+            addPipelineEndCallback(subPlan);
+            pipelineSchedulerFutureMap.put(subPlan.getPipelineId(), jobMaster.reSchedulerPipeline(subPlan));
+            if (pipelineSchedulerFutureMap.get(subPlan.getPipelineId()) != null) {
+                pipelineSchedulerFutureMap.get(subPlan.getPipelineId()).join();
+            }
+        } catch (Throwable e) {
+            LOGGER.severe(String.format("Restore pipeline %s error with exception: %s", subPlan.getPipelineFullName(),
+                ExceptionUtils.getMessage(e)));
+            subPlan.cancelPipeline();
+        }
+    }
+
     public PassiveCompletableFuture<JobStatus> getJobEndCompletableFuture() {
         return new PassiveCompletableFuture<>(jobEndFuture);
     }
@@ -221,5 +285,9 @@ public class PhysicalPlan {
 
     public String getJobFullName() {
         return jobFullName;
+    }
+
+    public void neverNeedRestore() {
+        this.needRestore = false;
     }
 }

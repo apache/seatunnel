@@ -46,7 +46,6 @@ public class JobConfigParserTest {
         ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
         List<Action> actions = parse.getLeft();
         Assert.assertEquals(1, actions.size());
-
         Assert.assertEquals("LocalFile", actions.get(0).getName());
         Assert.assertEquals(1, actions.get(0).getUpstream().size());
         Assert.assertEquals("FakeSource", actions.get(0).getUpstream().get(0).getName());

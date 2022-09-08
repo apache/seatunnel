@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.server.dag;
 
-import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
@@ -33,6 +33,7 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.TestUtils;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 
@@ -49,37 +50,14 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
 
     @Test
     public void testTask() throws MalformedURLException {
-
-        IdGenerator idGenerator = new IdGenerator();
-        JobContext jobContext = new JobContext();
-        jobContext.setJobMode(JobMode.BATCH);
-        FakeSource fakeSource = new FakeSource();
-        fakeSource.setSeaTunnelContext(jobContext);
-
-        Action fake = new SourceAction<>(idGenerator.getNextId(), "fake", fakeSource,
-            Sets.newHashSet(new URL("file:///fake.jar")));
-        fake.setParallelism(3);
-        LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 3);
-
-        ConsoleSink consoleSink = new ConsoleSink();
-        consoleSink.setSeaTunnelContext(jobContext);
-        Action console = new SinkAction<>(idGenerator.getNextId(), "console", consoleSink,
-            Sets.newHashSet(new URL("file:///console.jar")));
-        console.setParallelism(3);
-        LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 3);
-
-        LogicalEdge edge = new LogicalEdge(fakeVertex, consoleVertex);
-
-        LogicalDag logicalDag = new LogicalDag();
-        logicalDag.addLogicalVertex(fakeVertex);
-        logicalDag.addLogicalVertex(consoleVertex);
-        logicalDag.addEdge(edge);
+        SeaTunnelContext.getContext().setJobMode(JobMode.BATCH);
+        LogicalDag testLogicalDag = TestUtils.getTestLogicalDag();
 
         JobConfig config = new JobConfig();
         config.setName("test");
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
-            nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
+            nodeEngine.getSerializationService().toData(testLogicalDag), config, Collections.emptyList());
 
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
             server.submitJob(jobImmutableInformation.getJobId(),
