@@ -34,8 +34,6 @@ public interface SinkFileSystemPlugin extends Serializable {
 
     /**
      * Implements this method and return a class which is implement the interface {@link TransactionStateFileWriter}
-     *
-     * @return
      */
     Optional<TransactionStateFileWriter> getTransactionStateFileWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
                                                                        @NonNull TransactionFileNameGenerator transactionFileNameGenerator,

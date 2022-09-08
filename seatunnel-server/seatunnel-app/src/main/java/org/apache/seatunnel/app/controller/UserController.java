@@ -64,7 +64,7 @@ public class UserController {
     @DeleteMapping("/user")
     @ApiOperation(value = "delete user", httpMethod = "DELETE")
     @ApiImplicitParams({
-            @ApiImplicitParam(name = "id", value = "user id", dataType = "Integer"),
+        @ApiImplicitParam(name = "id", value = "user id", dataType = "Integer"),
     })
     public Result<Void> delete(@RequestParam @NotNull Integer id) {
         iUserService.delete(id);
@@ -80,7 +80,7 @@ public class UserController {
     @PutMapping("/enable")
     @ApiOperation(value = "enable a user", httpMethod = "PUT")
     @ApiImplicitParams({
-            @ApiImplicitParam(name = "id", value = "user id", dataType = "Integer"),
+        @ApiImplicitParam(name = "id", value = "user id", dataType = "Integer"),
     })
     public Result<Void> enable(@RequestParam @NotNull Integer id) {
         iUserService.enable(id);
@@ -90,7 +90,7 @@ public class UserController {
     @PutMapping("/disable")
     @ApiOperation(value = "disable a user", httpMethod = "PUT")
     @ApiImplicitParams({
-            @ApiImplicitParam(name = "id", value = "user id", dataType = "Integer"),
+        @ApiImplicitParam(name = "id", value = "user id", dataType = "Integer"),
     })
     public Result<Void> disable(@RequestParam @NotNull Integer id) {
         iUserService.disable(id);

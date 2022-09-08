@@ -38,7 +38,6 @@ public interface TransactionStateFileWriter extends Transaction {
     /**
      * snapshotState
      * @param checkpointId checkpointId
-     * @return
      */
     List<FileSinkState> snapshotState(long checkpointId);
 }

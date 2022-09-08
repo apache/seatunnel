@@ -66,7 +66,7 @@ public class ScriptController {
     @DeleteMapping("/script")
     @ApiOperation(value = "delete script", httpMethod = "DELETE")
     @ApiImplicitParams({
-            @ApiImplicitParam(name = "id", value = "script id", dataType = "Integer"),
+        @ApiImplicitParam(name = "id", value = "script id", dataType = "Integer"),
     })
     public Result<Void> delete(@RequestParam @NotNull Integer id) {
         iScriptService.delete(id);
@@ -82,7 +82,7 @@ public class ScriptController {
     @GetMapping("/scriptContent")
     @ApiOperation(value = "fetch script content", httpMethod = "GET")
     @ApiImplicitParams({
-            @ApiImplicitParam(name = "id", value = "script id", dataType = "Integer"),
+        @ApiImplicitParam(name = "id", value = "script id", dataType = "Integer"),
     })
     public Result<String> fetchScriptContent(@RequestParam @NotNull Integer id) {
         return Result.success(iScriptService.fetchScriptContent(id));
@@ -98,7 +98,7 @@ public class ScriptController {
     @GetMapping("/scriptParam")
     @ApiOperation(value = "fetch script param", httpMethod = "GET")
     @ApiImplicitParams({
-            @ApiImplicitParam(name = "id", value = "script id", dataType = "Integer"),
+        @ApiImplicitParam(name = "id", value = "script id", dataType = "Integer"),
     })
     public Result<List<ScriptParamRes>> fetchScriptParam(@RequestParam @NotNull Integer id) {
         return Result.success(iScriptService.fetchScriptParam(id));

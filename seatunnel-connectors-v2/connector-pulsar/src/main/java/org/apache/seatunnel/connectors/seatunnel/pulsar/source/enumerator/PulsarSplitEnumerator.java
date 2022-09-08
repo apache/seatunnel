@@ -104,7 +104,7 @@ public class PulsarSplitEnumerator implements SourceSplitEnumerator<PulsarPartit
                                  StopCursor stopCursor,
                                  String subscriptionName,
                                  Set<TopicPartition> assignedPartitions) {
-        if ((partitionDiscoverer instanceof TopicPatternDiscoverer)
+        if (partitionDiscoverer instanceof TopicPatternDiscoverer
             && partitionDiscoveryIntervalMs > 0
             && Boundedness.BOUNDED == stopCursor.getBoundedness()) {
             throw new IllegalArgumentException("Bounded streams do not support dynamic partition discovery.");
