@@ -146,9 +146,9 @@ public class JobMaster implements Runnable {
             PassiveCompletableFuture<JobStatus> jobStatusPassiveCompletableFuture =
                 physicalPlan.getJobEndCompletableFuture();
 
-            jobStatusPassiveCompletableFuture.thenAcceptAsync((v, t) -> {
+            jobStatusPassiveCompletableFuture.thenAcceptAsync(jobStatus -> {
                 // We need not handle t, Because we will not return t from physicalPlan
-                if (JobStatus.FAILING.equals(v)) {
+                if (JobStatus.FAILING.equals(jobStatus)) {
                     cleanJob();
                     physicalPlan.updateJobState(JobStatus.FAILING, JobStatus.FAILED);
                 }
@@ -262,7 +262,7 @@ public class JobMaster implements Runnable {
     }
 
     public void setOwnedSlotProfiles(@NonNull Integer pipelineId,
-        @NonNull Map<PhysicalVertex, SlotProfile> pipelineOwnedSlotProfiles) {
+                                     @NonNull Map<PhysicalVertex, SlotProfile> pipelineOwnedSlotProfiles) {
         ownedSlotProfiles.put(pipelineId, pipelineOwnedSlotProfiles);
     }
 

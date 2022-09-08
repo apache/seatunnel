@@ -293,25 +293,27 @@ public class PhysicalPlan {
     }
 
     private void restorePipeline(SubPlan subPlan) {
-        try {
-            LOGGER.info(String.format("Restore pipeline %s", subPlan.getPipelineFullName()));
-            // We must ensure the scheduler complete and then can handle pipeline state change.
-            jobMaster.getScheduleFuture().join();
+        synchronized (subPlan) {
+            try {
+                LOGGER.info(String.format("Restore pipeline %s", subPlan.getPipelineFullName()));
+                // We must ensure the scheduler complete and then can handle pipeline state change.
+                jobMaster.getScheduleFuture().join();
 
-            if (pipelineSchedulerFutureMap.get(subPlan.getPipelineId()) != null) {
-                pipelineSchedulerFutureMap.get(subPlan.getPipelineId()).join();
+                if (pipelineSchedulerFutureMap.get(subPlan.getPipelineId()) != null) {
+                    pipelineSchedulerFutureMap.get(subPlan.getPipelineId()).join();
+                }
+                subPlan.reset();
+                addPipelineEndCallback(subPlan);
+                pipelineSchedulerFutureMap.put(subPlan.getPipelineId(), jobMaster.reSchedulerPipeline(subPlan));
+                if (pipelineSchedulerFutureMap.get(subPlan.getPipelineId()) != null) {
+                    pipelineSchedulerFutureMap.get(subPlan.getPipelineId()).join();
+                }
+            } catch (Throwable e) {
+                LOGGER.severe(
+                    String.format("Restore pipeline %s error with exception: %s", subPlan.getPipelineFullName(),
+                        ExceptionUtils.getMessage(e)));
+                subPlan.cancelPipeline();
             }
-            subPlan.reset();
-            addPipelineEndCallback(subPlan);
-            pipelineSchedulerFutureMap.put(subPlan.getPipelineId(), jobMaster.reSchedulerPipeline(subPlan));
-            if (pipelineSchedulerFutureMap.get(subPlan.getPipelineId()) != null) {
-                pipelineSchedulerFutureMap.get(subPlan.getPipelineId()).join();
-            }
-        } catch (Throwable e) {
-            LOGGER.severe(
-                String.format("Restore pipeline %s error with exception: %s", subPlan.getPipelineFullName(),
-                    ExceptionUtils.getMessage(e)));
-            subPlan.cancelPipeline();
         }
     }
 
