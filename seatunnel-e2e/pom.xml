@@ -27,6 +27,8 @@
     <packaging>pom</packaging>
 
     <modules>
+        <module>seatunnel-e2e-common</module>
+        <module>seatunnel-flink-common</module>
         <module>seatunnel-flink-e2e</module>
         <module>seatunnel-spark-e2e</module>
         <module>seatunnel-flink-connector-v2-e2e</module>
@@ -36,6 +38,7 @@
 
     <properties>
         <junit4.version>4.13.2</junit4.version>
+        <maven-jar-plugin.version>2.4</maven-jar-plugin.version>
     </properties>
     <dependencies>
         <dependency>
