@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.translation.serialization.RowConverter;
+import org.apache.seatunnel.translation.spark.common.utils.InstantConverterUtils;
 import org.apache.seatunnel.translation.spark.common.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.catalyst.InternalRow;
@@ -77,7 +78,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 // TODO: how reconvert? there are not Support for Spark Type,we must define the Type in spark
                 throw new RuntimeException("we not support for time type now");
             case TIMESTAMP:
-                return Timestamp.valueOf((LocalDateTime) field).toInstant().toEpochMilli();
+                return InstantConverterUtils.toEpochMicro(Timestamp.valueOf((LocalDateTime) field).toInstant());
             case MAP:
                 return convertMap((Map<?, ?>) field, (MapType<?, ?>) dataType, InternalRowConverter::convert);
             case STRING:
@@ -166,9 +167,9 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 return LocalDate.ofEpochDay((int) field);
             case TIME:
                 // todo: support this Type
-                throw new RuntimeException("not support now but will");
+                throw new RuntimeException("time type not support now but will");
             case TIMESTAMP:
-                return Timestamp.from(Instant.ofEpochMilli((long) field)).toLocalDateTime();
+                return Timestamp.from(InstantConverterUtils.ofEpochMicro((long) field)).toLocalDateTime();
             case MAP:
                 return convertMap((Map<?, ?>) field, (MapType<?, ?>) dataType, InternalRowConverter::reconvert);
             case STRING:
