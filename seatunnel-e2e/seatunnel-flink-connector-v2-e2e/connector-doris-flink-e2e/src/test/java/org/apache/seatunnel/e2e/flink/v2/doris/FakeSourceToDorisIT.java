@@ -47,7 +47,7 @@ public class FakeSourceToDorisIT extends FlinkContainer {
     private static final Logger LOG = LoggerFactory.getLogger(FakeSourceToDorisIT.class);
 
     private static final String DORIS_DRIVER = "com.mysql.cj.jdbc.Driver";
-    private static final String DORIS_CONNECTION_URL = "jdbc:mysql://10.227.17.202:9030?rewriteBatchedStatements=true";
+    private static final String DORIS_CONNECTION_URL = "jdbc:mysql://localhost:9030?rewriteBatchedStatements=true";
     private static final String DORIS_PASSWD = "";
     private static final String DORIS_USERNAME = "root";
 
