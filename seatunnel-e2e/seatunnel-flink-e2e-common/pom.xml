@@ -25,10 +25,6 @@
 
     <artifactId>seatunnel-flink-e2e-common</artifactId>
 
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>

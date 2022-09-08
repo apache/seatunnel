@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink;
+package org.apache.seatunnel.e2e.spark;
 
 import static org.apache.seatunnel.e2e.ContainerUtil.PROJECT_ROOT_PATH;
 import static org.apache.seatunnel.e2e.ContainerUtil.copyConfigFileToContainer;
@@ -37,25 +37,19 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 
-/**
- * This class is the base class of FlinkEnvironment test.
- * The before method will create a Flink cluster, and after method will close the Flink cluster.
- * You can use {@link AbstractFlinkContainer#executeSeaTunnelFlinkJob} to submit a seatunnel config and run a seatunnel job.
- */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class AbstractFlinkContainer {
-
-    private static final Logger LOG = LoggerFactory.getLogger(AbstractFlinkContainer.class);
-
+public abstract class AbstractSparkContainer {
+    private static final Logger LOG = LoggerFactory.getLogger(AbstractSparkContainer.class);
     protected static final String START_ROOT_MODULE_NAME = "seatunnel-core";
 
-    protected static final String SEATUNNEL_HOME = "/tmp/flink/seatunnel";
+    private static final String SEATUNNEL_HOME = "/tmp/spark/seatunnel";
+    private static final String DOCKER_IMAGE = "bitnami/spark:2.4.3";
+    public static final Network NETWORK = Network.newNetwork();
 
-    protected final String dockerImage;
+    protected GenericContainer<?> master;
 
     protected final String startShellName;
 
@@ -68,18 +62,13 @@ public abstract class AbstractFlinkContainer {
     protected final String connectorType;
 
     protected final String connectorNamePrefix;
-    protected static final Network NETWORK = Network.newNetwork();
 
-    protected GenericContainer<?> jobManager;
-    protected GenericContainer<?> taskManager;
-
-    public AbstractFlinkContainer(String dockerImage,
+    public AbstractSparkContainer(
                                   String startShellName,
                                   String startModuleNameInSeaTunnelCore,
                                   String connectorsRootPath,
                                   String connectorType,
                                   String connectorNamePrefix) {
-        this.dockerImage = dockerImage;
         this.startShellName = startShellName;
         this.connectorsRootPath = connectorsRootPath;
         this.connectorType = connectorType;
@@ -90,64 +79,44 @@ public abstract class AbstractFlinkContainer {
             START_ROOT_MODULE_NAME + File.separator + startModuleNameInSeaTunnelCore;
     }
 
-    private static final String FLINK_PROPERTIES = String.join(
-        "\n",
-        Arrays.asList(
-            "jobmanager.rpc.address: jobmanager",
-            "taskmanager.numberOfTaskSlots: 10",
-            "parallelism.default: 4",
-            "env.java.opts: -Doracle.jdbc.timezoneAsRegion=false"));
-
     @BeforeAll
     public void before() {
-        jobManager = new GenericContainer<>(dockerImage)
-            .withCommand("jobmanager")
+        master = new GenericContainer<>(DOCKER_IMAGE)
             .withNetwork(NETWORK)
-            .withNetworkAliases("jobmanager")
+            .withNetworkAliases("spark-master")
             .withExposedPorts()
-            .withEnv("FLINK_PROPERTIES", FLINK_PROPERTIES)
+            .withEnv("SPARK_MODE", "master")
             .withLogConsumer(new Slf4jLogConsumer(LOG));
-
-        taskManager =
-            new GenericContainer<>(dockerImage)
-                .withCommand("taskmanager")
-                .withNetwork(NETWORK)
-                .withNetworkAliases("taskmanager")
-                .withEnv("FLINK_PROPERTIES", FLINK_PROPERTIES)
-                .dependsOn(jobManager)
-                .withLogConsumer(new Slf4jLogConsumer(LOG));
-
-        Startables.deepStart(Stream.of(jobManager)).join();
-        Startables.deepStart(Stream.of(taskManager)).join();
-        copySeaTunnelStarter(jobManager, startModuleName, startModulePath, SEATUNNEL_HOME, startShellName);
-        LOG.info("Flink containers are started.");
+        // In most case we can just use standalone mode to execute a spark job, if we want to use cluster mode, we need to
+        // start a worker.
+        Startables.deepStart(Stream.of(master)).join();
+        copySeaTunnelStarter(master, startModuleName, startModulePath, SEATUNNEL_HOME, startShellName);
+        LOG.info("Spark container started");
     }
 
     @AfterAll
     public void close() {
-        if (taskManager != null) {
-            taskManager.stop();
-        }
-        if (jobManager != null) {
-            jobManager.stop();
+        if (master != null) {
+            master.stop();
         }
     }
 
-    public Container.ExecResult executeSeaTunnelFlinkJob(String confFile) throws IOException, InterruptedException {
-        String confInContainerPath = copyConfigFileToContainer(jobManager, confFile);
+    public Container.ExecResult executeSeaTunnelSparkJob(String confFile) throws IOException, InterruptedException {
+        final String confInContainerPath = copyConfigFileToContainer(master, confFile);
         // copy connectors
-        copyConnectorJarToContainer(jobManager, confFile, connectorsRootPath, connectorNamePrefix, connectorType, SEATUNNEL_HOME);
-        return executeCommand(confInContainerPath);
-    }
+        copyConnectorJarToContainer(master, confFile, connectorsRootPath, connectorNamePrefix, connectorType, SEATUNNEL_HOME);
 
-    protected Container.ExecResult executeCommand(String configPath) throws IOException, InterruptedException {
         // Running IT use cases under Windows requires replacing \ with /
-        String conf = configPath.replaceAll("\\\\", "/");
+        String conf = confInContainerPath.replaceAll("\\\\", "/");
         final List<String> command = new ArrayList<>();
         command.add(Paths.get(SEATUNNEL_HOME, "bin", startShellName).toString());
+        command.add("--master");
+        command.add("local");
+        command.add("--deploy-mode");
+        command.add("client");
         command.add("--config " + conf);
 
-        Container.ExecResult execResult = jobManager.execInContainer("bash", "-c", String.join(" ", command));
+        Container.ExecResult execResult = master.execInContainer("bash", "-c", String.join(" ", command));
         LOG.info(execResult.getStdout());
         LOG.error(execResult.getStderr());
         return execResult;

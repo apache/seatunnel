@@ -65,6 +65,36 @@ public final class ContainerUtil {
                     Paths.get(Paths.get(seatunnelHome, "connectors").toString(), connectorType, jar.getName()).toString()));
     }
 
+    public static String copyConfigFileToContainer(GenericContainer<?> container, String confFile) {
+        final String targetConfInContainer = Paths.get("/tmp", confFile).toString();
+        container.copyFileToContainer(MountableFile.forHostPath(getConfigFile(confFile).getAbsolutePath()), targetConfInContainer);
+        return targetConfInContainer;
+    }
+
+    public static void copySeaTunnelStarter(GenericContainer<?> container,
+                                              String startModuleName,
+                                              String startModulePath,
+                                              String seatunnelHomeInContainer,
+                                              String startShellName) {
+        final String startJarName = startModuleName + ".jar";
+        // copy lib
+        final String startJarPath = startModulePath + File.separator + "target" + File.separator + startJarName;
+        container.copyFileToContainer(
+            MountableFile.forHostPath(startJarPath),
+            Paths.get(Paths.get(seatunnelHomeInContainer, "lib").toString(), startJarName).toString());
+
+        // copy bin
+        final String startBinPath = startModulePath + File.separator + "/src/main/bin/" + startShellName;
+        container.copyFileToContainer(
+            MountableFile.forHostPath(startBinPath),
+            Paths.get(Paths.get(seatunnelHomeInContainer, "bin").toString(), startShellName).toString());
+
+        // copy plugin-mapping.properties
+        container.copyFileToContainer(
+            MountableFile.forHostPath(PROJECT_ROOT_PATH + "/plugin-mapping.properties"),
+            Paths.get(Paths.get(seatunnelHomeInContainer, "connectors").toString(), PLUGIN_MAPPING_FILE).toString());
+    }
+
     private static List<File> getConnectorFiles(File currentModule, Set<String> connectorNames, String connectorPrefix) {
         List<File> connectorFiles = new ArrayList<>();
         for (File file : Objects.requireNonNull(currentModule.listFiles())) {
@@ -94,7 +124,7 @@ public final class ContainerUtil {
         }
     }
 
-    public static Set<String> getConnectors(Config jobConfig, Config connectorsMap, String pluginType) {
+    private static Set<String> getConnectors(Config jobConfig, Config connectorsMap, String pluginType) {
         List<? extends Config> connectorConfigList = jobConfig.getConfigList(pluginType);
         Map<String, String> connectors = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         ReadonlyConfig.fromConfig(connectorsMap.getConfig(pluginType)).toMap(connectors);
@@ -105,17 +135,11 @@ public final class ContainerUtil {
             .collect(Collectors.toSet());
     }
 
-    public static String copyConfigFileToContainer(GenericContainer<?> container, String confFile) {
-        final String targetConfInContainer = Paths.get("/tmp", confFile).toString();
-        container.copyFileToContainer(MountableFile.forHostPath(getConfigFile(confFile).getAbsolutePath()), targetConfInContainer);
-        return targetConfInContainer;
-    }
-
     public static Path getCurrentModulePath() {
         return Paths.get(System.getProperty("user.dir"));
     }
 
-    public static File getConfigFile(String confFile) {
+    private static File getConfigFile(String confFile) {
         File file = new File(getCurrentModulePath() + "/src/test/resources" + confFile);
         if (file.exists()) {
             return file;
