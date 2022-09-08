@@ -33,7 +33,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 public class SubPlan {
@@ -71,7 +70,7 @@ public class SubPlan {
      * Complete this future when this sub plan complete. When this future completed, the waitForCompleteBySubPlan in {@link PhysicalPlan }
      * whenComplete method will be called.
      */
-    private final CompletableFuture<PipelineState> pipelineFuture;
+    private CompletableFuture<PipelineState> pipelineFuture;
 
     private final ExecutorService executorService;
 
@@ -111,20 +110,21 @@ public class SubPlan {
             addPhysicalVertexCallBack(m.initStateFuture());
         });
 
+        this.pipelineFuture = new CompletableFuture<>();
         return new PassiveCompletableFuture<>(pipelineFuture);
     }
 
-    private void addPhysicalVertexCallBack(CompletableFuture<TaskExecutionState> future) {
-        future.whenComplete((v, t) -> {
+    private void addPhysicalVertexCallBack(PassiveCompletableFuture<TaskExecutionState> future) {
+        future.thenAcceptAsync(executionState -> {
             // We need not handle t, Because we will not return t from PhysicalVertex
-            if (ExecutionState.CANCELED.equals(v.getExecutionState())) {
+            if (ExecutionState.CANCELED.equals(executionState.getExecutionState())) {
                 canceledTaskNum.incrementAndGet();
-            } else if (ExecutionState.FAILED.equals(v.getExecutionState())) {
+            } else if (ExecutionState.FAILED.equals(executionState.getExecutionState())) {
                 LOGGER.severe(String.format("Task Failed in %s, Begin to cancel other tasks in this pipeline.",
                     this.getPipelineFullName()));
                 failedTaskNum.incrementAndGet();
                 cancelPipeline();
-            } else if (!ExecutionState.FINISHED.equals(v.getExecutionState())) {
+            } else if (!ExecutionState.FINISHED.equals(executionState.getExecutionState())) {
                 LOGGER.severe(String.format(
                     "Task Failed in %s, with Unknown ExecutionState, Begin to cancel other tasks in this pipeline.",
                     this.getPipelineFullName()));
@@ -148,10 +148,6 @@ public class SubPlan {
         });
     }
 
-    public void whenComplete(BiConsumer<? super PipelineState, ? super Throwable> action) {
-        this.pipelineFuture.whenComplete(action);
-    }
-
     private void turnToEndState(@NonNull PipelineState endState) {
         // consistency check
         if (pipelineState.get().isEndState()) {
@@ -168,6 +164,18 @@ public class SubPlan {
 
         pipelineState.set(endState);
         stateTimestamps[endState.ordinal()] = System.currentTimeMillis();
+    }
+
+    private void resetPipelineState() {
+        if (!pipelineState.get().isEndState()) {
+            String message = String.format("%s reset state failed, only end state can be reset, current is %s",
+                getPipelineFullName(), pipelineState.get());
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+
+        pipelineState.set(PipelineState.CREATED);
+        stateTimestamps[PipelineState.CREATED.ordinal()] = System.currentTimeMillis();
     }
 
     public boolean updatePipelineState(@NonNull PipelineState current, @NonNull PipelineState targetState) {
@@ -211,23 +219,15 @@ public class SubPlan {
     }
 
     public void cancelPipeline() {
-        if (!updatePipelineState(PipelineState.CREATED, PipelineState.CANCELED) &&
-            !updatePipelineState(PipelineState.SCHEDULED, PipelineState.CANCELED)) {
-            // may be deploying, running, failed, canceling , canceled, finished
-            if (updatePipelineState(PipelineState.DEPLOYING, PipelineState.CANCELING) ||
-                updatePipelineState(PipelineState.RUNNING, PipelineState.CANCELING)) {
-                cancelRunningPipeline();
-            } else {
-                LOGGER.info(
-                    String.format("%s in a non cancellable state: %s, skip cancel", pipelineFullName,
-                        pipelineState.get()));
-            }
-        } else {
-            pipelineFuture.complete(PipelineState.CANCELED);
+        if (pipelineState.get().isEndState()) {
+            LOGGER.warning(String.format("%s is in end state %s, can not be cancel", pipelineFullName, pipelineState.get()));
+            return;
         }
+        updatePipelineState(pipelineState.get(), PipelineState.CANCELING);
+        cancelPipelineTasks();
     }
 
-    private void cancelRunningPipeline() {
+    private void cancelPipelineTasks() {
         List<CompletableFuture<Void>> coordinatorCancelList =
             coordinatorVertexList.stream().map(coordinator -> cancelTask(coordinator)).filter(x -> x != null)
                 .collect(Collectors.toList());
@@ -259,9 +259,22 @@ public class SubPlan {
         return null;
     }
 
-    public void failedWithNoEnoughResource() {
-        LOGGER.severe(String.format("%s failed with have no enough resource to run.", this.getPipelineFullName()));
-        cancelPipeline();
+    /**
+     * Before restore a pipeline, the pipeline must do reset
+     */
+    public void reset() {
+        resetPipelineState();
+        finishedTaskNum.set(0);
+        canceledTaskNum.set(0);
+        failedTaskNum.set(0);
+
+        coordinatorVertexList.forEach(coordinate -> {
+            coordinate.reset();
+        });
+
+        physicalVertexList.forEach(task -> {
+            task.reset();
+        });
     }
 
     public int getPipelineId() {

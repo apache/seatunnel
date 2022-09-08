@@ -17,11 +17,14 @@
 
 package org.apache.seatunnel.engine.server.scheduler;
 
-import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
-import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 
-import java.util.Map;
+import lombok.NonNull;
+
+import java.util.concurrent.CompletableFuture;
 
 public interface JobScheduler {
-    Map<Integer, Map<PhysicalVertex, SlotProfile>> startScheduling();
+    CompletableFuture<Void> reSchedulerPipeline(@NonNull SubPlan subPlan);
+
+    void startScheduling();
 }
