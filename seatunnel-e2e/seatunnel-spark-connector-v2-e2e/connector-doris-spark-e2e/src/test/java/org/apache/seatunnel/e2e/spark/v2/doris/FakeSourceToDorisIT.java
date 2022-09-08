@@ -35,6 +35,7 @@ import org.testcontainers.lifecycle.Startables;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
@@ -54,16 +55,22 @@ public class FakeSourceToDorisIT extends SparkContainer {
     private static final String DORIS_TABLE = "seatunnel";
     private static final String DORIS_DATABASE_DDL = "CREATE DATABASE IF NOT EXISTS `" + DORIS_DATABASE + "`";
     private static final String DORIS_USE_DATABASE = "USE `" + DORIS_DATABASE + "`";
-    private static final String DORIS_TABLE_DDL = "CREATE TABLE " +
-        "IF NOT EXISTS `" + DORIS_TABLE + "` " +
-        "(`name` varchar(255) NULL ) " +
-        "ENGINE=OLAP AGGREGATE KEY(`name`) " +
-        "DISTRIBUTED BY HASH(`name`) " +
-        "BUCKETS 1 " +
-        "PROPERTIES " +
-        "( 'replication_allocation' = 'tag.location.default: 1', 'in_memory' = 'false');";
+    private static final String DORIS_TABLE_DDL = "CREATE TABLE IF NOT EXISTS `" + DORIS_DATABASE + "`.`" + DORIS_TABLE + "` ( " +
+        "  `user_id` LARGEINT NOT NULL COMMENT 'id'," +
+        "  `date` DATE NOT NULL COMMENT 'date'," +
+        "  `city` VARCHAR(20) COMMENT 'city'," +
+        "  `age` SMALLINT COMMENT 'age'," +
+        "  `sex` TINYINT COMMENT 'sec'," +
+        "  `last_visit_date` DATETIME REPLACE DEFAULT '1970-01-01 00:00:00' ," +
+        "  `cost` BIGINT SUM DEFAULT '0' ," +
+        "  `max_dwell_time` INT MAX DEFAULT '0' ," +
+        "  `min_dwell_time` INT MIN DEFAULT '99999'" +
+        ") AGGREGATE KEY(`user_id`, `date`, `city`, `age`, `sex`) DISTRIBUTED BY HASH(`user_id`) BUCKETS 1 PROPERTIES (" +
+        "  'replication_allocation' = 'tag.location.default: 1'" +
+        ");";
 
     private static final String DORIS_TABLE_TRUNCATE_TABLE = "TRUNCATE TABLE `" + DORIS_TABLE + "`";
+    private static final String DORIS_SELECT_TABLE = "SELECT COUNT(*) FROM `" + DORIS_TABLE + "`";
 
     //thanks zhaomin1432 provided the doris images.
     private static final String DORIS_IMAGE_NAME = "zhaomin1423/doris:1.0.0-b2";
@@ -112,6 +119,18 @@ public class FakeSourceToDorisIT extends SparkContainer {
         return DriverManager.getConnection(DORIS_CONNECTION_URL, DORIS_USERNAME, DORIS_PASSWD);
     }
 
+    private int queryDorisTableCount() {
+        try (Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery(DORIS_SELECT_TABLE);) {
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            throw new IllegalArgumentException(e);
+        }
+        return -1;
+    }
+
     @AfterEach
     public void afterInDoris() throws SQLException {
         if (Objects.nonNull(connection)) {
@@ -128,6 +147,6 @@ public class FakeSourceToDorisIT extends SparkContainer {
     public void testFakeSourceToDorisSink() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/doris/fakesource_to_doris.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-
+        Assertions.assertEquals(10, queryDorisTableCount());
     }
 }

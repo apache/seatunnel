@@ -19,7 +19,7 @@ package org.apache.seatunnel.e2e.flink.v2.doris;
 
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
-import org.apache.commons.compress.utils.Lists;
+import com.google.common.collect.Lists;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +35,7 @@ import org.testcontainers.lifecycle.Startables;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
@@ -46,7 +47,7 @@ public class FakeSourceToDorisIT extends FlinkContainer {
     private static final Logger LOG = LoggerFactory.getLogger(FakeSourceToDorisIT.class);
 
     private static final String DORIS_DRIVER = "com.mysql.cj.jdbc.Driver";
-    private static final String DORIS_CONNECTION_URL = "jdbc:mysql://localhost:9030?rewriteBatchedStatements=true";
+    private static final String DORIS_CONNECTION_URL = "jdbc:mysql://10.227.17.202:9030?rewriteBatchedStatements=true";
     private static final String DORIS_PASSWD = "";
     private static final String DORIS_USERNAME = "root";
 
@@ -54,16 +55,22 @@ public class FakeSourceToDorisIT extends FlinkContainer {
     private static final String DORIS_TABLE = "seatunnel";
     private static final String DORIS_DATABASE_DDL = "CREATE DATABASE IF NOT EXISTS `" + DORIS_DATABASE + "`";
     private static final String DORIS_USE_DATABASE = "USE `" + DORIS_DATABASE + "`";
-    private static final String DORIS_TABLE_DDL = "CREATE TABLE " +
-        "IF NOT EXISTS `" + DORIS_TABLE + "` " +
-        "(`name` varchar(255) NULL ) " +
-        "ENGINE=OLAP AGGREGATE KEY(`name`) " +
-        "DISTRIBUTED BY HASH(`name`) " +
-        "BUCKETS 1 " +
-        "PROPERTIES " +
-        "( 'replication_allocation' = 'tag.location.default: 1', 'in_memory' = 'false');";
+    private static final String DORIS_TABLE_DDL = "CREATE TABLE IF NOT EXISTS `" + DORIS_DATABASE + "`.`" + DORIS_TABLE + "` ( " +
+        "  `user_id` LARGEINT NOT NULL COMMENT 'id'," +
+        "  `date` DATE NOT NULL COMMENT 'date'," +
+        "  `city` VARCHAR(20) COMMENT 'city'," +
+        "  `age` SMALLINT COMMENT 'age'," +
+        "  `sex` TINYINT COMMENT 'sec'," +
+        "  `last_visit_date` DATETIME REPLACE DEFAULT '1970-01-01 00:00:00' ," +
+        "  `cost` BIGINT SUM DEFAULT '0' ," +
+        "  `max_dwell_time` INT MAX DEFAULT '0' ," +
+        "  `min_dwell_time` INT MIN DEFAULT '99999'" +
+        ") AGGREGATE KEY(`user_id`, `date`, `city`, `age`, `sex`) DISTRIBUTED BY HASH(`user_id`) BUCKETS 1 PROPERTIES (" +
+        "  'replication_allocation' = 'tag.location.default: 1'" +
+        ");";
 
-    private static final String DORIS_TABLE_TRUNCATE_TABLE = "TRUNCATE TABLE `" + DORIS_TABLE + "`";
+    private static final String DORIS_TRUNCATE_TABLE = "TRUNCATE TABLE `" + DORIS_TABLE + "`";
+    private static final String DORIS_SELECT_TABLE = "SELECT COUNT(*) FROM `" + DORIS_TABLE + "`";
 
     //thanks zhaomin1432 provided the doris images.
     private static final String DORIS_IMAGE_NAME = "zhaomin1423/doris:1.0.0-b2";
@@ -100,8 +107,9 @@ public class FakeSourceToDorisIT extends FlinkContainer {
             statement.execute(DORIS_DATABASE_DDL);
             statement.execute(DORIS_USE_DATABASE);
             statement.execute(DORIS_TABLE_DDL);
-            statement.execute(DORIS_TABLE_TRUNCATE_TABLE);
+            statement.execute(DORIS_TRUNCATE_TABLE);
             statement.close();
+            LOG.info("initialized connection.");
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
@@ -110,6 +118,18 @@ public class FakeSourceToDorisIT extends FlinkContainer {
     private static Connection getDorisConnection() throws ClassNotFoundException, SQLException {
         Class.forName(DORIS_DRIVER);
         return DriverManager.getConnection(DORIS_CONNECTION_URL, DORIS_USERNAME, DORIS_PASSWD);
+    }
+
+    private int queryDorisTableCount() {
+        try (Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery(DORIS_SELECT_TABLE);) {
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            throw new IllegalArgumentException(e);
+        }
+        return -1;
     }
 
     @AfterEach
@@ -128,6 +148,6 @@ public class FakeSourceToDorisIT extends FlinkContainer {
     public void testFakeSourceToDorisSink() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/doris/fakesource_to_doris.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-
+        Assertions.assertEquals(10, queryDorisTableCount());
     }
 }
