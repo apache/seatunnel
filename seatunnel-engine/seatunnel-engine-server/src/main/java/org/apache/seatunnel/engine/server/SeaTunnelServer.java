@@ -23,11 +23,13 @@ import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.RunningJobInfo;
+import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
 
@@ -75,7 +77,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
      * IMap key is jobId and value is a Tuple2
      * Tuple2 key is JobMaster init timestamp and value is the jobImmutableInformation which is sent by client when submit job
      * <p>
-     * This IMap is used to recovery a JobMaster when a new master node active
+     * This IMap is used to recovery runningJobInfoIMap in JobMaster when a new master node active
      */
     private IMap<Long, RunningJobInfo> runningJobInfoIMap;
 
@@ -86,7 +88,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
      * The value of IMap is one of {@link JobStatus} {@link org.apache.seatunnel.engine.core.job.PipelineState}
      * {@link org.apache.seatunnel.engine.server.execution.ExecutionState}
      * <p>
-     * This IMap is used to recovery a JobMaster when a new master node active
+     * This IMap is used to recovery runningJobStateIMap in JobMaster when a new master node active
      */
     IMap<Object, Object> runningJobStateIMap;
 
@@ -98,7 +100,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
      * {@link org.apache.seatunnel.engine.server.dag.physical.SubPlan} stateTimestamps
      * {@link org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex} stateTimestamps
      * <p>
-     * This IMap is used to recovery a JobMaster when a new master node active
+     * This IMap is used to recovery runningJobStateTimestampsIMap in JobMaster when a new master node active
      */
     IMap<Object, Long[]> runningJobStateTimestampsIMap;
 
@@ -107,6 +109,15 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
      * <br> value: job master;
      */
     private Map<Long, JobMaster> runningJobMasterMap = new ConcurrentHashMap<>();
+
+    /**
+     * IMap key is {@link PipelineLocation}
+     * <p>
+     * The value of IMap is map of {@link TaskGroupLocation} and the {@link SlotProfile} it used.
+     * <p>
+     * This IMap is used to recovery ownedSlotProfilesIMap in JobMaster when a new master node active
+     */
+    private IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap;
 
     public SeaTunnelServer(@NonNull Node node, @NonNull SeaTunnelConfig seaTunnelConfig) {
         this.logger = node.getLogger(getClass());
@@ -151,6 +162,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         runningJobInfoIMap = nodeEngine.getHazelcastInstance().getMap("runningJobInfo");
         runningJobStateIMap = nodeEngine.getHazelcastInstance().getMap("runningJobState");
         runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap("stateTimestamps");
+        ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
     }
 
     @Override
@@ -221,8 +233,13 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
      */
     public PassiveCompletableFuture<Void> submitJob(long jobId, Data jobImmutableInformation) {
         CompletableFuture<Void> voidCompletableFuture = new CompletableFuture<>();
-        JobMaster jobMaster = new JobMaster(jobImmutableInformation, this.nodeEngine, executorService, getResourceManager(), runningJobStateIMap,
-            runningJobStateTimestampsIMap);
+        JobMaster jobMaster = new JobMaster(jobImmutableInformation,
+            this.nodeEngine,
+            executorService,
+            getResourceManager(),
+            runningJobStateIMap,
+            runningJobStateTimestampsIMap,
+            ownedSlotProfilesIMap);
         executorService.submit(() -> {
             try {
                 runningJobInfoIMap.put(jobId, new RunningJobInfo(System.currentTimeMillis(), jobImmutableInformation));

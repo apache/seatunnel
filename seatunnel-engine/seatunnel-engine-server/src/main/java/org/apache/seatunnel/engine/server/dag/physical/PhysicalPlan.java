@@ -151,7 +151,7 @@ public class PhysicalPlan {
                         cancelJob();
                     }
                     LOGGER.info(String.format("release the pipeline %s resource", subPlan.getPipelineFullName()));
-                    jobMaster.releasePipelineResource(subPlan.getPipelineId());
+                    jobMaster.releasePipelineResource(subPlan);
                 } else if (PipelineState.FAILED.equals(pipelineState)) {
                     if (needRestore) {
                         restorePipeline(subPlan);
@@ -161,7 +161,7 @@ public class PhysicalPlan {
                     if (makeJobEndWhenPipelineEnded) {
                         cancelJob();
                     }
-                    jobMaster.releasePipelineResource(subPlan.getPipelineId());
+                    jobMaster.releasePipelineResource(subPlan);
                     LOGGER.severe("Pipeline Failed, Begin to cancel other pipelines in this job.");
                 }
             } catch (Throwable e) {
