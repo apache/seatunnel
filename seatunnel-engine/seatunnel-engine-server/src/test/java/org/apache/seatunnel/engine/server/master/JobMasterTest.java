@@ -19,7 +19,7 @@ package org.apache.seatunnel.engine.server.master;
 
 import static org.awaitility.Awaitility.await;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -52,8 +52,9 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
 
     @Test
     public void testHandleCheckpointTimeout() throws Exception {
-        SeaTunnelContext.getContext().setJobMode(JobMode.STREAMING);
-        LogicalDag testLogicalDag = TestUtils.getTestLogicalDag();
+        JobContext jobContext = new JobContext();
+        jobContext.setJobMode(JobMode.STREAMING);
+        LogicalDag testLogicalDag = TestUtils.getTestLogicalDag(jobContext);
         JobConfig config = new JobConfig();
         config.setName("test_checkpoint_timeout");
 
