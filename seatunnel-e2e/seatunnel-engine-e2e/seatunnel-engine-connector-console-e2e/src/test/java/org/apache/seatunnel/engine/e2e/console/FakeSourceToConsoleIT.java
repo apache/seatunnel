@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.e2e.file;
+package org.apache.seatunnel.engine.e2e.console;
 
 import org.apache.seatunnel.engine.e2e.SeaTunnelContainer;
 

@@ -26,7 +26,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>seatunnel-engine-connector-file-e2e</artifactId>
+    <artifactId>seatunnel-engine-connector-console-e2e</artifactId>
 
     <dependencies>
         <dependency>

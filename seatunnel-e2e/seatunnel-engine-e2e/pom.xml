@@ -31,7 +31,7 @@
 
     <modules>
         <module>seatunnel-engine-e2e-base</module>
-        <module>seatunnel-engine-connector-file-e2e</module>
+        <module>seatunnel-engine-connector-console-e2e</module>
     </modules>
 
     <dependencies>
