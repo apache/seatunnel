@@ -22,6 +22,7 @@ import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
 import org.apache.seatunnel.core.starter.seatunnel.command.ClientCommandBuilder;
+import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
@@ -36,6 +37,8 @@ public class SeaTunnelEngineExample {
         clientCommandArgs.setConfigFile(configFile);
         clientCommandArgs.setCheckConfig(false);
         clientCommandArgs.setName("fake_to_console");
+        // Change Execution Mode to CLUSTER to use client mode, before do this, you should start SeaTunnelEngineServerExample
+        clientCommandArgs.setExecutionMode(ExecutionMode.CLUSTER);
         Command<ClientCommandArgs> command =
             new ClientCommandBuilder().buildCommand(clientCommandArgs);
         Seatunnel.run(command);

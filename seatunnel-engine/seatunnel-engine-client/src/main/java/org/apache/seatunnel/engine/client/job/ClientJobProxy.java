@@ -53,6 +53,7 @@ public class ClientJobProxy implements Job {
     }
 
     private void submitJob() {
+        LOGGER.info(String.format("start submit job, job id: %s, with plugin jar %s", jobImmutableInformation.getJobId(), jobImmutableInformation.getPluginJarsUrls()));
         ClientMessage request = SeaTunnelSubmitJobCodec.encodeRequest(jobImmutableInformation.getJobId(),
             seaTunnelHazelcastClient.getSerializationService().toData(jobImmutableInformation));
         PassiveCompletableFuture<Void> submitJobFuture =

@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.core.starter.seatunnel.args;
 
+import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
+import org.apache.seatunnel.core.starter.config.EngineType;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 
 import com.beust.jcommander.Parameter;
@@ -38,7 +40,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     @Parameter(names = {"-e", "--deploy-mode"},
         description = "SeaTunnel deploy mode",
         converter = ExecutionModeConverter.class)
-    private ExecutionMode executionMode = ExecutionMode.LOCAL;
+    private ExecutionMode executionMode = ExecutionMode.CLUSTER;
 
     @Parameter(names = {"-cn", "--cluster"},
         description = "The name of cluster")
@@ -76,4 +78,13 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         this.name = name;
     }
 
+    @Override
+    public EngineType getEngineType() {
+        return EngineType.SEATUNNEL;
+    }
+
+    @Override
+    public DeployMode getDeployMode() {
+        return DeployMode.CLIENT;
+    }
 }

@@ -49,7 +49,6 @@ import lombok.NonNull;
 
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -161,7 +160,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     @Override
     public Set<URL> getJarsUrl() {
-        List<Flow> now = Collections.singletonList(executionFlow);
+        List<Flow> now = new ArrayList<>();
+        now.add(executionFlow);
         Set<URL> urls = new HashSet<>();
         List<Flow> next = new ArrayList<>();
         while (!now.isEmpty()) {
@@ -172,7 +172,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 }
                 next.addAll(n.getNext());
             });
-            now = next;
+            now.clear();
+            now.addAll(next);
         }
         return urls;
     }

@@ -15,17 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.spark.config;
+package org.apache.seatunnel.example.engine;
 
-import org.apache.seatunnel.core.starter.config.ConfigChecker;
-import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
+import org.apache.seatunnel.core.starter.Seatunnel;
+import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.exception.CommandException;
+import org.apache.seatunnel.core.starter.seatunnel.args.ServerCommandArgs;
+import org.apache.seatunnel.core.starter.seatunnel.command.ServerCommandBuilder;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-public class SparkApiConfigChecker implements ConfigChecker {
-
-    @Override
-    public void checkConfig(Config config) throws ConfigCheckException {
-        // todo: implement
+public class SeaTunnelEngineServerExample {
+    public static void main(String[] args) throws CommandException {
+        ServerCommandArgs serverCommandArgs = new ServerCommandArgs();
+        Command<ServerCommandArgs> command =
+            new ServerCommandBuilder().buildCommand(serverCommandArgs);
+        Seatunnel.run(command);
     }
+
 }
