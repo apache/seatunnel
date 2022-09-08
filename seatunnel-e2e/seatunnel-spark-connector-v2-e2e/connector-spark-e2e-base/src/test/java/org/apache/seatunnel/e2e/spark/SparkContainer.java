@@ -94,15 +94,14 @@ public abstract class SparkContainer {
         master.copyFileToContainer(MountableFile.forHostPath(confPath), targetConfInContainer);
 
         // TODO: use start-seatunnel-spark.sh to run the spark job. Need to modified the SparkStarter can find the seatunnel-core-spark.jar.
-        // Running IT use cases under Windows requires replacing \ with /
-        String conf = targetConfInContainer.replaceAll("\\\\", "/");
         final List<String> command = new ArrayList<>();
-        command.add(Paths.get(SEATUNNEL_HOME, "bin", SEATUNNEL_SPARK_BIN).toString());
+        String sparkBinPath = Paths.get(SEATUNNEL_HOME, "bin", SEATUNNEL_SPARK_BIN).toString();
+        command.add(adaptPathForWin(sparkBinPath));
         command.add("--master");
         command.add("local");
         command.add("--deploy-mode");
         command.add("client");
-        command.add("--config " + conf);
+        command.add("--config " + adaptPathForWin(targetConfInContainer));
 
         Container.ExecResult execResult = master.execInContainer("bash", "-c", String.join(" ", command));
         LOG.info(execResult.getStdout());
@@ -119,10 +118,10 @@ public abstract class SparkContainer {
         master.copyFileToContainer(MountableFile.forHostPath(seatunnelCoreSparkJarPath), SPARK_JAR_PATH);
 
         // copy bin
-        String seatunnelFlinkBinPath = Paths.get(PROJECT_ROOT_PATH.toString(),
+        String seatunnelSparkBinPath = Paths.get(PROJECT_ROOT_PATH.toString(),
             "seatunnel-core", "seatunnel-spark-starter", "src", "main", "bin", SEATUNNEL_SPARK_BIN).toString();
         master.copyFileToContainer(
-            MountableFile.forHostPath(seatunnelFlinkBinPath),
+            MountableFile.forHostPath(seatunnelSparkBinPath),
             Paths.get(SEATUNNEL_BIN, SEATUNNEL_SPARK_BIN).toString());
 
         // copy connectors
@@ -154,5 +153,9 @@ public abstract class SparkContainer {
                     jars.listFiles(
                         f -> f.getName().contains("connector-"))))
             .collect(Collectors.toList());
+    }
+
+    private String adaptPathForWin(String path) {
+        return path == null ? "" : path.replaceAll("\\\\", "/");
     }
 }
