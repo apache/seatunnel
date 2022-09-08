@@ -135,7 +135,7 @@ public class JobMaster implements Runnable {
             PassiveCompletableFuture<JobStatus> jobStatusPassiveCompletableFuture =
                 physicalPlan.getJobEndCompletableFuture();
 
-            jobStatusPassiveCompletableFuture.whenComplete((v, t) -> {
+            jobStatusPassiveCompletableFuture.thenAcceptAsync((v, t) -> {
                 // We need not handle t, Because we will not return t from physicalPlan
                 if (JobStatus.FAILING.equals(v)) {
                     cleanJob();
