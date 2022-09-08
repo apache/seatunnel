@@ -58,7 +58,6 @@ import java.util.concurrent.ExecutorService;
 public class JobMaster implements Runnable {
     private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
 
-    private LogicalDag logicalDag;
     private PhysicalPlan physicalPlan;
     private final Data jobImmutableInformationData;
 
@@ -66,13 +65,13 @@ public class JobMaster implements Runnable {
 
     private final ExecutorService executorService;
 
-    private FlakeIdGenerator flakeIdGenerator;
+    private final FlakeIdGenerator flakeIdGenerator;
 
-    private ResourceManager resourceManager;
+    private final ResourceManager resourceManager;
 
     private CheckpointManager checkpointManager;
 
-    private CompletableFuture<JobStatus> jobMasterCompleteFuture = new CompletableFuture<>();
+    private final CompletableFuture<JobStatus> jobMasterCompleteFuture = new CompletableFuture<>();
 
     private JobImmutableInformation jobImmutableInformation;
 
@@ -101,13 +100,14 @@ public class JobMaster implements Runnable {
         LOGGER.info(
             "Job [" + jobImmutableInformation.getJobId() + "] jar urls " + jobImmutableInformation.getPluginJarsUrls());
 
+        LogicalDag logicalDag;
         if (!CollectionUtils.isEmpty(jobImmutableInformation.getPluginJarsUrls())) {
-            this.logicalDag =
+            logicalDag =
                 CustomClassLoadedObject.deserializeWithCustomClassLoader(nodeEngine.getSerializationService(),
                     new SeatunnelChildFirstClassLoader(jobImmutableInformation.getPluginJarsUrls()),
                     jobImmutableInformation.getLogicalDag());
         } else {
-            this.logicalDag = nodeEngine.getSerializationService().toObject(jobImmutableInformation.getLogicalDag());
+            logicalDag = nodeEngine.getSerializationService().toObject(jobImmutableInformation.getLogicalDag());
         }
         final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple = PlanUtils.fromLogicalDAG(logicalDag,
             nodeEngine,

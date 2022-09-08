@@ -15,17 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.checkpoint;
+package org.apache.seatunnel.engine.common.utils;
 
-import lombok.Data;
-
-import java.io.Serializable;
-import java.util.List;
-
-@Data
-public class ActionSubtaskState implements Serializable {
-    private static final long serialVersionUID = 1L;
-    private final long actionId;
-    private final int index;
-    private final List<byte[]> state;
+@FunctionalInterface
+public interface ConsumerWithException<T>  {
+    /**
+     * Performs this operation on the given argument.
+     *
+     * @param t the input argument
+     */
+    void accept(T t) throws Exception;
 }

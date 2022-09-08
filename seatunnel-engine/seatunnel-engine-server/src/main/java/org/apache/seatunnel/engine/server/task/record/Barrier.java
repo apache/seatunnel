@@ -15,15 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.utils;
+package org.apache.seatunnel.engine.server.task.record;
 
-public class ExceptionUtil {
-    private ExceptionUtil() {
-    }
+/**
+ * barrier flowing in data flow
+ */
+public interface Barrier {
+    Long PREPARE_CLOSE_BARRIER_ID = 0L;
 
-    /** javac hack for unchecking the checked exception. */
-    @SuppressWarnings("unchecked")
-    public static <T extends Exception> void sneakyThrow(Exception t) throws T {
-        throw (T) t;
-    }
+    /**
+     * The ID of the barrier.
+     */
+    long getId();
+
+    /**
+     * Whether the task needs to perform a status snapshot after the barrier is aligned.
+     * For example, DDL barrier does not require a snapshot.
+     */
+    boolean snapshot();
+
+    /**
+     * Barrier indicating that the task should prepare to close.
+     */
+    boolean prepareClose();
 }
