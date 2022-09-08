@@ -84,11 +84,11 @@ public class JobMaster implements Runnable {
      */
     private final IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap;
 
-    private CompletableFuture<Void> scheduleFuture = new CompletableFuture<>();
-
     private final IMap<Object, Object> runningJobStateIMap;
 
     private final IMap<Object, Object> runningJobStateTimestampsIMap;
+
+    private CompletableFuture<Void> scheduleFuture = new CompletableFuture<>();
 
     public JobMaster(@NonNull Data jobImmutableInformationData,
                      @NonNull NodeEngine nodeEngine,

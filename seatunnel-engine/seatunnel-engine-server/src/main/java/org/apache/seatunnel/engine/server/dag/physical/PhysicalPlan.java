@@ -255,7 +255,6 @@ public class PhysicalPlan {
         Long[] stateTimestamps = runningJobStateTimestampsIMap.get(jobId);
         stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
         runningJobStateTimestampsIMap.set(jobId, stateTimestamps);
-
     }
 
     public boolean updateJobState(@NonNull JobStatus targetState) {

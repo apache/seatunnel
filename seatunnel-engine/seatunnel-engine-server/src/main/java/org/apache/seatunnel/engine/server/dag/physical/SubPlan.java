@@ -276,19 +276,6 @@ public class SubPlan {
         return null;
     }
 
-    public void failedWithNoEnoughResource() {
-        LOGGER.severe(String.format("%s failed with have no enough resource to run.", this.getPipelineFullName()));
-        cancelPipeline();
-    }
-
-    private void updateStateTimestamps(@NonNull PipelineState targetState) {
-        // we must update runningJobStateTimestampsIMap first and then can update runningJobStateIMap
-        Long[] stateTimestamps = runningJobStateTimestampsIMap.get(pipelineLocation);
-        stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
-        runningJobStateTimestampsIMap.set(pipelineLocation, stateTimestamps);
-
-    }
-
     /**
      * Before restore a pipeline, the pipeline must do reset
      */
@@ -305,6 +292,14 @@ public class SubPlan {
         physicalVertexList.forEach(task -> {
             task.reset();
         });
+    }
+
+    private void updateStateTimestamps(@NonNull PipelineState targetState) {
+        // we must update runningJobStateTimestampsIMap first and then can update runningJobStateIMap
+        Long[] stateTimestamps = runningJobStateTimestampsIMap.get(pipelineLocation);
+        stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
+        runningJobStateTimestampsIMap.set(pipelineLocation, stateTimestamps);
+
     }
 
     private void resetPipelineState() {
