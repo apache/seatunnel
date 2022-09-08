@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 import org.apache.seatunnel.engine.server.service.slot.SlotAndWorkerProfile;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
@@ -50,7 +51,7 @@ public class ResourceRequestHandler {
      * resourceProfile with same index in resourceProfile haven't requested successes yet.
      */
     private final ConcurrentMap<Integer, SlotProfile> resultSlotProfiles;
-    private final ConcurrentMap<String, WorkerProfile> registerWorker;
+    private final ConcurrentMap<Address, WorkerProfile> registerWorker;
 
     private final long jobId;
 
@@ -60,7 +61,7 @@ public class ResourceRequestHandler {
 
     public ResourceRequestHandler(long jobId,
                                   List<ResourceProfile> resourceProfile,
-                                  ConcurrentMap<String, WorkerProfile> registerWorker,
+                                  ConcurrentMap<Address, WorkerProfile> registerWorker,
                                   AbstractResourceManager resourceManager) {
         this.completableFuture = new CompletableFuture<>();
         this.resultSlotProfiles = new ConcurrentHashMap<>();
