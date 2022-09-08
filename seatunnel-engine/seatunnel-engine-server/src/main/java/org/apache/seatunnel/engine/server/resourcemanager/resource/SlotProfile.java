@@ -17,24 +17,33 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager.resource;
 
-import com.hazelcast.cluster.Address;
+import org.apache.seatunnel.engine.server.serializable.ResourceDataSerializerHook;
 
-import java.io.Serializable;
+import com.hazelcast.cluster.Address;
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+
+import java.io.IOException;
 
 /**
  * Used to describe the status of the current slot, including resource size and assign status
  */
-public class SlotProfile implements Serializable {
+public class SlotProfile implements IdentifiedDataSerializable {
 
     private final Address worker;
 
-    private final int slotID;
+    private int slotID;
 
     private long ownerJobID;
 
     private volatile boolean assigned;
 
-    private final ResourceProfile resourceProfile;
+    private ResourceProfile resourceProfile;
+
+    public SlotProfile() {
+        worker = new Address();
+    }
 
     public SlotProfile(Address worker, int slotID, ResourceProfile resourceProfile) {
         this.worker = worker;
@@ -80,5 +89,33 @@ public class SlotProfile implements Serializable {
                 ", assigned=" + assigned +
                 ", resourceProfile=" + resourceProfile +
                 '}';
+    }
+
+    @Override
+    public int getFactoryId() {
+        return ResourceDataSerializerHook.FACTORY_ID;
+    }
+
+    @Override
+    public int getClassId() {
+        return ResourceDataSerializerHook.SLOT_PROFILE_TYPE;
+    }
+
+    @Override
+    public void writeData(ObjectDataOutput out) throws IOException {
+        worker.writeData(out);
+        out.writeInt(slotID);
+        out.writeLong(ownerJobID);
+        out.writeBoolean(assigned);
+        out.writeObject(resourceProfile);
+    }
+
+    @Override
+    public void readData(ObjectDataInput in) throws IOException {
+        worker.readData(in);
+        slotID = in.readInt();
+        ownerJobID = in.readLong();
+        assigned = in.readBoolean();
+        resourceProfile = in.readObject();
     }
 }

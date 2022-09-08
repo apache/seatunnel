@@ -134,11 +134,11 @@ public class SubPlan {
     }
 
     private void addPhysicalVertexCallBack(PassiveCompletableFuture<TaskExecutionState> future) {
-        future.whenComplete((v, t) -> {
+        future.thenAcceptAsync(executionState -> {
             // We need not handle t, Because we will not return t from PhysicalVertex
-            if (ExecutionState.CANCELED.equals(v.getExecutionState())) {
+            if (ExecutionState.CANCELED.equals(executionState.getExecutionState())) {
                 canceledTaskNum.incrementAndGet();
-            } else if (ExecutionState.FAILED.equals(v.getExecutionState())) {
+            } else if (ExecutionState.FAILED.equals(executionState.getExecutionState())) {
                 LOGGER.severe(String.format("Task Failed in %s, Begin to cancel other tasks in this pipeline.",
                     this.getPipelineFullName()));
                 failedTaskNum.incrementAndGet();

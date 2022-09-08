@@ -126,7 +126,7 @@ public class PhysicalPlan {
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
     }
 
-    public void initJobMaster(JobMaster jobMaster) {
+    public void setJobMaster(JobMaster jobMaster) {
         this.jobMaster = jobMaster;
     }
 
@@ -136,20 +136,23 @@ public class PhysicalPlan {
 
     private void addPipelineEndCallback(SubPlan subPlan) {
         PassiveCompletableFuture<PipelineState> future = subPlan.initStateFuture();
-        future.whenComplete((v, t) -> {
-            // We need not handle t, Because we will not return t from Pipeline
+        future.thenAcceptAsync(pipelineState -> {
             try {
-                if (PipelineState.CANCELED.equals(v)) {
+                if (PipelineState.CANCELED.equals(pipelineState)) {
                     if (needRestore) {
                         restorePipeline(subPlan);
                         return;
                     }
                     canceledPipelineNum.incrementAndGet();
                     if (makeJobEndWhenPipelineEnded) {
+                        LOGGER.info(
+                            String.format("cancel job %s because makeJobEndWhenPipelineEnded is %s", jobFullName,
+                                makeJobEndWhenPipelineEnded));
                         cancelJob();
                     }
+                    LOGGER.info(String.format("release the pipeline %s resource", subPlan.getPipelineFullName()));
                     jobMaster.releasePipelineResource(subPlan.getPipelineId());
-                } else if (PipelineState.FAILED.equals(v)) {
+                } else if (PipelineState.FAILED.equals(pipelineState)) {
                     if (needRestore) {
                         restorePipeline(subPlan);
                         return;
@@ -291,6 +294,7 @@ public class PhysicalPlan {
 
     private void restorePipeline(SubPlan subPlan) {
         try {
+            LOGGER.info(String.format("Restore pipeline %s", subPlan.getPipelineFullName()));
             // We must ensure the scheduler complete and then can handle pipeline state change.
             jobMaster.getScheduleFuture().join();
 
@@ -300,7 +304,9 @@ public class PhysicalPlan {
             subPlan.reset();
             addPipelineEndCallback(subPlan);
             pipelineSchedulerFutureMap.put(subPlan.getPipelineId(), jobMaster.reSchedulerPipeline(subPlan));
-            pipelineSchedulerFutureMap.get(subPlan.getPipelineId()).get();
+            if (pipelineSchedulerFutureMap.get(subPlan.getPipelineId()) != null) {
+                pipelineSchedulerFutureMap.get(subPlan.getPipelineId()).join();
+            }
         } catch (Throwable e) {
             LOGGER.severe(
                 String.format("Restore pipeline %s error with exception: %s", subPlan.getPipelineFullName(),

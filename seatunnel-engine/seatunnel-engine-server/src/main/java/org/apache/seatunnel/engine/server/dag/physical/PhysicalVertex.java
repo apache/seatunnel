@@ -239,12 +239,12 @@ public class PhysicalVertex {
             // consistency check
             ExecutionState currentState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
             if (currentState.isEndState()) {
-                String message = "Task is already in terminal state " + currentState;
+                String message = String.format("Task %s is already in terminal state %s", taskFullName, currentState);
                 LOGGER.warning(message);
                 return false;
             }
             if (!endState.isEndState()) {
-                String message = "Need a end state, not " + endState;
+                String message = String.format("Turn task %s state to end state need gave a end state, not %s", taskFullName, endState);
                 LOGGER.warning(message);
                 return false;
             }

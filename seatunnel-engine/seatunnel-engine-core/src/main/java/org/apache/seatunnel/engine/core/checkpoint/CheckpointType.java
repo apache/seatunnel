@@ -18,8 +18,21 @@
 package org.apache.seatunnel.engine.core.checkpoint;
 
 public enum CheckpointType {
+
+    /**
+     * Automatically triggered by the CheckpointCoordinator.
+     */
     CHECKPOINT_TYPE(true, "checkpoint"),
-    SAVEPOINT_TYPE(false, "savepoint");
+
+    /**
+     * Triggered by the user.
+     */
+    SAVEPOINT_TYPE(false, "savepoint"),
+
+    /**
+     * Automatically triggered by the Task.
+     */
+    AUTO_SAVEPOINT_TYPE(true, "auto-savepoint");
 
     private final boolean auto;
     private final String name;

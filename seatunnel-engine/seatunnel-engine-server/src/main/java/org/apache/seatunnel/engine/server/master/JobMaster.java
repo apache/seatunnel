@@ -38,6 +38,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.scheduler.JobScheduler;
 import org.apache.seatunnel.engine.server.scheduler.PipelineBaseScheduler;
 
+import com.google.common.collect.Lists;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
@@ -59,7 +60,6 @@ import java.util.concurrent.ExecutorService;
 public class JobMaster implements Runnable {
     private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
 
-    private LogicalDag logicalDag;
     private PhysicalPlan physicalPlan;
     private final Data jobImmutableInformationData;
 
@@ -67,13 +67,13 @@ public class JobMaster implements Runnable {
 
     private final ExecutorService executorService;
 
-    private FlakeIdGenerator flakeIdGenerator;
+    private final FlakeIdGenerator flakeIdGenerator;
 
-    private ResourceManager resourceManager;
+    private final ResourceManager resourceManager;
 
     private CheckpointManager checkpointManager;
 
-    private CompletableFuture<JobStatus> jobMasterCompleteFuture = new CompletableFuture<>();
+    private final CompletableFuture<JobStatus> jobMasterCompleteFuture = new CompletableFuture<>();
 
     private JobImmutableInformation jobImmutableInformation;
 
@@ -110,13 +110,14 @@ public class JobMaster implements Runnable {
         LOGGER.info(
             "Job [" + jobImmutableInformation.getJobId() + "] jar urls " + jobImmutableInformation.getPluginJarsUrls());
 
+        LogicalDag logicalDag;
         if (!CollectionUtils.isEmpty(jobImmutableInformation.getPluginJarsUrls())) {
-            this.logicalDag =
+            logicalDag =
                 CustomClassLoadedObject.deserializeWithCustomClassLoader(nodeEngine.getSerializationService(),
                     new SeatunnelChildFirstClassLoader(jobImmutableInformation.getPluginJarsUrls()),
                     jobImmutableInformation.getLogicalDag());
         } else {
-            this.logicalDag = nodeEngine.getSerializationService().toObject(jobImmutableInformation.getLogicalDag());
+            logicalDag = nodeEngine.getSerializationService().toObject(jobImmutableInformation.getLogicalDag());
         }
         final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple = PlanUtils.fromLogicalDAG(logicalDag,
             nodeEngine,
@@ -140,12 +141,12 @@ public class JobMaster implements Runnable {
     @Override
     public void run() {
         try {
-            physicalPlan.initJobMaster(this);
+            physicalPlan.setJobMaster(this);
 
             PassiveCompletableFuture<JobStatus> jobStatusPassiveCompletableFuture =
                 physicalPlan.getJobEndCompletableFuture();
 
-            jobStatusPassiveCompletableFuture.whenComplete((v, t) -> {
+            jobStatusPassiveCompletableFuture.thenAcceptAsync((v, t) -> {
                 // We need not handle t, Because we will not return t from physicalPlan
                 if (JobStatus.FAILING.equals(v)) {
                     cleanJob();
@@ -154,9 +155,8 @@ public class JobMaster implements Runnable {
                 jobMasterCompleteFuture.complete(physicalPlan.getJobStatus());
             });
             jobScheduler = new PipelineBaseScheduler(physicalPlan, this);
-            scheduleFuture = CompletableFuture.runAsync(() -> {
-                ownedSlotProfiles.putAll(jobScheduler.startScheduling());
-            }, executorService);
+            scheduleFuture = CompletableFuture.runAsync(() -> jobScheduler.startScheduling(), executorService);
+            LOGGER.info(String.format("Job %s waiting for scheduler finished", physicalPlan.getJobFullName()));
             scheduleFuture.join();
             LOGGER.info(String.format("%s scheduler finished", physicalPlan.getJobFullName()));
         } catch (Throwable e) {
@@ -183,8 +183,9 @@ public class JobMaster implements Runnable {
         return jobScheduler.reSchedulerPipeline(subPlan);
     }
 
-    public void releasePipelineResource(int pipelineIndex) {
-        // TODO release pipeline resource
+    public void releasePipelineResource(int pipelineId) {
+        resourceManager.releaseResources(jobImmutableInformation.getJobId(),
+            Lists.newArrayList(ownedSlotProfiles.get(pipelineId).values()));
     }
 
     public void cleanJob() {
@@ -205,7 +206,7 @@ public class JobMaster implements Runnable {
 
     public void cancelJob() {
         physicalPlan.neverNeedRestore();
-        this.physicalPlan.cancelJob();
+        physicalPlan.cancelJob();
     }
 
     public ResourceManager getResourceManager() {
@@ -258,6 +259,11 @@ public class JobMaster implements Runnable {
 
     public Map<Integer, Map<PhysicalVertex, SlotProfile>> getOwnedSlotProfiles() {
         return ownedSlotProfiles;
+    }
+
+    public void setOwnedSlotProfiles(@NonNull Integer pipelineId,
+        @NonNull Map<PhysicalVertex, SlotProfile> pipelineOwnedSlotProfiles) {
+        ownedSlotProfiles.put(pipelineId, pipelineOwnedSlotProfiles);
     }
 
     public CompletableFuture<Void> getScheduleFuture() {

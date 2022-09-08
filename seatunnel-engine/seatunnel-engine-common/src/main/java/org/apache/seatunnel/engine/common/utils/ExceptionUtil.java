@@ -94,4 +94,36 @@ public final class ExceptionUtil {
         }
         return t;
     }
+
+    /** javac hack for unchecking the checked exception. */
+    @SuppressWarnings("unchecked")
+    public static <T extends Exception> void sneakyThrow(Throwable t) throws T {
+        throw (T) t;
+    }
+
+    public static void sneaky(RunnableWithException runnable) {
+        try {
+            runnable.run();
+        } catch (Exception r) {
+            sneakyThrow(r);
+        }
+    }
+
+    public static <T> void sneaky(ConsumerWithException<T> consumer, T t) {
+        try {
+            consumer.accept(t);
+        } catch (Exception r) {
+            sneakyThrow(r);
+        }
+    }
+
+    public static <R, E extends Throwable> R sneaky(SupplierWithException<R, E> supplier) {
+        try {
+            return supplier.get();
+        } catch (Throwable r) {
+            sneakyThrow(r);
+        }
+        // This method wouldn't be executed.
+        throw new RuntimeException("Never throw here.");
+    }
 }

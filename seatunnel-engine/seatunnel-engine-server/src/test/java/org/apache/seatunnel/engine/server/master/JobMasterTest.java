@@ -74,6 +74,10 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
 
         // call checkpoint timeout
         jobMaster.handleCheckpointTimeout(1);
+
+        // Because handleCheckpointTimeout is an async method, so we need sleep 5s to waiting job status become running again
+        Thread.sleep(5000);
+
         // test job still run
         await().atMost(20000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assert.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
