@@ -15,23 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.config;
+package org.apache.seatunnel.core.starter.seatunnel.config;
 
+import org.apache.seatunnel.core.starter.config.ConfigChecker;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-/**
- * Check the config is valid.
- *
- */
-public interface ConfigChecker {
+public class SeaTunnelApiConfigChecker implements ConfigChecker {
 
-    /**
-     * Check if the config is validated, if check fails, throw exception.
-     *
-     * @param config given config.
-     */
-    void checkConfig(Config config) throws ConfigCheckException;
-
+    @Override
+    public void checkConfig(Config config) throws ConfigCheckException {
+        // TODO implement
+    }
 }

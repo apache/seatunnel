@@ -15,23 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.config;
+package org.apache.seatunnel.core.starter.seatunnel.args;
 
-import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
+import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import com.beust.jcommander.IStringConverter;
+import com.beust.jcommander.ParameterException;
 
-/**
- * Check the config is valid.
- *
- */
-public interface ConfigChecker {
-
-    /**
-     * Check if the config is validated, if check fails, throw exception.
-     *
-     * @param config given config.
-     */
-    void checkConfig(Config config) throws ConfigCheckException;
-
+public class ExecutionModeConverter implements IStringConverter<ExecutionMode> {
+    @Override
+    public ExecutionMode convert(String value) {
+        try {
+            return ExecutionMode.valueOf(value.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new ParameterException("execution-mode: " + value + " is not allowed.");
+        }
+    }
 }

@@ -37,8 +37,8 @@ import lombok.NonNull;
 
 public class ClientJobProxy implements Job {
     private static final ILogger LOGGER = Logger.getLogger(ClientJobProxy.class);
-    private SeaTunnelHazelcastClient seaTunnelHazelcastClient;
-    private JobImmutableInformation jobImmutableInformation;
+    private final SeaTunnelHazelcastClient seaTunnelHazelcastClient;
+    private final JobImmutableInformation jobImmutableInformation;
 
     public ClientJobProxy(@NonNull SeaTunnelHazelcastClient seaTunnelHazelcastClient,
                           @NonNull JobImmutableInformation jobImmutableInformation) {
@@ -63,10 +63,10 @@ public class ClientJobProxy implements Job {
     /**
      * This method will block even the Job turn to a EndState
      *
-     * @return
+     * @return The job final status
      */
     public JobStatus waitForJobComplete() {
-        JobStatus jobStatus = null;
+        JobStatus jobStatus;
         try {
             jobStatus = RetryUtils.retryWithException(() -> {
                 PassiveCompletableFuture<JobStatus> jobFuture = doWaitForJobComplete();
@@ -84,18 +84,15 @@ public class ClientJobProxy implements Job {
             jobImmutableInformation.getJobConfig().getName(),
             jobImmutableInformation.getJobId(),
             jobStatus));
+        this.seaTunnelHazelcastClient.getHazelcastInstance().shutdown();
         return jobStatus;
     }
 
     @Override
     public PassiveCompletableFuture<JobStatus> doWaitForJobComplete() {
-        PassiveCompletableFuture<JobStatus> jobFuture =
-            seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(
-                SeaTunnelWaitForJobCompleteCodec.encodeRequest(jobImmutableInformation.getJobId()),
-                response -> {
-                    return JobStatus.values()[SeaTunnelWaitForJobCompleteCodec.decodeResponse(response)];
-                });
-        return jobFuture;
+        return seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(
+            SeaTunnelWaitForJobCompleteCodec.encodeRequest(jobImmutableInformation.getJobId()),
+            response -> JobStatus.values()[SeaTunnelWaitForJobCompleteCodec.decodeResponse(response)]);
     }
 
     @Override
@@ -110,7 +107,7 @@ public class ClientJobProxy implements Job {
     public JobStatus getJobStatus() {
         int jobStatusOrdinal = seaTunnelHazelcastClient.requestOnMasterAndDecodeResponse(
             SeaTunnelGetJobStatusCodec.encodeRequest(jobImmutableInformation.getJobId()),
-            response -> SeaTunnelGetJobStatusCodec.decodeResponse(response));
+            SeaTunnelGetJobStatusCodec::decodeResponse);
         return JobStatus.values()[jobStatusOrdinal];
     }
 
