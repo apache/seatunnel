@@ -18,6 +18,7 @@
 package org.apache.seatunnel.e2e.spark;
 
 import static org.apache.seatunnel.e2e.ContainerUtil.PROJECT_ROOT_PATH;
+import static org.apache.seatunnel.e2e.ContainerUtil.adaptPathForWin;
 import static org.apache.seatunnel.e2e.ContainerUtil.copyConfigFileToContainer;
 import static org.apache.seatunnel.e2e.ContainerUtil.copyConnectorJarToContainer;
 import static org.apache.seatunnel.e2e.ContainerUtil.copySeaTunnelStarter;
@@ -106,15 +107,14 @@ public abstract class AbstractSparkContainer {
         // copy connectors
         copyConnectorJarToContainer(master, confFile, connectorsRootPath, connectorNamePrefix, connectorType, SEATUNNEL_HOME);
 
-        // Running IT use cases under Windows requires replacing \ with /
-        String conf = confInContainerPath.replaceAll("\\\\", "/");
         final List<String> command = new ArrayList<>();
-        command.add(Paths.get(SEATUNNEL_HOME, "bin", startShellName).toString());
+        String sparkBinPath = Paths.get(SEATUNNEL_HOME, "bin", startShellName).toString();
+        command.add(adaptPathForWin(sparkBinPath));
         command.add("--master");
         command.add("local");
         command.add("--deploy-mode");
         command.add("client");
-        command.add("--config " + conf);
+        command.add("--config " + adaptPathForWin(confInContainerPath));
 
         Container.ExecResult execResult = master.execInContainer("bash", "-c", String.join(" ", command));
         LOG.info(execResult.getStdout());

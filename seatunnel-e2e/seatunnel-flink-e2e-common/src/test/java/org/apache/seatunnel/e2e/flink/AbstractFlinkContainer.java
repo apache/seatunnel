@@ -18,6 +18,7 @@
 package org.apache.seatunnel.e2e.flink;
 
 import static org.apache.seatunnel.e2e.ContainerUtil.PROJECT_ROOT_PATH;
+import static org.apache.seatunnel.e2e.ContainerUtil.adaptPathForWin;
 import static org.apache.seatunnel.e2e.ContainerUtil.copyConfigFileToContainer;
 import static org.apache.seatunnel.e2e.ContainerUtil.copyConnectorJarToContainer;
 import static org.apache.seatunnel.e2e.ContainerUtil.copySeaTunnelStarter;
@@ -141,11 +142,10 @@ public abstract class AbstractFlinkContainer {
     }
 
     protected Container.ExecResult executeCommand(String configPath) throws IOException, InterruptedException {
-        // Running IT use cases under Windows requires replacing \ with /
-        String conf = configPath.replaceAll("\\\\", "/");
         final List<String> command = new ArrayList<>();
-        command.add(Paths.get(SEATUNNEL_HOME, "bin", startShellName).toString());
-        command.add("--config " + conf);
+        String binPath = Paths.get(SEATUNNEL_HOME, "bin", startShellName).toString();
+        command.add(adaptPathForWin(binPath));
+        command.add("--config " + adaptPathForWin(configPath));
 
         Container.ExecResult execResult = jobManager.execInContainer("bash", "-c", String.join(" ", command));
         LOG.info(execResult.getStdout());

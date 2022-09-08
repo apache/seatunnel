@@ -95,6 +95,11 @@ public final class ContainerUtil {
             Paths.get(Paths.get(seatunnelHomeInContainer, "connectors").toString(), PLUGIN_MAPPING_FILE).toString());
     }
 
+    public static String adaptPathForWin(String path) {
+        // Running IT use cases under Windows requires replacing \ with /
+        return path == null ? "" : path.replaceAll("\\\\", "/");
+    }
+
     private static List<File> getConnectorFiles(File currentModule, Set<String> connectorNames, String connectorPrefix) {
         List<File> connectorFiles = new ArrayList<>();
         for (File file : Objects.requireNonNull(currentModule.listFiles())) {
