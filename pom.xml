@@ -261,7 +261,7 @@
                 <artifactId>commons-collections4</artifactId>
                 <version>${commons-collections4.version}</version>
             </dependency>
-            
+
             <dependency>
                 <groupId>com.beust</groupId>
                 <artifactId>jcommander</artifactId>
@@ -349,7 +349,7 @@
                 <artifactId>slf4j-log4j12</artifactId>
                 <version>${slf4j.version}</version>
             </dependency>
-            
+
             <dependency>
                 <groupId>commons-logging</groupId>
                 <artifactId>commons-logging</artifactId>
@@ -586,6 +586,13 @@
                         <createDependencyReducedPom>true</createDependencyReducedPom>
                         <!-- Make sure the transitive dependencies are written to the generated pom under <dependencies> -->
                         <promoteTransitiveDependencies>true</promoteTransitiveDependencies>
+                        <artifactSet>
+                            <excludes>
+                                <exclude>org.slf4j:*</exclude>
+                                <exclude>ch.qos.logback:*</exclude>
+                                <exclude>log4j:*</exclude>
+                            </excludes>
+                        </artifactSet>
                         <filters>
                             <filter>
                                 <artifact>*:*</artifact>
@@ -605,9 +612,9 @@
                                 <goal>shade</goal>
                             </goals>
                             <configuration>
-                                <transformers>
-                                    <transformer
-                                            implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <transformers combine.children="append">
+                                    <!-- The service transformer is needed to merge META-INF/services files -->
+                                    <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                                 </transformers>
                             </configuration>
                         </execution>
@@ -810,17 +817,6 @@
             <plugin>
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>scala-maven-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-            </plugin>
-
-            <!-- make sure that flatten runs after maven-shade-plugin -->
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>flatten-maven-plugin</artifactId>
             </plugin>
 
             <plugin>
