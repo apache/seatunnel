@@ -62,6 +62,13 @@
             <artifactId>ali-phoenix-shaded-thin-client</artifactId>
             <version>${phoenix.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>com.microsoft.sqlserver</groupId>
+            <artifactId>mssql-jdbc</artifactId>
+            <version>${sqlserver.version}</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
 </project>
