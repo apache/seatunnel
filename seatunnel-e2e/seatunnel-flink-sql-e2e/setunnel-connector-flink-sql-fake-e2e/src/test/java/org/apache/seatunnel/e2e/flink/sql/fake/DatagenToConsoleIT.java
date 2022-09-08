@@ -29,9 +29,9 @@ import java.net.URISyntaxException;
 public class DatagenToConsoleIT extends FlinkContainer {
 
     @Test
-    public void testDatagenToConsole() throws IOException, URISyntaxException, InterruptedException {
+    public void testDatagenToConsole() throws IOException, InterruptedException {
         final String configFile = "/fake/flink.sql.conf";
-        Container.ExecResult execResult = executeSeaTunnelFlinkSqlJob(configFile);
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob(configFile);
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

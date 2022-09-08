@@ -141,12 +141,14 @@ public abstract class AbstractFlinkContainer {
 
     public Container.ExecResult executeSeaTunnelFlinkJob(String confFile) throws IOException, InterruptedException {
         String confInContainerPath = copyConfigFileToContainer(jobManager, confFile);
-
         // copy connectors
         copyConnectorJarToContainer(jobManager, confFile, connectorsRootPath, connectorNamePrefix, connectorType, SEATUNNEL_HOME);
+        return executeCommand(confInContainerPath);
+    }
 
+    protected Container.ExecResult executeCommand(String configPath) throws IOException, InterruptedException {
         // Running IT use cases under Windows requires replacing \ with /
-        String conf = confInContainerPath.replaceAll("\\\\", "/");
+        String conf = configPath.replaceAll("\\\\", "/");
         final List<String> command = new ArrayList<>();
         command.add(Paths.get(SEATUNNEL_HOME, "bin" + File.separator + startShellName).toString());
         command.add("--config " + conf);
@@ -154,8 +156,6 @@ public abstract class AbstractFlinkContainer {
         Container.ExecResult execResult = jobManager.execInContainer("bash", "-c", String.join(" ", command));
         LOG.info(execResult.getStdout());
         LOG.error(execResult.getStderr());
-        // wait job start
-        Thread.sleep(WAIT_FLINK_JOB_SUBMIT);
         return execResult;
     }
 
