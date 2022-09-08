@@ -39,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class PipelineBaseScheduler implements JobScheduler {
@@ -58,13 +57,12 @@ public class PipelineBaseScheduler implements JobScheduler {
     }
 
     @Override
-    public Map<Integer, Map<PhysicalVertex, SlotProfile>> startScheduling() {
-        Map<Integer, Map<PhysicalVertex, SlotProfile>> ownedSlotProfiles = new ConcurrentHashMap<>();
+    public void startScheduling() {
         if (physicalPlan.turnToRunning()) {
             List<CompletableFuture<Void>> collect =
                 physicalPlan.getPipelineList()
                     .stream()
-                    .map(pipeline -> schedulerPipeline(pipeline, ownedSlotProfiles))
+                    .map(pipeline -> schedulerPipeline(pipeline))
                     .filter(Objects::nonNull).collect(Collectors.toList());
             try {
                 CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
@@ -77,12 +75,10 @@ public class PipelineBaseScheduler implements JobScheduler {
             throw new JobException(String.format("%s turn to a unexpected state: %s", physicalPlan.getJobFullName(),
                 physicalPlan.getJobStatus()));
         }
-        return ownedSlotProfiles;
     }
 
     // This method cannot throw an exception
-    private CompletableFuture<Void> schedulerPipeline(SubPlan pipeline,
-                                                      Map<Integer, Map<PhysicalVertex, SlotProfile>> ownedSlotProfiles) {
+    private CompletableFuture<Void> schedulerPipeline(SubPlan pipeline) {
         try {
             if (!pipeline.updatePipelineState(PipelineState.CREATED, PipelineState.SCHEDULED)) {
                 handlePipelineStateTurnError(pipeline, PipelineState.SCHEDULED);
@@ -90,8 +86,10 @@ public class PipelineBaseScheduler implements JobScheduler {
             }
 
             Map<PhysicalVertex, SlotProfile> slotProfiles =
-                getOrApplyResourceForPipeline(pipeline, ownedSlotProfiles);
+                getOrApplyResourceForPipeline(pipeline, jobMaster.getOwnedSlotProfiles().get(pipeline.getPipelineId()));
 
+            // To ensure release pipeline resource after new master node active, we need store slotProfiles first and then deploy tasks.
+            jobMaster.setOwnedSlotProfiles(pipeline.getPipelineId(), slotProfiles);
             // deploy pipeline
             return CompletableFuture.runAsync(() -> {
                 deployPipeline(pipeline, slotProfiles);
@@ -102,25 +100,21 @@ public class PipelineBaseScheduler implements JobScheduler {
         }
     }
 
-    private Map<PhysicalVertex, SlotProfile> getOrApplyResourceForPipeline(SubPlan pipeline,
-                                                                           Map<Integer, Map<PhysicalVertex, SlotProfile>> ownedSlotProfiles) {
-        Map<PhysicalVertex, SlotProfile> slotProfiles = ownedSlotProfiles.get(pipeline.getPipelineId());
-        if (slotProfiles == null || slotProfiles.isEmpty()) {
-            slotProfiles = applyResourceForPipeline(pipeline);
-            ownedSlotProfiles.put(pipeline.getPipelineId(), slotProfiles);
-            return slotProfiles;
+    private Map<PhysicalVertex, SlotProfile> getOrApplyResourceForPipeline(@NonNull SubPlan pipeline,
+                                                                           Map<PhysicalVertex, SlotProfile> ownedSlotProfiles) {
+        if (ownedSlotProfiles == null || ownedSlotProfiles.isEmpty()) {
+            return applyResourceForPipeline(pipeline);
         }
 
         // TODO ensure the slots still exist and is owned by this pipeline
-        for (Map.Entry<PhysicalVertex, SlotProfile> entry : slotProfiles.entrySet()) {
+        for (Map.Entry<PhysicalVertex, SlotProfile> entry : ownedSlotProfiles.entrySet()) {
             if (entry.getValue() == null) {
-                slotProfiles.put(entry.getKey(), applyResourceForTask(entry.getKey()).join());
+                ownedSlotProfiles.put(entry.getKey(), applyResourceForTask(entry.getKey()).join());
             } else {
                 entry.getKey().updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED);
             }
         }
-        ownedSlotProfiles.put(pipeline.getPipelineId(), slotProfiles);
-        return slotProfiles;
+        return ownedSlotProfiles;
     }
 
     private Map<PhysicalVertex, SlotProfile> applyResourceForPipeline(@NonNull SubPlan subPlan) {
@@ -225,7 +219,7 @@ public class PipelineBaseScheduler implements JobScheduler {
 
     @Override
     public CompletableFuture<Void> reSchedulerPipeline(@NonNull SubPlan subPlan) {
-        return schedulerPipeline(subPlan, jobMaster.getOwnedSlotProfiles());
+        return schedulerPipeline(subPlan);
     }
 
     private void handlePipelineStateTurnError(SubPlan pipeline, PipelineState targetState) {

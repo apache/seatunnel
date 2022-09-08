@@ -261,7 +261,9 @@ public class PhysicalPlan {
             subPlan.reset();
             addPipelineEndCallback(subPlan);
             pipelineSchedulerFutureMap.put(subPlan.getPipelineId(), jobMaster.reSchedulerPipeline(subPlan));
-            pipelineSchedulerFutureMap.get(subPlan.getPipelineId()).get();
+            if (pipelineSchedulerFutureMap.get(subPlan.getPipelineId()) != null) {
+                pipelineSchedulerFutureMap.get(subPlan.getPipelineId()).join();
+            }
         } catch (Throwable e) {
             LOGGER.severe(String.format("Restore pipeline %s error with exception: %s", subPlan.getPipelineFullName(),
                 ExceptionUtils.getMessage(e)));

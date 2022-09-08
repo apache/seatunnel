@@ -38,6 +38,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.scheduler.JobScheduler;
 import org.apache.seatunnel.engine.server.scheduler.PipelineBaseScheduler;
 
+import com.google.common.collect.Lists;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
@@ -143,9 +144,7 @@ public class JobMaster implements Runnable {
                 jobMasterCompleteFuture.complete(physicalPlan.getJobStatus());
             });
             jobScheduler = new PipelineBaseScheduler(physicalPlan, this);
-            scheduleFuture = CompletableFuture.runAsync(() -> {
-                ownedSlotProfiles.putAll(jobScheduler.startScheduling());
-            }, executorService);
+            scheduleFuture = CompletableFuture.runAsync(() -> jobScheduler.startScheduling(), executorService);
             LOGGER.info(String.format("Job %s waiting for scheduler finished", physicalPlan.getJobFullName()));
             scheduleFuture.join();
             LOGGER.info(String.format("%s scheduler finished", physicalPlan.getJobFullName()));
@@ -173,8 +172,9 @@ public class JobMaster implements Runnable {
         return jobScheduler.reSchedulerPipeline(subPlan);
     }
 
-    public void releasePipelineResource(int pipelineIndex) {
-        // TODO release pipeline resource
+    public void releasePipelineResource(int pipelineId) {
+        resourceManager.releaseResources(jobImmutableInformation.getJobId(),
+            Lists.newArrayList(ownedSlotProfiles.get(pipelineId).values()));
     }
 
     public void cleanJob() {
@@ -248,6 +248,11 @@ public class JobMaster implements Runnable {
 
     public Map<Integer, Map<PhysicalVertex, SlotProfile>> getOwnedSlotProfiles() {
         return ownedSlotProfiles;
+    }
+
+    public void setOwnedSlotProfiles(@NonNull Integer pipelineId,
+        @NonNull Map<PhysicalVertex, SlotProfile> pipelineOwnedSlotProfiles) {
+        ownedSlotProfiles.put(pipelineId, pipelineOwnedSlotProfiles);
     }
 
     public CompletableFuture<Void> getScheduleFuture() {
