@@ -31,7 +31,22 @@ import java.nio.file.Paths;
 public class SeaTunnelDingTalkApiExample {
 
     public static void main(String[] args) throws FileNotFoundException, URISyntaxException, CommandException {
+        testSourceDingTalk();
+    }
+
+    public static void testSinkDingTalk() throws FileNotFoundException, URISyntaxException, CommandException {
         String configFile = getTestConfigFile("/examples/fake_to_dingtalk.conf");
+        FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
+        flinkCommandArgs.setConfigFile(configFile);
+        flinkCommandArgs.setCheckConfig(false);
+        flinkCommandArgs.setVariables(null);
+        Command<FlinkCommandArgs> flinkCommand =
+            new FlinkCommandBuilder().buildCommand(flinkCommandArgs);
+        Seatunnel.run(flinkCommand);
+    }
+
+    public static void testSourceDingTalk() throws FileNotFoundException, URISyntaxException, CommandException {
+        String configFile = getTestConfigFile("/examples/fake_source_to_dingtalk.conf");
         FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
         flinkCommandArgs.setConfigFile(configFile);
         flinkCommandArgs.setCheckConfig(false);
