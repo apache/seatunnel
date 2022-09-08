@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.e2e.engine;
 
-import static org.awaitility.Awaitility.await;
-
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
@@ -35,6 +33,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 import com.google.common.collect.Lists;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
+import org.awaitility.Awaitility;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -88,7 +87,7 @@ public class JobExecutionIT {
                 return clientJobProxy.waitForJobComplete();
             });
 
-            await().atMost(20000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(20000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assert.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
 
@@ -121,7 +120,7 @@ public class JobExecutionIT {
             Thread.sleep(1000);
             clientJobProxy.cancelJob();
 
-            await().atMost(20000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(20000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assert.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
 
