@@ -80,7 +80,6 @@ public class JdbcDmdbIT extends FlinkContainer {
         initializeJdbcTable();
     }
 
-
     private void initializeJdbcConnection() throws SQLException {
         jdbcConnection = DriverManager.getConnection(URL, USERNAME, PASSWORD);
     }
