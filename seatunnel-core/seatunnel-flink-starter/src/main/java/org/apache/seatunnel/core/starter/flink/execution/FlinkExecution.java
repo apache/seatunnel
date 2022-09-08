@@ -59,17 +59,7 @@ public class FlinkExecution implements TaskExecution {
         this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(flinkEnvironment, config.getConfigList("source"));
         this.transformPluginExecuteProcessor = new TransformExecuteProcessor(flinkEnvironment, config.getConfigList("transform"));
         this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(flinkEnvironment, config.getConfigList("sink"));
-        List<URL> pluginsJarDependencies = Common.getPluginsJarDependencies().stream()
-            .map(Path::toUri)
-            .map(uri -> {
-                try {
-                    return uri.toURL();
-                } catch (MalformedURLException e) {
-                    throw new RuntimeException("the uri of jar illegal:" + uri, e);
-                }
-            })
-            .collect(Collectors.toList());
-        flinkEnvironment.registerPlugin(pluginsJarDependencies);
+        registerPlugin();
     }
 
     @Override
@@ -85,5 +75,19 @@ public class FlinkExecution implements TaskExecution {
         } catch (Exception e) {
             throw new TaskExecuteException("Execute Flink job error", e);
         }
+    }
+
+    private void registerPlugin(){
+        List<URL> pluginsJarDependencies = Common.getPluginsJarDependencies().stream()
+            .map(Path::toUri)
+            .map(uri -> {
+                try {
+                    return uri.toURL();
+                } catch (MalformedURLException e) {
+                    throw new RuntimeException("the uri of jar illegal:" + uri, e);
+                }
+            })
+            .collect(Collectors.toList());
+        flinkEnvironment.registerPlugin(pluginsJarDependencies);
     }
 }
