@@ -149,6 +149,7 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-scheduler-api</artifactId>
+            <version>${project.version}</version>
         </dependency>
 
         <dependency>
