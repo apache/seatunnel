@@ -24,7 +24,6 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
 
 public class DatagenToConsoleIT extends FlinkContainer {
 
