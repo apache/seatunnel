@@ -77,8 +77,6 @@ public abstract class AbstractFlinkContainer {
     protected GenericContainer<?> jobManager;
     protected GenericContainer<?> taskManager;
 
-    protected static final int WAIT_FLINK_JOB_SUBMIT = 5000;
-
     public AbstractFlinkContainer(String dockerImage,
                                   String startShellName,
                                   String startModuleNameInSeaTunnelCore,
