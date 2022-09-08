@@ -116,8 +116,7 @@ public class PhysicalPlan {
 
     private void addPipelineEndCallback(SubPlan subPlan) {
         PassiveCompletableFuture<PipelineState> future = subPlan.initStateFuture();
-        future.whenComplete((pipelineState, throwable) -> {
-            // We need not handle t, Because we will not return t from Pipeline
+        future.thenAcceptAsync(pipelineState -> {
             try {
                 if (PipelineState.CANCELED.equals(pipelineState)) {
                     if (needRestore) {
