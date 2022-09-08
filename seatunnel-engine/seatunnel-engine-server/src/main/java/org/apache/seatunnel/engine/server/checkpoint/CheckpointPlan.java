@@ -50,11 +50,9 @@ public class CheckpointPlan {
     private final Set<TaskLocation> startingSubtasks;
 
     /**
-     * Restored task state.
-     * <br> key: job vertex id;
-     * <br> value: job vertex state;
+     * Restored completed checkpoint.
      */
-    private final Map<Long, ActionState> restoredTaskState;
+    private final CompletedCheckpoint restoredCheckpoint;
 
     /**
      * All actions in this pipeline.
@@ -66,7 +64,7 @@ public class CheckpointPlan {
     public static final class Builder {
         private final Set<TaskLocation> pipelineSubtasks = new HashSet<>();
         private final Set<TaskLocation> startingSubtasks = new HashSet<>();
-        private final Map<Long, ActionState> restoredTaskState = new HashMap<>();
+        private CompletedCheckpoint restoredCheckpoint;
         private final Map<Long, Integer> pipelineActions = new HashMap<>();
 
         private Builder() {
@@ -79,11 +77,6 @@ public class CheckpointPlan {
 
         public Builder startingSubtasks(Set<TaskLocation> startingVertices) {
             this.startingSubtasks.addAll(startingVertices);
-            return this;
-        }
-
-        public Builder restoredTaskState(Map<Long, ActionState> restoredTaskState) {
-            this.restoredTaskState.putAll(restoredTaskState);
             return this;
         }
 

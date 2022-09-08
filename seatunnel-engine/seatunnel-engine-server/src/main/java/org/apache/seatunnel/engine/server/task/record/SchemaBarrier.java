@@ -15,14 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.utils;
+package org.apache.seatunnel.engine.server.task.record;
 
-@FunctionalInterface
-public interface ConsumerWithException<T>  {
-    /**
-     * Performs this operation on the given argument.
-     *
-     * @param t the input argument
-     */
-    void accept(T t) throws Exception;
+/**
+ * Change the schema of the task and flow.
+ */
+public class SchemaBarrier implements Barrier {
+    @Override
+    public long getId() {
+        return -1;
+    }
+
+    @Override
+    public boolean snapshot() {
+        return false;
+    }
+
+    @Override
+    public boolean prepareClose() {
+        return false;
+    }
 }

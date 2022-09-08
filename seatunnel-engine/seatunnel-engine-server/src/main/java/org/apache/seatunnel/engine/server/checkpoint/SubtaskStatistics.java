@@ -17,8 +17,13 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
 import java.io.Serializable;
 
+@Getter
+@AllArgsConstructor
 public class SubtaskStatistics implements Serializable {
 
     private static final long serialVersionUID = 8928594531621862214L;
@@ -35,23 +40,5 @@ public class SubtaskStatistics implements Serializable {
      */
     private final long stateSize;
 
-    public SubtaskStatistics(int subtaskIndex,
-                             long ackTimestamp,
-                             long stateSize) {
-        this.subtaskIndex = subtaskIndex;
-        this.ackTimestamp = ackTimestamp;
-        this.stateSize = stateSize;
-    }
-
-    public int getSubtaskIndex() {
-        return subtaskIndex;
-    }
-
-    public long getAckTimestamp() {
-        return ackTimestamp;
-    }
-
-    public long getStateSize() {
-        return stateSize;
-    }
+    private final SubtaskStatus subtaskStatus;
 }

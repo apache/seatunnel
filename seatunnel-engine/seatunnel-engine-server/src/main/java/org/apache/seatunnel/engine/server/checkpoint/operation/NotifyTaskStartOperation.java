@@ -17,35 +17,21 @@
 
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
-import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
-
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.AbstractTask;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 
-import com.hazelcast.nio.ObjectDataInput;
-import com.hazelcast.nio.ObjectDataOutput;
-import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.io.IOException;
-
-@Getter
 @NoArgsConstructor
-public class CheckpointFinishedOperation extends TaskOperation {
+public class NotifyTaskStartOperation extends TaskOperation {
 
-    private long checkpointId;
-
-    private boolean successful;
-
-    public CheckpointFinishedOperation(TaskLocation taskLocation, long checkpointId, boolean successful) {
+    public NotifyTaskStartOperation(TaskLocation taskLocation) {
         super(taskLocation);
-        this.checkpointId = checkpointId;
-        this.successful = successful;
     }
 
     @Override
@@ -55,38 +41,16 @@ public class CheckpointFinishedOperation extends TaskOperation {
 
     @Override
     public int getClassId() {
-        return CheckpointDataSerializerHook.CHECKPOINT_FINISHED_OPERATOR;
-    }
-
-    @Override
-    protected void writeInternal(ObjectDataOutput out) throws IOException {
-        super.writeInternal(out);
-        out.writeLong(checkpointId);
-        out.writeBoolean(successful);
-    }
-
-    @Override
-    protected void readInternal(ObjectDataInput in) throws IOException {
-        super.readInternal(in);
-        checkpointId = in.readLong();
-        successful = in.readBoolean();
+        return CheckpointDataSerializerHook.NOTIFY_TASK_START_OPERATOR;
     }
 
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(() -> {
-            Task task = server.getTaskExecutionService().getExecutionContext(taskLocation.getTaskGroupLocation())
+            AbstractTask task = server.getTaskExecutionService().getExecutionContext(taskLocation.getTaskGroupLocation())
                 .getTaskGroup().getTask(taskLocation.getTaskID());
-            try {
-                if (successful) {
-                    task.notifyCheckpointComplete(checkpointId);
-                } else {
-                    task.notifyCheckpointAborted(checkpointId);
-                }
-            } catch (Exception e) {
-                sneakyThrow(e);
-            }
+            task.startCall();
             return null;
         }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
             exception -> exception instanceof NullPointerException, Constant.OPERATION_RETRY_SLEEP));

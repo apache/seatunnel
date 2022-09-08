@@ -61,7 +61,6 @@ public class DefaultSlotService implements SlotService {
 
     private ConcurrentMap<Integer, SlotProfile> unassignedSlots;
     private ScheduledExecutorService scheduledExecutorService;
-    private final String serviceID;
     private final boolean dynamicSlot;
     private final int slotNumber;
     private volatile boolean initStatus;
@@ -74,7 +73,6 @@ public class DefaultSlotService implements SlotService {
         this.dynamicSlot = dynamicSlot;
         this.taskExecutionService = taskExecutionService;
         this.slotNumber = slotNumber;
-        this.serviceID = nodeEngine.getThisAddress().toString();
         this.idGenerator = new IdGenerator();
     }
 
@@ -200,7 +198,7 @@ public class DefaultSlotService implements SlotService {
     }
 
     public WorkerProfile toWorkerProfile() {
-        WorkerProfile workerProfile = new WorkerProfile(serviceID, nodeEngine.getThisAddress());
+        WorkerProfile workerProfile = new WorkerProfile(nodeEngine.getThisAddress());
         workerProfile.setProfile(getNodeResource());
         workerProfile.setAssignedSlots(assignedSlots.values().toArray(new SlotProfile[0]));
         workerProfile.setUnassignedSlots(unassignedSlots.values().toArray(new SlotProfile[0]));

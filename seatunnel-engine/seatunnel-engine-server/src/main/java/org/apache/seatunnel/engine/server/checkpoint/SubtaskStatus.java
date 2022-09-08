@@ -15,17 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.seatunnel.config;
+package org.apache.seatunnel.engine.server.checkpoint;
 
-import org.apache.seatunnel.core.starter.config.ConfigChecker;
-import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-public class SeaTunnelApiConfigChecker implements ConfigChecker {
-
-    @Override
-    public void checkConfig(Config config) throws ConfigCheckException {
-        // TODO implement
-    }
+public enum SubtaskStatus {
+    RUNNING,
+    SAVEPOINT_PREPARE_CLOSE,
+    AUTO_PREPARE_CLOSE;
 }

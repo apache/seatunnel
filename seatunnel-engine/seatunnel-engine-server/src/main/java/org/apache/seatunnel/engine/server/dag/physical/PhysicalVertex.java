@@ -85,7 +85,7 @@ public class PhysicalVertex {
      * When PhysicalVertex status turn to end, complete this future. And then the waitForCompleteByPhysicalVertex
      * in {@link SubPlan} whenComplete method will be called.
      */
-    private final CompletableFuture<TaskExecutionState> taskFuture;
+    private CompletableFuture<TaskExecutionState> taskFuture;
 
     /**
      * Timestamps (in milliseconds as returned by {@code System.currentTimeMillis()} when the
@@ -144,6 +144,7 @@ public class PhysicalVertex {
     }
 
     public PassiveCompletableFuture<TaskExecutionState> initStateFuture() {
+        this.taskFuture = new CompletableFuture<>();
         return new PassiveCompletableFuture<>(this.taskFuture);
     }
 
@@ -229,18 +230,17 @@ public class PhysicalVertex {
             this.pluginJarsUrls);
     }
 
-    private void turnToEndState(@NonNull ExecutionState endState) {
+    private boolean turnToEndState(@NonNull ExecutionState endState) {
         // consistency check
         if (executionState.get().isEndState()) {
-            String message = "Task is trying to leave terminal state " + executionState.get();
-            LOGGER.severe(message);
-            throw new IllegalStateException(message);
+            String message = String.format("Task %s is already in terminal state %s", taskFullName, executionState.get());
+            LOGGER.warning(message);
+            return false;
         }
-
         if (!endState.isEndState()) {
-            String message = "Need a end state, not " + endState;
-            LOGGER.severe(message);
-            throw new IllegalStateException(message);
+            String message = String.format("Turn task %s state to end state need gave a end state, not %s", taskFullName, endState);
+            LOGGER.warning(message);
+            return false;
         }
 
         LOGGER.info(String.format("%s turn to end state %s.",
@@ -248,6 +248,7 @@ public class PhysicalVertex {
             endState));
         executionState.set(endState);
         stateTimestamps[endState.ordinal()] = System.currentTimeMillis();
+        return true;
     }
 
     public boolean updateTaskState(@NonNull ExecutionState current, @NonNull ExecutionState targetState) {
@@ -329,6 +330,22 @@ public class PhysicalVertex {
         }
     }
 
+    private void resetExecutionState() {
+        if (!executionState.get().isEndState()) {
+            String message =
+                String.format("%s reset state failed, only end state can be reset, current is %s", getTaskFullName(),
+                    executionState.get());
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+        executionState.set(ExecutionState.CREATED);
+        stateTimestamps[ExecutionState.CREATED.ordinal()] = System.currentTimeMillis();
+    }
+
+    public void reset() {
+        resetExecutionState();
+    }
+
     public AtomicReference<ExecutionState> getExecutionState() {
         return executionState;
     }
@@ -338,7 +355,9 @@ public class PhysicalVertex {
     }
 
     public void updateTaskExecutionState(TaskExecutionState taskExecutionState) {
-        turnToEndState(taskExecutionState.getExecutionState());
+        if (!turnToEndState(taskExecutionState.getExecutionState())) {
+            return;
+        }
         if (taskExecutionState.getThrowable() != null) {
             LOGGER.severe(String.format("%s end with state %s and Exception: %s",
                 this.taskFullName,

@@ -15,13 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.record;
+package org.apache.seatunnel.engine.server.checkpoint;
 
-/**
- * This sign used for flow closed, send this sign in the
- * {@link org.apache.seatunnel.api.table.type.Record} to next flow
- */
-public class ClosedSign {
-    public ClosedSign() {
-    }
+import java.util.List;
+
+public interface Stateful {
+    void restoreState(List<ActionSubtaskState> actionStateList) throws Exception;
 }

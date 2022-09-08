@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.cluster.Member;
 import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
@@ -38,27 +39,36 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 
 public abstract class AbstractResourceManager implements ResourceManager {
 
     private static final long DEFAULT_WORKER_CHECK_INTERVAL = 500;
     private static final ILogger LOGGER = Logger.getLogger(AbstractResourceManager.class);
 
-    protected final ConcurrentMap<String, WorkerProfile> registerWorker;
+    protected final ConcurrentMap<Address, WorkerProfile> registerWorker;
 
     private final NodeEngine nodeEngine;
 
     private final ExecutionMode mode = ExecutionMode.LOCAL;
 
     public AbstractResourceManager(NodeEngine nodeEngine) {
-        this.registerWorker = new ConcurrentHashMap<>();
+        this.registerWorker = nodeEngine.getHazelcastInstance().getMap("ResourceManager_RegisterWorker");
         this.nodeEngine = nodeEngine;
     }
 
     @Override
     public void init() {
+        checkRegisterWorkerStillAlive();
+    }
+
+    private void checkRegisterWorkerStillAlive() {
+        if (!registerWorker.isEmpty()) {
+            List<Address> aliveWorker = nodeEngine.getClusterService().getMembers().stream().map(Member::getAddress).collect(Collectors.toList());
+            List<Address> dead = registerWorker.keySet().stream().filter(r -> !aliveWorker.contains(r)).collect(Collectors.toList());
+            dead.forEach(registerWorker::remove);
+        }
     }
 
     @Override
@@ -90,10 +100,9 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Override
     public void memberRemoved(MembershipServiceEvent event) {
-        String nodeID = event.getMember().getAddress().toString();
         LOGGER.severe("Node heartbeat timeout, disconnected for resource manager. " +
-            "NodeID: " + nodeID);
-        registerWorker.remove(nodeID);
+            "Node Address: " + event.getMember().getAddress());
+        registerWorker.remove(event.getMember().getAddress());
     }
 
     @Override
@@ -151,12 +160,12 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Override
     public void heartbeat(WorkerProfile workerProfile) {
-        if (!registerWorker.containsKey(workerProfile.getWorkerID())) {
+        if (!registerWorker.containsKey(workerProfile.getAddress())) {
             LOGGER.info("received new worker register: " + workerProfile.getAddress());
             sendToMember(new ResetResourceOperation(), workerProfile.getAddress()).join();
         } else {
             LOGGER.fine("received worker heartbeat from: " + workerProfile.getAddress());
         }
-        registerWorker.put(workerProfile.getWorkerID(), workerProfile);
+        registerWorker.put(workerProfile.getAddress(), workerProfile);
     }
 }

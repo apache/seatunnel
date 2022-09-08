@@ -87,7 +87,7 @@ public class SeaTunnelClientTest {
                 return clientJobProxy.waitForJobComplete();
             });
 
-            await().atMost(20000, TimeUnit.MILLISECONDS)
+            await().atMost(30000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assert.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
 

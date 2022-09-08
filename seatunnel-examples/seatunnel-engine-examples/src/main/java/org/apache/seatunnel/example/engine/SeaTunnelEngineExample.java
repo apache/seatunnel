@@ -38,7 +38,7 @@ public class SeaTunnelEngineExample {
         clientCommandArgs.setCheckConfig(false);
         clientCommandArgs.setName("fake_to_console");
         // Change Execution Mode to CLUSTER to use client mode, before do this, you should start SeaTunnelEngineServerExample
-        clientCommandArgs.setExecutionMode(ExecutionMode.CLUSTER);
+        clientCommandArgs.setExecutionMode(ExecutionMode.LOCAL);
         Command<ClientCommandArgs> command =
             new ClientCommandBuilder().buildCommand(clientCommandArgs);
         Seatunnel.run(command);

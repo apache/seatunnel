@@ -15,20 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.seatunnel.args;
+package org.apache.seatunnel.engine.common.utils;
 
-import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
-
-import com.beust.jcommander.IStringConverter;
-import com.beust.jcommander.ParameterException;
-
-public class ExecutionModeConverter implements IStringConverter<ExecutionMode> {
-    @Override
-    public ExecutionMode convert(String value) {
-        try {
-            return ExecutionMode.valueOf(value.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new ParameterException("execution-mode: " + value + " is not allowed.");
-        }
-    }
+@FunctionalInterface
+public interface ConsumerWithException<T>  {
+    /**
+     * Performs this operation on the given argument.
+     *
+     * @param t the input argument
+     */
+    void accept(T t) throws Exception;
 }
