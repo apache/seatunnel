@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.RunningJobInfo;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
+import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
@@ -56,6 +57,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class SeaTunnelServer implements ManagedService, MembershipAwareService, LiveOperationsTracker {
     private static final ILogger LOGGER = Logger.getLogger(SeaTunnelServer.class);
@@ -149,6 +153,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         return runningJobMasterMap.get(jobId);
     }
 
+    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void init(NodeEngine engine, Properties hzProperties) {
         this.nodeEngine = (NodeEngineImpl) engine;
@@ -163,6 +168,9 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         runningJobStateIMap = nodeEngine.getHazelcastInstance().getMap("runningJobState");
         runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap("stateTimestamps");
         ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
+
+        ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
+        service.scheduleAtFixedRate(() -> printExecutionInfo(), 0, 60, TimeUnit.SECONDS);
     }
 
     @Override
@@ -356,5 +364,57 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
             throw new JobException(String.format("Job %s not running", taskGroupLocation.getJobId()));
         }
         runningJobMaster.updateTaskExecutionState(taskExecutionState);
+    }
+
+    /**
+     * restore the job state after new Master Node active
+     */
+    private void restoreJobState(JobMaster jobMaster) {
+        long jobId = jobMaster.getJobImmutableInformation().getJobId();
+        if (jobMaster.getJobStatus().ordinal() < JobStatus.RUNNING.ordinal()) {
+            // release all resources
+            jobMaster.getPhysicalPlan().getPipelineList()
+                .forEach(pipeline -> jobMaster.releasePipelineResource(pipeline));
+            //re submit job
+            submitJob(jobId, runningJobInfoIMap.get(jobId).getJobImmutableInformation()).join();
+        } else if (JobStatus.CANCELLING.equals(jobMaster.getJobStatus())) {
+            cancelJob(jobId);
+        } else if (jobMaster.getJobStatus().isEndState()) {
+            removeJobIMap(jobMaster);
+        } else if (JobStatus.RUNNING.equals(jobMaster.getJobStatus())) {
+            jobMaster.getPhysicalPlan().getPipelineList().forEach(SubPlan::restorePipelineState);
+        } else {
+            throw new RuntimeException(
+                String.format("Unknown Job Status %s when restore job state", jobMaster.getJobStatus()));
+        }
+    }
+
+    private void printExecutionInfo() {
+        ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
+        int activeCount = threadPoolExecutor.getActiveCount();
+        int corePoolSize = threadPoolExecutor.getCorePoolSize();
+        int maximumPoolSize = threadPoolExecutor.getMaximumPoolSize();
+        int poolSize = threadPoolExecutor.getPoolSize();
+        long completedTaskCount = threadPoolExecutor.getCompletedTaskCount();
+        long taskCount = threadPoolExecutor.getTaskCount();
+        StringBuffer sbf = new StringBuffer();
+        sbf.append("activeCount=")
+            .append(activeCount)
+            .append("\n")
+            .append("corePoolSize=")
+            .append(corePoolSize)
+            .append("\n")
+            .append("maximumPoolSize=")
+            .append(maximumPoolSize)
+            .append("\n")
+            .append("poolSize=")
+            .append(poolSize)
+            .append("\n")
+            .append("completedTaskCount=")
+            .append(completedTaskCount)
+            .append("\n")
+            .append("taskCount=")
+            .append(taskCount);
+        logger.info(sbf.toString());
     }
 }

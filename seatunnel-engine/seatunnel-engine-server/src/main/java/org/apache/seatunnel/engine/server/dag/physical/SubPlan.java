@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineState;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
@@ -76,6 +77,12 @@ public class SubPlan {
 
     private final ExecutorService executorService;
 
+    private JobMaster jobMaster;
+
+    private PassiveCompletableFuture<Void> reSchedulerPipelineFuture;
+
+    private Integer pipelineRestoreNum;
+
     public SubPlan(int pipelineId,
                    int totalPipelineNum,
                    long initializationTimestamp,
@@ -91,6 +98,7 @@ public class SubPlan {
         this.totalPipelineNum = totalPipelineNum;
         this.physicalVertexList = physicalVertexList;
         this.coordinatorVertexList = coordinatorVertexList;
+        pipelineRestoreNum = 0;
 
         Long[] stateTimestamps = new Long[PipelineState.values().length];
         if (runningJobStateTimestampsIMap.get(pipelineLocation) == null) {
@@ -235,13 +243,14 @@ public class SubPlan {
                 String.format("%s is in end state %s, can not be cancel", pipelineFullName, getPipelineState()));
             return;
         }
-        // If an active Master Node done and another Master Node active, we can not know whether cancelRunningPipeline
-        // complete. So we need cancelRunningPipeline again.
+        // If an active Master Node done and another Master Node active, we can not know whether canceled pipeline
+        // complete. So we need cancel running pipeline again.
         if (PipelineState.CANCELING.equals((PipelineState) runningJobStateIMap.get(pipelineLocation))) {
+            LOGGER.info(String.format("%s already in state CANCELING, skip cancel", pipelineFullName));
+        } else {
+            updatePipelineState(getPipelineState(), PipelineState.CANCELING);
             cancelPipelineTasks();
         }
-        updatePipelineState(getPipelineState(), PipelineState.CANCELING);
-        cancelPipelineTasks();
     }
 
     private void cancelPipelineTasks() {
@@ -279,7 +288,7 @@ public class SubPlan {
     /**
      * Before restore a pipeline, the pipeline must do reset
      */
-    public void reset() {
+    private void reset() {
         resetPipelineState();
         finishedTaskNum.set(0);
         canceledTaskNum.set(0);
@@ -303,17 +312,56 @@ public class SubPlan {
     }
 
     private void resetPipelineState() {
-        synchronized (this) {
-            PipelineState pipelineState = getPipelineState();
-            if (!pipelineState.isEndState()) {
-                String message = String.format("%s reset state failed, only end state can be reset, current is %s",
-                    getPipelineFullName(), pipelineState);
-                LOGGER.severe(message);
-                throw new IllegalStateException(message);
-            }
+        PipelineState pipelineState = getPipelineState();
+        if (!pipelineState.isEndState()) {
+            String message = String.format("%s reset state failed, only end state can be reset, current is %s",
+                getPipelineFullName(), pipelineState);
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
 
-            updateStateTimestamps(PipelineState.CREATED);
-            runningJobStateIMap.set(pipelineLocation, PipelineState.CREATED);
+        updateStateTimestamps(PipelineState.CREATED);
+        runningJobStateIMap.set(pipelineLocation, PipelineState.CREATED);
+    }
+
+    /**
+     * restore the pipeline when pipeline failed or canceled by error.
+     */
+    public void restorePipeline() {
+        synchronized (pipelineRestoreNum) {
+            try {
+                pipelineRestoreNum++;
+                LOGGER.info(String.format("Restore pipeline %s", pipelineFullName));
+                // We must ensure the scheduler complete and then can handle pipeline state change.
+                jobMaster.getScheduleFuture().join();
+
+                if (reSchedulerPipelineFuture != null) {
+                    reSchedulerPipelineFuture.join();
+                }
+                reset();
+                jobMaster.getPhysicalPlan().addPipelineEndCallback(this);
+                reSchedulerPipelineFuture = jobMaster.reSchedulerPipeline(this);
+                if (reSchedulerPipelineFuture != null) {
+                    reSchedulerPipelineFuture.join();
+                }
+            } catch (Throwable e) {
+                LOGGER.severe(
+                    String.format("Restore pipeline %s error with exception: %s", pipelineFullName,
+                        ExceptionUtils.getMessage(e)));
+                cancelPipeline();
+            }
+        }
+    }
+
+    /**
+     * restore the pipeline state after new Master Node active
+     */
+    public void restorePipelineState() {
+        // only need restore from RUNNING or CANCELING state
+        if (getPipelineState().ordinal() < PipelineState.RUNNING.ordinal()) {
+            restorePipeline();
+        } else if (PipelineState.CANCELING.equals(getPipelineState())) {
+            cancelPipelineTasks();
         }
     }
 
@@ -339,5 +387,13 @@ public class SubPlan {
 
     public PipelineLocation getPipelineLocation() {
         return pipelineLocation;
+    }
+
+    public void setJobMaster(JobMaster jobMaster) {
+        this.jobMaster = jobMaster;
+    }
+
+    public int getPipelineRestoreNum() {
+        return pipelineRestoreNum;
     }
 }

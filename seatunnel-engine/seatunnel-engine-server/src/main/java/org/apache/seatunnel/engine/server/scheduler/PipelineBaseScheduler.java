@@ -96,7 +96,7 @@ public class PipelineBaseScheduler implements JobScheduler {
             // deploy pipeline
             return CompletableFuture.runAsync(() -> {
                 deployPipeline(pipeline, slotProfiles);
-            });
+            }, jobMaster.getExecutorService());
         } catch (Exception e) {
             pipeline.cancelPipeline();
             return null;

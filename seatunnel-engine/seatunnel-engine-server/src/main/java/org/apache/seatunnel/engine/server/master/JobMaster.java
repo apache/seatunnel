@@ -184,8 +184,8 @@ public class JobMaster implements Runnable {
         });
     }
 
-    public CompletableFuture<Void> reSchedulerPipeline(SubPlan subPlan) {
-        return jobScheduler.reSchedulerPipeline(subPlan);
+    public PassiveCompletableFuture<Void> reSchedulerPipeline(SubPlan subPlan) {
+        return new PassiveCompletableFuture<>(jobScheduler.reSchedulerPipeline(subPlan));
     }
 
     public void releasePipelineResource(SubPlan subPlan) {
@@ -273,5 +273,9 @@ public class JobMaster implements Runnable {
 
     public CompletableFuture<Void> getScheduleFuture() {
         return scheduleFuture;
+    }
+
+    public ExecutorService getExecutorService() {
+        return executorService;
     }
 }

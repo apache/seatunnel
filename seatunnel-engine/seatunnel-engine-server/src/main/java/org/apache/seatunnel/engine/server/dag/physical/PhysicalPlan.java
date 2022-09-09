@@ -40,6 +40,10 @@ import java.util.stream.Collectors;
 public class PhysicalPlan {
 
     private static final ILogger LOGGER = Logger.getLogger(PhysicalPlan.class);
+    /**
+     * The max num pipeline can restore.
+     */
+    public static final int PIPELINE_MAX_RESTORE_NUM = 3; // TODO should set by config
 
     private final List<SubPlan> pipelineList;
 
@@ -128,19 +132,20 @@ public class PhysicalPlan {
 
     public void setJobMaster(JobMaster jobMaster) {
         this.jobMaster = jobMaster;
+        pipelineList.forEach(pipeline -> pipeline.setJobMaster(jobMaster));
     }
 
     public void initStateFuture() {
         pipelineList.forEach(subPlan -> addPipelineEndCallback(subPlan));
     }
 
-    private void addPipelineEndCallback(SubPlan subPlan) {
+    public void addPipelineEndCallback(SubPlan subPlan) {
         PassiveCompletableFuture<PipelineState> future = subPlan.initStateFuture();
         future.thenAcceptAsync(pipelineState -> {
             try {
                 if (PipelineState.CANCELED.equals(pipelineState)) {
-                    if (needRestore) {
-                        restorePipeline(subPlan);
+                    if (canRestorePipeline(subPlan)) {
+                        subPlan.restorePipeline();
                         return;
                     }
                     canceledPipelineNum.incrementAndGet();
@@ -153,8 +158,8 @@ public class PhysicalPlan {
                     LOGGER.info(String.format("release the pipeline %s resource", subPlan.getPipelineFullName()));
                     jobMaster.releasePipelineResource(subPlan);
                 } else if (PipelineState.FAILED.equals(pipelineState)) {
-                    if (needRestore) {
-                        restorePipeline(subPlan);
+                    if (canRestorePipeline(subPlan)) {
+                        subPlan.restorePipeline();
                         return;
                     }
                     failedPipelineNum.incrementAndGet();
@@ -182,6 +187,10 @@ public class PhysicalPlan {
         });
     }
 
+    private boolean canRestorePipeline(SubPlan subPlan) {
+        return needRestore && subPlan.getPipelineRestoreNum() < PIPELINE_MAX_RESTORE_NUM;
+    }
+
     public void cancelJob() {
         if (getJobStatus().isEndState()) {
             LOGGER.warning(String.format("%s is in end state %s, can not be cancel", jobFullName, getJobStatus()));
@@ -201,21 +210,22 @@ public class PhysicalPlan {
 
     private void cancelJobPipelines() {
         List<CompletableFuture<Void>> collect = pipelineList.stream().map(pipeline -> {
-            if (!pipeline.getPipelineState().isEndState() &&
-                !PipelineState.CANCELING.equals(pipeline.getPipelineState())) {
-                CompletableFuture<Void> future = CompletableFuture.supplyAsync(() -> {
-                    pipeline.cancelPipeline();
-                    return null;
-                }, executorService);
-                return future;
+            if (PipelineState.CANCELING.equals(pipeline.getPipelineState()) ||
+                pipeline.getPipelineState().isEndState()) {
+                LOGGER.info(String.format("%s already in state %s", pipeline.getPipelineFullName(),
+                    pipeline.getPipelineState()));
+                return null;
             }
-            return null;
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                pipeline.cancelPipeline();
+            });
+            return future;
         }).filter(x -> x != null).collect(Collectors.toList());
 
         try {
             CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
-                collect.toArray(new CompletableFuture[collect.size()]));
-            voidCompletableFuture.get();
+                collect.toArray(new CompletableFuture[0]));
+            voidCompletableFuture.join();
         } catch (Exception e) {
             LOGGER.severe(
                 String.format("%s cancel error with exception: %s", jobFullName, ExceptionUtils.getMessage(e)));
@@ -287,31 +297,6 @@ public class PhysicalPlan {
                 return true;
             } else {
                 return false;
-            }
-        }
-    }
-
-    private void restorePipeline(SubPlan subPlan) {
-        synchronized (subPlan) {
-            try {
-                LOGGER.info(String.format("Restore pipeline %s", subPlan.getPipelineFullName()));
-                // We must ensure the scheduler complete and then can handle pipeline state change.
-                jobMaster.getScheduleFuture().join();
-
-                if (pipelineSchedulerFutureMap.get(subPlan.getPipelineId()) != null) {
-                    pipelineSchedulerFutureMap.get(subPlan.getPipelineId()).join();
-                }
-                subPlan.reset();
-                addPipelineEndCallback(subPlan);
-                pipelineSchedulerFutureMap.put(subPlan.getPipelineId(), jobMaster.reSchedulerPipeline(subPlan));
-                if (pipelineSchedulerFutureMap.get(subPlan.getPipelineId()) != null) {
-                    pipelineSchedulerFutureMap.get(subPlan.getPipelineId()).join();
-                }
-            } catch (Throwable e) {
-                LOGGER.severe(
-                    String.format("Restore pipeline %s error with exception: %s", subPlan.getPipelineFullName(),
-                        ExceptionUtils.getMessage(e)));
-                subPlan.cancelPipeline();
             }
         }
     }
