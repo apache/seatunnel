@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
@@ -53,7 +53,7 @@ public class JdbcExactlyOnceSinkWriter
 
     private final SinkWriter.Context sinkcontext;
 
-    private final SeaTunnelContext context;
+    private final JobContext context;
 
     private final List<JdbcSinkState> recoverStates;
 
@@ -72,7 +72,7 @@ public class JdbcExactlyOnceSinkWriter
 
     public JdbcExactlyOnceSinkWriter(
         SinkWriter.Context sinkcontext,
-        SeaTunnelContext context,
+        JobContext context,
         JdbcStatementBuilder<SeaTunnelRow> statementBuilder,
         JdbcSinkOptions jdbcSinkOptions,
         List<JdbcSinkState> states) {

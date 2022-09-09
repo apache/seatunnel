@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.core.starter.spark.execution;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
@@ -43,9 +43,9 @@ public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunn
     private static final String PLUGIN_TYPE = "sink";
 
     protected SinkExecuteProcessor(SparkEnvironment sparkEnvironment,
-                                   SeaTunnelContext seaTunnelContext,
+                                   JobContext jobContext,
                                    List<? extends Config> pluginConfigs) {
-        super(sparkEnvironment, seaTunnelContext, pluginConfigs);
+        super(sparkEnvironment, jobContext, pluginConfigs);
     }
 
     @Override
@@ -57,7 +57,7 @@ public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunn
             pluginJars.addAll(sinkPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
             SeaTunnelSink<?, ?, ?, ?> seaTunnelSink = sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
             seaTunnelSink.prepare(sinkConfig);
-            seaTunnelSink.setSeaTunnelContext(seaTunnelContext);
+            seaTunnelSink.setJobContext(jobContext);
             return seaTunnelSink;
         }).distinct().collect(Collectors.toList());
         sparkEnvironment.registerPlugin(pluginJars);
