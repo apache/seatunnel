@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.common.utils.RetryUtils;
+import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -31,17 +32,18 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 public class AssignSplitOperation<SplitT extends SourceSplit> extends Operation implements IdentifiedDataSerializable {
 
-    private List<SplitT> splits;
+    private byte[] splits;
     private TaskLocation taskID;
 
     public AssignSplitOperation() {
     }
 
-    public AssignSplitOperation(TaskLocation taskID, List<SplitT> splits) {
+    public AssignSplitOperation(TaskLocation taskID, byte[] splits) {
         this.taskID = taskID;
         this.splits = splits;
     }
@@ -51,7 +53,9 @@ public class AssignSplitOperation<SplitT extends SourceSplit> extends Operation 
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(() -> {
             SourceSeaTunnelTask<?, SplitT> task = server.getTaskExecutionService().getTask(taskID);
-            task.receivedSourceSplit(splits);
+            ClassLoader classLoader = server.getTaskExecutionService().getExecutionContext(taskID.getTaskGroupLocation()).getClassLoader();
+            Object[] o = SerializationUtils.deserialize(splits, classLoader);
+            task.receivedSourceSplit(Arrays.stream(o).map(i -> (SplitT) i).collect(Collectors.toList()));
             return null;
         }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
             exception -> exception instanceof NullPointerException, Constant.OPERATION_RETRY_SLEEP));
@@ -59,13 +63,13 @@ public class AssignSplitOperation<SplitT extends SourceSplit> extends Operation 
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        out.writeObject(splits);
+        out.writeByteArray(splits);
         taskID.writeData(out);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        splits = in.readObject();
+        splits = in.readByteArray();
         taskID.readData(in);
     }
 
