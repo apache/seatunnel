@@ -25,9 +25,14 @@
 
     <artifactId>connector-spark-e2e-base</artifactId>
 
-    <properties>
-        <maven-jar-plugin.version>2.4</maven-jar-plugin.version>
-    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-e2e-common</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+        </dependency>
+    </dependencies>
 
     <build>
         <plugins>
