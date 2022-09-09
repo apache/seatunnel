@@ -21,8 +21,6 @@ package org.apache.seatunnel.connectors.seatunnel.tdengine;
 import com.taosdata.jdbc.TSDBDriver;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -32,8 +30,6 @@ import java.util.Properties;
 
 public class TDengineTest {
 
-//    @ParameterizedTest
-//    @ValueSource(strings = {"jdbc:TAOS-RS://localhost:6041/power?user=root&password=taosdata"})
     public void testQueryUrl(String jdbcUrl) {
         Assertions.assertDoesNotThrow(() -> {
             try (Connection conn = getConnection(jdbcUrl)) {
