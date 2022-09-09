@@ -82,8 +82,7 @@ public class FakeSourceToDorisIT extends FlinkContainer {
     private Connection connection;
 
     @BeforeEach
-    public void before() throws InterruptedException, ClassNotFoundException {
-        super.before();
+    public void beforeEach() throws InterruptedException {
         dorisStandaloneServer = new GenericContainer<>(DORIS_IMAGE_NAME)
             .withNetwork(NETWORK)
             .withNetworkAliases("seatunnel-doris-network")
@@ -133,14 +132,13 @@ public class FakeSourceToDorisIT extends FlinkContainer {
     }
 
     @AfterEach
-    public void after() throws SQLException {
+    public void afterEach() throws SQLException {
         if (Objects.nonNull(connection)) {
             connection.close();
         }
         if (Objects.nonNull(dorisStandaloneServer)) {
             dorisStandaloneServer.close();
         }
-        super.close();
     }
 
     //Caused by some reasons, doris image can't run in Mac M1.
