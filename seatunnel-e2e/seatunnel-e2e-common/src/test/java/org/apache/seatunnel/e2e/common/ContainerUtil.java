@@ -54,7 +54,7 @@ public final class ContainerUtil {
                                                    String seatunnelHome) {
         Config jobConfig = getConfig(getConfigFile(confFile));
         Config connectorsMapping = getConfig(new File(PROJECT_ROOT_PATH + File.separator + PLUGIN_MAPPING_FILE));
-        if (!connectorsMapping.hasPath(connectorType) || connectorsMapping.getConfig(connectorType).isEmpty()){
+        if (!connectorsMapping.hasPath(connectorType) || connectorsMapping.getConfig(connectorType).isEmpty()) {
             return;
         }
         Config connectors = connectorsMapping.getConfig(connectorType);
