@@ -31,8 +31,9 @@
     
     <properties>
         <phoenix.version>5.2.5-HBase-2.x</phoenix.version>
-        <pg.version>42.3.3</pg.version>
         <mysql.version>8.0.16</mysql.version>
+        <postgresql.version>42.3.3</postgresql.version>
+        <dm-jdbc.version>8.1.2.141</dm-jdbc.version>
     </properties>
 
     <dependencies>
@@ -47,7 +48,12 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <version>${pg.version}</version>
+            <version>${postgresql.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.dameng</groupId>
+            <artifactId>DmJdbcDriver18</artifactId>
+            <version>${dm-jdbc.version}</version>
         </dependency>
 
         <dependency>
