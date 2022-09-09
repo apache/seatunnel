@@ -15,22 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.sql.fake;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm;
 
-import org.apache.seatunnel.e2e.flink.sql.FlinkContainer;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.Container;
+public class DmdbDialect implements JdbcDialect {
 
-import java.io.IOException;
+    @Override
+    public String dialectName() {
+        return "DM";
+    }
 
-public class DatagenToConsoleIT extends FlinkContainer {
+    @Override
+    public JdbcRowConverter getRowConverter() {
+        return new DmdbJdbcRowConverter();
+    }
 
-    @Test
-    public void testDatagenToConsole() throws IOException, InterruptedException {
-        final String configFile = "/fake/flink.sql.conf";
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob(configFile);
-        Assertions.assertEquals(0, execResult.getExitCode());
+    @Override
+    public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
+        return new DmdbTypeMapper();
     }
 }

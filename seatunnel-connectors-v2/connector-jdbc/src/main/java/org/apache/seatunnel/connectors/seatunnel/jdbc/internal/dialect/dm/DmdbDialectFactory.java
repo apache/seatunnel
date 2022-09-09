@@ -15,22 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.sql.fake;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm;
 
-import org.apache.seatunnel.e2e.flink.sql.FlinkContainer;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.Container;
+import com.google.auto.service.AutoService;
 
-import java.io.IOException;
+/**
+ * Factory for {@link DmdbDialect}.
+ */
+@AutoService(JdbcDialectFactory.class)
+public class DmdbDialectFactory implements JdbcDialectFactory {
 
-public class DatagenToConsoleIT extends FlinkContainer {
+    @Override
+    public boolean acceptsURL(String url) {
+        return url.startsWith("jdbc:dm:");
+    }
 
-    @Test
-    public void testDatagenToConsole() throws IOException, InterruptedException {
-        final String configFile = "/fake/flink.sql.conf";
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob(configFile);
-        Assertions.assertEquals(0, execResult.getExitCode());
+    @Override
+    public JdbcDialect create() {
+        return new DmdbDialect();
     }
 }
