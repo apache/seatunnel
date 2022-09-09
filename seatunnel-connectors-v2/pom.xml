@@ -68,6 +68,7 @@
         <module>connector-openmldb</module>
         <module>connector-doris</module>
         <module>connector-maxcompute</module>
+        <module>connector-tdengine</module>
     </modules>
 
     <dependencyManagement>
