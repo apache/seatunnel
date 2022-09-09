@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e;
+package org.apache.seatunnel.e2e.common;
 
-import static org.apache.seatunnel.e2e.ContainerUtil.PROJECT_ROOT_PATH;
-import static org.apache.seatunnel.e2e.ContainerUtil.adaptPathForWin;
-import static org.apache.seatunnel.e2e.ContainerUtil.copyConfigFileToContainer;
-import static org.apache.seatunnel.e2e.ContainerUtil.copyConnectorJarToContainer;
+import static org.apache.seatunnel.e2e.common.ContainerUtil.PROJECT_ROOT_PATH;
+import static org.apache.seatunnel.e2e.common.ContainerUtil.adaptPathForWin;
+import static org.apache.seatunnel.e2e.common.ContainerUtil.copyConfigFileToContainer;
+import static org.apache.seatunnel.e2e.common.ContainerUtil.copyConnectorJarToContainer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

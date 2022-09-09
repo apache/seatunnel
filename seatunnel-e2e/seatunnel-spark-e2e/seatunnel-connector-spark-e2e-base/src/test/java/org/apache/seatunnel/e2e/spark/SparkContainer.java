@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.spark;
 
+import org.apache.seatunnel.e2e.common.AbstractSparkContainer;
+
 /**
  * This class is the base class of SparkEnvironment test. The before method will create a Spark master, and after method will close the Spark master.
  * You can use {@link SparkContainer#executeSeaTunnelSparkJob} to submit a seatunnel conf and a seatunnel spark job.

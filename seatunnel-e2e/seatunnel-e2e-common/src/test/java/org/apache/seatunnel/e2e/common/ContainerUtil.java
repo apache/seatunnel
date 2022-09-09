@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e;
+package org.apache.seatunnel.e2e.common;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 

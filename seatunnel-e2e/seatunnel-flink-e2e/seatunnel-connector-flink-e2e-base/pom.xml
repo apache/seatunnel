@@ -28,7 +28,7 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-flink-e2e-common</artifactId>
+            <artifactId>seatunnel-e2e-common</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
         </dependency>

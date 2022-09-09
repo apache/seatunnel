@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.e2e.flink.sql;
 
-import org.apache.seatunnel.e2e.flink.AbstractFlinkContainer;
+import org.apache.seatunnel.e2e.common.AbstractFlinkContainer;
 
 /**
  * This class is the base class of FlinkEnvironment test.

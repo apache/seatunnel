@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.flink;
 
+import org.apache.seatunnel.e2e.common.AbstractFlinkContainer;
+
 /**
  * This class is the base class of FlinkEnvironment test for new seatunnel connector API.
  * The before method will create a Flink cluster, and after method will close the Flink cluster.

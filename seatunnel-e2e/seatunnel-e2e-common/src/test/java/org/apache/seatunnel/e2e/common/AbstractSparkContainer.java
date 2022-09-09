@@ -15,9 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.spark;
-
-import org.apache.seatunnel.e2e.AbstractContainer;
+package org.apache.seatunnel.e2e.common;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;

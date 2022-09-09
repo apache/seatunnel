@@ -28,11 +28,9 @@
 
     <modules>
         <module>seatunnel-e2e-common</module>
-        <module>seatunnel-flink-e2e-common</module>
         <module>seatunnel-flink-connector-v2-e2e</module>
         <module>seatunnel-flink-e2e</module>
         <module>seatunnel-flink-sql-e2e</module>
-        <module>seatunnel-spark-e2e-common</module>
         <module>seatunnel-spark-connector-v2-e2e</module>
         <module>seatunnel-spark-e2e</module>
     </modules>
