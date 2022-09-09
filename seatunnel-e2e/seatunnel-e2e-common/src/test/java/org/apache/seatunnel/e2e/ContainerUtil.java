@@ -53,16 +53,20 @@ public final class ContainerUtil {
                                                    String connectorType,
                                                    String seatunnelHome) {
         Config jobConfig = getConfig(getConfigFile(confFile));
-        Config connectors = getConfig(new File(PROJECT_ROOT_PATH + File.separator + PLUGIN_MAPPING_FILE)).getConfig(connectorType);
+        Config connectorsMapping = getConfig(new File(PROJECT_ROOT_PATH + File.separator + PLUGIN_MAPPING_FILE));
+        if (!connectorsMapping.hasPath(connectorType) || connectorsMapping.getConfig(connectorType).isEmpty()){
+            return;
+        }
+        Config connectors = connectorsMapping.getConfig(connectorType);
         Set<String> connectorNames = getConnectors(jobConfig, connectors, "source");
         connectorNames.addAll(getConnectors(jobConfig, connectors, "sink"));
         File module = new File(PROJECT_ROOT_PATH + File.separator + connectorsRootPath);
 
         List<File> connectorFiles = getConnectorFiles(module, connectorNames, connectorPrefix);
         connectorFiles.forEach(jar ->
-                container.copyFileToContainer(
-                    MountableFile.forHostPath(jar.getAbsolutePath()),
-                    Paths.get(Paths.get(seatunnelHome, "connectors").toString(), connectorType, jar.getName()).toString()));
+            container.copyFileToContainer(
+                MountableFile.forHostPath(jar.getAbsolutePath()),
+                Paths.get(Paths.get(seatunnelHome, "connectors").toString(), connectorType, jar.getName()).toString()));
     }
 
     public static String copyConfigFileToContainer(GenericContainer<?> container, String confFile) {
@@ -72,10 +76,10 @@ public final class ContainerUtil {
     }
 
     public static void copySeaTunnelStarter(GenericContainer<?> container,
-                                              String startModuleName,
-                                              String startModulePath,
-                                              String seatunnelHomeInContainer,
-                                              String startShellName) {
+                                            String startModuleName,
+                                            String startModulePath,
+                                            String seatunnelHomeInContainer,
+                                            String startShellName) {
         final String startJarName = startModuleName + ".jar";
         // copy lib
         final String startJarPath = startModulePath + File.separator + "target" + File.separator + startJarName;

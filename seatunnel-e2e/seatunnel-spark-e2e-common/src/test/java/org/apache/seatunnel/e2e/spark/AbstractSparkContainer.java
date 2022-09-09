@@ -17,11 +17,7 @@
 
 package org.apache.seatunnel.e2e.spark;
 
-import static org.apache.seatunnel.e2e.ContainerUtil.PROJECT_ROOT_PATH;
-import static org.apache.seatunnel.e2e.ContainerUtil.adaptPathForWin;
-import static org.apache.seatunnel.e2e.ContainerUtil.copyConfigFileToContainer;
-import static org.apache.seatunnel.e2e.ContainerUtil.copyConnectorJarToContainer;
-import static org.apache.seatunnel.e2e.ContainerUtil.copySeaTunnelStarter;
+import org.apache.seatunnel.e2e.AbstractContainer;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -34,55 +30,34 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Paths;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class AbstractSparkContainer {
+public abstract class AbstractSparkContainer extends AbstractContainer {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractSparkContainer.class);
-    protected static final String START_ROOT_MODULE_NAME = "seatunnel-core";
 
-    private static final String SEATUNNEL_HOME = "/tmp/spark/seatunnel";
-    private static final String DOCKER_IMAGE = "bitnami/spark:2.4.3";
+    private static final String SPARK_SEATUNNEL_HOME = "/tmp/spark/seatunnel";
+    private static final String DEFAULT_DOCKER_IMAGE = "bitnami/spark:2.4.3";
     public static final Network NETWORK = Network.newNetwork();
 
     protected GenericContainer<?> master;
 
-    protected final String startShellName;
+    @Override
+    protected String getDockerImage() {
+        return DEFAULT_DOCKER_IMAGE;
+    }
 
-    protected final String startModuleName;
-
-    protected final String startModulePath;
-
-    protected final String connectorsRootPath;
-
-    protected final String connectorType;
-
-    protected final String connectorNamePrefix;
-
-    public AbstractSparkContainer(
-                                  String startShellName,
-                                  String startModuleNameInSeaTunnelCore,
-                                  String connectorsRootPath,
-                                  String connectorType,
-                                  String connectorNamePrefix) {
-        this.startShellName = startShellName;
-        this.connectorsRootPath = connectorsRootPath;
-        this.connectorType = connectorType;
-        this.connectorNamePrefix = connectorNamePrefix;
-        String[] moudules = startModuleNameInSeaTunnelCore.split(File.separator);
-        this.startModuleName = moudules[moudules.length - 1];
-        this.startModulePath = PROJECT_ROOT_PATH + File.separator +
-            START_ROOT_MODULE_NAME + File.separator + startModuleNameInSeaTunnelCore;
+    @Override
+    protected String getSeaTunnelHomeInContainer() {
+        return SPARK_SEATUNNEL_HOME;
     }
 
     @BeforeAll
     public void before() {
-        master = new GenericContainer<>(DOCKER_IMAGE)
+        master = new GenericContainer<>(getDockerImage())
             .withNetwork(NETWORK)
             .withNetworkAliases("spark-master")
             .withExposedPorts()
@@ -91,7 +66,7 @@ public abstract class AbstractSparkContainer {
         // In most case we can just use standalone mode to execute a spark job, if we want to use cluster mode, we need to
         // start a worker.
         Startables.deepStart(Stream.of(master)).join();
-        copySeaTunnelStarter(master, startModuleName, startModulePath, SEATUNNEL_HOME, startShellName);
+        copySeaTunnelStarter(master);
         LOG.info("Spark container started");
     }
 
@@ -101,24 +76,12 @@ public abstract class AbstractSparkContainer {
             master.stop();
         }
     }
-
+    @Override
+    protected List<String> getExtraStartShellCommands() {
+        return Arrays.asList("--master local",
+            "--deploy-mode client");
+    }
     public Container.ExecResult executeSeaTunnelSparkJob(String confFile) throws IOException, InterruptedException {
-        final String confInContainerPath = copyConfigFileToContainer(master, confFile);
-        // copy connectors
-        copyConnectorJarToContainer(master, confFile, connectorsRootPath, connectorNamePrefix, connectorType, SEATUNNEL_HOME);
-
-        final List<String> command = new ArrayList<>();
-        String sparkBinPath = Paths.get(SEATUNNEL_HOME, "bin", startShellName).toString();
-        command.add(adaptPathForWin(sparkBinPath));
-        command.add("--master");
-        command.add("local");
-        command.add("--deploy-mode");
-        command.add("client");
-        command.add("--config " + adaptPathForWin(confInContainerPath));
-
-        Container.ExecResult execResult = master.execInContainer("bash", "-c", String.join(" ", command));
-        LOG.info(execResult.getStdout());
-        LOG.error(execResult.getStderr());
-        return execResult;
+        return executeJob(master, confFile);
     }
 }

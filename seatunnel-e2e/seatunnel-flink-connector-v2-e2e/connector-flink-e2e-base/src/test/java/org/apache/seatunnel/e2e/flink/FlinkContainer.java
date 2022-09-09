@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.e2e.flink;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * This class is the base class of FlinkEnvironment test for new seatunnel connector API.
  * The before method will create a Flink cluster, and after method will close the Flink cluster.
@@ -27,26 +24,33 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class FlinkContainer extends AbstractFlinkContainer {
 
-    private static final Logger LOG = LoggerFactory.getLogger(FlinkContainer.class);
-
-    private static final String FLINK_DOCKER_IMAGE = "tyrantlucifer/flink:1.13.6-scala_2.11_hadoop27";
-
-    private static final String START_SHELL_NAME = "start-seatunnel-flink-new-connector.sh";
-
-    private static final String START_MODULE_NAME = "seatunnel-flink-starter";
-
-    private static final String CONNECTORS_ROOT_PATH = "seatunnel-connectors-v2";
-
-    private static final String CONNECTOR_TYPE = "seatunnel";
-
-    private static final String CONNECTOR_PREFIX = "connector-";
-    public FlinkContainer() {
-        super(FLINK_DOCKER_IMAGE,
-            START_SHELL_NAME,
-            START_MODULE_NAME,
-            CONNECTORS_ROOT_PATH,
-            CONNECTOR_TYPE,
-            CONNECTOR_PREFIX);
+    @Override
+    protected String getDockerImage() {
+        return "tyrantlucifer/flink:1.13.6-scala_2.11_hadoop27";
     }
 
+    @Override
+    protected String getStartModulePath() {
+        return "seatunnel-flink-starter";
+    }
+
+    @Override
+    protected String getStartShellName() {
+        return "start-seatunnel-flink-new-connector.sh";
+    }
+
+    @Override
+    protected String getConnectorType() {
+        return "seatunnel";
+    }
+
+    @Override
+    protected String getConnectorModulePath() {
+        return "seatunnel-connectors-v2";
+    }
+
+    @Override
+    protected String getConnectorNamePrefix() {
+        return "connector-";
+    }
 }

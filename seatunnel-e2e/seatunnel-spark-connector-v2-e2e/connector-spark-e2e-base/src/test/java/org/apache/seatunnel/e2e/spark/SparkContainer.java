@@ -17,31 +17,34 @@
 
 package org.apache.seatunnel.e2e.spark;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * This class is the base class of SparkEnvironment test. The before method will create a Spark master, and after method will close the Spark master.
  * You can use {@link SparkContainer#executeSeaTunnelSparkJob} to submit a seatunnel conf and a seatunnel spark job.
  */
 public abstract class SparkContainer extends AbstractSparkContainer {
 
-    private static final Logger LOG = LoggerFactory.getLogger(SparkContainer.class);
+    @Override
+    protected String getStartModulePath() {
+        return "seatunnel-spark-starter";
+    }
 
-    private static final String START_SHELL_NAME = "start-seatunnel-spark-new-connector.sh";
+    @Override
+    protected String getStartShellName() {
+        return "start-seatunnel-spark-new-connector.sh";
+    }
 
-    private static final String START_MODULE_NAME = "seatunnel-spark-starter";
+    @Override
+    protected String getConnectorType() {
+        return "seatunnel";
+    }
 
-    private static final String CONNECTORS_ROOT_PATH = "seatunnel-connectors-v2";
+    @Override
+    protected String getConnectorModulePath() {
+        return "seatunnel-connectors-v2";
+    }
 
-    private static final String CONNECTOR_TYPE = "seatunnel";
-
-    private static final String CONNECTOR_PREFIX = "connector-";
-    public SparkContainer() {
-        super(START_SHELL_NAME,
-            START_MODULE_NAME,
-            CONNECTORS_ROOT_PATH,
-            CONNECTOR_TYPE,
-            CONNECTOR_PREFIX);
+    @Override
+    protected String getConnectorNamePrefix() {
+        return "connector-";
     }
 }

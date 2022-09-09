@@ -17,11 +17,7 @@
 
 package org.apache.seatunnel.e2e.flink;
 
-import static org.apache.seatunnel.e2e.ContainerUtil.PROJECT_ROOT_PATH;
-import static org.apache.seatunnel.e2e.ContainerUtil.adaptPathForWin;
-import static org.apache.seatunnel.e2e.ContainerUtil.copyConfigFileToContainer;
-import static org.apache.seatunnel.e2e.ContainerUtil.copyConnectorJarToContainer;
-import static org.apache.seatunnel.e2e.ContainerUtil.copySeaTunnelStarter;
+import org.apache.seatunnel.e2e.AbstractContainer;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -34,11 +30,9 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -48,65 +42,45 @@ import java.util.stream.Stream;
  * You can use {@link AbstractFlinkContainer#executeSeaTunnelFlinkJob} to submit a seatunnel config and run a seatunnel job.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class AbstractFlinkContainer {
+public abstract class AbstractFlinkContainer extends AbstractContainer {
 
-    private static final Logger LOG = LoggerFactory.getLogger(AbstractFlinkContainer.class);
+    protected static final Logger LOG = LoggerFactory.getLogger(AbstractFlinkContainer.class);
 
-    protected static final String START_ROOT_MODULE_NAME = "seatunnel-core";
+    protected static final String FLINK_SEATUNNEL_HOME = "/tmp/flink/seatunnel";
 
-    protected static final String SEATUNNEL_HOME = "/tmp/flink/seatunnel";
-
-    protected final String dockerImage;
-
-    protected final String startShellName;
-
-    protected final String startModuleName;
-
-    protected final String startModulePath;
-
-    protected final String connectorsRootPath;
-
-    protected final String connectorType;
-
-    protected final String connectorNamePrefix;
     protected static final Network NETWORK = Network.newNetwork();
+
+    protected static final List<String> DEFAULT_FLINK_PROPERTIES = Arrays.asList(
+        "jobmanager.rpc.address: jobmanager",
+        "taskmanager.numberOfTaskSlots: 10",
+        "parallelism.default: 4",
+        "env.java.opts: -Doracle.jdbc.timezoneAsRegion=false");
+
+    protected static final String DEFAULT_DOCKER_IMAGE = "flink:1.13.6-scala_2.11";
 
     protected GenericContainer<?> jobManager;
     protected GenericContainer<?> taskManager;
 
-    public AbstractFlinkContainer(String dockerImage,
-                                  String startShellName,
-                                  String startModuleNameInSeaTunnelCore,
-                                  String connectorsRootPath,
-                                  String connectorType,
-                                  String connectorNamePrefix) {
-        this.dockerImage = dockerImage;
-        this.startShellName = startShellName;
-        this.connectorsRootPath = connectorsRootPath;
-        this.connectorType = connectorType;
-        this.connectorNamePrefix = connectorNamePrefix;
-        String[] moudules = startModuleNameInSeaTunnelCore.split(File.separator);
-        this.startModuleName = moudules[moudules.length - 1];
-        this.startModulePath = PROJECT_ROOT_PATH + File.separator +
-            START_ROOT_MODULE_NAME + File.separator + startModuleNameInSeaTunnelCore;
+    @Override
+    protected String getDockerImage() {
+        return DEFAULT_DOCKER_IMAGE;
     }
 
-    private static final String FLINK_PROPERTIES = String.join(
-        "\n",
-        Arrays.asList(
-            "jobmanager.rpc.address: jobmanager",
-            "taskmanager.numberOfTaskSlots: 10",
-            "parallelism.default: 4",
-            "env.java.opts: -Doracle.jdbc.timezoneAsRegion=false"));
+    @Override
+    protected String getSeaTunnelHomeInContainer() {
+        return FLINK_SEATUNNEL_HOME;
+    }
 
     @BeforeAll
     public void before() {
+        final String dockerImage = getDockerImage();
+        final String properties = String.join("\n", getFlinkProperties());
         jobManager = new GenericContainer<>(dockerImage)
             .withCommand("jobmanager")
             .withNetwork(NETWORK)
             .withNetworkAliases("jobmanager")
             .withExposedPorts()
-            .withEnv("FLINK_PROPERTIES", FLINK_PROPERTIES)
+            .withEnv("FLINK_PROPERTIES", properties)
             .withLogConsumer(new Slf4jLogConsumer(LOG));
 
         taskManager =
@@ -114,14 +88,18 @@ public abstract class AbstractFlinkContainer {
                 .withCommand("taskmanager")
                 .withNetwork(NETWORK)
                 .withNetworkAliases("taskmanager")
-                .withEnv("FLINK_PROPERTIES", FLINK_PROPERTIES)
+                .withEnv("FLINK_PROPERTIES", properties)
                 .dependsOn(jobManager)
                 .withLogConsumer(new Slf4jLogConsumer(LOG));
 
         Startables.deepStart(Stream.of(jobManager)).join();
         Startables.deepStart(Stream.of(taskManager)).join();
-        copySeaTunnelStarter(jobManager, startModuleName, startModulePath, SEATUNNEL_HOME, startShellName);
+        copySeaTunnelStarter(jobManager);
         LOG.info("Flink containers are started.");
+    }
+
+    protected List<String> getFlinkProperties() {
+        return DEFAULT_FLINK_PROPERTIES;
     }
 
     @AfterAll
@@ -134,22 +112,12 @@ public abstract class AbstractFlinkContainer {
         }
     }
 
-    public Container.ExecResult executeSeaTunnelFlinkJob(String confFile) throws IOException, InterruptedException {
-        String confInContainerPath = copyConfigFileToContainer(jobManager, confFile);
-        // copy connectors
-        copyConnectorJarToContainer(jobManager, confFile, connectorsRootPath, connectorNamePrefix, connectorType, SEATUNNEL_HOME);
-        return executeCommand(confInContainerPath);
+    @Override
+    protected List<String> getExtraStartShellCommands() {
+        return Collections.emptyList();
     }
 
-    protected Container.ExecResult executeCommand(String configPath) throws IOException, InterruptedException {
-        final List<String> command = new ArrayList<>();
-        String binPath = Paths.get(SEATUNNEL_HOME, "bin", startShellName).toString();
-        command.add(adaptPathForWin(binPath));
-        command.add("--config " + adaptPathForWin(configPath));
-
-        Container.ExecResult execResult = jobManager.execInContainer("bash", "-c", String.join(" ", command));
-        LOG.info(execResult.getStdout());
-        LOG.error(execResult.getStderr());
-        return execResult;
+    public Container.ExecResult executeSeaTunnelFlinkJob(String confFile) throws IOException, InterruptedException {
+        return executeJob(jobManager, confFile);
     }
 }

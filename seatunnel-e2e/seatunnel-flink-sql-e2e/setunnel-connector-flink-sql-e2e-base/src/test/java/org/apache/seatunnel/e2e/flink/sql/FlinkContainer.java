@@ -17,15 +17,7 @@
 
 package org.apache.seatunnel.e2e.flink.sql;
 
-import static org.apache.seatunnel.e2e.ContainerUtil.copyConfigFileToContainer;
-
 import org.apache.seatunnel.e2e.flink.AbstractFlinkContainer;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testcontainers.containers.Container;
-
-import java.io.IOException;
 
 /**
  * This class is the base class of FlinkEnvironment test.
@@ -34,32 +26,28 @@ import java.io.IOException;
  */
 public abstract class FlinkContainer extends AbstractFlinkContainer {
 
-    private static final Logger LOG = LoggerFactory.getLogger(FlinkContainer.class);
-
-    private static final String FLINK_DOCKER_IMAGE = "flink:1.13.6-scala_2.11";
-
-    private static final String START_SHELL_NAME = "start-seatunnel-sql.sh";
-
-    private static final String START_MODULE_NAME = "seatunnel-core-flink-sql";
-
-    private static final String CONNECTORS_ROOT_PATH = "seatunnel-connectors/seatunnel-connectors-flink-sql";
-
-    private static final String CONNECTOR_TYPE = "seatunnel-sql";
-
-    private static final String CONNECTOR_PREFIX = "flink-sql-connector-";
-
-    public FlinkContainer() {
-        super(FLINK_DOCKER_IMAGE,
-            START_SHELL_NAME,
-            START_MODULE_NAME,
-            CONNECTORS_ROOT_PATH,
-            CONNECTOR_TYPE,
-            CONNECTOR_PREFIX);
+    @Override
+    protected String getStartModulePath() {
+        return "seatunnel-core-flink-sql";
     }
 
     @Override
-    public Container.ExecResult executeSeaTunnelFlinkJob(String confFile) throws IOException, InterruptedException {
-        String confInContainerPath = copyConfigFileToContainer(jobManager, confFile);
-        return executeCommand(confInContainerPath);
+    protected String getStartShellName() {
+        return "start-seatunnel-sql.sh";
+    }
+
+    @Override
+    protected String getConnectorType() {
+        return "flink-sql";
+    }
+
+    @Override
+    protected String getConnectorModulePath() {
+        return "seatunnel-connectors/seatunnel-connectors-flink-sql";
+    }
+
+    @Override
+    protected String getConnectorNamePrefix() {
+        return "flink-sql-connector-";
     }
 }
