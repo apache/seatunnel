@@ -104,6 +104,7 @@
                 <!-- Spark starter -->
                 <include>org.apache.seatunnel:seatunnel-core-spark:jar</include>
             </includes>
+            <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
             <outputDirectory>/lib</outputDirectory>
             <scope>provided</scope>
         </dependencySet>
