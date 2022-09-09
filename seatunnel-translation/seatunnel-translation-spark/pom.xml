@@ -26,13 +26,15 @@
     <artifactId>seatunnel-translation-spark</artifactId>
     <packaging>pom</packaging>
     <modules>
-        <module>seatunnel-translation-spark-2.4</module>
         <module>seatunnel-translation-spark-common</module>
+        <module>seatunnel-translation-spark-2.4</module>
+        <module>seatunnel-translation-spark-3.3</module>
+        <module>seatunnel-translation-spark-2.4-dist</module>
+        <module>seatunnel-translation-spark-3.3-dist</module>
     </modules>
-    
+
     <dependencyManagement>
         <dependencies>
-            <!--spark-->
             <dependency>
                 <groupId>org.apache.spark</groupId>
                 <artifactId>spark-streaming_${scala.binary.version}</artifactId>

@@ -19,7 +19,7 @@ package org.apache.seatunnel.e2e.spark.v2.redis;
 
 import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
 
-import org.apache.seatunnel.e2e.spark.SparkContainer;
+import org.apache.seatunnel.e2e.spark.Spark24Container;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
-public class RedisIT extends SparkContainer {
+public class RedisIT extends Spark24Container {
     private static final String REDIS_IMAGE = "redis:latest";
     private static final String REDIS_CONTAINER_HOST = "spark_e2e_redis";
     private static final String REDIS_HOST = "localhost";

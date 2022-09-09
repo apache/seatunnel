@@ -20,7 +20,8 @@ package org.apache.seatunnel.translation.spark.source;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Constants;
-import org.apache.seatunnel.common.utils.SerializationUtils;
+import org.apache.seatunnel.translation.spark.common.utils.SparkSourceConstants;
+import org.apache.seatunnel.translation.spark.common.utils.Utils;
 import org.apache.seatunnel.translation.spark.source.batch.BatchSourceReader;
 import org.apache.seatunnel.translation.spark.source.micro.MicroBatchSourceReader;
 
@@ -43,12 +44,11 @@ import java.util.Optional;
 
 public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroBatchReadSupport, DataSourceRegister {
     private static final Logger LOG = LoggerFactory.getLogger(SeaTunnelSourceSupport.class);
-    public static final String SEA_TUNNEL_SOURCE_NAME = "SeaTunnelSource";
     public static final Integer CHECKPOINT_INTERVAL_DEFAULT = 10000;
 
     @Override
     public String shortName() {
-        return SEA_TUNNEL_SOURCE_NAME;
+        return SparkSourceConstants.SEA_TUNNEL_SOURCE_NAME;
     }
 
     @Override
@@ -77,7 +77,9 @@ public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroB
     }
 
     private SeaTunnelSource<SeaTunnelRow, ?, ?> getSeaTunnelSource(DataSourceOptions options) {
-        return SerializationUtils.stringToObject(options.get(Constants.SOURCE_SERIALIZATION)
-            .orElseThrow(() -> new UnsupportedOperationException("Serialization information for the SeaTunnelSource is required")));
+        String source = options.get(Constants.SOURCE_SERIALIZATION)
+                .orElseThrow(() ->
+                        new UnsupportedOperationException("Serialization information for the SeaTunnelSource is required"));
+        return Utils.getSeaTunnelSource(source);
     }
 }

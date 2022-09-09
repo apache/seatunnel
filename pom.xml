@@ -197,6 +197,9 @@
         <checker.qual.version>3.10.0</checker.qual.version>
         <awaitility.version>4.2.0</awaitility.version>
         <jwt.version>0.10.7</jwt.version>
+        <spark3.3.version>3.3.0</spark3.3.version>
+        <scala2.12.version>2.12.16</scala2.12.version>
+        <scala2.12.binary.version>2.12</scala2.12.binary.version>
     </properties>
 
     <dependencyManagement>

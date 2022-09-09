@@ -28,75 +28,11 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-spark-connector-v2-example</artifactId>
+    <packaging>pom</packaging>
 
-    <properties>
-        <spark.scope>compile</spark.scope>
-    </properties>
-    <dependencies>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-spark-starter</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <!--   seatunnel connectors   -->
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-fake</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-console</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-clickhouse</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <!--   seatunnel connectors   -->
-
-        <!--spark-->
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-streaming_${scala.binary.version}</artifactId>
-            <version>${spark.2.4.0.version}</version>
-            <scope>${spark.scope}</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-core_${scala.binary.version}</artifactId>
-            <version>${spark.2.4.0.version}</version>
-            <scope>${spark.scope}</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-sql_${scala.binary.version}</artifactId>
-            <version>${spark.2.4.0.version}</version>
-            <scope>${spark.scope}</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-hive_${scala.binary.version}</artifactId>
-            <version>${spark.2.4.0.version}</version>
-            <scope>${spark.scope}</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.glassfish.web</groupId>
-                    <artifactId>javax.servlet.jsp</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>net.jpountz.lz4</groupId>
-            <artifactId>lz4</artifactId>
-            <version>1.3.0</version>
-        </dependency>
-    </dependencies>
-
+    <modules>
+        <module>seatunnel-spark-connector-v2-example-common</module>
+        <module>seatunnel-spark-connector-v2-example_2.4</module>
+        <module>seatunnel-spark-connector-v2-example_3.3</module>
+    </modules>
 </project>

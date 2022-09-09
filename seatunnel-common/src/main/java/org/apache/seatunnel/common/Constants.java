@@ -45,6 +45,8 @@ public final class Constants {
 
     public static final String NOW = "now";
 
+    public static final String SAVE_MODE = "save_mode";
+
     private Constants() {
     }
 }
