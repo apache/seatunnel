@@ -56,6 +56,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName(clientCommandArgs.getName());
         HazelcastInstance instance = null;
+        ClientJobProxy clientJobProxy = null;
         try {
             String clusterName = clientCommandArgs.getClusterName();
             if (clientCommandArgs.getExecutionMode().equals(ExecutionMode.LOCAL)) {
@@ -67,7 +68,6 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
             JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(configFile.toString(), jobConfig);
 
-            ClientJobProxy clientJobProxy;
             clientJobProxy = jobExecutionEnv.execute();
             clientJobProxy.waitForJobComplete();
         } catch (ExecutionException | InterruptedException e) {
@@ -75,6 +75,9 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         } finally {
             if (instance != null) {
                 instance.shutdown();
+            }
+            if (clientJobProxy != null) {
+                clientJobProxy.close();
             }
         }
     }

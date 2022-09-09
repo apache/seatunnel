@@ -26,12 +26,12 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>seatunnel-engine-connector-console-e2e</artifactId>
+    <artifactId>connector-console-seatunnel-e2e</artifactId>
 
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-engine-e2e-base</artifactId>
+            <artifactId>connector-seatunnel-e2e-base</artifactId>
             <version>${project.version}</version>
             <classifier>tests</classifier>
             <type>test-jar</type>

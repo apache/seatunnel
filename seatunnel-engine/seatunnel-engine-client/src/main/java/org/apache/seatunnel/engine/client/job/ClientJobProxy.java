@@ -85,8 +85,12 @@ public class ClientJobProxy implements Job {
             jobImmutableInformation.getJobConfig().getName(),
             jobImmutableInformation.getJobId(),
             jobStatus));
-        this.seaTunnelHazelcastClient.getHazelcastInstance().shutdown();
         return jobStatus;
+    }
+
+    @Override
+    public void close() {
+        this.seaTunnelHazelcastClient.getHazelcastInstance().shutdown();
     }
 
     @Override
