@@ -32,8 +32,8 @@ import java.util.Properties;
 
 public class TDengineTest {
 
-    @ParameterizedTest
-    @ValueSource(strings = {"jdbc:TAOS-RS://localhost:6041/power?user=root&password=taosdata"})
+//    @ParameterizedTest
+//    @ValueSource(strings = {"jdbc:TAOS-RS://localhost:6041/power?user=root&password=taosdata"})
     public void testQueryUrl(String jdbcUrl) {
         Assertions.assertDoesNotThrow(() -> {
             try (Connection conn = getConnection(jdbcUrl)) {
