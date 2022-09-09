@@ -79,6 +79,10 @@
                     <artifactId>parquet-hadoop-bundle</artifactId>
                     <groupId>org.apache.parquet</groupId>
                 </exclusion>
+                <exclusion>
+                    <artifactId>jdk.tools</artifactId>
+                    <groupId>jdk.tools</groupId>
+                </exclusion>
             </exclusions>
         </dependency>
     </dependencies>
