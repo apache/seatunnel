@@ -60,6 +60,8 @@ public class FakeSourceToJdbcIT extends FlinkContainer {
         Class.forName(psl.getDriverClassName());
         given().ignoreExceptions()
             .await()
+            .atLeast(100, TimeUnit.MILLISECONDS)
+            .pollInterval(500, TimeUnit.MILLISECONDS)
             .atMost(5, TimeUnit.SECONDS)
             .untilAsserted(() -> initializeJdbcTable());
     }

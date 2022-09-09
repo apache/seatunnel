@@ -77,7 +77,8 @@ public class MongodbSourceToConsoleIT extends FlinkContainer {
         Startables.deepStart(Stream.of(mongodbContainer)).join();
         log.info("Mongodb container started");
         Awaitility.given().ignoreExceptions()
-            .await()
+            .atLeast(100, TimeUnit.MILLISECONDS)
+            .pollInterval(500, TimeUnit.MILLISECONDS)
             .atMost(180, TimeUnit.SECONDS)
             .untilAsserted(this::initConnection);
         this.generateTestData();

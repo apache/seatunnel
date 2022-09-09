@@ -65,6 +65,8 @@ public class FakeSourceToClickhouseIT extends FlinkContainer {
         dataSource = createDatasource();
         given().ignoreExceptions()
             .await()
+            .atLeast(100, TimeUnit.MILLISECONDS)
+            .pollInterval(500, TimeUnit.MILLISECONDS)
             .atMost(5, TimeUnit.SECONDS)
             .untilAsserted(() -> initializeClickhouseTable());
     }

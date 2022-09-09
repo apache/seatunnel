@@ -56,9 +56,11 @@ public class RedisIT extends SparkContainer {
         Startables.deepStart(Stream.of(redisContainer)).join();
         log.info("Redis container started");
         given().ignoreExceptions()
-                .await()
-                .atMost(180, TimeUnit.SECONDS)
-                .untilAsserted(this::initJedis);
+            .await()
+            .atLeast(100, TimeUnit.MILLISECONDS)
+            .pollInterval(500, TimeUnit.MILLISECONDS)
+            .atMost(180, TimeUnit.SECONDS)
+            .untilAsserted(this::initJedis);
         this.generateTestData();
     }
 

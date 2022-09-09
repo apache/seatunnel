@@ -76,9 +76,11 @@ public class JdbcGreenplumIT extends FlinkContainer {
         // wait for Greenplum fully start
         Class.forName(GREENPLUM_DRIVER);
         given().ignoreExceptions()
-                .await()
-                .atMost(180, TimeUnit.SECONDS)
-                .untilAsserted(() -> initializeJdbcConnection());
+            .await()
+            .atLeast(100, TimeUnit.MILLISECONDS)
+            .pollInterval(500, TimeUnit.MILLISECONDS)
+            .atMost(180, TimeUnit.SECONDS)
+            .untilAsserted(() -> initializeJdbcConnection());
         initializeJdbcTable();
         batchInsertData();
     }
