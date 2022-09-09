@@ -54,6 +54,7 @@
         <module>connector-datahub</module>
         <module>connector-sentry</module>
         <module>connector-mongodb</module>
+        <module>connector-tdengine</module>
     </modules>
 
     <dependencyManagement>
