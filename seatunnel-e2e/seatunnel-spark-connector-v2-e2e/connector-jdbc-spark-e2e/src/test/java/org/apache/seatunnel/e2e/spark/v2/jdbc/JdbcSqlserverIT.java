@@ -28,7 +28,6 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.shaded.com.google.common.collect.Lists;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
 
@@ -39,7 +38,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
-import java.util.List;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -59,7 +57,7 @@ public class JdbcSqlserverIT extends SparkContainer {
         Class.forName(mssqlServerContainer.getDriverClassName());
         Awaitility.given().ignoreExceptions()
             .await()
-            .atMost(Duration.ofMinutes(1))
+            .atMost(Duration.ofMinutes(3))
             .untilAsserted(this::initializeJdbcTable);
         batchInsertData();
     }
@@ -126,15 +124,12 @@ public class JdbcSqlserverIT extends SparkContainer {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/jdbc/jdbc_sqlserver_source_to_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         // query result
-        String sql = "select * from sink";
+        String sql = "select * from sink minus select * from source;";
         try (Connection connection = DriverManager.getConnection(mssqlServerContainer.getJdbcUrl(), mssqlServerContainer.getUsername(), mssqlServerContainer.getPassword())) {
             Statement statement = connection.createStatement();
             ResultSet resultSet = statement.executeQuery(sql);
-            List<String> result = Lists.newArrayList();
-            while (resultSet.next()) {
-                result.add(resultSet.getString("ids"));
-            }
-            Assertions.assertFalse(result.isEmpty());
+            Assertions.assertTrue(resultSet.next());
+
         }
     }
 
