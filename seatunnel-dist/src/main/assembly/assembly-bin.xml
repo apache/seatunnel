@@ -92,34 +92,16 @@
 
     <dependencySets>
         <!-- ============ Starter Jars ============  -->
-        <!-- Flink starter -->
         <dependencySet>
             <useProjectArtifact>false</useProjectArtifact>
             <useTransitiveDependencies>true</useTransitiveDependencies>
             <unpack>false</unpack>
             <includes>
+                <!-- Flink starter -->
                 <include>org.apache.seatunnel:seatunnel-core-flink:jar</include>
-            </includes>
-            <outputDirectory>/lib</outputDirectory>
-            <scope>provided</scope>
-        </dependencySet>
-        <!-- Flink SQL starter -->
-        <dependencySet>
-            <useProjectArtifact>false</useProjectArtifact>
-            <useTransitiveDependencies>true</useTransitiveDependencies>
-            <unpack>false</unpack>
-            <includes>
+                <!-- Flink SQL starter -->
                 <include>org.apache.seatunnel:seatunnel-core-flink-sql:jar</include>
-            </includes>
-            <outputDirectory>/lib</outputDirectory>
-            <scope>provided</scope>
-        </dependencySet>
-        <!-- Spark starter -->
-        <dependencySet>
-            <useProjectArtifact>false</useProjectArtifact>
-            <useTransitiveDependencies>true</useTransitiveDependencies>
-            <unpack>false</unpack>
-            <includes>
+                <!-- Spark starter -->
                 <include>org.apache.seatunnel:seatunnel-core-spark:jar</include>
             </includes>
             <outputDirectory>/lib</outputDirectory>
