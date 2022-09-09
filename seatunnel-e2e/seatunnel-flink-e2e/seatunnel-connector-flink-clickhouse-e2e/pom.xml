@@ -34,6 +34,14 @@
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
+
+        <!-- connectors -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-connector-flink-fake</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-connector-flink-clickhouse</artifactId>
