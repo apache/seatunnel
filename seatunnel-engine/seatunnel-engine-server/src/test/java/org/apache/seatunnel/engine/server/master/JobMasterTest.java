@@ -36,7 +36,6 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
-import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
