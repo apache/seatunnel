@@ -97,10 +97,6 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
     }
 
-    @After
-    public void after() {
-    }
-
     @Test
     public void testHandleCheckpointTimeout() throws Exception {
         SeaTunnelContext.getContext().setJobMode(JobMode.STREAMING);
@@ -150,34 +146,37 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap("stateTimestamps");
         ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
 
-        Assert.assertNull(runningJobInfoIMap.get(jobId));
-        Assert.assertNull(runningJobStateIMap.get(jobId));
-        Assert.assertNull(runningJobStateTimestampsIMap.get(jobId));
-        Assert.assertNull(ownedSlotProfilesIMap.get(jobId));
+        await().atMost(20000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> {
+                Assert.assertNull(runningJobInfoIMap.get(jobId));
+                Assert.assertNull(runningJobStateIMap.get(jobId));
+                Assert.assertNull(runningJobStateTimestampsIMap.get(jobId));
+                Assert.assertNull(ownedSlotProfilesIMap.get(jobId));
 
-        jobMaster.getPhysicalPlan().getPipelineList().forEach(pipeline -> {
-            Assert.assertNull(
-                runningJobStateIMap.get(pipeline.getPipelineLocation()));
+                jobMaster.getPhysicalPlan().getPipelineList().forEach(pipeline -> {
+                    Assert.assertNull(
+                        runningJobStateIMap.get(pipeline.getPipelineLocation()));
 
-            Assert.assertNull(
-                runningJobStateTimestampsIMap.get(pipeline.getPipelineLocation()));
-        });
-        jobMaster.getPhysicalPlan().getPipelineList().forEach(pipeline -> {
-            pipeline.getCoordinatorVertexList().forEach(coordinator -> {
-                Assert.assertNull(
-                    runningJobStateIMap.get(coordinator.getTaskGroupLocation()));
+                    Assert.assertNull(
+                        runningJobStateTimestampsIMap.get(pipeline.getPipelineLocation()));
+                });
+                jobMaster.getPhysicalPlan().getPipelineList().forEach(pipeline -> {
+                    pipeline.getCoordinatorVertexList().forEach(coordinator -> {
+                        Assert.assertNull(
+                            runningJobStateIMap.get(coordinator.getTaskGroupLocation()));
 
-                Assert.assertNull(
-                    runningJobStateTimestampsIMap.get(coordinator.getTaskGroupLocation()));
+                        Assert.assertNull(
+                            runningJobStateTimestampsIMap.get(coordinator.getTaskGroupLocation()));
+                    });
+
+                    pipeline.getPhysicalVertexList().forEach(task -> {
+                        Assert.assertNull(
+                            runningJobStateIMap.get(task.getTaskGroupLocation()));
+
+                        Assert.assertNull(
+                            runningJobStateTimestampsIMap.get(task.getTaskGroupLocation()));
+                    });
+                });
             });
-
-            pipeline.getPhysicalVertexList().forEach(task -> {
-                Assert.assertNull(
-                    runningJobStateIMap.get(task.getTaskGroupLocation()));
-
-                Assert.assertNull(
-                    runningJobStateTimestampsIMap.get(task.getTaskGroupLocation()));
-            });
-        });
     }
 }
