@@ -116,17 +116,21 @@ public class SinkFlowLifeCycle<T, StateT> extends ActionFlowLifeCycle implements
                     prepareClose = true;
                 }
                 if (barrier.snapshot()) {
-                    if (writerStateSerializer.isPresent()) {
+                    if (!writerStateSerializer.isPresent()) {
                         runningTask.addState(barrier, sinkAction.getId(), Collections.emptyList());
                     } else {
                         List<StateT> states = writer.snapshotState(barrier.getId());
                         runningTask.addState(barrier, sinkAction.getId(), serializeStates(writerStateSerializer.get(), states));
                     }
                     // TODO: prepare commit
-                    runningTask.getExecutionContext().sendToMember(new SinkPrepareCommitOperation(barrier, committerTaskLocation,
-                        new byte[0]), committerTaskAddress);
+                    if (containCommitter) {
+                        runningTask.getExecutionContext().sendToMember(new SinkPrepareCommitOperation(barrier, committerTaskLocation,
+                            new byte[0]), committerTaskAddress);
+                    }
                 } else {
-                    runningTask.getExecutionContext().sendToMember(new CheckpointBarrierTriggerOperation(barrier, committerTaskLocation), committerTaskAddress);
+                    if (containCommitter) {
+                        runningTask.getExecutionContext().sendToMember(new CheckpointBarrierTriggerOperation(barrier, committerTaskLocation), committerTaskAddress);
+                    }
                 }
                 runningTask.ack(barrier);
             } else {
