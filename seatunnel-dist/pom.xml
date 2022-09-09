@@ -79,7 +79,8 @@
             <activation>
                 <activeByDefault>true</activeByDefault>
                 <property>
-                    <name>!release</name>
+                    <name>release</name>
+                    <value>false</value>
                 </property>
             </activation>
             <dependencies>
@@ -267,6 +268,7 @@
                 <activeByDefault>true</activeByDefault>
                 <property>
                     <name>release</name>
+                    <value>true</value>
                 </property>
             </activation>
             <dependencies>
@@ -358,6 +360,7 @@
                 <activeByDefault>true</activeByDefault>
                 <property>
                     <name>release</name>
+                    <value>true</value>
                 </property>
             </activation>
             <dependencies>
@@ -401,6 +404,7 @@
                 <activeByDefault>true</activeByDefault>
                 <property>
                     <name>release</name>
+                    <value>true</value>
                 </property>
             </activation>
             <dependencies>
@@ -557,6 +561,7 @@
             <activation>
                 <property>
                     <name>release</name>
+                    <value>true</value>
                 </property>
             </activation>
             <build>

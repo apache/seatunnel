@@ -96,7 +96,8 @@
             <activation>
                 <activeByDefault>true</activeByDefault>
                 <property>
-                    <name>!release</name>
+                    <name>release</name>
+                    <value>false</value>
                 </property>
             </activation>
             <modules>
@@ -111,6 +112,7 @@
             <activation>
                 <property>
                     <name>release</name>
+                    <value>true</value>
                 </property>
             </activation>
         </profile>
