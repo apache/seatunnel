@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.v2.mongodb;
+package org.apache.seatunnel.e2e.spark.v2.mongodb;
 
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 
-import org.apache.seatunnel.e2e.flink.FlinkContainer;
+import org.apache.seatunnel.e2e.spark.SparkContainer;
 
 import com.google.common.collect.Lists;
 import com.mongodb.client.MongoClient;
@@ -51,11 +51,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
-public class FakeSourceToMongodbIT extends FlinkContainer {
+public class FakeSourceToMongodbIT extends SparkContainer {
 
     private static final String MONGODB_IMAGE = "mongo:latest";
 
-    private static final String MONGODB_CONTAINER_HOST = "flink_e2e_mongodb_sink";
+    private static final String MONGODB_CONTAINER_HOST = "spark_e2e_mongodb_sink";
 
     private static final String MONGODB_HOST = "localhost";
 
@@ -98,7 +98,7 @@ public class FakeSourceToMongodbIT extends FlinkContainer {
 
     @Test
     public void testMongodbSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/mongodb/fake_to_mongodb.conf");
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/mongodb/fake_to_mongodb.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
         List<Map<String, Object>> list = new ArrayList<>();
