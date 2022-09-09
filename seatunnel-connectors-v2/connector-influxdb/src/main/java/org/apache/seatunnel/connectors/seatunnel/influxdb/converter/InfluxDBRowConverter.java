@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.influxdb.converter;
 
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -42,16 +41,16 @@ public class InfluxDBRowConverter {
             }
             else if (BasicType.BOOLEAN_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = Boolean.parseBoolean(values.get(columnIndex).toString());
-            }  else if (BasicType.INT_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = (Integer) values.get(columnIndex);
+            } else if (BasicType.SHORT_TYPE.equals(seaTunnelDataType)) {
+                seatunnelField = Short.valueOf(values.get(columnIndex).toString());
+            } else if (BasicType.INT_TYPE.equals(seaTunnelDataType)) {
+                seatunnelField = Integer.valueOf(values.get(columnIndex).toString());
             } else if (BasicType.LONG_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = (Long) values.get(columnIndex);
+                seatunnelField = Long.valueOf(values.get(columnIndex).toString());
             } else if (BasicType.FLOAT_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = ((Double) values.get(columnIndex)).floatValue();
             } else if (BasicType.DOUBLE_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = (Double) values.get(columnIndex);
-            } else if (PrimitiveByteArrayType.INSTANCE.equals(seaTunnelDataType)) {
-                seatunnelField = (byte[]) values.get(i);
+                seatunnelField = values.get(columnIndex);
             } else if (BasicType.STRING_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = values.get(columnIndex);
             } else {
