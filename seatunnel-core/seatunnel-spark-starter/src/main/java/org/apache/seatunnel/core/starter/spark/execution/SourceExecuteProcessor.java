@@ -44,8 +44,9 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
     private static final String PLUGIN_TYPE = "source";
 
     public SourceExecuteProcessor(SparkEnvironment sparkEnvironment,
+                                  SeaTunnelContext seaTunnelContext,
                                   List<? extends Config> sourceConfigs) {
-        super(sparkEnvironment, sourceConfigs);
+        super(sparkEnvironment, seaTunnelContext, sourceConfigs);
     }
 
     @Override
@@ -75,7 +76,7 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
             jars.addAll(sourcePluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
             SeaTunnelSource<?, ?, ?> seaTunnelSource = sourcePluginDiscovery.createPluginInstance(pluginIdentifier);
             seaTunnelSource.prepare(sourceConfig);
-            seaTunnelSource.setSeaTunnelContext(SeaTunnelContext.getContext());
+            seaTunnelSource.setSeaTunnelContext(seaTunnelContext);
             sources.add(seaTunnelSource);
         }
         sparkEnvironment.registerPlugin(new ArrayList<>(jars));

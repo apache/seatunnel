@@ -34,18 +34,12 @@ public final class SeaTunnelContext implements Serializable {
 
     private static final long serialVersionUID = -1L;
 
-    private static final SeaTunnelContext INSTANCE = new SeaTunnelContext();
-
     // tableName -> tableSchema
     private final Map<String, TableSchema> tableSchemaMap = new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
 
     private JobMode jobMode;
 
     private final String jobId;
-
-    public static SeaTunnelContext getContext() {
-        return INSTANCE;
-    }
 
     /**
      * Put table schema.
@@ -80,7 +74,7 @@ public final class SeaTunnelContext implements Serializable {
         return this.jobId;
     }
 
-    private SeaTunnelContext() {
+    public SeaTunnelContext() {
         this.jobId = UUID.randomUUID().toString().replace("-", "");
     }
 

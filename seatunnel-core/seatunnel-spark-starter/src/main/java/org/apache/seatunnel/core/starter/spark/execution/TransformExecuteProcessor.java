@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.core.starter.spark.execution;
 
+import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSparkTransformPluginDiscovery;
@@ -39,8 +40,9 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Ba
     private static final String PLUGIN_TYPE = "transform";
 
     protected TransformExecuteProcessor(SparkEnvironment sparkEnvironment,
+                                        SeaTunnelContext seaTunnelContext,
                                         List<? extends Config> pluginConfigs) {
-        super(sparkEnvironment, pluginConfigs);
+        super(sparkEnvironment, seaTunnelContext, pluginConfigs);
     }
 
     @Override

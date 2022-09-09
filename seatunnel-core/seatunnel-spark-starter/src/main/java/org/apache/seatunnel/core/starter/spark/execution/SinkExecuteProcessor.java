@@ -43,8 +43,9 @@ public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunn
     private static final String PLUGIN_TYPE = "sink";
 
     protected SinkExecuteProcessor(SparkEnvironment sparkEnvironment,
+                                   SeaTunnelContext seaTunnelContext,
                                    List<? extends Config> pluginConfigs) {
-        super(sparkEnvironment, pluginConfigs);
+        super(sparkEnvironment, seaTunnelContext, pluginConfigs);
     }
 
     @Override
@@ -56,7 +57,7 @@ public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunn
             pluginJars.addAll(sinkPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
             SeaTunnelSink<?, ?, ?, ?> seaTunnelSink = sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
             seaTunnelSink.prepare(sinkConfig);
-            seaTunnelSink.setSeaTunnelContext(SeaTunnelContext.getContext());
+            seaTunnelSink.setSeaTunnelContext(seaTunnelContext);
             return seaTunnelSink;
         }).distinct().collect(Collectors.toList());
         sparkEnvironment.registerPlugin(pluginJars);

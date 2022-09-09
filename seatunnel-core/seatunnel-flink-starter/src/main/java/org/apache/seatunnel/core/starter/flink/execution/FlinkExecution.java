@@ -55,10 +55,11 @@ public class FlinkExecution implements TaskExecution {
     public FlinkExecution(Config config) {
         this.config = config;
         this.flinkEnvironment = new EnvironmentFactory<FlinkEnvironment>(config, EngineType.FLINK).getEnvironment();
-        SeaTunnelContext.getContext().setJobMode(flinkEnvironment.getJobMode());
-        this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(flinkEnvironment, config.getConfigList("source"));
-        this.transformPluginExecuteProcessor = new TransformExecuteProcessor(flinkEnvironment, config.getConfigList("transform"));
-        this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(flinkEnvironment, config.getConfigList("sink"));
+        SeaTunnelContext seaTunnelContext = new SeaTunnelContext();
+        seaTunnelContext.setJobMode(flinkEnvironment.getJobMode());
+        this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(flinkEnvironment, seaTunnelContext, config.getConfigList("source"));
+        this.transformPluginExecuteProcessor = new TransformExecuteProcessor(flinkEnvironment, seaTunnelContext, config.getConfigList("transform"));
+        this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(flinkEnvironment, seaTunnelContext, config.getConfigList("sink"));
         registerPlugin();
     }
 
