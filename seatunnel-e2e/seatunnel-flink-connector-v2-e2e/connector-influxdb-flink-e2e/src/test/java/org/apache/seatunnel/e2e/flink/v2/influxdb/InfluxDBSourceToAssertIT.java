@@ -38,6 +38,7 @@ import org.testcontainers.lifecycle.Startables;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -93,8 +94,13 @@ public class InfluxDBSourceToAssertIT extends FlinkContainer {
             Point point = Point.measurement(INFLUXDB_MEASUREMENT)
                     .time(new Date().getTime(), TimeUnit.NANOSECONDS)
                     .tag("label", String.format("label_%s", i))
-                    .addField("value", i)
-                    .addField("rt", String.format("rt_%s", i))
+                    .addField("f1", String.format("f1_%s", i))
+                    .addField("f2", Double.valueOf(i + 1))
+                    .addField("f3", Long.valueOf(i + 2))
+                    .addField("f4", Float.valueOf(i + 3))
+                    .addField("f5", Integer.valueOf(i + 4))
+                    .addField("f6", (short) (i + 5))
+                    .addField("f7", i % 2 == 0 ? Boolean.TRUE : Boolean.FALSE)
                     .build();
             batchPoints.point(point);
         }
