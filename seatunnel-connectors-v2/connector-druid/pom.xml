@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <artifactId>seatunnel-connectors-v2</artifactId>
@@ -12,7 +12,7 @@
     <artifactId>connector-druid</artifactId>
 
     <properties>
-        <jackson-datatype-joda.version>2.12.1</jackson-datatype-joda.version>
+        <jackson-datatype-joda.version>2.6.7</jackson-datatype-joda.version>
     </properties>
 
     <dependencies>

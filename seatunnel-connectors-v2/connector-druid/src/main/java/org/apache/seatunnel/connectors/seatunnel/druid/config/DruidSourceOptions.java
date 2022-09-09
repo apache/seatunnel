@@ -15,24 +15,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.connectors.seatunnel.druid.config;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.io.Serializable;
 import java.util.List;
-import java.util.Optional;
 
 @Data
 @AllArgsConstructor
 public class DruidSourceOptions implements Serializable {
-    private String URL;
-    private String datasource ;
-    private String startTimestamp ;
-    private String endTimestamp ;
-    private List<String> columns ;
+    private String url;
+    private String datasource;
+    private String startTimestamp;
+    private String endTimestamp;
+    private List<String> columns;
 
     private String partitionColumn;
     private Long partitionUpperBound;
@@ -40,7 +41,7 @@ public class DruidSourceOptions implements Serializable {
     private Integer parallelism;
 
     public DruidSourceOptions(Config pluginConfig) {
-        this.URL = pluginConfig.getString(DruidSourceConfig.URL);
+        this.url = pluginConfig.getString(DruidSourceConfig.URL);
         this.datasource = pluginConfig.getString(DruidSourceConfig.DATASOURCE);
         this.columns = pluginConfig.hasPath(DruidSourceConfig.COLUMNS) ? pluginConfig.getStringList(DruidSourceConfig.COLUMNS) : null;
         this.startTimestamp = pluginConfig.hasPath(DruidSourceConfig.START_TIMESTAMP) ? pluginConfig.getString(DruidSourceConfig.START_TIMESTAMP) : null;

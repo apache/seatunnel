@@ -15,9 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.connectors.seatunnel.druid.sink;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -27,12 +27,15 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.druid.config.DruidSinkOptions;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 
 @AutoService(SeaTunnelSink.class)
-public class DruidSink  extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class DruidSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     private Config config;
     private SeaTunnelRowType seaTunnelRowType;
@@ -55,7 +58,7 @@ public class DruidSink  extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
-        return new DruidSinkWriter(seaTunnelRowType,druidSinkOptions);
+        return new DruidSinkWriter(seaTunnelRowType, druidSinkOptions);
     }
 
     @Override
@@ -63,5 +66,4 @@ public class DruidSink  extends AbstractSimpleSink<SeaTunnelRow, Void> {
         this.config = pluginConfig;
         this.druidSinkOptions = new DruidSinkOptions(this.config);
     }
-
 }

@@ -15,9 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.connectors.seatunnel.druid.config;
 
-import java.io.Serializable;
+package org.apache.seatunnel.connectors.seatunnel.druid.config;
 
 public class DruidSinkConfig {
     public static final String COORDINATOR_URL = "coordinator_url";

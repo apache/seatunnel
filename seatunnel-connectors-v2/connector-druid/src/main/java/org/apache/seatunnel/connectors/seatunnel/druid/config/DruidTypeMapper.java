@@ -15,8 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.connectors.seatunnel.druid.config;
 
+package org.apache.seatunnel.connectors.seatunnel.druid.config;
 
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -26,22 +26,22 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class DruidTypeMapper {
-    public static final  Map<String, SeaTunnelDataType<?>> informationMapping = new HashMap<>();
+    public static Map<String, SeaTunnelDataType<?>> DRUID_TYPE_MAPPS = new HashMap<>();
 
-    static{
-            // https://druid.apache.org/docs/latest/querying/sql.html#data-types
-            informationMapping.put("CHAR", BasicType.STRING_TYPE);
-            informationMapping.put("VARCHAR", BasicType.STRING_TYPE);
-            informationMapping.put("DECIMAL", BasicType.DOUBLE_TYPE);
-            informationMapping.put("FLOAT", BasicType.FLOAT_TYPE);
-            informationMapping.put("REAL", BasicType.DOUBLE_TYPE);
-            informationMapping.put("DOUBLE", BasicType.DOUBLE_TYPE);
-            informationMapping.put("BOOLEAN", BasicType.LONG_TYPE);
-            informationMapping.put("TINYINT", BasicType.LONG_TYPE);
-            informationMapping.put("SMALLINT", BasicType.LONG_TYPE);
-            informationMapping.put("INTEGER", BasicType.LONG_TYPE);
-            informationMapping.put("BIGINT", BasicType.LONG_TYPE);
-            informationMapping.put("TIMESTAMP", LocalTimeType.LOCAL_DATE_TIME_TYPE);
-            informationMapping.put("DATE", LocalTimeType.LOCAL_DATE_TYPE);
+    static {
+        // https://druid.apache.org/docs/latest/querying/sql.html#data-types
+        DRUID_TYPE_MAPPS.put("CHAR", BasicType.STRING_TYPE);
+        DRUID_TYPE_MAPPS.put("VARCHAR", BasicType.STRING_TYPE);
+        DRUID_TYPE_MAPPS.put("DECIMAL", BasicType.DOUBLE_TYPE);
+        DRUID_TYPE_MAPPS.put("FLOAT", BasicType.FLOAT_TYPE);
+        DRUID_TYPE_MAPPS.put("REAL", BasicType.DOUBLE_TYPE);
+        DRUID_TYPE_MAPPS.put("DOUBLE", BasicType.DOUBLE_TYPE);
+        DRUID_TYPE_MAPPS.put("BOOLEAN", BasicType.LONG_TYPE);
+        DRUID_TYPE_MAPPS.put("TINYINT", BasicType.LONG_TYPE);
+        DRUID_TYPE_MAPPS.put("SMALLINT", BasicType.LONG_TYPE);
+        DRUID_TYPE_MAPPS.put("INTEGER", BasicType.LONG_TYPE);
+        DRUID_TYPE_MAPPS.put("BIGINT", BasicType.LONG_TYPE);
+        DRUID_TYPE_MAPPS.put("TIMESTAMP", LocalTimeType.LOCAL_DATE_TIME_TYPE);
+        DRUID_TYPE_MAPPS.put("DATE", LocalTimeType.LOCAL_DATE_TYPE);
     }
 }

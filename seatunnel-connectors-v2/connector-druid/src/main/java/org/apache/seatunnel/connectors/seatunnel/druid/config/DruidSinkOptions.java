@@ -15,11 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.connectors.seatunnel.druid.config;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.joda.time.DateTime;
 
 import java.io.Serializable;
@@ -28,18 +30,17 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 public class DruidSinkOptions implements Serializable {
-    private  String coordinatorURL;
-    private  String datasource;
-    private  String timestampColumn;
-    private  String timestampFormat;
-    private  String  timestampMissingValue;
-    private List<String> columns;
-    private  int parallelism;
-
     private static final String DEFAULT_TIMESTAMP_COLUMN = "timestamp";
     private static final String DEFAULT_TIMESTAMP_FORMAT = "auto";
     private static final DateTime DEFAULT_TIMESTAMP_MISSING_VALUE = null;
     private static final int DEFAULT_PARALLELISM = 1;
+    private String coordinatorURL;
+    private String datasource;
+    private String timestampColumn;
+    private String timestampFormat;
+    private String timestampMissingValue;
+    private List<String> columns;
+    private int parallelism;
 
     public DruidSinkOptions(Config pluginConfig) {
         this.coordinatorURL = pluginConfig.getString(DruidSinkConfig.COORDINATOR_URL);

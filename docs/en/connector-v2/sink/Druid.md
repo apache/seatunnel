@@ -13,7 +13,7 @@ Write data to Apache Druid.
 | ----------------------- | -------- | -------- | ------------- |
 | coordinator_url         | `String` | yes      | -             |
 | datasource              | `String` | yes      | -             |
-| columns                 | `List<String>` | yes       | -         |
+| columns                 | `List<String>` | yes| __time        |
 | timestamp_column        | `String` | no       | timestamp     |
 | timestamp_format        | `String` | no       | auto          |
 | timestamp_missing_value | `String` | no       | -             |

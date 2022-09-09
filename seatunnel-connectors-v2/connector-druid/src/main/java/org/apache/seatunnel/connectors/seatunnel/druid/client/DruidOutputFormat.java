@@ -15,15 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.connectors.seatunnel.druid.client;
 
-import com.fasterxml.jackson.datatype.joda.JodaModule;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.joda.JodaModule;
 import lombok.Data;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.druid.data.input.MaxSizeSplitHintSpec;
@@ -39,36 +42,40 @@ import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.segment.indexing.DataSchema;
 import org.apache.druid.segment.indexing.granularity.UniformGranularitySpec;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.Serializable;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Data
 public class DruidOutputFormat implements Serializable {
-    private static final Logger LOGGER = LoggerFactory.getLogger(DruidOutputFormat.class);
-
-    private static final String DEFAULT_TIMESTAMP_COLUMN = "timestamp";
-    private static final String DEFAULT_TIMESTAMP_FORMAT = "auto";
-    private static final DateTime DEFAULT_TIMESTAMP_MISSING_VALUE = new DateTime();
     public static final String DEFAULT_LINE_DELIMITER = "\n";
     public static final String DEFAULT_FIELD_DELIMITER = ",";
-
-    private final transient StringBuffer data;
+    private static final Logger LOGGER = LoggerFactory.getLogger(DruidOutputFormat.class);
+    private static final String DEFAULT_TIMESTAMP_COLUMN = "timestamp";
+    private static final String DEFAULT_TIMESTAMP_FORMAT = "auto";
+    private static final String DEFAULT_COLUMN = "__time";
+    private static final DateTime DEFAULT_TIMESTAMP_MISSING_VALUE = new DateTime();
+    private final transient StringBuilder  data;
     private final String coordinatorURL;
     private final String datasource;
     private final String timestampColumn;
     private final String timestampFormat;
     private final DateTime timestampMissingValue;
-    private  List<String> columns;
+    private List<String> columns;
 
     public DruidOutputFormat(String coordinatorURL,
                              String datasource,
@@ -76,8 +83,8 @@ public class DruidOutputFormat implements Serializable {
                              String timestampFormat,
                              String timestampMissingValue,
                              List<String> columns
-                             ) {
-        this.data = new StringBuffer();
+    ) {
+        this.data = new StringBuilder();
         this.coordinatorURL = coordinatorURL;
         this.datasource = datasource;
         this.timestampColumn = timestampColumn == null ? DEFAULT_TIMESTAMP_COLUMN : timestampColumn;
@@ -142,84 +149,85 @@ public class DruidOutputFormat implements Serializable {
                 }
                 LOGGER.info("Druid write task has been sent, and the response is {}", response.toString());
             }
-        }catch (IOException e){
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     private ParallelIndexSupervisorTask parallelIndexSupervisorTask(ParallelIndexIOConfig ioConfig, ParallelIndexTuningConfig tuningConfig) {
         return new ParallelIndexSupervisorTask(
-                null,
-                null,
-                null,
-                new ParallelIndexIngestionSpec(
-                        new DataSchema(
-                                this.datasource,
-                                new TimestampSpec(this.timestampColumn, this.timestampFormat, this.timestampMissingValue),
-                                new DimensionsSpec(Collections.emptyList()),
-                                null,
-                                new UniformGranularitySpec(Granularities.HOUR, Granularities.MINUTE, false, null),
-                                null
-                        ),
-                        ioConfig,
-                        tuningConfig
+            null,
+            null,
+            null,
+            new ParallelIndexIngestionSpec(
+                new DataSchema(
+                    this.datasource,
+                    new TimestampSpec(this.timestampColumn, this.timestampFormat, this.timestampMissingValue),
+                    new DimensionsSpec(Collections.emptyList()),
+                    null,
+                    new UniformGranularitySpec(Granularities.HOUR, Granularities.MINUTE, false, null),
+                    null
                 ),
-                null
+                ioConfig,
+                tuningConfig
+            ),
+            null
         );
     }
 
     private ParallelIndexIOConfig parallelIndexIOConfig() {
-        List columnss = new ArrayList();
-        CollectionUtils.addAll(columnss,this.getColumns().get(0).split(","));
+        Set<String> columnss = new HashSet<>();
+        columnss.add(DEFAULT_COLUMN);
+        CollectionUtils.addAll(columnss, this.getColumns().get(0).split(","));
         columnss.add(timestampColumn);
 
         return new ParallelIndexIOConfig(
+            null,
+            new InlineInputSource(this.data.toString()),
+            new CsvInputFormat(
+                new ArrayList<>(columnss),
+                "|",
                 null,
-                new InlineInputSource(this.data.toString()),
-                new CsvInputFormat(
-                        columnss,
-                        "|",
-                        null,
-                        false,
-                        0
-                ),
                 false,
-                null
+                0
+            ),
+            false,
+            null
         );
     }
 
     private ParallelIndexTuningConfig tuningConfig() {
         return new ParallelIndexTuningConfig(
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                new MaxSizeSplitHintSpec(null, 1),
-                null,
-                null,
-                null,
-                null,
-                false,
-                null,
-                null,
-                null,
-                null,
-                1,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            new MaxSizeSplitHintSpec(null, 1),
+            null,
+            null,
+            null,
+            null,
+            false,
+            null,
+            null,
+            null,
+            null,
+            1,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
         );
     }
 }

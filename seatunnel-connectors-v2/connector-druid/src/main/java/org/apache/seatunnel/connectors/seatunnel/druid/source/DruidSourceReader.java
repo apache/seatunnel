@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.connectors.seatunnel.druid.source;
 
 import org.apache.seatunnel.api.source.Boundedness;
@@ -22,9 +23,11 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.seatunnel.druid.client.DruidInputFormat;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.seatunnel.connectors.seatunnel.druid.client.DruidInputFormat;
+
 import java.io.IOException;
 
 public class DruidSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
@@ -33,7 +36,7 @@ public class DruidSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final SingleSplitReaderContext context;
     private final DruidInputFormat druidInputFormat;
 
-    public DruidSourceReader(SingleSplitReaderContext context,DruidInputFormat druidInputFormat) {
+    public DruidSourceReader(SingleSplitReaderContext context, DruidInputFormat druidInputFormat) {
         this.context = context;
         this.druidInputFormat = druidInputFormat;
     }

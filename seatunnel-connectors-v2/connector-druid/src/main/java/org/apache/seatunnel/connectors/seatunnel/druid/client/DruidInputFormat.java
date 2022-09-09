@@ -15,18 +15,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.connectors.seatunnel.druid.client;
 
-import lombok.Data;
-import org.apache.seatunnel.api.table.type.*;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.druid.config.DruidSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.druid.config.DruidTypeMapper;
+
+import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.seatunnel.connectors.seatunnel.druid.config.DruidTypeMapper;
 
 import java.io.IOException;
 import java.io.Serializable;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -36,17 +48,15 @@ import java.util.TimeZone;
 
 @Data
 public class DruidInputFormat implements Serializable {
+    protected static final String COLUMNS_DEFAULT = "*";
+    protected static final String QUERY_TEMPLATE = "SELECT %s FROM %s WHERE 1=1";
     private static final Logger LOGGER = LoggerFactory.getLogger(DruidInputFormat.class);
-
     protected transient Connection connection;
     protected transient PreparedStatement statement;
     protected transient ResultSet resultSet;
     protected SeaTunnelRowType rowTypeInfo;
     protected DruidSourceOptions druidSourceOptions;
-
-    protected static final String COLUMNS_DEFAULT = "*";
-    protected static final String QUERY_TEMPLATE = "SELECT %s FROM %s WHERE 1=1";
-    protected String quarySQL ;
+    protected String quarySQL;
     protected boolean hasNext;
 
     public DruidInputFormat(DruidSourceOptions druidSourceOptions) {
@@ -57,16 +67,17 @@ public class DruidInputFormat implements Serializable {
     public ResultSetMetaData getResultSetMetaData() throws SQLException {
         try {
             quarySQL = getSQL();
-            connection = DriverManager.getConnection(druidSourceOptions.getURL());
+            connection = DriverManager.getConnection(druidSourceOptions.getUrl());
             statement = connection.prepareStatement(quarySQL, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
             return statement.getMetaData();
         } catch (SQLException se) {
             throw new SQLException("ResultSetMetaData() failed." + se.getMessage(), se);
         }
     }
+
     public void openInputFormat() {
         try {
-            connection = DriverManager.getConnection(druidSourceOptions.getURL());
+            connection = DriverManager.getConnection(druidSourceOptions.getUrl());
             statement = connection.prepareStatement(quarySQL, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
             resultSet = statement.executeQuery();
             hasNext = resultSet.next();
@@ -80,11 +91,9 @@ public class DruidInputFormat implements Serializable {
         String startTimestamp = druidSourceOptions.getStartTimestamp();
         String endTimestamp = druidSourceOptions.getEndTimestamp();
         String dataSource = druidSourceOptions.getDatasource();
-
         if (druidSourceOptions.getColumns() != null && druidSourceOptions.getColumns().size() > 0) {
             columns = String.join(",", druidSourceOptions.getColumns());
         }
-
         String sql = String.format(QUERY_TEMPLATE, columns, dataSource);
         if (startTimestamp != null) {
             sql += " AND __time >=  '" + startTimestamp + "'";
@@ -120,19 +129,10 @@ public class DruidInputFormat implements Serializable {
         }
     }
 
-
-    /**
-     * Checks whether all data has been read.
-     *
-     * @return boolean value indication whether all data has been read.
-     */
     public boolean reachedEnd() throws IOException {
         return !hasNext;
     }
 
-    /**
-     * Convert a row of data to seatunnelRow
-     */
     public SeaTunnelRow nextRecord() throws IOException {
         try {
             if (!hasNext) {
@@ -149,7 +149,7 @@ public class DruidInputFormat implements Serializable {
         }
     }
 
-    public SeaTunnelRow toInternal(ResultSet rs, SeaTunnelRowType rowTypeInfo) throws SQLException{
+    public SeaTunnelRow toInternal(ResultSet rs, SeaTunnelRowType rowTypeInfo) throws SQLException {
         List<Object> fields = new ArrayList<>();
         SeaTunnelDataType<?>[] seaTunnelDataTypes = rowTypeInfo.getFieldTypes();
 
@@ -158,8 +158,7 @@ public class DruidInputFormat implements Serializable {
             SeaTunnelDataType<?> seaTunnelDataType = seaTunnelDataTypes[i - 1];
             if (null == rs.getObject(i)) {
                 seatunnelField = null;
-            }
-            else if (BasicType.BOOLEAN_TYPE.equals(seaTunnelDataType)) {
+            } else if (BasicType.BOOLEAN_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getBoolean(i);
             } else if (BasicType.BYTE_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getByte(i);
@@ -175,15 +174,15 @@ public class DruidInputFormat implements Serializable {
                 seatunnelField = rs.getDouble(i);
             } else if (BasicType.STRING_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getString(i);
-            }else if (LocalTimeType.LOCAL_DATE_TIME_TYPE.equals(seaTunnelDataType)) {
+            } else if (LocalTimeType.LOCAL_DATE_TIME_TYPE.equals(seaTunnelDataType)) {
                 Timestamp ts = rs.getTimestamp(i, Calendar.getInstance(TimeZone.getTimeZone("UTC")));
                 LocalDateTime localDateTime = LocalDateTime.ofInstant(ts.toInstant(), ZoneId.of("UTC"));  // good
                 seatunnelField = localDateTime;
-            }else if (LocalTimeType.LOCAL_TIME_TYPE.equals(seaTunnelDataType)) {
+            } else if (LocalTimeType.LOCAL_TIME_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getDate(i);
-            }else if (LocalTimeType.LOCAL_DATE_TYPE.equals(seaTunnelDataType)) {
+            } else if (LocalTimeType.LOCAL_DATE_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getDate(i);
-            }else {
+            } else {
                 throw new IllegalStateException("Unexpected value: " + seaTunnelDataType);
             }
 
@@ -201,12 +200,12 @@ public class DruidInputFormat implements Serializable {
             ResultSetMetaData resultSetMetaData = getResultSetMetaData();
             for (int i = 1; i <= resultSetMetaData.getColumnCount(); i++) {
                 fieldNames.add(resultSetMetaData.getColumnName(i));
-                seaTunnelDataTypes.add(DruidTypeMapper.informationMapping.get(resultSetMetaData.getColumnTypeName(i)));
+                seaTunnelDataTypes.add(DruidTypeMapper.DRUID_TYPE_MAPPS.get(resultSetMetaData.getColumnTypeName(i)));
             }
         } catch (SQLException e) {
             LOGGER.warn("get row type info exception", e);
         }
-        rowTypeInfo =  new SeaTunnelRowType(fieldNames.toArray(new String[fieldNames.size()]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));
+        rowTypeInfo = new SeaTunnelRowType(fieldNames.toArray(new String[fieldNames.size()]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));
 
         return rowTypeInfo;
     }
