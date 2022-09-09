@@ -17,7 +17,13 @@
 
 package org.apache.seatunnel.e2e.flink.sql;
 
+import static org.apache.seatunnel.e2e.common.ContainerUtil.copyConfigFileToContainer;
+
 import org.apache.seatunnel.e2e.common.AbstractFlinkContainer;
+
+import org.testcontainers.containers.Container;
+
+import java.io.IOException;
 
 /**
  * This class is the base class of FlinkEnvironment test.
@@ -49,5 +55,10 @@ public abstract class FlinkContainer extends AbstractFlinkContainer {
     @Override
     protected String getConnectorNamePrefix() {
         return "flink-sql-connector-";
+    }
+
+    public Container.ExecResult executeSeaTunnelFlinkJob(String confFile) throws IOException, InterruptedException {
+        final String confInContainerPath = copyConfigFileToContainer(jobManager, confFile);
+        return executeCommand(jobManager, confInContainerPath);
     }
 }
