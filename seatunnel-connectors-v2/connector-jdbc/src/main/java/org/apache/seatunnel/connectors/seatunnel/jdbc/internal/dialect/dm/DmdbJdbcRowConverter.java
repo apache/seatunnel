@@ -15,22 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.sql.fake;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm;
 
-import org.apache.seatunnel.e2e.flink.sql.FlinkContainer;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.Container;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 
-import java.io.IOException;
+public class DmdbJdbcRowConverter extends AbstractJdbcRowConverter {
 
-public class DatagenToConsoleIT extends FlinkContainer {
+    @Override
+    public String converterName() {
+        return "DM";
+    }
 
-    @Test
-    public void testDatagenToConsole() throws IOException, InterruptedException {
-        final String configFile = "/fake/flink.sql.conf";
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob(configFile);
-        Assertions.assertEquals(0, execResult.getExitCode());
+    @Override
+    public SeaTunnelRow toInternal(ResultSet rs, ResultSetMetaData metaData, SeaTunnelRowType typeInfo) throws SQLException {
+        return super.toInternal(rs, metaData, typeInfo);
     }
 }
