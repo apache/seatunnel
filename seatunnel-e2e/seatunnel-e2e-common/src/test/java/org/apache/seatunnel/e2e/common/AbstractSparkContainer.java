@@ -74,11 +74,13 @@ public abstract class AbstractSparkContainer extends AbstractContainer {
             master.stop();
         }
     }
+
     @Override
     protected List<String> getExtraStartShellCommands() {
         return Arrays.asList("--master local",
             "--deploy-mode client");
     }
+
     public Container.ExecResult executeSeaTunnelSparkJob(String confFile) throws IOException, InterruptedException {
         return executeJob(master, confFile);
     }
