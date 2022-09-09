@@ -38,7 +38,7 @@ public abstract class FlinkContainer extends AbstractFlinkContainer {
 
     @Override
     protected String getConnectorType() {
-        return "seatunnel";
+        return "flink";
     }
 
     @Override
