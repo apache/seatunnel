@@ -104,7 +104,6 @@ public class PhysicalPlan {
         if (runningJobStateTimestampsIMap.get(jobId) == null) {
             stateTimestamps[JobStatus.INITIALIZING.ordinal()] = initializationTimestamp;
             runningJobStateTimestampsIMap.put(jobId, stateTimestamps);
-
         }
 
         if (runningJobStateIMap.get(jobId) == null) {
