@@ -35,10 +35,8 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 
@@ -93,9 +91,7 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
     @Override
     public void close() throws IOException {
         try {
-            if (!Objects.isNull(conn)) {
-                conn.close();
-            }
+            conn.close();
         } catch (SQLException e) {
             throw new IOException(e);
         }
@@ -109,20 +105,11 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
             while (resultSet.next()) {
                 Object[] datas = new Object[meta.getColumnCount()];
                 for (int i = 0; i < meta.getColumnCount(); i++) {
-                    datas[i] = convertDataType(resultSet.getObject(i + 1));
+                    datas[i] = resultSet.getObject(i);
                 }
                 output.collect(new SeaTunnelRow(datas));
             }
         }
-    }
-
-    private Object convertDataType(Object object) {
-        if (Timestamp.class.equals(object.getClass())) {
-            return ((Timestamp) object).toLocalDateTime();
-        } else if (byte[].class.equals(object.getClass())) {
-            return new String((byte[]) object);
-        }
-        return object;
     }
 
     @Override

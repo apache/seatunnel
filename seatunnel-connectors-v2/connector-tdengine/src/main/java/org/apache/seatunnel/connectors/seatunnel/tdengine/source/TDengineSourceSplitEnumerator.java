@@ -24,9 +24,6 @@ import org.apache.seatunnel.connectors.seatunnel.tdengine.state.TDengineSourceSt
 
 import com.google.common.collect.Sets;
 
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -37,10 +34,12 @@ import java.util.Set;
 
 public class TDengineSourceSplitEnumerator implements SourceSplitEnumerator<TDengineSourceSplit, TDengineSourceState> {
 
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
     private final SourceSplitEnumerator.Context<TDengineSourceSplit> context;
+
     private final TDengineSourceConfig config;
+
     private Set<TDengineSourceSplit> pendingSplit = Sets.newConcurrentHashSet();
+
     private Set<TDengineSourceSplit> assignedSplit = Sets.newConcurrentHashSet();
 
     public TDengineSourceSplitEnumerator(TDengineSourceConfig config, SourceSplitEnumerator.Context<TDengineSourceSplit> context) {
@@ -79,7 +78,7 @@ public class TDengineSourceSplitEnumerator implements SourceSplitEnumerator<TDen
      * split 2: select * from test  where (time >= 6 and time < 11)
      */
     private Set<TDengineSourceSplit> getAllSplit() {
-        String sql = "select * from " + config.getStable();
+        String sql = "select * from " + config.getDatabase();
         Set<TDengineSourceSplit> sourceSplits = Sets.newHashSet();
         // no need numPartitions, use one partition
         if (config.getPartitionsNum() <= 1) {
@@ -96,9 +95,8 @@ public class TDengineSourceSplitEnumerator implements SourceSplitEnumerator<TDen
         long currentStart = start;
         int i = 0;
         while (i < partitionsNum) {
-            //Left closed right away
-            long currentEnd = i == partitionsNum - 1 ? end + 1 : currentStart + size;
-            String query = " where ts >= '" + Instant.ofEpochMilli(currentStart).atZone(ZoneId.systemDefault()).format(FORMATTER) + "' and ts < '" + Instant.ofEpochMilli(currentEnd).atZone(ZoneId.systemDefault()).format(FORMATTER) + "'";
+            long currentEnd = i == partitionsNum - 1 ? end : currentStart + size;
+            String query = " where ts >= " + currentStart + " and ts < " + currentEnd;
             String finalSQL = sql + query;
             sourceSplits.add(new TDengineSourceSplit(String.valueOf(i + System.nanoTime()), finalSQL));
             i++;
