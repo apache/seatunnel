@@ -66,18 +66,24 @@ public class ReadonlyConfig {
         return getOptional(option).orElseGet(option::defaultValue);
     }
 
-    @SuppressWarnings("MagicNumber")
     public Map<String, String> toMap() {
         if (confData.isEmpty()) {
             return Collections.emptyMap();
         }
 
+        Map<String, String> result = new HashMap<>();
+        toMap(result);
+        return result;
+    }
+
+    public void toMap(Map<String, String> result) {
+        if (confData.isEmpty()) {
+            return;
+        }
         Map<String, Object> flatteningMap = flatteningMap(confData);
-        Map<String, String> result = new HashMap<>((flatteningMap.size() << 2) / 3 + 1);
         for (Map.Entry<String, Object> entry : flatteningMap.entrySet()) {
             result.put(entry.getKey(), convertToJsonString(entry.getValue()));
         }
-        return result;
     }
 
     @SuppressWarnings("unchecked")
