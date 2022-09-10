@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public abstract class AbstractContainer {
+
     protected static final Logger LOG = LoggerFactory.getLogger(AbstractContainer.class);
     protected static final String START_ROOT_MODULE_NAME = "seatunnel-core";
 
@@ -42,15 +43,14 @@ public abstract class AbstractContainer {
     protected final String startModuleFullPath;
 
     public AbstractContainer() {
-        String[] modules = getStartModulePath().split(File.separator);
-        this.startModuleName = modules[modules.length - 1];
-        this.startModuleFullPath = PROJECT_ROOT_PATH + File.separator +
-            START_ROOT_MODULE_NAME + File.separator + getStartModulePath();
+        this.startModuleName = getStartModuleName();
+        this.startModuleFullPath = PROJECT_ROOT_PATH + File.separator + START_ROOT_MODULE_NAME + File.separator + getStartModuleName();
+        ContainerUtil.checkPathExist(startModuleFullPath);
     }
 
     protected abstract String getDockerImage();
 
-    protected abstract String getStartModulePath();
+    protected abstract String getStartModuleName();
 
     protected abstract String getStartShellName();
 
@@ -65,11 +65,9 @@ public abstract class AbstractContainer {
     protected abstract List<String> getExtraStartShellCommands();
 
     protected void copySeaTunnelStarter(GenericContainer<?> container) {
-        String[] modules = getStartModulePath().split(File.separator);
-        final String startModuleName = modules[modules.length - 1];
         ContainerUtil.copySeaTunnelStarter(container,
-            startModuleName,
-            PROJECT_ROOT_PATH + File.separator + START_ROOT_MODULE_NAME + File.separator + getStartModulePath(),
+            this.startModuleName,
+            this.startModuleFullPath,
             getSeaTunnelHomeInContainer(),
             getStartShellName());
     }

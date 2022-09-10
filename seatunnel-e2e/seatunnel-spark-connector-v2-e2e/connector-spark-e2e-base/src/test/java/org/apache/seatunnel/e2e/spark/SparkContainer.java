@@ -26,7 +26,7 @@ import org.apache.seatunnel.e2e.common.AbstractSparkContainer;
 public abstract class SparkContainer extends AbstractSparkContainer {
 
     @Override
-    protected String getStartModulePath() {
+    protected String getStartModuleName() {
         return "seatunnel-spark-starter";
     }
 

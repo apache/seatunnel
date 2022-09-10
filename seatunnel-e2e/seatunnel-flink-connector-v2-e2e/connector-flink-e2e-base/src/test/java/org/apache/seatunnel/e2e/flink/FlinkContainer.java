@@ -32,7 +32,7 @@ public abstract class FlinkContainer extends AbstractFlinkContainer {
     }
 
     @Override
-    protected String getStartModulePath() {
+    protected String getStartModuleName() {
         return "seatunnel-flink-starter";
     }
 
