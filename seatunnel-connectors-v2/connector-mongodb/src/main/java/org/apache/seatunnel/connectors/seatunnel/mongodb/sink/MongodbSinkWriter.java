@@ -43,11 +43,14 @@ public class MongodbSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final String collection;
 
+    private final MongoCollection<Document> mongoCollection;
+
     public MongodbSinkWriter(SeaTunnelRowType rowType, MongodbParameters params) {
         this.rowType = rowType;
         this.database = params.getDatabase();
         this.collection = params.getCollection();
         this.client = MongoClients.create(params.getUri());
+        this.mongoCollection = this.client.getDatabase(database).getCollection(collection);
         this.serializationSchema = new JsonSerializationSchema(rowType);
     }
 
@@ -55,10 +58,6 @@ public class MongodbSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     public void write(SeaTunnelRow rows) throws IOException {
         byte[] serialize = serializationSchema.serialize(rows);
         String content = new String(serialize);
-
-        MongoCollection<Document> mongoCollection = this.client
-            .getDatabase(database)
-            .getCollection(collection);
 
         Document doc = Document.parse(content);
         mongoCollection.insertOne(doc);
