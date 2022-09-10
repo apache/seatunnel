@@ -105,11 +105,11 @@ public class JobServiceImpl implements IJobService {
 
     @Override
     public PageData<JobSimpleInfoDto> list(JobListDto dto) {
-        final ListProcessDefinitionDto listDto = ListProcessDefinitionDto.builder()
-                .name(dto.getName())
-                .pageNo(dto.getPageNo())
-                .pageSize(dto.getPageSize())
-                .build();
+        final ListProcessDefinitionDto listDto = new ListProcessDefinitionDto();
+        listDto.setName(dto.getName());
+        listDto.setPageNo(dto.getPageNo());
+        listDto.setPageSize(dto.getPageSize());
+
         final PageData<ProcessDefinitionDto> processPageData = iDolphinschedulerService.listProcessDefinition(listDto);
         final List<JobSimpleInfoDto> data = processPageData.getData().stream().map(p -> JobSimpleInfoDto.builder()
                 .jobId(p.getCode())
@@ -212,6 +212,11 @@ public class JobServiceImpl implements IJobService {
         } else {
             return null;
         }
+    }
+
+    @Override
+    public void kill(Long instanceId) {
+        iDolphinschedulerService.killProcessInstance(instanceId);
     }
 
     private ProcessDefinitionDto getProcessDefinitionDto(JobDto dto) {

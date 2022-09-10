@@ -30,8 +30,8 @@ import java.util.Date;
 public class InstanceSimpleInfoRes {
     @ApiModelProperty(value = "instance id", dataType = "Long")
     private long instanceId;
-    @ApiModelProperty(value = "instance code", dataType = "Long")
-    private long instanceCode;
+    @ApiModelProperty(value = "job id", dataType = "Long")
+    private long jobId;
     @ApiModelProperty(value = "instance name", dataType = "String")
     private String instanceName;
     @ApiModelProperty(value = "submit time", dataType = "Date")

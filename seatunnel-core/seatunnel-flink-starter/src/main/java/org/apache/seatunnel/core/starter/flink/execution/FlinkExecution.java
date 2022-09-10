@@ -18,6 +18,7 @@
 package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.core.starter.config.EngineType;
 import org.apache.seatunnel.core.starter.config.EnvironmentFactory;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
@@ -31,8 +32,12 @@ import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Used to execute a SeaTunnelTask.
@@ -54,6 +59,7 @@ public class FlinkExecution implements TaskExecution {
         this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(flinkEnvironment, config.getConfigList("source"));
         this.transformPluginExecuteProcessor = new TransformExecuteProcessor(flinkEnvironment, config.getConfigList("transform"));
         this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(flinkEnvironment, config.getConfigList("sink"));
+        registerPlugin();
     }
 
     @Override
@@ -69,5 +75,19 @@ public class FlinkExecution implements TaskExecution {
         } catch (Exception e) {
             throw new TaskExecuteException("Execute Flink job error", e);
         }
+    }
+
+    private void registerPlugin(){
+        List<URL> pluginsJarDependencies = Common.getPluginsJarDependencies().stream()
+            .map(Path::toUri)
+            .map(uri -> {
+                try {
+                    return uri.toURL();
+                } catch (MalformedURLException e) {
+                    throw new RuntimeException("the uri of jar illegal:" + uri, e);
+                }
+            })
+            .collect(Collectors.toList());
+        flinkEnvironment.registerPlugin(pluginsJarDependencies);
     }
 }

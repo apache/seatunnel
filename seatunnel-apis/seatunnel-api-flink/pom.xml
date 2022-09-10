@@ -29,6 +29,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-api-flink</artifactId>
+    
+    <properties>
+        <avro.version>1.8.2</avro.version>
+    </properties>
 
     <dependencies>
         <dependency>

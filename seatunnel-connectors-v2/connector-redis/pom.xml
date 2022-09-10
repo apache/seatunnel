@@ -28,6 +28,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>connector-redis</artifactId>
+    
+    <properties>
+        <jedis.version>4.2.2</jedis.version>
+    </properties>
 
     <dependencies>
 
@@ -46,6 +50,7 @@
         <dependency>
             <groupId>redis.clients</groupId>
             <artifactId>jedis</artifactId>
+            <version>${jedis.version}</version>
         </dependency>
 
     </dependencies>
