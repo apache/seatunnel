@@ -95,6 +95,10 @@
             <id>all</id>
             <activation>
                 <activeByDefault>true</activeByDefault>
+                <property>
+                    <name>release</name>
+                    <value>false</value>
+                </property>
             </activation>
             <modules>
                 <module>seatunnel-connectors-v2</module>
@@ -104,6 +108,12 @@
         </profile>
         <profile>
             <id>release</id>
+            <activation>
+                <property>
+                    <name>release</name>
+                    <value>true</value>
+                </property>
+            </activation>
         </profile>
     </profiles>
 
