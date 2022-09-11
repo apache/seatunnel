@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
+import org.junit.jupiter.api.Assertions;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.MountableFile;
 
@@ -44,7 +45,7 @@ public final class ContainerUtil {
     /**
      * An error occurs when the user is not a submodule of seatunnel-e2e.
      */
-    public static final String PROJECT_ROOT_PATH = System.getProperty("user.dir").split("/seatunnel-e2e/")[0];
+    public static final String PROJECT_ROOT_PATH = Paths.get(System.getProperty("user.dir")).getParent().getParent().getParent().toString();
 
     public static void copyConnectorJarToContainer(GenericContainer<?> container,
                                                    String confFile,
@@ -83,12 +84,14 @@ public final class ContainerUtil {
         final String startJarName = startModuleName + ".jar";
         // copy lib
         final String startJarPath = startModulePath + File.separator + "target" + File.separator + startJarName;
+        checkPathExist(startJarPath);
         container.copyFileToContainer(
             MountableFile.forHostPath(startJarPath),
             Paths.get(Paths.get(seatunnelHomeInContainer, "lib").toString(), startJarName).toString());
 
         // copy bin
-        final String startBinPath = startModulePath + File.separator + "/src/main/bin/" + startShellName;
+        final String startBinPath = startModulePath + File.separator + "src/main/bin/" + startShellName;
+        checkPathExist(startBinPath);
         container.copyFileToContainer(
             MountableFile.forHostPath(startBinPath),
             Paths.get(Paths.get(seatunnelHomeInContainer, "bin").toString(), startShellName).toString());
@@ -161,5 +164,9 @@ public final class ContainerUtil {
             .parseFile(file)
             .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
             .resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
+    }
+
+    public static void checkPathExist(String path) {
+        Assertions.assertTrue(new File(path).exists(), path + "must exist");
     }
 }
