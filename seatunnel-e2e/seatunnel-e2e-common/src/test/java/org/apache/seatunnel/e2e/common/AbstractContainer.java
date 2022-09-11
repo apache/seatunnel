@@ -44,7 +44,7 @@ public abstract class AbstractContainer {
 
     public AbstractContainer() {
         this.startModuleName = getStartModuleName();
-        this.startModuleFullPath = PROJECT_ROOT_PATH + File.separator + START_ROOT_MODULE_NAME + File.separator + getStartModuleName();
+        this.startModuleFullPath = PROJECT_ROOT_PATH + File.separator + START_ROOT_MODULE_NAME + File.separator + this.startModuleName;
         ContainerUtil.checkPathExist(startModuleFullPath);
     }
 
