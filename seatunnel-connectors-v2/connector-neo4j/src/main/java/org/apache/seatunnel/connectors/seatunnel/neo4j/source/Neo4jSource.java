@@ -21,13 +21,16 @@ import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceReader;
-import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.DriverBuilder;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -38,9 +41,10 @@ import java.net.URI;
 import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig.*;
 
 @AutoService(SeaTunnelSource.class)
-public class Neo4jSource implements SeaTunnelSource<SeaTunnelRow, Neo4jSourceSplit, Neo4jSourceState> {
+public class Neo4jSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
-    final Neo4jSourceConfig neo4jSourceConfig = new Neo4jSourceConfig();
+    private final Neo4jSourceConfig neo4jSourceConfig = new Neo4jSourceConfig();
+    private SeaTunnelRowType rowType;
 
     @Override
     public String getPluginName() {
@@ -57,6 +61,11 @@ public class Neo4jSource implements SeaTunnelSource<SeaTunnelRow, Neo4jSourceSpl
         }
         neo4jSourceConfig.setQuery(pluginConfig.getString(KEY_QUERY));
 
+        final CheckResult schemaConfigCheck = CheckConfigUtil.checkAllExists(pluginConfig, SeaTunnelSchema.SCHEMA);
+        if (!schemaConfigCheck.isSuccess()) {
+            throw new PrepareFailException(Neo4jSourceConfig.PLUGIN_NAME, PluginType.SOURCE, schemaConfigCheck.getMsg());
+        }
+        this.rowType = SeaTunnelSchema.buildWithConfig(pluginConfig.getConfig(SeaTunnelSchema.SCHEMA)).getSeaTunnelRowType();
     }
 
     @Override
@@ -66,22 +75,12 @@ public class Neo4jSource implements SeaTunnelSource<SeaTunnelRow, Neo4jSourceSpl
 
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return null;
+        return this.rowType;
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, Neo4jSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
-        return null;
-    }
-
-    @Override
-    public SourceSplitEnumerator<Neo4jSourceSplit, Neo4jSourceState> createEnumerator(SourceSplitEnumerator.Context<Neo4jSourceSplit> enumeratorContext) throws Exception {
-        return null;
-    }
-
-    @Override
-    public SourceSplitEnumerator<Neo4jSourceSplit, Neo4jSourceState> restoreEnumerator(SourceSplitEnumerator.Context<Neo4jSourceSplit> enumeratorContext, Neo4jSourceState checkpointState) throws Exception {
-        return null;
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
+        return new Neo4jSourceReader(readerContext, neo4jSourceConfig);
     }
 
     private DriverBuilder prepareDriver(Config config) {
@@ -130,5 +129,4 @@ public class Neo4jSource implements SeaTunnelSource<SeaTunnelRow, Neo4jSourceSpl
 
         return driverBuilder;
     }
-
 }
