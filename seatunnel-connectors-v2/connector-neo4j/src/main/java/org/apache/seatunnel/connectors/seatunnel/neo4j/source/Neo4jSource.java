@@ -80,7 +80,7 @@ public class Neo4jSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new Neo4jSourceReader(readerContext, neo4jSourceConfig);
+        return new Neo4jSourceReader(readerContext, neo4jSourceConfig, rowType);
     }
 
     private DriverBuilder prepareDriver(Config config) {

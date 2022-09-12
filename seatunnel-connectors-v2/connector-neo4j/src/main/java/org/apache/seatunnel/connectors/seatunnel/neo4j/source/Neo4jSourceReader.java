@@ -18,26 +18,33 @@
 package org.apache.seatunnel.connectors.seatunnel.neo4j.source;
 
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.*;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig;
 import org.neo4j.driver.*;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private final SingleSplitReaderContext context;
     private final Neo4jSourceConfig config;
+    private final SeaTunnelRowType rowType;
     private final Driver driver;
     private Session session;
 
 
-    public Neo4jSourceReader(SingleSplitReaderContext context, Neo4jSourceConfig config) {
+    public Neo4jSourceReader(SingleSplitReaderContext context, Neo4jSourceConfig config, SeaTunnelRowType rowType) {
         this.context = context;
         this.config = config;
         this.driver = config.getDriverBuilder().build();
+        this.rowType = rowType;
     }
 
     @Override
@@ -58,35 +65,55 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             final Result result = tx.run(query);
             result.stream()
                     .forEach(row -> {
-                        final Object[] values = row.values().stream().map(Value::asObject).toArray();
-                        output.collect(new SeaTunnelRow(values));
+                        final Object[] fields = new Object[rowType.getTotalFields()];
+                        for (int i = 0; i < rowType.getTotalFields(); i++) {
+                            final String fieldName = rowType.getFieldName(i);
+                            final SeaTunnelDataType<?> fieldType = rowType.getFieldType(i);
+                            final Value value = row.get(fieldName);
+                            fields[i] = convertType(fieldType, value);
+                        }
+                        output.collect(new SeaTunnelRow(fields));
                     });
             return null;
         });
         this.context.signalNoMoreElement();
     }
 
-    /** TODO : type mapping
-     *  The Neo4j mapping for common types is as follows:
-     * TypeSystem.NULL() - null
-     * TypeSystem.LIST() - List
-     * TypeSystem.MAP() - Map
-     * TypeSystem.BOOLEAN() - Boolean
-     * TypeSystem.INTEGER() - Long
-     * TypeSystem.FLOAT() - Double
-     * TypeSystem.STRING() - String
-     * TypeSystem.BYTES() - byte[]
-     * TypeSystem.DATE() - LocalDate
-     * TypeSystem.TIME() - OffsetTime
-     * TypeSystem.LOCAL_TIME() - LocalTime
-     * TypeSystem.DATE_TIME() - ZonedDateTime
-     * TypeSystem.LOCAL_DATE_TIME() - LocalDateTime
-     * TypeSystem.DURATION() - IsoDuration
-     * TypeSystem.POINT() - Point
-     * TypeSystem.NODE() - Node
-     * TypeSystem.RELATIONSHIP() - Relationship
-     * TypeSystem.PATH() - Path
-     * Note that the types in TypeSystem refers to the Neo4j type system where TypeSystem.INTEGER() and TypeSystem.FLOAT() are both 64-bit precision. This is why these types return java Long and Double, respectively.
-     */
+    // TODO : test
+    public static Object convertType(SeaTunnelDataType<?> dataType, Value value) {
+        Objects.requireNonNull(dataType);
+        Objects.requireNonNull(value);
 
+        if (dataType.equals(BasicType.STRING_TYPE)) {
+            return value.asString();
+        } else if (dataType.equals(BasicType.BOOLEAN_TYPE)) {
+            return value.asBoolean();
+        } else if (dataType.equals(BasicType.LONG_TYPE)) {
+            return value.asLong();
+        } else if (dataType.equals(BasicType.DOUBLE_TYPE)) {
+            return value.asDouble();
+        } else if (dataType.equals(BasicType.VOID_TYPE)) {
+            return null;
+        } else if (dataType.equals(PrimitiveByteArrayType.INSTANCE)) {
+            return value.asByteArray();
+        } else if (dataType.equals(LocalTimeType.LOCAL_DATE_TYPE)) {
+            return value.asLocalDate();
+        } else if (dataType.equals(LocalTimeType.LOCAL_TIME_TYPE)) {
+            return value.asLocalTime();
+        } else if (dataType.equals(LocalTimeType.LOCAL_DATE_TIME_TYPE)) {
+            return value.asLocalDateTime();
+        } else if (dataType instanceof MapType) {
+            return value.asMap();
+        } else if (dataType.equals(BasicType.BYTE_TYPE)) {
+            return value.asNumber().byteValue();
+        } else if (dataType.equals(BasicType.SHORT_TYPE)) {
+            return value.asNumber().shortValue();
+        } else if (dataType.equals(BasicType.INT_TYPE)) {
+            return value.asInt();
+        } else if (dataType.equals(BasicType.FLOAT_TYPE)) {
+            return value.asFloat();
+        } else {
+            throw new IllegalArgumentException("not supported data type: " + dataType);
+        }
+    }
 }
