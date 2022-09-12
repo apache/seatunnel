@@ -29,6 +29,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -67,6 +68,11 @@ public abstract class AbstractFlinkContainer extends AbstractContainer {
     @Override
     protected String getSeaTunnelHomeInContainer() {
         return FLINK_SEATUNNEL_HOME;
+    }
+
+    @Override
+    protected String getThirdPartyPluginsPath() {
+        return Paths.get(FLINK_SEATUNNEL_HOME, "plugins").toString();
     }
 
     @BeforeAll
