@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.config;
 
-public class Config {
+public class KafkaConfig {
     /**
      * The topic of kafka.
      */
@@ -50,4 +50,12 @@ public class Config {
      * The prefix of kafka's transactionId, make sure different job use different prefix.
      */
     public static final String TRANSACTION_PREFIX = "transaction_prefix";
+
+    public static final String SCHEMA = "schema";
+
+    public static final String FORMAT = "format";
+
+    public static final String DEFAULT_FORMAT = "json";
+
+    public static final String DEFAULT_CONSUMER_GROUP = "SeaTunnel-Consumer-Group";
 }

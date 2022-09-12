@@ -17,14 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVER;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.COMMIT_ON_CHECKPOINT;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONSUMER_GROUP;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PATTERN;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaConfig.BOOTSTRAP_SERVER;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaConfig.COMMIT_ON_CHECKPOINT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaConfig.CONSUMER_GROUP;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaConfig.PATTERN;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaConfig.TOPIC;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -38,8 +39,11 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaConfig;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 
+import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
@@ -47,9 +51,9 @@ import com.google.auto.service.AutoService;
 import java.util.Properties;
 
 @AutoService(SeaTunnelSource.class)
-public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSplit, KafkaSourceState> {
-
-    private static final String DEFAULT_CONSUMER_GROUP = "SeaTunnel-Consumer-Group";
+public class KafkaSource<T> implements SeaTunnelSource<T, KafkaSourceSplit, KafkaSourceState> {
+    public static final String IDENTIFIER = "Kafka";
+    private DeserializationSchema<T> deserializationSchema;
 
     private final ConsumerMetadata metadata = new ConsumerMetadata();
     private SeaTunnelRowType typeInfo;
@@ -62,50 +66,47 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
 
     @Override
     public String getPluginName() {
-        return "Kafka";
+        return IDENTIFIER;
     }
 
     @Override
-    public void prepare(Config config) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(config, TOPIC, BOOTSTRAP_SERVER);
+    public void prepare(Config pluginConfig) throws PrepareFailException {
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, TOPIC, BOOTSTRAP_SERVER);
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
-        this.metadata.setTopic(config.getString(TOPIC));
-        if (config.hasPath(PATTERN)) {
-            this.metadata.setPattern(config.getBoolean(PATTERN));
+        this.metadata.setTopic(pluginConfig.getString(TOPIC));
+        if (pluginConfig.hasPath(PATTERN)) {
+            this.metadata.setPattern(pluginConfig.getBoolean(PATTERN));
         }
-        this.metadata.setBootstrapServer(config.getString(BOOTSTRAP_SERVER));
+        this.metadata.setBootstrapServer(pluginConfig.getString(BOOTSTRAP_SERVER));
         this.metadata.setProperties(new Properties());
 
-        if (config.hasPath(CONSUMER_GROUP)) {
-            this.metadata.setConsumerGroup(config.getString(CONSUMER_GROUP));
+        if (pluginConfig.hasPath(CONSUMER_GROUP)) {
+            this.metadata.setConsumerGroup(pluginConfig.getString(CONSUMER_GROUP));
         } else {
-            this.metadata.setConsumerGroup(DEFAULT_CONSUMER_GROUP);
+            this.metadata.setConsumerGroup(KafkaConfig.DEFAULT_CONSUMER_GROUP);
         }
 
-        if (config.hasPath(COMMIT_ON_CHECKPOINT)) {
-            this.metadata.setCommitOnCheckpoint(config.getBoolean(COMMIT_ON_CHECKPOINT));
+        if (pluginConfig.hasPath(COMMIT_ON_CHECKPOINT)) {
+            this.metadata.setCommitOnCheckpoint(pluginConfig.getBoolean(COMMIT_ON_CHECKPOINT));
         }
 
-        TypesafeConfigUtils.extractSubConfig(config, "kafka.", false).entrySet().forEach(e -> {
+        TypesafeConfigUtils.extractSubConfig(pluginConfig, "kafka.", false).entrySet().forEach(e -> {
             this.metadata.getProperties().put(e.getKey(), String.valueOf(e.getValue().unwrapped()));
         });
 
-        // TODO support user custom row type
-        this.typeInfo = new SeaTunnelRowType(new String[]{"topic", "raw_message"},
-                new SeaTunnelDataType[]{BasicType.STRING_TYPE, BasicType.STRING_TYPE});
-
+        setDeserialization(pluginConfig);
     }
 
     @Override
-    public SeaTunnelRowType getProducedType() {
-        return this.typeInfo;
+    public SeaTunnelDataType<T> getProducedType() {
+        return deserializationSchema.getProducedType();
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, KafkaSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
-        return new KafkaSourceReader(this.metadata, this.typeInfo, readerContext);
+    public SourceReader<T, KafkaSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
+        return new KafkaSourceReader<>(this.metadata, this.deserializationSchema, readerContext);
     }
 
     @Override
@@ -121,5 +122,16 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
     @Override
     public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
         this.seaTunnelContext = seaTunnelContext;
+    }
+
+    private void setDeserialization(Config pluginConfig) {
+        SeaTunnelRowType rowType;
+        if (pluginConfig.hasPath(KafkaConfig.SCHEMA)) {
+            Config schema = pluginConfig.getConfig(KafkaConfig.SCHEMA);
+            rowType = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
+        } else {
+            rowType = SeaTunnelSchema.buildSimpleTextSchema();
+        }
+        deserializationSchema = (DeserializationSchema<T>) new JsonDeserializationSchema(false, false, rowType);
     }
 }

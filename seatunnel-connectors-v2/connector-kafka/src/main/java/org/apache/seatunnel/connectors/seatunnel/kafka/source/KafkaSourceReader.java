@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
+import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -46,7 +47,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSourceSplit> {
+public class KafkaSourceReader<T> implements SourceReader<T, KafkaSourceSplit> {
 
     private static final long THREAD_WAIT_TIME = 500L;
     private static final long POLL_TIMEOUT = 10000L;
@@ -58,15 +59,16 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     private final ConsumerMetadata metadata;
     private final Set<KafkaSourceSplit> sourceSplits;
     private final Map<TopicPartition, Long> endOffset;
-    // TODO support user custom type
-    private SeaTunnelRowType typeInfo;
+
+    private final DeserializationSchema<T> deserializationSchema;
     private volatile boolean isRunning;
 
-    KafkaSourceReader(ConsumerMetadata metadata, SeaTunnelRowType typeInfo,
+    KafkaSourceReader(ConsumerMetadata metadata,
+                      DeserializationSchema<T> deserializationSchema,
                       SourceReader.Context context) {
         this.metadata = metadata;
         this.context = context;
-        this.typeInfo = typeInfo;
+        this.deserializationSchema = deserializationSchema;
         this.sourceSplits = new HashSet<>();
         this.endOffset = new HashMap<>();
     }
@@ -87,7 +89,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     }
 
     @Override
-    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+    public void pollNext(Collector<T> output) throws Exception {
         if (sourceSplits.isEmpty() || sourceSplits.size() != this.endOffset.size()) {
             Thread.sleep(THREAD_WAIT_TIME);
             return;
@@ -101,9 +103,13 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
             for (TopicPartition partition : partitions) {
                 for (ConsumerRecord<byte[], byte[]> record : records.records(partition)) {
 
-                    String v = stringDeserializer.deserialize(partition.topic(), record.value());
-                    String t = partition.topic();
-                    output.collect(new SeaTunnelRow(new Object[]{t, v}));
+                    if(deserializationSchema != null){
+                        deserializationSchema.deserialize(record.value(),output);
+                    }else{
+                        String v = stringDeserializer.deserialize(partition.topic(), record.value());
+                        String t = partition.topic();
+                        output.collect((T) new SeaTunnelRow(new Object[]{t, v}));
+                    }
 
                     if (Boundedness.BOUNDED.equals(context.getBoundedness()) &&
                             record.offset() >= endOffset.get(partition)) {
