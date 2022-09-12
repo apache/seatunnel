@@ -36,18 +36,18 @@ public class JdbcDb2IT extends SparkContainer {
     /**
      * <a href="https://hub.docker.com/r/ibmcom/db2">db2 in dockerhub</a>
      */
-    private static final String IMAGE = "ibmcom/db2:11.5.0.0";
+    private static final String IMAGE = "ibmcom/db2:latest";
     private static final String HOST = "spark_e2e_db2";
     private static final int PORT = 50000;
-    private static final String LOCAL_HOST = "localhost";
     private static final int LOCAL_PORT = 50001;
     private static final String USER = "DB2INST1";
     private static final String PASSWORD = "123456";
     private static final String DRIVER = "com.ibm.db2.jcc.DB2Driver";
-    private static final String JDBC_URL = String.format("jdbc:db2://%s:%s/testdb", LOCAL_HOST, LOCAL_PORT);
+
+    private static final String DATABASE = "testdb";
     private static final String SOURCE_TABLE = "E2E_TABLE_SOURCE";
     private static final String SINK_TABLE = "E2E_TABLE_SINK";
-
+    private String JDBC_URL;
     private GenericContainer<?> server;
     private Connection jdbcConnection;
 
@@ -58,12 +58,13 @@ public class JdbcDb2IT extends SparkContainer {
             .withNetworkAliases(HOST)
             .withPrivilegedMode(true)
             .withLogConsumer(new Slf4jLogConsumer(LOG))
-            .withEnv("DB2INST1_PASSWORD", "123456")
-            .withEnv("DBNAME", "testdb")
+            .withEnv("DB2INST1_PASSWORD", PASSWORD)
+            .withEnv("DBNAME", DATABASE)
             .withEnv("LICENSE", "accept")
         ;
         server.setPortBindings(Lists.newArrayList(String.format("%s:%s", LOCAL_PORT, PORT)));
         Startables.deepStart(Stream.of(server)).join();
+        JDBC_URL = String.format("jdbc:db2://%s:%s/%s", server.getContainerIpAddress(), LOCAL_PORT, DATABASE);
         LOG.info("DB2 container started");
         given().ignoreExceptions()
             .await()
@@ -86,9 +87,6 @@ public class JdbcDb2IT extends SparkContainer {
         Properties properties = new Properties();
         properties.setProperty("user", USER);
         properties.setProperty("password", PASSWORD);
-        properties.setProperty("com.ibm.db2.jcc.DB2BaseDataSource.retrieveMessagesFromServerOnGetMessage", "true");
-        properties.setProperty("com.ibm.db2.jcc.DB2BaseDataSource.maxConnCachedParamBufferSize", "16");
-        properties.setProperty("com.ibm.db2.jcc.DB2BaseDataSource.connectionTimeout", "180");
         Driver driver = (Driver) Class.forName(DRIVER).newInstance();
         jdbcConnection = driver.connect(JDBC_URL, properties);
         Statement statement = jdbcConnection.createStatement();
