@@ -41,7 +41,7 @@
         <swagger-annotations.version>1.5.10</swagger-annotations.version>
         <hibernate.validator.version>6.2.2.Final</hibernate.validator.version>
         <javax.annotation-api.version>1.3.2</javax.annotation-api.version>
-        <jsoup.version>1.14.3</jsoup.version>
+        <jsoup.version>1.15.3</jsoup.version>
         <jwt.version>0.10.7</jwt.version>
     </properties>
 
