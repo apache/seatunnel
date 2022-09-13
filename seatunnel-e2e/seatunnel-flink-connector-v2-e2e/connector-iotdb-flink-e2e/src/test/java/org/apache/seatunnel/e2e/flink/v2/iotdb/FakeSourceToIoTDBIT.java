@@ -70,9 +70,11 @@ public class FakeSourceToIoTDBIT extends FlinkContainer {
         // wait for IoTDB fully start
         session = createSession();
         given().ignoreExceptions()
-                .await()
-                .atMost(30, TimeUnit.SECONDS)
-                .untilAsserted(() -> session.open());
+            .await()
+            .atLeast(100, TimeUnit.MILLISECONDS)
+            .pollInterval(500, TimeUnit.MILLISECONDS)
+            .atMost(30, TimeUnit.SECONDS)
+            .untilAsserted(() -> session.open());
         initIoTDBTimeseries();
     }
 
