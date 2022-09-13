@@ -165,12 +165,17 @@ public class TaskExecutionService {
         return new PassiveCompletableFuture<>(resultFuture);
     }
 
+    public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
+        @NonNull TaskGroup taskGroup,
+        @NonNull CompletableFuture<TaskExecutionState> resultFuture) {
+        return deployLocalTask(taskGroup, resultFuture, Thread.currentThread().getContextClassLoader());
+    }
+
     @SuppressWarnings("checkstyle:MagicNumber")
     public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
         @NonNull TaskGroup taskGroup,
         @NonNull CompletableFuture<TaskExecutionState> resultFuture,
-        @NonNull ClassLoader classLoader
-    ) {
+        @NonNull ClassLoader classLoader) {
         try {
             taskGroup.init();
             Collection<Task> tasks = taskGroup.getTasks();
