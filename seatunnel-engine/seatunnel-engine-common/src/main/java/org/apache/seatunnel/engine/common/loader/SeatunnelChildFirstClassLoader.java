@@ -116,7 +116,7 @@ public class SeatunnelChildFirstClassLoader extends SeatunnelBaseClassLoader {
         }
 
         return new Enumeration<URL>() {
-            Iterator<URL> iter = result.iterator();
+            final Iterator<URL> iter = result.iterator();
 
             public boolean hasMoreElements() {
                 return iter.hasNext();
