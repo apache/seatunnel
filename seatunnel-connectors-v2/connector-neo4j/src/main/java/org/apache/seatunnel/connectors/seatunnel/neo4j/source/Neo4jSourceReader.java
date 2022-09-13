@@ -104,10 +104,6 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             return value.asLocalDateTime();
         } else if (dataType instanceof MapType) {
             return value.asMap();
-        } else if (dataType.equals(BasicType.BYTE_TYPE)) {
-            return value.asNumber().byteValue();
-        } else if (dataType.equals(BasicType.SHORT_TYPE)) {
-            return value.asNumber().shortValue();
         } else if (dataType.equals(BasicType.INT_TYPE)) {
             return value.asInt();
         } else if (dataType.equals(BasicType.FLOAT_TYPE)) {
