@@ -102,7 +102,6 @@
             </activation>
             <modules>
                 <module>seatunnel-connectors-v2</module>
-                <module>seatunnel-connectors-v2-dist</module>
                 <module>seatunnel-examples</module>
                 <module>seatunnel-e2e</module>
             </modules>
