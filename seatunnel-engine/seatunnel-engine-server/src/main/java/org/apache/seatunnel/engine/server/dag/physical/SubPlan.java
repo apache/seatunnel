@@ -365,10 +365,6 @@ public class SubPlan {
         }
     }
 
-    public int getPipelineId() {
-        return pipelineId;
-    }
-
     public List<PhysicalVertex> getPhysicalVertexList() {
         return physicalVertexList;
     }

@@ -126,7 +126,7 @@ public class TaskExecutionService {
         uncheckRun(startedLatch::await);
     }
 
-    public synchronized PassiveCompletableFuture<TaskExecutionState> deployTask(@NonNull Data taskImmutableInformation) {
+    public PassiveCompletableFuture<TaskExecutionState> deployTask(@NonNull Data taskImmutableInformation) {
         TaskGroupImmutableInformation taskImmutableInfo =
             nodeEngine.getSerializationService().toObject(taskImmutableInformation);
         return deployTask(taskImmutableInfo);
@@ -136,7 +136,7 @@ public class TaskExecutionService {
         return this.getExecutionContext(taskLocation.getTaskGroupLocation()).getTaskGroup().getTask(taskLocation.getTaskID());
     }
 
-    public synchronized PassiveCompletableFuture<TaskExecutionState> deployTask(
+    public PassiveCompletableFuture<TaskExecutionState> deployTask(
         @NonNull TaskGroupImmutableInformation taskImmutableInfo) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
         TaskGroup taskGroup = null;

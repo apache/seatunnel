@@ -178,7 +178,7 @@ public class JobMaster implements Runnable {
 
     public void handleCheckpointTimeout(long pipelineId) {
         this.physicalPlan.getPipelineList().forEach(pipeline -> {
-            if (pipeline.getPipelineId() == pipelineId) {
+            if (pipeline.getPipelineLocation().getPipelineId() == pipelineId) {
                 pipeline.cancelPipeline();
             }
         });
@@ -191,6 +191,7 @@ public class JobMaster implements Runnable {
     public void releasePipelineResource(SubPlan subPlan) {
         resourceManager.releaseResources(jobImmutableInformation.getJobId(),
             Lists.newArrayList(ownedSlotProfilesIMap.get(subPlan.getPipelineLocation()).values())).join();
+        ownedSlotProfilesIMap.remove(subPlan.getPipelineLocation());
     }
 
     public void cleanJob() {
@@ -240,7 +241,7 @@ public class JobMaster implements Runnable {
 
     public void updateTaskExecutionState(TaskExecutionState taskExecutionState) {
         this.physicalPlan.getPipelineList().forEach(pipeline -> {
-            if (pipeline.getPipelineId() != taskExecutionState.getTaskGroupLocation().getPipelineId()) {
+            if (pipeline.getPipelineLocation().getPipelineId() != taskExecutionState.getTaskGroupLocation().getPipelineId()) {
                 return;
             }
 

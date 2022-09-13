@@ -26,5 +26,5 @@ import java.io.Serializable;
 @Data
 public class PipelineLocation implements Serializable {
     private long jobId;
-    private int pipelineIndex;
+    private int pipelineId;
 }
