@@ -71,8 +71,8 @@ public class SinkPrepareCommitOperation extends CheckpointBarrierTriggerOperatio
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         SinkAggregatedCommitterTask<?, ?> committerTask = server.getTaskExecutionService().getTask(taskLocation);
-        // TODO add classloader support with #2704
-        committerTask.receivedWriterCommitInfo(barrier.getId(), SerializationUtils.deserialize(commitInfos));
+        ClassLoader classLoader = server.getTaskExecutionService().getExecutionContext(taskLocation.getTaskGroupLocation()).getClassLoader();
+        committerTask.receivedWriterCommitInfo(barrier.getId(), SerializationUtils.deserialize(commitInfos, classLoader));
         committerTask.triggerBarrier(barrier);
     }
 }
