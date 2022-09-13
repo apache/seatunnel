@@ -57,15 +57,13 @@ public class FakeSourceToDorisIT extends SparkContainer {
     private static final String DORIS_USE_DATABASE = "USE `" + DORIS_DATABASE + "`";
     private static final String DORIS_TABLE_DDL = "CREATE TABLE IF NOT EXISTS `" + DORIS_DATABASE + "`.`" + DORIS_TABLE + "` ( " +
         "  `user_id` LARGEINT NOT NULL COMMENT 'id'," +
-        "  `date` DATE NOT NULL COMMENT 'date'," +
         "  `city` VARCHAR(20) COMMENT 'city'," +
         "  `age` SMALLINT COMMENT 'age'," +
         "  `sex` TINYINT COMMENT 'sec'," +
-        "  `last_visit_date` DATETIME REPLACE DEFAULT '1970-01-01 00:00:00' ," +
         "  `cost` BIGINT SUM DEFAULT '0' ," +
         "  `max_dwell_time` INT MAX DEFAULT '0' ," +
         "  `min_dwell_time` INT MIN DEFAULT '99999'" +
-        ") AGGREGATE KEY(`user_id`, `date`, `city`, `age`, `sex`) DISTRIBUTED BY HASH(`user_id`) BUCKETS 1 PROPERTIES (" +
+        ") AGGREGATE KEY(`user_id`, `city`, `age`, `sex`) DISTRIBUTED BY HASH(`user_id`) BUCKETS 1 PROPERTIES (" +
         "  'replication_allocation' = 'tag.location.default: 1'" +
         ");";
 
