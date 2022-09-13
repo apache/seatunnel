@@ -37,7 +37,7 @@ public class TestUtils {
     public static void initPluginDir() {
         // copy connectors to project_root/connectors dir
         System.setProperty("SEATUNNEL_HOME", System.getProperty("user.dir") +
-            String.format("%s..%s..%s", File.separator, File.separator, File.separator));
+            String.format("%s..%s..%s..%s", File.separator, File.separator, File.separator, File.separator));
         File seatunnelRootDir = new File(System.getProperty("SEATUNNEL_HOME"));
 
         File connectorDir = new File(seatunnelRootDir +
