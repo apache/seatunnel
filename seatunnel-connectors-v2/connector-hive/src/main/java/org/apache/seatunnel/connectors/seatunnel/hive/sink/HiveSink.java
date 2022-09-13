@@ -125,8 +125,7 @@ public class HiveSink extends BaseFileSink {
             URI uri = new URI(hdfsLocation);
             String path = uri.getPath();
             pluginConfig = pluginConfig.withValue(PATH, ConfigValueFactory.fromAnyRef(path));
-            // hadoopConf = new HadoopConf(hdfsLocation.replace(path, ""));
-            hadoopConf = new HadoopConf("hdfs://namenode14812");
+            hadoopConf = new HadoopConf(hdfsLocation.replace(path, ""));
         } catch (URISyntaxException e) {
             throw new RuntimeException("Get hdfs cluster address failed, please check.", e);
         }

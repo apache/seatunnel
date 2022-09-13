@@ -73,8 +73,7 @@ public class HiveSource extends HdfsFileSource {
         try {
             URI uri = new URI(hdfsLocation);
             String path = uri.getPath();
-            String defaultFs = "hdfs://namenode14812";
-            // String defaultFs = hdfsLocation.replace(path, "");
+            String defaultFs = hdfsLocation.replace(path, "");
             pluginConfig = pluginConfig.withValue(BaseSourceConfig.FILE_PATH, ConfigValueFactory.fromAnyRef(path))
                     .withValue(FS_DEFAULT_NAME_KEY, ConfigValueFactory.fromAnyRef(defaultFs));
         } catch (URISyntaxException e) {
