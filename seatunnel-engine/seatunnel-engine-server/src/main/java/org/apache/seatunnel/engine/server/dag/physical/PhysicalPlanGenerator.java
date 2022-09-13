@@ -208,7 +208,7 @@ public class PhysicalPlanGenerator {
                     TaskGroupLocation taskGroupLocation =
                         new TaskGroupLocation(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID);
                     TaskLocation taskLocation = new TaskLocation(taskGroupLocation, taskTypeId, 0);
-                    SinkAggregatedCommitterTask<?> t =
+                    SinkAggregatedCommitterTask<?, ?> t =
                         new SinkAggregatedCommitterTask(jobImmutableInformation.getJobId(), taskLocation, s,
                             sinkAggregatedCommitter.get());
                     committerTaskIDMap.put(s, taskLocation);
