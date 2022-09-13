@@ -142,11 +142,11 @@ public class TaskExecutionService {
         TaskGroup taskGroup = null;
         try {
             Set<URL> jars = taskImmutableInfo.getJars();
-
+            ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
             if (!CollectionUtils.isEmpty(jars)) {
+                classLoader = new SeatunnelChildFirstClassLoader(Lists.newArrayList(jars));
                 taskGroup =
-                    CustomClassLoadedObject.deserializeWithCustomClassLoader(nodeEngine.getSerializationService(),
-                        new SeatunnelChildFirstClassLoader(Lists.newArrayList(jars)),
+                    CustomClassLoadedObject.deserializeWithCustomClassLoader(nodeEngine.getSerializationService(), classLoader,
                         taskImmutableInfo.getGroup());
             } else {
                 taskGroup = nodeEngine.getSerializationService().toObject(taskImmutableInfo.getGroup());
@@ -154,7 +154,7 @@ public class TaskExecutionService {
             if (executionContexts.containsKey(taskGroup.getTaskGroupLocation())) {
                 throw new RuntimeException(String.format("TaskGroupLocation: %s already exists", taskGroup.getTaskGroupLocation()));
             }
-            return deployLocalTask(taskGroup, resultFuture);
+            return deployLocalTask(taskGroup, resultFuture, classLoader);
         } catch (Throwable t) {
             logger.severe(String.format("TaskGroupID : %s  deploy error with Exception: %s",
                 taskGroup != null && taskGroup.getTaskGroupLocation() != null ? taskGroup.getTaskGroupLocation().toString() : "taskGroupLocation is null",
@@ -165,11 +165,17 @@ public class TaskExecutionService {
         return new PassiveCompletableFuture<>(resultFuture);
     }
 
+    public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
+        @NonNull TaskGroup taskGroup,
+        @NonNull CompletableFuture<TaskExecutionState> resultFuture) {
+        return deployLocalTask(taskGroup, resultFuture, Thread.currentThread().getContextClassLoader());
+    }
+
     @SuppressWarnings("checkstyle:MagicNumber")
     public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
         @NonNull TaskGroup taskGroup,
-        @NonNull CompletableFuture<TaskExecutionState> resultFuture
-    ) {
+        @NonNull CompletableFuture<TaskExecutionState> resultFuture,
+        @NonNull ClassLoader classLoader) {
         try {
             taskGroup.init();
             Collection<Task> tasks = taskGroup.getTasks();
@@ -188,7 +194,7 @@ public class TaskExecutionService {
             submitThreadShareTask(executionTracker, byCooperation.get(true));
             submitBlockingTask(executionTracker, byCooperation.get(false));
             taskGroup.setTasksContext(taskExecutionContextMap);
-            executionContexts.put(taskGroup.getTaskGroupLocation(), new TaskGroupContext(taskGroup));
+            executionContexts.put(taskGroup.getTaskGroupLocation(), new TaskGroupContext(taskGroup, classLoader));
             cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
         } catch (Throwable t) {
             logger.severe(ExceptionUtils.getMessage(t));
