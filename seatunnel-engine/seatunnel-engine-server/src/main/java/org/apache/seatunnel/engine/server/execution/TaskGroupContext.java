@@ -22,4 +22,6 @@ import lombok.Data;
 @Data
 public class TaskGroupContext {
     final TaskGroup taskGroup;
+
+    final ClassLoader classLoader;
 }
