@@ -28,6 +28,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>connector-doris</artifactId>
+    <properties>
+        <httpclient.version>4.5.13</httpclient.version>
+    </properties>
 
     <dependencies>
         <dependency>
