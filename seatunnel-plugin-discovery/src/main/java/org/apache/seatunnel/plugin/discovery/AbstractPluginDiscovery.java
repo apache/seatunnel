@@ -107,15 +107,25 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             try {
                 // use current thread classloader to avoid different classloader load same class error.
                 this.addURLToClassLoader.accept(classLoader, pluginJarPath.get());
+                ClassLoader finalClassLoader = classLoader;
+                Common.getPluginsJarDependencies().forEach(path -> {
+                    try {
+                        this.addURLToClassLoader.accept(finalClassLoader, path.toUri().toURL());
+                    } catch (MalformedURLException e) {
+                        LOGGER.warn("can't load third-party jar use current thread classloader" +
+                            " message: " + e.getMessage());
+                    }
+                });
+
             } catch (Exception e) {
                 LOGGER.warn("can't load jar use current thread classloader, use URLClassLoader instead now." +
-                        " message: " + e.getMessage());
+                    " message: " + e.getMessage());
                 classLoader = new URLClassLoader(new URL[]{pluginJarPath.get()}, Thread.currentThread().getContextClassLoader());
             }
             pluginInstance = loadPluginInstance(pluginIdentifier, classLoader);
             if (pluginInstance != null) {
                 LOGGER.info("Load plugin: {} from path: {} use classloader: {}",
-                        pluginIdentifier, pluginJarPath.get(), classLoader.getClass().getName());
+                    pluginIdentifier, pluginJarPath.get(), classLoader.getClass().getName());
                 return pluginInstance;
             }
         }
