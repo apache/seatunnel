@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.spark.jdbc;
 
+import static org.awaitility.Awaitility.given;
+
 import org.apache.seatunnel.e2e.spark.SparkContainer;
 
 import com.google.common.collect.Lists;
@@ -38,6 +40,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 public class JdbcSourceToConsoleIT extends SparkContainer {
@@ -54,9 +57,13 @@ public class JdbcSourceToConsoleIT extends SparkContainer {
         psl.setPortBindings(Lists.newArrayList("33306:3306"));
         Startables.deepStart(Stream.of(psl)).join();
         LOGGER.info("PostgreSql container started");
-        Thread.sleep(5000L);
         Class.forName(psl.getDriverClassName());
-        initializeJdbcTable();
+        given().ignoreExceptions()
+            .await()
+            .atLeast(100, TimeUnit.MILLISECONDS)
+            .pollInterval(500, TimeUnit.MILLISECONDS)
+            .atMost(5, TimeUnit.SECONDS)
+            .untilAsserted(() -> initializeJdbcTable());
         batchInsertData();
     }
 
