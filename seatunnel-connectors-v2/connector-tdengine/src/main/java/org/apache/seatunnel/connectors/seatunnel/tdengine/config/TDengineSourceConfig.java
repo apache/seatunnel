@@ -19,8 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.tdengine.config;
 
 import lombok.Data;
 
+import java.io.Serializable;
+
 @Data
-public class TDengineSourceConfig {
+public class TDengineSourceConfig implements Serializable {
 
     /**
      * jdbc:TAOS-RS://localhost:6041/
@@ -33,7 +35,9 @@ public class TDengineSourceConfig {
     private Long lowerBound;
     private Long upperBound;
     private Integer partitionsNum;
+
     public static class ConfigNames {
+
         public static String URL = "url";
         public static String USERNAME = "username";
         public static String PASSWORD = "password";

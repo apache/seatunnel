@@ -35,8 +35,10 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 
@@ -78,6 +80,7 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
             log.info("Closed the bounded TDengine source");
             context.signalNoMoreElement();
         }
+        Thread.sleep(1000L);
     }
 
     @Override
@@ -91,7 +94,9 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
     @Override
     public void close() throws IOException {
         try {
-            conn.close();
+            if (!Objects.isNull(conn)) {
+                conn.close();
+            }
         } catch (SQLException e) {
             throw new IOException(e);
         }
@@ -105,11 +110,20 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
             while (resultSet.next()) {
                 Object[] datas = new Object[meta.getColumnCount()];
                 for (int i = 0; i < meta.getColumnCount(); i++) {
-                    datas[i] = resultSet.getObject(i);
+                    datas[i] = convertDataType(resultSet.getObject(i + 1));
                 }
                 output.collect(new SeaTunnelRow(datas));
             }
         }
+    }
+
+    private Object convertDataType(Object object) {
+        if (Timestamp.class.equals(object.getClass())) {
+            return ((Timestamp) object).toLocalDateTime();
+        } else if (byte[].class.equals(object.getClass())) {
+            return new String((byte[]) object);
+        }
+        return object;
     }
 
     @Override
