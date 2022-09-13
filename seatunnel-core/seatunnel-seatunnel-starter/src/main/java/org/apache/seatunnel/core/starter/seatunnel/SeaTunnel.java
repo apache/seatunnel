@@ -15,23 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.config;
+package org.apache.seatunnel.core.starter.seatunnel;
 
-import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
+import org.apache.seatunnel.core.starter.Seatunnel;
+import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.exception.CommandException;
+import org.apache.seatunnel.core.starter.seatunnel.args.SeaTunnelCommandArgs;
+import org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelCommandBuilder;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-/**
- * Check the config is valid.
- *
- */
-public interface ConfigChecker {
-
-    /**
-     * Check if the config is validated, if check fails, throw exception.
-     *
-     * @param config given config.
-     */
-    void checkConfig(Config config) throws ConfigCheckException;
-
+public class SeaTunnel {
+    public static void main(String[] args) throws CommandException {
+        SeaTunnelCommandArgs seaTunnelCommandArgs = CommandLineUtils.parseSeaTunnelArgs(args);
+        Command<SeaTunnelCommandArgs> command =
+            new SeaTunnelCommandBuilder().buildCommand(seaTunnelCommandArgs);
+        Seatunnel.run(command);
+    }
 }

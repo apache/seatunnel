@@ -27,7 +27,6 @@ import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOper
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.CloseRequestOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkPrepareCommitOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
-import org.apache.seatunnel.engine.server.task.operation.sink.SinkUnregisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceNoMoreElementOperation;
@@ -49,9 +48,7 @@ public class TaskDataSerializerHook implements DataSerializerHook {
     public static final int TASK_GROUP_INFO_TYPE = 4;
 
     public static final int SOURCE_UNREGISTER_TYPE = 5;
-
-    public static final int SINK_UNREGISTER_TYPE = 6;
-
+    public static final int GET_TASKGROUP_ADDRESS_TYPE = 6;
     public static final int SINK_REGISTER_TYPE = 7;
 
     public static final int SINK_PREPARE_COMMIT_TYPE = 8;
@@ -65,9 +62,6 @@ public class TaskDataSerializerHook implements DataSerializerHook {
     public static final int DEPLOY_TASK_OPERATOR = 12;
 
     public static final int CANCEL_TASK_OPERATOR = 13;
-
-    public static final int GET_TASKGROUP_ADDRESS_TYPE = 14;
-
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -101,8 +95,6 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new SourceNoMoreElementOperation();
                 case SINK_REGISTER_TYPE:
                     return new SinkRegisterOperation();
-                case SINK_UNREGISTER_TYPE:
-                    return new SinkUnregisterOperation();
                 case SINK_PREPARE_COMMIT_TYPE:
                     return new SinkPrepareCommitOperation();
                 case TASK_LOCATION_TYPE:

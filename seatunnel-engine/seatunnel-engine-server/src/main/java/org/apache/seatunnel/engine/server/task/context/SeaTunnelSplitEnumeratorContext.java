@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task.context;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
 
@@ -52,14 +53,14 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit> impleme
     @Override
     public void assignSplit(int subtaskId, List<SplitT> splits) {
         task.getExecutionContext().sendToMember(new AssignSplitOperation<>(task.getTaskMemberLocation(subtaskId),
-                splits), task.getTaskMemberAddr(subtaskId));
+            SerializationUtils.serialize(splits.toArray())), task.getTaskMemberAddr(subtaskId));
     }
 
     @Override
     public void signalNoMoreSplits(int subtaskId) {
         task.getExecutionContext().sendToMember(
-                new AssignSplitOperation<>(task.getTaskMemberLocation(subtaskId), Collections.emptyList()),
-                task.getTaskMemberAddr(subtaskId));
+            new AssignSplitOperation<>(task.getTaskMemberLocation(subtaskId), SerializationUtils.serialize(Collections.emptyList().toArray())),
+            task.getTaskMemberAddr(subtaskId));
     }
 
     @Override

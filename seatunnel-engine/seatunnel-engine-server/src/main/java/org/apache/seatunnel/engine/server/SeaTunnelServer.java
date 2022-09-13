@@ -186,6 +186,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         if (resourceManager != null) {
             resourceManager.close();
         }
+        executorService.shutdown();
         taskExecutionService.shutdown();
     }
 

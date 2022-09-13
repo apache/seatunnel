@@ -20,15 +20,55 @@ package org.apache.seatunnel.core.starter.seatunnel.args;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
 import org.apache.seatunnel.core.starter.config.EngineType;
+import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
+
+import com.beust.jcommander.Parameter;
 
 import java.util.List;
 
 public class SeaTunnelCommandArgs extends AbstractCommandArgs {
 
     /**
-     * Undefined parameters parsed will be stored here as seatunnel engint command parameters.
+     * Undefined parameters parsed will be stored here as seatunnel engine command parameters.
      */
     private List<String> seatunnelParams;
+
+    @Parameter(names = {"-n", "--name"},
+        description = "The name of job")
+    private String name = "seatunnel_job";
+
+    @Parameter(names = {"-cn", "--cluster"},
+        description = "The name of cluster")
+    private String clusterName = "seatunnel_default_cluster";
+
+    @Parameter(names = {"-e", "--deploy-mode"},
+        description = "SeaTunnel deploy mode",
+        converter = ExecutionModeConverter.class)
+    private ExecutionMode executionMode = ExecutionMode.LOCAL;
+
+    public ExecutionMode getExecutionMode() {
+        return executionMode;
+    }
+
+    public void setExecutionMode(ExecutionMode executionMode) {
+        this.executionMode = executionMode;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getClusterName() {
+        return clusterName;
+    }
+
+    public void setClusterName(String clusterName) {
+        this.clusterName = clusterName;
+    }
 
     @Override
     public EngineType getEngineType() {
