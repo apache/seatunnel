@@ -17,9 +17,12 @@
 
 package org.apache.seatunnel.engine.server.task.operation.sink;
 
+import org.apache.seatunnel.common.utils.SerializationUtils;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointBarrierTriggerOperation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import com.hazelcast.nio.ObjectDataInput;
@@ -50,6 +53,11 @@ public class SinkPrepareCommitOperation extends CheckpointBarrierTriggerOperatio
     }
 
     @Override
+    public String getServiceName() {
+        return SeaTunnelServer.SERVICE_NAME;
+    }
+
+    @Override
     public int getFactoryId() {
         return TaskDataSerializerHook.FACTORY_ID;
     }
@@ -61,7 +69,10 @@ public class SinkPrepareCommitOperation extends CheckpointBarrierTriggerOperatio
 
     @Override
     public void run() throws Exception {
-        super.run();
-        // TODO: commit info to AggregatedCommitter
+        SeaTunnelServer server = getService();
+        SinkAggregatedCommitterTask<?, ?> committerTask = server.getTaskExecutionService().getTask(taskLocation);
+        // TODO add classloader support with #2704
+        committerTask.receivedWriterCommitInfo(barrier.getId(), SerializationUtils.deserialize(commitInfos));
+        committerTask.triggerBarrier(barrier);
     }
 }
