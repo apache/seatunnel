@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.engine.server.task.operation.sink;
 
+import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
-import org.apache.seatunnel.engine.server.task.TaskRuntimeException;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
@@ -53,21 +53,11 @@ public class SinkRegisterOperation extends Operation implements IdentifiedDataSe
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         Address readerAddress = getCallerAddress();
-        SinkAggregatedCommitterTask<?> task = null;
-        for (int i = 0; i < RETRY_NUMBER; i++) {
-            try {
-                task = server.getTaskExecutionService().getTask(committerTaskID);
-                break;
-            } catch (NullPointerException e) {
-                LOGGER.warning("can't get committer task , waiting task started, retry " + i);
-                Thread.sleep(RETRY_INTERVAL);
-            }
-        }
-        if (task == null) {
-            LOGGER.severe("can't connect with committer task");
-            throw new TaskRuntimeException("can't connect with committer task");
-        }
-        task.receivedWriterRegister(writerTaskID, readerAddress);
+        RetryUtils.retryWithException(() -> {
+            SinkAggregatedCommitterTask<?, ?> task = server.getTaskExecutionService().getTask(committerTaskID);
+            task.receivedWriterRegister(writerTaskID, readerAddress);
+            return null;
+        }, new RetryUtils.RetryMaterial(RETRY_NUMBER, true, e -> true, RETRY_INTERVAL));
     }
 
     @Override

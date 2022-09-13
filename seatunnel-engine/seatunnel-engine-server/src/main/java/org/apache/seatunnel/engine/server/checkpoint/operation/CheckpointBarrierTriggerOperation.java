@@ -37,7 +37,7 @@ import java.io.IOException;
 
 @NoArgsConstructor
 public class CheckpointBarrierTriggerOperation extends TaskOperation {
-    private Barrier barrier;
+    protected Barrier barrier;
 
     public CheckpointBarrierTriggerOperation(Barrier barrier, TaskLocation taskLocation) {
         super(taskLocation);
