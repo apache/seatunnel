@@ -34,6 +34,7 @@
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
+        <!-- Flink has built-in DataGen and Print sql connectors -->
     </dependencies>
 
 </project>
