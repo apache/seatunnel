@@ -45,7 +45,6 @@ import lombok.NonNull;
 
 import java.io.IOException;
 import java.net.URL;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -55,45 +54,48 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
-public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends CoordinatorTask {
+public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> extends CoordinatorTask {
 
     private static final ILogger LOGGER = Logger.getLogger(SinkAggregatedCommitterTask.class);
     private static final long serialVersionUID = 5906594537520393503L;
 
     private SeaTunnelTaskState currState;
-    private final SinkAction<?, ?, ?, AggregatedCommitInfoT> sink;
+    private final SinkAction<?, ?, CommandInfoT, AggregatedCommitInfoT> sink;
     private final int maxWriterSize;
 
-    private final SinkAggregatedCommitter<?, AggregatedCommitInfoT> aggregatedCommitter;
+    private final SinkAggregatedCommitter<CommandInfoT, AggregatedCommitInfoT> aggregatedCommitter;
 
     private transient Serializer<AggregatedCommitInfoT> aggregatedCommitInfoSerializer;
     private Map<Long, Address> writerAddressMap;
 
-    private Map<Long, List<AggregatedCommitInfoT>> checkpointCommitInfoMap;
+    private ConcurrentMap<Long, List<CommandInfoT>> commitInfoCache;
+
+    private ConcurrentMap<Long, List<AggregatedCommitInfoT>> checkpointCommitInfoMap;
 
     private Map<Long, Integer> checkpointBarrierCounter;
-    private Map<Long, Map<Long, Long>> alreadyReceivedCommitInfo;
-    private Object closeLock;
     private CompletableFuture<Void> completableFuture;
 
-    public SinkAggregatedCommitterTask(long jobID, TaskLocation taskID, SinkAction<?, ?, ?, AggregatedCommitInfoT> sink,
-                                       SinkAggregatedCommitter<?, AggregatedCommitInfoT> aggregatedCommitter) {
+    private volatile boolean receivedSinkWriter;
+
+    public SinkAggregatedCommitterTask(long jobID, TaskLocation taskID, SinkAction<?, ?, CommandInfoT, AggregatedCommitInfoT> sink,
+                                       SinkAggregatedCommitter<CommandInfoT, AggregatedCommitInfoT> aggregatedCommitter) {
         super(jobID, taskID);
         this.sink = sink;
         this.aggregatedCommitter = aggregatedCommitter;
         this.maxWriterSize = sink.getParallelism();
+        this.receivedSinkWriter = false;
     }
 
     @Override
     public void init() throws Exception {
         super.init();
         currState = INIT;
-        this.closeLock = new Object();
         this.checkpointBarrierCounter = new HashMap<>();
-        this.alreadyReceivedCommitInfo = new ConcurrentHashMap<>();
+        this.commitInfoCache = new ConcurrentHashMap<>();
         this.writerAddressMap = new ConcurrentHashMap<>();
         this.checkpointCommitInfoMap = new ConcurrentHashMap<>();
         this.completableFuture = new CompletableFuture<>();
@@ -103,17 +105,8 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
 
     public void receivedWriterRegister(TaskLocation writerID, Address address) {
         this.writerAddressMap.put(writerID.getTaskID(), address);
-    }
-
-    public void receivedWriterUnregister(TaskLocation writerID) {
-        this.writerAddressMap.remove(writerID.getTaskID());
-        if (writerAddressMap.isEmpty()) {
-            try {
-                this.close();
-            } catch (IOException e) {
-                LOGGER.severe("aggregated committer close failed", e);
-                throw new TaskRuntimeException(e);
-            }
+        if (maxWriterSize <= writerAddressMap.size()) {
+            receivedSinkWriter = true;
         }
     }
 
@@ -142,7 +135,9 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
                 }
                 break;
             case STARTING:
-                currState = RUNNING;
+                if (receivedSinkWriter) {
+                    currState = RUNNING;
+                }
                 break;
             case RUNNING:
                 if (prepareCloseStatus) {
@@ -169,11 +164,9 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
 
     @Override
     public void close() throws IOException {
-        synchronized (closeLock) {
-            aggregatedCommitter.close();
-            progress.done();
-            completableFuture.complete(null);
-        }
+        aggregatedCommitter.close();
+        progress.done();
+        completableFuture.complete(null);
     }
 
     @Override
@@ -186,6 +179,10 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
             prepareCloseStatus = true;
         }
         if (barrier.snapshot()) {
+            if (commitInfoCache.containsKey(barrier.getId())) {
+                AggregatedCommitInfoT aggregatedCommitInfoT = aggregatedCommitter.combine(commitInfoCache.get(barrier.getId()));
+                checkpointCommitInfoMap.put(barrier.getId(), Collections.singletonList(aggregatedCommitInfoT));
+            }
             List<byte[]> states = serializeStates(aggregatedCommitInfoSerializer, checkpointCommitInfoMap.getOrDefault(barrier.getId(), Collections.emptyList()));
             this.getExecutionContext().sendToMaster(new TaskAcknowledgeOperation(this.taskLocation, (CheckpointBarrier) barrier,
                 Collections.singletonList(new ActionSubtaskState(sink.getId(), -1, states))));
@@ -199,31 +196,14 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
             .flatMap(Collection::stream)
             .map(bytes -> sneaky(() -> aggregatedCommitInfoSerializer.deserialize(bytes)))
             .collect(Collectors.toList());
-        // TODO: commit?
+        aggregatedCommitter.commit(aggregatedCommitInfos);
         restoreComplete = true;
     }
 
-    public void receivedWriterCommitInfo(long checkpointID, long subTaskId,
-                                         AggregatedCommitInfoT[] commitInfos) {
-        checkpointCommitInfoMap.computeIfAbsent(checkpointID, id -> new CopyOnWriteArrayList<>());
-        alreadyReceivedCommitInfo.computeIfAbsent(checkpointID, id -> new ConcurrentHashMap<>());
-
-        checkpointCommitInfoMap.get(checkpointID).addAll(Arrays.asList(commitInfos));
-        Map<Long, Long> alreadyReceived = alreadyReceivedCommitInfo.get(checkpointID);
-        alreadyReceived.put(subTaskId, subTaskId);
-        if (alreadyReceived.size() == maxWriterSize) {
-            try {
-                synchronized (closeLock) {
-                    aggregatedCommitter.commit(checkpointCommitInfoMap.get(checkpointID));
-                }
-                checkpointCommitInfoMap.remove(checkpointID);
-                alreadyReceivedCommitInfo.remove(checkpointID);
-            } catch (IOException e) {
-                LOGGER.severe("aggregated committer commit failed, checkpointID: " + checkpointID, e);
-                throw new TaskRuntimeException(e);
-            }
-        }
-
+    public void receivedWriterCommitInfo(long checkpointID,
+                                         CommandInfoT commitInfos) {
+        commitInfoCache.computeIfAbsent(checkpointID, id -> new CopyOnWriteArrayList<>());
+        commitInfoCache.get(checkpointID).add(commitInfos);
     }
 
     @Override
@@ -234,6 +214,7 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         aggregatedCommitter.commit(checkpointCommitInfoMap.get(checkpointId));
+        checkpointCommitInfoMap.remove(checkpointId);
         if (prepareCloseStatus) {
             closeCall();
         }
@@ -242,6 +223,7 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         aggregatedCommitter.abort(checkpointCommitInfoMap.get(checkpointId));
+        checkpointCommitInfoMap.remove(checkpointId);
         if (prepareCloseStatus) {
             closeCall();
         }
