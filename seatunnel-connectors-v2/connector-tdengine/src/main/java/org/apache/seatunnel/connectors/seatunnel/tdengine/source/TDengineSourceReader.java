@@ -80,7 +80,6 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
             log.info("Closed the bounded TDengine source");
             context.signalNoMoreElement();
         }
-        Thread.sleep(1000L);
     }
 
     @Override
