@@ -18,49 +18,18 @@
 
 package org.apache.seatunnel.core.starter.spark.config;
 
-import org.apache.seatunnel.apis.base.env.RuntimeEnv;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.core.starter.config.EnvironmentFactory;
+import org.apache.seatunnel.spark.SparkEnvironment;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import java.net.URL;
-import java.util.List;
-
-public class SparkEnvironment implements RuntimeEnv {
-
-    @Override
-    public SparkEnvironment setConfig(Config config) {
-        return null;
+public class SparkEnvironmentFactory extends EnvironmentFactory<SparkEnvironment> {
+    public SparkEnvironmentFactory(Config config) {
+        super(config);
     }
 
     @Override
-    public Config getConfig() {
-        return null;
-    }
-
-    @Override
-    public CheckResult checkConfig() {
-        return null;
-    }
-
-    @Override
-    public SparkEnvironment prepare() {
-        return null;
-    }
-
-    @Override
-    public SparkEnvironment setJobMode(JobMode mode) {
-        return null;
-    }
-
-    @Override
-    public JobMode getJobMode() {
-        return null;
-    }
-
-    @Override
-    public void registerPlugin(List<URL> pluginPaths) {
-
+    protected SparkEnvironment newEnvironment() {
+        return new SparkEnvironment().setEnableHive(checkIsContainHive());
     }
 }

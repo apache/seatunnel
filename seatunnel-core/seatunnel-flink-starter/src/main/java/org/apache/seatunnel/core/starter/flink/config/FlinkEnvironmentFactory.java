@@ -17,16 +17,19 @@
 
 package org.apache.seatunnel.core.starter.flink.config;
 
-public enum FlinkJobType {
-    JAR("start-seatunnel-flink-connector-v2.sh");
+import org.apache.seatunnel.core.starter.config.EnvironmentFactory;
+import org.apache.seatunnel.flink.FlinkEnvironment;
 
-    private final String type;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-    FlinkJobType(String type) {
-        this.type = type;
+public class FlinkEnvironmentFactory extends EnvironmentFactory<FlinkEnvironment> {
+
+    public FlinkEnvironmentFactory(Config config) {
+        super(config);
     }
 
-    public String getType() {
-        return this.type;
+    @Override
+    protected FlinkEnvironment newEnvironment() {
+        return new FlinkEnvironment();
     }
 }
