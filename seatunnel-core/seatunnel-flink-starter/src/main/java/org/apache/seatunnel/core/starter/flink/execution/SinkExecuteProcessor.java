@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -46,8 +46,9 @@ public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunn
     private static final String PLUGIN_TYPE = "sink";
 
     protected SinkExecuteProcessor(FlinkEnvironment flinkEnvironment,
+                                   JobContext jobContext,
                                    List<? extends Config> pluginConfigs) {
-        super(flinkEnvironment, pluginConfigs);
+        super(flinkEnvironment, jobContext, pluginConfigs);
     }
 
     @Override
@@ -60,7 +61,7 @@ public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunn
             SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable> seaTunnelSink =
                 sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
             seaTunnelSink.prepare(sinkConfig);
-            seaTunnelSink.setSeaTunnelContext(SeaTunnelContext.getContext());
+            seaTunnelSink.setJobContext(jobContext);
             return seaTunnelSink;
         }).distinct().collect(Collectors.toList());
         flinkEnvironment.registerPlugin(pluginJars);

@@ -26,7 +26,6 @@ import java.util.Map;
  */
 public class NotIndexTypeSerializer implements IndexTypeSerializer {
 
-
     @Override
     public void fillType(Map<String, String> indexInner) {
 
