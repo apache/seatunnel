@@ -61,7 +61,8 @@ public abstract class AbstractSparkContainer extends AbstractContainer {
             .withNetworkAliases("spark-master")
             .withExposedPorts()
             .withEnv("SPARK_MODE", "master")
-            .withLogConsumer(new Slf4jLogConsumer(LOG));
+            .withLogConsumer(new Slf4jLogConsumer(LOG))
+            .withCreateContainerCmdModifier(cmd -> cmd.withUser("root"));
         // In most case we can just use standalone mode to execute a spark job, if we want to use cluster mode, we need to
         // start a worker.
         Startables.deepStart(Stream.of(master)).join();
