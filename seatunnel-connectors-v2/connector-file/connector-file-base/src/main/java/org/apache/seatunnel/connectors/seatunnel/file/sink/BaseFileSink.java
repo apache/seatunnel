@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink;
 
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -48,13 +48,13 @@ public abstract class BaseFileSink implements SeaTunnelSink<SeaTunnelRow, FileSi
     protected HadoopConf hadoopConf;
     protected TextFileSinkConfig textFileSinkConfig;
     protected WriteStrategy writeStrategy;
-    protected SeaTunnelContext seaTunnelContext;
+    protected JobContext jobContext;
     protected String jobId;
 
     @Override
-    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
-        this.seaTunnelContext = seaTunnelContext;
-        this.jobId = seaTunnelContext.getJobId();
+    public void setJobContext(JobContext jobContext) {
+        this.jobContext = jobContext;
+        this.jobId = jobContext.getJobId();
     }
 
     @Override

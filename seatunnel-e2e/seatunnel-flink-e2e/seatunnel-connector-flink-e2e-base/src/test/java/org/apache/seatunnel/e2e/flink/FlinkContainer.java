@@ -27,7 +27,7 @@ import org.apache.seatunnel.e2e.common.AbstractFlinkContainer;
 public abstract class FlinkContainer extends AbstractFlinkContainer {
 
     @Override
-    protected String getStartModulePath() {
+    protected String getStartModuleName() {
         return "seatunnel-core-flink";
     }
 

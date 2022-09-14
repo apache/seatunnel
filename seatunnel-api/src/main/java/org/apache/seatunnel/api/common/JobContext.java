@@ -28,13 +28,11 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * This class is used to store the context of the application. e.g. the table schema, catalog...etc.
+ * This class is used to store the context of the job. e.g. the table schema, catalog...etc.
  */
-public final class SeaTunnelContext implements Serializable {
+public final class JobContext implements Serializable {
 
     private static final long serialVersionUID = -1L;
-
-    private static final SeaTunnelContext INSTANCE = new SeaTunnelContext();
 
     // tableName -> tableSchema
     private final Map<String, TableSchema> tableSchemaMap = new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
@@ -43,8 +41,8 @@ public final class SeaTunnelContext implements Serializable {
 
     private final String jobId;
 
-    public static SeaTunnelContext getContext() {
-        return INSTANCE;
+    public JobContext() {
+        this.jobId = UUID.randomUUID().toString().replace("-", "");
     }
 
     /**
@@ -67,7 +65,7 @@ public final class SeaTunnelContext implements Serializable {
         return Optional.ofNullable(tableSchemaMap.get(tableName));
     }
 
-    public SeaTunnelContext setJobMode(JobMode jobMode) {
+    public JobContext setJobMode(JobMode jobMode) {
         this.jobMode = jobMode;
         return this;
     }
@@ -78,10 +76,6 @@ public final class SeaTunnelContext implements Serializable {
 
     public String getJobId() {
         return this.jobId;
-    }
-
-    private SeaTunnelContext() {
-        this.jobId = UUID.randomUUID().toString().replace("-", "");
     }
 
 }

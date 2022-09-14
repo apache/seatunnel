@@ -1,3 +1,4 @@
+
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -15,16 +16,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.source;
+package org.apache.seatunnel.core.starter.spark.config;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.core.starter.config.EnvironmentFactory;
+import org.apache.seatunnel.spark.SparkEnvironment;
 
-/**
- * This interface defines the runtime environment of the SeaTunnel application.
- */
-public interface SeaTunnelContextAware {
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-    default void setSeaTunnelContext(SeaTunnelContext seaTunnelContext){
-        // nothing
+public class SparkEnvironmentFactory extends EnvironmentFactory<SparkEnvironment> {
+    public SparkEnvironmentFactory(Config config) {
+        super(config);
+    }
+
+    @Override
+    protected SparkEnvironment newEnvironment() {
+        return new SparkEnvironment().setEnableHive(checkIsContainHive());
     }
 }

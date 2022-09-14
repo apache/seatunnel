@@ -1,4 +1,3 @@
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,51 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.spark.config;
+package org.apache.seatunnel.core.starter.flink.config;
 
-import org.apache.seatunnel.apis.base.env.RuntimeEnv;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.core.starter.config.EnvironmentFactory;
+import org.apache.seatunnel.flink.FlinkEnvironment;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import java.net.URL;
-import java.util.List;
+public class FlinkEnvironmentFactory extends EnvironmentFactory<FlinkEnvironment> {
 
-public class SparkEnvironment implements RuntimeEnv {
-
-    @Override
-    public SparkEnvironment setConfig(Config config) {
-        return null;
+    public FlinkEnvironmentFactory(Config config) {
+        super(config);
     }
 
     @Override
-    public Config getConfig() {
-        return null;
-    }
-
-    @Override
-    public CheckResult checkConfig() {
-        return null;
-    }
-
-    @Override
-    public SparkEnvironment prepare() {
-        return null;
-    }
-
-    @Override
-    public SparkEnvironment setJobMode(JobMode mode) {
-        return null;
-    }
-
-    @Override
-    public JobMode getJobMode() {
-        return null;
-    }
-
-    @Override
-    public void registerPlugin(List<URL> pluginPaths) {
-
+    protected FlinkEnvironment newEnvironment() {
+        return new FlinkEnvironment();
     }
 }

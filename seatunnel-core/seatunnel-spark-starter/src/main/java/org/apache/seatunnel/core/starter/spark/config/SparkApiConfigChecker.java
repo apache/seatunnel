@@ -19,6 +19,7 @@ package org.apache.seatunnel.core.starter.spark.config;
 
 import org.apache.seatunnel.core.starter.config.ConfigChecker;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
+import org.apache.seatunnel.spark.SparkEnvironment;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
