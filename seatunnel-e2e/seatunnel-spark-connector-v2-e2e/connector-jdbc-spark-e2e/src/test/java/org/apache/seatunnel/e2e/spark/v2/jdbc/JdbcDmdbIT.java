@@ -125,8 +125,7 @@ public class JdbcDmdbIT extends SparkContainer {
     }
 
     private void assertHasData(String table) {
-        try (Connection connection = DriverManager.getConnection(URL, USERNAME, PASSWORD)) {
-            Statement statement = connection.createStatement();
+        try (Statement statement = jdbcConnection.createStatement();) {
             String sql = String.format("select * from %s.%s limit 1", DATABASE, table);
             ResultSet source = statement.executeQuery(sql);
             Assertions.assertTrue(source.next());
