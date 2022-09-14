@@ -75,8 +75,8 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case DATE:
                 return (int) ((LocalDate) field).toEpochDay();
             case TIME:
-                // TODO: how reconvert? there are not Support for Spark Type,we must define the Type in spark
-                throw new RuntimeException("we not support for time type now");
+                // TODO: Support TIME Type
+                throw new RuntimeException("time type is not supported now, but will be supported in the future.");
             case TIMESTAMP:
                 return InstantConverterUtils.toEpochMicro(Timestamp.valueOf((LocalDateTime) field).toInstant());
             case MAP:
