@@ -227,7 +227,7 @@ public class TaskServiceImpl implements ITaskService {
     }
 
     @Override
-    public InstanceLogRes queryInstanceLog(long instanceId) {
+    public InstanceLogRes queryInstanceLog(Long instanceId) {
         final InstanceLogDto dto = iInstanceService.queryInstanceLog(instanceId);
 
         return InstanceLogRes.builder()
