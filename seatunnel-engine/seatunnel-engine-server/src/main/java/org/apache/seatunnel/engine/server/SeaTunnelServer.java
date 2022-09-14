@@ -20,8 +20,11 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.JobException;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
@@ -31,6 +34,7 @@ import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.hazelcast.cluster.Address;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.services.ManagedService;
@@ -45,6 +49,7 @@ import com.hazelcast.spi.impl.operationservice.LiveOperations;
 import com.hazelcast.spi.impl.operationservice.LiveOperationsTracker;
 import lombok.NonNull;
 
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
@@ -140,6 +145,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     @Override
     public void memberRemoved(MembershipServiceEvent event) {
         resourceManager.memberRemoved(event);
+        failedTaskOnMemberRemoved(event);
     }
 
     @Override
@@ -240,6 +246,31 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
             return JobStatus.FINISHED;
         }
         return runningJobMaster.getJobStatus();
+    }
+
+    public void failedTaskOnMemberRemoved(MembershipServiceEvent event) {
+        Address lostAddress = event.getMember().getAddress();
+        runningJobMasterMap.forEach((aLong, jobMaster) -> {
+            jobMaster.getPhysicalPlan().getPipelineList().forEach(subPlan -> {
+                ArrayList<PhysicalVertex> allVertex = new ArrayList<>();
+                allVertex.addAll(subPlan.getPhysicalVertexList());
+                allVertex.addAll(subPlan.getCoordinatorVertexList());
+                allVertex.forEach(physicalVertex -> {
+                    Address deployAddress = physicalVertex.getCurrentExecutionAddress();
+                    ExecutionState executionState = physicalVertex.getExecutionState().get();
+                    if (null != deployAddress && deployAddress.equals(lostAddress) &&
+                        (executionState.equals(ExecutionState.DEPLOYING) ||
+                            executionState.equals(ExecutionState.RUNNING))) {
+                        TaskGroupLocation taskGroupLocation = physicalVertex.getTaskGroupLocation();
+                        physicalVertex.updateTaskExecutionState(
+                            new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED,
+                                new SeaTunnelEngineException(
+                                    String.format("The taskGroup(%s) deployed node(%s) offline", taskGroupLocation,
+                                        lostAddress))));
+                    }
+                });
+            });
+        });
     }
 
     /**
