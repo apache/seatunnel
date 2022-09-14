@@ -35,6 +35,7 @@ import java.util.stream.Stream;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractSparkContainer extends AbstractContainer {
+
     private static final Logger LOG = LoggerFactory.getLogger(AbstractSparkContainer.class);
 
     private static final String SPARK_SEATUNNEL_HOME = "/tmp/spark/seatunnel";
@@ -78,7 +79,7 @@ public abstract class AbstractSparkContainer extends AbstractContainer {
     @Override
     protected List<String> getExtraStartShellCommands() {
         return Arrays.asList("--master local",
-            "--deploy-mode client");
+                             "--deploy-mode client");
     }
 
     public Container.ExecResult executeSeaTunnelSparkJob(String confFile) throws IOException, InterruptedException {
