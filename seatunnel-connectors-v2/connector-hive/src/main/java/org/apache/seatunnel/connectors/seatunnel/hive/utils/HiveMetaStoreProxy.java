@@ -34,7 +34,7 @@ import java.util.Objects;
 
 public class HiveMetaStoreProxy {
     private final HiveMetaStoreClient hiveMetaStoreClient;
-    private static HiveMetaStoreProxy INSTANCE = null;
+    private static volatile HiveMetaStoreProxy INSTANCE = null;
 
     private HiveMetaStoreProxy(@NonNull String uris) {
         HiveConf hiveConf = new HiveConf();
@@ -46,10 +46,14 @@ public class HiveMetaStoreProxy {
         }
     }
 
-    public static synchronized HiveMetaStoreProxy getInstance(Config config) {
+    public static HiveMetaStoreProxy getInstance(Config config) {
         if (INSTANCE == null) {
-            String metastoreUri = config.getString(HiveConfig.METASTORE_URI);
-            INSTANCE = new HiveMetaStoreProxy(metastoreUri);
+            synchronized (HiveMetaStoreProxy.class) {
+                if (INSTANCE == null) {
+                    String metastoreUri = config.getString(HiveConfig.METASTORE_URI);
+                    INSTANCE = new HiveMetaStoreProxy(metastoreUri);
+                }
+            }
         }
         return INSTANCE;
     }
