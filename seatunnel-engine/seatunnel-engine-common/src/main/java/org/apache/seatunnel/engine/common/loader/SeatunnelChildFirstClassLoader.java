@@ -27,17 +27,26 @@ import java.util.function.Consumer;
 
 public class SeatunnelChildFirstClassLoader extends SeatunnelBaseClassLoader {
     private final String[] alwaysParentFirstPatterns;
-    private static final String SEATUNNEL_CLASS_PATTERN = "org.apache.seatunnel.";
+    private static final String[] DEFAULT_PARENT_FIRST_PATTERNS = new String[]{
+        "java.",
+        "scala.",
+        "org.apache.seatunnel.",
+        "javax.annotation.",
+        "org.slf4j",
+        "org.apache.log4j",
+        "org.apache.logging",
+        "org.apache.commons.logging"
+    };
 
     public SeatunnelChildFirstClassLoader(List<URL> urls) {
-        this(urls, new String[]{SEATUNNEL_CLASS_PATTERN});
+        this(urls, DEFAULT_PARENT_FIRST_PATTERNS);
     }
 
     public SeatunnelChildFirstClassLoader(List<URL> urls, String[] alwaysParentFirstPatterns) {
         this(urls.toArray(new URL[0]),
-                SeatunnelChildFirstClassLoader.class.getClassLoader(),
-                alwaysParentFirstPatterns,
-                NOOP_EXCEPTION_HANDLER);
+            SeatunnelChildFirstClassLoader.class.getClassLoader(),
+            alwaysParentFirstPatterns,
+            NOOP_EXCEPTION_HANDLER);
     }
 
     public SeatunnelChildFirstClassLoader(
@@ -107,7 +116,7 @@ public class SeatunnelChildFirstClassLoader extends SeatunnelBaseClassLoader {
         }
 
         return new Enumeration<URL>() {
-            Iterator<URL> iter = result.iterator();
+            final Iterator<URL> iter = result.iterator();
 
             public boolean hasMoreElements() {
                 return iter.hasNext();

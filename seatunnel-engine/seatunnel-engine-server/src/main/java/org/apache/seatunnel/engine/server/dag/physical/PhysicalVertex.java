@@ -394,6 +394,10 @@ public class PhysicalVertex {
         taskFuture.complete(taskExecutionState);
     }
 
+    public Address getCurrentExecutionAddress() {
+        return currentExecutionAddress;
+    }
+
     public TaskGroupLocation getTaskGroupLocation() {
         return taskGroupLocation;
     }
