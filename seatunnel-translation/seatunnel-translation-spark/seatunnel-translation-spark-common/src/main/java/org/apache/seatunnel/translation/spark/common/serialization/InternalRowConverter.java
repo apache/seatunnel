@@ -169,8 +169,8 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case DATE:
                 return LocalDate.ofEpochDay((int) field);
             case TIME:
-                // todo: support this Type
-                throw new RuntimeException("time type not support now but will");
+                // TODO: Support TIME Type
+                throw new RuntimeException("time type is not supported now, but will be supported in the future.");
             case TIMESTAMP:
                 return Timestamp.from(InstantConverterUtils.ofEpochMicro((long) field)).toLocalDateTime();
             case MAP:
