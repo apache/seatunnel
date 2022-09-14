@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.kudu.source;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -53,7 +52,6 @@ import java.util.List;
 public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit, KuduSourceState> {
     private static final Logger LOGGER = LoggerFactory.getLogger(KuduSource.class);
 
-    private SeaTunnelContext seaTunnelContext;
     private SeaTunnelRowType rowTypeInfo;
     private KuduInputFormat kuduInputFormat;
     private PartitionParameter partitionParameter;
@@ -165,11 +163,6 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
             throw new RuntimeException("Failed to generate upper and lower limits for each partition", e);
         }
         return new PartitionParameter(keyColumn, Long.parseLong(minKey + ""), Long.parseLong(maxKey + ""));
-    }
-
-    @Override
-    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
-        this.seaTunnelContext = seaTunnelContext;
     }
 
     public SeaTunnelRowType getSeaTunnelRowType(List<ColumnSchema> columnSchemaList) {
