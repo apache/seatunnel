@@ -18,7 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -112,7 +116,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             SeaTunnelDataType<?>[] types = new SeaTunnelDataType[schema.getFieldNames().size()];
             for (int i = 0; i < schema.getFieldNames().size(); i++) {
                 fields[i] = schema.getFieldNames().get(i);
-                types[i] = BasicType.STRING_TYPE;
+                types[i] = orcDataType2SeaTunnelDataType(schema.getChildren().get(i));
             }
             seaTunnelRowTypeInfo = new SeaTunnelRowType(fields, types);
             return seaTunnelRowTypeInfo;
@@ -160,6 +164,75 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         } catch (FilePluginException | IOException e) {
             String errorMsg = String.format("Check orc file [%s] error", path);
             throw new RuntimeException(errorMsg, e);
+        }
+    }
+
+    private SeaTunnelDataType<?> orcDataType2SeaTunnelDataType(TypeDescription typeDescription) {
+        switch (typeDescription.getCategory()) {
+            case BOOLEAN:
+                return BasicType.BOOLEAN_TYPE;
+            case BYTE:
+                return BasicType.BYTE_TYPE;
+            case SHORT:
+                return BasicType.SHORT_TYPE;
+            case INT:
+                return BasicType.INT_TYPE;
+            case LONG:
+                return BasicType.LONG_TYPE;
+            case FLOAT:
+                return BasicType.FLOAT_TYPE;
+            case DOUBLE:
+                return BasicType.DOUBLE_TYPE;
+            case STRING:
+            case BINARY:
+            case VARCHAR:
+            case CHAR:
+                return BasicType.STRING_TYPE;
+            case DATE:
+                return LocalTimeType.LOCAL_DATE_TYPE;
+            case TIMESTAMP:
+                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+            case DECIMAL:
+                int precision = typeDescription.getPrecision();
+                int scale = typeDescription.getScale();
+                return new DecimalType(precision, scale);
+            case LIST:
+                TypeDescription listType = typeDescription.getChildren().get(0);
+                SeaTunnelDataType<?> seaTunnelDataType = orcDataType2SeaTunnelDataType(listType);
+                if (BasicType.STRING_TYPE.equals(seaTunnelDataType)) {
+                    return ArrayType.STRING_ARRAY_TYPE;
+                } else if (BasicType.BOOLEAN_TYPE.equals(seaTunnelDataType)) {
+                    return ArrayType.BOOLEAN_ARRAY_TYPE;
+                } else if (BasicType.BYTE_TYPE.equals(seaTunnelDataType)) {
+                    return ArrayType.BYTE_ARRAY_TYPE;
+                } else if (BasicType.SHORT_TYPE.equals(seaTunnelDataType)) {
+                    return ArrayType.SHORT_ARRAY_TYPE;
+                } else if (BasicType.INT_TYPE.equals(seaTunnelDataType)) {
+                    return ArrayType.INT_ARRAY_TYPE;
+                } else if (BasicType.LONG_TYPE.equals(seaTunnelDataType)) {
+                    return ArrayType.LONG_ARRAY_TYPE;
+                } else if (BasicType.FLOAT_TYPE.equals(seaTunnelDataType)) {
+                    return ArrayType.FLOAT_ARRAY_TYPE;
+                } else if (BasicType.DOUBLE_TYPE.equals(seaTunnelDataType)) {
+                    return ArrayType.DOUBLE_ARRAY_TYPE;
+                } else {
+                    String errorMsg = String.format("Array type not support this genericType [%s]", seaTunnelDataType);
+                    throw new RuntimeException(errorMsg);
+                }
+            case MAP:
+                TypeDescription keyType = typeDescription.getChildren().get(0);
+                TypeDescription valueType = typeDescription.getChildren().get(1);
+                return new MapType<>(orcDataType2SeaTunnelDataType(keyType), orcDataType2SeaTunnelDataType(valueType));
+            case STRUCT:
+                List<TypeDescription> children = typeDescription.getChildren();
+                String[] fieldNames = typeDescription.getFieldNames().toArray(new String[0]);
+                SeaTunnelDataType<?>[] fieldTypes = children.stream().map(this::orcDataType2SeaTunnelDataType).toArray(SeaTunnelDataType<?>[]::new);
+                return new SeaTunnelRowType(fieldNames, fieldTypes);
+            case UNION:
+                throw new RuntimeException("SeaTunnel not supported orc union type yet");
+            default:
+                // do nothing
+                return null;
         }
     }
 
