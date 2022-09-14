@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
 
 import javax.transaction.xa.Xid;
@@ -63,7 +63,7 @@ class SemanticXidGenerator
     }
 
     @Override
-    public Xid generateXid(SeaTunnelContext context, SinkWriter.Context sinkContext, long checkpointId) {
+    public Xid generateXid(JobContext context, SinkWriter.Context sinkContext, long checkpointId) {
         byte[] jobIdBytes = context.getJobId().getBytes();
         checkArgument(jobIdBytes.length <= JOB_ID_BYTES);
         System.arraycopy(jobIdBytes, 0, gtridBuffer, 0, JOB_ID_BYTES);
@@ -75,7 +75,7 @@ class SemanticXidGenerator
     }
 
     @Override
-    public boolean belongsToSubtask(Xid xid, SeaTunnelContext context, SinkWriter.Context sinkContext) {
+    public boolean belongsToSubtask(Xid xid, JobContext context, SinkWriter.Context sinkContext) {
         if (xid.getFormatId() != FORMAT_ID) {
             return false;
         }

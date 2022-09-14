@@ -85,7 +85,7 @@ public class UserServiceImpl implements IUserService {
     @Override
     public void update(UpdateUserReq updateReq) {
         final UpdateUserDto dto = UpdateUserDto.builder()
-                .id(updateReq.getId())
+                .id(updateReq.getUserId())
                 .username(updateReq.getUsername())
                 // encryption user's password
                 .password(PasswordUtils.encryptWithSalt(defaultSalt, updateReq.getPassword()))

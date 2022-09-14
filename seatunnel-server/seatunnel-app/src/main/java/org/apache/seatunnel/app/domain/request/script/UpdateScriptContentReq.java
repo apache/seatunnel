@@ -27,13 +27,12 @@ import javax.validation.constraints.NotNull;
 @Data
 @ApiModel(value = "updateScriptContentReq", description = "update an exist script content request")
 public class UpdateScriptContentReq {
-    @ApiModelProperty(value = "script id", required = true, dataType = "Integer")
-    @NotNull
-    private Integer id;
+    @ApiModelProperty(value = "script id", required = true, dataType = "Integer", hidden = true)
+    private Integer scriptId;
     @ApiModelProperty(value = "script id", required = true, dataType = "Integer")
     @NotBlank
     private String content;
-    @ApiModelProperty(value = "script mender id", required = true, dataType = "Integer")
+    @ApiModelProperty(value = "script mender id", required = true, dataType = "Integer", hidden = true)
     @NotNull
     private Integer menderId;
 }

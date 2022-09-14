@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type;
 
-
 import java.util.Map;
 
 public interface IndexTypeSerializer {

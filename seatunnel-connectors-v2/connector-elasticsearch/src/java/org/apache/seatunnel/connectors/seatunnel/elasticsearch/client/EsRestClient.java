@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.client;
 
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.BulkElasticsearchException;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.GetElasticsearchVersionException;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.StringUtils;
@@ -27,9 +31,6 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.util.EntityUtils;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.BulkElasticsearchException;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.GetElasticsearchVersionException;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
@@ -40,13 +41,14 @@ import java.util.List;
 
 public class EsRestClient {
 
-    private static EsRestClient esRestClient;
-    private static RestClient restClient;
+    private static EsRestClient ES_REST_CLIENT;
+    private static RestClient REST_CLIENT;
 
     private EsRestClient() {
 
     }
 
+    @SuppressWarnings("checkstyle:MagicNumber")
     private static RestClientBuilder getRestClientBuilder(List<String> hosts, String username, String password) {
         HttpHost[] httpHosts = new HttpHost[hosts.size()];
         for (int i = 0; i < hosts.size(); i++) {
@@ -68,19 +70,19 @@ public class EsRestClient {
     }
 
     public static EsRestClient getInstance(List<String> hosts, String username, String password) {
-        if (restClient == null) {
+        if (REST_CLIENT == null) {
             RestClientBuilder restClientBuilder = getRestClientBuilder(hosts, username, password);
-            restClient = restClientBuilder.build();
-            esRestClient = new EsRestClient();
+            REST_CLIENT = restClientBuilder.build();
+            ES_REST_CLIENT = new EsRestClient();
         }
-        return esRestClient;
+        return ES_REST_CLIENT;
     }
 
     public BulkResponse bulk(String requestBody) {
         Request request = new Request("POST", "_bulk");
         request.setJsonEntity(requestBody);
         try {
-            Response response = restClient.performRequest(request);
+            Response response = REST_CLIENT.performRequest(request);
             if (response == null) {
                 throw new BulkElasticsearchException("bulk es Response is null");
             }
@@ -105,7 +107,7 @@ public class EsRestClient {
     public static String getClusterVersion() {
         Request request = new Request("GET", "/");
         try {
-            Response response = restClient.performRequest(request);
+            Response response = REST_CLIENT.performRequest(request);
             String result = EntityUtils.toString(response.getEntity());
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode jsonNode = objectMapper.readTree(result);
@@ -117,7 +119,7 @@ public class EsRestClient {
     }
 
     public void close() throws IOException {
-        restClient.close();
+        REST_CLIENT.close();
     }
 
 }
