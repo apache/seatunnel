@@ -29,7 +29,6 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
@@ -53,11 +52,6 @@ public abstract class AbstractSparkContainer extends AbstractContainer {
     @Override
     protected String getSeaTunnelHomeInContainer() {
         return SPARK_SEATUNNEL_HOME;
-    }
-
-    @Override
-    protected String getThirdPartyPluginsPath() {
-        return Paths.get(SPARK_SEATUNNEL_HOME, "plugins").toString();
     }
 
     @BeforeAll
