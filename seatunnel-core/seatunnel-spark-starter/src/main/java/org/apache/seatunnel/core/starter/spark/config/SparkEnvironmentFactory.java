@@ -1,3 +1,4 @@
+
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -15,20 +16,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.flink.config;
+package org.apache.seatunnel.core.starter.spark.config;
 
-public enum FlinkJobType {
-    JAR("start-seatunnel-flink.sh"),
-    SQL("start-seatunnel-sql.sh"),
-    ;
+import org.apache.seatunnel.core.starter.config.EnvironmentFactory;
+import org.apache.seatunnel.spark.SparkEnvironment;
 
-    private final String type;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-    FlinkJobType(String type) {
-        this.type = type;
+public class SparkEnvironmentFactory extends EnvironmentFactory<SparkEnvironment> {
+    public SparkEnvironmentFactory(Config config) {
+        super(config);
     }
 
-    public String getType() {
-        return this.type;
+    @Override
+    protected SparkEnvironment newEnvironment() {
+        return new SparkEnvironment().setEnableHive(checkIsContainHive());
     }
 }

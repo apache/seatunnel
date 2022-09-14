@@ -142,6 +142,7 @@
         <hadoop.binary.version>2.7</hadoop.binary.version>
         <jackson.version>2.12.6</jackson.version>
         <lombok.version>1.18.0</lombok.version>
+        <commons-compress.version>1.20</commons-compress.version>
         <mysql.version>8.0.16</mysql.version>
         <postgresql.version>42.3.3</postgresql.version>
         <dm-jdbc.version>8.1.2.141</dm-jdbc.version>
@@ -290,6 +291,13 @@
                     </exclusion>
                 </exclusions>
             </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-compress</artifactId>
+                <version>${commons-compress.version}</version>
+            </dependency>
+
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
                 <artifactId>log4j-core</artifactId>
