@@ -17,18 +17,8 @@
 
 package org.apache.seatunnel.core.starter.flink.config;
 
-public enum FlinkJobType {
-    JAR("start-seatunnel-flink.sh"),
-    SQL("start-seatunnel-sql.sh"),
-    ;
+public class StarterConstant {
 
-    private final String type;
+    public static final String SHELL_NAME = "start-seatunnel-flink-connector-v2.sh";
 
-    FlinkJobType(String type) {
-        this.type = type;
-    }
-
-    public String getType() {
-        return this.type;
-    }
 }

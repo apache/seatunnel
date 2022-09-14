@@ -30,7 +30,9 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.BulkEla
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.ElasticsearchRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.SeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchCommitInfo;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,7 +44,7 @@ import java.util.Optional;
 /**
  * ElasticsearchSinkWriter is a sink writer that will write {@link SeaTunnelRow} to Elasticsearch.
  */
-public class ElasticsearchSinkWriter<ElasticsearchSinkState> implements SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkState> {
+public class ElasticsearchSinkWriter<ElasticsearchSinkStateT> implements SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkStateT> {
 
     private final Context context;
 
@@ -53,12 +55,11 @@ public class ElasticsearchSinkWriter<ElasticsearchSinkState> implements SinkWrit
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchSinkWriter.class);
 
-
     public ElasticsearchSinkWriter(
             Context context,
             SeaTunnelRowType seaTunnelRowType,
             Config pluginConfig,
-            List<ElasticsearchSinkState> elasticsearchStates) {
+            List<ElasticsearchSinkStateT> elasticsearchStates) {
         this.context = context;
 
         IndexInfo indexInfo = new IndexInfo(pluginConfig);

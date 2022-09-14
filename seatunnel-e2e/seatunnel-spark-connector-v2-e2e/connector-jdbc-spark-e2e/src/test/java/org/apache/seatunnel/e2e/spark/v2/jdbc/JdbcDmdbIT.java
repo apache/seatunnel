@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.e2e.spark.v2.jdbc;
 
-import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
+import static org.awaitility.Awaitility.given;
 
 import org.apache.seatunnel.e2e.spark.SparkContainer;
 

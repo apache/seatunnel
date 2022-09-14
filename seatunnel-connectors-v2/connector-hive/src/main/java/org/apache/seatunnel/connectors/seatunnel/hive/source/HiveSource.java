@@ -21,7 +21,6 @@ import static org.apache.seatunnel.connectors.seatunnel.hive.config.SourceConfig
 import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -46,8 +45,6 @@ import java.util.List;
 
 @AutoService(SeaTunnelSource.class)
 public class HiveSource implements SeaTunnelSource<SeaTunnelRow, HiveSourceSplit, HiveSourceState> {
-
-    private SeaTunnelContext seaTunnelContext;
 
     private SeaTunnelRowType typeInfo;
 
@@ -83,11 +80,6 @@ public class HiveSource implements SeaTunnelSource<SeaTunnelRow, HiveSourceSplit
         } catch (HivePluginException e) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Read hive file type error.", e);
         }
-    }
-
-    @Override
-    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
-        this.seaTunnelContext = seaTunnelContext;
     }
 
     @Override

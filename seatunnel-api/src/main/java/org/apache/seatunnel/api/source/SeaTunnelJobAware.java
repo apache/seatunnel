@@ -15,24 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.util;
+package org.apache.seatunnel.api.source;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import org.apache.seatunnel.api.common.JobContext;
 
-public class RegexUtils {
+/**
+ * This interface defines the runtime environment of the SeaTunnel job.
+ */
+public interface SeaTunnelJobAware {
 
-    public static List<String> extractDatas(String content, String regex) {
-        List<String> datas = new ArrayList<>();
-        Pattern pattern = Pattern.compile(regex, Pattern.DOTALL);
-        Matcher matcher = pattern.matcher(content);
-        while (matcher.find()) {
-            String result = matcher.group(1);
-            datas.add(result);
-        }
-        return datas;
+    default void setJobContext(JobContext jobContext){
+        // nothing
     }
-
 }

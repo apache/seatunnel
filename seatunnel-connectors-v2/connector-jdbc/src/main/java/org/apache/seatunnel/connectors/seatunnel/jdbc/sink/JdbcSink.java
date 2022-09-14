@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -51,7 +51,7 @@ public class JdbcSink
 
     private SeaTunnelRowType seaTunnelRowType;
 
-    private SeaTunnelContext seaTunnelContext;
+    private JobContext jobContext;
 
     private JdbcSinkOptions jdbcSinkOptions;
 
@@ -76,7 +76,7 @@ public class JdbcSink
         if (jdbcSinkOptions.isExactlyOnce()) {
             sinkWriter = new JdbcExactlyOnceSinkWriter(
                 context,
-                seaTunnelContext,
+                jobContext,
                 statementBuilder,
                 jdbcSinkOptions,
                 new ArrayList<>()
@@ -98,7 +98,7 @@ public class JdbcSink
             JdbcStatementBuilder<SeaTunnelRow> statementBuilder = (st, row) -> JdbcUtils.setRecordToStatement(st, null, row);
             return new JdbcExactlyOnceSinkWriter(
                 context,
-                seaTunnelContext,
+                jobContext,
                 statementBuilder,
                 jdbcSinkOptions,
                 states
@@ -132,8 +132,8 @@ public class JdbcSink
     }
 
     @Override
-    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
-        this.seaTunnelContext = seaTunnelContext;
+    public void setJobContext(JobContext jobContext) {
+        this.jobContext = jobContext;
     }
 
     @Override

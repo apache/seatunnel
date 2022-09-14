@@ -15,24 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.util;
+package org.apache.seatunnel.core.starter.spark.config;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+public class StarterConstant {
 
-public class RegexUtils {
-
-    public static List<String> extractDatas(String content, String regex) {
-        List<String> datas = new ArrayList<>();
-        Pattern pattern = Pattern.compile(regex, Pattern.DOTALL);
-        Matcher matcher = pattern.matcher(content);
-        while (matcher.find()) {
-            String result = matcher.group(1);
-            datas.add(result);
-        }
-        return datas;
-    }
+    public static final String SHELL_NAME = "start-seatunnel-spark-connector-v2.sh";
 
 }

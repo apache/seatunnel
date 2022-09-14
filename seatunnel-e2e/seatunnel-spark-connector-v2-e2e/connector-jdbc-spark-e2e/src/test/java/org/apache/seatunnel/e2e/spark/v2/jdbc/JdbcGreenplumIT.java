@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.e2e.spark.v2.jdbc;
 
-import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
+import static org.awaitility.Awaitility.given;
 
 import org.apache.seatunnel.e2e.spark.SparkContainer;
 
@@ -77,6 +77,8 @@ public class JdbcGreenplumIT extends SparkContainer {
         Class.forName(GREENPLUM_DRIVER);
         given().ignoreExceptions()
             .await()
+            .atLeast(100, TimeUnit.MILLISECONDS)
+            .pollInterval(500, TimeUnit.MILLISECONDS)
             .atMost(180, TimeUnit.SECONDS)
             .untilAsserted(() -> initializeJdbcConnection());
         initializeJdbcTable();
