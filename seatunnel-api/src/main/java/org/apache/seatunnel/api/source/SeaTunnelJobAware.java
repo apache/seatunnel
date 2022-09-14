@@ -17,14 +17,14 @@
 
 package org.apache.seatunnel.api.source;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.api.common.JobContext;
 
 /**
- * This interface defines the runtime environment of the SeaTunnel application.
+ * This interface defines the runtime environment of the SeaTunnel job.
  */
-public interface SeaTunnelContextAware {
+public interface SeaTunnelJobAware {
 
-    default void setSeaTunnelContext(SeaTunnelContext seaTunnelContext){
+    default void setJobContext(JobContext jobContext){
         // nothing
     }
 }

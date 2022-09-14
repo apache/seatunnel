@@ -24,8 +24,8 @@ import static org.apache.seatunnel.connectors.seatunnel.http.config.Config.METHO
 import static org.apache.seatunnel.connectors.seatunnel.http.config.Config.PARAMS;
 import static org.apache.seatunnel.connectors.seatunnel.http.config.Config.URL;
 
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -51,7 +51,7 @@ import java.util.stream.Collectors;
 public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     private final HttpSourceParameter parameter = new HttpSourceParameter();
     private SeaTunnelRowType rowType;
-    private SeaTunnelContext seaTunnelContext;
+    private JobContext jobContext;
 
     @Override
     public String getPluginName() {
@@ -60,7 +60,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public Boundedness getBoundedness() {
-        return JobMode.BATCH.equals(seaTunnelContext.getJobMode()) ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
+        return JobMode.BATCH.equals(jobContext.getJobMode()) ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
     }
 
     @Override
@@ -93,8 +93,8 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     }
 
     @Override
-    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
-        this.seaTunnelContext = seaTunnelContext;
+    public void setJobContext(JobContext jobContext) {
+        this.jobContext = jobContext;
     }
 
     @Override

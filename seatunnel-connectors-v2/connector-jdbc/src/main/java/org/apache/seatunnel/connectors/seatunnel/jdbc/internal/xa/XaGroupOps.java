@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 
@@ -38,6 +38,6 @@ public interface XaGroupOps
 
     GroupXaOperationResult<XidInfo> failAndRollback(Collection<XidInfo> xids);
 
-    void recoverAndRollback(SeaTunnelContext context, SinkWriter.Context sinkContext, XidGenerator xidGenerator, Xid excludeXid);
+    void recoverAndRollback(JobContext context, SinkWriter.Context sinkContext, XidGenerator xidGenerator, Xid excludeXid);
 
 }
