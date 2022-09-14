@@ -400,29 +400,6 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         runningJobMaster.updateTaskExecutionState(taskExecutionState);
     }
 
-    /**
-     * restore the job state after new Master Node active
-     */
-    private void restoreJobState(JobMaster jobMaster) {
-        long jobId = jobMaster.getJobImmutableInformation().getJobId();
-        if (jobMaster.getJobStatus().ordinal() < JobStatus.RUNNING.ordinal()) {
-            // release all resources
-            jobMaster.getPhysicalPlan().getPipelineList()
-                .forEach(pipeline -> jobMaster.releasePipelineResource(pipeline));
-            //re submit job
-            submitJob(jobId, runningJobInfoIMap.get(jobId).getJobImmutableInformation()).join();
-        } else if (JobStatus.CANCELLING.equals(jobMaster.getJobStatus())) {
-            cancelJob(jobId);
-        } else if (jobMaster.getJobStatus().isEndState()) {
-            removeJobIMap(jobMaster);
-        } else if (JobStatus.RUNNING.equals(jobMaster.getJobStatus())) {
-            jobMaster.getPhysicalPlan().getPipelineList().forEach(SubPlan::restorePipelineState);
-        } else {
-            throw new RuntimeException(
-                String.format("Unknown Job Status %s when restore job state", jobMaster.getJobStatus()));
-        }
-    }
-
     private void printExecutionInfo() {
         ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
         int activeCount = threadPoolExecutor.getActiveCount();
