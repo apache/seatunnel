@@ -53,7 +53,7 @@ public class JdbcDmdbIT extends SparkContainer {
     private static final String DRIVER_CLASS = "dm.jdbc.driver.DmDriver";
     private static final String HOST = "spark_e2e_dmdb";
     private static final String LOCAL_HOST = "localhost";
-    private static final String URL = "jdbc:dm://" + LOCAL_HOST + ":5236";
+    private static final String URL = "jdbc:dm://%s:5236";
     private static final String USERNAME = "SYSDBA";
     private static final String PASSWORD = "SYSDBA";
     private static final String DATABASE = "SYSDBA";
@@ -95,7 +95,8 @@ public class JdbcDmdbIT extends SparkContainer {
     }
 
     private void initializeJdbcConnection() throws SQLException {
-        jdbcConnection = DriverManager.getConnection(URL, USERNAME, PASSWORD);
+        jdbcConnection = DriverManager.getConnection(String.format(
+            URL, dbServer.getHost()), USERNAME, PASSWORD);
     }
 
     /**

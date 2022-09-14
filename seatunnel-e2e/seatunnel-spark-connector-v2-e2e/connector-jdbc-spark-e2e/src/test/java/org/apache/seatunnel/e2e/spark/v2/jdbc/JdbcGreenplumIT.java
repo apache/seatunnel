@@ -51,13 +51,12 @@ public class JdbcGreenplumIT extends SparkContainer {
     private static final String GREENPLUM_IMAGE = "datagrip/greenplum:6.8";
     private static final String GREENPLUM_CONTAINER_HOST = "spark_e2e_greenplum";
     private static final int GREENPLUM_CONTAINER_PORT = 5432;
-    private static final String GREENPLUM_HOST = "localhost";
     private static final int GREENPLUM_PORT = 5436;
     private static final String GREENPLUM_USER = "tester";
     private static final String GREENPLUM_PASSWORD = "pivotal";
     private static final String GREENPLUM_DRIVER = "org.postgresql.Driver";
-    private static final String GREENPLUM_JDBC_URL = String.format(
-        "jdbc:postgresql://%s:%s/testdb", GREENPLUM_HOST, GREENPLUM_PORT);
+    private static final String GREENPLUM_JDBC_URL = "jdbc:postgresql://%s:%s/testdb";
+
     private static final List<List> TEST_DATASET = generateTestDataset();
     private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
 
@@ -104,7 +103,8 @@ public class JdbcGreenplumIT extends SparkContainer {
     }
 
     private void initializeJdbcConnection() throws SQLException {
-        jdbcConnection = DriverManager.getConnection(GREENPLUM_JDBC_URL,
+        jdbcConnection = DriverManager.getConnection(String.format(
+                GREENPLUM_JDBC_URL, greenplumServer.getHost(), GREENPLUM_PORT),
             GREENPLUM_USER, GREENPLUM_PASSWORD);
     }
 
