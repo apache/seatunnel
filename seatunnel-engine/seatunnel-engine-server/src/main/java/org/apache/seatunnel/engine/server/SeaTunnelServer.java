@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
@@ -48,6 +49,7 @@ import com.hazelcast.spi.impl.operationservice.LiveOperations;
 import com.hazelcast.spi.impl.operationservice.LiveOperationsTracker;
 import lombok.NonNull;
 
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
@@ -250,7 +252,10 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         Address lostAddress = event.getMember().getAddress();
         runningJobMasterMap.forEach((aLong, jobMaster) -> {
             jobMaster.getPhysicalPlan().getPipelineList().forEach(subPlan -> {
-                subPlan.getPhysicalVertexList().forEach(physicalVertex -> {
+                ArrayList<PhysicalVertex> allVertex = new ArrayList<>();
+                allVertex.addAll(subPlan.getPhysicalVertexList());
+                allVertex.addAll(subPlan.getCoordinatorVertexList());
+                allVertex.forEach(physicalVertex -> {
                     Address deployAddress = physicalVertex.getCurrentExecutionAddress();
                     ExecutionState executionState = physicalVertex.getExecutionState().get();
                     if (null != deployAddress && deployAddress.equals(lostAddress) &&
