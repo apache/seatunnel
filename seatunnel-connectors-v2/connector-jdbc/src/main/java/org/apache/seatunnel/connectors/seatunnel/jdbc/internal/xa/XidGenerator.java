@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
 
 import javax.transaction.xa.Xid;
@@ -31,14 +31,14 @@ import java.security.SecureRandom;
 public interface XidGenerator
     extends Serializable, AutoCloseable {
 
-    Xid generateXid(SeaTunnelContext context, SinkWriter.Context sinkContext, long checkpointId);
+    Xid generateXid(JobContext context, SinkWriter.Context sinkContext, long checkpointId);
 
     default void open() {}
 
     /**
      * @return true if the provided transaction belongs to this subtask
      */
-    boolean belongsToSubtask(Xid xid, SeaTunnelContext context, SinkWriter.Context sinkContext);
+    boolean belongsToSubtask(Xid xid, JobContext context, SinkWriter.Context sinkContext);
 
     @Override
     default void close() {}
