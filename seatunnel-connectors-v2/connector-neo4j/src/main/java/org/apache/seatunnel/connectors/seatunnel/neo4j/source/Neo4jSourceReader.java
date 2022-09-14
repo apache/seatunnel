@@ -25,11 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig;
 import org.neo4j.driver.*;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
@@ -79,7 +75,6 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         this.context.signalNoMoreElement();
     }
 
-    // TODO : test
     public static Object convertType(SeaTunnelDataType<?> dataType, Value value) {
         Objects.requireNonNull(dataType);
         Objects.requireNonNull(value);
