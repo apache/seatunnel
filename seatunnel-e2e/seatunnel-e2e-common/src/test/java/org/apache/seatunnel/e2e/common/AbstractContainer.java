@@ -64,8 +64,6 @@ public abstract class AbstractContainer {
 
     protected abstract List<String> getExtraStartShellCommands();
 
-    protected abstract String getThirdPartyPluginsPath();
-
     protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
         //do nothing
     }
