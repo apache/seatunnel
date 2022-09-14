@@ -38,7 +38,7 @@ public abstract class FlinkContainer extends AbstractFlinkContainer {
 
     @Override
     protected String getStartShellName() {
-        return "start-seatunnel-flink-new-connector.sh";
+        return "start-seatunnel-flink-connector-v2.sh";
     }
 
     @Override
