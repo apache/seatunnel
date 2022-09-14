@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
@@ -29,6 +30,9 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 
 import com.google.common.collect.Sets;
+import com.hazelcast.instance.impl.HazelcastInstanceFactory;
+import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -60,5 +64,19 @@ public class TestUtils {
         logicalDag.addLogicalVertex(consoleVertex);
         logicalDag.addEdge(edge);
         return logicalDag;
+    }
+
+    public static String getClusterName(String testClassName) {
+        return System.getProperty("user.name") + "_" + testClassName;
+    }
+
+    public static HazelcastInstanceImpl createHazelcastInstance(String clusterNamePrefix) {
+        SeaTunnelConfig seaTunnelConfig = new SeaTunnelConfig();
+        seaTunnelConfig.getHazelcastConfig()
+            .setClusterName(TestUtils.getClusterName(clusterNamePrefix + "_" + System.currentTimeMillis()));
+        return ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(
+            seaTunnelConfig.getHazelcastConfig(),
+            HazelcastInstanceFactory.createInstanceName(seaTunnelConfig.getHazelcastConfig()),
+            new SeaTunnelNodeContext(seaTunnelConfig))).getOriginal();
     }
 }

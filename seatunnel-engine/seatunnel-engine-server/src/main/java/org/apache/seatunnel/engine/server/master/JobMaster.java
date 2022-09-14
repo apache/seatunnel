@@ -57,7 +57,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
-public class JobMaster implements Runnable {
+public class JobMaster extends Thread {
     private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
 
     private PhysicalPlan physicalPlan;
@@ -73,7 +73,7 @@ public class JobMaster implements Runnable {
 
     private CheckpointManager checkpointManager;
 
-    private final CompletableFuture<JobStatus> jobMasterCompleteFuture = new CompletableFuture<>();
+    private CompletableFuture<JobStatus> jobMasterCompleteFuture;
 
     private JobImmutableInformation jobImmutableInformation;
 
@@ -89,6 +89,8 @@ public class JobMaster implements Runnable {
     private final IMap<Object, Object> runningJobStateTimestampsIMap;
 
     private CompletableFuture<Void> scheduleFuture = new CompletableFuture<>();
+
+    private volatile boolean restore = false;
 
     public JobMaster(@NonNull Data jobImmutableInformationData,
                      @NonNull NodeEngine nodeEngine,
@@ -133,6 +135,8 @@ public class JobMaster implements Runnable {
             runningJobStateIMap,
             runningJobStateTimestampsIMap);
         this.physicalPlan = planTuple.f0();
+        this.physicalPlan.setJobMaster(this);
+        this.initStateFuture();
         this.checkpointManager = new CheckpointManager(
             jobImmutableInformation.getJobId(),
             nodeEngine,
@@ -142,28 +146,29 @@ public class JobMaster implements Runnable {
             CheckpointStorageConfiguration.builder().build());
     }
 
+    public void initStateFuture() {
+        jobMasterCompleteFuture = new CompletableFuture<>();
+        PassiveCompletableFuture<JobStatus> jobStatusFuture = physicalPlan.initStateFuture();
+        jobStatusFuture.whenComplete((v, t) -> {
+            // We need not handle t, Because we will not return t from physicalPlan
+            if (JobStatus.FAILING.equals(v)) {
+                cleanJob();
+                physicalPlan.updateJobState(JobStatus.FAILING, JobStatus.FAILED);
+            }
+            jobMasterCompleteFuture.complete(physicalPlan.getJobStatus());
+        });
+    }
+
     @SuppressWarnings("checkstyle:MagicNumber")
-    @Override
     public void run() {
         try {
-            physicalPlan.setJobMaster(this);
-
-            PassiveCompletableFuture<JobStatus> jobStatusPassiveCompletableFuture =
-                physicalPlan.getJobEndCompletableFuture();
-
-            jobStatusPassiveCompletableFuture.thenAcceptAsync(jobStatus -> {
-                // We need not handle t, Because we will not return t from physicalPlan
-                if (JobStatus.FAILING.equals(jobStatus)) {
-                    cleanJob();
-                    physicalPlan.updateJobState(JobStatus.FAILING, JobStatus.FAILED);
-                }
-                jobMasterCompleteFuture.complete(physicalPlan.getJobStatus());
-            });
-            jobScheduler = new PipelineBaseScheduler(physicalPlan, this);
-            scheduleFuture = CompletableFuture.runAsync(() -> jobScheduler.startScheduling(), executorService);
-            LOGGER.info(String.format("Job %s waiting for scheduler finished", physicalPlan.getJobFullName()));
-            scheduleFuture.join();
-            LOGGER.info(String.format("%s scheduler finished", physicalPlan.getJobFullName()));
+            if (!restore) {
+                jobScheduler = new PipelineBaseScheduler(physicalPlan, this);
+                scheduleFuture = CompletableFuture.runAsync(() -> jobScheduler.startScheduling(), executorService);
+                LOGGER.info(String.format("Job %s waiting for scheduler finished", physicalPlan.getJobFullName()));
+                scheduleFuture.join();
+                LOGGER.info(String.format("%s scheduler finished", physicalPlan.getJobFullName()));
+            }
         } catch (Throwable e) {
             LOGGER.severe(String.format("Job %s (%s) run error with: %s",
                 physicalPlan.getJobImmutableInformation().getJobConfig().getName(),
@@ -241,7 +246,8 @@ public class JobMaster implements Runnable {
 
     public void updateTaskExecutionState(TaskExecutionState taskExecutionState) {
         this.physicalPlan.getPipelineList().forEach(pipeline -> {
-            if (pipeline.getPipelineLocation().getPipelineId() != taskExecutionState.getTaskGroupLocation().getPipelineId()) {
+            if (pipeline.getPipelineLocation().getPipelineId() !=
+                taskExecutionState.getTaskGroupLocation().getPipelineId()) {
                 return;
             }
 
@@ -278,5 +284,17 @@ public class JobMaster implements Runnable {
 
     public ExecutorService getExecutorService() {
         return executorService;
+    }
+
+    public void interrupt() {
+        try {
+            jobMasterCompleteFuture.cancel(true);
+        } finally {
+            super.interrupt();
+        }
+    }
+
+    public void isRestore() {
+        restore = true;
     }
 }

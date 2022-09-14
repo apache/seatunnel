@@ -40,7 +40,7 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest {
     @Before
     public void before() {
         super.before();
-        resourceManager = server.getResourceManager();
+        resourceManager = server.getCoordinatorService().getResourceManager();
         server.getSlotService();
     }
 

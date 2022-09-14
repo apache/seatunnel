@@ -33,7 +33,7 @@ public class CancelJobOperation extends AbstractJobAsyncOperation {
     @Override
     protected PassiveCompletableFuture<?> doRun() throws Exception {
         SeaTunnelServer service = getService();
-        return service.cancelJob(jobId);
+        return service.getCoordinatorService().cancelJob(jobId);
     }
 
     @Override

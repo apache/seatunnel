@@ -108,10 +108,10 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
 
         Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
 
-        PassiveCompletableFuture<Void> voidPassiveCompletableFuture = server.submitJob(jobId, data);
+        PassiveCompletableFuture<Void> voidPassiveCompletableFuture = server.getCoordinatorService().submitJob(jobId, data);
         voidPassiveCompletableFuture.join();
 
-        JobMaster jobMaster = server.getJobMaster(jobId);
+        JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
 
         // waiting for job status turn to running
         await().atMost(10000, TimeUnit.MILLISECONDS)

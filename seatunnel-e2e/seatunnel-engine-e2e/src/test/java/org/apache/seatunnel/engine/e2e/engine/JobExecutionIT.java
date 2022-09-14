@@ -88,7 +88,7 @@ public class JobExecutionIT {
                 return clientJobProxy.waitForJobComplete();
             });
 
-            await().atMost(20000, TimeUnit.MILLISECONDS)
+            await().atMost(40000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assert.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
 

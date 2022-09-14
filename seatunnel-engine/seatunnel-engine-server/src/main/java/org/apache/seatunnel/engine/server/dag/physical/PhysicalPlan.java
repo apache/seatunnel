@@ -69,7 +69,7 @@ public class PhysicalPlan {
      * when job status turn to end, complete this future. And then the waitForCompleteByPhysicalPlan
      * in {@link org.apache.seatunnel.engine.server.scheduler.JobScheduler} whenComplete method will be called.
      */
-    private final CompletableFuture<JobStatus> jobEndFuture;
+    private CompletableFuture<JobStatus> jobEndFuture;
 
     private final ExecutorService executorService;
 
@@ -116,7 +116,6 @@ public class PhysicalPlan {
             runningJobStateIMap.put(jobId, JobStatus.CREATED);
         }
 
-        this.jobEndFuture = new CompletableFuture<>();
         this.pipelineList = pipelineList;
         if (pipelineList.isEmpty()) {
             throw new UnknownPhysicalPlanException("The physical plan didn't have any can execute pipeline");
@@ -134,8 +133,10 @@ public class PhysicalPlan {
         pipelineList.forEach(pipeline -> pipeline.setJobMaster(jobMaster));
     }
 
-    public void initStateFuture() {
+    public PassiveCompletableFuture<JobStatus> initStateFuture() {
+        jobEndFuture = new CompletableFuture<>();
         pipelineList.forEach(subPlan -> addPipelineEndCallback(subPlan));
+        return new PassiveCompletableFuture<JobStatus>(jobEndFuture);
     }
 
     public void addPipelineEndCallback(SubPlan subPlan) {
@@ -209,12 +210,6 @@ public class PhysicalPlan {
 
     private void cancelJobPipelines() {
         List<CompletableFuture<Void>> collect = pipelineList.stream().map(pipeline -> {
-            if (PipelineState.CANCELING.equals(pipeline.getPipelineState()) ||
-                pipeline.getPipelineState().isEndState()) {
-                LOGGER.info(String.format("%s already in state %s", pipeline.getPipelineFullName(),
-                    pipeline.getPipelineState()));
-                return null;
-            }
             CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                 pipeline.cancelPipeline();
             });

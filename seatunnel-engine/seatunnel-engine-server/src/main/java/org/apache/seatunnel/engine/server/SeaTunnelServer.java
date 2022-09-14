@@ -17,44 +17,26 @@
 
 package org.apache.seatunnel.engine.server;
 
-import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-import org.apache.seatunnel.engine.common.exception.JobException;
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
-import org.apache.seatunnel.engine.core.job.JobStatus;
-import org.apache.seatunnel.engine.core.job.RunningJobInfo;
-import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
-import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
-import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
-import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
-import org.apache.seatunnel.engine.server.master.JobMaster;
-import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
-import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
-import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.hazelcast.instance.impl.Node;
-import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.services.ManagedService;
 import com.hazelcast.internal.services.MembershipAwareService;
 import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.jet.impl.LiveOperationRegistry;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
-import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.LiveOperations;
 import com.hazelcast.spi.impl.operationservice.LiveOperationsTracker;
 import lombok.NonNull;
 
-import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -71,57 +53,11 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     private volatile SlotService slotService;
     private TaskExecutionService taskExecutionService;
+    private CoordinatorService coordinatorService;
 
     private final ExecutorService executorService;
-    private volatile ResourceManager resourceManager;
 
     private final SeaTunnelConfig seaTunnelConfig;
-
-    /**
-     * IMap key is jobId and value is a Tuple2
-     * Tuple2 key is JobMaster init timestamp and value is the jobImmutableInformation which is sent by client when submit job
-     * <p>
-     * This IMap is used to recovery runningJobInfoIMap in JobMaster when a new master node active
-     */
-    private IMap<Long, RunningJobInfo> runningJobInfoIMap;
-
-    /**
-     * IMap key is one of jobId {@link org.apache.seatunnel.engine.server.dag.physical.PipelineLocation} and
-     * {@link org.apache.seatunnel.engine.server.execution.TaskGroupLocation}
-     * <p>
-     * The value of IMap is one of {@link JobStatus} {@link org.apache.seatunnel.engine.core.job.PipelineState}
-     * {@link org.apache.seatunnel.engine.server.execution.ExecutionState}
-     * <p>
-     * This IMap is used to recovery runningJobStateIMap in JobMaster when a new master node active
-     */
-    IMap<Object, Object> runningJobStateIMap;
-
-    /**
-     * IMap key is one of jobId {@link org.apache.seatunnel.engine.server.dag.physical.PipelineLocation} and
-     * {@link org.apache.seatunnel.engine.server.execution.TaskGroupLocation}
-     * <p>
-     * The value of IMap is one of {@link org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan} stateTimestamps
-     * {@link org.apache.seatunnel.engine.server.dag.physical.SubPlan} stateTimestamps
-     * {@link org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex} stateTimestamps
-     * <p>
-     * This IMap is used to recovery runningJobStateTimestampsIMap in JobMaster when a new master node active
-     */
-    IMap<Object, Long[]> runningJobStateTimestampsIMap;
-
-    /**
-     * key: job id;
-     * <br> value: job master;
-     */
-    private Map<Long, JobMaster> runningJobMasterMap = new ConcurrentHashMap<>();
-
-    /**
-     * IMap key is {@link PipelineLocation}
-     * <p>
-     * The value of IMap is map of {@link TaskGroupLocation} and the {@link SlotProfile} it used.
-     * <p>
-     * This IMap is used to recovery ownedSlotProfilesIMap in JobMaster when a new master node active
-     */
-    private IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap;
 
     public SeaTunnelServer(@NonNull Node node, @NonNull SeaTunnelConfig seaTunnelConfig) {
         this.logger = node.getLogger(getClass());
@@ -149,10 +85,6 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         return slotService;
     }
 
-    public JobMaster getJobMaster(Long jobId) {
-        return runningJobMasterMap.get(jobId);
-    }
-
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void init(NodeEngine engine, Properties hzProperties) {
@@ -164,10 +96,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         taskExecutionService.start();
         getSlotService();
 
-        runningJobInfoIMap = nodeEngine.getHazelcastInstance().getMap("runningJobInfo");
-        runningJobStateIMap = nodeEngine.getHazelcastInstance().getMap("runningJobState");
-        runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap("stateTimestamps");
-        ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
+        coordinatorService = new CoordinatorService(nodeEngine, executorService);
 
         ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
         service.scheduleAtFixedRate(() -> printExecutionInfo(), 0, 60, TimeUnit.SECONDS);
@@ -183,8 +112,8 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         if (slotService != null) {
             slotService.close();
         }
-        if (resourceManager != null) {
-            resourceManager.close();
+        if (coordinatorService != null) {
+            coordinatorService.shutdown();
         }
         executorService.shutdown();
         taskExecutionService.shutdown();
@@ -197,7 +126,9 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     @Override
     public void memberRemoved(MembershipServiceEvent event) {
-        resourceManager.memberRemoved(event);
+        if (coordinatorService.isCoordinatorActive()) {
+            coordinatorService.getResourceManager().memberRemoved(event);
+        }
     }
 
     @Override
@@ -215,179 +146,6 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     public LiveOperationRegistry getLiveOperationRegistry() {
         return liveOperationRegistry;
-    }
-
-    /**
-     * Lazy load for resource manager
-     */
-    public ResourceManager getResourceManager() {
-        if (resourceManager == null) {
-            synchronized (this) {
-                if (resourceManager == null) {
-                    ResourceManager manager = new ResourceManagerFactory(nodeEngine).getResourceManager();
-                    manager.init();
-                    resourceManager = manager;
-                }
-            }
-        }
-        return resourceManager;
-    }
-
-    public TaskExecutionService getTaskExecutionService() {
-        return taskExecutionService;
-    }
-
-    /**
-     * call by client to submit job
-     */
-    public PassiveCompletableFuture<Void> submitJob(long jobId, Data jobImmutableInformation) {
-        CompletableFuture<Void> voidCompletableFuture = new CompletableFuture<>();
-        JobMaster jobMaster = new JobMaster(jobImmutableInformation,
-            this.nodeEngine,
-            executorService,
-            getResourceManager(),
-            runningJobStateIMap,
-            runningJobStateTimestampsIMap,
-            ownedSlotProfilesIMap);
-        executorService.submit(() -> {
-            try {
-                runningJobInfoIMap.put(jobId, new RunningJobInfo(System.currentTimeMillis(), jobImmutableInformation));
-                runningJobMasterMap.put(jobId, jobMaster);
-                jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp());
-                jobMaster.getPhysicalPlan().initStateFuture();
-            } catch (Throwable e) {
-                LOGGER.severe(String.format("submit job %s error %s ", jobId, ExceptionUtils.getMessage(e)));
-                voidCompletableFuture.completeExceptionally(e);
-            } finally {
-                // We specify that when init is complete, the submitJob is complete
-                voidCompletableFuture.complete(null);
-            }
-
-            try {
-                jobMaster.run();
-            } finally {
-                // storage job state info to HistoryStorage
-                removeJobIMap(jobMaster);
-                runningJobMasterMap.remove(jobId);
-            }
-        });
-        return new PassiveCompletableFuture(voidCompletableFuture);
-    }
-
-    private void removeJobIMap(JobMaster jobMaster) {
-        Long jobId = jobMaster.getJobImmutableInformation().getJobId();
-        runningJobStateTimestampsIMap.remove(jobId);
-
-        jobMaster.getPhysicalPlan().getPipelineList().forEach(pipeline -> {
-            runningJobStateIMap.remove(pipeline.getPipelineLocation());
-            runningJobStateTimestampsIMap.remove(pipeline.getPipelineLocation());
-            pipeline.getCoordinatorVertexList().forEach(coordinator -> {
-                runningJobStateIMap.remove(coordinator.getTaskGroupLocation());
-                runningJobStateTimestampsIMap.remove(coordinator.getTaskGroupLocation());
-            });
-
-            pipeline.getPhysicalVertexList().forEach(task -> {
-                runningJobStateIMap.remove(task.getTaskGroupLocation());
-                runningJobStateTimestampsIMap.remove(task.getTaskGroupLocation());
-            });
-        });
-
-        // These should be deleted at the end. On the new master node
-        // 1. If runningJobStateIMap.get(jobId) == null and runningJobInfoIMap.get(jobId) != null. We will do
-        //    runningJobInfoIMap.remove(jobId)
-        //
-        // 2. If runningJobStateIMap.get(jobId) != null and the value equals JobStatus End State. We need new a
-        //    JobMaster and generate PhysicalPlan again and then try to remove all of PipelineLocation and
-        //    TaskGroupLocation key in the runningJobStateIMap.
-        //
-        // 3. If runningJobStateIMap.get(jobId) != null and the value equals JobStatus.SCHEDULED. We need cancel the job
-        //    and then call submitJob(long jobId, Data jobImmutableInformation) to resubmit it.
-        //
-        // 4. If runningJobStateIMap.get(jobId) != null and the value is CANCELING or RUNNING. We need recover the JobMaster
-        //    from runningJobStateIMap and then waiting for it complete.
-        runningJobStateIMap.remove(jobId);
-        runningJobInfoIMap.remove(jobId);
-    }
-
-    public PassiveCompletableFuture<JobStatus> waitForJobComplete(long jobId) {
-        JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
-        if (runningJobMaster == null) {
-            // TODO Get Job Status from JobHistoryStorage
-            CompletableFuture<JobStatus> future = new CompletableFuture<>();
-            future.complete(JobStatus.FINISHED);
-            return new PassiveCompletableFuture<>(future);
-        } else {
-            return runningJobMaster.getJobMasterCompleteFuture();
-        }
-    }
-
-    public PassiveCompletableFuture<Void> cancelJob(long jodId) {
-        JobMaster runningJobMaster = runningJobMasterMap.get(jodId);
-        if (runningJobMaster == null) {
-            CompletableFuture<Void> future = new CompletableFuture<>();
-            future.complete(null);
-            return new PassiveCompletableFuture<>(future);
-        } else {
-            return new PassiveCompletableFuture<>(CompletableFuture.supplyAsync(() -> {
-                runningJobMaster.cancelJob();
-                return null;
-            }, executorService));
-        }
-    }
-
-    public JobStatus getJobStatus(long jobId) {
-        JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
-        if (runningJobMaster == null) {
-            // TODO Get Job Status from JobHistoryStorage
-            return JobStatus.FINISHED;
-        }
-        // This method is called by operation and in the runningJobMaster.getJobStatus() we will get data from IMap.
-        // It will cause an error "Waiting for response on this thread is illegal". To solve it we need put
-        // runningJobMaster.getJobStatus() in another thread.
-        CompletableFuture<JobStatus> future = CompletableFuture.supplyAsync(() -> {
-            return runningJobMaster.getJobStatus();
-        }, executorService);
-
-        try {
-            return future.get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    /**
-     * When TaskGroup ends, it is called by {@link TaskExecutionService} to notify JobMaster the TaskGroup's state.
-     */
-    public void updateTaskExecutionState(TaskExecutionState taskExecutionState) {
-        TaskGroupLocation taskGroupLocation = taskExecutionState.getTaskGroupLocation();
-        JobMaster runningJobMaster = runningJobMasterMap.get(taskGroupLocation.getJobId());
-        if (runningJobMaster == null) {
-            throw new JobException(String.format("Job %s not running", taskGroupLocation.getJobId()));
-        }
-        runningJobMaster.updateTaskExecutionState(taskExecutionState);
-    }
-
-    /**
-     * restore the job state after new Master Node active
-     */
-    private void restoreJobState(JobMaster jobMaster) {
-        long jobId = jobMaster.getJobImmutableInformation().getJobId();
-        if (jobMaster.getJobStatus().ordinal() < JobStatus.RUNNING.ordinal()) {
-            // release all resources
-            jobMaster.getPhysicalPlan().getPipelineList()
-                .forEach(pipeline -> jobMaster.releasePipelineResource(pipeline));
-            //re submit job
-            submitJob(jobId, runningJobInfoIMap.get(jobId).getJobImmutableInformation()).join();
-        } else if (JobStatus.CANCELLING.equals(jobMaster.getJobStatus())) {
-            cancelJob(jobId);
-        } else if (jobMaster.getJobStatus().isEndState()) {
-            removeJobIMap(jobMaster);
-        } else if (JobStatus.RUNNING.equals(jobMaster.getJobStatus())) {
-            jobMaster.getPhysicalPlan().getPipelineList().forEach(SubPlan::restorePipelineState);
-        } else {
-            throw new RuntimeException(
-                String.format("Unknown Job Status %s when restore job state", jobMaster.getJobStatus()));
-        }
     }
 
     private void printExecutionInfo() {
@@ -417,5 +175,26 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
             .append("taskCount=")
             .append(taskCount);
         logger.info(sbf.toString());
+    }
+
+    @SuppressWarnings("checkstyle:MagicNumber")
+    public CoordinatorService getCoordinatorService() {
+        int retryCount = 0;
+        while (!coordinatorService.isCoordinatorActive() && retryCount < 20) {
+            try {
+                Thread.sleep(1000);
+                retryCount++;
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        if (!coordinatorService.isCoordinatorActive()) {
+            throw new SeaTunnelEngineException("Can not get coordinator service from an inactive master node.");
+        }
+        return coordinatorService;
+    }
+
+    public TaskExecutionService getTaskExecutionService() {
+        return taskExecutionService;
     }
 }

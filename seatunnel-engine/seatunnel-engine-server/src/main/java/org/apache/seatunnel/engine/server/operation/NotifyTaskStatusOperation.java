@@ -37,7 +37,7 @@ public class NotifyTaskStatusOperation extends Operation {
     @Override
     public void run() throws Exception {
         SeaTunnelServer service = getService();
-        service.updateTaskExecutionState(taskExecutionState);
+        service.getCoordinatorService().updateTaskExecutionState(taskExecutionState);
     }
 
     @Override
