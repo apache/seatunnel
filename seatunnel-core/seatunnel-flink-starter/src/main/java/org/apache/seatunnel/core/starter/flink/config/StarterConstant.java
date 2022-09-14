@@ -15,18 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.spark.config;
+package org.apache.seatunnel.core.starter.flink.config;
 
-import org.apache.seatunnel.core.starter.config.ConfigChecker;
-import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
-import org.apache.seatunnel.spark.SparkEnvironment;
+public class StarterConstant {
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+    public static final String SHELL_NAME = "start-seatunnel-flink-connector-v2.sh";
 
-public class SparkApiConfigChecker implements ConfigChecker<SparkEnvironment> {
-
-    @Override
-    public void checkConfig(Config config) throws ConfigCheckException {
-        // todo: implement
-    }
 }

@@ -50,7 +50,7 @@ else
     args=$@
 fi
 
-CMD=$(java -cp ${APP_JAR} ${APP_MAIN} ${args} | tail -n 1) && EXIT_CODE=$? || EXIT_CODE=$?
+CMD=$(java -cp ${APP_JAR} ${APP_MAIN} ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
 if [ ${EXIT_CODE} -eq 234 ]; then
     # print usage
     echo "${CMD}"
