@@ -18,6 +18,7 @@
 package org.apache.seatunnel.app.domain.request.script;
 
 import io.swagger.annotations.ApiModel;
+import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
 import javax.validation.constraints.NotEmpty;
@@ -27,8 +28,9 @@ import java.util.Map;
 @Data
 @ApiModel(value = "update", description = "update script param request")
 public class UpdateScriptParamReq {
+    @ApiModelProperty(value = "script id", required = true, dataType = "Integer", hidden = true)
     private Integer scriptId;
+    @ApiModelProperty(value = "script params", required = true, dataType = "Map")
     @NotEmpty
     private Map<String, String> params;
-
 }
