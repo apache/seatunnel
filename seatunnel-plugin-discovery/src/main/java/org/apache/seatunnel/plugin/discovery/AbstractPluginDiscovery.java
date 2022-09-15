@@ -64,7 +64,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     };
 
     protected final ConcurrentHashMap<PluginIdentifier, Optional<URL>> pluginJarPath =
-            new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
+        new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
 
     public AbstractPluginDiscovery(String pluginSubDir, BiConsumer<ClassLoader, URL> addURLToClassloader) {
         this.pluginDir = Common.connectorJarDir(pluginSubDir);
@@ -80,10 +80,10 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     @Override
     public List<URL> getPluginJarPaths(List<PluginIdentifier> pluginIdentifiers) {
         return pluginIdentifiers.stream()
-                .map(this::getPluginJarPath)
-                .filter(Optional::isPresent)
-                .map(Optional::get).distinct()
-                .collect(Collectors.toList());
+            .map(this::getPluginJarPath)
+            .filter(Optional::isPresent)
+            .map(Optional::get).distinct()
+            .collect(Collectors.toList());
     }
 
     @Override
@@ -107,16 +107,6 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             try {
                 // use current thread classloader to avoid different classloader load same class error.
                 this.addURLToClassLoader.accept(classLoader, pluginJarPath.get());
-                ClassLoader finalClassLoader = classLoader;
-                Common.getPluginsJarDependencies().forEach(path -> {
-                    try {
-                        this.addURLToClassLoader.accept(finalClassLoader, path.toUri().toURL());
-                    } catch (MalformedURLException e) {
-                        LOGGER.warn("can't load third-party jar use current thread classloader" +
-                            " message: " + e.getMessage());
-                    }
-                });
-
             } catch (Exception e) {
                 LOGGER.warn("can't load jar use current thread classloader, use URLClassLoader instead now." +
                     " message: " + e.getMessage());
