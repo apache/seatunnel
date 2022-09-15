@@ -95,9 +95,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         );
         taskExecutionService.start();
         getSlotService();
-
         coordinatorService = new CoordinatorService(nodeEngine, executorService);
-
         ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
         service.scheduleAtFixedRate(() -> printExecutionInfo(), 0, 60, TimeUnit.SECONDS);
     }
@@ -148,6 +146,33 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         return liveOperationRegistry;
     }
 
+    @SuppressWarnings("checkstyle:MagicNumber")
+    public CoordinatorService getCoordinatorService() {
+        int retryCount = 0;
+        while (!coordinatorService.isCoordinatorActive() && retryCount < 20) {
+            try {
+                Thread.sleep(1000);
+                retryCount++;
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        if (!coordinatorService.isCoordinatorActive()) {
+            throw new SeaTunnelEngineException("Can not get coordinator service from an inactive master node.");
+        }
+        return coordinatorService;
+    }
+
+    public TaskExecutionService getTaskExecutionService() {
+        return taskExecutionService;
+    }
+
+    public void failedTaskOnMemberRemoved(MembershipServiceEvent event) {
+        if (coordinatorService.isCoordinatorActive()) {
+            coordinatorService.failedTaskOnMemberRemoved(event);
+        }
+    }
+
     private void printExecutionInfo() {
         ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
         int activeCount = threadPoolExecutor.getActiveCount();
@@ -175,26 +200,5 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
             .append("taskCount=")
             .append(taskCount);
         logger.info(sbf.toString());
-    }
-
-    @SuppressWarnings("checkstyle:MagicNumber")
-    public CoordinatorService getCoordinatorService() {
-        int retryCount = 0;
-        while (!coordinatorService.isCoordinatorActive() && retryCount < 20) {
-            try {
-                Thread.sleep(1000);
-                retryCount++;
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        if (!coordinatorService.isCoordinatorActive()) {
-            throw new SeaTunnelEngineException("Can not get coordinator service from an inactive master node.");
-        }
-        return coordinatorService;
-    }
-
-    public TaskExecutionService getTaskExecutionService() {
-        return taskExecutionService;
     }
 }

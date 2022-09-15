@@ -22,13 +22,12 @@ import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.flink.command.FlinkCommandBuilder;
-import org.apache.seatunnel.core.starter.flink.config.FlinkJobType;
 import org.apache.seatunnel.core.starter.flink.utils.CommandLineUtils;
 
 public class SeatunnelFlink {
 
     public static void main(String[] args) throws CommandException {
-        FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.JAR);
+        FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parseCommandArgs(args);
         Command<FlinkCommandArgs> flinkCommand = new FlinkCommandBuilder()
             .buildCommand(flinkCommandArgs);
         Seatunnel.run(flinkCommand);

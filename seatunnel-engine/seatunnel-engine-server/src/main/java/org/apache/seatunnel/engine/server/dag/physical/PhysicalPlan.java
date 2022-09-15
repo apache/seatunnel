@@ -203,7 +203,6 @@ public class PhysicalPlan {
             cancelJobPipelines();
             return;
         }
-
         updateJobState((JobStatus) runningJobStateIMap.get(jobId), JobStatus.CANCELLING);
         cancelJobPipelines();
     }

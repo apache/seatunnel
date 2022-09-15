@@ -19,11 +19,19 @@ hazelcast:
   cluster-name: seatunnel
   network:
     join:
-      multicast:
+      tcp-ip:
         enabled: true
-        multicast-group: 224.2.2.3
-        multicast-port: 53328
+        member-list:
+          - localhost
     port:
       auto-increment: true
       port-count: 100
       port: 5801
+  map:
+    map-name-template:
+      map-store:
+        enabled: true
+        initial-mode: EAGER
+        class-name: org.apache.seatunnel.engine.server.persistence.FileMapStore
+        properties:
+          path: /tmp/file-store-map

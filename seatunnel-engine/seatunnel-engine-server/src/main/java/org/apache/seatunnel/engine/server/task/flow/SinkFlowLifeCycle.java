@@ -124,7 +124,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     prepareClose = true;
                 }
                 if (barrier.snapshot()) {
-                    if (writerStateSerializer.isPresent()) {
+                    if (!writerStateSerializer.isPresent()) {
                         runningTask.addState(barrier, sinkAction.getId(), Collections.emptyList());
                     } else {
                         List<StateT> states = writer.snapshotState(barrier.getId());
@@ -136,10 +136,14 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                         writer.abortPrepare();
                         throw e;
                     }
-                    lastCommitInfo.ifPresent(commitInfoT -> runningTask.getExecutionContext().sendToMember(new SinkPrepareCommitOperation(barrier, committerTaskLocation,
-                        SerializationUtils.serialize(commitInfoT)), committerTaskAddress).join());
+                    if (containAggCommitter) {
+                        lastCommitInfo.ifPresent(commitInfoT -> runningTask.getExecutionContext().sendToMember(new SinkPrepareCommitOperation(barrier, committerTaskLocation,
+                            SerializationUtils.serialize(commitInfoT)), committerTaskAddress).join());
+                    }
                 } else {
-                    runningTask.getExecutionContext().sendToMember(new CheckpointBarrierTriggerOperation(barrier, committerTaskLocation), committerTaskAddress);
+                    if (containAggCommitter) {
+                        runningTask.getExecutionContext().sendToMember(new CheckpointBarrierTriggerOperation(barrier, committerTaskLocation), committerTaskAddress);
+                    }
                 }
                 runningTask.ack(barrier);
             } else {

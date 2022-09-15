@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.server.dag;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
@@ -51,8 +51,9 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
 
     @Test
     public void testTask() throws MalformedURLException {
-        SeaTunnelContext.getContext().setJobMode(JobMode.BATCH);
-        LogicalDag testLogicalDag = TestUtils.getTestLogicalDag();
+        JobContext jobContext = new JobContext();
+        jobContext.setJobMode(JobMode.BATCH);
+        LogicalDag testLogicalDag = TestUtils.getTestLogicalDag(jobContext);
 
         JobConfig config = new JobConfig();
         config.setName("test");

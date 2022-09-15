@@ -23,8 +23,10 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.RunningJobInfo;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
@@ -34,6 +36,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
@@ -369,29 +372,6 @@ public class CoordinatorService {
         runningJobMaster.updateTaskExecutionState(taskExecutionState);
     }
 
-    /**
-     * restore the job state after new Master Node active
-     */
-    private void restoreJobState(JobMaster jobMaster) {
-        long jobId = jobMaster.getJobImmutableInformation().getJobId();
-        if (jobMaster.getJobStatus().ordinal() < JobStatus.RUNNING.ordinal()) {
-            // release all resources
-            jobMaster.getPhysicalPlan().getPipelineList()
-                .forEach(pipeline -> jobMaster.releasePipelineResource(pipeline));
-            //re submit job
-            submitJob(jobId, runningJobInfoIMap.get(jobId).getJobImmutableInformation()).join();
-        } else if (JobStatus.CANCELLING.equals(jobMaster.getJobStatus())) {
-            cancelJob(jobId);
-        } else if (jobMaster.getJobStatus().isEndState()) {
-            removeJobIMap(jobMaster);
-        } else if (JobStatus.RUNNING.equals(jobMaster.getJobStatus())) {
-            jobMaster.getPhysicalPlan().getPipelineList().forEach(SubPlan::restorePipelineState);
-        } else {
-            throw new RuntimeException(
-                String.format("Unknown Job Status %s when restore job state", jobMaster.getJobStatus()));
-        }
-    }
-
     public void shutdown() {
         if (resourceManager != null) {
             resourceManager.close();
@@ -405,5 +385,32 @@ public class CoordinatorService {
      */
     public boolean isCoordinatorActive() {
         return isMaster;
+    }
+
+    public void failedTaskOnMemberRemoved(MembershipServiceEvent event) {
+        Address lostAddress = event.getMember().getAddress();
+        runningJobMasterMap.forEach((aLong, jobMaster) -> {
+            jobMaster.getPhysicalPlan().getPipelineList().forEach(subPlan -> {
+                makeTasksFailed(subPlan.getCoordinatorVertexList(), lostAddress);
+                makeTasksFailed(subPlan.getPhysicalVertexList(), lostAddress);
+            });
+        });
+    }
+
+    private void makeTasksFailed(@NonNull List<PhysicalVertex> physicalVertexList, @NonNull Address lostAddress) {
+        physicalVertexList.forEach(physicalVertex -> {
+            Address deployAddress = physicalVertex.getCurrentExecutionAddress();
+            ExecutionState executionState = physicalVertex.getExecutionState();
+            if (null != deployAddress && deployAddress.equals(lostAddress) &&
+                (executionState.equals(ExecutionState.DEPLOYING) ||
+                    executionState.equals(ExecutionState.RUNNING))) {
+                TaskGroupLocation taskGroupLocation = physicalVertex.getTaskGroupLocation();
+                physicalVertex.updateTaskExecutionState(
+                    new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED,
+                        new SeaTunnelEngineException(
+                            String.format("The taskGroup(%s) deployed node(%s) offline", taskGroupLocation,
+                                lostAddress))));
+            }
+        });
     }
 }

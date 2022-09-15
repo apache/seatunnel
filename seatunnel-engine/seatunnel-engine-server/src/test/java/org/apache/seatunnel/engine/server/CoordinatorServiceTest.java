@@ -19,7 +19,7 @@ package org.apache.seatunnel.engine.server;
 
 import static org.awaitility.Awaitility.await;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -36,9 +36,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.util.Collections;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class CoordinatorServiceTest {
@@ -68,12 +65,13 @@ public class CoordinatorServiceTest {
         CoordinatorService coordinatorService = server1.getCoordinatorService();
         Assert.assertTrue(coordinatorService.isCoordinatorActive());
 
-        SeaTunnelContext.getContext().setJobMode(JobMode.STREAMING);
-        LogicalDag testLogicalDag = TestUtils.getTestLogicalDag();
+        Long jobId = coordinatorServiceTest.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobContext jobContext = new JobContext(jobId);
+        jobContext.setJobMode(JobMode.STREAMING);
+        LogicalDag testLogicalDag = TestUtils.getTestLogicalDag(jobContext);
         JobConfig config = new JobConfig();
         config.setName("get_clear_coordinator_service");
-
-        Long jobId = coordinatorServiceTest.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        config.setJobContext(jobContext);
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(jobId,
             coordinatorServiceTest.getSerializationService().toData(testLogicalDag), config, Collections.emptyList());
@@ -94,33 +92,5 @@ public class CoordinatorServiceTest {
 
         // because runningJobMasterMap is empty and we have no JobHistoryServer, so return finished.
         Assert.assertTrue(JobStatus.FINISHED.equals(coordinatorService.getJobStatus(jobId)));
-    }
-
-    @Test
-    public void testInterrupt() throws InterruptedException {
-        TestCll testCll = new TestCll();
-        ScheduledExecutorService masterActiveListener = Executors.newSingleThreadScheduledExecutor();
-        Future<?> submit = masterActiveListener.submit(testCll);
-        try {
-            Thread.sleep(2000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        masterActiveListener.shutdownNow();
-        masterActiveListener.awaitTermination(10000, TimeUnit.SECONDS);
-    }
-
-    class TestCll extends Thread {
-        public void run() {
-            while (!Thread.currentThread().isInterrupted()) {
-                System.out.println("111111");
-            }
-            System.out.println("22222222222222222");
-        }
-
-        public void interrupt() {
-            System.out.println("kkkkkkkkkkkkkkkkkkk");
-            super.interrupt();
-        }
     }
 }

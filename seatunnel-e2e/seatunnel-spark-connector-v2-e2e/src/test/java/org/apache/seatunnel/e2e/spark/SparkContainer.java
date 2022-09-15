@@ -52,7 +52,7 @@ public abstract class SparkContainer {
 
     protected GenericContainer<?> master;
     private static final Path PROJECT_ROOT_PATH = Paths.get(System.getProperty("user.dir")).getParent().getParent();
-    private static final String SEATUNNEL_SPARK_BIN = "start-seatunnel-spark-new-connector.sh";
+    private static final String SEATUNNEL_SPARK_BIN = "start-seatunnel-spark-connector-v2.sh";
     private static final String SEATUNNEL_SPARK_JAR = "seatunnel-spark-starter.jar";
     private static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
     private static final String SEATUNNEL_HOME = "/tmp/spark/seatunnel";

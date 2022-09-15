@@ -187,13 +187,11 @@ public class ExecutionPlanGenerator {
         if (action instanceof PartitionTransformAction) {
             newAction = new PartitionTransformAction(id,
                 action.getName(),
-                action.getUpstream(),
                 ((PartitionTransformAction) action).getPartitionTransformation(),
                 action.getJarUrls());
         } else if (action instanceof SinkAction) {
             newAction = new SinkAction<>(id,
                 action.getName(),
-                action.getUpstream(),
                 ((SinkAction<?, ?, ?, ?>) action).getSink(),
                 action.getJarUrls());
         } else if (action instanceof SourceAction){

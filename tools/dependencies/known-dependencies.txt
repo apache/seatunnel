@@ -68,12 +68,7 @@ commons-collections-3.2.2.jar
 commons-collections4-4.4.jar
 commons-compiler-3.0.9.jar
 commons-compiler-3.1.6.jar
-commons-compress-1.18.jar
-commons-compress-1.19.jar
 commons-compress-1.20.jar
-commons-compress-1.21.jar
-commons-compress-1.4.1.jar
-commons-compress-1.8.1.jar
 commons-configuration-1.7.jar
 commons-configuration2-2.1.1.jar
 commons-crypto-1.0.0.jar
@@ -722,7 +717,6 @@ xercesImpl-2.9.1.jar
 xml-apis-1.3.04.jar
 xmlbeans-3.1.0.jar
 xmlenc-0.52.jar
-xz-1.0.jar
 xz-1.5.jar
 xz-1.8.jar
 zkclient-0.3.jar

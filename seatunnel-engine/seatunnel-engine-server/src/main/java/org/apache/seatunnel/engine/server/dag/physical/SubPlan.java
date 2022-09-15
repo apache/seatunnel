@@ -228,7 +228,6 @@ public class SubPlan {
 
                 // we must update runningJobStateTimestampsIMap first and then can update runningJobStateIMap
                 updateStateTimestamps(targetState);
-
                 runningJobStateIMap.set(pipelineLocation, targetState);
                 return true;
             } else {

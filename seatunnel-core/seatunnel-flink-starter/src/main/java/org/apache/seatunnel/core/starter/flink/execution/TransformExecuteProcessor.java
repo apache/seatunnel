@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.stream.FlinkStreamTransform;
@@ -39,8 +40,9 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Fl
     private static final String PLUGIN_TYPE = "transform";
 
     protected TransformExecuteProcessor(FlinkEnvironment flinkEnvironment,
+                                        JobContext jobContext,
                                         List<? extends Config> pluginConfigs) {
-        super(flinkEnvironment, pluginConfigs);
+        super(flinkEnvironment, jobContext, pluginConfigs);
     }
 
     @Override

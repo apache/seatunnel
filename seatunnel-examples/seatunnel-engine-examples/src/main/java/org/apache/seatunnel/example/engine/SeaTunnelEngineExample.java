@@ -20,8 +20,9 @@ package org.apache.seatunnel.example.engine;
 import org.apache.seatunnel.core.starter.Seatunnel;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandException;
-import org.apache.seatunnel.core.starter.seatunnel.args.SeaTunnelCommandArgs;
-import org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelCommandBuilder;
+import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
+import org.apache.seatunnel.core.starter.seatunnel.command.ClientCommandBuilder;
+import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
@@ -32,12 +33,14 @@ public class SeaTunnelEngineExample {
 
     public static void main(String[] args) throws FileNotFoundException, URISyntaxException, CommandException {
         String configFile = getTestConfigFile("/examples/fake_to_console.conf");
-        SeaTunnelCommandArgs seaTunnelCommandArgs = new SeaTunnelCommandArgs();
-        seaTunnelCommandArgs.setConfigFile(configFile);
-        seaTunnelCommandArgs.setCheckConfig(false);
-        seaTunnelCommandArgs.setName("fake_to_console");
-        Command<SeaTunnelCommandArgs> command =
-            new SeaTunnelCommandBuilder().buildCommand(seaTunnelCommandArgs);
+        ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
+        clientCommandArgs.setConfigFile(configFile);
+        clientCommandArgs.setCheckConfig(false);
+        clientCommandArgs.setName("fake_to_console");
+        // Change Execution Mode to CLUSTER to use client mode, before do this, you should start SeaTunnelEngineServerExample
+        clientCommandArgs.setExecutionMode(ExecutionMode.LOCAL);
+        Command<ClientCommandArgs> command =
+            new ClientCommandBuilder().buildCommand(clientCommandArgs);
         Seatunnel.run(command);
     }
 
