@@ -29,6 +29,8 @@ header:
     - .mvn
     - .gitattributes
     - '**/known-dependencies-*.txt'
+    - '**/LICENSE-*.txt'
+    - '**/web-known-dependencies-*.txt'
     - '**/*.md'
     - '**/*.mdx'
     - '**/*.json'
