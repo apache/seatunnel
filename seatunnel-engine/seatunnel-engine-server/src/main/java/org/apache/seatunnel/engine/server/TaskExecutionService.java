@@ -83,7 +83,8 @@ public class TaskExecutionService {
     private final RunBusWorkSupplier runBusWorkSupplier = new RunBusWorkSupplier(executorService, threadShareTaskQueue);
     // key: TaskID
     private final ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts = new ConcurrentHashMap<>();
-    private final ConcurrentMap<TaskGroupLocation, CompletableFuture<Void>> cancellationFutures = new ConcurrentHashMap<>();
+    private final ConcurrentMap<TaskGroupLocation, CompletableFuture<Void>> cancellationFutures =
+        new ConcurrentHashMap<>();
 
     public TaskExecutionService(NodeEngineImpl nodeEngine, HazelcastProperties properties) {
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
@@ -126,17 +127,18 @@ public class TaskExecutionService {
         uncheckRun(startedLatch::await);
     }
 
-    public synchronized PassiveCompletableFuture<TaskExecutionState> deployTask(@NonNull Data taskImmutableInformation) {
+    public PassiveCompletableFuture<TaskExecutionState> deployTask(@NonNull Data taskImmutableInformation) {
         TaskGroupImmutableInformation taskImmutableInfo =
             nodeEngine.getSerializationService().toObject(taskImmutableInformation);
         return deployTask(taskImmutableInfo);
     }
 
     public <T extends Task> T getTask(TaskLocation taskLocation) {
-        return this.getExecutionContext(taskLocation.getTaskGroupLocation()).getTaskGroup().getTask(taskLocation.getTaskID());
+        return this.getExecutionContext(taskLocation.getTaskGroupLocation()).getTaskGroup()
+            .getTask(taskLocation.getTaskID());
     }
 
-    public synchronized PassiveCompletableFuture<TaskExecutionState> deployTask(
+    public PassiveCompletableFuture<TaskExecutionState> deployTask(
         @NonNull TaskGroupImmutableInformation taskImmutableInfo) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
         TaskGroup taskGroup = null;
@@ -146,21 +148,30 @@ public class TaskExecutionService {
             if (!CollectionUtils.isEmpty(jars)) {
                 classLoader = new SeatunnelChildFirstClassLoader(Lists.newArrayList(jars));
                 taskGroup =
-                    CustomClassLoadedObject.deserializeWithCustomClassLoader(nodeEngine.getSerializationService(), classLoader,
+                    CustomClassLoadedObject.deserializeWithCustomClassLoader(nodeEngine.getSerializationService(),
+                        classLoader,
                         taskImmutableInfo.getGroup());
             } else {
                 taskGroup = nodeEngine.getSerializationService().toObject(taskImmutableInfo.getGroup());
             }
-            if (executionContexts.containsKey(taskGroup.getTaskGroupLocation())) {
-                throw new RuntimeException(String.format("TaskGroupLocation: %s already exists", taskGroup.getTaskGroupLocation()));
+            logger.info(String.format("deploying task %s", taskGroup.getTaskGroupLocation()));
+
+            synchronized (this) {
+                if (executionContexts.containsKey(taskGroup.getTaskGroupLocation())) {
+                    throw new RuntimeException(
+                        String.format("TaskGroupLocation: %s already exists", taskGroup.getTaskGroupLocation()));
+                }
+                return deployLocalTask(taskGroup, resultFuture, classLoader);
             }
-            return deployLocalTask(taskGroup, resultFuture, classLoader);
         } catch (Throwable t) {
             logger.severe(String.format("TaskGroupID : %s  deploy error with Exception: %s",
-                taskGroup != null && taskGroup.getTaskGroupLocation() != null ? taskGroup.getTaskGroupLocation().toString() : "taskGroupLocation is null",
+                taskGroup != null && taskGroup.getTaskGroupLocation() != null ?
+                    taskGroup.getTaskGroupLocation().toString() : "taskGroupLocation is null",
                 ExceptionUtils.getMessage(t)));
             resultFuture.complete(
-                new TaskExecutionState(taskGroup != null && taskGroup.getTaskGroupLocation() != null ? taskGroup.getTaskGroupLocation() : null, ExecutionState.FAILED, t));
+                new TaskExecutionState(
+                    taskGroup != null && taskGroup.getTaskGroupLocation() != null ? taskGroup.getTaskGroupLocation() :
+                        null, ExecutionState.FAILED, t));
         }
         return new PassiveCompletableFuture<>(resultFuture);
     }
@@ -205,7 +216,8 @@ public class TaskExecutionService {
             long sleepTime = 1000;
             do {
                 if (null != invoke) {
-                    logger.warning(String.format("notify the job of the task(%s) status failed, retry in %s millis", taskGroup.getTaskGroupLocation(), sleepTime));
+                    logger.warning(String.format("notify the job of the task(%s) status failed, retry in %s millis",
+                        taskGroup.getTaskGroupLocation(), sleepTime));
                     try {
                         Thread.sleep(sleepTime += 1000);
                     } catch (InterruptedException e) {
