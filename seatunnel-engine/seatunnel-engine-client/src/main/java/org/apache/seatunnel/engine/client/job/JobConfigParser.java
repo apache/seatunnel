@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.client.job;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -109,13 +109,13 @@ public class JobConfigParser {
     }
 
     private void jobConfigAnalyze(@NonNull Config envConfigs) {
-        SeaTunnelContext context = SeaTunnelContext.getContext();
+        JobContext jobContext = new JobContext();
         if (envConfigs.hasPath("job.mode")) {
-            context.setJobMode(envConfigs.getEnum(JobMode.class, "job.mode"));
+            jobContext.setJobMode(envConfigs.getEnum(JobMode.class, "job.mode"));
         } else {
-            context.setJobMode(JobMode.BATCH);
+            jobContext.setJobMode(JobMode.BATCH);
         }
-        jobConfig.setSeaTunnelContext(context);
+        jobConfig.setJobContext(jobContext);
     }
 
     /**
@@ -133,7 +133,7 @@ public class JobConfigParser {
         for (Config config : sinkConfigs) {
             ImmutablePair<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>, Set<URL>>
                 sinkListImmutablePair =
-                ConnectorInstanceLoader.loadSinkInstance(config, jobConfig.getSeaTunnelContext());
+                ConnectorInstanceLoader.loadSinkInstance(config, jobConfig.getJobContext());
 
             SinkAction sinkAction =
                 createSinkAction(idGenerator.getNextId(), sinkListImmutablePair.getLeft().getPluginName(),
@@ -173,7 +173,7 @@ public class JobConfigParser {
         AtomicInteger totalParallelism = new AtomicInteger();
         for (Config sourceConfig : sourceConfigList) {
             ImmutablePair<SeaTunnelSource, Set<URL>> seaTunnelSourceListImmutablePair =
-                ConnectorInstanceLoader.loadSourceInstance(sourceConfig, jobConfig.getSeaTunnelContext());
+                ConnectorInstanceLoader.loadSourceInstance(sourceConfig, jobConfig.getJobContext());
             dataType = seaTunnelSourceListImmutablePair.getLeft().getProducedType();
             SourceAction sourceAction = createSourceAction(
                 idGenerator.getNextId(),
@@ -200,7 +200,7 @@ public class JobConfigParser {
             SeaTunnelDataType<?> dataTypeResult = null;
             for (Config config : transformConfigList) {
                 ImmutablePair<SeaTunnelTransform<?>, Set<URL>> transformListImmutablePair =
-                    ConnectorInstanceLoader.loadTransformInstance(config, jobConfig.getSeaTunnelContext());
+                    ConnectorInstanceLoader.loadTransformInstance(config, jobConfig.getJobContext());
                 TransformAction transformAction = createTransformAction(
                     idGenerator.getNextId(),
                     transformListImmutablePair.getLeft().getPluginName(),
@@ -264,20 +264,20 @@ public class JobConfigParser {
                                List<? extends Config> transformConfigs,
                                List<? extends Config> sinkConfigs) {
         ImmutablePair<SeaTunnelSource, Set<URL>> pair =
-            ConnectorInstanceLoader.loadSourceInstance(sourceConfigs.get(0), jobConfig.getSeaTunnelContext());
+            ConnectorInstanceLoader.loadSourceInstance(sourceConfigs.get(0), jobConfig.getJobContext());
         SourceAction sourceAction =
             createSourceAction(idGenerator.getNextId(), pair.getLeft().getPluginName(), pair.getLeft(),
                 pair.getRight());
         sourceAction.setParallelism(getSourceParallelism(sourceConfigs.get(0)));
         SeaTunnelDataType dataType = sourceAction.getSource().getProducedType();
         ImmutablePair<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>, Set<URL>>
-            sinkListImmutablePair = ConnectorInstanceLoader.loadSinkInstance(sinkConfigs.get(0), jobConfig.getSeaTunnelContext());
+            sinkListImmutablePair = ConnectorInstanceLoader.loadSinkInstance(sinkConfigs.get(0), jobConfig.getJobContext());
 
         Action sinkUpstreamAction = sourceAction;
 
         if (!CollectionUtils.isEmpty(transformConfigs)) {
             ImmutablePair<SeaTunnelTransform<?>, Set<URL>> transformListImmutablePair =
-                ConnectorInstanceLoader.loadTransformInstance(transformConfigs.get(0), jobConfig.getSeaTunnelContext());
+                ConnectorInstanceLoader.loadTransformInstance(transformConfigs.get(0), jobConfig.getJobContext());
             transformListImmutablePair.getLeft().setTypeInfo(dataType);
 
             dataType = transformListImmutablePair.getLeft().getProducedType();

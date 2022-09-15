@@ -30,7 +30,6 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.USERNAME;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -65,7 +64,6 @@ import java.util.stream.Collectors;
 @AutoService(SeaTunnelSink.class)
 public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSinkState, CKCommitInfo, CKAggCommitInfo> {
 
-    private SeaTunnelContext seaTunnelContext;
     private FileReaderOption readerOption;
 
     @Override
@@ -136,10 +134,5 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
     @Override
     public SinkWriter<SeaTunnelRow, CKCommitInfo, ClickhouseSinkState> createWriter(SinkWriter.Context context) throws IOException {
         return new ClickhouseFileSinkWriter(readerOption, context);
-    }
-
-    @Override
-    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
-        this.seaTunnelContext = seaTunnelContext;
     }
 }
