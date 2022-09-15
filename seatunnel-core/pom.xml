@@ -44,7 +44,7 @@
                 <module>seatunnel-core-starter</module>
                 <module>seatunnel-flink-starter</module>
                 <module>seatunnel-spark-starter</module>
-                <module>seatunnel-seatunnel-starter</module>
+                <module>seatunnel-starter</module>
             </modules>
         </profile>
         <profile>
@@ -52,7 +52,7 @@
             <modules>
                 <module>seatunnel-core-base</module>
                 <module>seatunnel-core-starter</module>
-                <module>seatunnel-seatunnel-starter</module>
+                <module>seatunnel-starter</module>
             </modules>
         </profile>
         <profile>
@@ -65,7 +65,7 @@
                 <module>seatunnel-core-starter</module>
                 <module>seatunnel-flink-starter</module>
                 <module>seatunnel-spark-starter</module>
-                <module>seatunnel-seatunnel-starter</module>
+                <module>seatunnel-starter</module>
             </modules>
         </profile>
     </profiles>

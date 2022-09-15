@@ -18,7 +18,6 @@
 package org.apache.seatunnel.core.starter.flink.utils;
 
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
-import org.apache.seatunnel.core.starter.flink.config.FlinkJobType;
 import org.apache.seatunnel.core.starter.flink.constant.FlinkConstant;
 
 import com.beust.jcommander.JCommander;
@@ -43,10 +42,10 @@ public class CommandLineUtils {
         return flinkCommandArgs;
     }
 
-    public static FlinkCommandArgs parseCommandArgs(String[] args, FlinkJobType jobType) {
+    public static FlinkCommandArgs parseCommandArgs(String[] args) {
         FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
         JCommander jCommander = JCommander.newBuilder()
-            .programName(jobType.getType())
+            .programName("start-seatunnel-flink-connector-v2.sh")
             .addObject(flinkCommandArgs)
             .acceptUnknownOptions(true)
             .args(args)
