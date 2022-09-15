@@ -41,8 +41,9 @@ public abstract class AbstractSeaTunnelServerTest {
     @Before
     public void before() {
         Config config = new Config();
-        config.setInstanceName(this.getClass().getSimpleName());
-        config.setClusterName(this.getClass().getSimpleName());
+        long time = System.currentTimeMillis();
+        config.setInstanceName(this.getClass().getSimpleName() + "_" + time);
+        config.setClusterName(this.getClass().getSimpleName() + "_" + time);
         instance = ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(config,
             Thread.currentThread().getName(), new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
         nodeEngine = instance.node.nodeEngine;

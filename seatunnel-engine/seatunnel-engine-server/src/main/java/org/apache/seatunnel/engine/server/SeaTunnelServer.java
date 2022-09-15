@@ -23,13 +23,16 @@ import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.core.job.RunningJobInfo;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
+import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
 
@@ -43,19 +46,24 @@ import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.jet.impl.LiveOperationRegistry;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
+import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.LiveOperations;
 import com.hazelcast.spi.impl.operationservice.LiveOperationsTracker;
 import lombok.NonNull;
 
-import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class SeaTunnelServer implements ManagedService, MembershipAwareService, LiveOperationsTracker {
     private static final ILogger LOGGER = Logger.getLogger(SeaTunnelServer.class);
@@ -74,10 +82,48 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     private final SeaTunnelConfig seaTunnelConfig;
 
     /**
+     * IMap key is jobId and value is a {@link RunningJobInfo}
+     * This IMap is used to recovery runningJobInfoIMap in JobMaster when a new master node active
+     */
+    private IMap<Long, RunningJobInfo> runningJobInfoIMap;
+
+    /**
+     * IMap key is one of jobId {@link org.apache.seatunnel.engine.server.dag.physical.PipelineLocation} and
+     * {@link org.apache.seatunnel.engine.server.execution.TaskGroupLocation}
+     * <p>
+     * The value of IMap is one of {@link JobStatus} {@link org.apache.seatunnel.engine.core.job.PipelineState}
+     * {@link org.apache.seatunnel.engine.server.execution.ExecutionState}
+     * <p>
+     * This IMap is used to recovery runningJobStateIMap in JobMaster when a new master node active
+     */
+    IMap<Object, Object> runningJobStateIMap;
+
+    /**
+     * IMap key is one of jobId {@link org.apache.seatunnel.engine.server.dag.physical.PipelineLocation} and
+     * {@link org.apache.seatunnel.engine.server.execution.TaskGroupLocation}
+     * <p>
+     * The value of IMap is one of {@link org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan} stateTimestamps
+     * {@link org.apache.seatunnel.engine.server.dag.physical.SubPlan} stateTimestamps
+     * {@link org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex} stateTimestamps
+     * <p>
+     * This IMap is used to recovery runningJobStateTimestampsIMap in JobMaster when a new master node active
+     */
+    IMap<Object, Long[]> runningJobStateTimestampsIMap;
+
+    /**
      * key: job id;
      * <br> value: job master;
      */
     private Map<Long, JobMaster> runningJobMasterMap = new ConcurrentHashMap<>();
+
+    /**
+     * IMap key is {@link PipelineLocation}
+     * <p>
+     * The value of IMap is map of {@link TaskGroupLocation} and the {@link SlotProfile} it used.
+     * <p>
+     * This IMap is used to recovery ownedSlotProfilesIMap in JobMaster when a new master node active
+     */
+    private IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap;
 
     public SeaTunnelServer(@NonNull Node node, @NonNull SeaTunnelConfig seaTunnelConfig) {
         this.logger = node.getLogger(getClass());
@@ -109,6 +155,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         return runningJobMasterMap.get(jobId);
     }
 
+    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void init(NodeEngine engine, Properties hzProperties) {
         this.nodeEngine = (NodeEngineImpl) engine;
@@ -118,6 +165,14 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         );
         taskExecutionService.start();
         getSlotService();
+
+        runningJobInfoIMap = nodeEngine.getHazelcastInstance().getMap("runningJobInfo");
+        runningJobStateIMap = nodeEngine.getHazelcastInstance().getMap("runningJobState");
+        runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap("stateTimestamps");
+        ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
+
+        ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
+        service.scheduleAtFixedRate(() -> printExecutionInfo(), 0, 60, TimeUnit.SECONDS);
     }
 
     @Override
@@ -190,12 +245,19 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
      */
     public PassiveCompletableFuture<Void> submitJob(long jobId, Data jobImmutableInformation) {
         CompletableFuture<Void> voidCompletableFuture = new CompletableFuture<>();
-        JobMaster jobMaster = new JobMaster(jobImmutableInformation, this.nodeEngine, executorService, getResourceManager());
+        JobMaster jobMaster = new JobMaster(jobImmutableInformation,
+            this.nodeEngine,
+            executorService,
+            getResourceManager(),
+            runningJobStateIMap,
+            runningJobStateTimestampsIMap,
+            ownedSlotProfilesIMap);
         executorService.submit(() -> {
             try {
-                jobMaster.init();
-                jobMaster.getPhysicalPlan().initStateFuture();
+                runningJobInfoIMap.put(jobId, new RunningJobInfo(System.currentTimeMillis(), jobImmutableInformation));
                 runningJobMasterMap.put(jobId, jobMaster);
+                jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp());
+                jobMaster.getPhysicalPlan().initStateFuture();
             } catch (Throwable e) {
                 LOGGER.severe(String.format("submit job %s error %s ", jobId, ExceptionUtils.getMessage(e)));
                 voidCompletableFuture.completeExceptionally(e);
@@ -207,10 +269,47 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
             try {
                 jobMaster.run();
             } finally {
+                // storage job state info to HistoryStorage
+                removeJobIMap(jobMaster);
                 runningJobMasterMap.remove(jobId);
             }
         });
         return new PassiveCompletableFuture(voidCompletableFuture);
+    }
+
+    private void removeJobIMap(JobMaster jobMaster) {
+        Long jobId = jobMaster.getJobImmutableInformation().getJobId();
+        runningJobStateTimestampsIMap.remove(jobId);
+
+        jobMaster.getPhysicalPlan().getPipelineList().forEach(pipeline -> {
+            runningJobStateIMap.remove(pipeline.getPipelineLocation());
+            runningJobStateTimestampsIMap.remove(pipeline.getPipelineLocation());
+            pipeline.getCoordinatorVertexList().forEach(coordinator -> {
+                runningJobStateIMap.remove(coordinator.getTaskGroupLocation());
+                runningJobStateTimestampsIMap.remove(coordinator.getTaskGroupLocation());
+            });
+
+            pipeline.getPhysicalVertexList().forEach(task -> {
+                runningJobStateIMap.remove(task.getTaskGroupLocation());
+                runningJobStateTimestampsIMap.remove(task.getTaskGroupLocation());
+            });
+        });
+
+        // These should be deleted at the end. On the new master node
+        // 1. If runningJobStateIMap.get(jobId) == null and runningJobInfoIMap.get(jobId) != null. We will do
+        //    runningJobInfoIMap.remove(jobId)
+        //
+        // 2. If runningJobStateIMap.get(jobId) != null and the value equals JobStatus End State. We need new a
+        //    JobMaster and generate PhysicalPlan again and then try to remove all of PipelineLocation and
+        //    TaskGroupLocation key in the runningJobStateIMap.
+        //
+        // 3. If runningJobStateIMap.get(jobId) != null and the value equals JobStatus.SCHEDULED. We need cancel the job
+        //    and then call submitJob(long jobId, Data jobImmutableInformation) to resubmit it.
+        //
+        // 4. If runningJobStateIMap.get(jobId) != null and the value is CANCELING or RUNNING. We need recover the JobMaster
+        //    from runningJobStateIMap and then waiting for it complete.
+        runningJobStateIMap.remove(jobId);
+        runningJobInfoIMap.remove(jobId);
     }
 
     public PassiveCompletableFuture<JobStatus> waitForJobComplete(long jobId) {
@@ -245,31 +344,44 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
             // TODO Get Job Status from JobHistoryStorage
             return JobStatus.FINISHED;
         }
-        return runningJobMaster.getJobStatus();
+        // This method is called by operation and in the runningJobMaster.getJobStatus() we will get data from IMap.
+        // It will cause an error "Waiting for response on this thread is illegal". To solve it we need put
+        // runningJobMaster.getJobStatus() in another thread.
+        CompletableFuture<JobStatus> future = CompletableFuture.supplyAsync(() -> {
+            return runningJobMaster.getJobStatus();
+        }, executorService);
+
+        try {
+            return future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public void failedTaskOnMemberRemoved(MembershipServiceEvent event) {
         Address lostAddress = event.getMember().getAddress();
         runningJobMasterMap.forEach((aLong, jobMaster) -> {
             jobMaster.getPhysicalPlan().getPipelineList().forEach(subPlan -> {
-                ArrayList<PhysicalVertex> allVertex = new ArrayList<>();
-                allVertex.addAll(subPlan.getPhysicalVertexList());
-                allVertex.addAll(subPlan.getCoordinatorVertexList());
-                allVertex.forEach(physicalVertex -> {
-                    Address deployAddress = physicalVertex.getCurrentExecutionAddress();
-                    ExecutionState executionState = physicalVertex.getExecutionState().get();
-                    if (null != deployAddress && deployAddress.equals(lostAddress) &&
-                        (executionState.equals(ExecutionState.DEPLOYING) ||
-                            executionState.equals(ExecutionState.RUNNING))) {
-                        TaskGroupLocation taskGroupLocation = physicalVertex.getTaskGroupLocation();
-                        physicalVertex.updateTaskExecutionState(
-                            new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED,
-                                new SeaTunnelEngineException(
-                                    String.format("The taskGroup(%s) deployed node(%s) offline", taskGroupLocation,
-                                        lostAddress))));
-                    }
-                });
+                makeTasksFailed(subPlan.getCoordinatorVertexList(), lostAddress);
+                makeTasksFailed(subPlan.getPhysicalVertexList(), lostAddress);
             });
+        });
+    }
+
+    private void makeTasksFailed(@NonNull List<PhysicalVertex> physicalVertexList, @NonNull Address lostAddress) {
+        physicalVertexList.forEach(physicalVertex -> {
+            Address deployAddress = physicalVertex.getCurrentExecutionAddress();
+            ExecutionState executionState = physicalVertex.getExecutionState();
+            if (null != deployAddress && deployAddress.equals(lostAddress) &&
+                (executionState.equals(ExecutionState.DEPLOYING) ||
+                    executionState.equals(ExecutionState.RUNNING))) {
+                TaskGroupLocation taskGroupLocation = physicalVertex.getTaskGroupLocation();
+                physicalVertex.updateTaskExecutionState(
+                    new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED,
+                        new SeaTunnelEngineException(
+                            String.format("The taskGroup(%s) deployed node(%s) offline", taskGroupLocation,
+                                lostAddress))));
+            }
         });
     }
 
@@ -283,5 +395,34 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
             throw new JobException(String.format("Job %s not running", taskGroupLocation.getJobId()));
         }
         runningJobMaster.updateTaskExecutionState(taskExecutionState);
+    }
+
+    private void printExecutionInfo() {
+        ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
+        int activeCount = threadPoolExecutor.getActiveCount();
+        int corePoolSize = threadPoolExecutor.getCorePoolSize();
+        int maximumPoolSize = threadPoolExecutor.getMaximumPoolSize();
+        int poolSize = threadPoolExecutor.getPoolSize();
+        long completedTaskCount = threadPoolExecutor.getCompletedTaskCount();
+        long taskCount = threadPoolExecutor.getTaskCount();
+        StringBuffer sbf = new StringBuffer();
+        sbf.append("activeCount=")
+            .append(activeCount)
+            .append("\n")
+            .append("corePoolSize=")
+            .append(corePoolSize)
+            .append("\n")
+            .append("maximumPoolSize=")
+            .append(maximumPoolSize)
+            .append("\n")
+            .append("poolSize=")
+            .append(poolSize)
+            .append("\n")
+            .append("completedTaskCount=")
+            .append(completedTaskCount)
+            .append("\n")
+            .append("taskCount=")
+            .append(taskCount);
+        logger.info(sbf.toString());
     }
 }

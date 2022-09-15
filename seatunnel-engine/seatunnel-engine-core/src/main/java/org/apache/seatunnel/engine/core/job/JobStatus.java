@@ -29,6 +29,9 @@ public enum JobStatus {
     /** Job is newly created, no task has started to run. */
     CREATED(EndState.NOT_END),
 
+    /** Job is begin schedule but some task not deploy complete. */
+    SCHEDULED(EndState.NOT_END),
+
     /** Some tasks are scheduled or running, some may be pending, some may be finished. */
     RUNNING(EndState.NOT_END),
 
