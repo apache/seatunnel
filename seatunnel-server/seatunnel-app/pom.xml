@@ -24,12 +24,16 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-app</artifactId>
+    
+    <properties>
+        <seatunnel.common.version>2.1.2</seatunnel.common.version>
+    </properties>
 
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-common</artifactId>
-            <version>${project.version}</version>
+            <version>${seatunnel.common.version}</version>
         </dependency>
         <!--springboot-->
         <dependency>
