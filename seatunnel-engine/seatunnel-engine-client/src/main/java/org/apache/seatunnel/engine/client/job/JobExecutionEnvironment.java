@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.client.job;
 
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
@@ -35,8 +36,6 @@ import java.util.concurrent.ExecutionException;
 
 public class JobExecutionEnvironment {
 
-    private static String DEFAULT_JOB_NAME = "test_st_job";
-
     private JobConfig jobConfig;
 
     private int maxParallelism = 1;
@@ -51,12 +50,16 @@ public class JobExecutionEnvironment {
 
     private SeaTunnelHazelcastClient seaTunnelHazelcastClient;
 
+    private final JobClient jobClient;
+
     public JobExecutionEnvironment(JobConfig jobConfig, String jobFilePath,
                                    SeaTunnelHazelcastClient seaTunnelHazelcastClient) {
         this.jobConfig = jobConfig;
         this.jobFilePath = jobFilePath;
         this.idGenerator = new IdGenerator();
         this.seaTunnelHazelcastClient = seaTunnelHazelcastClient;
+        this.jobClient = new JobClient(seaTunnelHazelcastClient);
+        this.jobConfig.setJobContext(new JobContext(jobClient.getNewJobId()));
     }
 
     private JobConfigParser getJobConfigParser() {
@@ -76,9 +79,8 @@ public class JobExecutionEnvironment {
     }
 
     public ClientJobProxy execute() throws ExecutionException, InterruptedException {
-        JobClient jobClient = new JobClient(seaTunnelHazelcastClient);
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(
-            jobClient.getNewJobId(),
+            Long.valueOf(jobConfig.getJobContext().getJobId()),
             seaTunnelHazelcastClient.getSerializationService().toData(getLogicalDag()),
             jobConfig,
             jarUrls);
