@@ -215,10 +215,9 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                     return ArrayType.FLOAT_ARRAY_TYPE;
                 } else if (BasicType.DOUBLE_TYPE.equals(seaTunnelDataType)) {
                     return ArrayType.DOUBLE_ARRAY_TYPE;
-                } else {
-                    String errorMsg = String.format("Array type not support this genericType [%s]", seaTunnelDataType);
-                    throw new RuntimeException(errorMsg);
                 }
+                String errorMsg = String.format("SeaTunnel array type not supported this genericType [%s] yet", seaTunnelDataType);
+                throw new RuntimeException(errorMsg);
             case MAP:
                 TypeDescription keyType = typeDescription.getChildren().get(0);
                 TypeDescription valueType = typeDescription.getChildren().get(1);
@@ -229,9 +228,11 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 SeaTunnelDataType<?>[] fieldTypes = children.stream().map(this::orcDataType2SeaTunnelDataType).toArray(SeaTunnelDataType<?>[]::new);
                 return new SeaTunnelRowType(fieldNames, fieldTypes);
             case UNION:
-                throw new RuntimeException("SeaTunnel not supported orc union type yet");
+                // TODO: How to explain this type using SeaTunnel data type
+                throw new RuntimeException("SeaTunnel not supported orc [union] type yet");
             default:
                 // do nothing
+                // never get in there
                 return null;
         }
     }
