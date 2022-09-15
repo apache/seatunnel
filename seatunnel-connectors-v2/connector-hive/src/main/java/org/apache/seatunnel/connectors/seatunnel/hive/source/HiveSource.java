@@ -17,42 +17,34 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.SourceConfig.FILE_PATH;
-import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.ORC_INPUT_FORMAT_CLASSNAME;
+import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.PARQUET_INPUT_FORMAT_CLASSNAME;
+import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.TEXT_INPUT_FORMAT_CLASSNAME;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceReader;
-import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.SourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.hive.exception.HivePluginException;
-import org.apache.seatunnel.connectors.seatunnel.hive.source.file.reader.format.ReadStrategy;
-import org.apache.seatunnel.connectors.seatunnel.hive.source.file.reader.format.ReadStrategyFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.HdfsFileSource;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import com.google.auto.service.AutoService;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.hadoop.hive.metastore.api.Table;
 
-import java.io.IOException;
-import java.util.List;
+import java.net.URI;
+import java.net.URISyntaxException;
 
 @AutoService(SeaTunnelSource.class)
-public class HiveSource implements SeaTunnelSource<SeaTunnelRow, HiveSourceSplit, HiveSourceState> {
-
-    private SeaTunnelRowType typeInfo;
-
-    private ReadStrategy readStrategy;
-
-    private HadoopConf hadoopConf;
-
-    private List<String> filesPath;
+public class HiveSource extends HdfsFileSource {
+    private Table tableInformation;
 
     @Override
     public String getPluginName() {
@@ -60,51 +52,33 @@ public class HiveSource implements SeaTunnelSource<SeaTunnelRow, HiveSourceSplit
     }
 
     @Override
-    public void prepare(Config pluginConfig) {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, FILE_PATH, FS_DEFAULT_NAME_KEY);
+    public void prepare(Config pluginConfig) throws PrepareFailException {
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HiveConfig.METASTORE_URI, HiveConfig.TABLE_NAME);
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
-        // use factory to generate readStrategy
-        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(SourceConfig.FILE_TYPE));
-        String path = pluginConfig.getString(FILE_PATH);
-        hadoopConf = new HadoopConf(pluginConfig.getString(FS_DEFAULT_NAME_KEY));
-        try {
-            filesPath = readStrategy.getFileNamesByPath(hadoopConf, path);
-        } catch (IOException e) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Check file path fail.");
+        Pair<String[], Table> tableInfo = HiveConfig.getTableInfo(pluginConfig);
+        tableInformation = tableInfo.getRight();
+        String inputFormat = tableInformation.getSd().getInputFormat();
+        if (TEXT_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
+            pluginConfig = pluginConfig.withValue(BaseSourceConfig.FILE_TYPE, ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()));
+        } else if (PARQUET_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
+            pluginConfig = pluginConfig.withValue(BaseSourceConfig.FILE_TYPE, ConfigValueFactory.fromAnyRef(FileFormat.PARQUET.toString()));
+        } else if (ORC_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
+            pluginConfig = pluginConfig.withValue(BaseSourceConfig.FILE_TYPE, ConfigValueFactory.fromAnyRef(FileFormat.ORC.toString()));
+        } else {
+            throw new RuntimeException("Only support [text parquet orc] file now");
         }
+        String hdfsLocation = tableInformation.getSd().getLocation();
         try {
-            // should read from config or read from hive metadata( wait catlog done)
-            this.typeInfo = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filesPath.get(0));
-        } catch (HivePluginException e) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Read hive file type error.", e);
+            URI uri = new URI(hdfsLocation);
+            String path = uri.getPath();
+            String defaultFs = hdfsLocation.replace(path, "");
+            pluginConfig = pluginConfig.withValue(BaseSourceConfig.FILE_PATH, ConfigValueFactory.fromAnyRef(path))
+                    .withValue(FS_DEFAULT_NAME_KEY, ConfigValueFactory.fromAnyRef(defaultFs));
+        } catch (URISyntaxException e) {
+            throw new RuntimeException("Get hdfs cluster address failed, please check.", e);
         }
+        super.prepare(pluginConfig);
     }
-
-    @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return this.typeInfo;
-    }
-
-    @Override
-    public SourceReader<SeaTunnelRow, HiveSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
-        return new HiveSourceReader(this.readStrategy, this.hadoopConf, readerContext);
-    }
-
-    @Override
-    public Boundedness getBoundedness() {
-        return Boundedness.BOUNDED;
-    }
-
-    @Override
-    public SourceSplitEnumerator<HiveSourceSplit, HiveSourceState> createEnumerator(SourceSplitEnumerator.Context<HiveSourceSplit> enumeratorContext) throws Exception {
-        return new HiveSourceSplitEnumerator(enumeratorContext, filesPath);
-    }
-
-    @Override
-    public SourceSplitEnumerator<HiveSourceSplit, HiveSourceState> restoreEnumerator(SourceSplitEnumerator.Context<HiveSourceSplit> enumeratorContext, HiveSourceState checkpointState) throws Exception {
-        return new HiveSourceSplitEnumerator(enumeratorContext, filesPath, checkpointState);
-    }
-
 }
