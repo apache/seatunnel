@@ -22,8 +22,8 @@ set -e
 if [ -d "/tmp/seatunnel-dependencies" ]; then
   rm -rf /tmp/seatunnel-dependencies/*
 fi
-
-./mvnw clean -pl '!seatunnel-connectors-v2-dist,!seatunnel-dist,!seatunnel-connectors-v2/connector-fake' --batch-mode  --no-snapshot-updates dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=/tmp/seatunnel-dependencies
+cd seatunnel-server
+.././mvnw clean  --batch-mode  --no-snapshot-updates dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=/tmp/seatunnel-dependencies -Drevision=2.1.3-SNAPSHOT
 
 # List all modules(jars) that belong to the SeaTunnel itself, these will be ignored when checking the dependency
 ls /tmp/seatunnel-dependencies | sort > all-dependencies.txt
@@ -31,7 +31,7 @@ ls /tmp/seatunnel-dependencies | sort > all-dependencies.txt
 echo "start"
 
 # licenses
-echo '=== Self modules: ' && ./mvnw --batch-mode --quiet -Dexec.executable='echo' -Dexec.args='${project.artifactId}-${project.version}.jar' exec:exec | tee self-modules.txt
+echo '=== Self modules: ' && .././mvnw --batch-mode --quiet -Dexec.executable='echo' -Drevision=2.1.3-SNAPSHOT -Dexec.args='${project.artifactId}-${project.version}.jar' exec:exec | tee self-modules.txt 
 
 # Exclude all self modules(jars) to generate all third-party dependencies
 echo '=== Third party dependencies: ' && grep -vf self-modules.txt all-dependencies.txt | sort | uniq | tee third-party-dependencies.txt
@@ -42,4 +42,4 @@ echo '=== Third party dependencies: ' && grep -vf self-modules.txt all-dependenc
 # command in target OS is different from what we used to sort the file `known-dependencies.txt`, i.e. "sort the two file
 # using the same command (and default arguments)"
 
-diff -w -B -U0 <(sort < tools/dependencies/known-dependencies.txt) <(sort < third-party-dependencies.txt)
+diff -w -B -U0 <(sort < tools/dependencies/web-known-dependencies.txt) <(sort < third-party-dependencies.txt)

@@ -111,8 +111,7 @@ jobs:
           -D"maven.wagon.httpconnectionManager.ttlSeconds"=120
 
   dependency-license:
-    # This job has somethings need todo, and it is not a blocker for the release.
-    if: "contains(toJSON(github.event.commits.*.message), '[ci-auto-license]')"
+    if: github.repository == 'apache/incubator-seatunnel'
     name: Dependency licenses
     needs: [ sanity-check ]
     runs-on: ubuntu-latest
@@ -135,7 +134,7 @@ jobs:
           -D"checkstyle.skip"=true
           -D"license.skipAddThirdParty"
       - name: Check Dependencies Licenses
-        run: tools/dependencies/checkLicense.sh
+        run: tools/dependencies/checkWebLicense.sh
 
   unit-test:
     name: Unit Test

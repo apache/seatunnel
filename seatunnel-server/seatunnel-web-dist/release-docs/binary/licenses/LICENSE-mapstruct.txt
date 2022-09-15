@@ -1,0 +1,28 @@
+Copyright MapStruct Authors.
+
+ MapStruct is licensed under the Apache License version 2.0, available at http://www.apache.org/licenses/LICENSE-2.0
+
+------------------------------------------------------------------------
+
+ MAPSTRUCT SUBCOMPONENTS WITH DIFFERENT COPYRIGHT OWNERS
+
+ The MapStruct distribution (ZIP, TAR.GZ) as well as the MapStruct
+ library (JAR) include FreeMarker, a software developed by Attila
+ Szegedi, Daniel Dekany and Jonathan Revusky. FreeMarker is licensed
+ under the same license as MapStruct itself - Apache License, Version
+ 2.0 - but the copyright owners are the aforementioned individuals.
+
+ The MapStruct distribution (ZIP, TAR.GZ) as well as the MapStruct
+ library (JAR) include a number of files that are licensed by the
+ Apache Software Foundation under the same license as MapStruct itself -
+ Apache License, Version 2.0 - but the copyright owner is the Apache
+ Software Foundation. These files are:
+
+     freemarker/ext/jsp/web-app_2_2.dtd
+     freemarker/ext/jsp/web-app_2_3.dtd
+     freemarker/ext/jsp/web-app_2_4.xsd
+     freemarker/ext/jsp/web-app_2_5.xsd
+     freemarker/ext/jsp/web-jsptaglibrary_1_1.dtd
+     freemarker/ext/jsp/web-jsptaglibrary_1_2.dtd
+     freemarker/ext/jsp/web-jsptaglibrary_2_0.xsd
+     freemarker/ext/jsp/web-jsptaglibrary_2_1.xsd

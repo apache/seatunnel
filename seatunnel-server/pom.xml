@@ -30,6 +30,7 @@
         <module>seatunnel-spi</module>
         <module>seatunnel-scheduler</module>
         <module>seatunnel-server-common</module>
+        <module>seatunnel-web-dist</module>
     </modules>
 
     <properties>

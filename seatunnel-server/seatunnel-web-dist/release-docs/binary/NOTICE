@@ -1,0 +1,418 @@
+Apache SeaTunnel (incubating)
+Copyright 2021-2022 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+
+===============================================================================
+
+Apache Commons Codec NOTICE
+
+===============================================================================
+Apache Commons Codec
+Copyright 2002-2019 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (https://www.apache.org/).
+
+src/test/org/apache/commons/codec/language/DoubleMetaphoneTest.java
+contains test data from http://aspell.net/test/orig/batch0.tab.
+Copyright (C) 2002 Kevin Atkinson (kevina@gnu.org)
+
+===============================================================================
+
+The content of package org.apache.commons.codec.language.bm has been translated
+from the original php source code available at http://stevemorse.org/phoneticinfo.htm
+with permission from the original authors.
+Original source copyright:
+Copyright (c) 2008 Alexander Beider & Stephen P. Morse.
+
+===============================================================================
+
+Apache Commons Collections NOTICE
+
+===============================================================================
+
+Apache Commons Collections
+Copyright 2001-2019 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+===============================================================================
+
+Apache Commons Lang NOTICE
+
+===============================================================================
+Apache Commons Lang
+Copyright 2001-2021 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (https://www.apache.org/).
+
+===============================================================================
+
+Jackson JSON processor NOTICE
+
+===============================================================================
+
+# Jackson JSON processor
+
+Jackson is a high-performance, Free/Open Source JSON processing library.
+It was originally written by Tatu Saloranta (tatu.saloranta@iki.fi), and has
+been in development since 2007.
+It is currently developed by a community of developers.
+
+## Licensing
+
+Jackson 2.x core and extension components are licensed under Apache License 2.0
+To find the details that apply to this artifact see the accompanying LICENSE file.
+
+## Credits
+
+A list of contributors may be found from CREDITS(-2.x) file, which is included
+in some artifacts (usually source distributions); but is always available
+from the source code management (SCM) system project uses.
+
+===============================================================================
+
+Eclipse Jakarta Bean Validation NOTICE
+
+===============================================================================
+# Notices for Eclipse Jakarta Bean Validation
+
+This content is produced and maintained by the Eclipse Jakarta Bean Validation
+project.
+
+* Project home: https://projects.eclipse.org/projects/ee4j.bean-validation
+
+## Trademarks
+
+ Jakarta Bean Validation is a trademark of the Eclipse Foundation.
+
+## Copyright
+
+All content is the property of the respective authors or their employers. For
+more information regarding authorship of content, please consult the listed
+source code repository logs.
+
+## Declared Project Licenses
+
+This program and the accompanying materials are made available under the terms
+of the Apache License, Version 2.0 which is available at
+https://www.apache.org/licenses/LICENSE-2.0.
+
+SPDX-License-Identifier: Apache-2.0
+
+## Source Code
+
+The project maintains the following source code repositories:
+
+ * [The specification repository](https://github.com/eclipse-ee4j/beanvalidation-spec)
+ * [The API repository](https://github.com/eclipse-ee4j/beanvalidation-api)
+ * [The TCK repository](https://github.com/eclipse-ee4j/beanvalidation-tck)
+
+## Third-party Content
+
+This project leverages the following third party content.
+
+Test dependencies:
+
+ * [TestNG](https://github.com/cbeust/testng) - Apache License 2.0
+ * [JCommander](https://github.com/cbeust/jcommander) - Apache License 2.0
+ * [SnakeYAML](https://bitbucket.org/asomov/snakeyaml/src) - Apache License 2.0
+===============================================================================
+
+Notices for Eclipse Jetty
+
+=========================
+This content is produced and maintained by the Eclipse Jetty project.
+
+Project home: https://www.eclipse.org/jetty/
+
+Trademarks
+----------
+Eclipse Jetty, and Jetty are trademarks of the Eclipse Foundation.
+
+Copyright
+---------
+All contributions are the property of the respective authors or of
+entities to which copyright has been assigned by the authors (eg. employer).
+
+Declared Project Licenses
+-------------------------
+This artifacts of this project are made available under the terms of:
+
+  * the Eclipse Public License v. 1.0
+    http://www.eclipse.org/legal/epl-v10.html
+    SPDX-License-Identifier: EPL-1.0
+
+  or
+
+  * the Apache License, Version 2.0
+    https://www.apache.org/licenses/LICENSE-2.0.
+    SPDX-License-Identifier: Apache-2.0
+
+The following dependencies are EPL.
+ * org.eclipse.jetty.orbit:org.eclipse.jdt.core
+
+The following dependencies are EPL and ASL2.
+ * org.eclipse.jetty.orbit:javax.security.auth.message
+
+The following dependencies are EPL and CDDL 1.0.
+ * org.eclipse.jetty.orbit:javax.mail.glassfish
+
+The following dependencies are CDDL + GPLv2 with classpath exception.
+https://glassfish.dev.java.net/nonav/public/CDDL+GPL.html
+
+ * javax.servlet:javax.servlet-api
+ * javax.annotation:javax.annotation-api
+ * javax.transaction:javax.transaction-api
+ * javax.websocket:javax.websocket-api
+
+If ALPN is used to negotiate HTTP/2 connections, then the following
+distribution may be included in the distribution or downloaded when ALPN
+module is selected. These artifacts replace/modify OpenJDK classes.
+The modifications are hosted at github and both modified and original
+are under GPL v2 with classpath exceptions.
+http://openjdk.java.net/legal/gplv2+ce.html
+
+ * java.sun.security.ssl
+
+The following dependencies are licensed by the OW2 Foundation according to the
+terms of http://asm.ow2.org/license.html
+
+ * org.ow2.asm:asm-commons
+ * org.ow2.asm:asm
+
+The following dependencies are ASL2 licensed.
+
+ * org.apache.taglibs:taglibs-standard-spec
+ * org.apache.taglibs:taglibs-standard-impl
+
+The following dependencies are ASL2 licensed.  Based on selected classes from
+following Apache Tomcat jars, all ASL2 licensed.
+
+ * org.mortbay.jasper:apache-jsp
+ * org.apache.tomcat:tomcat-jasper
+ * org.apache.tomcat:tomcat-juli
+ * org.apache.tomcat:tomcat-jsp-api
+ * org.apache.tomcat:tomcat-el-api
+ * org.apache.tomcat:tomcat-jasper-el
+ * org.apache.tomcat:tomcat-api
+ * org.apache.tomcat:tomcat-util-scan
+ * org.apache.tomcat:tomcat-util
+ * org.mortbay.jasper:apache-el
+ * org.apache.tomcat:tomcat-jasper-el
+ * org.apache.tomcat:tomcat-el-api
+
+The following artifacts are CDDL + GPLv2 with classpath exception.
+https://glassfish.dev.java.net/nonav/public/CDDL+GPL.html
+
+ * org.eclipse.jetty.toolchain:jetty-schemas
+
+Cryptography
+------------
+Content may contain encryption software. The country in which you are currently
+may have restrictions on the import, possession, and use, and/or re-export to
+another country, of encryption software. BEFORE using any encryption software,
+please check the country's laws, regulations and policies concerning the import,
+possession, or use, and re-export of encryption software, to see if this is
+permitted.
+
+The UnixCrypt.java code implements the one way cryptography used by
+Unix systems for simple password protection.  Copyright 1996 Aki Yoshida,
+modified April 2001  by Iris Van den Broeke, Daniel Deville.
+Permission to use, copy, modify and distribute UnixCrypt
+for non-commercial or commercial purposes and without fee is
+granted provided that the copyright notice appears in all copies.
+
+===============================================================================
+
+JJWT NOTICE
+
+===============================================================================
+## Base64 implementation
+
+JJWT's `io.jsonwebtoken.io.Base64` implementation is based on [MigBase64](https://github.com/brsanthu/migbase64) with 
+continued modifications for Base64 URL support and additional test cases. The MigBase64 copyright and license notice 
+have been retained and are repeated here per that code's requirements:
+
+```
+Licence (BSD):
+==============
+
+Copyright (c) 2004, Mikael Grev, MiG InfoCom AB. (base64 @ miginfocom . com)
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+Redistributions of source code must retain the above copyright notice, this list
+of conditions and the following disclaimer.
+Redistributions in binary form must reproduce the above copyright notice, this
+list of conditions and the following disclaimer in the documentation and/or other
+materials provided with the distribution.
+Neither the name of the MiG InfoCom AB nor the names of its contributors may be
+used to endorse or promote products derived from this software without specific
+prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
+OF SUCH DAMAGE.
+```
+===============================================================================
+
+Apache log4j NOTICE
+
+===============================================================================
+Apache log4j
+Copyright 2010 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+===============================================================================
+
+MyBatis NOTICE
+
+===============================================================================
+iBATIS
+   This product includes software developed by
+   The Apache Software Foundation (https://www.apache.org/).
+
+   Copyright 2010 The Apache Software Foundation
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       https://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+OGNL
+//--------------------------------------------------------------------------
+//  Copyright (c) 2004, Drew Davidson and Luke Blanshard
+//  All rights reserved.
+//
+//  Redistribution and use in source and binary forms, with or without
+//  modification, are permitted provided that the following conditions are
+//  met:
+//
+//  Redistributions of source code must retain the above copyright notice,
+//  this list of conditions and the following disclaimer.
+//  Redistributions in binary form must reproduce the above copyright
+//  notice, this list of conditions and the following disclaimer in the
+//  documentation and/or other materials provided with the distribution.
+//  Neither the name of the Drew Davidson nor the names of its contributors
+//  may be used to endorse or promote products derived from this software
+//  without specific prior written permission.
+//
+//  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+//  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+//  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+//  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+//  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+//  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+//  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+//  OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+//  AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+//  OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+//  THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+//  DAMAGE.
+//--------------------------------------------------------------------------
+
+Refactored SqlBuilder class (SQL, AbstractSQL)
+
+   This product includes software developed by
+   Adam Gent (https://gist.github.com/3650165)
+
+   Copyright 2010 Adam Gent
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       https://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+===============================================================================
+
+MyBatis Spring NOTICE
+
+===============================================================================   
+   
+MyBatis Spring
+Copyright 2010-2013
+
+This product includes software developed by
+The MyBatis Team (http://www.mybatis.org/).
+
+iBATIS
+   This product includes software developed by
+   The Apache Software Foundation (http://www.apache.org/).
+
+   Copyright 2010 The Apache Software Foundation
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+Spring Framework
+    All Spring projects are licensed under the terms of the Apache License, Version 2.0
+
+   Copyright 2002-2010 the original author or authors
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+===============================================================================
+
+Apache Tomcat NOTICE
+
+===============================================================================  
+
+Apache Tomcat
+Copyright 1999-2022 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+===============================================================================
+
+Apache Tomcat NOTICE
+
+===============================================================================  
+
