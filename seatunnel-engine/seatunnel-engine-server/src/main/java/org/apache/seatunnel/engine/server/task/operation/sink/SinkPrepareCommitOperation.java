@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.task.operation.sink;
 
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.TaskExecutionService;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointBarrierTriggerOperation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
@@ -69,9 +70,9 @@ public class SinkPrepareCommitOperation extends CheckpointBarrierTriggerOperatio
 
     @Override
     public void run() throws Exception {
-        SeaTunnelServer server = getService();
-        SinkAggregatedCommitterTask<?, ?> committerTask = server.getTaskExecutionService().getTask(taskLocation);
-        ClassLoader classLoader = server.getTaskExecutionService().getExecutionContext(taskLocation.getTaskGroupLocation()).getClassLoader();
+        TaskExecutionService taskExecutionService = ((SeaTunnelServer) getService()).getTaskExecutionService();
+        SinkAggregatedCommitterTask<?, ?> committerTask = taskExecutionService.getTask(taskLocation);
+        ClassLoader classLoader = taskExecutionService.getExecutionContext(taskLocation.getTaskGroupLocation()).getClassLoader();
         committerTask.receivedWriterCommitInfo(barrier.getId(), SerializationUtils.deserialize(commitInfos, classLoader));
         committerTask.triggerBarrier(barrier);
     }
