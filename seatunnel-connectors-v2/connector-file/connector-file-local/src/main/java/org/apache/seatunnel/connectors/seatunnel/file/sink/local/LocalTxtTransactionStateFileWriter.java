@@ -112,7 +112,7 @@ public class LocalTxtTransactionStateFileWriter extends AbstractTransactionState
                 FileUtils.createFile(filePath);
                 fileOutputStream = new FileOutputStream(new File(filePath));
                 beingWrittenOutputStream.put(filePath, fileOutputStream);
-            } catch (IOException e) {
+            } catch (Exception e) {
                 LOGGER.error("can not get output file stream");
                 throw new RuntimeException(e);
             }

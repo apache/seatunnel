@@ -34,6 +34,7 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 
+import com.hazelcast.map.IMap;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -55,11 +56,18 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
 
         JobImmutableInformation jobInfo = new JobImmutableInformation(1,
             nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
+
+        IMap<Object, Object> runningJobState = nodeEngine.getHazelcastInstance().getMap("testRunningJobState");
+        IMap<Object, Long[]> runningJobStateTimestamp =
+            nodeEngine.getHazelcastInstance().getMap("testRunningJobStateTimestamp");
+
         Map<Integer, CheckpointPlan> checkpointPlans = PlanUtils.fromLogicalDAG(logicalDag, nodeEngine,
             jobInfo,
             System.currentTimeMillis(),
             Executors.newCachedThreadPool(),
-            instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME)).f1();
+            instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
+            runningJobState,
+            runningJobStateTimestamp).f1();
         Assert.assertNotNull(checkpointPlans);
         Assert.assertEquals(2, checkpointPlans.size());
         // enum(1) + reader(2) + writer(2)

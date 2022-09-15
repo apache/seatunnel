@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
@@ -39,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class PipelineBaseScheduler implements JobScheduler {
@@ -58,7 +60,7 @@ public class PipelineBaseScheduler implements JobScheduler {
 
     @Override
     public void startScheduling() {
-        if (physicalPlan.turnToRunning()) {
+        if (physicalPlan.updateJobState(JobStatus.CREATED, JobStatus.SCHEDULED)) {
             List<CompletableFuture<Void>> collect =
                 physicalPlan.getPipelineList()
                     .stream()
@@ -68,6 +70,7 @@ public class PipelineBaseScheduler implements JobScheduler {
                 CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
                     collect.toArray(new CompletableFuture[0]));
                 voidCompletableFuture.get();
+                physicalPlan.updateJobState(JobStatus.SCHEDULED, JobStatus.RUNNING);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -85,50 +88,63 @@ public class PipelineBaseScheduler implements JobScheduler {
                 return null;
             }
 
-            Map<PhysicalVertex, SlotProfile> slotProfiles =
-                getOrApplyResourceForPipeline(pipeline, jobMaster.getOwnedSlotProfiles().get(pipeline.getPipelineId()));
+            Map<TaskGroupLocation, SlotProfile> slotProfiles =
+                getOrApplyResourceForPipeline(pipeline, jobMaster.getOwnedSlotProfiles(pipeline.getPipelineLocation()));
 
             // To ensure release pipeline resource after new master node active, we need store slotProfiles first and then deploy tasks.
-            jobMaster.setOwnedSlotProfiles(pipeline.getPipelineId(), slotProfiles);
+            jobMaster.setOwnedSlotProfiles(pipeline.getPipelineLocation(), slotProfiles);
             // deploy pipeline
             return CompletableFuture.runAsync(() -> {
                 deployPipeline(pipeline, slotProfiles);
-            });
+            }, jobMaster.getExecutorService());
         } catch (Exception e) {
             pipeline.cancelPipeline();
             return null;
         }
     }
 
-    private Map<PhysicalVertex, SlotProfile> getOrApplyResourceForPipeline(@NonNull SubPlan pipeline,
-                                                                           Map<PhysicalVertex, SlotProfile> ownedSlotProfiles) {
+    private Map<TaskGroupLocation, SlotProfile> getOrApplyResourceForPipeline(@NonNull SubPlan pipeline,
+                                                                              Map<TaskGroupLocation, SlotProfile> ownedSlotProfiles) {
         if (ownedSlotProfiles == null || ownedSlotProfiles.isEmpty()) {
             return applyResourceForPipeline(pipeline);
         }
 
         // TODO ensure the slots still exist and is owned by this pipeline
-        for (Map.Entry<PhysicalVertex, SlotProfile> entry : ownedSlotProfiles.entrySet()) {
-            if (entry.getValue() == null) {
-                ownedSlotProfiles.put(entry.getKey(), applyResourceForTask(entry.getKey()).join());
-            } else {
-                entry.getKey().updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED);
-            }
-        }
-        return ownedSlotProfiles;
+        Map<TaskGroupLocation, SlotProfile> currentOwnedSlotProfiles = new ConcurrentHashMap<>();
+        pipeline.getCoordinatorVertexList().forEach(
+            coordinator -> currentOwnedSlotProfiles.put(coordinator.getTaskGroupLocation(),
+                getOrApplyResourceForTask(coordinator, ownedSlotProfiles)));
+
+        pipeline.getPhysicalVertexList().forEach(
+            task -> currentOwnedSlotProfiles.put(task.getTaskGroupLocation(),
+                getOrApplyResourceForTask(task, ownedSlotProfiles)));
+
+        return currentOwnedSlotProfiles;
     }
 
-    private Map<PhysicalVertex, SlotProfile> applyResourceForPipeline(@NonNull SubPlan subPlan) {
-        Map<PhysicalVertex, CompletableFuture<SlotProfile>> futures = new HashMap<>();
-        Map<PhysicalVertex, SlotProfile> slotProfiles = new HashMap<>();
+    private SlotProfile getOrApplyResourceForTask(@NonNull PhysicalVertex task,
+                                                  Map<TaskGroupLocation, SlotProfile> ownedSlotProfiles) {
+
+        if (ownedSlotProfiles == null || ownedSlotProfiles.isEmpty() ||
+            ownedSlotProfiles.get(task.getTaskGroupLocation()) == null) {
+            return applyResourceForTask(task).join();
+        }
+        task.updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED);
+        return ownedSlotProfiles.get(task.getTaskGroupLocation());
+    }
+
+    private Map<TaskGroupLocation, SlotProfile> applyResourceForPipeline(@NonNull SubPlan subPlan) {
+        Map<TaskGroupLocation, CompletableFuture<SlotProfile>> futures = new HashMap<>();
+        Map<TaskGroupLocation, SlotProfile> slotProfiles = new HashMap<>();
         // TODO If there is no enough resources for tasks, we need add some wait profile
         subPlan.getCoordinatorVertexList()
             .forEach(
-                coordinator -> futures.put(coordinator, applyResourceForTask(coordinator)));
+                coordinator -> futures.put(coordinator.getTaskGroupLocation(), applyResourceForTask(coordinator)));
 
         subPlan.getPhysicalVertexList()
-            .forEach(task -> futures.put(task, applyResourceForTask(task)));
+            .forEach(task -> futures.put(task.getTaskGroupLocation(), applyResourceForTask(task)));
 
-        for (Map.Entry<PhysicalVertex, CompletableFuture<SlotProfile>> future : futures.entrySet()) {
+        for (Map.Entry<TaskGroupLocation, CompletableFuture<SlotProfile>> future : futures.entrySet()) {
             slotProfiles.put(future.getKey(),
                 future.getValue() == null ? null : future.getValue().join());
         }
@@ -140,20 +156,20 @@ public class PipelineBaseScheduler implements JobScheduler {
             if (task.updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED)) {
                 // TODO custom resource size
                 return resourceManager.applyResource(jobId, new ResourceProfile());
-            } else if (ExecutionState.CANCELING.equals(task.getExecutionState().get()) ||
-                ExecutionState.CANCELED.equals(task.getExecutionState().get())) {
+            } else if (ExecutionState.CANCELING.equals(task.getExecutionState()) ||
+                ExecutionState.CANCELED.equals(task.getExecutionState())) {
                 LOGGER.info(
                     String.format("%s be canceled, skip %s this task.", task.getTaskFullName(),
                         ExecutionState.SCHEDULED));
                 return null;
             } else {
-                makeTaskFailed(task,
+                makeTaskFailed(task.getTaskGroupLocation(),
                     new JobException(String.format("%s turn to a unexpected state: %s, stop scheduler job.",
-                        task.getTaskFullName(), task.getExecutionState().get())));
+                        task.getTaskFullName(), task.getExecutionState())));
                 return null;
             }
         } catch (Throwable e) {
-            makeTaskFailed(task, e);
+            makeTaskFailed(task.getTaskGroupLocation(), e);
             return null;
         }
     }
@@ -164,8 +180,8 @@ public class PipelineBaseScheduler implements JobScheduler {
             return CompletableFuture.runAsync(() -> {
                 task.deploy(slotProfile);
             });
-        } else if (ExecutionState.CANCELING.equals(task.getExecutionState().get()) ||
-            ExecutionState.CANCELED.equals(task.getExecutionState().get())) {
+        } else if (ExecutionState.CANCELING.equals(task.getExecutionState()) ||
+            ExecutionState.CANCELED.equals(task.getExecutionState())) {
             LOGGER.info(
                 String.format("%s be canceled, skip %s this task.", task.getTaskFullName(), ExecutionState.DEPLOYING));
             return null;
@@ -175,22 +191,24 @@ public class PipelineBaseScheduler implements JobScheduler {
                     task.getTaskGroupLocation(),
                     ExecutionState.FAILED,
                     new JobException(String.format("%s turn to a unexpected state: %s, stop scheduler job.",
-                        task.getTaskFullName(), task.getExecutionState().get()))));
+                        task.getTaskFullName(), task.getExecutionState()))));
             return null;
         }
     }
 
-    private void deployPipeline(@NonNull SubPlan pipeline, Map<PhysicalVertex, SlotProfile> slotProfiles) {
+    private void deployPipeline(@NonNull SubPlan pipeline, Map<TaskGroupLocation, SlotProfile> slotProfiles) {
         if (pipeline.updatePipelineState(PipelineState.SCHEDULED, PipelineState.DEPLOYING)) {
 
             try {
                 List<CompletableFuture<?>> deployCoordinatorFuture =
                     pipeline.getCoordinatorVertexList().stream()
-                        .map(coordinator -> deployTask(coordinator, slotProfiles.get(coordinator)))
+                        .map(coordinator -> deployTask(coordinator,
+                            slotProfiles.get(coordinator.getTaskGroupLocation())))
                         .filter(Objects::nonNull).collect(Collectors.toList());
 
                 List<CompletableFuture<?>> deployTaskFuture =
-                    pipeline.getPhysicalVertexList().stream().map(task -> deployTask(task, slotProfiles.get(task)))
+                    pipeline.getPhysicalVertexList().stream()
+                        .map(task -> deployTask(task, slotProfiles.get(task.getTaskGroupLocation())))
                         .filter(Objects::nonNull).collect(Collectors.toList());
 
                 deployCoordinatorFuture.addAll(deployTaskFuture);
@@ -200,20 +218,20 @@ public class PipelineBaseScheduler implements JobScheduler {
                 if (!pipeline.updatePipelineState(PipelineState.DEPLOYING, PipelineState.RUNNING)) {
                     LOGGER.info(
                         String.format("%s turn to state %s, skip the running state.", pipeline.getPipelineFullName(),
-                            pipeline.getPipelineState().get()));
+                            pipeline.getPipelineState()));
                 }
             } catch (Exception e) {
                 makePipelineFailed(pipeline, e);
             }
-        } else if (PipelineState.CANCELING.equals(pipeline.getPipelineState().get()) ||
-            PipelineState.CANCELED.equals(pipeline.getPipelineState().get())) {
+        } else if (PipelineState.CANCELING.equals(pipeline.getPipelineState()) ||
+            PipelineState.CANCELED.equals(pipeline.getPipelineState())) {
             // may be canceled
             LOGGER.info(String.format("%s turn to state %s, skip %s this pipeline.", pipeline.getPipelineFullName(),
-                pipeline.getPipelineState().get(), PipelineState.DEPLOYING));
+                pipeline.getPipelineState(), PipelineState.DEPLOYING));
         } else {
             makePipelineFailed(pipeline, new JobException(
                 String.format("%s turn to a unexpected state: %s, stop scheduler job", pipeline.getPipelineFullName(),
-                    pipeline.getPipelineState().get())));
+                    pipeline.getPipelineState())));
         }
     }
 
@@ -223,32 +241,32 @@ public class PipelineBaseScheduler implements JobScheduler {
     }
 
     private void handlePipelineStateTurnError(SubPlan pipeline, PipelineState targetState) {
-        if (PipelineState.CANCELING.equals(pipeline.getPipelineState().get()) ||
-            PipelineState.CANCELED.equals(pipeline.getPipelineState().get())) {
+        if (PipelineState.CANCELING.equals(pipeline.getPipelineState()) ||
+            PipelineState.CANCELED.equals(pipeline.getPipelineState())) {
             // may be canceled
             LOGGER.info(
                 String.format("%s turn to state %s, skip %s this pipeline.", pipeline.getPipelineFullName(),
-                    pipeline.getPipelineState().get(), targetState));
+                    pipeline.getPipelineState(), targetState));
         } else {
             throw new JobException(
                 String.format("%s turn to a unexpected state: %s, stop scheduler job",
                     pipeline.getPipelineFullName(),
-                    pipeline.getPipelineState().get()));
+                    pipeline.getPipelineState()));
         }
     }
 
     private void makePipelineFailed(@NonNull SubPlan pipeline, Throwable e) {
         pipeline.getCoordinatorVertexList().forEach(coordinator -> {
-            makeTaskFailed(coordinator, e);
+            makeTaskFailed(coordinator.getTaskGroupLocation(), e);
         });
 
         pipeline.getPhysicalVertexList().forEach(task -> {
-            makeTaskFailed(task, e);
+            makeTaskFailed(task.getTaskGroupLocation(), e);
         });
     }
 
-    private void makeTaskFailed(@NonNull PhysicalVertex task, Throwable e) {
+    private void makeTaskFailed(@NonNull TaskGroupLocation taskGroupLocation, Throwable e) {
         jobMaster.updateTaskExecutionState(
-            new TaskExecutionState(task.getTaskGroupLocation(), ExecutionState.FAILED, e));
+            new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, e));
     }
 }

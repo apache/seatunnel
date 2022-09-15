@@ -29,10 +29,11 @@ import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointStorageConfiguration;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
-import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
+import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.scheduler.JobScheduler;
@@ -46,6 +47,7 @@ import com.hazelcast.jet.datamodel.Tuple2;
 import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
+import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.NonNull;
 import org.apache.commons.collections4.CollectionUtils;
@@ -53,7 +55,6 @@ import org.apache.commons.collections4.CollectionUtils;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
 public class JobMaster implements Runnable {
@@ -77,24 +78,37 @@ public class JobMaster implements Runnable {
     private JobImmutableInformation jobImmutableInformation;
 
     private JobScheduler jobScheduler;
-    private final Map<Integer, Map<PhysicalVertex, SlotProfile>> ownedSlotProfiles;
+
+    /**
+     * we need store slot used by task in Hazelcast IMap and release or reuse it when a new master node active.
+     */
+    private final IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap;
+
+    private final IMap<Object, Object> runningJobStateIMap;
+
+    private final IMap<Object, Object> runningJobStateTimestampsIMap;
 
     private CompletableFuture<Void> scheduleFuture = new CompletableFuture<>();
 
     public JobMaster(@NonNull Data jobImmutableInformationData,
                      @NonNull NodeEngine nodeEngine,
                      @NonNull ExecutorService executorService,
-                     @NonNull ResourceManager resourceManager) {
+                     @NonNull ResourceManager resourceManager,
+                     @NonNull IMap runningJobStateIMap,
+                     @NonNull IMap runningJobStateTimestampsIMap,
+                     @NonNull IMap ownedSlotProfilesIMap) {
         this.jobImmutableInformationData = jobImmutableInformationData;
         this.nodeEngine = nodeEngine;
         this.executorService = executorService;
         flakeIdGenerator =
             this.nodeEngine.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME);
-        this.ownedSlotProfiles = new ConcurrentHashMap<>();
+        this.ownedSlotProfilesIMap = ownedSlotProfilesIMap;
         this.resourceManager = resourceManager;
+        this.runningJobStateIMap = runningJobStateIMap;
+        this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
     }
 
-    public void init() throws Exception {
+    public void init(long initializationTimestamp) throws Exception {
         jobImmutableInformation = nodeEngine.getSerializationService().toObject(
             jobImmutableInformationData);
         LOGGER.info("Job [" + jobImmutableInformation.getJobId() + "] submit");
@@ -113,9 +127,11 @@ public class JobMaster implements Runnable {
         final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple = PlanUtils.fromLogicalDAG(logicalDag,
             nodeEngine,
             jobImmutableInformation,
-            System.currentTimeMillis(),
+            initializationTimestamp,
             executorService,
-            flakeIdGenerator);
+            flakeIdGenerator,
+            runningJobStateIMap,
+            runningJobStateTimestampsIMap);
         this.physicalPlan = planTuple.f0();
         this.checkpointManager = new CheckpointManager(
             jobImmutableInformation.getJobId(),
@@ -162,19 +178,20 @@ public class JobMaster implements Runnable {
 
     public void handleCheckpointTimeout(long pipelineId) {
         this.physicalPlan.getPipelineList().forEach(pipeline -> {
-            if (pipeline.getPipelineId() == pipelineId) {
+            if (pipeline.getPipelineLocation().getPipelineId() == pipelineId) {
                 pipeline.cancelPipeline();
             }
         });
     }
 
-    public CompletableFuture<Void> reSchedulerPipeline(SubPlan subPlan) {
-        return jobScheduler.reSchedulerPipeline(subPlan);
+    public PassiveCompletableFuture<Void> reSchedulerPipeline(SubPlan subPlan) {
+        return new PassiveCompletableFuture<>(jobScheduler.reSchedulerPipeline(subPlan));
     }
 
-    public void releasePipelineResource(int pipelineId) {
+    public void releasePipelineResource(SubPlan subPlan) {
         resourceManager.releaseResources(jobImmutableInformation.getJobId(),
-            Lists.newArrayList(ownedSlotProfiles.get(pipelineId).values()));
+            Lists.newArrayList(ownedSlotProfilesIMap.get(subPlan.getPipelineLocation()).values())).join();
+        ownedSlotProfilesIMap.remove(subPlan.getPipelineLocation());
     }
 
     public void cleanJob() {
@@ -182,12 +199,12 @@ public class JobMaster implements Runnable {
     }
 
     public Address queryTaskGroupAddress(long taskGroupId) {
-        for (Integer pipelineId : ownedSlotProfiles.keySet()) {
-            Optional<PhysicalVertex> currentVertex = ownedSlotProfiles.get(pipelineId).keySet().stream()
-                .filter(task -> task.getTaskGroupLocation().getTaskGroupId() == taskGroupId)
+        for (PipelineLocation pipelineLocation : ownedSlotProfilesIMap.keySet()) {
+            Optional<TaskGroupLocation> currentVertex = ownedSlotProfilesIMap.get(pipelineLocation).keySet().stream()
+                .filter(taskGroupLocation -> taskGroupLocation.getTaskGroupId() == taskGroupId)
                 .findFirst();
             if (currentVertex.isPresent()) {
-                return ownedSlotProfiles.get(pipelineId).get(currentVertex.get()).getWorker();
+                return ownedSlotProfilesIMap.get(pipelineLocation).get(currentVertex.get()).getWorker();
             }
         }
         throw new IllegalArgumentException("can't find task group address from task group id: " + taskGroupId);
@@ -224,7 +241,7 @@ public class JobMaster implements Runnable {
 
     public void updateTaskExecutionState(TaskExecutionState taskExecutionState) {
         this.physicalPlan.getPipelineList().forEach(pipeline -> {
-            if (pipeline.getPipelineId() != taskExecutionState.getTaskGroupLocation().getPipelineId()) {
+            if (pipeline.getPipelineLocation().getPipelineId() != taskExecutionState.getTaskGroupLocation().getPipelineId()) {
                 return;
             }
 
@@ -246,16 +263,20 @@ public class JobMaster implements Runnable {
         });
     }
 
-    public Map<Integer, Map<PhysicalVertex, SlotProfile>> getOwnedSlotProfiles() {
-        return ownedSlotProfiles;
+    public Map<TaskGroupLocation, SlotProfile> getOwnedSlotProfiles(PipelineLocation pipelineLocation) {
+        return ownedSlotProfilesIMap.get(pipelineLocation);
     }
 
-    public void setOwnedSlotProfiles(@NonNull Integer pipelineId,
-        @NonNull Map<PhysicalVertex, SlotProfile> pipelineOwnedSlotProfiles) {
-        ownedSlotProfiles.put(pipelineId, pipelineOwnedSlotProfiles);
+    public void setOwnedSlotProfiles(@NonNull PipelineLocation pipelineLocation,
+                                     @NonNull Map<TaskGroupLocation, SlotProfile> pipelineOwnedSlotProfiles) {
+        ownedSlotProfilesIMap.put(pipelineLocation, pipelineOwnedSlotProfiles);
     }
 
     public CompletableFuture<Void> getScheduleFuture() {
         return scheduleFuture;
+    }
+
+    public ExecutorService getExecutorService() {
+        return executorService;
     }
 }
