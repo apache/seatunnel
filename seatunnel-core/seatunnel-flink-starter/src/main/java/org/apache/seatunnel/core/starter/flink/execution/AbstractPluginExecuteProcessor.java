@@ -21,7 +21,7 @@ import static org.apache.seatunnel.apis.base.plugin.Plugin.RESULT_TABLE_NAME;
 import static org.apache.seatunnel.apis.base.plugin.Plugin.SOURCE_TABLE_NAME;
 
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.core.starter.flink.config.FlinkCommon;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.util.TableUtil;
 
@@ -46,7 +46,7 @@ public abstract class AbstractPluginExecuteProcessor<T> implements PluginExecute
     protected static final String ENGINE_TYPE = "seatunnel";
     protected static final String PLUGIN_NAME = "plugin_name";
 
-    protected final BiConsumer<ClassLoader, URL> addUrlToClassloader = Common.ADD_URL_TO_CLASSLOADER;
+    protected final BiConsumer<ClassLoader, URL> addUrlToClassloader = FlinkCommon.ADD_URL_TO_CLASSLOADER;
 
     protected AbstractPluginExecuteProcessor(FlinkEnvironment flinkEnvironment,
                                              JobContext jobContext,

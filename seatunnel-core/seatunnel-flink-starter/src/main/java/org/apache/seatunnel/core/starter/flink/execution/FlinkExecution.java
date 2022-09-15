@@ -22,6 +22,7 @@ import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.TaskExecution;
+import org.apache.seatunnel.core.starter.flink.config.FlinkCommon;
 import org.apache.seatunnel.core.starter.flink.config.FlinkEnvironmentFactory;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 
@@ -87,7 +88,7 @@ public class FlinkExecution implements TaskExecution {
             })
             .collect(Collectors.toList());
 
-        pluginsJarDependencies.forEach(url -> Common.ADD_URL_TO_CLASSLOADER.accept(Thread.currentThread().getContextClassLoader(), url));
+        pluginsJarDependencies.forEach(url -> FlinkCommon.ADD_URL_TO_CLASSLOADER.accept(Thread.currentThread().getContextClassLoader(), url));
 
         flinkEnvironment.registerPlugin(pluginsJarDependencies);
     }

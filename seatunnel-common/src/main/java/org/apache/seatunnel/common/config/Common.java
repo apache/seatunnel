@@ -19,19 +19,14 @@ package org.apache.seatunnel.common.config;
 
 import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
 
-import org.apache.seatunnel.common.utils.ReflectionUtils;
-
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -51,21 +46,6 @@ public class Common {
     private static DeployMode MODE;
 
     private static boolean STARTER = false;
-
-    /**
-     * Add jar url to classloader. The different engine should have different logic to add url into
-     * their own classloader
-     */
-    public static BiConsumer<ClassLoader, URL> ADD_URL_TO_CLASSLOADER = (classLoader, url) -> {
-        if (classLoader.getClass().getName().endsWith("SafetyNetWrapperClassLoader")) {
-            URLClassLoader c = (URLClassLoader) ReflectionUtils.getField(classLoader, "inner").get();
-            ReflectionUtils.invoke(c, "addURL", url);
-        } else if (classLoader instanceof URLClassLoader) {
-            ReflectionUtils.invoke(classLoader, "addURL", url);
-        } else {
-            throw new RuntimeException("Unsupported classloader: " + classLoader.getClass().getName());
-        }
-    };
 
     /**
      * Set mode. return false in case of failure
