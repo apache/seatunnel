@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.server.task.operation.sink.SinkPrepareCommitO
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.RestoredSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceNoMoreElementOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
 
@@ -62,6 +63,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
     public static final int DEPLOY_TASK_OPERATOR = 12;
 
     public static final int CANCEL_TASK_OPERATOR = 13;
+
+    public static final int RESTORED_SPLIT_OPERATOR = 14;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -109,6 +112,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new CancelTaskOperation();
                 case GET_TASKGROUP_ADDRESS_TYPE:
                     return new GetTaskGroupAddressOperation();
+                case RESTORED_SPLIT_OPERATOR:
+                    return new RestoredSplitOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

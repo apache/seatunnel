@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
@@ -33,6 +34,7 @@ import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SourceReaderContext;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.RestoredSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceNoMoreElementOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
@@ -185,6 +187,13 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             .flatMap(Collection::stream)
             .map(bytes -> sneaky(() -> splitSerializer.deserialize(bytes)))
             .collect(Collectors.toList());
-        // TODO: send to enumerator
+        try {
+            runningTask.getExecutionContext()
+                .sendToMember(new RestoredSplitOperation(enumeratorTaskLocation, SerializationUtils.serialize(splits.toArray()), indexID),
+                    enumeratorTaskAddress).get();
+        } catch (InterruptedException | ExecutionException e) {
+            LOGGER.warning("source request split failed", e);
+            throw new RuntimeException(e);
+        }
     }
 }
