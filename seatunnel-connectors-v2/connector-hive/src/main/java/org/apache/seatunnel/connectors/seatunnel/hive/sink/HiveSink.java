@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -49,7 +49,7 @@ public class HiveSink implements SeaTunnelSink<SeaTunnelRow, HiveSinkState, Hive
     private String jobId;
     private Long checkpointId;
     private SeaTunnelRowType seaTunnelRowTypeInfo;
-    private SeaTunnelContext seaTunnelContext;
+    private JobContext jobContext;
     private HiveSinkConfig hiveSinkConfig;
 
     @Override
@@ -76,7 +76,7 @@ public class HiveSink implements SeaTunnelSink<SeaTunnelRow, HiveSinkState, Hive
 
     @Override
     public SinkWriter<SeaTunnelRow, HiveCommitInfo, HiveSinkState> createWriter(SinkWriter.Context context) throws IOException {
-        if (!seaTunnelContext.getJobMode().equals(JobMode.BATCH) && hiveSinkConfig.getTextFileSinkConfig().getSaveMode().equals(SaveMode.OVERWRITE)) {
+        if (!jobContext.getJobMode().equals(JobMode.BATCH) && hiveSinkConfig.getTextFileSinkConfig().getSaveMode().equals(SaveMode.OVERWRITE)) {
             throw new RuntimeException("only batch job can overwrite hive table");
         }
 
@@ -96,9 +96,9 @@ public class HiveSink implements SeaTunnelSink<SeaTunnelRow, HiveSinkState, Hive
     }
 
     @Override
-    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
-        this.seaTunnelContext = seaTunnelContext;
-        this.jobId = seaTunnelContext.getJobId();
+    public void setJobContext(JobContext jobContext) {
+        this.jobContext = jobContext;
+        this.jobId = jobContext.getJobId();
     }
 
     @Override

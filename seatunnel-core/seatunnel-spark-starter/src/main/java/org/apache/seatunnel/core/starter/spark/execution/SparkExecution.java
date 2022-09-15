@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.core.starter.spark.execution;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.core.starter.config.EngineType;
+import org.apache.seatunnel.core.starter.config.EnvironmentFactory;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.spark.config.SparkEnvironmentFactory;
 import org.apache.seatunnel.spark.SparkEnvironment;
@@ -43,10 +45,11 @@ public class SparkExecution {
 
     public SparkExecution(Config config) {
         this.sparkEnvironment = new SparkEnvironmentFactory(config).getEnvironment();
-        SeaTunnelContext.getContext().setJobMode(sparkEnvironment.getJobMode());
-        this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(sparkEnvironment, config.getConfigList("source"));
-        this.transformPluginExecuteProcessor = new TransformExecuteProcessor(sparkEnvironment, config.getConfigList("transform"));
-        this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(sparkEnvironment, config.getConfigList("sink"));
+        JobContext jobContext = new JobContext();
+        jobContext.setJobMode(sparkEnvironment.getJobMode());
+        this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(sparkEnvironment, jobContext, config.getConfigList("source"));
+        this.transformPluginExecuteProcessor = new TransformExecuteProcessor(sparkEnvironment, jobContext, config.getConfigList("transform"));
+        this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(sparkEnvironment, jobContext, config.getConfigList("sink"));
     }
 
     public void execute() throws TaskExecuteException {

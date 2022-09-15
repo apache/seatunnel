@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
@@ -36,10 +36,10 @@ import java.net.URL;
 public class TestUtils {
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    public static LogicalDag getTestLogicalDag() throws MalformedURLException {
+    public static LogicalDag getTestLogicalDag(JobContext jobContext) throws MalformedURLException {
         IdGenerator idGenerator = new IdGenerator();
         FakeSource fakeSource = new FakeSource();
-        fakeSource.setSeaTunnelContext(SeaTunnelContext.getContext());
+        fakeSource.setJobContext(jobContext);
 
         Action fake = new SourceAction<>(idGenerator.getNextId(), "fake", fakeSource,
             Sets.newHashSet(new URL("file:///fake.jar")));
@@ -47,7 +47,7 @@ public class TestUtils {
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 3);
 
         ConsoleSink consoleSink = new ConsoleSink();
-        consoleSink.setSeaTunnelContext(SeaTunnelContext.getContext());
+        consoleSink.setJobContext(jobContext);
         Action console = new SinkAction<>(idGenerator.getNextId(), "console", consoleSink,
             Sets.newHashSet(new URL("file:///console.jar")));
         console.setParallelism(3);
