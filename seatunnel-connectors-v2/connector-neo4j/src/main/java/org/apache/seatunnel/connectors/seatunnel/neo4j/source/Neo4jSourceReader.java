@@ -18,11 +18,23 @@
 package org.apache.seatunnel.connectors.seatunnel.neo4j.source;
 
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.type.*;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig;
-import org.neo4j.driver.*;
+
+import org.neo4j.driver.Driver;
+import org.neo4j.driver.Query;
+import org.neo4j.driver.Result;
+import org.neo4j.driver.Session;
+import org.neo4j.driver.SessionConfig;
+import org.neo4j.driver.Value;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -34,7 +46,6 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final SeaTunnelRowType rowType;
     private final Driver driver;
     private Session session;
-
 
     public Neo4jSourceReader(SingleSplitReaderContext context, Neo4jSourceConfig config, SeaTunnelRowType rowType) {
         this.context = context;
@@ -60,16 +71,16 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         session.readTransaction(tx -> {
             final Result result = tx.run(query);
             result.stream()
-                    .forEach(row -> {
-                        final Object[] fields = new Object[rowType.getTotalFields()];
-                        for (int i = 0; i < rowType.getTotalFields(); i++) {
-                            final String fieldName = rowType.getFieldName(i);
-                            final SeaTunnelDataType<?> fieldType = rowType.getFieldType(i);
-                            final Value value = row.get(fieldName);
-                            fields[i] = convertType(fieldType, value);
-                        }
-                        output.collect(new SeaTunnelRow(fields));
-                    });
+                .forEach(row -> {
+                    final Object[] fields = new Object[rowType.getTotalFields()];
+                    for (int i = 0; i < rowType.getTotalFields(); i++) {
+                        final String fieldName = rowType.getFieldName(i);
+                        final SeaTunnelDataType<?> fieldType = rowType.getFieldType(i);
+                        final Value value = row.get(fieldName);
+                        fields[i] = convertType(fieldType, value);
+                    }
+                    output.collect(new SeaTunnelRow(fields));
+                });
             return null;
         });
         this.context.signalNoMoreElement();
