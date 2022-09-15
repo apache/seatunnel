@@ -120,19 +120,14 @@
         </fileSet>
         <!-- seatunnel engine -->
         <fileSet>
-            <directory>../seatunnel-engine/seatunnel-engine-client/target</directory>
-            <includes>
-                <include>seatunnel-engine-*.jar</include>
-            </includes>
-            <excludes>
-                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
-            </excludes>
-            <outputDirectory>/lib</outputDirectory>
+            <directory>../seatunnel-core/seatunnel-starter/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
         </fileSet>
         <fileSet>
-            <directory>../seatunnel-engine/seatunnel-engine-server/target</directory>
+            <directory>../seatunnel-core/seatunnel-starter/target</directory>
             <includes>
-                <include>seatunnel-engine-*.jar</include>
+                <include>seatunnel-starter*.jar</include>
             </includes>
             <excludes>
                 <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
