@@ -19,7 +19,7 @@ package org.apache.seatunnel.core.starter.flink.execution;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -53,8 +53,9 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
     private static final String PLUGIN_TYPE = "source";
 
     public SourceExecuteProcessor(FlinkEnvironment flinkEnvironment,
+                                  JobContext jobContext,
                                   List<? extends Config> sourceConfigs) {
-        super(flinkEnvironment, sourceConfigs);
+        super(flinkEnvironment, jobContext, sourceConfigs);
     }
 
     @Override
@@ -110,8 +111,8 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
             jars.addAll(sourcePluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
             SeaTunnelSource seaTunnelSource = sourcePluginDiscovery.createPluginInstance(pluginIdentifier);
             seaTunnelSource.prepare(sourceConfig);
-            seaTunnelSource.setSeaTunnelContext(SeaTunnelContext.getContext());
-            if (SeaTunnelContext.getContext().getJobMode() == JobMode.BATCH
+            seaTunnelSource.setJobContext(jobContext);
+            if (jobContext.getJobMode() == JobMode.BATCH
                 && seaTunnelSource.getBoundedness() == org.apache.seatunnel.api.source.Boundedness.UNBOUNDED) {
                 throw new UnsupportedOperationException(String.format("'%s' source don't support off-line job.", seaTunnelSource.getPluginName()));
             }
