@@ -31,8 +31,15 @@
 
     <properties>
         <spark.scope>compile</spark.scope>
+        <spark.2.4.0.jackson.version>2.6.7</spark.2.4.0.jackson.version>
     </properties>
     <dependencies>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${spark.2.4.0.jackson.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-spark-starter</artifactId>

@@ -85,8 +85,8 @@ public class TypeConverterUtils {
                 return DataTypes.BinaryType;
             case DATE:
                 return DataTypes.DateType;
-            case TIME:
-                // TODO: how reconvert?
+            // case TIME:
+                // TODO: not support now, how reconvert?
             case TIMESTAMP:
                 return DataTypes.TimestampType;
             case ARRAY:

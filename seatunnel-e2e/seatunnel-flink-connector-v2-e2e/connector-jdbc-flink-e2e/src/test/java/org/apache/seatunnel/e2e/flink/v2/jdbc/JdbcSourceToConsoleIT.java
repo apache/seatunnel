@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.flink.v2.jdbc;
 
+import static org.awaitility.Awaitility.given;
+
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
 import org.junit.jupiter.api.AfterEach;
@@ -37,6 +39,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 public class JdbcSourceToConsoleIT extends FlinkContainer {
@@ -52,9 +55,13 @@ public class JdbcSourceToConsoleIT extends FlinkContainer {
                 .withLogConsumer(new Slf4jLogConsumer(LOGGER));
         Startables.deepStart(Stream.of(psl)).join();
         LOGGER.info("PostgreSql container started");
-        Thread.sleep(5000L);
         Class.forName(psl.getDriverClassName());
-        initializeJdbcTable();
+        given().ignoreExceptions()
+            .await()
+            .atLeast(100, TimeUnit.MILLISECONDS)
+            .pollInterval(500, TimeUnit.MILLISECONDS)
+            .atMost(5, TimeUnit.SECONDS)
+            .untilAsserted(() -> initializeJdbcTable());
         batchInsertData();
     }
 

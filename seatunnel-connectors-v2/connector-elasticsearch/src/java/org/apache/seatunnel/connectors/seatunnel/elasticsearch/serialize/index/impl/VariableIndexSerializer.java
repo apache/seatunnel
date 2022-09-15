@@ -33,7 +33,7 @@ public class VariableIndexSerializer implements IndexSerializer {
     private final String index;
     private final Map<String, Integer> fieldIndexMap;
 
-    private final String NULL_DEFAULT = "null";
+    private final String nullDefault = "null";
 
     public VariableIndexSerializer(SeaTunnelRowType seaTunnelRowType, String index, List<String> fieldNames) {
         this.index = index;
@@ -61,7 +61,7 @@ public class VariableIndexSerializer implements IndexSerializer {
     private String getValue(int fieldIndex, SeaTunnelRow row) {
         Object valueObj = row.getField(fieldIndex);
         if (valueObj == null) {
-            return NULL_DEFAULT;
+            return nullDefault;
         } else {
             return valueObj.toString();
         }

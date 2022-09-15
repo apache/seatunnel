@@ -19,8 +19,6 @@ package org.apache.seatunnel.core.starter.config;
 
 import org.apache.seatunnel.apis.base.env.RuntimeEnv;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.spark.SparkEnvironment;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -31,39 +29,27 @@ import java.util.List;
  *
  * @param <ENVIRONMENT> environment type
  */
-public class EnvironmentFactory<ENVIRONMENT extends RuntimeEnv> {
-
+public abstract class EnvironmentFactory<ENVIRONMENT extends RuntimeEnv> {
     private static final String PLUGIN_NAME_KEY = "plugin_name";
 
     private final Config config;
-    private final EngineType engine;
 
-    public EnvironmentFactory(Config config, EngineType engine) {
+    public EnvironmentFactory(Config config) {
         this.config = config;
-        this.engine = engine;
     }
 
     // todo:put this method into submodule to avoid dependency on the engine
     public synchronized ENVIRONMENT getEnvironment() {
         Config envConfig = config.getConfig("env");
-        boolean enableHive = checkIsContainHive();
-        ENVIRONMENT env;
-        switch (engine) {
-            case SPARK:
-                env = (ENVIRONMENT) new SparkEnvironment().setEnableHive(enableHive);
-                break;
-            case FLINK:
-                env = (ENVIRONMENT) new FlinkEnvironment();
-                break;
-            default:
-                throw new IllegalArgumentException("Engine: " + engine + " is not supported");
-        }
+        ENVIRONMENT env = newEnvironment();
         env.setConfig(envConfig)
             .setJobMode(getJobMode(envConfig)).prepare();
         return env;
     }
 
-    private boolean checkIsContainHive() {
+    protected abstract ENVIRONMENT newEnvironment();
+
+    protected boolean checkIsContainHive() {
         List<? extends Config> sourceConfigList = config.getConfigList(PluginType.SOURCE.getType());
         for (Config c : sourceConfigList) {
             if (c.getString(PLUGIN_NAME_KEY).toLowerCase().contains("hive")) {
