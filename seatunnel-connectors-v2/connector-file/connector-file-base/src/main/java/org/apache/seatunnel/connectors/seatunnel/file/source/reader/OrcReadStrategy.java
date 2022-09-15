@@ -56,9 +56,9 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -171,16 +171,13 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         switch (typeDescription.getCategory()) {
             case BOOLEAN:
                 return BasicType.BOOLEAN_TYPE;
-            case BYTE:
-                return BasicType.BYTE_TYPE;
-            case SHORT:
-                return BasicType.SHORT_TYPE;
             case INT:
                 return BasicType.INT_TYPE;
+            case BYTE:
+            case SHORT:
             case LONG:
                 return BasicType.LONG_TYPE;
             case FLOAT:
-                return BasicType.FLOAT_TYPE;
             case DOUBLE:
                 return BasicType.DOUBLE_TYPE;
             case STRING:
@@ -288,7 +285,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             } else if (colType.getCategory() == TypeDescription.Category.BOOLEAN) {
                 colObj = longVal == 1 ? Boolean.TRUE : Boolean.FALSE;
             } else if (colType.getCategory() == TypeDescription.Category.DATE) {
-                colObj = new Date(longVal);
+                colObj = LocalDate.ofEpochDay(longVal);
             }
         }
         return colObj;
@@ -320,9 +317,9 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             long millis = timestampVec.time[rowNum];
             Timestamp timestamp = new Timestamp(millis);
             timestamp.setNanos(nanos);
-            timestampVal = timestamp;
+            timestampVal = timestamp.toLocalDateTime();
             if (colType.getCategory() == TypeDescription.Category.DATE) {
-                timestampVal = new Date(timestamp.getTime());
+                timestampVal = LocalDate.ofEpochDay(timestamp.getTime());
             }
         }
         return timestampVal;
@@ -331,15 +328,15 @@ public class OrcReadStrategy extends AbstractReadStrategy {
     private Object readStructVal(ColumnVector colVec, TypeDescription colType, int rowNum) {
         Object structObj = null;
         if (!colVec.isNull[rowNum]) {
-            List<Object> fieldValList = new ArrayList<>();
             StructColumnVector structVector = (StructColumnVector) colVec;
             ColumnVector[] fieldVec = structVector.fields;
+            Object[] fieldValues = new Object[fieldVec.length];
             List<TypeDescription> fieldTypes = colType.getChildren();
             for (int i = 0; i < fieldVec.length; i++) {
                 Object fieldObj = readColumn(fieldVec[i], fieldTypes.get(i), rowNum);
-                fieldValList.add(fieldObj);
+                fieldValues[i] = fieldObj;
             }
-            structObj = fieldValList;
+            structObj = new SeaTunnelRow(fieldValues);
         }
         return structObj;
     }
@@ -355,10 +352,10 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             TypeDescription valueType = mapTypes.get(1);
             ColumnVector keyChild = mapVector.keys;
             ColumnVector valueChild = mapVector.values;
-            List<Object> keyList = readMapVector(keyChild, keyType, offset, mapSize);
-            List<Object> valueList = readMapVector(valueChild, valueType, offset, mapSize);
-            for (int i = 0; i < keyList.size(); i++) {
-                objMap.put(keyList.get(i), valueList.get(i));
+            Object[] keyList = readMapVector(keyChild, keyType, offset, mapSize);
+            Object[] valueList = readMapVector(valueChild, valueType, offset, mapSize);
+            for (int i = 0; i < keyList.length; i++) {
+                objMap.put(keyList[i], valueList[i]);
             }
         } else {
             throw new RuntimeException("readMapVal: unsupported key or value types");
@@ -382,12 +379,12 @@ public class OrcReadStrategy extends AbstractReadStrategy {
     }
 
     @SuppressWarnings("unchecked")
-    private List<Object> readMapVector(ColumnVector mapVector, TypeDescription childType, int offset, int numValues) {
-        List<Object> mapList;
+    private Object[] readMapVector(ColumnVector mapVector, TypeDescription childType, int offset, int numValues) {
+        Object[] mapList;
         switch (mapVector.type) {
             case BYTES:
                 mapList =
-                        (List<Object>) readBytesListVector(
+                        readBytesListVector(
                                 (BytesColumnVector) mapVector,
                                 childType,
                                 offset,
@@ -405,7 +402,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 break;
             case DOUBLE:
                 mapList =
-                        (List<Object>) readDoubleListVector(
+                        readDoubleListVector(
                                 (DoubleColumnVector) mapVector,
                                 offset,
                                 numValues
@@ -413,7 +410,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 break;
             case DECIMAL:
                 mapList =
-                        (List<Object>) readDecimalListVector(
+                        readDecimalListVector(
                                 (DecimalColumnVector) mapVector,
                                 offset,
                                 numValues
@@ -421,7 +418,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 break;
             case TIMESTAMP:
                 mapList =
-                        (List<Object>) readTimestampListVector(
+                        readTimestampListVector(
                                 (TimestampColumnVector) mapVector,
                                 childType,
                                 offset,
@@ -496,7 +493,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         return readLongListVector(longVector, childType, offset, numValues);
     }
 
-    private List<Object> readLongListVector(LongColumnVector longVector, TypeDescription childType, int offset, int numValues) {
+    private Object[] readLongListVector(LongColumnVector longVector, TypeDescription childType, int offset, int numValues) {
         List<Object> longList = new ArrayList<>();
         for (int i = 0; i < numValues; i++) {
             if (!longVector.isNull[offset + i]) {
@@ -514,7 +511,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 longList.add(null);
             }
         }
-        return longList;
+        return longList.toArray();
     }
 
     private Object readDoubleListValues(ListColumnVector listVector, int rowNum) {
@@ -524,7 +521,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         return readDoubleListVector(doubleVec, offset, numValues);
     }
 
-    private Object readDoubleListVector(DoubleColumnVector doubleVec, int offset, int numValues) {
+    private Object[] readDoubleListVector(DoubleColumnVector doubleVec, int offset, int numValues) {
         List<Object> doubleList = new ArrayList<>();
         for (int i = 0; i < numValues; i++) {
             if (!doubleVec.isNull[offset + i]) {
@@ -534,7 +531,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 doubleList.add(null);
             }
         }
-        return doubleList;
+        return doubleList.toArray();
     }
 
     private Object readBytesListValues(ListColumnVector listVector, TypeDescription childType, int rowNum) {
@@ -544,7 +541,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         return readBytesListVector(bytesVec, childType, offset, numValues);
     }
 
-    private Object readBytesListVector(BytesColumnVector bytesVec, TypeDescription childType, int offset, int numValues) {
+    private Object[] readBytesListVector(BytesColumnVector bytesVec, TypeDescription childType, int offset, int numValues) {
         List<Object> bytesValList = new ArrayList<>();
         for (int i = 0; i < numValues; i++) {
             if (!bytesVec.isNull[offset + i]) {
@@ -562,7 +559,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 bytesValList.add(null);
             }
         }
-        return bytesValList;
+        return bytesValList.toArray(new String[0]);
     }
 
     private Object readDecimalListValues(ListColumnVector listVector, int rowNum) {
@@ -572,7 +569,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         return readDecimalListVector(decimalVec, offset, numValues);
     }
 
-    private Object readDecimalListVector(DecimalColumnVector decimalVector, int offset, int numValues) {
+    private Object[] readDecimalListVector(DecimalColumnVector decimalVector, int offset, int numValues) {
         List<Object> decimalList = new ArrayList<>();
         for (int i = 0; i < numValues; i++) {
             if (!decimalVector.isNull[offset + i]) {
@@ -582,7 +579,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 decimalList.add(null);
             }
         }
-        return decimalList;
+        return decimalList.toArray();
     }
 
     private Object readTimestampListValues(ListColumnVector listVector, TypeDescription childType, int rowNum) {
@@ -592,7 +589,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         return readTimestampListVector(timestampVec, childType, offset, numValues);
     }
 
-    private Object readTimestampListVector(TimestampColumnVector timestampVector, TypeDescription childType, int offset, int numValues) {
+    private Object[] readTimestampListVector(TimestampColumnVector timestampVector, TypeDescription childType, int offset, int numValues) {
         List<Object> timestampList = new ArrayList<>();
         for (int i = 0; i < numValues; i++) {
             if (!timestampVector.isNull[offset + i]) {
@@ -601,16 +598,16 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 Timestamp timestamp = new Timestamp(millis);
                 timestamp.setNanos(nanos);
                 if (childType.getCategory() == TypeDescription.Category.DATE) {
-                    Date date = new Date(timestamp.getTime());
-                    timestampList.add(date);
+                    LocalDate localDate = LocalDate.ofEpochDay(timestamp.getTime());
+                    timestampList.add(localDate);
                 } else {
-                    timestampList.add(timestamp);
+                    timestampList.add(timestamp.toLocalDateTime());
                 }
             } else {
                 timestampList.add(null);
             }
         }
-        return timestampList;
+        return timestampList.toArray();
     }
 }
 
