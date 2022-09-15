@@ -270,8 +270,6 @@ public class JobConfigParser {
                 pair.getRight());
         sourceAction.setParallelism(getSourceParallelism(sourceConfigs.get(0)));
         SeaTunnelDataType dataType = sourceAction.getSource().getProducedType();
-        ImmutablePair<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>, Set<URL>>
-            sinkListImmutablePair = ConnectorInstanceLoader.loadSinkInstance(sinkConfigs.get(0), jobConfig.getJobContext());
 
         Action sinkUpstreamAction = sourceAction;
 
@@ -294,6 +292,8 @@ public class JobConfigParser {
             sinkUpstreamAction = transformAction;
         }
 
+        ImmutablePair<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>, Set<URL>>
+            sinkListImmutablePair = ConnectorInstanceLoader.loadSinkInstance(sinkConfigs.get(0), jobConfig.getJobContext());
         SinkAction sinkAction = createSinkAction(
             idGenerator.getNextId(),
             sinkListImmutablePair.getLeft().getPluginName(),

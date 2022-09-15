@@ -78,7 +78,6 @@ public class ConnectorInstanceLoader {
         SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable> seaTunnelSink =
             sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
         seaTunnelSink.prepare(sinkConfig);
-        seaTunnelSink.setTypeInfo(null);
         seaTunnelSink.setJobContext(jobContext);
         return new ImmutablePair<>(seaTunnelSink, new HashSet<>(pluginJarPaths));
     }
