@@ -22,22 +22,22 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-| name                              | type   | required | default value                                                 |
-| --------------------------------- | ------ | -------- | ------------------------------------------------------------- |
-| hive_table_name                   | string | yes      | -                                                             |
-| hive_metastore_uris               | string | yes      | -                                                             |
-| partition_by                      | array  | no       | -                                                             |
-| sink_columns                      | array  | no       | When this parameter is empty, all fields are sink columns     |
-| is_enable_transaction             | boolean| no       | true                                                          |
-| save_mode                         | string | no       | "append"                                                      |
+| name                  | type   | required | default value                                                 |
+|-----------------------| ------ | -------- | ------------------------------------------------------------- |
+| table_name            | string | yes      | -                                                             |
+| metastore_uri         | string | yes      | -                                                             |
+| partition_by          | array  | no       | -                                                             |
+| sink_columns          | array  | no       | When this parameter is empty, all fields are sink columns     |
+| is_enable_transaction | boolean| no       | true                                                          |
+| save_mode             | string | no       | "append"                                                      |
 
-### hive_table_name [string]
+### table_name [string]
 
 Target Hive table name eg: db1.table1
 
-### hive_metastore_uris [string]
+### metastore_uri [string]
 
-Hive metastore uris
+Hive metastore uri
 
 ### partition_by [array]
 
@@ -64,13 +64,9 @@ Streaming Job not support `overwrite`.
 
 ```bash
 
-Hive {
-    hive_table_name="db1.table1"
-    hive_metastore_uris="thrift://localhost:9083"
-    partition_by=["age"]
-    sink_columns=["name","age"]
-    is_enable_transaction=true
-    save_mode="append"
-}
+  Hive {
+    table_name = "default.seatunnel_orc"
+    metastore_uri = "thrift://namenode001:9083"
+  }
 
 ```
