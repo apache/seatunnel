@@ -68,7 +68,7 @@ public class IcebergScanSplitPlanner {
             return new IcebergEnumerationResult(Collections.emptyList(), lastPosition, lastPosition);
         } else if (lastPosition.getSnapshotId() != null
             && currentSnapshot.snapshotId() == lastPosition.getSnapshotId()) {
-            log.info("Current table snapshot is already enumerated: {}", currentSnapshot.snapshotId());
+            log.debug("Current table snapshot is already enumerated: {}", currentSnapshot.snapshotId());
             return new IcebergEnumerationResult(Collections.emptyList(), lastPosition, lastPosition);
         }
 

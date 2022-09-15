@@ -60,7 +60,7 @@ public class IcebergStreamSplitEnumerator extends AbstractSplitEnumerator {
     public void handleSplitRequest(int subtaskId) {
         synchronized (this) {
             if (pendingSplits.isEmpty() ||
-                pendingSplits.get(subtaskId).isEmpty()) {
+                pendingSplits.get(subtaskId) == null) {
                 refreshPendingSplits();
             }
             assignPendingSplits(Collections.singleton(subtaskId));
@@ -75,10 +75,11 @@ public class IcebergStreamSplitEnumerator extends AbstractSplitEnumerator {
             log.info("Skip {} loaded splits because the scan starting position doesn't match " +
                     "the current enumerator position: enumerator position = {}, scan starting position = {}",
                 result.getSplits().size(), enumeratorPosition.get(), result.getFromPosition());
+            return Collections.emptyList();
         } else {
             enumeratorPosition.set(result.getToPosition());
-            log.info("Update enumerator position to {}", result.getToPosition());
+            log.debug("Update enumerator position to {}", result.getToPosition());
+            return result.getSplits();
         }
-        return result.getSplits();
     }
 }

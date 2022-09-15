@@ -107,7 +107,7 @@ public abstract class AbstractSplitEnumerator implements SourceSplitEnumerator<I
             pendingSplits
                 .computeIfAbsent(ownerReader, r -> new ArrayList<>())
                 .add(newSplit);
-            log.debug("Assigned {} to {} reader.", newSplit, ownerReader);
+            log.info("Assigning {} to {} reader.", newSplit, ownerReader);
         }
     }
 
@@ -115,7 +115,7 @@ public abstract class AbstractSplitEnumerator implements SourceSplitEnumerator<I
         for (int pendingReader : pendingReaders) {
             List<IcebergFileScanTaskSplit> pendingAssignmentForReader = pendingSplits.remove(pendingReader);
             if (pendingAssignmentForReader != null && !pendingAssignmentForReader.isEmpty()) {
-                log.info("Assigning splits {} to reader {}",
+                log.info("Assign splits {} to reader {}",
                     pendingAssignmentForReader, pendingReader);
                 try {
                     context.assignSplit(pendingReader, pendingAssignmentForReader);
