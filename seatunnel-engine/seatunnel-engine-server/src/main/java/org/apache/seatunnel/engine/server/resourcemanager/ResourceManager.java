@@ -38,6 +38,13 @@ public interface ResourceManager {
     CompletableFuture<Void> releaseResource(long jobId, SlotProfile profile);
 
     /**
+     * Check {@link SlotProfile} is active or not. Not active meaning can't use this slot to deploy task.
+     *
+     * @return active or not
+     */
+    boolean slotActiveCheck(SlotProfile profile);
+
+    /**
      * Every time ResourceManager and Worker communicate, heartbeat method should be called to
      * record the latest Worker status
      *
