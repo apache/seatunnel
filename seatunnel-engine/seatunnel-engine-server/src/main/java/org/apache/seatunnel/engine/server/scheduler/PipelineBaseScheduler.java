@@ -106,9 +106,8 @@ public class PipelineBaseScheduler implements JobScheduler {
             return applyResourceForPipeline(pipeline);
         }
 
-        // TODO ensure the slots still exist and is owned by this pipeline
         for (Map.Entry<PhysicalVertex, SlotProfile> entry : ownedSlotProfiles.entrySet()) {
-            if (entry.getValue() == null) {
+            if (entry.getValue() == null || !resourceManager.slotActiveCheck(entry.getValue())) {
                 ownedSlotProfiles.put(entry.getKey(), applyResourceForTask(entry.getKey()).join());
             } else {
                 entry.getKey().updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED);
