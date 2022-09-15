@@ -19,13 +19,13 @@ package org.apache.seatunnel.api.transform;
 
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.api.common.SeaTunnelPluginLifeCycle;
-import org.apache.seatunnel.api.source.SeaTunnelContextAware;
+import org.apache.seatunnel.api.source.SeaTunnelJobAware;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.io.Serializable;
 
 public interface SeaTunnelTransform<T> extends Serializable, PluginIdentifierInterface,
-        SeaTunnelPluginLifeCycle, SeaTunnelContextAware {
+        SeaTunnelPluginLifeCycle, SeaTunnelJobAware {
 
     T map(T row);
 

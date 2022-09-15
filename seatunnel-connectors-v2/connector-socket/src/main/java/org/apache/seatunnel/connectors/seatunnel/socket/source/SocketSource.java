@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.socket.source;
 
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -38,11 +38,11 @@ import com.google.auto.service.AutoService;
 @AutoService(SeaTunnelSource.class)
 public class SocketSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     private SocketSourceParameter parameter;
-    private SeaTunnelContext seaTunnelContext;
+    private JobContext jobContext;
 
     @Override
     public Boundedness getBoundedness() {
-        return JobMode.BATCH.equals(seaTunnelContext.getJobMode()) ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
+        return JobMode.BATCH.equals(jobContext.getJobMode()) ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
     }
 
     @Override
@@ -56,8 +56,8 @@ public class SocketSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     }
 
     @Override
-    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
-        this.seaTunnelContext = seaTunnelContext;
+    public void setJobContext(JobContext jobContext) {
+        this.jobContext = jobContext;
     }
 
     @Override
