@@ -82,9 +82,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     private final SeaTunnelConfig seaTunnelConfig;
 
     /**
-     * IMap key is jobId and value is a Tuple2
-     * Tuple2 key is JobMaster init timestamp and value is the jobImmutableInformation which is sent by client when submit job
-     * <p>
+     * IMap key is jobId and value is a {@link RunningJobInfo}
      * This IMap is used to recovery runningJobInfoIMap in JobMaster when a new master node active
      */
     private IMap<Long, RunningJobInfo> runningJobInfoIMap;
