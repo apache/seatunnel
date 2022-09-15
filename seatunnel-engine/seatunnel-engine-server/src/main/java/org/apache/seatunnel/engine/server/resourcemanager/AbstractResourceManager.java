@@ -36,6 +36,7 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -156,6 +157,12 @@ public abstract class AbstractResourceManager implements ResourceManager {
     @Override
     public CompletableFuture<Void> releaseResource(long jobId, SlotProfile profile) {
         return sendToMember(new ReleaseSlotOperation(jobId, profile), profile.getWorker());
+    }
+
+    @Override
+    public boolean slotActiveCheck(SlotProfile profile) {
+        return registerWorker.values().stream().flatMap(workerProfile -> Arrays.stream(workerProfile.getAssignedSlots()))
+            .anyMatch(s -> s.getSlotID() == profile.getSlotID());
     }
 
     @Override
