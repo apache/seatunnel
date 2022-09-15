@@ -233,9 +233,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
     public Set<URL> getJarsUrl() {
         List<Flow> now = Collections.singletonList(executionFlow);
         Set<URL> urls = new HashSet<>();
-        List<Flow> next = new ArrayList<>();
         while (!now.isEmpty()) {
-            next.clear();
+            final List<Flow> next = new ArrayList<>();
             now.forEach(n -> {
                 if (n instanceof PhysicalExecutionFlow) {
                     urls.addAll(((PhysicalExecutionFlow) n).getAction().getJarUrls());

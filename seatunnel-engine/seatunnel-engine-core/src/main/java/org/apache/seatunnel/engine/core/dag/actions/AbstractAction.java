@@ -26,7 +26,7 @@ import java.util.Set;
 
 public abstract class AbstractAction implements Action {
     private String name;
-    private List<Action> upstreams = new ArrayList<>();
+    private transient List<Action> upstreams = new ArrayList<>();
     // This is used to assign a unique ID to every Action
     private long id;
 
