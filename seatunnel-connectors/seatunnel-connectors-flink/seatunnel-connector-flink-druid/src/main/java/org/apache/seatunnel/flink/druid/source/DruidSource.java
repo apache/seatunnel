@@ -49,10 +49,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.*;
 
 @AutoService(BaseFlinkSource.class)
 public class DruidSource implements FlinkBatchSource {
@@ -64,6 +61,8 @@ public class DruidSource implements FlinkBatchSource {
     private DruidInputFormat druidInputFormat;
 
     private static final String JDBC_URL = "jdbc_url";
+    private static final String JDBC_USER = "user";
+    private static final String JDBC_PWD = "password";
     private static final String DATASOURCE = "datasource";
     private static final String START_TIMESTAMP = "start_date";
     private static final String END_TIMESTAMP = "end_date";
@@ -117,17 +116,21 @@ public class DruidSource implements FlinkBatchSource {
     @Override
     public void prepare(FlinkEnvironment env) {
         String jdbcURL = config.getString(JDBC_URL);
+        String user = config.getString(JDBC_USER);
+        String password = config.getString(JDBC_PWD);
         String datasource = config.getString(DATASOURCE);
         String startTimestamp = config.hasPath(START_TIMESTAMP) ? config.getString(START_TIMESTAMP) : null;
         String endTimestamp = config.hasPath(END_TIMESTAMP) ? config.getString(END_TIMESTAMP) : null;
         List<String> columns = config.hasPath(COLUMNS) ? config.getStringList(COLUMNS) : null;
 
         String sql = new DruidSql(datasource, startTimestamp, endTimestamp, columns).sql();
-
+        RowTypeInfo rowTypeInfo = getRowTypeInfo(jdbcURL, user, password, datasource, columns);
         this.druidInputFormat = DruidInputFormat.buildDruidInputFormat()
                 .setDBUrl(jdbcURL)
+                .setDBUser(user)
+                .setDBPassword(password)
                 .setQuery(sql)
-                .setRowTypeInfo(getRowTypeInfo(jdbcURL, datasource, columns))
+                .setRowTypeInfo(rowTypeInfo)
                 .finish();
     }
 
@@ -136,10 +139,10 @@ public class DruidSource implements FlinkBatchSource {
         return "DruidSource";
     }
 
-    private RowTypeInfo getRowTypeInfo(String jdbcURL, String datasource, Collection<String> userColumns) {
+    public RowTypeInfo getRowTypeInfo(String jdbcURL, String user, String password, String datasource, Collection<String> userColumns) {
         HashMap<String, TypeInformation> map = new LinkedHashMap<>();
 
-        try (Connection connection = DriverManager.getConnection(jdbcURL)) {
+        try (Connection connection = DriverManager.getConnection(jdbcURL, user, password)) {
             DatabaseMetaData metaData = connection.getMetaData();
             ResultSet columns = metaData.getColumns(connection.getCatalog(), connection.getSchema(), datasource, "%");
             while (columns.next()) {
