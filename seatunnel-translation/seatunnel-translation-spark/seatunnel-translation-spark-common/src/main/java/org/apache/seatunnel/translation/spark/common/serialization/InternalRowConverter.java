@@ -38,7 +38,10 @@ import org.apache.spark.sql.catalyst.expressions.MutableLong;
 import org.apache.spark.sql.catalyst.expressions.MutableShort;
 import org.apache.spark.sql.catalyst.expressions.MutableValue;
 import org.apache.spark.sql.catalyst.expressions.SpecificInternalRow;
+import org.apache.spark.sql.catalyst.util.ArrayBasedMapData;
 import org.apache.spark.sql.catalyst.util.ArrayData;
+import org.apache.spark.sql.catalyst.util.MapData;
+import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.Decimal;
 import org.apache.spark.unsafe.types.UTF8String;
 
@@ -47,6 +50,7 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -86,6 +90,12 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case DECIMAL:
                 return Decimal.apply((BigDecimal) field);
             case ARRAY:
+                if (((ArrayType<?, ?>) dataType).getElementType().equals(BasicType.STRING_TYPE)) {
+                    String[] fields = (String[]) field;
+                    Object[] objects = Arrays.stream(fields).map(UTF8String::fromString).toArray();
+                    return ArrayData.toArrayData(objects);
+                }
+                // TODO: need to test more data types
                 return ArrayData.toArrayData(field);
             default:
                 return field;
@@ -124,9 +134,40 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                     SeaTunnelDataType<?> valueType = mapType.getValueType();
                     newMap.put(key, convertFunction.apply(value, valueType));
                 });
+                // TODO: think about is it reasonable to use String type as key
+                return ArrayBasedMapData.apply(newMap.keySet().stream().map(key -> UTF8String.fromString(key.toString())).toArray(), newMap.values().stream().map(value -> UTF8String.fromString(value.toString())).toArray());
+            default:
+                // TODO: think about is it reasonable to use String type as key
+                return ArrayBasedMapData.apply(mapData.keySet().stream().map(key -> UTF8String.fromString(key.toString())).toArray(), mapData.values().stream().map(value -> UTF8String.fromString(value.toString())).toArray());
+        }
+    }
+
+    private static Object reconvertMap(MapData mapData, MapType<?, ?> mapType, BiFunction<Object, SeaTunnelDataType<?>, Object> convertFunction) {
+        if (mapData == null || mapData.numElements() == 0) {
+            return mapData;
+        }
+        Map<Object, Object> newMap = new HashMap<>(mapData.numElements());
+        int num = mapData.numElements();
+        // TODO: we should convert key and value using correct data type
+        Object[] keys = mapData.keyArray().toObjectArray(DataTypes.StringType);
+        Object[] values = mapData.valueArray().toObjectArray(DataTypes.StringType);
+        switch (mapType.getValueType().getSqlType()) {
+            case MAP:
+            case ROW:
+            case DATE:
+            case TIME:
+            case TIMESTAMP:
+                for (int i = 0; i < num; i++) {
+                    // TODO: think about is it reasonable to use String type as key
+                    newMap.put(keys[i].toString(), convertFunction.apply(values[i], mapType.getValueType()));
+                }
                 return newMap;
             default:
-                return mapData;
+                for (int i = 0; i < num; i++) {
+                    // TODO: think about is it reasonable to use String type as key
+                    newMap.put(keys[i].toString(), values[i].toString());
+                }
+                return newMap;
         }
     }
 
@@ -174,7 +215,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case TIMESTAMP:
                 return Timestamp.from(InstantConverterUtils.ofEpochMicro((long) field)).toLocalDateTime();
             case MAP:
-                return convertMap((Map<?, ?>) field, (MapType<?, ?>) dataType, InternalRowConverter::reconvert);
+                return reconvertMap((MapData) field, (MapType<?, ?>) dataType, InternalRowConverter::reconvert);
             case STRING:
                 return field.toString();
             case DECIMAL:
@@ -198,7 +239,8 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                     case DOUBLE:
                         return arrayData.toDoubleArray();
                     default:
-                        return arrayData.array();
+                        // TODO: we should convert array using correct data type
+                        return arrayData.toObjectArray(DataTypes.StringType);
                 }
             default:
                 return field;
