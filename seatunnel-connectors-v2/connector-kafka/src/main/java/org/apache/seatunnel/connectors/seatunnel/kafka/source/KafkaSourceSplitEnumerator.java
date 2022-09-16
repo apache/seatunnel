@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -40,6 +41,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSourceSplit, KafkaSourceState> {
 
     private static final String CLIENT_ID_PREFIX = "seatunnel";
@@ -119,7 +121,7 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
 
     private AdminClient initAdminClient(Properties properties) {
         Properties props = new Properties(properties);
-        props.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, this.metadata.getBootstrapServer());
+        props.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, this.metadata.getBootstrapServers());
         props.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, CLIENT_ID_PREFIX + "-enumerator-admin-client-" + this.hashCode());
         return AdminClient.create(props);
     }
@@ -133,6 +135,8 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
         } else {
             topics = Arrays.asList(this.metadata.getTopic().split(","));
         }
+        log.info("Discovered topics: {}", topics);
+
         Collection<TopicPartition> partitions =
                 adminClient.describeTopics(topics).all().get().values().stream().flatMap(t -> t.partitions().stream()
                         .map(p -> new TopicPartition(t.name(), p.partition()))).collect(Collectors.toSet());

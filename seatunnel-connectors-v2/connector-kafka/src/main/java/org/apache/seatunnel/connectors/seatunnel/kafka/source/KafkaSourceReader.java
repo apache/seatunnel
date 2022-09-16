@@ -73,7 +73,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
 
     @Override
     public void open() {
-        this.consumer = initConsumer(this.metadata.getBootstrapServer(), this.metadata.getConsumerGroup(),
+        this.consumer = initConsumer(this.metadata.getBootstrapServers(), this.metadata.getConsumerGroup(),
                 this.metadata.getProperties(), !this.metadata.isCommitOnCheckpoint());
         isRunning = true;
     }
