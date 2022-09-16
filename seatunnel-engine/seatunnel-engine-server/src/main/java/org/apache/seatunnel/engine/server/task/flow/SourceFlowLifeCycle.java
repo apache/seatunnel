@@ -88,12 +88,12 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         this.splitSerializer = sourceAction.getSource().getSplitSerializer();
         this.reader = sourceAction.getSource()
                 .createReader(new SourceReaderContext(indexID, sourceAction.getSource().getBoundedness(), this));
+        this.enumeratorTaskAddress = getEnumeratorTaskAddress();
     }
 
     @Override
     public void open() throws Exception {
         reader.open();
-        enumeratorTaskAddress = getEnumeratorTaskAddress();
         register();
     }
 
@@ -182,6 +182,9 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
+        if (actionStateList.isEmpty()) {
+            return;
+        }
         List<SplitT> splits = actionStateList.stream()
             .map(ActionSubtaskState::getState)
             .flatMap(Collection::stream)
