@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
+import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
@@ -135,6 +136,18 @@ public class CheckpointManager {
                 return;
             default:
         }
+    }
+
+    /**
+     * Called by the JobMaster.
+     * <br> Returns whether the pipeline has completed; No need to deploy/restore the {@link SubPlan} if the pipeline has been completed;
+     */
+    public boolean isCompletedPipeline(int pipelineId) {
+        CheckpointCoordinator coordinator = coordinatorMap.get(pipelineId);
+        if (coordinator == null) {
+            throw new RuntimeException(String.format("The checkpoint coordinator(%s) don't exist", pipelineId));
+        }
+        return coordinator.isCompleted();
     }
 
     /**
