@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
+import static org.apache.seatunnel.engine.core.checkpoint.CheckpointType.AUTO_SAVEPOINT_TYPE;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.READY_START;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
@@ -236,7 +237,7 @@ public class CheckpointCoordinator {
     private void startTriggerPendingCheckpoint(CompletableFuture<PendingCheckpoint> pendingCompletableFuture) {
         // Trigger the barrier and wait for all tasks to ACK
         pendingCompletableFuture.thenAcceptAsync(pendingCheckpoint -> {
-            if (CheckpointType.AUTO_SAVEPOINT_TYPE != pendingCheckpoint.getCheckpointType()) {
+            if (AUTO_SAVEPOINT_TYPE != pendingCheckpoint.getCheckpointType()) {
                 LOG.debug("trigger checkpoint barrier" + pendingCheckpoint);
                 CompletableFuture.supplyAsync(() ->
                         new CheckpointBarrier(pendingCheckpoint.getCheckpointId(),
@@ -350,7 +351,7 @@ public class CheckpointCoordinator {
                     CompletableFuture<PendingCheckpoint> future = createPendingCheckpoint(
                         Instant.now().toEpochMilli(),
                         CompletableFuture.completedFuture(Barrier.PREPARE_CLOSE_BARRIER_ID),
-                        CheckpointType.AUTO_SAVEPOINT_TYPE);
+                        AUTO_SAVEPOINT_TYPE);
                     startTriggerPendingCheckpoint(future);
                     future.join();
                 }
@@ -410,5 +411,9 @@ public class CheckpointCoordinator {
             .map(taskLocation -> new CheckpointFinishedOperation(taskLocation, checkpointId, true))
             .map(checkpointManager::sendOperationToMemberNode)
             .toArray(InvocationFuture[]::new);
+    }
+
+    public boolean isCompleted() {
+        return latestCompletedCheckpoint.getCheckpointType() == AUTO_SAVEPOINT_TYPE;
     }
 }
