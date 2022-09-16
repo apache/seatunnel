@@ -159,6 +159,10 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         restoreComplete = true;
     }
 
+    public void addSplitsBack(List<SplitT> splits, int subtaskId) {
+        enumerator.addSplitsBack(splits, subtaskId);
+    }
+
     public void receivedReader(TaskLocation readerId, Address memberAddr) {
         LOGGER.info("received reader register, readerID: " + readerId);
         this.addTaskMemberMapping(readerId, memberAddr);
