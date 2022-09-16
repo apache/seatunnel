@@ -33,7 +33,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
 
 import java.util.List;
 import java.util.Optional;
@@ -51,18 +51,17 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     private String transactionPrefix;
     private long lastCheckpointId = 0;
 
-    private final KafkaProduceSender<String, String> kafkaProducerSender;
+    private final KafkaProduceSender<byte[], byte[]> kafkaProducerSender;
+    private final SeaTunnelRowSerializer<byte[], byte[]> seaTunnelRowSerializer;
 
     private static final int PREFIX_RANGE = 10000;
 
     // check config
     @Override
     public void write(SeaTunnelRow element) {
-        ProducerRecord<String, String> producerRecord = seaTunnelRowSerializer.serializeRow(element);
+        ProducerRecord<byte[], byte[]> producerRecord = seaTunnelRowSerializer.serializeRow(element);
         kafkaProducerSender.send(producerRecord);
     }
-
-    private final SeaTunnelRowSerializer<String, String> seaTunnelRowSerializer;
 
     public KafkaSinkWriter(
             SinkWriter.Context context,
@@ -124,19 +123,19 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     private Properties getKafkaProperties(Config pluginConfig) {
         Config kafkaConfig = TypesafeConfigUtils.extractSubConfig(pluginConfig,
-                org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG_PREFIX, true);
+                org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG_PREFIX, false);
         Properties kafkaProperties = new Properties();
         kafkaConfig.entrySet().forEach(entry -> {
             kafkaProperties.put(entry.getKey(), entry.getValue().unwrapped());
         });
         kafkaProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, pluginConfig.getString(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
-        kafkaProperties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        kafkaProperties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        kafkaProperties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
+        kafkaProperties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
         return kafkaProperties;
     }
 
     // todo: parse the target field from config
-    private SeaTunnelRowSerializer<String, String> getSerializer(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
+    private SeaTunnelRowSerializer<byte[], byte[]> getSerializer(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
         return new DefaultSeaTunnelRowSerializer(pluginConfig.getString("topics"), seaTunnelRowType);
     }
 

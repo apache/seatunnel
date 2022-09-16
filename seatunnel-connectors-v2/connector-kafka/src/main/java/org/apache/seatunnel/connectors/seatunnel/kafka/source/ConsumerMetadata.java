@@ -27,7 +27,7 @@ public class ConsumerMetadata implements Serializable {
 
     private String topic;
     private boolean isPattern = false;
-    private String bootstrapServer;
+    private String bootstrapServers;
     private Properties properties;
     private String consumerGroup;
     private boolean commitOnCheckpoint = false;
@@ -56,12 +56,12 @@ public class ConsumerMetadata implements Serializable {
         isPattern = pattern;
     }
 
-    public String getBootstrapServer() {
-        return bootstrapServer;
+    public String getBootstrapServers() {
+        return bootstrapServers;
     }
 
-    public void setBootstrapServer(String bootstrapServer) {
-        this.bootstrapServer = bootstrapServer;
+    public void setBootstrapServers(String bootstrapServers) {
+        this.bootstrapServers = bootstrapServers;
     }
 
     public Properties getProperties() {
