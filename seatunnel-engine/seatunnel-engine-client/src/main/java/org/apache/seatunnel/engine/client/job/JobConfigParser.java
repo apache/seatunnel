@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.client.job;
 
-import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -109,13 +108,11 @@ public class JobConfigParser {
     }
 
     private void jobConfigAnalyze(@NonNull Config envConfigs) {
-        JobContext jobContext = new JobContext();
         if (envConfigs.hasPath("job.mode")) {
-            jobContext.setJobMode(envConfigs.getEnum(JobMode.class, "job.mode"));
+            jobConfig.getJobContext().setJobMode(envConfigs.getEnum(JobMode.class, "job.mode"));
         } else {
-            jobContext.setJobMode(JobMode.BATCH);
+            jobConfig.getJobContext().setJobMode(JobMode.BATCH);
         }
-        jobConfig.setJobContext(jobContext);
     }
 
     /**
@@ -293,7 +290,8 @@ public class JobConfigParser {
         }
 
         ImmutablePair<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>, Set<URL>>
-            sinkListImmutablePair = ConnectorInstanceLoader.loadSinkInstance(sinkConfigs.get(0), jobConfig.getJobContext());
+            sinkListImmutablePair =
+            ConnectorInstanceLoader.loadSinkInstance(sinkConfigs.get(0), jobConfig.getJobContext());
         SinkAction sinkAction = createSinkAction(
             idGenerator.getNextId(),
             sinkListImmutablePair.getLeft().getPluginName(),
