@@ -125,8 +125,10 @@ public class PipelineBaseScheduler implements JobScheduler {
     private SlotProfile getOrApplyResourceForTask(@NonNull PhysicalVertex task,
                                                   Map<TaskGroupLocation, SlotProfile> ownedSlotProfiles) {
 
-        if (ownedSlotProfiles == null || ownedSlotProfiles.isEmpty() ||
-            ownedSlotProfiles.get(task.getTaskGroupLocation()) == null) {
+        if (ownedSlotProfiles == null
+            || ownedSlotProfiles.isEmpty()
+            || ownedSlotProfiles.get(task.getTaskGroupLocation()) == null
+            || !resourceManager.slotActiveCheck(ownedSlotProfiles.get(task.getTaskGroupLocation()))) {
             return applyResourceForTask(task).join();
         }
         task.updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED);
