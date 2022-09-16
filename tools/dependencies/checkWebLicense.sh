@@ -42,4 +42,4 @@ echo '=== Third party dependencies: ' && grep -vf self-modules.txt all-dependenc
 # command in target OS is different from what we used to sort the file `known-dependencies.txt`, i.e. "sort the two file
 # using the same command (and default arguments)"
 
-diff -w -B -U0 <(sort < tools/dependencies/web-known-dependencies.txt) <(sort < third-party-dependencies.txt)
+diff -w -B -U0 <(sort < ../tools/dependencies/web-known-dependencies.txt) <(sort < third-party-dependencies.txt)
