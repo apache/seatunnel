@@ -64,6 +64,6 @@ export function taskInstanceDetail(taskInstanceId: number): any {
 export function taskInstanceKill(taskInstanceId: number): any {
   return axios({
     url: `/task/${taskInstanceId}`,
-    method: 'post'
+    method: 'patch'
   })
 }
