@@ -28,6 +28,7 @@ import com.google.common.collect.Sets;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.slf4j.Logger;
@@ -36,6 +37,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -174,7 +176,9 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
             try {
                 consumerThread.getTasks().put(consumer -> {
                     if (this.metadata.isCommitOnCheckpoint()) {
-                        consumer.commitSync();
+                        Map<TopicPartition, OffsetAndMetadata> offsets = new HashMap<>();
+                        offsets.put(split.getTopicPartition(), new OffsetAndMetadata(split.getEndOffset()));
+                        consumer.commitSync(offsets);
                     }
                 });
             } catch (InterruptedException e) {
