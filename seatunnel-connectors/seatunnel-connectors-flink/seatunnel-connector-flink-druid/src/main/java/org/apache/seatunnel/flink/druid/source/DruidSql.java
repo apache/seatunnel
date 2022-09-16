@@ -101,7 +101,7 @@ public class DruidSql {
     public String sql() {
         String columns = COLUMNS_DEFAULT;
         if (getColumns() != null && getColumns().size() > 0) {
-            columns = String.join(",", getColumns().stream().map(c->"\""+c+"\"").collect(Collectors.toList()));
+            columns = String.join(",", getColumns().stream().map(c -> "\"" + c + "\"").collect(Collectors.toList()));
         }
         String sql = String.format(QUERY_TEMPLATE, columns, getDatasource());
         if (startDate != null) {
