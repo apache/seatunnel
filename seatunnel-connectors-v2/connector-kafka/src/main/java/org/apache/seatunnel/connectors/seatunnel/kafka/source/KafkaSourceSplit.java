@@ -33,6 +33,12 @@ public class KafkaSourceSplit implements SourceSplit {
         this.topicPartition = topicPartition;
     }
 
+    public KafkaSourceSplit(TopicPartition topicPartition, long startOffset, long endOffset) {
+        this.topicPartition = topicPartition;
+        this.startOffset = startOffset;
+        this.endOffset = endOffset;
+    }
+
     public long getStartOffset() {
         return startOffset;
     }
@@ -77,5 +83,9 @@ public class KafkaSourceSplit implements SourceSplit {
     @Override
     public int hashCode() {
         return Objects.hash(topicPartition);
+    }
+
+    public KafkaSourceSplit copy() {
+        return new KafkaSourceSplit(this.topicPartition, this.getStartOffset(), this.getEndOffset());
     }
 }

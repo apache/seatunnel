@@ -36,7 +36,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -47,6 +46,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSourceSplit> {
@@ -59,8 +59,9 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     private final SourceReader.Context context;
     private final ConsumerMetadata metadata;
     private final Set<KafkaSourceSplit> sourceSplits;
+    private final Map<Long, Map<TopicPartition, Long>> checkpointOffsetMap;
     private final ConcurrentMap<TopicPartition, KafkaSourceSplit> sourceSplitMap;
-    private final Map<KafkaSourceSplit, KafkaConsumerThread> consumerThreadMap;
+    private final Map<TopicPartition, KafkaConsumerThread> consumerThreadMap;
     private final ExecutorService executorService;
     // TODO support user custom type
     private SeaTunnelRowType typeInfo;
@@ -73,6 +74,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
         this.sourceSplits = new HashSet<>();
         this.consumerThreadMap = new ConcurrentHashMap<>();
         this.sourceSplitMap = new ConcurrentHashMap<>();
+        this.checkpointOffsetMap = new ConcurrentHashMap<>();
         this.executorService = Executors.newCachedThreadPool(
             r -> new Thread(r, "Kafka Source Data Consumer"));
     }
@@ -94,7 +96,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
             Thread.sleep(THREAD_WAIT_TIME);
             return;
         }
-        sourceSplits.forEach(sourceSplit -> consumerThreadMap.computeIfAbsent(sourceSplit, s -> {
+        sourceSplits.forEach(sourceSplit -> consumerThreadMap.computeIfAbsent(sourceSplit.getTopicPartition(), s -> {
             KafkaConsumerThread thread = new KafkaConsumerThread(metadata);
             executorService.submit(thread);
             return thread;
@@ -102,7 +104,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
         sourceSplits.forEach(sourceSplit -> {
             CompletableFuture<Void> completableFuture = new CompletableFuture<>();
             try {
-                consumerThreadMap.get(sourceSplit).getTasks().put(consumer -> {
+                consumerThreadMap.get(sourceSplit.getTopicPartition()).getTasks().put(consumer -> {
                     try {
                         Set<TopicPartition> partitions = Sets.newHashSet(sourceSplit.getTopicPartition());
                         StringDeserializer stringDeserializer = new StringDeserializer();
@@ -153,8 +155,10 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     }
 
     @Override
-    public List<KafkaSourceSplit> snapshotState(long checkpointId) throws Exception {
-        return new ArrayList<>(sourceSplits);
+    public List<KafkaSourceSplit> snapshotState(long checkpointId) {
+        checkpointOffsetMap.put(checkpointId, sourceSplits.stream()
+            .collect(Collectors.toMap(KafkaSourceSplit::getTopicPartition, KafkaSourceSplit::getEndOffset)));
+        return sourceSplits.stream().map(KafkaSourceSplit::copy).collect(Collectors.toList());
     }
 
     @Override
@@ -171,20 +175,25 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-        consumerThreadMap.forEach((split, consumerThread) -> {
-            try {
-                consumerThread.getTasks().put(consumer -> {
-                    if (this.metadata.isCommitOnCheckpoint()) {
-                        Map<TopicPartition, OffsetAndMetadata> offsets = new HashMap<>();
-                        offsets.put(split.getTopicPartition(), new OffsetAndMetadata(split.getEndOffset()));
-                        consumer.commitSync(offsets);
-                    }
-                });
-            } catch (InterruptedException e) {
-                log.error("commit offset to kafka failed", e);
-            }
-        });
+    public void notifyCheckpointComplete(long checkpointId) {
+        if (!checkpointOffsetMap.containsKey(checkpointId)) {
+            log.warn("checkpoint {} do not exist or have already been committed.", checkpointId);
+        } else {
+            checkpointOffsetMap.remove(checkpointId).forEach((topicPartition, offset) -> {
+                try {
+                    consumerThreadMap.get(topicPartition)
+                        .getTasks().put(consumer -> {
+                            if (this.metadata.isCommitOnCheckpoint()) {
+                                Map<TopicPartition, OffsetAndMetadata> offsets = new HashMap<>();
+                                offsets.put(topicPartition, new OffsetAndMetadata(offset));
+                                consumer.commitSync(offsets);
+                            }
+                        });
+                } catch (InterruptedException e) {
+                    log.error("commit offset to kafka failed", e);
+                }
+            });
+        }
     }
 
 }
