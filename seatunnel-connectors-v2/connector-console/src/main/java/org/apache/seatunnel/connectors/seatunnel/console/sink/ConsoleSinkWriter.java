@@ -59,6 +59,9 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     }
 
     private String fieldToString(SeaTunnelDataType<?> type, Object value) {
+        if (value == null) {
+            return null;
+        }
         switch (type.getSqlType()) {
             case ARRAY:
             case BYTES:
