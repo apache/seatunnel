@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 
 public class DingTalkSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
+
     private static final Logger LOGGER = LoggerFactory.getLogger(DingTalkSourceReader.class);
     protected final SingleSplitReaderContext context;
     protected final DingTalkParameter dtParameter;
@@ -77,13 +78,11 @@ public class DingTalkSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
                 }
             }
             LOGGER.error("Ding Talk client execute exception, response status code:[{}], content:[{}]", response.getErrorCode(), response.getBody());
-        } catch (Exception e) {
-            LOGGER.error(e.getMessage(), e);
-        } finally {
             if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
-                LOGGER.info("Closed the bounded http source");
                 context.signalNoMoreElement();
             }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 }

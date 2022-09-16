@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * @program: incubator-seatunnel
  * @description: Ding Talk Parameter
  **/
 

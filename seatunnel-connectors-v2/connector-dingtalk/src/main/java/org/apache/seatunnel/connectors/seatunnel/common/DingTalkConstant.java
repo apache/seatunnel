@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.common;
 
 /**
- * @program: incubator-seatunnel
  * @description: DingTalk contant
  **/
 

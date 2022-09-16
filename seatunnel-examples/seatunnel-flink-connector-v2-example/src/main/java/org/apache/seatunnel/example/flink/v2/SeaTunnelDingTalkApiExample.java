@@ -46,7 +46,7 @@ public class SeaTunnelDingTalkApiExample {
     }
 
     public static void testSourceDingTalk() throws FileNotFoundException, URISyntaxException, CommandException {
-        String configFile = getTestConfigFile("/examples/fake_source_to_dingtalk.conf");
+        String configFile = getTestConfigFile("/examples/dingtalk_source_to_console.conf");
         FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
         flinkCommandArgs.setConfigFile(configFile);
         flinkCommandArgs.setCheckConfig(false);
