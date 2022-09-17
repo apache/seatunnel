@@ -80,6 +80,12 @@
             <version>${dm-jdbc.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.aliyun.phoenix</groupId>
+            <artifactId>ali-phoenix-shaded-thin-client</artifactId>
+            <version>${phoenix.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
 </project>
