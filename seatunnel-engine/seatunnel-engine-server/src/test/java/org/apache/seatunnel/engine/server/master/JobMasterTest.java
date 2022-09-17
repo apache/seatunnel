@@ -115,7 +115,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
 
         // waiting for job status turn to running
-        await().atMost(10000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assert.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
 
         // call checkpoint timeout
@@ -125,7 +125,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         Thread.sleep(5000);
 
         // test job still run
-        await().atMost(20000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assert.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
 
         PassiveCompletableFuture<JobStatus> jobMasterCompleteFuture = jobMaster.getJobMasterCompleteFuture();
@@ -133,7 +133,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         jobMaster.cancelJob();
 
         // test job turn to complete
-        await().atMost(20000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assert.assertTrue(
                 jobMasterCompleteFuture.isDone() && JobStatus.CANCELED.equals(jobMasterCompleteFuture.get())));
 
@@ -146,7 +146,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap("stateTimestamps");
         ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
 
-        await().atMost(20000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {
                 Assert.assertNull(runningJobInfoIMap.get(jobId));
                 Assert.assertNull(runningJobStateIMap.get(jobId));

@@ -237,7 +237,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         stopMark.set(true);
 
         //Check all task ends right
-        await().atMost(lowLagSleep * 10 + highLagSleep * 5, TimeUnit.MILLISECONDS)
+        await().atMost(lowLagSleep * 100 + highLagSleep * 50, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> assertEquals(FINISHED, completableFuture.get().getExecutionState()));
 
         //Computation Delay
