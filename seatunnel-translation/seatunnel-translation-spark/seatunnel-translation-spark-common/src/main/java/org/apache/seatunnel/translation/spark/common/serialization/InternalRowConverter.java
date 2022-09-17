@@ -19,12 +19,10 @@ package org.apache.seatunnel.translation.spark.common.serialization;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.translation.serialization.RowConverter;
 import org.apache.seatunnel.translation.spark.common.utils.InstantConverterUtils;
 import org.apache.seatunnel.translation.spark.common.utils.TypeConverterUtils;
@@ -43,10 +41,7 @@ import org.apache.spark.sql.catalyst.expressions.SpecificInternalRow;
 import org.apache.spark.sql.catalyst.util.ArrayBasedMapData;
 import org.apache.spark.sql.catalyst.util.ArrayData;
 import org.apache.spark.sql.catalyst.util.MapData;
-import org.apache.spark.sql.types.DataType;
-import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.Decimal;
-import org.apache.spark.sql.types.StructField;
 import org.apache.spark.unsafe.types.UTF8String;
 
 import java.io.IOException;
@@ -54,12 +49,10 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.BiFunction;
 
 public final class InternalRowConverter extends RowConverter<InternalRow> {
 
@@ -90,7 +83,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case TIMESTAMP:
                 return InstantConverterUtils.toEpochMicro(Timestamp.valueOf((LocalDateTime) field).toInstant());
             case MAP:
-                return convertMap((Map<?, ?>) field, (MapType<?, ?>) dataType, InternalRowConverter::convert);
+                return convertMap((Map<?, ?>) field, (MapType<?, ?>) dataType);
             case STRING:
                 return UTF8String.fromString((String) field);
             case DECIMAL:
@@ -126,22 +119,20 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         return new SpecificInternalRow(values);
     }
 
-    private static Object convertMap(Map<?, ?> mapData, MapType<?, ?> mapType, BiFunction<Object, SeaTunnelDataType<?>, Object> convertFunction) {
+    private static Object convertMap(Map<?, ?> mapData, MapType<?, ?> mapType) {
         if (mapData == null || mapData.size() == 0) {
             return ArrayBasedMapData.apply(new Object[]{}, new Object[]{});
         }
+        SeaTunnelDataType<?> keyType = mapType.getKeyType();
+        SeaTunnelDataType<?> valueType = mapType.getValueType();
         Map<Object, Object> newMap = new HashMap<>(mapData.size());
-        mapData.forEach((key, value) -> {
-            SeaTunnelDataType<?> keyType = mapType.getKeyType();
-            SeaTunnelDataType<?> valueType = mapType.getValueType();
-            newMap.put(convertFunction.apply(key, keyType), convertFunction.apply(value, valueType));
-        });
+        mapData.forEach((key, value) -> newMap.put(convert(key, keyType), convert(value, valueType)));
         Object[] keys = newMap.keySet().toArray();
         Object[] values = newMap.values().toArray();
         return ArrayBasedMapData.apply(keys, values);
     }
 
-    private static Object reconvertMap(MapData mapData, MapType<?, ?> mapType, BiFunction<Object, SeaTunnelDataType<?>, Object> convertFunction) {
+    private static Object reconvertMap(MapData mapData, MapType<?, ?> mapType) {
         if (mapData == null || mapData.numElements() == 0) {
             return Collections.emptyMap();
         }
@@ -149,11 +140,11 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         int num = mapData.numElements();
         SeaTunnelDataType<?> keyType = mapType.getKeyType();
         SeaTunnelDataType<?> valueType = mapType.getValueType();
-        Object[] keys = mapData.keyArray().toObjectArray(seaTunnelType2SparkType(keyType));
-        Object[] values = mapData.valueArray().toObjectArray(seaTunnelType2SparkType(valueType));
+        Object[] keys = mapData.keyArray().toObjectArray(TypeConverterUtils.convert(keyType));
+        Object[] values = mapData.valueArray().toObjectArray(TypeConverterUtils.convert(valueType));
         for (int i = 0; i < num; i++) {
-            keys[i] = convertFunction.apply(keys[i], keyType);
-            values[i] = convertFunction.apply(values[i], valueType);
+            keys[i] = reconvert(keys[i], keyType);
+            values[i] = reconvert(values[i], valueType);
             newMap.put(keys[i], values[i]);
         }
         return newMap;
@@ -203,7 +194,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case TIMESTAMP:
                 return Timestamp.from(InstantConverterUtils.ofEpochMicro((long) field)).toLocalDateTime();
             case MAP:
-                return reconvertMap((MapData) field, (MapType<?, ?>) dataType, InternalRowConverter::reconvert);
+                return reconvertMap((MapData) field, (MapType<?, ?>) dataType);
             case STRING:
                 return field.toString();
             case DECIMAL:
@@ -211,7 +202,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case ARRAY:
                 ArrayData arrayData = (ArrayData) field;
                 BasicType<?> elementType = ((ArrayType<?, ?>) dataType).getElementType();
-                return arrayData.toObjectArray(seaTunnelType2SparkType(elementType));
+                return arrayData.toObjectArray(TypeConverterUtils.convert(elementType));
             default:
                 return field;
         }
@@ -224,61 +215,5 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 rowType.getFieldType(i));
         }
         return new SeaTunnelRow(fields);
-    }
-
-    private static DataType seaTunnelType2SparkType(SeaTunnelDataType<?> seaTunnelDataType) {
-        SqlType sqlType = seaTunnelDataType.getSqlType();
-        switch (sqlType) {
-            case ARRAY:
-                BasicType<?> elementType = ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
-                return DataTypes.createArrayType(seaTunnelType2SparkType(elementType));
-            case MAP:
-                SeaTunnelDataType<?> keyType = ((MapType<?, ?>) seaTunnelDataType).getKeyType();
-                SeaTunnelDataType<?> valueType = ((MapType<?, ?>) seaTunnelDataType).getValueType();
-                return DataTypes.createMapType(seaTunnelType2SparkType(keyType), seaTunnelType2SparkType(valueType));
-            case STRING:
-                return DataTypes.StringType;
-            case BOOLEAN:
-                return DataTypes.BooleanType;
-            case TINYINT:
-                return DataTypes.ByteType;
-            case SMALLINT:
-                return DataTypes.ShortType;
-            case INT:
-                return DataTypes.IntegerType;
-            case BIGINT:
-                return DataTypes.LongType;
-            case FLOAT:
-                return DataTypes.FloatType;
-            case DOUBLE:
-                return DataTypes.DoubleType;
-            case DECIMAL:
-                int precision = ((DecimalType) seaTunnelDataType).getPrecision();
-                int scale = ((DecimalType) seaTunnelDataType).getScale();
-                return DataTypes.createDecimalType(precision, scale);
-            case NULL:
-                return DataTypes.NullType;
-            case BYTES:
-                return DataTypes.BinaryType;
-            case DATE:
-                return DataTypes.DateType;
-            case TIMESTAMP:
-                return DataTypes.TimestampType;
-            case TIME:
-                throw new RuntimeException("SeaTunnel not support time type, it will be supported in the future");
-            case ROW:
-                ArrayList<StructField> structFields = new ArrayList<>();
-                SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) seaTunnelDataType).getFieldTypes();
-                String[] fieldNames = ((SeaTunnelRowType) seaTunnelDataType).getFieldNames();
-                for (int i = 0; i < fieldNames.length; i++) {
-                    StructField structField = new StructField(fieldNames[i], seaTunnelType2SparkType(fieldTypes[i]), true, null);
-                    structFields.add(structField);
-                }
-                return DataTypes.createStructType(structFields);
-            default:
-                // do nothing
-                // never get in there
-                return null;
-        }
     }
 }
