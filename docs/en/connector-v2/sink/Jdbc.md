@@ -84,7 +84,7 @@ there are some reference value for params above.
 | mysql      | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306/test          | com.mysql.cj.jdbc.MysqlXADataSource | https://mvnrepository.com/artifact/mysql/mysql-connector-java |
 | postgresql | org.postgresql.Driver    | jdbc:postgresql://localhost:5432/postgres | org.postgresql.xa.PGXADataSource    | https://mvnrepository.com/artifact/org.postgresql/postgresql  |                                                             |
 | dm         | dm.jdbc.driver.DmDriver  | jdbc:dm://localhost:5236                  | dm.jdbc.driver.DmdbXADataSource     | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18  |
-| phoenix         | org.apache.phoenix.queryserver.client.Driver  | jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF                  | dm.jdbc.driver.DmdbXADataSource     | https://mvnrepository.com/artifact/com.aliyun.phoenix/ali-phoenix-shaded-thin-client  |
+| phoenix         | org.apache.phoenix.queryserver.client.Driver  | jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF                  | /     | https://mvnrepository.com/artifact/com.aliyun.phoenix/ali-phoenix-shaded-thin-client  |
 
 ## Example
 Simple
