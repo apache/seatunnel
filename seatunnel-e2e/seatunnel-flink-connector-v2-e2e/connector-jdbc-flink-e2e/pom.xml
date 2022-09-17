@@ -72,6 +72,7 @@
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <version>${postgresql.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.dameng</groupId>

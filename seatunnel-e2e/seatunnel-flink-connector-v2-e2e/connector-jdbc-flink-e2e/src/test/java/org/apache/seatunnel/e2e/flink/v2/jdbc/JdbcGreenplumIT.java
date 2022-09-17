@@ -51,14 +51,13 @@ public class JdbcGreenplumIT extends FlinkContainer {
     private static final String GREENPLUM_IMAGE = "datagrip/greenplum:6.8";
     private static final String GREENPLUM_CONTAINER_HOST = "flink_e2e_greenplum";
     private static final int GREENPLUM_CONTAINER_PORT = 5432;
-    private static final String GREENPLUM_HOST = "localhost";
     private static final int GREENPLUM_PORT = 5435;
     private static final String GREENPLUM_USER = "tester";
     private static final String GREENPLUM_PASSWORD = "pivotal";
     private static final String GREENPLUM_DRIVER = "org.postgresql.Driver";
-    private static final String GREENPLUM_JDBC_URL = String.format(
-            "jdbc:postgresql://%s:%s/testdb", GREENPLUM_HOST, GREENPLUM_PORT);
+    private static final String GREENPLUM_JDBC_URL = "jdbc:postgresql://%s:%s/testdb";
     private static final List<List> TEST_DATASET = generateTestDataset();
+    private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
 
     private GenericContainer<?> greenplumServer;
     private Connection jdbcConnection;
@@ -66,11 +65,11 @@ public class JdbcGreenplumIT extends FlinkContainer {
     @BeforeEach
     public void startGreenplumContainer() throws ClassNotFoundException, SQLException {
         greenplumServer = new GenericContainer<>(GREENPLUM_IMAGE)
-                .withNetwork(NETWORK)
-                .withNetworkAliases(GREENPLUM_CONTAINER_HOST)
-                .withLogConsumer(new Slf4jLogConsumer(log));
+            .withNetwork(NETWORK)
+            .withNetworkAliases(GREENPLUM_CONTAINER_HOST)
+            .withLogConsumer(new Slf4jLogConsumer(log));
         greenplumServer.setPortBindings(Lists.newArrayList(
-                String.format("%s:%s", GREENPLUM_PORT, GREENPLUM_CONTAINER_PORT)));
+            String.format("%s:%s", GREENPLUM_PORT, GREENPLUM_CONTAINER_PORT)));
         Startables.deepStart(Stream.of(greenplumServer)).join();
         log.info("Greenplum container started");
         // wait for Greenplum fully start
@@ -97,28 +96,29 @@ public class JdbcGreenplumIT extends FlinkContainer {
             ResultSet resultSet = statement.executeQuery(sql);
             while (resultSet.next()) {
                 result.add(Arrays.asList(
-                        resultSet.getInt(1),
-                        resultSet.getString(2)));
+                    resultSet.getInt(1),
+                    resultSet.getString(2)));
             }
         }
         Assertions.assertIterableEquals(TEST_DATASET, result);
     }
 
     private void initializeJdbcConnection() throws SQLException {
-        jdbcConnection = DriverManager.getConnection(GREENPLUM_JDBC_URL,
-                GREENPLUM_USER, GREENPLUM_PASSWORD);
+        jdbcConnection = DriverManager.getConnection(String.format(
+                GREENPLUM_JDBC_URL, greenplumServer.getHost(), GREENPLUM_PORT),
+            GREENPLUM_USER, GREENPLUM_PASSWORD);
     }
 
     private void initializeJdbcTable() throws SQLException {
         try (Statement statement = jdbcConnection.createStatement()) {
             String createSource = "CREATE TABLE source (\n" +
-                    "age INT NOT NULL,\n" +
-                    "name VARCHAR(255) NOT NULL\n" +
-                    ")";
+                "age INT NOT NULL,\n" +
+                "name VARCHAR(255) NOT NULL\n" +
+                ")";
             String createSink = "CREATE TABLE sink (\n" +
-                    "age INT NOT NULL,\n" +
-                    "name VARCHAR(255) NOT NULL\n" +
-                    ")";
+                "age INT NOT NULL,\n" +
+                "name VARCHAR(255) NOT NULL\n" +
+                ")";
             statement.execute(createSource);
             statement.execute(createSink);
         }
@@ -157,5 +157,11 @@ public class JdbcGreenplumIT extends FlinkContainer {
         if (jdbcConnection != null) {
             jdbcConnection.close();
         }
+    }
+
+    @Override
+    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
+        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/flink/seatunnel/plugins/Jdbc/lib && cd /tmp/flink/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
+        Assertions.assertEquals(0, extraCommands.getExitCode());
     }
 }
