@@ -15,26 +15,24 @@
  * limitations under the License.
  */
 
-import { defineComponent } from 'vue'
-import { NLayout, NLayoutHeader, NLayoutContent, useMessage } from 'naive-ui'
-import Header from './header'
+import { defineStore } from 'pinia'
+import type { UserState } from './types'
+import type { UserDetail } from '@/service/user/types'
 
-const Dashboard = defineComponent({
-  setup() {
-    window.$message = useMessage()
+export const useUserStore = defineStore({
+  id: 'user',
+  state: (): UserState => ({
+    userInfo: {}
+  }),
+  persist: true,
+  getters: {
+    getUserInfo(): UserDetail | {} {
+      return this.userInfo
+    }
   },
-  render() {
-    return (
-      <NLayout>
-        <NLayoutHeader>
-          <Header />
-        </NLayoutHeader>
-        <NLayoutContent>
-          <router-view class='px-32 py-12' />
-        </NLayoutContent>
-      </NLayout>
-    )
+  actions: {
+    setUserInfo(userInfo: UserDetail | {}): void {
+      this.userInfo = userInfo
+    }
   }
 })
-
-export default Dashboard
