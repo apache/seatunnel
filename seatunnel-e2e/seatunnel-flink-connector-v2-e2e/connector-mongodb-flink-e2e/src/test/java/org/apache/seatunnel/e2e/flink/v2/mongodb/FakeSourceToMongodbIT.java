@@ -126,7 +126,6 @@ public class FakeSourceToMongodbIT extends FlinkContainer {
 
     @AfterEach
     public void close() {
-        super.close();
         if (client != null) {
             client.close();
         }

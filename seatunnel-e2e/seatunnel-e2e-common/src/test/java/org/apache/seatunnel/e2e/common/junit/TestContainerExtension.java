@@ -15,32 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.common;
+package org.apache.seatunnel.e2e.common.junit;
 
-import org.apache.seatunnel.e2e.common.container.spark.TestSparkContainer;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.TestInstance;
-import org.testcontainers.containers.Container;
 
-import java.io.IOException;
-
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class AbstractSparkContainer extends TestSparkContainer {
-
-    @Override
-    @BeforeAll
-    public void startUp() throws Exception {
-        super.startUp();
-    }
-
-    @AfterAll
-    public void tearDown() throws Exception {
-        super.tearDown();
-    }
-
-    public Container.ExecResult executeSeaTunnelSparkJob(String confFile) throws IOException, InterruptedException {
-        return executeJob(confFile);
-    }
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface TestContainerExtension {
 }

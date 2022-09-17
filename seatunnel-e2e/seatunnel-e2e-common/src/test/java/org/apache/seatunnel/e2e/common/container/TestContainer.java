@@ -15,12 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.common;
+package org.apache.seatunnel.e2e.common.container;
 
-import static org.apache.seatunnel.e2e.common.ContainerUtil.PROJECT_ROOT_PATH;
-import static org.apache.seatunnel.e2e.common.ContainerUtil.adaptPathForWin;
-import static org.apache.seatunnel.e2e.common.ContainerUtil.copyConfigFileToContainer;
-import static org.apache.seatunnel.e2e.common.ContainerUtil.copyConnectorJarToContainer;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.adaptPathForWin;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyConfigFileToContainer;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyConnectorJarToContainer;
+
+import org.apache.seatunnel.e2e.common.TestResource;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,16 +36,16 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
-public abstract class AbstractContainer {
+public abstract class TestContainer implements TestResource {
 
-    protected static final Logger LOG = LoggerFactory.getLogger(AbstractContainer.class);
+    protected static final Logger LOG = LoggerFactory.getLogger(TestContainer.class);
     protected static final String START_ROOT_MODULE_NAME = "seatunnel-core";
 
     protected final String startModuleName;
 
     protected final String startModuleFullPath;
 
-    public AbstractContainer() {
+    public TestContainer() {
         this.startModuleName = getStartModuleName();
         this.startModuleFullPath = PROJECT_ROOT_PATH + File.separator + START_ROOT_MODULE_NAME + File.separator + this.startModuleName;
         ContainerUtil.checkPathExist(startModuleFullPath);
@@ -75,6 +78,8 @@ public abstract class AbstractContainer {
             getSeaTunnelHomeInContainer(),
             getStartShellName());
     }
+
+    public abstract Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException;
 
     protected Container.ExecResult executeJob(GenericContainer<?> container, String confFile) throws IOException, InterruptedException {
         final String confInContainerPath = copyConfigFileToContainer(container, confFile);

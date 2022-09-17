@@ -15,50 +15,49 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.sql;
+package org.apache.seatunnel.e2e.common.container.flink;
 
-import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyConfigFileToContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
-import org.apache.seatunnel.e2e.common.AbstractFlinkContainer;
-
-import org.testcontainers.containers.Container;
-
-import java.io.IOException;
+import com.google.auto.service.AutoService;
+import lombok.NoArgsConstructor;
 
 /**
- * This class is the base class of FlinkEnvironment test.
+ * This class is the base class of FlinkEnvironment test for new seatunnel connector API.
  * The before method will create a Flink cluster, and after method will close the Flink cluster.
- * You can use {@link FlinkContainer#executeSeaTunnelFlinkJob(String)} to submit a seatunnel config and run a seatunnel job.
+ * You can use {@link Flink13Container#executeJob} to submit a seatunnel config and run a seatunnel job.
  */
-public abstract class FlinkContainer extends AbstractFlinkContainer {
+@NoArgsConstructor
+@AutoService(TestContainer.class)
+public class Flink13Container extends TestFlinkContainer {
+
+    @Override
+    protected String getDockerImage() {
+        return "tyrantlucifer/flink:1.13.6-scala_2.11_hadoop27";
+    }
 
     @Override
     protected String getStartModuleName() {
-        return "seatunnel-core-flink-sql";
+        return "seatunnel-flink-starter";
     }
 
     @Override
     protected String getStartShellName() {
-        return "start-seatunnel-sql.sh";
+        return "start-seatunnel-flink-connector-v2.sh";
     }
 
     @Override
     protected String getConnectorType() {
-        return "flink-sql";
+        return "seatunnel";
     }
 
     @Override
     protected String getConnectorModulePath() {
-        return "seatunnel-connectors/seatunnel-connectors-flink-sql";
+        return "seatunnel-connectors-v2";
     }
 
     @Override
     protected String getConnectorNamePrefix() {
-        return "flink-sql-connector-";
-    }
-
-    public Container.ExecResult executeSeaTunnelFlinkJob(String confFile) throws IOException, InterruptedException {
-        final String confInContainerPath = copyConfigFileToContainer(jobManager, confFile);
-        return executeCommand(jobManager, confInContainerPath);
+        return "connector-";
     }
 }
