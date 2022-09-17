@@ -95,7 +95,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
         taskExecutionService.cancelTaskGroup(ts.getTaskGroupLocation());
 
-        await().atMost(sleepTime + 1000, TimeUnit.MILLISECONDS)
+        await().atMost(sleepTime + 10000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> assertEquals(CANCELED, completableFuture.get().getExecutionState()));
     }
 
@@ -113,7 +113,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         completableFuture.whenComplete((unused, throwable) -> futureMark.set(true));
         stop.set(true);
 
-        await().atMost(sleepTime + 1000, TimeUnit.MILLISECONDS).untilAsserted(() -> {
+        await().atMost(sleepTime + 10000, TimeUnit.MILLISECONDS).untilAsserted(() -> {
             assertEquals(FINISHED, completableFuture.get().getExecutionState());
         });
         assertTrue(futureMark.get());
