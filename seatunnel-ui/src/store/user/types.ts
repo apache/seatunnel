@@ -15,26 +15,10 @@
  * limitations under the License.
  */
 
-import { defineComponent } from 'vue'
-import { NLayout, NLayoutHeader, NLayoutContent, useMessage } from 'naive-ui'
-import Header from './header'
+import type { UserDetail } from '@/service/user/types'
 
-const Dashboard = defineComponent({
-  setup() {
-    window.$message = useMessage()
-  },
-  render() {
-    return (
-      <NLayout>
-        <NLayoutHeader>
-          <Header />
-        </NLayoutHeader>
-        <NLayoutContent>
-          <router-view class='px-32 py-12' />
-        </NLayoutContent>
-      </NLayout>
-    )
-  }
-})
+interface UserState {
+  userInfo: UserDetail | {}
+}
 
-export default Dashboard
+export { UserState }
