@@ -29,6 +29,10 @@ interface UserLogin {
 interface UserDetail extends UserLogin {
   status: string
   type: string
+  id?: number
+  name?: string
+  createTime?: any | null
+  updateTime?: any | null
 }
 
 export { UserList, UserLogin, UserDetail }

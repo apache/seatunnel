@@ -16,17 +16,16 @@
  */
 
 import { defineComponent, toRefs, withKeys, getCurrentInstance } from 'vue'
-import { NSpace, NForm, NFormItem, NInput, NButton } from 'naive-ui'
+import { NSpace, NForm, NFormItem, NInput, NButton, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useForm } from './use-form'
 
 const Login = defineComponent({
   setup() {
+    window.$message = useMessage()
     const { t } = useI18n()
-    const { state } = useForm()
+    const { state, handleLogin } = useForm()
     const trim = getCurrentInstance()?.appContext.config.globalProperties.trim
-
-    const handleLogin = () => {}
 
     return {
       t,
