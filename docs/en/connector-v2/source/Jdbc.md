@@ -78,7 +78,8 @@ there are some reference value for params above.
 
 ## Example
 simple:
-```Jdbc {
+```
+    Jdbc {
         url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
