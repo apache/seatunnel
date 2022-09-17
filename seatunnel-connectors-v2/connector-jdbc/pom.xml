@@ -55,12 +55,14 @@
             <groupId>com.dameng</groupId>
             <artifactId>DmJdbcDriver18</artifactId>
             <version>${dm-jdbc.version}</version>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>com.aliyun.phoenix</groupId>
             <artifactId>ali-phoenix-shaded-thin-client</artifactId>
             <version>${phoenix.version}</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 

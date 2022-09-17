@@ -78,6 +78,7 @@
             <groupId>com.dameng</groupId>
             <artifactId>DmJdbcDriver18</artifactId>
             <version>${dm-jdbc.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
