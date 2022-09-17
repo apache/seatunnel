@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.util;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -27,9 +28,12 @@ import com.clickhouse.client.ClickHouseColumn;
 import com.clickhouse.client.ClickHouseValue;
 
 import java.math.BigDecimal;
+import java.net.Inet4Address;
+import java.net.Inet6Address;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.UUID;
 
 public class TypeConvertUtil {
 
@@ -58,7 +62,15 @@ public class TypeConvertUtil {
         } else if (Double.class.equals(type)) {
             return BasicType.DOUBLE_TYPE;
         } else if (Map.class.equals(type)) {
-            return new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE);
+            return new MapType<>(convert(column.getNestedColumns().get(0)), convert(column.getNestedColumns().get(1)));
+        } else if (UUID.class.equals(type)) {
+            return BasicType.STRING_TYPE;
+        } else if (Inet4Address.class.equals(type)) {
+            return BasicType.STRING_TYPE;
+        } else if (Inet6Address.class.equals(type)) {
+            return BasicType.STRING_TYPE;
+        } else if (Object.class.equals(type)) {
+            return BasicType.STRING_TYPE;
         } else {
             // TODO support pojo
             throw new IllegalArgumentException("not supported data type: " + column.getDataType());
@@ -91,6 +103,8 @@ public class TypeConvertUtil {
             return record.asDouble();
         } else if (dataType instanceof MapType) {
             return record.asMap();
+        } else if (dataType instanceof ArrayType) {
+            return record.asObject();
         } else {
             // TODO support pojo
             throw new IllegalArgumentException("not supported data type: " + dataType);
