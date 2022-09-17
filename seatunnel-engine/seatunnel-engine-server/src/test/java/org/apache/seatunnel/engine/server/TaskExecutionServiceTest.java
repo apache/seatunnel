@@ -244,7 +244,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         double lowAvg = lowLagList.stream().mapToLong(x -> x).average().getAsDouble();
         double highAvg = highLagList.stream().mapToLong(x -> x).average().getAsDouble();
 
-        assertTrue(lowAvg < 50 * 15 + 100);
+        assertTrue(lowAvg < highLagSleep * 5);
 
         logger.info("lowAvg : " + lowAvg);
         logger.info("highAvg : " + highAvg);
