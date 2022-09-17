@@ -31,7 +31,6 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -182,8 +181,7 @@ public class JdbcPhoenixIT extends FlinkContainer {
 
     @Override
     protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
-        String thirdPartyJarsPath = Paths.get(getSeaTunnelHomeInContainer(), "plugins", "Jdbc", "lib").toString();
-        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p " + thirdPartyJarsPath + " && cd " + thirdPartyJarsPath + " && curl -O " + THIRD_PARTY_PLUGINS_URL);
+        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/flink/seatunnel/plugins/Jdbc/lib && cd /tmp/flink/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
         Assertions.assertEquals(0, extraCommands.getExitCode());
     }
 }
