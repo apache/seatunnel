@@ -28,6 +28,7 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSparkTransform, SparkBatchSink, SparkEnvironment> {
 
@@ -42,10 +43,11 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
     @Override
     public void start(List<SparkBatchSource> sources, List<BaseSparkTransform> transforms, List<SparkBatchSink> sinks) {
 
-        sources.forEach(source -> SparkEnvironment.registerInputTempView(source, environment));
+        List<Dataset<Row>> sourceDatasets = sources.stream().map(source -> SparkEnvironment.registerInputTempView(source, environment))
+                .collect(Collectors.toList());
 
         if (!sources.isEmpty()) {
-            Dataset<Row> ds = sources.get(0).getData(environment);
+            Dataset<Row> ds = sourceDatasets.get(0);
             for (BaseSparkTransform transform : transforms) {
                 ds = SparkEnvironment.transformProcess(environment, transform, ds);
                 SparkEnvironment.registerTransformTempView(transform, ds);
