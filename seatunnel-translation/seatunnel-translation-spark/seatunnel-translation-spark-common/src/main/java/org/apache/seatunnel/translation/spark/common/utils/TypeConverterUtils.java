@@ -125,7 +125,7 @@ public class TypeConverterUtils {
         }
         if (sparkType instanceof org.apache.spark.sql.types.MapType) {
             org.apache.spark.sql.types.MapType mapType = (org.apache.spark.sql.types.MapType) sparkType;
-            return new MapType<>(convert(mapType.valueType()), convert(mapType.valueType()));
+            return new MapType<>(convert(mapType.keyType()), convert(mapType.valueType()));
         }
         if (sparkType instanceof org.apache.spark.sql.types.DecimalType) {
             org.apache.spark.sql.types.DecimalType decimalType = (org.apache.spark.sql.types.DecimalType) sparkType;
