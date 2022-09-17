@@ -18,76 +18,66 @@
 import { axios } from '@/service/service'
 import type {
   ScriptList,
-  ScriptPublish,
-  ScriptAdd,
-  ScriptContentUpdate,
-  ScriptParamUpdate
+  ScriptAdd
 } from '@/service/script/types'
 
-export function scriptList(scriptListReq: ScriptList): any {
+export function scriptList(params: ScriptList): any {
   return axios({
-    url: '/script/list',
-    method: 'post',
-    data: { scriptListReq }
-  })
-}
-
-export function scriptPublish(req: ScriptPublish): any {
-  return axios({
-    url: '/script/publish',
-    method: 'put',
-    data: { req }
-  })
-}
-
-export function scriptDelete(id: number): any {
-  return axios({
-    url: '/script/script',
-    method: 'delete',
-    data: { id }
-  })
-}
-
-export function scriptAdd(addEmptyScriptReq: ScriptAdd): any {
-  return axios({
-    url: '/script/script',
-    method: 'post',
-    data: { addEmptyScriptReq }
-  })
-}
-
-export function scriptContent(id: number): any {
-  return axios({
-    url: '/script/scriptContent',
+    url: '/script',
     method: 'get',
-    data: { id }
+    params
   })
 }
 
-export function scriptContentUpdate(
-  updateScriptContentReq: ScriptContentUpdate
-): any {
+export function scriptAdd(data: ScriptAdd): any {
   return axios({
-    url: '/script/scriptContent',
+    url: '/script',
+    method: 'post',
+    data
+  })
+}
+
+export function scriptDelete(scriptId: number): any {
+  return axios({
+    url: `/script/${scriptId}`,
+    method: 'delete'
+  })
+}
+
+export function scriptContent(scriptId: number): any {
+  return axios({
+    url: `/script/${scriptId}/content`,
+    method: 'get'
+  })
+}
+
+export function scriptContentUpdate(scriptId: number, content: string): any {
+  return axios({
+    url: `/script/${scriptId}/content`,
     method: 'put',
-    data: { updateScriptContentReq }
+    data: {
+      content
+    }
   })
 }
 
-export function scriptParam(id: number): any {
+export function scriptParam(scriptId: number): any {
   return axios({
-    url: '/script/scriptParam',
-    method: 'get',
-    data: { id }
+    url: `/script/${scriptId}/param`,
+    method: 'get'
   })
 }
 
-export function scriptParamUpdate(
-  updateScriptParamReq: ScriptParamUpdate
-): any {
+export function scriptParamUpdate(scriptId: number): any {
   return axios({
-    url: '/script/scriptParam',
-    method: 'put',
-    data: { updateScriptParamReq }
+    url: `/script/${scriptId}/param`,
+    method: 'put'
+  })
+}
+
+export function scriptPublish(scriptId: number): any {
+  return axios({
+    url: `/script/${scriptId}/publish`,
+    method: 'patch'
   })
 }
