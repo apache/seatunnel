@@ -31,7 +31,7 @@ public class Config {
     /**
      * The server address of kafka cluster.
      */
-    public static final String BOOTSTRAP_SERVER = "bootstrap.server";
+    public static final String BOOTSTRAP_SERVERS = "bootstrap.servers";
 
     public static final String KAFKA_CONFIG_PREFIX = "kafka.";
 

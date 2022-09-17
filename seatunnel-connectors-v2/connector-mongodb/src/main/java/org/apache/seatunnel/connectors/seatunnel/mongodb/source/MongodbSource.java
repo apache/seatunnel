@@ -25,7 +25,6 @@ import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbCo
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.URI;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -49,8 +48,6 @@ import com.google.auto.service.AutoService;
 
 @AutoService(SeaTunnelSource.class)
 public class MongodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
-
-    private SeaTunnelContext seaTunnelContext;
 
     private SeaTunnelRowType rowType;
 
@@ -89,11 +86,6 @@ public class MongodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             format = DEFAULT_FORMAT;
             this.deserializationSchema = new JsonDeserializationSchema(false, false, rowType);
         }
-    }
-
-    @Override
-    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
-        this.seaTunnelContext = seaTunnelContext;
     }
 
     @Override
