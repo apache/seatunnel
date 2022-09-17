@@ -17,12 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
-import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-
-import com.hazelcast.config.Config;
-import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
-import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.NodeEngine;
 import org.junit.After;
@@ -40,12 +35,7 @@ public abstract class AbstractSeaTunnelServerTest {
 
     @Before
     public void before() {
-        Config config = new Config();
-        long time = System.currentTimeMillis();
-        config.setInstanceName(this.getClass().getSimpleName() + "_" + time);
-        config.setClusterName(this.getClass().getSimpleName() + "_" + time);
-        instance = ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(config,
-            Thread.currentThread().getName(), new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
+        instance = TestUtils.createHazelcastInstance(this.getClass().getSimpleName());
         nodeEngine = instance.node.nodeEngine;
         server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
         logger = nodeEngine.getLogger(this.getClass());
