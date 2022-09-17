@@ -19,10 +19,9 @@ package org.apache.seatunnel.engine.server.master;
 
 import static org.awaitility.Awaitility.await;
 
-import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.common.Constant;
-import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -98,18 +97,17 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
 
     @Test
     public void testHandleCheckpointTimeout() throws Exception {
-        JobContext jobContext = new JobContext();
-        jobContext.setJobMode(JobMode.STREAMING);
-        LogicalDag testLogicalDag = TestUtils.getTestLogicalDag(jobContext);
-        JobConfig config = new JobConfig();
-        config.setName("test_checkpoint_timeout");
+        LogicalDag testLogicalDag =
+            TestUtils.createTestLogicalPlan("stream_fakesource_to_file.conf", "test_clear_coordinator_service", jobId);
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(jobId,
-            nodeEngine.getSerializationService().toData(testLogicalDag), config, Collections.emptyList());
+            nodeEngine.getSerializationService().toData(testLogicalDag), testLogicalDag.getJobConfig(),
+            Collections.emptyList());
 
         Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
 
-        PassiveCompletableFuture<Void> voidPassiveCompletableFuture = server.getCoordinatorService().submitJob(jobId, data);
+        PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
+            server.getCoordinatorService().submitJob(jobId, data);
         voidPassiveCompletableFuture.join();
 
         JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);

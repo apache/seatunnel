@@ -18,26 +18,37 @@
 package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
+import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalDagGenerator;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
+import org.apache.seatunnel.engine.core.parse.JobConfigParser;
 
 import com.google.common.collect.Sets;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.instance.impl.HazelcastInstanceProxy;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.List;
+import java.util.Set;
 
 public class TestUtils {
+    public static String getResource(String confFile) {
+        return System.getProperty("user.dir") + "/src/test/resources/" + confFile;
+    }
 
     @SuppressWarnings("checkstyle:MagicNumber")
     public static LogicalDag getTestLogicalDag(JobContext jobContext) throws MalformedURLException {
@@ -78,5 +89,22 @@ public class TestUtils {
             seaTunnelConfig.getHazelcastConfig(),
             HazelcastInstanceFactory.createInstanceName(seaTunnelConfig.getHazelcastConfig()),
             new SeaTunnelNodeContext(seaTunnelConfig))).getOriginal();
+    }
+
+    public static LogicalDag createTestLogicalPlan(String jobConfigFile, String jobName, Long jobId) {
+        Common.setDeployMode(DeployMode.CLIENT);
+        JobContext jobContext = new JobContext(jobId);
+        String filePath = TestUtils.getResource(jobConfigFile);
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName(jobName);
+        jobConfig.setJobContext(jobContext);
+
+        IdGenerator idGenerator = new IdGenerator();
+        ImmutablePair<List<Action>, Set<URL>> immutablePair =
+            new JobConfigParser(filePath, idGenerator, jobConfig).parse();
+
+        LogicalDagGenerator logicalDagGenerator =
+            new LogicalDagGenerator(immutablePair.getLeft(), jobConfig, idGenerator);
+        return logicalDagGenerator.generate();
     }
 }

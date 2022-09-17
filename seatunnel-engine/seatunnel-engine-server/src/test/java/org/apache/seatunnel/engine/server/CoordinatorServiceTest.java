@@ -19,10 +19,7 @@ package org.apache.seatunnel.engine.server;
 
 import static org.awaitility.Awaitility.await;
 
-import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.engine.common.Constant;
-import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
@@ -41,8 +38,8 @@ import java.util.concurrent.TimeUnit;
 public class CoordinatorServiceTest {
     @Test
     public void testMasterNodeActive() {
-        HazelcastInstanceImpl instance1 = TestUtils.createHazelcastInstance("CoordinatorServiceTest");
-        HazelcastInstanceImpl instance2 = TestUtils.createHazelcastInstance("CoordinatorServiceTest");
+        HazelcastInstanceImpl instance1 = TestUtils.createHazelcastInstance("CoordinatorServiceTest_testMasterNodeActive");
+        HazelcastInstanceImpl instance2 = TestUtils.createHazelcastInstance("CoordinatorServiceTest_testMasterNodeActive");
 
         SeaTunnelServer server1 = instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
         SeaTunnelServer server2 = instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
@@ -60,21 +57,17 @@ public class CoordinatorServiceTest {
     @Test
     public void testClearCoordinatorService()
         throws MalformedURLException, NoSuchMethodException, InvocationTargetException, IllegalAccessException {
-        HazelcastInstanceImpl coordinatorServiceTest = TestUtils.createHazelcastInstance("CoordinatorServiceTest");
+        HazelcastInstanceImpl coordinatorServiceTest = TestUtils.createHazelcastInstance("CoordinatorServiceTest_testClearCoordinatorService");
         SeaTunnelServer server1 = coordinatorServiceTest.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
         CoordinatorService coordinatorService = server1.getCoordinatorService();
         Assert.assertTrue(coordinatorService.isCoordinatorActive());
 
         Long jobId = coordinatorServiceTest.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
-        JobContext jobContext = new JobContext(jobId);
-        jobContext.setJobMode(JobMode.STREAMING);
-        LogicalDag testLogicalDag = TestUtils.getTestLogicalDag(jobContext);
-        JobConfig config = new JobConfig();
-        config.setName("get_clear_coordinator_service");
-        config.setJobContext(jobContext);
+        LogicalDag testLogicalDag =
+            TestUtils.createTestLogicalPlan("stream_fakesource_to_file.conf", "test_clear_coordinator_service", jobId);
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(jobId,
-            coordinatorServiceTest.getSerializationService().toData(testLogicalDag), config, Collections.emptyList());
+            coordinatorServiceTest.getSerializationService().toData(testLogicalDag), testLogicalDag.getJobConfig(), Collections.emptyList());
 
         Data data = coordinatorServiceTest.getSerializationService().toData(jobImmutableInformation);
 

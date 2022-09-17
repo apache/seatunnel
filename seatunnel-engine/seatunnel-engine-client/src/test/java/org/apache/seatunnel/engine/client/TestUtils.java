@@ -19,7 +19,7 @@ package org.apache.seatunnel.engine.client;
 
 public class TestUtils {
     public static String getResource(String confFile) {
-        return System.getProperty("user.dir") + "/src/test/resources" + confFile;
+        return System.getProperty("user.dir") + "/src/test/resources/" + confFile;
     }
 
     public static String getClusterName(String testClassName) {
