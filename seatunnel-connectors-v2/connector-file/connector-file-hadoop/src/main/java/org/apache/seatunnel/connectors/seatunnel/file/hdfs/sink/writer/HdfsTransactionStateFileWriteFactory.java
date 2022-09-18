@@ -98,18 +98,6 @@ public class HdfsTransactionStateFileWriteFactory {
                     rowDelimiter,
                     fileSystem);
         }
-        if (fileFormat.equals(FileFormat.EXCEL)) {
-            return new HdfsExcelTransactionStateFileWriter(
-                    seaTunnelRowTypeInfo,
-                    transactionFileNameGenerator,
-                    partitionDirNameGenerator,
-                    sinkColumnsIndexInRow,
-                    tmpPath,
-                    targetPath,
-                    jobId,
-                    subTaskIndex,
-                    fileSystem);
-        }
         // if file type not supported by file connector, default txt writer will be generated
         return new HdfsTxtTransactionStateFileWriter(
                     seaTunnelRowTypeInfo,
