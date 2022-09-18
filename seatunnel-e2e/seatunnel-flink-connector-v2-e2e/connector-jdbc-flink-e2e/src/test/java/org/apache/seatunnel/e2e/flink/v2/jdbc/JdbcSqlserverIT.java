@@ -25,14 +25,18 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.com.google.common.collect.Lists;
+import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -40,12 +44,14 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 @Slf4j
 public class JdbcSqlserverIT extends FlinkContainer {
 
     private MSSQLServerContainer<?> mssqlServerContainer;
+    private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
@@ -126,15 +132,33 @@ public class JdbcSqlserverIT extends FlinkContainer {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_sqlserver_source_to_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         // query result
-        String sql = "select * from sink";
+        String sourceSql = "select * from source";
+        String sinkSql = "select * from sink";
+        List<String> columns = Lists.newArrayList("ids", "name", "sfzh", "sort", "dz", "xchar", "xdecimal", "xfloat", "xnumeric", "xsmall", "xbit", "rq", "xrq", "xreal", "ximage");
+
         try (Connection connection = DriverManager.getConnection(mssqlServerContainer.getJdbcUrl(), mssqlServerContainer.getUsername(), mssqlServerContainer.getPassword())) {
             Statement statement = connection.createStatement();
-            ResultSet resultSet = statement.executeQuery(sql);
-            List<String> result = Lists.newArrayList();
-            while (resultSet.next()) {
-                result.add(resultSet.getString("ids"));
+            ResultSet sourceResultSet = statement.executeQuery(sourceSql);
+            ResultSet sinkResultSet = statement.executeQuery(sinkSql);
+            while (sourceResultSet.next()) {
+                if (sinkResultSet.next()) {
+                    for (String column : columns) {
+                        Object source = sourceResultSet.getObject(column);
+                        int sourceIndex = sourceResultSet.findColumn(column);
+                        int sinkIndex = sinkResultSet.findColumn(column);
+                        Object sink = sinkResultSet.getObject(column);
+                        sinkResultSet.getObject(column);
+                        if (!Objects.deepEquals(source, sink)) {
+                            InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(sourceIndex);
+                            InputStream sinkAsciiStream = sourceResultSet.getBinaryStream(sinkIndex);
+                            String sourceValue = IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
+                            String sinkValue = IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
+                            Assertions.assertEquals(sourceValue, sinkValue);
+                        }
+                        Assertions.assertTrue(true);
+                    }
+                }
             }
-            Assertions.assertFalse(result.isEmpty());
         }
     }
 
@@ -143,6 +167,12 @@ public class JdbcSqlserverIT extends FlinkContainer {
         if (mssqlServerContainer != null) {
             mssqlServerContainer.stop();
         }
+    }
+
+    @Override
+    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
+        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/spark/seatunnel/plugins/Jdbc/lib && cd /tmp/spark/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
+        Assertions.assertEquals(0, extraCommands.getExitCode());
     }
 
 }
