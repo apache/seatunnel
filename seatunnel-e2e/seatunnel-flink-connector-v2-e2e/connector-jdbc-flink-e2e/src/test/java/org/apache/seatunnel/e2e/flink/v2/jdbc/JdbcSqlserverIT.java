@@ -137,9 +137,10 @@ public class JdbcSqlserverIT extends FlinkContainer {
         List<String> columns = Lists.newArrayList("ids", "name", "sfzh", "sort", "dz", "xchar", "xdecimal", "xfloat", "xnumeric", "xsmall", "xbit", "rq", "xrq", "xreal", "ximage");
 
         try (Connection connection = DriverManager.getConnection(mssqlServerContainer.getJdbcUrl(), mssqlServerContainer.getUsername(), mssqlServerContainer.getPassword())) {
-            Statement statement = connection.createStatement();
-            ResultSet sourceResultSet = statement.executeQuery(sourceSql);
-            ResultSet sinkResultSet = statement.executeQuery(sinkSql);
+            Statement sourceStatement = connection.createStatement();
+            Statement sinkStatement = connection.createStatement();
+            ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
+            ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
             while (sourceResultSet.next()) {
                 if (sinkResultSet.next()) {
                     for (String column : columns) {
@@ -147,7 +148,6 @@ public class JdbcSqlserverIT extends FlinkContainer {
                         int sourceIndex = sourceResultSet.findColumn(column);
                         int sinkIndex = sinkResultSet.findColumn(column);
                         Object sink = sinkResultSet.getObject(column);
-                        sinkResultSet.getObject(column);
                         if (!Objects.deepEquals(source, sink)) {
                             InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(sourceIndex);
                             InputStream sinkAsciiStream = sourceResultSet.getBinaryStream(sinkIndex);
@@ -171,7 +171,7 @@ public class JdbcSqlserverIT extends FlinkContainer {
 
     @Override
     protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
-        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/spark/seatunnel/plugins/Jdbc/lib && cd /tmp/spark/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
+        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/flink/seatunnel/plugins/Jdbc/lib && cd /tmp/flink/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
         Assertions.assertEquals(0, extraCommands.getExitCode());
     }
 

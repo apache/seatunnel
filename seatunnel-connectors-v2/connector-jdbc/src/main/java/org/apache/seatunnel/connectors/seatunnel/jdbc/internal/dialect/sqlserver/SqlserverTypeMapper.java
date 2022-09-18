@@ -94,9 +94,10 @@ public class SqlserverTypeMapper implements JdbcDialectTypeMapper {
             case SQLSERVER_MONEY:
             case SQLSERVER_SMALLMONEY:
                 return new DecimalType(precision, scale);
-            case SQLSERVER_FLOAT:
             case SQLSERVER_REAL:
                 return BasicType.FLOAT_TYPE;
+            case SQLSERVER_FLOAT:
+                return BasicType.DOUBLE_TYPE;
             case SQLSERVER_CHAR:
             case SQLSERVER_NCHAR:
             case SQLSERVER_VARCHAR:
