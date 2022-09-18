@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.common.container.spark;
 
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.slf4j.Logger;
@@ -35,8 +36,6 @@ import java.util.stream.Stream;
 public abstract class TestSparkContainer extends TestContainer {
 
     private static final Logger LOG = LoggerFactory.getLogger(TestSparkContainer.class);
-
-    private static final String SPARK_SEATUNNEL_HOME = "/tmp/spark/seatunnel";
     private static final String DEFAULT_DOCKER_IMAGE = "bitnami/spark:2.4.3";
     public static final Network NETWORK = Network.newNetwork();
 
@@ -45,11 +44,6 @@ public abstract class TestSparkContainer extends TestContainer {
     @Override
     protected String getDockerImage() {
         return DEFAULT_DOCKER_IMAGE;
-    }
-
-    @Override
-    protected String getSeaTunnelHomeInContainer() {
-        return SPARK_SEATUNNEL_HOME;
     }
 
     @Override
@@ -65,6 +59,8 @@ public abstract class TestSparkContainer extends TestContainer {
         // start a worker.
         Startables.deepStart(Stream.of(master)).join();
         copySeaTunnelStarter(master);
+        // execute extra commands
+        executeExtraCommands(master);
         LOG.info("Spark container started");
     }
 
@@ -79,6 +75,10 @@ public abstract class TestSparkContainer extends TestContainer {
     protected List<String> getExtraStartShellCommands() {
         return Arrays.asList("--master local",
             "--deploy-mode client");
+    }
+
+    public void executeExtraCommands(ContainerExtendedFactory extendedFactory) {
+        extendedFactory.extend(master);
     }
 
     public Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException {

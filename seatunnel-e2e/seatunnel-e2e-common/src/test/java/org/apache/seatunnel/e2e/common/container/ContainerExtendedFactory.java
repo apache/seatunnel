@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.e2e.common.container;
 
+import org.testcontainers.containers.GenericContainer;
+
 @FunctionalInterface
 public interface ContainerExtendedFactory {
 
-    void extend(TestContainer container);
+    void extend(GenericContainer<?> engineMasterContainer);
 }

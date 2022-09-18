@@ -41,6 +41,7 @@ public abstract class TestContainer implements TestResource {
     protected static final Logger LOG = LoggerFactory.getLogger(TestContainer.class);
     protected static final String START_ROOT_MODULE_NAME = "seatunnel-core";
 
+    public static final String SEATUNNEL_HOME = "/tmp/seatunnel";
     protected final String startModuleName;
 
     protected final String startModuleFullPath;
@@ -63,10 +64,13 @@ public abstract class TestContainer implements TestResource {
 
     protected abstract String getConnectorNamePrefix();
 
-    protected abstract String getSeaTunnelHomeInContainer();
-
     protected abstract List<String> getExtraStartShellCommands();
 
+    public abstract void executeExtraCommands(ContainerExtendedFactory extendedFactory);
+
+    /**
+     * TODO: issue #2733, Reimplement all modules that override the method, remove this method & use {@link ContainerExtendedFactory}.
+     */
     protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
         //do nothing
     }
@@ -75,7 +79,7 @@ public abstract class TestContainer implements TestResource {
         ContainerUtil.copySeaTunnelStarter(container,
             this.startModuleName,
             this.startModuleFullPath,
-            getSeaTunnelHomeInContainer(),
+            SEATUNNEL_HOME,
             getStartShellName());
     }
 
@@ -89,15 +93,13 @@ public abstract class TestContainer implements TestResource {
             getConnectorModulePath(),
             getConnectorNamePrefix(),
             getConnectorType(),
-            getSeaTunnelHomeInContainer());
-        // execute extra commands
-        executeExtraCommands(container);
+            SEATUNNEL_HOME);
         return executeCommand(container, confInContainerPath);
     }
 
     protected Container.ExecResult executeCommand(GenericContainer<?> container, String configPath) throws IOException, InterruptedException {
         final List<String> command = new ArrayList<>();
-        String binPath = Paths.get(getSeaTunnelHomeInContainer(), "bin", getStartShellName()).toString();
+        String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
         // base command
         command.add(adaptPathForWin(binPath));
         command.add("--config");

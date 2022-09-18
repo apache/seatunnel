@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.e2e.common;
 
-import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainersFactory;
 import org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension;
 import org.apache.seatunnel.e2e.common.junit.TestCaseInvocationContextProvider;
@@ -28,8 +27,6 @@ import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import java.util.List;
-
 @ExtendWith({
     ContainerTestingExtension.class,
     TestLoggerExtension.class,
@@ -39,9 +36,5 @@ import java.util.List;
 public abstract class TestSuiteBase {
 
     @TestContainers
-    TestContainersFactory containersFactory = extendedFactory -> {
-        List<TestContainer> testContainers = ContainerUtil.discoverTestContainers();
-        testContainers.forEach(extendedFactory::extend);
-        return testContainers;
-    };
+    TestContainersFactory containersFactory = ContainerUtil::discoverTestContainers;
 }

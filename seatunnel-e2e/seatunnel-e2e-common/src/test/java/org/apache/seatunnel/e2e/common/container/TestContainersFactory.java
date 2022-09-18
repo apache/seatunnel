@@ -21,5 +21,5 @@ import java.util.List;
 
 public interface TestContainersFactory {
 
-    List<TestContainer> create(ContainerExtendedFactory extendedFactory);
+    List<TestContainer> create();
 }

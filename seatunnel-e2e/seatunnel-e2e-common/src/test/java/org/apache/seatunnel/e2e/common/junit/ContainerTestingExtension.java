@@ -34,6 +34,7 @@ public class ContainerTestingExtension implements BeforeAllCallback, AfterAllCal
     public static final ExtensionContext.Namespace TEST_RESOURCE_NAMESPACE =
         ExtensionContext.Namespace.create("testResourceNamespace");
     public static final String TEST_CONTAINERS_STORE_KEY = "testContainers";
+    public static final String TEST_EXTENDED_FACTORY_STORE_KEY = "testContainerExtendedFactory";
 
     @Override
     public void beforeAll(ExtensionContext context) throws Exception {
@@ -43,12 +44,12 @@ public class ContainerTestingExtension implements BeforeAllCallback, AfterAllCal
                 TestContainerExtension.class,
                 ContainerExtendedFactory.class);
         checkAtMostOneAnnotationField(containerExtendedFactories, TestContainerExtension.class);
-        ContainerExtendedFactory containerExtendedFactory;
+        ContainerExtendedFactory containerExtendedFactory = container -> {};
         if (!containerExtendedFactories.isEmpty()) {
             containerExtendedFactory = containerExtendedFactories.get(0);
-        } else {
-            containerExtendedFactory = container -> {};
         }
+        context.getStore(TEST_RESOURCE_NAMESPACE)
+            .put(TEST_EXTENDED_FACTORY_STORE_KEY, containerExtendedFactory);
 
         List<TestContainersFactory> containersFactories = AnnotationSupport.findAnnotatedFieldValues(
             context.getRequiredTestInstance(),
@@ -56,7 +57,7 @@ public class ContainerTestingExtension implements BeforeAllCallback, AfterAllCal
             TestContainersFactory.class);
 
         checkExactlyOneAnnotatedField(containersFactories, TestContainers.class);
-        List<TestContainer> testContainers = containersFactories.get(0).create(containerExtendedFactory);
+        List<TestContainer> testContainers = containersFactories.get(0).create();
         context.getStore(TEST_RESOURCE_NAMESPACE)
             .put(TEST_CONTAINERS_STORE_KEY, testContainers);
     }

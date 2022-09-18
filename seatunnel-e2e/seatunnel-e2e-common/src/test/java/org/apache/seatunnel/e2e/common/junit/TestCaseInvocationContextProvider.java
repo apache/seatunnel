@@ -18,8 +18,10 @@
 package org.apache.seatunnel.e2e.common.junit;
 
 import static org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension.TEST_CONTAINERS_STORE_KEY;
+import static org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension.TEST_EXTENDED_FACTORY_STORE_KEY;
 import static org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension.TEST_RESOURCE_NAMESPACE;
 
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import lombok.SneakyThrows;
@@ -50,16 +52,23 @@ public class TestCaseInvocationContextProvider implements TestTemplateInvocation
     public Stream<TestTemplateInvocationContext> provideTestTemplateInvocationContexts(ExtensionContext context) {
         List<TestContainer> testContainers = (List<TestContainer>) context.getStore(TEST_RESOURCE_NAMESPACE)
             .get(TEST_CONTAINERS_STORE_KEY);
+
+        ContainerExtendedFactory containerExtendedFactory = (ContainerExtendedFactory) context.getStore(TEST_RESOURCE_NAMESPACE)
+            .get(TEST_EXTENDED_FACTORY_STORE_KEY);
+
         return testContainers.stream()
-            .map(TestResourceProvidingInvocationContext::new);
+            .map(testContainer -> new TestResourceProvidingInvocationContext(testContainer, containerExtendedFactory));
     }
 
     static class TestResourceProvidingInvocationContext implements TestTemplateInvocationContext {
         private final TestContainer testContainer;
+        private final ContainerExtendedFactory containerExtendedFactory;
 
         public TestResourceProvidingInvocationContext(
-            TestContainer testContainer) {
+            TestContainer testContainer,
+            ContainerExtendedFactory containerExtendedFactory) {
             this.testContainer = testContainer;
+            this.containerExtendedFactory = containerExtendedFactory;
         }
 
         @Override
@@ -71,7 +80,7 @@ public class TestCaseInvocationContextProvider implements TestTemplateInvocation
         public List<Extension> getAdditionalExtensions() {
             return Arrays.asList(
                 // Extension for injecting parameters
-                new TestContainerResolver(testContainer),
+                new TestContainerResolver(testContainer, containerExtendedFactory),
                 // Extension for closing test container
                 (AfterTestExecutionCallback) ignore -> {
                     testContainer.tearDown();
@@ -83,9 +92,12 @@ public class TestCaseInvocationContextProvider implements TestTemplateInvocation
     private static class TestContainerResolver implements ParameterResolver {
 
         private final TestContainer testContainer;
+        private final ContainerExtendedFactory containerExtendedFactory;
 
-        private TestContainerResolver(TestContainer testContainer) {
+        private TestContainerResolver(TestContainer testContainer,
+                                      ContainerExtendedFactory containerExtendedFactory) {
             this.testContainer = testContainer;
+            this.containerExtendedFactory = containerExtendedFactory;
         }
 
         @Override
@@ -101,6 +113,7 @@ public class TestCaseInvocationContextProvider implements TestTemplateInvocation
             ParameterContext parameterContext, ExtensionContext extensionContext)
             throws ParameterResolutionException {
             testContainer.startUp();
+            testContainer.executeExtraCommands(containerExtendedFactory);
             return this.testContainer;
         }
     }

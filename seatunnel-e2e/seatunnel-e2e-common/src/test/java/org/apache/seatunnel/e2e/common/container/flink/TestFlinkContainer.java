@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.common.container.flink;
 
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.slf4j.Logger;
@@ -42,8 +43,6 @@ public abstract class TestFlinkContainer extends TestContainer {
 
     protected static final Logger LOG = LoggerFactory.getLogger(TestFlinkContainer.class);
 
-    protected static final String FLINK_SEATUNNEL_HOME = "/tmp/flink/seatunnel";
-
     protected static final Network NETWORK = Network.newNetwork();
 
     protected static final List<String> DEFAULT_FLINK_PROPERTIES = Arrays.asList(
@@ -64,11 +63,6 @@ public abstract class TestFlinkContainer extends TestContainer {
     @Override
     protected String getDockerImage() {
         return DEFAULT_DOCKER_IMAGE;
-    }
-
-    @Override
-    protected String getSeaTunnelHomeInContainer() {
-        return FLINK_SEATUNNEL_HOME;
     }
 
     @Override
@@ -95,6 +89,8 @@ public abstract class TestFlinkContainer extends TestContainer {
         Startables.deepStart(Stream.of(jobManager)).join();
         Startables.deepStart(Stream.of(taskManager)).join();
         copySeaTunnelStarter(jobManager);
+        // execute extra commands
+        executeExtraCommands(jobManager);
         LOG.info("Flink containers are started.");
     }
 
@@ -115,6 +111,10 @@ public abstract class TestFlinkContainer extends TestContainer {
     @Override
     protected List<String> getExtraStartShellCommands() {
         return Collections.emptyList();
+    }
+
+    public void executeExtraCommands(ContainerExtendedFactory extendedFactory) {
+        extendedFactory.extend(jobManager);
     }
 
     @Override
