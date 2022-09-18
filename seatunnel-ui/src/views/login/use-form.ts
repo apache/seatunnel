@@ -17,10 +17,16 @@
 
 import { reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { userLogin } from '@/service/user'
+import { useUserStore } from '@/store/user'
+import { useRouter } from 'vue-router'
 import type { FormRules } from 'naive-ui'
+import type { Router } from 'vue-router'
 
 export function useForm() {
+  const router: Router = useRouter()
   const { t } = useI18n()
+  const userStore = useUserStore()
 
   const state = reactive({
     loginFormRef: ref(),
@@ -29,7 +35,7 @@ export function useForm() {
       password: ''
     },
     rules: {
-      userName: {
+      username: {
         trigger: ['input', 'blur'],
         validator() {
           if (state.loginForm.username === '') {
@@ -37,7 +43,7 @@ export function useForm() {
           }
         }
       },
-      userPassword: {
+      password: {
         trigger: ['input', 'blur'],
         validator() {
           if (state.loginForm.password === '') {
@@ -48,7 +54,15 @@ export function useForm() {
     } as FormRules
   })
 
+  const handleLogin = () => {
+    userLogin({ ...state.loginForm }).then((res: any) => {
+      userStore.setUserInfo(res.data)
+      router.push({ path: '/data-pipes' })
+    })
+  }
+
   return {
-    state
+    state,
+    handleLogin
   }
 }

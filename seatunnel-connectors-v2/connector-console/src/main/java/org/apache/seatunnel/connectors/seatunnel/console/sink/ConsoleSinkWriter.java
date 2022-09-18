@@ -59,6 +59,9 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     }
 
     private String fieldToString(SeaTunnelDataType<?> type, Object value) {
+        if (value == null) {
+            return null;
+        }
         switch (type.getSqlType()) {
             case ARRAY:
             case BYTES:
@@ -73,7 +76,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                 List<String> rowData = new ArrayList<>();
                 SeaTunnelRowType rowType = (SeaTunnelRowType) type;
                 for (int i = 0; i < rowType.getTotalFields(); i++) {
-                    rowData.add(fieldToString(rowType.getFieldTypes()[i], Array.get(value, i)));
+                    rowData.add(fieldToString(rowType.getFieldTypes()[i], ((SeaTunnelRow) value).getField(i)));
                 }
                 return rowData.toString();
             default:

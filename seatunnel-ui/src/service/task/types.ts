@@ -16,7 +16,7 @@
  */
 
 interface TaskList {
-  name: string
+  name?: string
   pageNo: number
   pageSize: number
 }
@@ -32,15 +32,10 @@ interface TaskRecycle {
   operatorId: number
 }
 
-interface TaskTmpExecute {
+interface TaskExecute {
   content: string
-  endTime: string
   executeType: number
-  operatorId: number
-  parallelismNum: number
   params: object
-  scriptId: number
-  startTime: string
 }
 
-export { TaskList, TaskJobList, TaskRecycle, TaskTmpExecute }
+export { TaskList, TaskJobList, TaskRecycle, TaskExecute }

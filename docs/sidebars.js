@@ -75,7 +75,8 @@ const sidebars = {
       type: 'category',
       label: 'Concept',
       items: [
-        'concept/config',
+          'concept/config',
+          'concept/connector-v2-features',
       ],
     },
       {

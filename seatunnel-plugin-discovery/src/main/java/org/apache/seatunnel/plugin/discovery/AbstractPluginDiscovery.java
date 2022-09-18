@@ -64,7 +64,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     };
 
     protected final ConcurrentHashMap<PluginIdentifier, Optional<URL>> pluginJarPath =
-            new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
+        new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
 
     public AbstractPluginDiscovery(String pluginSubDir, BiConsumer<ClassLoader, URL> addURLToClassloader) {
         this.pluginDir = Common.connectorJarDir(pluginSubDir);
@@ -80,10 +80,10 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     @Override
     public List<URL> getPluginJarPaths(List<PluginIdentifier> pluginIdentifiers) {
         return pluginIdentifiers.stream()
-                .map(this::getPluginJarPath)
-                .filter(Optional::isPresent)
-                .map(Optional::get).distinct()
-                .collect(Collectors.toList());
+            .map(this::getPluginJarPath)
+            .filter(Optional::isPresent)
+            .map(Optional::get).distinct()
+            .collect(Collectors.toList());
     }
 
     @Override
@@ -109,13 +109,13 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                 this.addURLToClassLoader.accept(classLoader, pluginJarPath.get());
             } catch (Exception e) {
                 LOGGER.warn("can't load jar use current thread classloader, use URLClassLoader instead now." +
-                        " message: " + e.getMessage());
+                    " message: " + e.getMessage());
                 classLoader = new URLClassLoader(new URL[]{pluginJarPath.get()}, Thread.currentThread().getContextClassLoader());
             }
             pluginInstance = loadPluginInstance(pluginIdentifier, classLoader);
             if (pluginInstance != null) {
                 LOGGER.info("Load plugin: {} from path: {} use classloader: {}",
-                        pluginIdentifier, pluginJarPath.get(), classLoader.getClass().getName());
+                    pluginIdentifier, pluginJarPath.get(), classLoader.getClass().getName());
                 return pluginInstance;
             }
         }
