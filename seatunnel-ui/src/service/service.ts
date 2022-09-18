@@ -17,6 +17,10 @@
 
 import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios'
 import utils from '@/utils'
+import { useUserStore } from '@/store/user'
+import type { UserDetail } from '@/service/user/types'
+
+const userStore = useUserStore()
 
 const handleError = (res: AxiosResponse<any, any>) => {
   if (import.meta.env.MODE === 'development') {
