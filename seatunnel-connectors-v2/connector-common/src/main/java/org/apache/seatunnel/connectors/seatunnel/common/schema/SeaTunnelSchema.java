@@ -198,19 +198,19 @@ public class SeaTunnelSchema implements Serializable {
             case TIMESTAMP:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             default:
-                return map2SeaTunnelRowType(convertJson2Map(originContent));
+                return mapToSeaTunnelRowType(convertJsonToMap(originContent));
         }
     }
 
-    private static Map<String, String> convertConfig2Map(Config config) {
+    private static Map<String, String> convertConfigToMap(Config config) {
         // Because the entrySet in typesafe config couldn't keep key-value order
         // So use jackson parsing schema information into a map to keep key-value order
         ConfigRenderOptions options = ConfigRenderOptions.concise();
         String schema = config.root().render(options);
-        return convertJson2Map(schema);
+        return convertJsonToMap(schema);
     }
 
-    private static Map<String, String> convertJson2Map(String json) {
+    private static Map<String, String> convertJsonToMap(String json) {
         ObjectNode jsonNodes = JsonUtils.parseObject(json);
         LinkedHashMap<String, String> fieldsMap = new LinkedHashMap<>();
         jsonNodes.fields().forEachRemaining(field -> {
@@ -225,7 +225,7 @@ public class SeaTunnelSchema implements Serializable {
         return fieldsMap;
     }
 
-    private static SeaTunnelRowType map2SeaTunnelRowType(Map<String, String> fieldsMap) {
+    private static SeaTunnelRowType mapToSeaTunnelRowType(Map<String, String> fieldsMap) {
         int fieldsNum = fieldsMap.size();
         int i = 0;
         String[] fieldsName = new String[fieldsNum];
@@ -248,8 +248,8 @@ public class SeaTunnelSchema implements Serializable {
             throw new RuntimeException(errorMsg);
         }
         Config fields = schemaConfig.getConfig(FIELD_KEY);
-        Map<String, String> fieldsMap = convertConfig2Map(fields);
-        return new SeaTunnelSchema(map2SeaTunnelRowType(fieldsMap));
+        Map<String, String> fieldsMap = convertConfigToMap(fields);
+        return new SeaTunnelSchema(mapToSeaTunnelRowType(fieldsMap));
     }
 
     public static SeaTunnelRowType buildSimpleTextSchema() {
