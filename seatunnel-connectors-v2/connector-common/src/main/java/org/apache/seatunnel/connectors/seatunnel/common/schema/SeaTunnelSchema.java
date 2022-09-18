@@ -54,7 +54,15 @@ public class SeaTunnelSchema implements Serializable {
                 .substring(start + 1, end)
                 // replace the space between key and value
                 .replace(" ", "");
-        int index = genericType.indexOf(",");
+        int index;
+        if (genericType.startsWith(SqlType.DECIMAL.name())) {
+            // if map key is decimal, we should find the index of second ','
+            index = genericType.indexOf(",");
+            index = genericType.indexOf(",", index + 1);
+        } else {
+            // if map key is not decimal, we should find the index of first ','
+            index = genericType.indexOf(",");
+        }
         String keyGenericType = genericType.substring(0, index);
         String valueGenericType = genericType.substring(index + 1);
         return new String[]{keyGenericType, valueGenericType};
@@ -102,12 +110,12 @@ public class SeaTunnelSchema implements Serializable {
         type = type.toUpperCase();
         if (type.contains("<") || type.contains(">")) {
             // Map type or Array type
-            if (type.contains(SqlType.MAP.name())) {
+            if (type.startsWith(SqlType.MAP.name())) {
                 String[] genericTypes = parseMapGeneric(type);
                 keyGenericType = genericTypes[0];
                 valueGenericType = genericTypes[1];
                 type = SqlType.MAP.name();
-            } else {
+            } else if (type.startsWith(SqlType.ARRAY.name())) {
                 genericType = parseArrayGeneric(type);
                 type = SqlType.ARRAY.name();
             }
