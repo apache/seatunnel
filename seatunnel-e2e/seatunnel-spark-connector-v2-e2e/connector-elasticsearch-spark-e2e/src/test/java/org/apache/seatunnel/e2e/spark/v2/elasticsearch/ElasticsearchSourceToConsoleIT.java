@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.spark.v2.elasticsearch;
+package test.java.org.apache.seatunnel.e2e.spark.v2.elasticsearch;
 
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.e2e.spark.SparkContainer;
