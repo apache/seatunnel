@@ -74,10 +74,11 @@ The transaction isolation level, which applies to current connection. The defaul
 
 ### customUpdateStmt [string]
 
-Configure when `saveMode` is specified as `update` , which is used to specify the update statement template for key conflicts
-if `customUpdateStmt` is empty ,the sql will auto-generate for all columns, else use your sql which refer to the usage of
+Configure when `saveMode` is specified as `update` , which is used to specify the update statement template for key conflicts.
+If `customUpdateStmt` is empty, the sql will auto-generate for all columns, else use the sql which refer to the usage of
 `INSERT INTO table (...) values (...) ON DUPLICATE KEY UPDATE... ` of `mysql` , use placeholders or fixed values in `values`
-tips: the tableName of sql should be consistent with the dbName.
+tips: the tableName of sql should be consistent with the `dbTable`.
+
 ### duplicateIncs [string]
 
 Configure when `saveMode` is specified as `update` , and when the specified key conflicts, the value is updated to the existing value plus the original value
