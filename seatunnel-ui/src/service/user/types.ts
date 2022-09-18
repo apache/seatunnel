@@ -29,6 +29,7 @@ interface UserLogin {
 interface UserDetail extends UserLogin {
   status: string
   type: string
+  token?: string
   id?: number
   name?: string
   createTime?: any | null
