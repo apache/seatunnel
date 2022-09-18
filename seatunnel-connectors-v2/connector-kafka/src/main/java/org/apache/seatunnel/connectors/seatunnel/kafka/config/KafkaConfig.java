@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.config;
 
-public class Config {
+public class KafkaConfig {
     /**
      * The topic of kafka.
      */

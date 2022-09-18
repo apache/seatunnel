@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.COMMIT_ON_CHECKPOINT;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONSUMER_GROUP;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PATTERN;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaConfig.BOOTSTRAP_SERVERS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaConfig.COMMIT_ON_CHECKPOINT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaConfig.CONSUMER_GROUP;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaConfig.PATTERN;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaConfig.TOPIC;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
@@ -29,8 +29,6 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -92,10 +90,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
             this.metadata.getProperties().put(e.getKey(), String.valueOf(e.getValue().unwrapped()));
         });
 
-        // TODO support user custom row type
-        this.typeInfo = new SeaTunnelRowType(new String[]{"topic", "raw_message"},
-                new SeaTunnelDataType[]{BasicType.STRING_TYPE, BasicType.STRING_TYPE});
-
+        setDeserialization(pluginConfig);
     }
 
     @Override
