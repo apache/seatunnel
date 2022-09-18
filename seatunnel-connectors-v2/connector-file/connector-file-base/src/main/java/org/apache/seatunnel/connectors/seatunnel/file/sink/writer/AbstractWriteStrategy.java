@@ -24,9 +24,9 @@ import org.apache.seatunnel.common.utils.VariablesSubstitute;
 import org.apache.seatunnel.connectors.seatunnel.file.config.Constant;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo2;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState2;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 
 import com.google.common.collect.Lists;
@@ -190,12 +190,12 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      * @return the file commit information
      */
     @Override
-    public Optional<FileCommitInfo2> prepareCommit() {
+    public Optional<FileCommitInfo> prepareCommit() {
         this.finishAndCloseFile();
         Map<String, String> commitMap = new HashMap<>(this.needMoveFiles);
         Map<String, List<String>> copyMap = this.partitionDirAndValuesMap.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> new ArrayList<>(e.getValue())));
-        return Optional.of(new FileCommitInfo2(commitMap, copyMap, transactionDirectory));
+        return Optional.of(new FileCommitInfo(commitMap, copyMap, transactionDirectory));
     }
 
     /**
@@ -235,7 +235,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      * @param fileStates file sink states
      * @return transaction ids
      */
-    public List<String> getTransactionIdFromStates(List<FileSinkState2> fileStates) {
+    public List<String> getTransactionIdFromStates(List<FileSinkState> fileStates) {
         String[] pathSegments = new String[]{textFileSinkConfig.getPath(), Constant.SEATUNNEL, jobId};
         String jobDir = String.join(File.separator, pathSegments) + "/";
         try {
@@ -253,8 +253,8 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      * @return the list of states
      */
     @Override
-    public List<FileSinkState2> snapshotState(long checkpointId) {
-        ArrayList<FileSinkState2> fileState = Lists.newArrayList(new FileSinkState2(this.transactionId, this.checkpointId));
+    public List<FileSinkState> snapshotState(long checkpointId) {
+        ArrayList<FileSinkState> fileState = Lists.newArrayList(new FileSinkState(this.transactionId, this.checkpointId));
         this.checkpointId = checkpointId;
         this.beginTransaction(checkpointId);
         return fileState;

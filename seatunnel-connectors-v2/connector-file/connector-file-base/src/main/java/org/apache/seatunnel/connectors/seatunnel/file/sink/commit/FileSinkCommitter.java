@@ -25,12 +25,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class FileSinkCommitter2 implements SinkCommitter<FileCommitInfo2> {
+@Deprecated
+public class FileSinkCommitter implements SinkCommitter<FileCommitInfo> {
 
     @Override
-    public List<FileCommitInfo2> commit(List<FileCommitInfo2> commitInfos) throws IOException {
-        ArrayList<FileCommitInfo2> failedCommitInfos = new ArrayList<>();
-        for (FileCommitInfo2 commitInfo : commitInfos) {
+    public List<FileCommitInfo> commit(List<FileCommitInfo> commitInfos) throws IOException {
+        ArrayList<FileCommitInfo> failedCommitInfos = new ArrayList<>();
+        for (FileCommitInfo commitInfo : commitInfos) {
             Map<String, String> needMoveFiles = commitInfo.getNeedMoveFiles();
             needMoveFiles.forEach((k, v) -> {
                 try {
@@ -51,8 +52,8 @@ public class FileSinkCommitter2 implements SinkCommitter<FileCommitInfo2> {
      * @throws IOException throw IOException when close failed.
      */
     @Override
-    public void abort(List<FileCommitInfo2> commitInfos) throws IOException {
-        for (FileCommitInfo2 commitInfo : commitInfos) {
+    public void abort(List<FileCommitInfo> commitInfos) throws IOException {
+        for (FileCommitInfo commitInfo : commitInfos) {
             Map<String, String> needMoveFiles = commitInfo.getNeedMoveFiles();
             for (Map.Entry<String, String> entry : needMoveFiles.entrySet()) {
                 if (FileSystemUtils.fileExist(entry.getValue()) && !FileSystemUtils.fileExist(entry.getKey())) {

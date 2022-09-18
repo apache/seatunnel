@@ -28,11 +28,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo2;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo2;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter2;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState2;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategyFactory;
 
@@ -42,7 +42,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
-public abstract class BaseFileSink implements SeaTunnelSink<SeaTunnelRow, FileSinkState2, FileCommitInfo2, FileAggregatedCommitInfo2> {
+public abstract class BaseFileSink implements SeaTunnelSink<SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo> {
     protected SeaTunnelRowType seaTunnelRowType;
     protected Config pluginConfig;
     protected HadoopConf hadoopConf;
@@ -71,32 +71,32 @@ public abstract class BaseFileSink implements SeaTunnelSink<SeaTunnelRow, FileSi
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, FileCommitInfo2, FileSinkState2> restoreWriter(SinkWriter.Context context, List<FileSinkState2> states) throws IOException {
+    public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> restoreWriter(SinkWriter.Context context, List<FileSinkState> states) throws IOException {
         return new BaseFileSinkWriter(writeStrategy, hadoopConf, context, jobId, states);
     }
 
     @Override
-    public Optional<SinkAggregatedCommitter<FileCommitInfo2, FileAggregatedCommitInfo2>> createAggregatedCommitter() throws IOException {
-        return Optional.of(new FileSinkAggregatedCommitter2());
+    public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>> createAggregatedCommitter() throws IOException {
+        return Optional.of(new FileSinkAggregatedCommitter());
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, FileCommitInfo2, FileSinkState2> createWriter(SinkWriter.Context context) throws IOException {
+    public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> createWriter(SinkWriter.Context context) throws IOException {
         return new BaseFileSinkWriter(writeStrategy, hadoopConf, context, jobId);
     }
 
     @Override
-    public Optional<Serializer<FileCommitInfo2>> getCommitInfoSerializer() {
+    public Optional<Serializer<FileCommitInfo>> getCommitInfoSerializer() {
         return Optional.of(new DefaultSerializer<>());
     }
 
     @Override
-    public Optional<Serializer<FileAggregatedCommitInfo2>> getAggregatedCommitInfoSerializer() {
+    public Optional<Serializer<FileAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
         return Optional.of(new DefaultSerializer<>());
     }
 
     @Override
-    public Optional<Serializer<FileSinkState2>> getWriterStateSerializer() {
+    public Optional<Serializer<FileSinkState>> getWriterStateSerializer() {
         return Optional.of(new DefaultSerializer<>());
     }
 
