@@ -16,38 +16,18 @@
  */
 
 interface ScriptList {
-  name: string
+  name?: string
   pageNo: number
   pageSize: number
-  status: string
-}
-
-interface ScriptPublish {
-  operatorId: number
-  scriptId: number
+  status?: string
 }
 
 interface ScriptAdd {
-  creatorId: number
   name: string
   type: string
 }
 
-interface ScriptContentUpdate {
-  content: string
-  id: number
-  menderId: number
-}
-
-interface ScriptParamUpdate {
-  params: object
-  scriptId: number
-}
-
 export {
   ScriptList,
-  ScriptPublish,
-  ScriptAdd,
-  ScriptContentUpdate,
-  ScriptParamUpdate
+  ScriptAdd
 }

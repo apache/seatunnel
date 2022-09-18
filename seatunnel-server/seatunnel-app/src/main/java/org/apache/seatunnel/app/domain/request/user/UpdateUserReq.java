@@ -26,7 +26,7 @@ import javax.validation.constraints.NotNull;
 @ApiModel(value = "updateUserReq", description = "update an exists user request")
 @Data
 public class UpdateUserReq extends BaseUserReq{
-    @ApiModelProperty(value = "user id", required = true, dataType = "Integer")
+    @ApiModelProperty(value = "user id", required = true, dataType = "Integer", hidden = true)
     @NotNull
-    private Integer id;
+    private Integer userId;
 }

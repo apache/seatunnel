@@ -43,16 +43,7 @@
                 <include>plugins/**</include>
             </includes>
         </fileSet>
-        <fileSet>
-            <directory>../seatunnel-core/seatunnel-core-flink/target</directory>
-            <includes>
-                <include>seatunnel-core-flink*.jar</include>
-            </includes>
-            <excludes>
-                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
-            </excludes>
-            <outputDirectory>/lib</outputDirectory>
-        </fileSet>
+        <!-- ============ Starter Bin ============  -->
         <fileSet>
             <directory>../seatunnel-core/seatunnel-core-flink/src/main/bin</directory>
             <outputDirectory>/bin</outputDirectory>
@@ -64,98 +55,11 @@
             <fileMode>0755</fileMode>
         </fileSet>
         <fileSet>
-            <directory>../seatunnel-core/seatunnel-core-flink-sql/target</directory>
-            <includes>
-                <include>seatunnel-core-flink-sql*.jar</include>
-            </includes>
-            <excludes>
-                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
-            </excludes>
-            <outputDirectory>/lib</outputDirectory>
-        </fileSet>
-        <fileSet>
             <directory>../seatunnel-core/seatunnel-core-spark/src/main/bin</directory>
             <outputDirectory>/bin</outputDirectory>
             <fileMode>0755</fileMode>
         </fileSet>
-        <fileSet>
-            <directory>../seatunnel-core/seatunnel-core-spark/target</directory>
-            <includes>
-                <include>seatunnel-core-spark*.jar</include>
-            </includes>
-            <excludes>
-                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
-            </excludes>
-            <outputDirectory>/lib</outputDirectory>
-        </fileSet>
-        <fileSet>
-            <directory>../seatunnel-core/seatunnel-flink-starter/src/main/bin</directory>
-            <outputDirectory>/bin</outputDirectory>
-            <fileMode>0755</fileMode>
-        </fileSet>
-        <fileSet>
-            <directory>../seatunnel-core/seatunnel-flink-starter/target</directory>
-            <includes>
-                <include>seatunnel-flink-starter*.jar</include>
-            </includes>
-            <excludes>
-                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
-            </excludes>
-            <outputDirectory>/lib</outputDirectory>
-        </fileSet>
-        <fileSet>
-            <directory>../seatunnel-core/seatunnel-spark-starter/src/main/bin</directory>
-            <outputDirectory>/bin</outputDirectory>
-            <fileMode>0755</fileMode>
-        </fileSet>
-        <fileSet>
-            <directory>../seatunnel-core/seatunnel-spark-starter/target</directory>
-            <includes>
-                <include>seatunnel-spark-starter*.jar</include>
-            </includes>
-            <excludes>
-                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
-            </excludes>
-            <outputDirectory>/lib</outputDirectory>
-        </fileSet>
-        <!-- connectors -->
-        <fileSet>
-            <directory>../seatunnel-connectors/seatunnel-connectors-flink-dist/target/lib</directory>
-            <includes>
-                <include>seatunnel-connector-flink*.jar</include>
-            </includes>
-            <excludes>
-                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
-            </excludes>
-            <outputDirectory>/connectors/flink</outputDirectory>
-        </fileSet>
-        <fileSet>
-            <directory>../seatunnel-connectors/seatunnel-connectors-flink-sql-dist/target/lib</directory>
-            <includes>
-                <include>flink-sql-connector*.jar</include>
-            </includes>
-            <excludes>
-                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
-            </excludes>
-            <outputDirectory>/connectors/flink-sql</outputDirectory>
-        </fileSet>
-        <fileSet>
-            <directory>../seatunnel-connectors/seatunnel-connectors-spark-dist/target/lib</directory>
-            <includes>
-                <include>seatunnel-connector-spark*.jar</include>
-            </includes>
-            <excludes>
-                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
-            </excludes>
-            <outputDirectory>/connectors/spark</outputDirectory>
-        </fileSet>
-        <fileSet>
-            <directory>../</directory>
-            <includes>
-                <include>plugin-mapping.properties</include>
-            </includes>
-            <outputDirectory>/connectors</outputDirectory>
-        </fileSet>
+
         <fileSet>
             <directory>${project.build.directory}/bin</directory>
             <outputDirectory>/bin</outputDirectory>
@@ -177,6 +81,67 @@
             </includes>
             <outputDirectory>.</outputDirectory>
         </fileSet>
-        
     </fileSets>
+
+    <files>
+        <file>
+            <source>../plugin-mapping.properties</source>
+            <outputDirectory>/connectors</outputDirectory>
+        </file>
+    </files>
+
+    <dependencySets>
+        <!-- ============ Starter Jars ============  -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <includes>
+                <!-- Flink starter -->
+                <include>org.apache.seatunnel:seatunnel-core-flink:jar</include>
+                <!-- Flink SQL starter -->
+                <include>org.apache.seatunnel:seatunnel-core-flink-sql:jar</include>
+                <!-- Spark starter -->
+                <include>org.apache.seatunnel:seatunnel-core-spark:jar</include>
+            </includes>
+            <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
+            <outputDirectory>/lib</outputDirectory>
+            <scope>provided</scope>
+        </dependencySet>
+
+        <!-- ============ Connectors Jars ============  -->
+        <!-- Flink connectors -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <includes>
+                <include>org.apache.seatunnel:seatunnel-connector-flink-*:jar</include>
+            </includes>
+            <outputDirectory>/connectors/flink</outputDirectory>
+            <scope>provided</scope>
+        </dependencySet>
+        <!-- Flink SQL connectors -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <includes>
+                <include>org.apache.seatunnel:flink-sql-connector-*:jar</include>
+            </includes>
+            <outputDirectory>/connectors/flink-sql</outputDirectory>
+            <scope>provided</scope>
+        </dependencySet>
+        <!-- Spark connectors -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <includes>
+                <include>org.apache.seatunnel:seatunnel-connector-spark-*:jar</include>
+            </includes>
+            <outputDirectory>/connectors/spark</outputDirectory>
+            <scope>provided</scope>
+        </dependencySet>
+    </dependencySets>
 </assembly>

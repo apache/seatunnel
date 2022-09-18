@@ -17,9 +17,11 @@
 
 package org.apache.seatunnel.app.controller;
 
+import org.apache.seatunnel.app.aspect.UserId;
 import org.apache.seatunnel.app.common.Result;
 import org.apache.seatunnel.app.domain.request.task.ExecuteReq;
 import org.apache.seatunnel.app.domain.request.task.InstanceListReq;
+import org.apache.seatunnel.app.domain.request.task.InstanceLogRes;
 import org.apache.seatunnel.app.domain.request.task.JobListReq;
 import org.apache.seatunnel.app.domain.request.task.RecycleScriptReq;
 import org.apache.seatunnel.app.domain.response.PageInfo;
@@ -28,13 +30,16 @@ import org.apache.seatunnel.app.domain.response.task.JobSimpleInfoRes;
 import org.apache.seatunnel.app.service.ITaskService;
 
 import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import springfox.documentation.annotations.ApiIgnore;
 
 import javax.annotation.Resource;
 import javax.validation.constraints.NotNull;
@@ -46,35 +51,65 @@ public class TaskController {
     @Resource
     private ITaskService iTaskService;
 
-    @PutMapping("/recycle")
-    @ApiOperation(value = "recycle script", httpMethod = "PUT")
-    Result<Void> recycle(@RequestBody @NotNull RecycleScriptReq req) {
+    @PatchMapping("/{scriptId}/recycle")
+    @ApiOperation(value = "recycle script", httpMethod = "PATCH")
+    Result<Void> recycle(@ApiParam(value = "script id", required = true) @PathVariable(value = "scriptId") Integer scriptId,
+                         @ApiIgnore @UserId Integer operatorId) {
+        final RecycleScriptReq req = new RecycleScriptReq();
+        req.setScriptId(scriptId);
+        req.setOperatorId(operatorId);
+
         iTaskService.recycleScriptFromScheduler(req);
         return Result.success();
     }
 
-    @GetMapping("/listJob")
+    @GetMapping("/job")
     @ApiOperation(value = "list job", httpMethod = "GET")
-    Result<PageInfo<JobSimpleInfoRes>> listJob(@RequestBody @NotNull JobListReq req) {
+    Result<PageInfo<JobSimpleInfoRes>> listJob(@ApiParam(value = "job name") @RequestParam(required = false) String name,
+                                               @ApiParam(value = "page num", required = true) @RequestParam Integer pageNo,
+                                               @ApiParam(value = "page size", required = true) @RequestParam Integer pageSize) {
+        final JobListReq req = new JobListReq();
+        req.setName(name);
+        req.setPageNo(pageNo);
+        req.setPageSize(pageSize);
+
         return Result.success(iTaskService.listJob(req));
     }
 
-    @GetMapping("/listInstance")
+    @GetMapping("/instance")
     @ApiOperation(value = "list instance", httpMethod = "GET")
-    Result<PageInfo<InstanceSimpleInfoRes>> listInstance(@RequestBody @NotNull InstanceListReq req) {
+    Result<PageInfo<InstanceSimpleInfoRes>> listInstance(@ApiParam(value = "job name") @RequestParam(required = false) String name,
+                                                         @ApiParam(value = "page num", required = true) @RequestParam Integer pageNo,
+                                                         @ApiParam(value = "page size", required = true) @RequestParam Integer pageSize) {
+        final InstanceListReq req = new InstanceListReq();
+        req.setName(name);
+        req.setPageNo(pageNo);
+        req.setPageSize(pageSize);
+
         return Result.success(iTaskService.listInstance(req));
     }
 
-    @PostMapping("/tmpExecute")
-    @ApiOperation(value = "execute script temporary", httpMethod = "GET")
-    Result<InstanceSimpleInfoRes> tmpExecute(@RequestBody @NotNull ExecuteReq req) {
+    @PostMapping("/{scriptId}/execute")
+    @ApiOperation(value = "execute script temporary", httpMethod = "POST")
+    Result<InstanceSimpleInfoRes> tmpExecute(@ApiParam(value = "script id", required = true) @PathVariable(value = "scriptId") Integer scriptId,
+                                             @RequestBody @NotNull ExecuteReq req,
+                                             @ApiIgnore @UserId Integer operatorId) {
+        req.setScriptId(scriptId);
+        req.setOperatorId(operatorId);
+
         return Result.success(iTaskService.tmpExecute(req));
     }
 
-    @PostMapping("/kill")
+    @GetMapping("/{taskInstanceId}")
+    @ApiOperation(value = "query instance log", httpMethod = "GET")
+    Result<InstanceLogRes> queryInstanceLog(@ApiParam(value = "task instance id", required = true) @PathVariable(value = "taskInstanceId") Long taskInstanceId) {
+        return Result.success(iTaskService.queryInstanceLog(taskInstanceId));
+    }
+
+    @PatchMapping("/{taskInstanceId}")
     @ApiOperation(value = "kill running instance", httpMethod = "POST")
-    Result<Void> kill(@RequestParam Long instanceId) {
-        iTaskService.kill(instanceId);
+    Result<Void> kill(@ApiParam(value = "task instance id", required = true) @PathVariable(value = "taskInstanceId") Long taskInstanceId) {
+        iTaskService.kill(taskInstanceId);
         return Result.success();
     }
 }

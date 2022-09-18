@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.core.starter.spark;
 
-import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
-
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
@@ -26,6 +24,7 @@ import org.apache.seatunnel.core.starter.Starter;
 import org.apache.seatunnel.core.starter.config.ConfigBuilder;
 import org.apache.seatunnel.core.starter.config.PluginType;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
+import org.apache.seatunnel.core.starter.spark.config.StarterConstant;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 import org.apache.seatunnel.core.starter.utils.CompressionUtils;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
@@ -62,8 +61,6 @@ import java.util.stream.Stream;
  * A Starter to generate spark-submit command for SeaTunnel job on spark.
  */
 public class SparkStarter implements Starter {
-
-    private static final int PLUGIN_LIB_DIR_DEPTH = 3;
 
     /**
      * original commandline args
@@ -113,7 +110,7 @@ public class SparkStarter implements Starter {
      * {@link ClientModeSparkStarter} depending on deploy mode.
      */
     static SparkStarter getInstance(String[] args) {
-        SparkCommandArgs commandArgs = CommandLineUtils.parse(args, new SparkCommandArgs(), "start-seatunnel-spark.sh", true);
+        SparkCommandArgs commandArgs = CommandLineUtils.parse(args, new SparkCommandArgs(), StarterConstant.SHELL_NAME, true);
         DeployMode deployMode = commandArgs.getDeployMode();
         switch (deployMode) {
             case CLUSTER:
@@ -130,7 +127,7 @@ public class SparkStarter implements Starter {
         setSparkConf();
         Common.setDeployMode(commandArgs.getDeployMode());
         Common.setStarter(true);
-        this.jars.addAll(getPluginsJarDependencies());
+        this.jars.addAll(Common.getPluginsJarDependencies());
         this.jars.addAll(getConnectorJarDependencies());
         this.appName = this.sparkConf.getOrDefault("spark.app.name", Constants.LOGO);
         return buildFinal();
@@ -177,23 +174,6 @@ public class SparkStarter implements Starter {
                 .entrySet()
                 .stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().unwrapped().toString()));
-    }
-
-    /**
-     * return plugin's dependent jars, which located in 'plugins/${pluginName}/lib/*'.
-     */
-    private List<Path> getPluginsJarDependencies() throws IOException {
-        Path pluginRootDir = Common.pluginRootDir();
-        if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
-            return Collections.emptyList();
-        }
-        try (Stream<Path> stream = Files.walk(pluginRootDir, PLUGIN_LIB_DIR_DEPTH, FOLLOW_LINKS)) {
-            return stream
-                    .filter(it -> pluginRootDir.relativize(it).getNameCount() == PLUGIN_LIB_DIR_DEPTH)
-                    .filter(it -> it.getParent().endsWith("lib"))
-                    .filter(it -> it.getFileName().endsWith("jar"))
-                    .collect(Collectors.toList());
-        }
     }
 
     /**

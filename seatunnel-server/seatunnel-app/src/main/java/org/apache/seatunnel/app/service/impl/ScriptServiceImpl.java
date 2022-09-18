@@ -44,7 +44,7 @@ import org.apache.seatunnel.app.domain.response.script.ScriptParamRes;
 import org.apache.seatunnel.app.domain.response.script.ScriptSimpleInfoRes;
 import org.apache.seatunnel.app.service.IScriptService;
 import org.apache.seatunnel.app.service.ITaskService;
-import org.apache.seatunnel.app.util.Md5Utils;
+import org.apache.seatunnel.app.utils.Md5Utils;
 import org.apache.seatunnel.scheduler.dolphinscheduler.impl.InstanceServiceImpl;
 import org.apache.seatunnel.server.common.PageData;
 
@@ -116,11 +116,11 @@ public class ScriptServiceImpl implements IScriptService {
         final String content = updateScriptContentReq.getContent();
         final String contentMd5 = Strings.isNullOrEmpty(content) ? "" : Md5Utils.toMd5(content);
 
-        final boolean needSave = checkIfNeedSave(updateScriptContentReq.getId(), contentMd5);
+        final boolean needSave = checkIfNeedSave(updateScriptContentReq.getScriptId(), contentMd5);
 
         if (needSave){
             final UpdateScriptContentDto dto = UpdateScriptContentDto.builder()
-                    .id(updateScriptContentReq.getId())
+                    .id(updateScriptContentReq.getScriptId())
                     .content(content)
                     .contentMd5(contentMd5)
                     .menderId(updateScriptContentReq.getMenderId())

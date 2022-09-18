@@ -21,8 +21,8 @@ import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfi
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.NODE_URLS;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.PORT;
 
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -46,7 +46,7 @@ import java.util.Map;
 @AutoService(SeaTunnelSource.class)
 public class IoTDBSource implements SeaTunnelSource<SeaTunnelRow, IoTDBSourceSplit, IoTDBSourceState> {
 
-    private SeaTunnelContext seaTunnelContext;
+    private JobContext jobContext;
 
     private SeaTunnelRowType typeInfo;
 

@@ -52,6 +52,9 @@
         <module>connector-neo4j</module>
         <module>connector-redis</module>
         <module>connector-datahub</module>
+        <module>connector-sentry</module>
+        <module>connector-mongodb</module>
+        <module>connector-iceberg</module>
     </modules>
 
     <dependencyManagement>
@@ -82,6 +85,17 @@
                 <configuration>
                     <skip>true</skip>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+            </plugin>
+
+            <!-- make sure that flatten runs after maven-shade-plugin -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>

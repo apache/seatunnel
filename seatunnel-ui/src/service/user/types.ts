@@ -16,20 +16,24 @@
  */
 
 interface UserList {
-  name: string
+  name?: string
   pageNo: number
   pageSize: number
 }
 
-interface UserAdd {
+interface UserLogin {
   password: string
-  status: string
-  type: string
   username: string
 }
 
-interface UserUpdate extends UserAdd {
-  id: number
+interface UserDetail extends UserLogin {
+  status: string
+  type: string
+  token?: string
+  id?: number
+  name?: string
+  createTime?: any | null
+  updateTime?: any | null
 }
 
-export { UserList, UserAdd, UserUpdate }
+export { UserList, UserLogin, UserDetail }

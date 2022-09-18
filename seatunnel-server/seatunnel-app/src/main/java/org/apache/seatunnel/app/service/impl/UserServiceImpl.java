@@ -32,7 +32,7 @@ import org.apache.seatunnel.app.domain.response.user.AddUserRes;
 import org.apache.seatunnel.app.domain.response.user.UserSimpleInfoRes;
 import org.apache.seatunnel.app.service.IRoleService;
 import org.apache.seatunnel.app.service.IUserService;
-import org.apache.seatunnel.app.util.PasswordUtils;
+import org.apache.seatunnel.app.utils.PasswordUtils;
 import org.apache.seatunnel.server.common.PageData;
 import org.apache.seatunnel.server.common.SeatunnelException;
 
@@ -85,7 +85,7 @@ public class UserServiceImpl implements IUserService {
     @Override
     public void update(UpdateUserReq updateReq) {
         final UpdateUserDto dto = UpdateUserDto.builder()
-                .id(updateReq.getId())
+                .id(updateReq.getUserId())
                 .username(updateReq.getUsername())
                 // encryption user's password
                 .password(PasswordUtils.encryptWithSalt(defaultSalt, updateReq.getPassword()))

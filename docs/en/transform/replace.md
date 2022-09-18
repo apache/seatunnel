@@ -69,7 +69,7 @@ Use `Replace` as udf in sql.
   Replace {
     fields = "_replaced"
     pattern = "([^ ]*) ([^ ]*)"
-    replacement = "$2
+    replacement = "$2"
     isRegex = true
     replaceFirst = true
   }

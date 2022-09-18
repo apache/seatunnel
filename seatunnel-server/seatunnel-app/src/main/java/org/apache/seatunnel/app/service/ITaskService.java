@@ -20,6 +20,7 @@ package org.apache.seatunnel.app.service;
 import org.apache.seatunnel.app.domain.dto.job.PushScriptDto;
 import org.apache.seatunnel.app.domain.request.task.ExecuteReq;
 import org.apache.seatunnel.app.domain.request.task.InstanceListReq;
+import org.apache.seatunnel.app.domain.request.task.InstanceLogRes;
 import org.apache.seatunnel.app.domain.request.task.JobListReq;
 import org.apache.seatunnel.app.domain.request.task.RecycleScriptReq;
 import org.apache.seatunnel.app.domain.response.PageInfo;
@@ -36,6 +37,8 @@ public interface ITaskService {
     PageInfo<InstanceSimpleInfoRes> listInstance(InstanceListReq req);
 
     InstanceSimpleInfoRes tmpExecute(ExecuteReq req);
+
+    InstanceLogRes queryInstanceLog(Long instanceId);
 
     void kill(Long instanceId);
 }

@@ -17,17 +17,23 @@
 
 import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios'
 import utils from '@/utils'
+import { useUserStore } from '@/store/user'
+import type { UserDetail } from '@/service/user/types'
+
+const userStore = useUserStore()
 
 const handleError = (res: AxiosResponse<any, any>) => {
   if (import.meta.env.MODE === 'development') {
     utils.log.capsule('SeaTunnel', 'UI')
     utils.log.error(res)
   }
+  console.log(res)
   window.$message.error(res.data.msg)
 }
 
 const baseRequestConfig: AxiosRequestConfig = {
-  timeout: 6000
+  timeout: 6000,
+  baseURL: '/api/v1'
 }
 
 const service = axios.create(baseRequestConfig)
@@ -37,11 +43,17 @@ const err = (err: AxiosError): Promise<AxiosError> => {
 }
 
 service.interceptors.request.use((config: AxiosRequestConfig<any>) => {
+  if (Object.keys(userStore.getUserInfo).length > 0) {
+    config.headers && (config.headers.token = (userStore.getUserInfo as UserDetail).token as string)
+  }
+
   return config
 }, err)
 
 service.interceptors.response.use((res: AxiosResponse) => {
-  return res.data
+  if (res.data.success) return res.data
+
+  handleError(res)
 }, err)
 
 export { service as axios }
