@@ -28,7 +28,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>connector-jdbc</artifactId>
-    
+
     <properties>
         <phoenix.version>5.2.5-HBase-2.x</phoenix.version>
         <mysql.version>8.0.16</mysql.version>
@@ -49,6 +49,7 @@
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <version>${postgresql.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.dameng</groupId>

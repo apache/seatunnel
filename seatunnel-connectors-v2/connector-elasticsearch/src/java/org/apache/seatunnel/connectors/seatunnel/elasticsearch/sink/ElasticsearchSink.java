@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.sink;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -30,17 +28,16 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.Elasticsear
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchSinkState;
 
-import java.util.Collections;
+import com.google.auto.service.AutoService;
 
+import java.util.Collections;
 
 @AutoService(SeaTunnelSink.class)
 public class ElasticsearchSink implements SeaTunnelSink<SeaTunnelRow, ElasticsearchSinkState, ElasticsearchCommitInfo, ElasticsearchAggregatedCommitInfo> {
 
 
     private org.apache.seatunnel.shade.com.typesafe.config.Config pluginConfig;
-    private SeaTunnelContext seaTunnelContext;
     private SeaTunnelRowType seaTunnelRowType;
-
 
     @Override
     public String getPluginName() {
@@ -48,7 +45,8 @@ public class ElasticsearchSink implements SeaTunnelSink<SeaTunnelRow, Elasticsea
     }
 
     @Override
-    public void prepare(org.apache.seatunnel.shade.com.typesafe.config.Config pluginConfig) throws PrepareFailException {
+    public void prepare(org.apache.seatunnel.shade.com.typesafe.config.Config pluginConfig) throws
+        PrepareFailException {
         this.pluginConfig = pluginConfig;
         SinkConfig.setValue(pluginConfig);
     }
@@ -67,10 +65,4 @@ public class ElasticsearchSink implements SeaTunnelSink<SeaTunnelRow, Elasticsea
     public SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkState> createWriter(SinkWriter.Context context) {
         return new ElasticsearchSinkWriter(context, seaTunnelRowType, pluginConfig, Collections.emptyList());
     }
-
-    @Override
-    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
-        this.seaTunnelContext = seaTunnelContext;
-    }
-
 }

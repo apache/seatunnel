@@ -27,11 +27,13 @@ public class BulkConfig {
      * once bulk es include max document size
      * {@link SinkConfig#MAX_BATCH_SIZE}
      */
+    @SuppressWarnings("checkstyle:MagicNumber")
     public static int MAX_BATCH_SIZE = 10;
 
     /**
      * the max retry size of bulk es
      * {@link SinkConfig#MAX_RETRY_SIZE}
      */
+    @SuppressWarnings("checkstyle:MagicNumber")
     public static int MAX_RETRY_SIZE = 3;
 }

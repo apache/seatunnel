@@ -116,11 +116,11 @@ public class ScriptServiceImpl implements IScriptService {
         final String content = updateScriptContentReq.getContent();
         final String contentMd5 = Strings.isNullOrEmpty(content) ? "" : Md5Utils.toMd5(content);
 
-        final boolean needSave = checkIfNeedSave(updateScriptContentReq.getId(), contentMd5);
+        final boolean needSave = checkIfNeedSave(updateScriptContentReq.getScriptId(), contentMd5);
 
         if (needSave){
             final UpdateScriptContentDto dto = UpdateScriptContentDto.builder()
-                    .id(updateScriptContentReq.getId())
+                    .id(updateScriptContentReq.getScriptId())
                     .content(content)
                     .contentMd5(contentMd5)
                     .menderId(updateScriptContentReq.getMenderId())

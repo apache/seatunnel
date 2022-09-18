@@ -32,7 +32,7 @@ public abstract class SparkContainer extends AbstractSparkContainer {
 
     @Override
     protected String getStartShellName() {
-        return "start-seatunnel-spark-new-connector.sh";
+        return "start-seatunnel-spark-connector-v2.sh";
     }
 
     @Override

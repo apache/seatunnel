@@ -31,7 +31,7 @@ public class AddEmptyScriptReq {
     @ApiModelProperty(value = "script type", required = true, dataType = "Byte")
     @NotNull
     private Byte type;
-    @ApiModelProperty(value = "script creator id", required = true, dataType = "Integer")
+    @ApiModelProperty(value = "script creator id", required = true, dataType = "Integer", hidden = true)
     @NotNull
     private Integer creatorId;
 }

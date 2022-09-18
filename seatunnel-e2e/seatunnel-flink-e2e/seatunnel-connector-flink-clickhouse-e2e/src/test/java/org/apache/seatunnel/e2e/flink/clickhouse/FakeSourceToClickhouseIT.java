@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.flink.clickhouse;
 
+import static org.awaitility.Awaitility.given;
+
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
 import com.google.common.collect.Lists;
@@ -39,6 +41,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 public class FakeSourceToClickhouseIT extends FlinkContainer {
@@ -59,9 +62,13 @@ public class FakeSourceToClickhouseIT extends FlinkContainer {
         Startables.deepStart(Stream.of(clickhouseServer)).join();
         LOGGER.info("Clickhouse container started");
         // wait for clickhouse fully start
-        Thread.sleep(5000L);
         dataSource = createDatasource();
-        initializeClickhouseTable();
+        given().ignoreExceptions()
+            .await()
+            .atLeast(100, TimeUnit.MILLISECONDS)
+            .pollInterval(500, TimeUnit.MILLISECONDS)
+            .atMost(5, TimeUnit.SECONDS)
+            .untilAsserted(() -> initializeClickhouseTable());
     }
 
     /**
