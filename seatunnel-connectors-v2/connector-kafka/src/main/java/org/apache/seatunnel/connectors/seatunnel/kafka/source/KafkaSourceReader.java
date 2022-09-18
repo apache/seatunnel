@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
+import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -58,15 +59,18 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     private final ConsumerMetadata metadata;
     private final Set<KafkaSourceSplit> sourceSplits;
     private final Map<TopicPartition, Long> endOffset;
+    private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
     // TODO support user custom type
     private SeaTunnelRowType typeInfo;
     private volatile boolean isRunning;
 
     KafkaSourceReader(ConsumerMetadata metadata, SeaTunnelRowType typeInfo,
+                      DeserializationSchema<SeaTunnelRow> deserializationSchema,
                       SourceReader.Context context) {
         this.metadata = metadata;
         this.context = context;
         this.typeInfo = typeInfo;
+        this.deserializationSchema = deserializationSchema;
         this.sourceSplits = new HashSet<>();
         this.endOffset = new HashMap<>();
     }
@@ -101,9 +105,12 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
             for (TopicPartition partition : partitions) {
                 for (ConsumerRecord<byte[], byte[]> record : records.records(partition)) {
 
-                    String v = stringDeserializer.deserialize(partition.topic(), record.value());
-                    String t = partition.topic();
-                    output.collect(new SeaTunnelRow(new Object[]{t, v}));
+                    if(deserializationSchema != null){
+                        deserializationSchema.deserialize(record.value(),output);
+                    }else {
+                        String content = stringDeserializer.deserialize(partition.topic(), record.value());
+                        output.collect(new SeaTunnelRow(new Object[]{content}));
+                    }
 
                     if (Boundedness.BOUNDED.equals(context.getBoundedness()) &&
                             record.offset() >= endOffset.get(partition)) {

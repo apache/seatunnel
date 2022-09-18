@@ -50,4 +50,20 @@ public class KafkaConfig {
      * The prefix of kafka's transactionId, make sure different job use different prefix.
      */
     public static final String TRANSACTION_PREFIX = "transaction_prefix";
+
+    /**
+     * User-defined schema
+     */
+    public static final String SCHEMA = "schema";
+
+    /**
+     * data format
+     */
+    public static final String FORMAT = "format";
+
+    /**
+     * The default data format is JSON
+     */
+    public static final String DEFAULT_FORMAT = "json";
+
 }
