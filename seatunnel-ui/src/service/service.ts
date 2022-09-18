@@ -17,10 +17,6 @@
 
 import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios'
 import utils from '@/utils'
-import { useUserStore } from '@/store/user'
-import type { UserDetail } from '@/service/user/types'
-
-const userStore = useUserStore()
 
 const handleError = (res: AxiosResponse<any, any>) => {
   if (import.meta.env.MODE === 'development') {
@@ -43,10 +39,6 @@ const err = (err: AxiosError): Promise<AxiosError> => {
 }
 
 service.interceptors.request.use((config: AxiosRequestConfig<any>) => {
-  if (Object.keys(userStore.getUserInfo).length > 0) {
-    config.headers && (config.headers.token = (userStore.getUserInfo as UserDetail).token as string)
-  }
-
   return config
 }, err)
 
