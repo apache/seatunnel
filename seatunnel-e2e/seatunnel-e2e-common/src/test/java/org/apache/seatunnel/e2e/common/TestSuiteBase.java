@@ -36,5 +36,5 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public abstract class TestSuiteBase {
 
     @TestContainers
-    TestContainersFactory containersFactory = ContainerUtil::discoverTestContainers;
+    private TestContainersFactory containersFactory = ContainerUtil::discoverTestContainers;
 }

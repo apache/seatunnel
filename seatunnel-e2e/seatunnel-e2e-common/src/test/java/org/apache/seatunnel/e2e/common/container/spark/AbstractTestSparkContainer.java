@@ -61,7 +61,6 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
         copySeaTunnelStarter(master);
         // execute extra commands
         executeExtraCommands(master);
-        LOG.info("Spark container started");
     }
 
     @Override

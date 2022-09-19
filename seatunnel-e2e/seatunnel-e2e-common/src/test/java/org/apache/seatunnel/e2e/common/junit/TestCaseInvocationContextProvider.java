@@ -67,7 +67,6 @@ public class TestCaseInvocationContextProvider implements TestTemplateInvocation
     static class TestResourceProvidingInvocationContext implements TestTemplateInvocationContext {
         private final TestContainer testContainer;
         private final ContainerExtendedFactory containerExtendedFactory;
-
         private final Integer containerAmount;
 
         public TestResourceProvidingInvocationContext(
@@ -81,7 +80,7 @@ public class TestCaseInvocationContextProvider implements TestTemplateInvocation
 
         @Override
         public String getDisplayName(int invocationIndex) {
-            return String.format("TestContainer[%s/%s]: %s", invocationIndex, containerAmount, testContainer.identifier());
+            return String.format("TestContainer(%s/%s): %s", invocationIndex, containerAmount, testContainer.identifier());
         }
 
         @Override
@@ -92,7 +91,7 @@ public class TestCaseInvocationContextProvider implements TestTemplateInvocation
                 // Extension for closing test container
                 (AfterTestExecutionCallback) ignore -> {
                     testContainer.tearDown();
-                    log.debug("The test template method is completed, close the container.");
+                    log.info("The TestContainer[{}] is closed.", testContainer.identifier());
                 });
         }
     }
@@ -122,6 +121,7 @@ public class TestCaseInvocationContextProvider implements TestTemplateInvocation
             throws ParameterResolutionException {
             testContainer.startUp();
             testContainer.executeExtraCommands(containerExtendedFactory);
+            log.info("The TestContainer[{}] is running.", testContainer.identifier());
             return this.testContainer;
         }
     }

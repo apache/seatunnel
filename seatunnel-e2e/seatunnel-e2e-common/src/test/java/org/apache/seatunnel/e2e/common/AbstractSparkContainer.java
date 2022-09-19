@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.common;
 
 import org.apache.seatunnel.e2e.common.container.spark.AbstractTestSparkContainer;
 
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
@@ -26,6 +27,7 @@ import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
+@Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractSparkContainer extends AbstractTestSparkContainer {
 
@@ -33,11 +35,13 @@ public abstract class AbstractSparkContainer extends AbstractTestSparkContainer 
     @BeforeAll
     public void startUp() throws Exception {
         super.startUp();
+        log.info("The TestContainer[{}] is running.", identifier());
     }
 
     @AfterAll
     public void tearDown() throws Exception {
         super.tearDown();
+        log.info("The TestContainer[{}] is closed.", identifier());
     }
 
     public Container.ExecResult executeSeaTunnelSparkJob(String confFile) throws IOException, InterruptedException {

@@ -90,7 +90,6 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
         copySeaTunnelStarter(jobManager);
         // execute extra commands
         executeExtraCommands(jobManager);
-        LOG.info("Flink containers are started.");
     }
 
     protected List<String> getFlinkProperties() {
