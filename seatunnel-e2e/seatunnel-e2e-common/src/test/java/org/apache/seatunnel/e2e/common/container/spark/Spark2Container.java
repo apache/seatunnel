@@ -28,7 +28,7 @@ import lombok.NoArgsConstructor;
  */
 @NoArgsConstructor
 @AutoService(TestContainer.class)
-public class Spark2Container extends TestSparkContainer {
+public class Spark2Container extends AbstractTestSparkContainer {
 
     @Override
     protected String getStartModuleName() {

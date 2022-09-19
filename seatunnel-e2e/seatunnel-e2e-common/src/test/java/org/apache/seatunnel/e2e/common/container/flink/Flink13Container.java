@@ -29,7 +29,7 @@ import lombok.NoArgsConstructor;
  */
 @NoArgsConstructor
 @AutoService(TestContainer.class)
-public class Flink13Container extends TestFlinkContainer {
+public class Flink13Container extends AbstractTestFlinkContainer {
 
     @Override
     protected String getDockerImage() {

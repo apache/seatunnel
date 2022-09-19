@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.e2e.common;
 
-import org.apache.seatunnel.e2e.common.container.spark.TestSparkContainer;
+import org.apache.seatunnel.e2e.common.container.spark.AbstractTestSparkContainer;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -27,7 +27,7 @@ import org.testcontainers.containers.Container;
 import java.io.IOException;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class AbstractSparkContainer extends TestSparkContainer {
+public abstract class AbstractSparkContainer extends AbstractTestSparkContainer {
 
     @Override
     @BeforeAll

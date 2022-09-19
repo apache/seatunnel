@@ -17,98 +17,15 @@
 
 package org.apache.seatunnel.e2e.common.container;
 
-import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
-import static org.apache.seatunnel.e2e.common.util.ContainerUtil.adaptPathForWin;
-import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyConfigFileToContainer;
-import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyConnectorJarToContainer;
-
 import org.apache.seatunnel.e2e.common.TestResource;
-import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
 
-public abstract class TestContainer implements TestResource {
+public interface TestContainer extends TestResource {
 
-    protected static final Logger LOG = LoggerFactory.getLogger(TestContainer.class);
-    protected static final String START_ROOT_MODULE_NAME = "seatunnel-core";
+    void executeExtraCommands(ContainerExtendedFactory extendedFactory);
 
-    public static final String SEATUNNEL_HOME = "/tmp/seatunnel";
-    protected final String startModuleName;
-
-    protected final String startModuleFullPath;
-
-    public TestContainer() {
-        this.startModuleName = getStartModuleName();
-        this.startModuleFullPath = PROJECT_ROOT_PATH + File.separator + START_ROOT_MODULE_NAME + File.separator + this.startModuleName;
-        ContainerUtil.checkPathExist(startModuleFullPath);
-    }
-
-    protected abstract String getDockerImage();
-
-    protected abstract String getStartModuleName();
-
-    protected abstract String getStartShellName();
-
-    protected abstract String getConnectorModulePath();
-
-    protected abstract String getConnectorType();
-
-    protected abstract String getConnectorNamePrefix();
-
-    protected abstract List<String> getExtraStartShellCommands();
-
-    public abstract void executeExtraCommands(ContainerExtendedFactory extendedFactory);
-
-    /**
-     * TODO: issue #2733, Reimplement all modules that override the method, remove this method & use {@link ContainerExtendedFactory}.
-     */
-    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
-        //do nothing
-    }
-
-    protected void copySeaTunnelStarter(GenericContainer<?> container) {
-        ContainerUtil.copySeaTunnelStarter(container,
-            this.startModuleName,
-            this.startModuleFullPath,
-            SEATUNNEL_HOME,
-            getStartShellName());
-    }
-
-    public abstract Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException;
-
-    protected Container.ExecResult executeJob(GenericContainer<?> container, String confFile) throws IOException, InterruptedException {
-        final String confInContainerPath = copyConfigFileToContainer(container, confFile);
-        // copy connectors
-        copyConnectorJarToContainer(container,
-            confFile,
-            getConnectorModulePath(),
-            getConnectorNamePrefix(),
-            getConnectorType(),
-            SEATUNNEL_HOME);
-        return executeCommand(container, confInContainerPath);
-    }
-
-    protected Container.ExecResult executeCommand(GenericContainer<?> container, String configPath) throws IOException, InterruptedException {
-        final List<String> command = new ArrayList<>();
-        String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
-        // base command
-        command.add(adaptPathForWin(binPath));
-        command.add("--config");
-        command.add(adaptPathForWin(configPath));
-        command.addAll(getExtraStartShellCommands());
-
-        Container.ExecResult execResult = container.execInContainer("bash", "-c", String.join(" ", command));
-        LOG.info(execResult.getStdout());
-        LOG.error(execResult.getStderr());
-        return execResult;
-    }
+    Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException;
 }

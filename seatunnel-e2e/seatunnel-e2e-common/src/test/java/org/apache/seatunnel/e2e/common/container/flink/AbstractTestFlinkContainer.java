@@ -17,9 +17,11 @@
 
 package org.apache.seatunnel.e2e.common.container.flink;
 
+import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
+import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
@@ -37,11 +39,12 @@ import java.util.stream.Stream;
 /**
  * This class is the base class of FlinkEnvironment test.
  * The before method will create a Flink cluster, and after method will close the Flink cluster.
- * You can use {@link TestFlinkContainer#executeJob} to submit a seatunnel config and run a seatunnel job.
+ * You can use {@link TestContainer#executeJob} to submit a seatunnel config and run a seatunnel job.
  */
-public abstract class TestFlinkContainer extends TestContainer {
+@NoArgsConstructor
+public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
 
-    protected static final Logger LOG = LoggerFactory.getLogger(TestFlinkContainer.class);
+    protected static final Logger LOG = LoggerFactory.getLogger(AbstractTestFlinkContainer.class);
 
     protected static final Network NETWORK = Network.newNetwork();
 
@@ -55,10 +58,6 @@ public abstract class TestFlinkContainer extends TestContainer {
 
     protected GenericContainer<?> jobManager;
     protected GenericContainer<?> taskManager;
-
-    public TestFlinkContainer() {
-        super();
-    }
 
     @Override
     protected String getDockerImage() {

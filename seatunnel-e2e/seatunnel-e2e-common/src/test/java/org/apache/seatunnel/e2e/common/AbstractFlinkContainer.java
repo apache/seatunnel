@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.e2e.common;
 
-import org.apache.seatunnel.e2e.common.container.flink.TestFlinkContainer;
+import org.apache.seatunnel.e2e.common.container.flink.AbstractTestFlinkContainer;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -32,7 +32,7 @@ import java.io.IOException;
  * You can use {@link AbstractFlinkContainer#executeJob} to submit a seatunnel config and run a seatunnel job.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class AbstractFlinkContainer extends TestFlinkContainer {
+public abstract class AbstractFlinkContainer extends AbstractTestFlinkContainer {
 
     @Override
     @BeforeAll
@@ -40,6 +40,7 @@ public abstract class AbstractFlinkContainer extends TestFlinkContainer {
         super.startUp();
     }
 
+    @Override
     @AfterAll
     public void tearDown() throws Exception {
         super.tearDown();

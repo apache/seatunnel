@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.e2e.common.container.spark;
 
+import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,9 +33,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 
-public abstract class TestSparkContainer extends TestContainer {
+public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
 
-    private static final Logger LOG = LoggerFactory.getLogger(TestSparkContainer.class);
+    private static final Logger LOG = LoggerFactory.getLogger(AbstractTestSparkContainer.class);
     private static final String DEFAULT_DOCKER_IMAGE = "bitnami/spark:2.4.3";
     public static final Network NETWORK = Network.newNetwork();
 
