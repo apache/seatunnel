@@ -22,6 +22,7 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
@@ -81,14 +82,13 @@ public class TestUtils {
         return System.getProperty("user.name") + "_" + testClassName;
     }
 
-    public static HazelcastInstanceImpl createHazelcastInstance(String clusterNamePrefix) {
-        SeaTunnelConfig seaTunnelConfig = new SeaTunnelConfig();
-        seaTunnelConfig.getHazelcastConfig()
-            .setClusterName(TestUtils.getClusterName(clusterNamePrefix + "_" + System.currentTimeMillis()));
+    public static HazelcastInstanceImpl createHazelcastInstance(String clusterName) {
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.getHazelcastConfig().setClusterName(TestUtils.getClusterName(clusterName));
         return ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(
             seaTunnelConfig.getHazelcastConfig(),
             HazelcastInstanceFactory.createInstanceName(seaTunnelConfig.getHazelcastConfig()),
-            new SeaTunnelNodeContext(seaTunnelConfig))).getOriginal();
+            new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
     }
 
     public static LogicalDag createTestLogicalPlan(String jobConfigFile, String jobName, Long jobId) {
