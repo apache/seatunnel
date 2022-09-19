@@ -64,6 +64,10 @@ public abstract class AbstractContainer {
 
     protected abstract List<String> getExtraStartShellCommands();
 
+    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
+        //do nothing
+    }
+
     protected void copySeaTunnelStarter(GenericContainer<?> container) {
         ContainerUtil.copySeaTunnelStarter(container,
             this.startModuleName,
@@ -81,6 +85,8 @@ public abstract class AbstractContainer {
             getConnectorNamePrefix(),
             getConnectorType(),
             getSeaTunnelHomeInContainer());
+        // execute extra commands
+        executeExtraCommands(container);
         return executeCommand(container, confInContainerPath);
     }
 

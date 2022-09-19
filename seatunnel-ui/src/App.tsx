@@ -18,6 +18,7 @@
 import { defineComponent, computed } from 'vue'
 import {
   NConfigProvider,
+  NMessageProvider,
   darkTheme,
   dateZhCN,
   dateEnUS,
@@ -55,7 +56,9 @@ const App = defineComponent({
         }
         locale={String(this.localesStore.getLocales) === 'zh_CN' ? zhCN : enUS}
       >
-        <router-view />
+        <NMessageProvider>
+          <router-view />
+        </NMessageProvider>
       </NConfigProvider>
     )
   }

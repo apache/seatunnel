@@ -22,6 +22,7 @@ import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.TaskExecution;
+import org.apache.seatunnel.core.starter.flink.config.FlinkCommon;
 import org.apache.seatunnel.core.starter.flink.config.FlinkEnvironmentFactory;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 
@@ -54,10 +55,10 @@ public class FlinkExecution implements TaskExecution {
         this.flinkEnvironment = new FlinkEnvironmentFactory(config).getEnvironment();
         JobContext jobContext = new JobContext();
         jobContext.setJobMode(flinkEnvironment.getJobMode());
+        registerPlugin();
         this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(flinkEnvironment, jobContext, config.getConfigList(Constants.SOURCE));
         this.transformPluginExecuteProcessor = new TransformExecuteProcessor(flinkEnvironment, jobContext, config.getConfigList(Constants.TRANSFORM));
         this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(flinkEnvironment, jobContext, config.getConfigList(Constants.SINK));
-        registerPlugin();
     }
 
     @Override
@@ -75,7 +76,7 @@ public class FlinkExecution implements TaskExecution {
         }
     }
 
-    private void registerPlugin(){
+    private void registerPlugin() {
         List<URL> pluginsJarDependencies = Common.getPluginsJarDependencies().stream()
             .map(Path::toUri)
             .map(uri -> {
@@ -86,6 +87,9 @@ public class FlinkExecution implements TaskExecution {
                 }
             })
             .collect(Collectors.toList());
+
+        pluginsJarDependencies.forEach(url -> FlinkCommon.ADD_URL_TO_CLASSLOADER.accept(Thread.currentThread().getContextClassLoader(), url));
+
         flinkEnvironment.registerPlugin(pluginsJarDependencies);
     }
 }

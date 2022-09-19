@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
@@ -47,14 +48,15 @@ import java.util.stream.Stream;
 public class FakeSourceToJdbcIT extends FlinkContainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceToJdbcIT.class);
     private PostgreSQLContainer<?> psl;
+    private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
     public void startPostgreSqlContainer() throws InterruptedException, ClassNotFoundException, SQLException {
         psl = new PostgreSQLContainer<>(DockerImageName.parse("postgres:alpine3.16"))
-                .withNetwork(NETWORK)
-                .withNetworkAliases("postgresql")
-                .withLogConsumer(new Slf4jLogConsumer(LOGGER));
+            .withNetwork(NETWORK)
+            .withNetworkAliases("postgresql")
+            .withLogConsumer(new Slf4jLogConsumer(LOGGER));
         Startables.deepStart(Stream.of(psl)).join();
         LOGGER.info("PostgreSql container started");
         Class.forName(psl.getDriverClassName());
@@ -70,8 +72,8 @@ public class FakeSourceToJdbcIT extends FlinkContainer {
         try (Connection connection = DriverManager.getConnection(psl.getJdbcUrl(), psl.getUsername(), psl.getPassword())) {
             Statement statement = connection.createStatement();
             String sql = "CREATE TABLE test (\n" +
-                    "  name varchar(255) NOT NULL\n" +
-                    ")";
+                "  name varchar(255) NOT NULL\n" +
+                ")";
             statement.execute(sql);
         } catch (SQLException e) {
             throw new RuntimeException("Initializing PostgreSql table failed!", e);
@@ -100,5 +102,11 @@ public class FakeSourceToJdbcIT extends FlinkContainer {
         if (psl != null) {
             psl.stop();
         }
+    }
+
+    @Override
+    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
+        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/flink/seatunnel/plugins/Jdbc/lib && cd /tmp/flink/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
+        Assertions.assertEquals(0, extraCommands.getExitCode());
     }
 }

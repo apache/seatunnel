@@ -145,7 +145,7 @@ public class Common {
     /**
      * return plugin's dependent jars, which located in 'plugins/${pluginName}/lib/*'.
      */
-    public static List<Path> getPluginsJarDependencies(){
+    public static List<Path> getPluginsJarDependencies() {
         Path pluginRootDir = Common.pluginRootDir();
         if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
             return Collections.emptyList();
