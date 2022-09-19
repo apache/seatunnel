@@ -192,22 +192,35 @@ public class CoordinatorService {
             return;
         }
 
+        runningJobMasterMap.put(jobId, jobMaster);
+        jobMaster.isRestore();
+
         if (JobStatus.CANCELLING.equals(jobStatus)) {
-            jobMaster.cancelJob();
+            CompletableFuture.runAsync(() -> {
+                try {
+                    jobMaster.cancelJob();
+                    jobMaster.run();
+                } finally {
+                    // storage job state info to HistoryStorage
+                    removeJobIMap(jobMaster);
+                    runningJobMasterMap.remove(jobId);
+                }
+            });
+            return;
         }
 
         if (JobStatus.RUNNING.equals(jobStatus)) {
-            jobMaster.getPhysicalPlan().getPipelineList().forEach(SubPlan::restorePipelineState);
-        }
-
-        try {
-            runningJobMasterMap.put(jobId, jobMaster);
-            jobMaster.isRestore();
-            jobMaster.run();
-        } finally {
-            // storage job state info to HistoryStorage
-            removeJobIMap(jobMaster);
-            runningJobMasterMap.remove(jobId);
+            CompletableFuture.runAsync(() -> {
+                try {
+                    jobMaster.getPhysicalPlan().getPipelineList().forEach(SubPlan::restorePipelineState);
+                    jobMaster.run();
+                } finally {
+                    // storage job state info to HistoryStorage
+                    removeJobIMap(jobMaster);
+                    runningJobMasterMap.remove(jobId);
+                }
+            });
+            return;
         }
     }
 

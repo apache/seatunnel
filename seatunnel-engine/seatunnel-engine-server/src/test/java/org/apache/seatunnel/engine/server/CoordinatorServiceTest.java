@@ -104,4 +104,9 @@ public class CoordinatorServiceTest {
         // because runningJobMasterMap is empty and we have no JobHistoryServer, so return finished.
         Assert.assertTrue(JobStatus.FINISHED.equals(coordinatorService.getJobStatus(jobId)));
     }
+
+    @Test
+    public void testJobRestoreWhenMasterNodeSwitch() {
+        // TODO wait CheckpointManager support restore from master node switch.
+    }
 }
