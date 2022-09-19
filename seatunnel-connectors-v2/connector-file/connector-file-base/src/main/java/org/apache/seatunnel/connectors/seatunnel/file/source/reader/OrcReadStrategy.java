@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -163,7 +164,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             return checkResult;
         } catch (FilePluginException | IOException e) {
             String errorMsg = String.format("Check orc file [%s] error", path);
-            throw new RuntimeException(errorMsg, e);
+            throw new UnsupportedOperationException(errorMsg, e);
         }
     }
 
@@ -174,14 +175,18 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             case INT:
                 return BasicType.INT_TYPE;
             case BYTE:
+                return BasicType.BYTE_TYPE;
             case SHORT:
+                return BasicType.SHORT_TYPE;
             case LONG:
                 return BasicType.LONG_TYPE;
             case FLOAT:
+                return BasicType.FLOAT_TYPE;
             case DOUBLE:
                 return BasicType.DOUBLE_TYPE;
-            case STRING:
             case BINARY:
+                return PrimitiveByteArrayType.INSTANCE;
+            case STRING:
             case VARCHAR:
             case CHAR:
                 return BasicType.STRING_TYPE;
@@ -196,25 +201,27 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             case LIST:
                 TypeDescription listType = typeDescription.getChildren().get(0);
                 SeaTunnelDataType<?> seaTunnelDataType = orcDataType2SeaTunnelDataType(listType);
-                if (BasicType.STRING_TYPE.equals(seaTunnelDataType)) {
-                    return ArrayType.STRING_ARRAY_TYPE;
-                } else if (BasicType.BOOLEAN_TYPE.equals(seaTunnelDataType)) {
-                    return ArrayType.BOOLEAN_ARRAY_TYPE;
-                } else if (BasicType.BYTE_TYPE.equals(seaTunnelDataType)) {
-                    return ArrayType.BYTE_ARRAY_TYPE;
-                } else if (BasicType.SHORT_TYPE.equals(seaTunnelDataType)) {
-                    return ArrayType.SHORT_ARRAY_TYPE;
-                } else if (BasicType.INT_TYPE.equals(seaTunnelDataType)) {
-                    return ArrayType.INT_ARRAY_TYPE;
-                } else if (BasicType.LONG_TYPE.equals(seaTunnelDataType)) {
-                    return ArrayType.LONG_ARRAY_TYPE;
-                } else if (BasicType.FLOAT_TYPE.equals(seaTunnelDataType)) {
-                    return ArrayType.FLOAT_ARRAY_TYPE;
-                } else if (BasicType.DOUBLE_TYPE.equals(seaTunnelDataType)) {
-                    return ArrayType.DOUBLE_ARRAY_TYPE;
+                switch (seaTunnelDataType.getSqlType()) {
+                    case STRING:
+                        return ArrayType.STRING_ARRAY_TYPE;
+                    case BOOLEAN:
+                        return ArrayType.BOOLEAN_ARRAY_TYPE;
+                    case TINYINT:
+                        return ArrayType.BYTE_ARRAY_TYPE;
+                    case SMALLINT:
+                        return ArrayType.SHORT_ARRAY_TYPE;
+                    case INT:
+                        return ArrayType.INT_ARRAY_TYPE;
+                    case BIGINT:
+                        return ArrayType.LONG_ARRAY_TYPE;
+                    case FLOAT:
+                        return ArrayType.FLOAT_ARRAY_TYPE;
+                    case DOUBLE:
+                        return ArrayType.DOUBLE_ARRAY_TYPE;
+                    default:
+                        String errorMsg = String.format("SeaTunnel array type not supported this genericType [%s] yet", seaTunnelDataType);
+                        throw new UnsupportedOperationException(errorMsg);
                 }
-                String errorMsg = String.format("SeaTunnel array type not supported this genericType [%s] yet", seaTunnelDataType);
-                throw new RuntimeException(errorMsg);
             case MAP:
                 TypeDescription keyType = typeDescription.getChildren().get(0);
                 TypeDescription valueType = typeDescription.getChildren().get(1);
@@ -224,13 +231,11 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 String[] fieldNames = typeDescription.getFieldNames().toArray(new String[0]);
                 SeaTunnelDataType<?>[] fieldTypes = children.stream().map(this::orcDataType2SeaTunnelDataType).toArray(SeaTunnelDataType<?>[]::new);
                 return new SeaTunnelRowType(fieldNames, fieldTypes);
-            case UNION:
-                // TODO: How to explain this type using SeaTunnel data type
-                throw new RuntimeException("SeaTunnel not supported orc [union] type yet");
             default:
                 // do nothing
                 // never get in there
-                return null;
+                String errorMsg = String.format("SeaTunnel file connector not supported this orc type [%s] yet", typeDescription.getCategory());
+                throw new UnsupportedOperationException(errorMsg);
         }
     }
 
@@ -243,9 +248,12 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                     break;
                 case DOUBLE:
                     columnObj = ((DoubleColumnVector) colVec).vector[rowNum];
+                    if (colType.getCategory() == TypeDescription.Category.FLOAT) {
+                        columnObj = ((Double) columnObj).floatValue();
+                    }
                     break;
                 case BYTES:
-                    columnObj = readBytesVal(colVec, rowNum);
+                    columnObj = readBytesVal(colVec, colType, rowNum);
                     break;
                 case DECIMAL:
                     columnObj = readDecimalVal(colVec, rowNum);
@@ -266,9 +274,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                     columnObj = readUnionVal(colVec, colType, rowNum);
                     break;
                 default:
-                    throw new RuntimeException(
-                            "ReadColumn: unsupported ORC file column type: " + colVec.type.name()
-                    );
+                    throw new UnsupportedOperationException("ReadColumn: unsupported ORC file column type: " + colVec.type.name());
             }
         }
         return columnObj;
@@ -286,16 +292,23 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 colObj = longVal == 1 ? Boolean.TRUE : Boolean.FALSE;
             } else if (colType.getCategory() == TypeDescription.Category.DATE) {
                 colObj = LocalDate.ofEpochDay(longVal);
+            } else if (colType.getCategory() == TypeDescription.Category.BYTE) {
+                colObj = (byte) longVal;
+            } else if (colType.getCategory() == TypeDescription.Category.SHORT) {
+                colObj = (short) longVal;
             }
         }
         return colObj;
     }
 
-    private Object readBytesVal(ColumnVector colVec, int rowNum) {
+    private Object readBytesVal(ColumnVector colVec, TypeDescription typeDescription, int rowNum) {
         Object bytesObj = null;
         if (!colVec.isNull[rowNum]) {
             BytesColumnVector bytesVector = (BytesColumnVector) colVec;
             bytesObj = bytesVector.toString(rowNum);
+            if (typeDescription.getCategory() == TypeDescription.Category.BINARY) {
+                bytesObj = ((String) bytesObj).getBytes();
+            }
         }
         return bytesObj;
     }
@@ -358,7 +371,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 objMap.put(keyList[i], valueList[i]);
             }
         } else {
-            throw new RuntimeException("readMapVal: unsupported key or value types");
+            throw new UnsupportedOperationException("readMapVal: unsupported key or value types");
         }
         return objMap;
     }
@@ -378,7 +391,6 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                         valueType == ColumnVector.Type.TIMESTAMP;
     }
 
-    @SuppressWarnings("unchecked")
     private Object[] readMapVector(ColumnVector mapVector, TypeDescription childType, int offset, int numValues) {
         Object[] mapList;
         switch (mapVector.type) {
@@ -404,6 +416,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 mapList =
                         readDoubleListVector(
                                 (DoubleColumnVector) mapVector,
+                                childType,
                                 offset,
                                 numValues
                         );
@@ -426,7 +439,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                         );
                 break;
             default:
-                throw new RuntimeException(mapVector.type.name() + " is not supported for MapColumnVectors");
+                throw new UnsupportedOperationException(mapVector.type.name() + " is not supported for MapColumnVectors");
         }
         return mapList;
     }
@@ -443,14 +456,10 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 Object unionValue = readColumn(fieldVector, fieldType, rowNum);
                 columnValuePair = Pair.of(fieldType, unionValue);
             } else {
-                throw new RuntimeException(
-                        "readUnionVal: union tag value out of range for union column vectors"
-                );
+                throw new UnsupportedOperationException("readUnionVal: union tag value out of range for union column vectors");
             }
         } else {
-            throw new RuntimeException(
-                    "readUnionVal: union tag value out of range for union types"
-            );
+            throw new UnsupportedOperationException("readUnionVal: union tag value out of range for union types");
         }
         return columnValuePair;
     }
@@ -466,7 +475,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                     listValues = readLongListValues(listVector, childType, rowNum);
                     break;
                 case DOUBLE:
-                    listValues = readDoubleListValues(listVector, rowNum);
+                    listValues = readDoubleListValues(listVector, colType, rowNum);
                     break;
                 case BYTES:
                     listValues = readBytesListValues(listVector, childType, rowNum);
@@ -478,9 +487,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                     listValues = readTimestampListValues(listVector, childType, rowNum);
                     break;
                 default:
-                    throw new RuntimeException(
-                            listVector.type.name() + " is not supported for ListColumnVectors"
-                    );
+                    throw new UnsupportedOperationException(listVector.type.name() + " is not supported for ListColumnVectors");
             }
         }
         return listValues;
@@ -504,6 +511,12 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 } else if (childType.getCategory() == TypeDescription.Category.INT) {
                     Integer intObj = (int) longVal;
                     longList.add(intObj);
+                } else if (childType.getCategory() == TypeDescription.Category.BYTE) {
+                    Byte byteObj = (byte) longVal;
+                    longList.add(byteObj);
+                } else if (childType.getCategory() == TypeDescription.Category.SHORT) {
+                    Short shortObj = (short) longVal;
+                    longList.add(shortObj);
                 } else {
                     longList.add(longVal);
                 }
@@ -511,27 +524,45 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 longList.add(null);
             }
         }
-        return longList.toArray();
+        if (childType.getCategory() == TypeDescription.Category.BOOLEAN) {
+            return longList.toArray(new Boolean[0]);
+        } else if (childType.getCategory() == TypeDescription.Category.INT) {
+            return longList.toArray(new Integer[0]);
+        } else if (childType.getCategory() == TypeDescription.Category.BYTE) {
+            return longList.toArray(new Byte[0]);
+        } else if (childType.getCategory() == TypeDescription.Category.SHORT) {
+            return longList.toArray(new Short[0]);
+        } else {
+            return longList.toArray(new Long[0]);
+        }
     }
 
-    private Object readDoubleListValues(ListColumnVector listVector, int rowNum) {
+    private Object readDoubleListValues(ListColumnVector listVector, TypeDescription colType, int rowNum) {
         int offset = (int) listVector.offsets[rowNum];
         int numValues = (int) listVector.lengths[rowNum];
         DoubleColumnVector doubleVec = (DoubleColumnVector) listVector.child;
-        return readDoubleListVector(doubleVec, offset, numValues);
+        return readDoubleListVector(doubleVec, colType, offset, numValues);
     }
 
-    private Object[] readDoubleListVector(DoubleColumnVector doubleVec, int offset, int numValues) {
+    private Object[] readDoubleListVector(DoubleColumnVector doubleVec, TypeDescription colType, int offset, int numValues) {
         List<Object> doubleList = new ArrayList<>();
         for (int i = 0; i < numValues; i++) {
             if (!doubleVec.isNull[offset + i]) {
                 Double doubleVal = doubleVec.vector[offset + i];
-                doubleList.add(doubleVal);
+                if (colType.getCategory() == TypeDescription.Category.FLOAT) {
+                    doubleList.add(doubleVal.floatValue());
+                } else {
+                    doubleList.add(doubleVal);
+                }
             } else {
                 doubleList.add(null);
             }
         }
-        return doubleList.toArray();
+        if (colType.getCategory() == TypeDescription.Category.FLOAT) {
+            return doubleList.toArray(new Float[0]);
+        } else {
+            return doubleList.toArray(new Double[0]);
+        }
     }
 
     private Object readBytesListValues(ListColumnVector listVector, TypeDescription childType, int rowNum) {
@@ -559,7 +590,11 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 bytesValList.add(null);
             }
         }
-        return bytesValList.toArray(new String[0]);
+        if (childType.getCategory() == TypeDescription.Category.STRING) {
+            return bytesValList.toArray(new String[0]);
+        } else {
+            return bytesValList.toArray();
+        }
     }
 
     private Object readDecimalListValues(ListColumnVector listVector, int rowNum) {
