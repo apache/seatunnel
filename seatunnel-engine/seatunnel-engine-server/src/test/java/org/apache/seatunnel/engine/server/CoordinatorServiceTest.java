@@ -48,19 +48,18 @@ public class CoordinatorServiceTest {
         CoordinatorService coordinatorService1 = server1.getCoordinatorService();
         Assert.assertTrue(coordinatorService1.isCoordinatorActive());
 
+        try {
+            server2.getCoordinatorService();
+            Assert.fail("Need throw SeaTunnelEngineException here but not.");
+        } catch (Exception e) {
+            Assert.assertTrue(e instanceof SeaTunnelEngineException);
+        }
+
         // shutdown instance1
         instance1.shutdown();
         CoordinatorService coordinatorService2 = server2.getCoordinatorService();
         Assert.assertTrue(coordinatorService2.isCoordinatorActive());
         instance2.shutdown();
-    }
-
-    @Test(expected = SeaTunnelEngineException.class)
-    public void testMasterNodeActiveException() {
-        TestUtils.createHazelcastInstance("CoordinatorServiceTest_testMasterNodeActive");
-        HazelcastInstanceImpl instance2 = TestUtils.createHazelcastInstance("CoordinatorServiceTest_testMasterNodeActive");
-        SeaTunnelServer server2 = instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
-        server2.getCoordinatorService();
     }
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
