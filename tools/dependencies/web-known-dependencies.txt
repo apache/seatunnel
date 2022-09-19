@@ -43,12 +43,9 @@ mybatis-3.5.9.jar
 mybatis-spring-2.0.7.jar
 mybatis-spring-boot-autoconfigure-2.2.2.jar
 mybatis-spring-boot-starter-2.2.2.jar
-seatunnel-common-${revision}.jar
+seatunnel-common-2.1.2.jar
 seatunnel-config-base-2.1.1.jar
 seatunnel-config-shade-2.1.1.jar
-seatunnel-scheduler-dolphinscheduler-${revision}.jar
-seatunnel-server-common-${revision}.jar
-seatunnel-spi-${revision}.jar
 slf4j-api-1.7.25.jar
 slf4j-log4j12-1.7.25.jar
 snakeyaml-1.29.jar
