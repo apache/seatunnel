@@ -46,7 +46,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
         String content = new String(message);
         String[] splits = content.split(delimiter);
         if (seaTunnelRowType.getTotalFields() != splits.length) {
-            throw new IndexOutOfBoundsException("The actual data does not match the configured schema information, please check");
+            throw new IndexOutOfBoundsException("The data does not match the configured schema information, please check");
         }
         Object[] objects = new Object[splits.length];
         for (int i = 0; i < splits.length; i++) {
@@ -85,7 +85,6 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
             case DECIMAL:
                 return new BigDecimal(field);
             case NULL:
-                // TODO: assign the format of null, for example: ["null", "", null]
                 return null;
             case BYTES:
                 return field.getBytes();

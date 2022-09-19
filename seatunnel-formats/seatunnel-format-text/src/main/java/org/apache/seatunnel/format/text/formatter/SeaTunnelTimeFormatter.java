@@ -15,14 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.format.text;
+package org.apache.seatunnel.format.text.formatter;
 
-import org.apache.seatunnel.api.serialization.SerializationSchema;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-
-public class TestSerializationSchema implements SerializationSchema {
-    @Override
-    public byte[] serialize(SeaTunnelRow element) {
-        return new byte[0];
-    }
+public enum SeaTunnelTimeFormatter {
 }
