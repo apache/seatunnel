@@ -16,15 +16,19 @@
  */
 
 import { reactive, ref, h } from 'vue'
+import { useAsyncState } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { NSpace, NButton } from 'naive-ui'
+import { userList, userDelete } from '@/service/user'
+import type { ResponseTable } from '@/service/types'
+import type { UserDetail } from '@/service/user/types'
 
 export function useTable() {
   const { t } = useI18n()
   const state = reactive({
     columns: [],
     tableData: [{ username: '' }],
-    page: ref(1),
+    pageNo: ref(1),
     pageSize: ref(10),
     totalPage: ref(1),
     row: {},
@@ -38,23 +42,19 @@ export function useTable() {
     state.columns = [
       {
         title: t('user_manage.username'),
-        key: 'username'
+        key: 'name'
       },
       {
-        title: t('user_manage.state'),
-        key: 'state'
+        title: t('user_manage.status'),
+        key: 'status'
       },
       {
-        title: t('user_manage.email'),
-        key: 'email'
+        title: t('user_manage.create_time'),
+        key: 'createTime'
       },
       {
-        title: t('user_manage.creation_time'),
-        key: 'creationTime'
-      },
-      {
-        title: t('user_manage.last_landing_time'),
-        key: 'lastLandingTime'
+        title: t('user_manage.update_time'),
+        key: 'updateTime'
       },
       {
         title: t('user_manage.operation'),
@@ -86,9 +86,32 @@ export function useTable() {
   }
 
   const handleDelete = (row: any) => {
+    //if (state.tableData.length === 1 && state.pageNo > 1) {
+    //  --state.pageNo
+    //}
+    //
+    //userDelete(row.id).then(() => {
+    //  getTableData({
+    //    pageSize: state.pageSize,
+    //    pageNo: state.pageNo
+    //  })
+    //})
     state.showDeleteModal = true
     state.row = row
   }
 
-  return { state, createColumns }
+  const getTableData = (params: any) => {
+    if (state.loading) return
+    state.loading = true
+    useAsyncState(
+      userList({ ...params }).then((res: ResponseTable<Array<UserDetail> | []>) => {
+        state.tableData = res.data.data
+        state.totalPage = res.data.totalPage
+        state.loading = false
+      }),
+      {}
+    )
+  }
+
+  return { state, createColumns, getTableData }
 }

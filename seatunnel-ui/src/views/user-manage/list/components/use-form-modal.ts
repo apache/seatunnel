@@ -30,8 +30,7 @@ export function useFormModal(
       id: ref(),
       username: ref(''),
       password: ref(''),
-      email: ref(''),
-      state: ref(0)
+      status: ref(0)
     },
     rules: {
       username: {
@@ -43,14 +42,6 @@ export function useFormModal(
         required: true,
         trigger: ['input', 'blur'],
         message: t('user_manage.model_validate_tips')
-      },
-      email: {
-        trigger: ['input', 'blur'],
-        validator() {
-          if (state.model.email && !utils.regex.email.test(state.model.email)) {
-            return new Error(t('user_manage.model_validate_tips'))
-          }
-        }
       }
     }
   })

@@ -25,7 +25,7 @@ import DeleteModal from './components/delete-modal'
 const UserManageList = defineComponent({
   setup() {
     const { t } = useI18n()
-    const { state, createColumns } = useTable()
+    const { state, createColumns, getTableData } = useTable()
 
     const handleFormModal = () => {
       state.showFormModal = true
@@ -48,18 +48,33 @@ const UserManageList = defineComponent({
       state.showDeleteModal = false
     }
 
+    const handlePageSize = () => {
+      state.pageNo = 1
+      requestData()
+    }
+
+    const requestData = () => {
+      getTableData({
+        pageSize: state.pageSize,
+        pageNo: state.pageNo
+      })
+    }
+
     onMounted(() => {
       createColumns(state)
+      requestData()
     })
 
     return {
       t,
       ...toRefs(state),
+      requestData,
       handleFormModal,
       handleCancelFormModal,
       handleConfirmFormModal,
       handleCancelDeleteModal,
-      handleConfirmDeleteModal
+      handleConfirmDeleteModal,
+      handlePageSize
     }
   },
   render() {
@@ -83,12 +98,14 @@ const UserManageList = defineComponent({
             />
             <NSpace justify='center'>
               <NPagination
-                v-model:page={this.page}
+                v-model:page={this.pageNo}
                 v-model:page-size={this.pageSize}
                 page-count={this.totalPage}
                 show-size-picker
                 page-sizes={[10, 30, 50]}
                 show-quick-jumper
+                onUpdatePage={this.requestData}
+                onUpdatePageSize={this.handlePageSize}
               />
             </NSpace>
           </NSpace>

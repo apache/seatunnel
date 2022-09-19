@@ -132,14 +132,7 @@ const FormModal = defineComponent({
                   </NTooltip>
                 </NSpace>
               </NFormItem>
-              <NFormItem label={this.t('user_manage.email')} path='email'>
-                <NInput
-                  clearable
-                  allowInput={this.trim}
-                  v-model={[this.model.email, 'value']}
-                />
-              </NFormItem>
-              <NFormItem label={this.t('user_manage.state')} path='state'>
+              <NFormItem label={this.t('user_manage.status')} path='status'>
                 <NRadioGroup v-model={[this.model.state, 'value']}>
                   <NRadio value={0}>{this.t('user_manage.active')}</NRadio>
                   <NRadio value={1}>{this.t('user_manage.inactive')}</NRadio>

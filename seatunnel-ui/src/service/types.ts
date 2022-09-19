@@ -15,8 +15,22 @@
  * limitations under the License.
  */
 
-const regex = {
-  email: /^[A-Za-z0-9\u4e00-\u9fa5]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/ // support Chinese mailbox
+import { UserDetail } from '@/service/user/types'
+
+interface ResponseBasic<T> {
+  code: number
+  failed: boolean
+  success: boolean
+  msg: string | null
+  data: T
 }
 
-export default regex
+type ResponseTable<T> = ResponseBasic<{
+  pageNo: number
+  pageSize: number
+  totalCount: number
+  totalPage: number
+  data: T
+}>
+
+export { ResponseTable }
