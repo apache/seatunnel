@@ -151,6 +151,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         int retryCount = 0;
         while (!coordinatorService.isCoordinatorActive() && retryCount < 20) {
             try {
+                logger.warning("Waiting this node become the active master node");
                 Thread.sleep(1000);
                 retryCount++;
             } catch (InterruptedException e) {

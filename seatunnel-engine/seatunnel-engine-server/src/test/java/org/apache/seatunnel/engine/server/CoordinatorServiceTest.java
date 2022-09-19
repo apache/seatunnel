@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server;
 import static org.awaitility.Awaitility.await;
 
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
@@ -51,6 +52,15 @@ public class CoordinatorServiceTest {
         instance1.shutdown();
         CoordinatorService coordinatorService2 = server2.getCoordinatorService();
         Assert.assertTrue(coordinatorService2.isCoordinatorActive());
+        instance2.shutdown();
+    }
+
+    @Test(expected = SeaTunnelEngineException.class)
+    public void testMasterNodeActiveException() {
+        TestUtils.createHazelcastInstance("CoordinatorServiceTest_testMasterNodeActive");
+        HazelcastInstanceImpl instance2 = TestUtils.createHazelcastInstance("CoordinatorServiceTest_testMasterNodeActive");
+        SeaTunnelServer server2 = instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        server2.getCoordinatorService();
     }
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
