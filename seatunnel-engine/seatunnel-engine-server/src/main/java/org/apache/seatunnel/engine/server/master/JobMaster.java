@@ -294,7 +294,7 @@ public class JobMaster extends Thread {
         }
     }
 
-    public void isRestore() {
+    public void markRestore() {
         restore = true;
     }
 }

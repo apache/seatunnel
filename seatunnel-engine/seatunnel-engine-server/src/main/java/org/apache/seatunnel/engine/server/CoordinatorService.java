@@ -193,7 +193,7 @@ public class CoordinatorService {
         }
 
         runningJobMasterMap.put(jobId, jobMaster);
-        jobMaster.isRestore();
+        jobMaster.markRestore();
 
         if (JobStatus.CANCELLING.equals(jobStatus)) {
             CompletableFuture.runAsync(() -> {
