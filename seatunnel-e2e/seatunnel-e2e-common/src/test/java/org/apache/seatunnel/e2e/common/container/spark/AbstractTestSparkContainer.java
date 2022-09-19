@@ -24,7 +24,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 
@@ -37,7 +36,6 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractTestSparkContainer.class);
     private static final String DEFAULT_DOCKER_IMAGE = "bitnami/spark:2.4.3";
-    public static final Network NETWORK = Network.newNetwork();
 
     protected GenericContainer<?> master;
 

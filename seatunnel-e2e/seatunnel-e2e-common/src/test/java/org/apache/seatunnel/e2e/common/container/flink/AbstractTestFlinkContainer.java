@@ -26,7 +26,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 
@@ -45,8 +44,6 @@ import java.util.stream.Stream;
 public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
 
     protected static final Logger LOG = LoggerFactory.getLogger(AbstractTestFlinkContainer.class);
-
-    protected static final Network NETWORK = Network.newNetwork();
 
     protected static final List<String> DEFAULT_FLINK_PROPERTIES = Arrays.asList(
         "jobmanager.rpc.address: jobmanager",

@@ -20,10 +20,13 @@ package org.apache.seatunnel.e2e.common.container;
 import org.apache.seatunnel.e2e.common.TestResource;
 
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.Network;
 
 import java.io.IOException;
 
 public interface TestContainer extends TestResource {
+
+    Network NETWORK = Network.newNetwork();
 
     String identifier();
 

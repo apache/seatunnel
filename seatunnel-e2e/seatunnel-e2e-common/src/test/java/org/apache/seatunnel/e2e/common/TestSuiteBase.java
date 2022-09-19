@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.common;
 
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainersFactory;
 import org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension;
 import org.apache.seatunnel.e2e.common.junit.TestCaseInvocationContextProvider;
@@ -26,6 +27,7 @@ import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.testcontainers.containers.Network;
 
 @ExtendWith({
     ContainerTestingExtension.class,
@@ -34,6 +36,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 })
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class TestSuiteBase {
+
+    protected static final Network NETWORK = TestContainer.NETWORK;
 
     @TestContainers
     private TestContainersFactory containersFactory = ContainerUtil::discoverTestContainers;
