@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.OrcReadStrategy;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;
@@ -41,9 +42,11 @@ public class OrcReadStrategyTest {
 
     public static class TestCollector implements Collector<SeaTunnelRow> {
 
+        @SuppressWarnings("checkstyle:RegexpSingleline")
         @Override
         public void collect(SeaTunnelRow record) {
             System.out.println(record);
+            Assertions.assertEquals(record.getField(16).getClass(), SeaTunnelRow.class);
         }
 
         @Override
