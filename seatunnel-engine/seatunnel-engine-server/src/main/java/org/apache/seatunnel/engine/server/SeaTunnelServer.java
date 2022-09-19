@@ -124,8 +124,12 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     @Override
     public void memberRemoved(MembershipServiceEvent event) {
-        if (coordinatorService.isMasterNode()) {
-            this.getCoordinatorService().memberRemoved(event);
+        try {
+            if (coordinatorService.isMasterNode()) {
+                this.getCoordinatorService().memberRemoved(event);
+            }
+        } catch (SeaTunnelEngineException e) {
+            logger.severe("Error when handle member removed event", e);
         }
     }
 
