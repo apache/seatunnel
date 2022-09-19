@@ -25,6 +25,8 @@ import java.io.IOException;
 
 public interface TestContainer extends TestResource {
 
+    String identifier();
+
     void executeExtraCommands(ContainerExtendedFactory extendedFactory);
 
     Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException;

@@ -31,6 +31,11 @@ import lombok.NoArgsConstructor;
 public class Spark2Container extends AbstractTestSparkContainer {
 
     @Override
+    public String identifier() {
+        return "spark:2.4.3";
+    }
+
+    @Override
     protected String getStartModuleName() {
         return "seatunnel-spark-starter";
     }

@@ -44,7 +44,10 @@ public class TestCaseInvocationContextProvider implements TestTemplateInvocation
 
     @Override
     public boolean supportsTestTemplate(ExtensionContext context) {
-        return true;
+        // Only support test cases with TestContainer as parameter
+        Class<?>[] parameterTypes = context.getRequiredTestMethod().getParameterTypes();
+        return parameterTypes.length == 1 && Arrays.stream(parameterTypes)
+            .anyMatch(TestContainer.class::isAssignableFrom);
     }
 
     @SuppressWarnings("unchecked")
@@ -56,24 +59,29 @@ public class TestCaseInvocationContextProvider implements TestTemplateInvocation
         ContainerExtendedFactory containerExtendedFactory = (ContainerExtendedFactory) context.getStore(TEST_RESOURCE_NAMESPACE)
             .get(TEST_EXTENDED_FACTORY_STORE_KEY);
 
+        int containerAmount = testContainers.size();
         return testContainers.stream()
-            .map(testContainer -> new TestResourceProvidingInvocationContext(testContainer, containerExtendedFactory));
+            .map(testContainer -> new TestResourceProvidingInvocationContext(testContainer, containerExtendedFactory, containerAmount));
     }
 
     static class TestResourceProvidingInvocationContext implements TestTemplateInvocationContext {
         private final TestContainer testContainer;
         private final ContainerExtendedFactory containerExtendedFactory;
 
+        private final Integer containerAmount;
+
         public TestResourceProvidingInvocationContext(
             TestContainer testContainer,
-            ContainerExtendedFactory containerExtendedFactory) {
+            ContainerExtendedFactory containerExtendedFactory,
+            int containerAmount) {
             this.testContainer = testContainer;
             this.containerExtendedFactory = containerExtendedFactory;
+            this.containerAmount = containerAmount;
         }
 
         @Override
         public String getDisplayName(int invocationIndex) {
-            return String.format("TestContainer: [%s]", testContainer);
+            return String.format("TestContainer[%s/%s]: %s", invocationIndex, containerAmount, testContainer.identifier());
         }
 
         @Override

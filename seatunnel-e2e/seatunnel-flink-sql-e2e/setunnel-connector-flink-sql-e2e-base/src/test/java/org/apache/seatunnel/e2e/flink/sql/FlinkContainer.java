@@ -33,6 +33,11 @@ import java.io.IOException;
 public abstract class FlinkContainer extends AbstractFlinkContainer {
 
     @Override
+    public String identifier() {
+        return "connector-v1/flink-sql:1.13.6";
+    }
+
+    @Override
     protected String getStartModuleName() {
         return "seatunnel-core-flink-sql";
     }

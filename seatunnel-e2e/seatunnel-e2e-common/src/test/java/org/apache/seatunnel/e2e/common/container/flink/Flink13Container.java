@@ -32,6 +32,11 @@ import lombok.NoArgsConstructor;
 public class Flink13Container extends AbstractTestFlinkContainer {
 
     @Override
+    public String identifier() {
+        return "flink:1.13.6";
+    }
+
+    @Override
     protected String getDockerImage() {
         return "tyrantlucifer/flink:1.13.6-scala_2.11_hadoop27";
     }
