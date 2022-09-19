@@ -6,13 +6,6 @@
 
 Read external data source data through InfluxDB.
 
-> Tips: To resolve the conflict between the influxdb connector and the spark jars, you need to
-replace the jar files of okhttp and okio in the spark jars directory to solve this problem.the command is as follows:
->  ```
-> rm -f $SPARK_ HOME/jars/okhttp-*. jar $SPARK_ HOME/jars/okio-*.jar 
-> cp okhttp-4.9.0.jar okio-2.8.0.jar $SPARK_ HOME/jars
->  ```
-
 ## Key features
 
 - [x] [batch](../../concept/connector-v2-features.md)
