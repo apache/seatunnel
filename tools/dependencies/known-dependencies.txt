@@ -55,6 +55,7 @@ clickhouse-jdbc-0.2.jar
 classmate-1.5.1.jar
 commons-beanutils-1.9.4.jar
 commons-cli-1.4.jar
+commons-codec-1.13.jar
 commons-collections-3.2.2.jar
 commons-collections4-4.4.jar
 commons-compiler-3.1.7.jar
