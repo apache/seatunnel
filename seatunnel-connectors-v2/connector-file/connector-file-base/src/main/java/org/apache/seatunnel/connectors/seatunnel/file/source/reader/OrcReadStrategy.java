@@ -58,6 +58,7 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -614,7 +615,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 decimalList.add(null);
             }
         }
-        return decimalList.toArray();
+        return decimalList.toArray(new BigDecimal[0]);
     }
 
     private Object readTimestampListValues(ListColumnVector listVector, TypeDescription childType, int rowNum) {
@@ -642,7 +643,11 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 timestampList.add(null);
             }
         }
-        return timestampList.toArray();
+        if (childType.getCategory() == TypeDescription.Category.DATE) {
+            return timestampList.toArray(new LocalDate[0]);
+        } else {
+            return timestampList.toArray(new LocalDateTime[0]);
+        }
     }
 }
 
