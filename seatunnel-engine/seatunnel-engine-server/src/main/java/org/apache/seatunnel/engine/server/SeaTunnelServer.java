@@ -124,8 +124,8 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     @Override
     public void memberRemoved(MembershipServiceEvent event) {
-        if (coordinatorService.isCoordinatorActive()) {
-            coordinatorService.getResourceManager().memberRemoved(event);
+        if (coordinatorService.isMasterNode()) {
+            this.getCoordinatorService().memberRemoved(event);
         }
     }
 
@@ -149,7 +149,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     @SuppressWarnings("checkstyle:MagicNumber")
     public CoordinatorService getCoordinatorService() {
         int retryCount = 0;
-        while (!coordinatorService.isCoordinatorActive() && retryCount < 20) {
+        while (coordinatorService.isMasterNode() && !coordinatorService.isCoordinatorActive() && retryCount < 20) {
             try {
                 logger.warning("Waiting this node become the active master node");
                 Thread.sleep(1000);
@@ -166,12 +166,6 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     public TaskExecutionService getTaskExecutionService() {
         return taskExecutionService;
-    }
-
-    public void failedTaskOnMemberRemoved(MembershipServiceEvent event) {
-        if (coordinatorService.isCoordinatorActive()) {
-            coordinatorService.failedTaskOnMemberRemoved(event);
-        }
     }
 
     private void printExecutionInfo() {

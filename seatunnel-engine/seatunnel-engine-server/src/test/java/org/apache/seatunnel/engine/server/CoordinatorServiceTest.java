@@ -57,6 +57,8 @@ public class CoordinatorServiceTest {
 
         // shutdown instance1
         instance1.shutdown();
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> Assert.assertTrue(server2.getCoordinatorService().isMasterNode()));
         CoordinatorService coordinatorService2 = server2.getCoordinatorService();
         Assert.assertTrue(coordinatorService2.isCoordinatorActive());
         instance2.shutdown();

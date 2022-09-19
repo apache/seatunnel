@@ -107,7 +107,7 @@ public class CoordinatorService {
     /**
      * If this node is a master node
      */
-    private volatile boolean isMaster = false;
+    private volatile boolean isActive = false;
 
     private final ExecutorService executorService;
 
@@ -212,12 +212,12 @@ public class CoordinatorService {
     }
 
     private void checkNewActiveMaster() {
-        if (!isMaster && isMaster()) {
+        if (!isActive && isMasterNode()) {
             logger.info("This node become a new active master node, begin init coordinator service");
             initCoordinatorService();
-            isMaster = true;
-        } else if (isMaster && !isMaster()) {
-            isMaster = false;
+            isActive = true;
+        } else if (isActive && !isMasterNode()) {
+            isActive = false;
             logger.info("This node become leave active master node, begin clear coordinator service");
             clearCoordinatorService();
         }
@@ -241,7 +241,7 @@ public class CoordinatorService {
         }
     }
 
-    private boolean isMaster() {
+    public boolean isMasterNode() {
         Address masterAddress = nodeEngine.getMasterAddress();
         if (masterAddress == null) {
             return false;
@@ -384,7 +384,7 @@ public class CoordinatorService {
      * @return
      */
     public boolean isCoordinatorActive() {
-        return isMaster;
+        return isActive;
     }
 
     public void failedTaskOnMemberRemoved(MembershipServiceEvent event) {
@@ -412,5 +412,10 @@ public class CoordinatorService {
                                 lostAddress))));
             }
         });
+    }
+
+    public void memberRemoved(MembershipServiceEvent event) {
+        this.getResourceManager().memberRemoved(event);
+        this.failedTaskOnMemberRemoved(event);
     }
 }
