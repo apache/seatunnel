@@ -128,7 +128,7 @@ public class PulsarSource<T> implements SeaTunnelSource<T, PulsarPartitionSplit,
         // source properties
         setOption(config,
             TOPIC_DISCOVERY_INTERVAL,
-            30000L,
+            -1L,
             config::getLong,
             v -> this.partitionDiscoveryIntervalMs = v);
         setOption(config,
