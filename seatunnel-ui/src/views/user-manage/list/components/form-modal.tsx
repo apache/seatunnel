@@ -52,12 +52,11 @@ const FormModal = defineComponent({
   emits: ['cancelModal', 'confirmModal'],
   setup(props, ctx) {
     const { t } = useI18n()
-    const { state, handleValidate } = useFormModal(props, ctx)
+    const { state, handleValidate, clearForm } = useFormModal(props, ctx)
     const trim = getCurrentInstance()?.appContext.config.globalProperties.trim
 
     const handleCancel = () => {
-      if (props.status === 0) {
-      }
+      clearForm()
       ctx.emit('cancelModal', props.showModal)
     }
 
@@ -133,9 +132,9 @@ const FormModal = defineComponent({
                 </NSpace>
               </NFormItem>
               <NFormItem label={this.t('user_manage.status')} path='status'>
-                <NRadioGroup v-model={[this.model.state, 'value']}>
-                  <NRadio value={0}>{this.t('user_manage.active')}</NRadio>
-                  <NRadio value={1}>{this.t('user_manage.inactive')}</NRadio>
+                <NRadioGroup v-model={[this.model.status, 'value']}>
+                  <NRadio value={0}>{this.t('user_manage.enable')}</NRadio>
+                  <NRadio value={1}>{this.t('user_manage.disable')}</NRadio>
                 </NRadioGroup>
               </NFormItem>
             </NForm>

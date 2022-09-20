@@ -17,7 +17,7 @@
 
 import { reactive, ref, SetupContext } from 'vue'
 import { useI18n } from 'vue-i18n'
-import utils from '@/utils'
+import { userAdd, userUpdate } from '@/service/user'
 
 export function useFormModal(
   props: any,
@@ -46,15 +46,30 @@ export function useFormModal(
     }
   })
 
-  const handleValidate = (status: number) => {
+  const handleValidate = (status: 0 | 1) => {
     state.userManageForm.validate((errors: any) => {
-      if (!errors) {
-        ctx.emit('confirmModal', props.showModal)
-      } else {
-        return
-      }
+      if (errors) return
+
+      status ? handleAdd() : handleUpdate()
+      ctx.emit('confirmModal', props.showModal)
+      clearForm()
     })
   }
 
-  return { state, handleValidate }
+  const clearForm = () => {
+    state.model.id = ''
+    state.model.username = ''
+    state.model.password = ''
+    state.model.status = 0
+  }
+
+  const handleAdd = () => {
+    //userAdd().then(() => {
+    //
+    //})
+  }
+
+  const handleUpdate = () => {}
+
+  return { state, handleValidate, clearForm }
 }
