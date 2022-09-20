@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.split;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
