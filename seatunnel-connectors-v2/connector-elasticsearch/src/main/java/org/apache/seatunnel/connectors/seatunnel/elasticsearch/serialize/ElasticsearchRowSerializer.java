@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type.In
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -37,7 +38,7 @@ import java.util.Map;
  */
 public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer{
     private final SeaTunnelRowType seaTunnelRowType;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     private final IndexSerializer indexSerializer;
 
