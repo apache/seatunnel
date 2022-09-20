@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
@@ -103,6 +104,8 @@ public class PhysicalVertex {
     private Address currentExecutionAddress;
 
     private TaskGroupImmutableInformation taskGroupImmutableInformation;
+
+    private JobMaster jobMaster;
 
     public PhysicalVertex(int subTaskGroupIndex,
                           @NonNull ExecutorService executorService,
@@ -238,6 +241,7 @@ public class PhysicalVertex {
 
     private boolean turnToEndState(@NonNull ExecutionState endState) {
         synchronized (this) {
+            jobMaster.getCheckpointManager().listenTaskGroup(taskGroupLocation, endState);
             // consistency check
             ExecutionState currentState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
             if (currentState.isEndState()) {
@@ -246,7 +250,9 @@ public class PhysicalVertex {
                 return false;
             }
             if (!endState.isEndState()) {
-                String message = String.format("Turn task %s state to end state need gave a end state, not %s", taskFullName, endState);
+                String message =
+                    String.format("Turn task %s state to end state need gave a end state, not %s", taskFullName,
+                        endState);
                 LOGGER.warning(message);
                 return false;
             }
@@ -402,5 +408,9 @@ public class PhysicalVertex {
 
     public TaskGroupLocation getTaskGroupLocation() {
         return taskGroupLocation;
+    }
+
+    public void setJobMaster(JobMaster jobMaster) {
+        this.jobMaster = jobMaster;
     }
 }
