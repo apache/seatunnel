@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDagGenerator;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.core.parse.JobConfigParser;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 

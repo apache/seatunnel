@@ -19,10 +19,7 @@ package org.apache.seatunnel.engine.server.master;
 
 import static org.awaitility.Awaitility.await;
 
-import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.engine.common.Constant;
-import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -98,24 +95,23 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
 
     @Test
     public void testHandleCheckpointTimeout() throws Exception {
-        JobContext jobContext = new JobContext();
-        jobContext.setJobMode(JobMode.STREAMING);
-        LogicalDag testLogicalDag = TestUtils.getTestLogicalDag(jobContext);
-        JobConfig config = new JobConfig();
-        config.setName("test_checkpoint_timeout");
+        LogicalDag testLogicalDag =
+            TestUtils.createTestLogicalPlan("stream_fakesource_to_file.conf", "test_clear_coordinator_service", jobId);
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(jobId,
-            nodeEngine.getSerializationService().toData(testLogicalDag), config, Collections.emptyList());
+            nodeEngine.getSerializationService().toData(testLogicalDag), testLogicalDag.getJobConfig(),
+            Collections.emptyList());
 
         Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
 
-        PassiveCompletableFuture<Void> voidPassiveCompletableFuture = server.submitJob(jobId, data);
+        PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
+            server.getCoordinatorService().submitJob(jobId, data);
         voidPassiveCompletableFuture.join();
 
-        JobMaster jobMaster = server.getJobMaster(jobId);
+        JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
 
         // waiting for job status turn to running
-        await().atMost(10000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assert.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
 
         // call checkpoint timeout
@@ -125,7 +121,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         Thread.sleep(5000);
 
         // test job still run
-        await().atMost(20000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assert.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
 
         PassiveCompletableFuture<JobStatus> jobMasterCompleteFuture = jobMaster.getJobMasterCompleteFuture();
@@ -133,7 +129,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         jobMaster.cancelJob();
 
         // test job turn to complete
-        await().atMost(20000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assert.assertTrue(
                 jobMasterCompleteFuture.isDone() && JobStatus.CANCELED.equals(jobMasterCompleteFuture.get())));
 
@@ -146,7 +142,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap("stateTimestamps");
         ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
 
-        await().atMost(20000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {
                 Assert.assertNull(runningJobInfoIMap.get(jobId));
                 Assert.assertNull(runningJobStateIMap.get(jobId));

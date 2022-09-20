@@ -42,7 +42,7 @@ public class WorkerHeartbeatOperation extends Operation implements IdentifiedDat
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        server.getResourceManager().heartbeat(workerProfile);
+        server.getCoordinatorService().getResourceManager().heartbeat(workerProfile);
     }
 
     @Override

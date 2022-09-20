@@ -20,12 +20,12 @@ package org.apache.seatunnel.engine.client;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.engine.client.job.JobConfigParser;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDagGenerator;
+import org.apache.seatunnel.engine.core.parse.JobConfigParser;
 
 import com.hazelcast.internal.json.JsonObject;
 import org.apache.commons.lang3.tuple.ImmutablePair;
