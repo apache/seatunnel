@@ -45,6 +45,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnJre;
+import org.junit.jupiter.api.condition.JRE;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -102,6 +104,7 @@ public class MongodbIT extends SparkContainer {
         this.initSourceData();
     }
 
+    @DisabledOnJre(value = JRE.JAVA_11, disabledReason = "https://github.com/apache/incubator-seatunnel/issues/2790")
     @Test
     public void testMongodb() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/mongodb/mongodb_source_and_sink.conf");
