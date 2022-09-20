@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { defineComponent, getCurrentInstance, toRefs } from 'vue'
+import { defineComponent, getCurrentInstance, toRefs, watch } from 'vue'
 import {
   NForm,
   NFormItem,
@@ -56,13 +56,25 @@ const FormModal = defineComponent({
     const trim = getCurrentInstance()?.appContext.config.globalProperties.trim
 
     const handleCancel = () => {
-      clearForm()
       ctx.emit('cancelModal', props.showModal)
     }
 
     const handleConfirm = () => {
       handleValidate(props.status)
     }
+
+    watch(
+      () => props.showModal,
+      () => {
+        clearForm()
+        if (props.status === 1) {
+          state.model.id = props.row.id
+          state.model.username = props.row.name
+          state.model.status = props.row.status
+        }
+        state.rules.password.required = props.row.id === undefined
+      }
+    )
 
     return { t, ...toRefs(state), trim, handleCancel, handleConfirm }
   },
@@ -77,7 +89,9 @@ const FormModal = defineComponent({
         show={this.showModal}
         onCancel={this.handleCancel}
         onConfirm={this.handleConfirm}
-        confirmDisabled={!this.model.username || !this.model.password}
+        confirmDisabled={
+          !this.model.username || (this.status === 0 && !this.model.password)
+        }
       >
         {{
           default: () => (

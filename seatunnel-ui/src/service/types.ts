@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-import { UserDetail } from '@/service/user/types'
-
 interface ResponseBasic<T> {
   code: number
   failed: boolean

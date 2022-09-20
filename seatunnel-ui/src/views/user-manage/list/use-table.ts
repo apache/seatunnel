@@ -61,7 +61,9 @@ export function useTable() {
               h(
                 NButton,
                 { text: true, onClick: () => handleStatus(row) },
-                row.status ? t('user_manage.enable') : t('user_manage.disable')
+                row.status === 1
+                  ? t('user_manage.enable')
+                  : t('user_manage.disable')
               ),
               h(
                 NButton,
@@ -80,7 +82,7 @@ export function useTable() {
   }
 
   const handleStatus = (row: UserDetail) => {
-    const req = row.status ? userEnable : userDisable
+    const req = row.status === 1 ? userEnable : userDisable
     req(row.id as number).then(() => {
       getTableData({
         pageSize: state.pageSize,
