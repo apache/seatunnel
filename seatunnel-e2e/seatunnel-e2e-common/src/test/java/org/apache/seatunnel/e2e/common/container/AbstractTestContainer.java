@@ -15,12 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.common;
+package org.apache.seatunnel.e2e.common.container;
 
-import static org.apache.seatunnel.e2e.common.ContainerUtil.PROJECT_ROOT_PATH;
-import static org.apache.seatunnel.e2e.common.ContainerUtil.adaptPathForWin;
-import static org.apache.seatunnel.e2e.common.ContainerUtil.copyConfigFileToContainer;
-import static org.apache.seatunnel.e2e.common.ContainerUtil.copyConnectorJarToContainer;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.adaptPathForWin;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyConfigFileToContainer;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyConnectorJarToContainer;
+
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,16 +35,17 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
-public abstract class AbstractContainer {
+public abstract class AbstractTestContainer implements TestContainer {
 
-    protected static final Logger LOG = LoggerFactory.getLogger(AbstractContainer.class);
+    protected static final Logger LOG = LoggerFactory.getLogger(AbstractTestContainer.class);
     protected static final String START_ROOT_MODULE_NAME = "seatunnel-core";
 
+    public static final String SEATUNNEL_HOME = "/tmp/seatunnel";
     protected final String startModuleName;
 
     protected final String startModuleFullPath;
 
-    public AbstractContainer() {
+    public AbstractTestContainer() {
         this.startModuleName = getStartModuleName();
         this.startModuleFullPath = PROJECT_ROOT_PATH + File.separator + START_ROOT_MODULE_NAME + File.separator + this.startModuleName;
         ContainerUtil.checkPathExist(startModuleFullPath);
@@ -60,10 +63,11 @@ public abstract class AbstractContainer {
 
     protected abstract String getConnectorNamePrefix();
 
-    protected abstract String getSeaTunnelHomeInContainer();
-
     protected abstract List<String> getExtraStartShellCommands();
 
+    /**
+     * TODO: issue #2733, Reimplement all modules that override the method, remove this method & use {@link ContainerExtendedFactory}.
+     */
     protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
         //do nothing
     }
@@ -72,7 +76,7 @@ public abstract class AbstractContainer {
         ContainerUtil.copySeaTunnelStarter(container,
             this.startModuleName,
             this.startModuleFullPath,
-            getSeaTunnelHomeInContainer(),
+            SEATUNNEL_HOME,
             getStartShellName());
     }
 
@@ -84,15 +88,13 @@ public abstract class AbstractContainer {
             getConnectorModulePath(),
             getConnectorNamePrefix(),
             getConnectorType(),
-            getSeaTunnelHomeInContainer());
-        // execute extra commands
-        executeExtraCommands(container);
+            SEATUNNEL_HOME);
         return executeCommand(container, confInContainerPath);
     }
 
     protected Container.ExecResult executeCommand(GenericContainer<?> container, String configPath) throws IOException, InterruptedException {
         final List<String> command = new ArrayList<>();
-        String binPath = Paths.get(getSeaTunnelHomeInContainer(), "bin", getStartShellName()).toString();
+        String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
         // base command
         command.add(adaptPathForWin(binPath));
         command.add("--config");

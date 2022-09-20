@@ -15,8 +15,15 @@
  * limitations under the License.
  */
 
-const regex = {
-  email: /^[A-Za-z0-9\u4e00-\u9fa5]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/ // support Chinese mailbox
-}
+package org.apache.seatunnel.e2e.common.junit;
 
-export default regex
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface TestContainerExtension {
+}

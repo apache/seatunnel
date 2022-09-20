@@ -36,7 +36,11 @@ const Login = defineComponent({
   },
   render() {
     return (
-      <NSpace justify='center' align='center' class='w-full h-screen bg-blue-400'>
+      <NSpace
+        justify='center'
+        align='center'
+        class='w-full h-screen bg-blue-400'
+      >
         <div class='w-96 bg-white px-10 py-8'>
           <h2 class='text-2xl mb-6'>{this.t('login.login_to_sea_tunnel')}</h2>
           <NForm rules={this.rules} ref='loginFormRef'>
