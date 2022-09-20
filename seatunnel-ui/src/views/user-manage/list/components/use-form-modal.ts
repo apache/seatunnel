@@ -46,13 +46,11 @@ export function useFormModal(
     }
   })
 
-  const handleValidate = (status: 0 | 1) => {
+  const handleValidate = (status: number) => {
     state.userManageForm.validate((errors: any) => {
       if (errors) return
 
-      status ? handleAdd() : handleUpdate()
-      ctx.emit('confirmModal', props.showModal)
-      clearForm()
+      status === 0 ? handleAdd() : handleUpdate()
     })
   }
 
@@ -64,12 +62,26 @@ export function useFormModal(
   }
 
   const handleAdd = () => {
-    //userAdd().then(() => {
-    //
-    //})
+    userAdd({
+      username: state.model.username,
+      password: state.model.password,
+      status: state.model.status,
+      type: 0
+    }).then(() => {
+      ctx.emit('confirmModal', props.showModal)
+    })
   }
 
-  const handleUpdate = () => {}
+  const handleUpdate = () => {
+    userUpdate(state.model.id, {
+      username: state.model.username,
+      password: state.model.password,
+      status: state.model.status,
+      type: 0
+    }).then(() => {
+      ctx.emit('confirmModal', props.showModal)
+    })
+  }
 
   return { state, handleValidate, clearForm }
 }
