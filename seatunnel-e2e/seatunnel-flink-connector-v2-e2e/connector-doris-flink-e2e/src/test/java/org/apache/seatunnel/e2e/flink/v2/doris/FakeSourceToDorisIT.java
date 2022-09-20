@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.flink.v2.doris;
 
+import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
+
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
 import com.google.common.collect.Lists;
@@ -29,7 +31,6 @@ import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
 
 import java.io.IOException;
@@ -93,10 +94,12 @@ public class FakeSourceToDorisIT extends FlinkContainer {
         portBindings.add(String.format("%s:%s", DORIS_BE_PORT, DORIS_BE_PORT));
         dorisStandaloneServer.setPortBindings(portBindings);
         Startables.deepStart(Stream.of(dorisStandaloneServer)).join();
-        Thread.sleep(TimeUnit.MINUTES.toMillis(1));
-        dorisStandaloneServer.waitingFor(new HostPortWaitStrategy());
-        LOG.info("Doris frontend endpoint and backend endpoint started.");
-        initializeDoris();
+        given().ignoreExceptions()
+            .await()
+            .atLeast(100, TimeUnit.MILLISECONDS)
+            .pollInterval(500, TimeUnit.MILLISECONDS)
+            .atMost(5, TimeUnit.SECONDS)
+            .untilAsserted(() -> initializeDoris());
     }
 
     private void initializeDoris() {
