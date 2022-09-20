@@ -60,6 +60,6 @@ public class SubmitJobOperation extends AbstractJobAsyncOperation {
     @Override
     protected PassiveCompletableFuture<?> doRun() throws Exception {
         SeaTunnelServer seaTunnelServer = getService();
-        return seaTunnelServer.submitJob(jobId, jobImmutableInformation);
+        return seaTunnelServer.getCoordinatorService().submitJob(jobId, jobImmutableInformation);
     }
 }

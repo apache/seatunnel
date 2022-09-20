@@ -63,7 +63,7 @@ public class TaskReportStatusOperation extends Operation implements IdentifiedDa
     @Override
     public void run() {
         ((SeaTunnelServer) getService())
-            .getJobMaster(location.getJobId())
+            .getCoordinatorService().getJobMaster(location.getJobId())
             .getCheckpointManager()
             .reportedTask(this, getCallerAddress());
     }

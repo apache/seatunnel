@@ -26,6 +26,7 @@ import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import lombok.Getter;
 import lombok.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,6 +59,7 @@ import java.util.Set;
 public class LogicalDag implements IdentifiedDataSerializable {
 
     private static final Logger LOG = LoggerFactory.getLogger(LogicalDag.class);
+    @Getter
     private JobConfig jobConfig;
     private final Set<LogicalEdge> edges = new LinkedHashSet<>();
     private final Map<Long, LogicalVertex> logicalVertexMap = new LinkedHashMap<>();

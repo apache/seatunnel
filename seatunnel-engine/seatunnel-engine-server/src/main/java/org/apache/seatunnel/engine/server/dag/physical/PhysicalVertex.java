@@ -162,12 +162,14 @@ public class PhysicalVertex {
     }
 
     public PassiveCompletableFuture<TaskExecutionState> initStateFuture() {
+        this.taskFuture = new CompletableFuture<>();
         ExecutionState executionState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
         // If the task state is CANCELING we need call noticeTaskExecutionServiceCancel().
         if (ExecutionState.CANCELING.equals(executionState)) {
             noticeTaskExecutionServiceCancel();
+        } else if (executionState.isEndState()) {
+            this.taskFuture.complete(new TaskExecutionState(taskGroupLocation, executionState, null));
         }
-        this.taskFuture = new CompletableFuture<>();
         return new PassiveCompletableFuture<>(this.taskFuture);
     }
 

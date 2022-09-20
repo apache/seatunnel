@@ -228,7 +228,6 @@ public class SubPlan {
 
                 // we must update runningJobStateTimestampsIMap first and then can update runningJobStateIMap
                 updateStateTimestamps(targetState);
-
                 runningJobStateIMap.set(pipelineLocation, targetState);
                 return true;
             } else {
@@ -245,12 +244,10 @@ public class SubPlan {
         }
         // If an active Master Node done and another Master Node active, we can not know whether canceled pipeline
         // complete. So we need cancel running pipeline again.
-        if (PipelineState.CANCELING.equals((PipelineState) runningJobStateIMap.get(pipelineLocation))) {
-            LOGGER.info(String.format("%s already in state CANCELING, skip cancel", pipelineFullName));
-        } else {
+        if (!PipelineState.CANCELING.equals((PipelineState) runningJobStateIMap.get(pipelineLocation))) {
             updatePipelineState(getPipelineState(), PipelineState.CANCELING);
-            cancelPipelineTasks();
         }
+        cancelPipelineTasks();
     }
 
     private void cancelPipelineTasks() {
