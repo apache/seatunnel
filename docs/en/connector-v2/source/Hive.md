@@ -12,7 +12,7 @@ In order to use this connector, You must ensure your spark/flink cluster already
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
-By default, we use 2PC commit to ensure `exactly-once`
+Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
 - [ ] [schema projection](../../concept/connector-v2-features.md)
 - [x] file format
