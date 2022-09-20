@@ -31,6 +31,7 @@ const UserManageList = defineComponent({
     const handleFormModal = () => {
       state.showFormModal = true
       state.status = 0
+      state.row = {}
     }
 
     const handleCancelFormModal = () => {
@@ -39,6 +40,7 @@ const UserManageList = defineComponent({
 
     const handleConfirmFormModal = () => {
       state.showFormModal = false
+      requestData()
     }
 
     const handleCancelDeleteModal = () => {
