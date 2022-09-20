@@ -37,7 +37,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 ### driver [string]
 
 The jdbc class name used to connect to the remote data source, if you use MySQL the value is com.mysql.cj.jdbc.Driver.
-Warn: for license compliance, you have to provide MySQL JDBC driver yourself, e.g. copy mysql-connector-java-xxx.jar to
+Warn: for license compliance, you have to provide any driver yourself like MySQL JDBC Driver, e.g. copy mysql-connector-java-xxx.jar to
 $SEATNUNNEL_HOME/lib for Standalone.
 
 ### user [string]
