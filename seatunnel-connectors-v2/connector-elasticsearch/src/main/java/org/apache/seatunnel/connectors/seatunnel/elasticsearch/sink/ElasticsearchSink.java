@@ -45,8 +45,7 @@ public class ElasticsearchSink implements SeaTunnelSink<SeaTunnelRow, Elasticsea
     }
 
     @Override
-    public void prepare(org.apache.seatunnel.shade.com.typesafe.config.Config pluginConfig) throws
-        PrepareFailException {
+    public void prepare(org.apache.seatunnel.shade.com.typesafe.config.Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
         SinkConfig.setValue(pluginConfig);
     }
@@ -65,4 +64,5 @@ public class ElasticsearchSink implements SeaTunnelSink<SeaTunnelRow, Elasticsea
     public SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkState> createWriter(SinkWriter.Context context) {
         return new ElasticsearchSinkWriter(context, seaTunnelRowType, pluginConfig, Collections.emptyList());
     }
+
 }
