@@ -72,7 +72,6 @@ const FormModal = defineComponent({
           state.model.username = props.row.name
           state.model.status = props.row.status
         }
-        console.log(props.row.id)
         state.rules.password.required = props.row.id === undefined
       }
     )
