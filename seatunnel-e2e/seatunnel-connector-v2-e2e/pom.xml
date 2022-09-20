@@ -17,61 +17,38 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
+        <artifactId>seatunnel-e2e</artifactId>
         <groupId>org.apache.seatunnel</groupId>
-        <artifactId>seatunnel</artifactId>
         <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
-
-    <artifactId>seatunnel-e2e</artifactId>
     <packaging>pom</packaging>
-
     <modules>
-        <module>seatunnel-e2e-common</module>
-        <module>seatunnel-connector-v2-e2e</module>
-        <module>seatunnel-flink-connector-v2-e2e</module>
-        <module>seatunnel-flink-e2e</module>
-        <module>seatunnel-flink-sql-e2e</module>
-        <module>seatunnel-spark-connector-v2-e2e</module>
-        <module>seatunnel-spark-e2e</module>
+        <module>connector-assert-e2e</module>
     </modules>
 
-    <properties>
-        <junit4.version>4.13.2</junit4.version>
-        <maven-jar-plugin.version>2.4</maven-jar-plugin.version>
-    </properties>
+    <artifactId>seatunnel-connector-v2-e2e</artifactId>
+
     <dependencies>
         <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-log4j12</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <!-- Testcontainers 1.x is tightly coupled with the JUnit 4.x rule API-->
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>${junit4.version}</version>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-e2e-common</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.awaitility</groupId>
-            <artifactId>awaitility</artifactId>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-flink-starter</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-spark-starter</artifactId>
+            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <configuration>
-                    <skip>true</skip>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
+
 </project>
