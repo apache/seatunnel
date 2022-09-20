@@ -25,7 +25,8 @@ import DeleteModal from './components/delete-modal'
 const UserManageList = defineComponent({
   setup() {
     const { t } = useI18n()
-    const { state, createColumns, getTableData } = useTable()
+    const { state, createColumns, getTableData, handleConfirmDeleteModal } =
+      useTable()
 
     const handleFormModal = () => {
       state.showFormModal = true
@@ -41,10 +42,6 @@ const UserManageList = defineComponent({
     }
 
     const handleCancelDeleteModal = () => {
-      state.showDeleteModal = false
-    }
-
-    const handleConfirmDeleteModal = () => {
       state.showDeleteModal = false
     }
 
