@@ -82,7 +82,6 @@ public class FakeSourceToDorisIT extends SparkContainer {
 
     @BeforeEach
     public void beforeInDoris() throws InterruptedException {
-        super.before();
         dorisStandaloneServer = new GenericContainer<>(DORIS_IMAGE_NAME)
             .withNetwork(NETWORK)
             .withNetworkAliases("seatunnel-doris-network")
@@ -140,7 +139,6 @@ public class FakeSourceToDorisIT extends SparkContainer {
         if (Objects.nonNull(dorisStandaloneServer)) {
             dorisStandaloneServer.close();
         }
-        super.close();
     }
 
     //Caused by some reasons, doris image can't run in Mac M1.
