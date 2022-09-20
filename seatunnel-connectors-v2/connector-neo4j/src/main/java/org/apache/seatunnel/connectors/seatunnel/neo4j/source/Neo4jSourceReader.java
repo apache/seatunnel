@@ -90,35 +90,37 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         Objects.requireNonNull(dataType);
         Objects.requireNonNull(value);
 
-        if (dataType.equals(BasicType.STRING_TYPE)) {
-            return value.asString();
-        } else if (dataType.equals(BasicType.BOOLEAN_TYPE)) {
-            return value.asBoolean();
-        } else if (dataType.equals(BasicType.LONG_TYPE)) {
-            return value.asLong();
-        } else if (dataType.equals(BasicType.DOUBLE_TYPE)) {
-            return value.asDouble();
-        } else if (dataType.equals(BasicType.VOID_TYPE)) {
-            return null;
-        } else if (dataType.equals(PrimitiveByteArrayType.INSTANCE)) {
-            return value.asByteArray();
-        } else if (dataType.equals(LocalTimeType.LOCAL_DATE_TYPE)) {
-            return value.asLocalDate();
-        } else if (dataType.equals(LocalTimeType.LOCAL_TIME_TYPE)) {
-            return value.asLocalTime();
-        } else if (dataType.equals(LocalTimeType.LOCAL_DATE_TIME_TYPE)) {
-            return value.asLocalDateTime();
-        } else if (dataType instanceof MapType) {
-            if (!((MapType<?, ?>) dataType).getKeyType().equals(BasicType.STRING_TYPE)) {
-                throw new IllegalArgumentException("Key Type of MapType must String type");
-            }
-            return value.asMap();
-        } else if (dataType.equals(BasicType.INT_TYPE)) {
-            return value.asInt();
-        } else if (dataType.equals(BasicType.FLOAT_TYPE)) {
-            return value.asFloat();
-        } else {
-            throw new IllegalArgumentException("not supported data type: " + dataType);
+        switch (dataType.getSqlType()) {
+            case STRING:
+                return value.asString();
+            case BOOLEAN:
+                return value.asBoolean();
+            case BIGINT:
+                return value.asLong();
+            case DOUBLE:
+                return value.asDouble();
+            case NULL:
+                return null;
+            case BYTES:
+                return value.asByteArray();
+            case DATE:
+                return value.asLocalDate();
+            case TIME:
+                return value.asLocalTime();
+            case TIMESTAMP:
+                return value.asLocalDateTime();
+            case MAP:
+                if (!((MapType<?, ?>) dataType).getKeyType().equals(BasicType.STRING_TYPE)) {
+                    throw new IllegalArgumentException("Key Type of MapType must String type");
+                }
+                return value.asMap();
+            case INT:
+                return value.asInt();
+            case FLOAT:
+                return value.asFloat();
+            default:
+                throw new IllegalArgumentException("not supported data type: " + dataType);
         }
+
     }
 }
