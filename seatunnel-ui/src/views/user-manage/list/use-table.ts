@@ -19,7 +19,7 @@ import { reactive, ref, h } from 'vue'
 import { useAsyncState } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { NSpace, NButton } from 'naive-ui'
-import { userList, userDelete } from '@/service/user'
+import { userList, userDelete, userEnable, userDisable } from '@/service/user'
 import type { ResponseTable } from '@/service/types'
 import type { UserDetail } from '@/service/user/types'
 
@@ -45,10 +45,6 @@ export function useTable() {
         key: 'name'
       },
       {
-        title: t('user_manage.status'),
-        key: 'status'
-      },
-      {
         title: t('user_manage.create_time'),
         key: 'createTime'
       },
@@ -59,10 +55,14 @@ export function useTable() {
       {
         title: t('user_manage.operation'),
         key: 'operation',
-        render: (row: any) =>
+        render: (row: UserDetail) =>
           h(NSpace, null, {
             default: () => [
-              h(NButton, { text: true }, t('user_manage.enable')),
+              h(
+                NButton,
+                { text: true, onClick: () => handleStatus(row) },
+                row.status ? t('user_manage.enable') : t('user_manage.disable')
+              ),
               h(
                 NButton,
                 { text: true, onClick: () => handleEdit(row) },
@@ -79,39 +79,55 @@ export function useTable() {
     ]
   }
 
-  const handleEdit = (row: any) => {
+  const handleStatus = (row: UserDetail) => {
+    const req = row.status ? userEnable : userDisable
+    req(row.id as number).then(() => {
+      getTableData({
+        pageSize: state.pageSize,
+        pageNo: state.pageNo
+      })
+    })
+  }
+
+  const handleEdit = (row: UserDetail) => {
     state.showFormModal = true
     state.status = 1
     state.row = row
   }
 
-  const handleDelete = (row: any) => {
-    //if (state.tableData.length === 1 && state.pageNo > 1) {
-    //  --state.pageNo
-    //}
-    //
-    //userDelete(row.id).then(() => {
-    //  getTableData({
-    //    pageSize: state.pageSize,
-    //    pageNo: state.pageNo
-    //  })
-    //})
+  const handleDelete = (row: UserDetail) => {
     state.showDeleteModal = true
     state.row = row
+  }
+
+  const handleConfirmDeleteModal = () => {
+    if (state.tableData.length === 1 && state.pageNo > 1) {
+      --state.pageNo
+    }
+
+    userDelete((state.row as UserDetail).id as number).then(() => {
+      state.showDeleteModal = false
+      getTableData({
+        pageSize: state.pageSize,
+        pageNo: state.pageNo
+      })
+    })
   }
 
   const getTableData = (params: any) => {
     if (state.loading) return
     state.loading = true
     useAsyncState(
-      userList({ ...params }).then((res: ResponseTable<Array<UserDetail> | []>) => {
-        state.tableData = res.data.data
-        state.totalPage = res.data.totalPage
-        state.loading = false
-      }),
+      userList({ ...params }).then(
+        (res: ResponseTable<Array<UserDetail> | []>) => {
+          state.tableData = res.data.data
+          state.totalPage = res.data.totalPage
+          state.loading = false
+        }
+      ),
       {}
     )
   }
 
-  return { state, createColumns, getTableData }
+  return { state, createColumns, getTableData, handleConfirmDeleteModal }
 }

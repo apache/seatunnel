@@ -44,7 +44,9 @@ const err = (err: AxiosError): Promise<AxiosError> => {
 
 service.interceptors.request.use((config: AxiosRequestConfig<any>) => {
   if (Object.keys(userStore.getUserInfo).length > 0) {
-    config.headers && (config.headers.token = (userStore.getUserInfo as UserDetail).token as string)
+    config.headers &&
+      (config.headers.token = (userStore.getUserInfo as UserDetail)
+        .token as string)
   }
 
   return config
