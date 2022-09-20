@@ -17,29 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.neo4j.config;
 
-import lombok.Getter;
-import lombok.Setter;
+public class Neo4jSourceConfig extends Neo4jCommonConfig {
 
-import java.io.Serializable;
-
-@Getter
-@Setter
-public class Neo4jSourceConfig implements Serializable {
-
-    public static final String PLUGIN_NAME = "Neo4j";
-
-    public static final String KEY_NEO4J_URI = "uri";
-    public static final String KEY_USERNAME = "username";
-    public static final String KEY_PASSWORD = "password";
-    public static final String KEY_BEARER_TOKEN = "bearer_token";
-    public static final String KEY_KERBEROS_TICKET = "kerberos_ticket"; // Base64 encoded
-
-    public static final String KEY_DATABASE = "database";
-    public static final String KEY_QUERY = "query";
-    public static final String KEY_MAX_TRANSACTION_RETRY_TIME = "max_transaction_retry_time";
-    public static final String KEY_MAX_CONNECTION_TIMEOUT = "max_connection_timeout";
-
-
-    private DriverBuilder driverBuilder;
-    private String query;
 }
