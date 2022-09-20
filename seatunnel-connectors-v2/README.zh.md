@@ -61,4 +61,4 @@ if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
 #### 我应该实现SinkCommitter还是SinkAggregatedCommitter？
 当前版本推荐将实现SinkAggregatedCommitter作为首选，可以在Flink/Spark中提供较强的一致性保证，同时commit应该要实现幂等性，保存引擎重试能够正常运作。
 ## 实现
-所有的Connector实现都应该在`seatunnel-connectors/seatunnel-connectors-seatuunel`模块下，现阶段可参考的示例均在此模块下。
+所有的Connector实现都应该在`seatunnel-connectors-v2`模块下，现阶段可参考的示例均在此模块下。

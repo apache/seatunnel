@@ -2,10 +2,11 @@
 This article introduces the new interface and the new code structure on account of the newly designed API for Connectors in Apache SeaTunnel. This helps developers with quick overview regarding API, translation layer improvement, and development of new Connector.
 
 ## **Code Structure**
-In order to separate from the old code, we have defined new modules for execution flow. This facilitates parallel development at the current stage, and reduces the difficulty of merging. All the relevant code at this stage is kept on the ``api-draft`` branch.
+In order to separate from the old code, we have defined new modules for execution flow. This facilitates parallel development at the current stage, and reduces the difficulty of merging.
 
 ### **Example**
 We have prepared a new version of the locally executable example program in ``seatunnel-examples``, which can be directly called using ``seatunnel-flink-connector-v2-example`` or ``seatunnel-spark-connector-v2-example`` in ``SeaTunnelApiExample``. This is also the debugging method that is often used in the local development of Connector. The corresponding configuration files are saved in the same module ``resources/examples`` folder as before.
+For now, the test needs to rely on the Connector,if your test must use a third-party jar and the Scope is  Provided,you need to check "Include dependencies with 'Provided Scope" and choose current Project in "Run"->"Edit configurations..."->"Use classpath of module" . 
 
 
 ### **Startup Class**
@@ -79,6 +80,6 @@ It is used to process ``SinkWriter.prepareCommit`` the returned data information
 In the current version, it is recommended to implement ``SinkAggregatedCommitter`` as the first choice, which can provide strong consistency guarantee in Flink/Spark. At the same time, commit should be idempotent, and save engine retry can work normally.
 
 ## **Result**
-All Connector implementations should be under the ``seatunnel-connectors/seatunnel-connectors-seatuunelmodule``, and the examples that can be referred to at this stage are under this module.
+All Connector implementations should be under the ``seatunnel-connectors-v2``, and the examples that can be referred to at this stage are under this module.
 
 
