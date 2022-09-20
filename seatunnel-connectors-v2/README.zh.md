@@ -1,11 +1,11 @@
 ## 目的
-Because SeaTunnel design new API for connectors, 所以通过这篇文章来介绍新的接口以及新的代码结构，方便开发者快速的帮助新API和翻译层完善，以及开发出新的Connecotor.
+因为SeaTunnel 为connectors设计了新的API，所以通过这篇文章来介绍新的接口以及新的代码结构，方便开发者快速的帮助新API和翻译层完善，以及开发出新的Connector.
 ## 代码结构
-现阶段所有相关代码保存在`api-draft`分支上。
 为了和老的代码分开，方便现阶段的并行开发，以及降低merge的难度。我们为新的执行流程定义了新的模块
 ### Example
 我们已经在`seatunnel-examples`中准备好了新版本的可本地执行Example程序，直接调用`seatunnel-flink-connector-v2-example`或`seatunnel-spark-connector-v2-example`中的`SeaTunnelApiExample`即可。这也是本地开发Connector经常会用到的调试方式。
-对应的配置文件保存在同模块的`resources/examples`文件夹下，和以前一样。
+对应的配置文件保存在同模块的`resources/examples`文件夹下，和以前一样。目前测试需要将connector依赖进来，如果有部分第三方包需要自行依赖请使用类加载器自行加载，如果有些 Scope为 Provided的依赖，需要在Intellij IDEAZ中单击 "Run"->"Edit configurations...",在
+"Use classpath of module"选项上选择当前工程，并勾选"Include dependencies with 'Provided Scope".
 ### 启动类
 和老的启动类分开，我们创建了两个新的启动类工程，分别是`seatunnel-core/seatunnel-flink-starter`和`seatunnel-core/seatunnel-spark-starter`. 可以在这里找到如何将配置文件解析为可以执行的Flink/Spark流程。
 ### SeaTunnel API
