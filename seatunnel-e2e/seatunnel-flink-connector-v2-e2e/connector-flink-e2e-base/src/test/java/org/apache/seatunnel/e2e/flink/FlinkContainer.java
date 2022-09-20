@@ -27,6 +27,11 @@ import org.apache.seatunnel.e2e.common.AbstractFlinkContainer;
 public abstract class FlinkContainer extends AbstractFlinkContainer {
 
     @Override
+    public String identifier() {
+        return "connector-v2/flink:1.13.6";
+    }
+
+    @Override
     protected String getDockerImage() {
         return "tyrantlucifer/flink:1.13.6-scala_2.11_hadoop27";
     }
@@ -38,7 +43,7 @@ public abstract class FlinkContainer extends AbstractFlinkContainer {
 
     @Override
     protected String getStartShellName() {
-        return "start-seatunnel-flink-new-connector.sh";
+        return "start-seatunnel-flink-connector-v2.sh";
     }
 
     @Override

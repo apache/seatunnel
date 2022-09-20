@@ -16,52 +16,64 @@
  */
 
 import { axios } from '@/service/service'
-import type { UserList, UserAdd, UserUpdate } from '@/service/user/types'
+import type { UserList, UserLogin, UserDetail } from '@/service/user/types'
 
-export function userDisable(id: number): any {
+export function userList(params: UserList): any {
   return axios({
-    url: '/user/disable',
-    method: 'put',
-    data: { id }
+    url: '/user',
+    method: 'get',
+    params
   })
 }
 
-export function userEnable(id: number): any {
+export function userAdd(data: UserDetail): any {
   return axios({
-    url: '/user/enable',
-    method: 'put',
-    data: { id }
-  })
-}
-
-export function userList(userListReq: UserList): any {
-  return axios({
-    url: '/user/list',
+    url: '/user',
     method: 'post',
-    data: { userListReq }
+    data
   })
 }
 
-export function userDelete(id: number): any {
+export function userLogin(data: UserLogin): any {
   return axios({
-    url: '/user/user',
-    method: 'delete',
-    data: { id }
-  })
-}
-
-export function userAdd(addReq: UserAdd): any {
-  return axios({
-    url: '/user/user',
+    url: '/user/login',
     method: 'post',
-    data: { addReq }
+    data
   })
 }
 
-export function userUpdate(updateReq: UserUpdate): any {
+export function userLogout(): any {
   return axios({
-    url: '/user/user',
+    url: '/user/logout',
+    method: 'patch'
+  })
+}
+
+export function userDelete(userId: number): any {
+  return axios({
+    url: `/user/${userId}`,
+    method: 'delete'
+  })
+}
+
+export function userUpdate(userId: number, data: UserDetail): any {
+  return axios({
+    url: `/user/${userId}`,
     method: 'put',
-    data: { updateReq }
+    data
+  })
+}
+
+export function userDisable(userId: number): any {
+  return axios({
+    url: `/user/${userId}/disable`,
+    method: 'put'
+  })
+}
+
+export function userEnable(userId: number): any {
+  return axios({
+    url: `/user/${userId}/enable`,
+    method: 'patch'
   })
 }

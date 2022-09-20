@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 
@@ -101,7 +102,8 @@ public class ConsoleSinkWriterIT {
             SeaTunnelRowType seaTunnelRowType = new SeaTunnelRowType(fieldNames, fieldTypes);
             byte[] bytes = RandomUtils.nextBytes(10);
             Object[] rowData = {(byte) 1, bytes, bytes};
-            Object rowString = fieldToStringTest(seaTunnelRowType, rowData);
+            SeaTunnelRow seaTunnelRow = new SeaTunnelRow(rowData);
+            Object rowString = fieldToStringTest(seaTunnelRowType, seaTunnelRow);
             Assertions.assertNotNull(rowString);
             Assertions.assertEquals(String.format("[1, %s, %s]", Arrays.toString(bytes), Arrays.toString(bytes)), rowString.toString());
         });

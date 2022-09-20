@@ -20,7 +20,8 @@ package org.apache.seatunnel.core.starter.flink.execution;
 import static org.apache.seatunnel.apis.base.plugin.Plugin.RESULT_TABLE_NAME;
 import static org.apache.seatunnel.apis.base.plugin.Plugin.SOURCE_TABLE_NAME;
 
-import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.core.starter.flink.config.FlinkCommon;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.util.TableUtil;
 
@@ -32,7 +33,6 @@ import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 
 import java.net.URL;
-import java.net.URLClassLoader;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiConsumer;
@@ -41,24 +41,18 @@ public abstract class AbstractPluginExecuteProcessor<T> implements PluginExecute
 
     protected final FlinkEnvironment flinkEnvironment;
     protected final List<? extends Config> pluginConfigs;
+    protected final JobContext jobContext;
     protected final List<T> plugins;
     protected static final String ENGINE_TYPE = "seatunnel";
     protected static final String PLUGIN_NAME = "plugin_name";
 
-    protected final BiConsumer<ClassLoader, URL> addUrlToClassloader = (classLoader, url) -> {
-        if (classLoader.getClass().getName().endsWith("SafetyNetWrapperClassLoader")) {
-            URLClassLoader c = (URLClassLoader) ReflectionUtils.getField(classLoader, "inner").get();
-            ReflectionUtils.invoke(c, "addURL", url);
-        } else if (classLoader instanceof URLClassLoader) {
-            ReflectionUtils.invoke(classLoader, "addURL", url);
-        } else {
-            throw new RuntimeException("Unsupported classloader: " + classLoader.getClass().getName());
-        }
-    };
+    protected final BiConsumer<ClassLoader, URL> addUrlToClassloader = FlinkCommon.ADD_URL_TO_CLASSLOADER;
 
     protected AbstractPluginExecuteProcessor(FlinkEnvironment flinkEnvironment,
+                                             JobContext jobContext,
                                              List<? extends Config> pluginConfigs) {
         this.flinkEnvironment = flinkEnvironment;
+        this.jobContext = jobContext;
         this.pluginConfigs = pluginConfigs;
         this.plugins = initializePlugins(pluginConfigs);
     }

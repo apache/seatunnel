@@ -16,11 +16,13 @@
  */
 
 import { defineComponent } from 'vue'
-import { NLayout, NLayoutHeader, NLayoutContent } from 'naive-ui'
+import { NLayout, NLayoutHeader, NLayoutContent, useMessage } from 'naive-ui'
 import Header from './header'
 
 const Dashboard = defineComponent({
-  setup() {},
+  setup() {
+    window.$message = useMessage()
+  },
   render() {
     return (
       <NLayout>

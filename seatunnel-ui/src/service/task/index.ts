@@ -20,37 +20,50 @@ import type {
   TaskList,
   TaskJobList,
   TaskRecycle,
-  TaskTmpExecute
+  TaskExecute
 } from '@/service/task/types'
 
-export function taskList(req: TaskList): any {
+export function taskInstanceList(params: TaskList): any {
   return axios({
-    url: '/task/listInstance',
+    url: '/task/instance',
     method: 'get',
-    params: { req }
+    params
   })
 }
 
-export function taskJobList(req: TaskJobList): any {
+export function taskJobList(params: TaskList): any {
   return axios({
-    url: '/task/listJob',
+    url: '/task/job',
     method: 'get',
-    params: { req }
+    params
   })
 }
 
-export function taskRecycle(req: TaskRecycle): any {
+export function taskExecute(scriptId: number, data: TaskExecute): any {
   return axios({
-    url: '/task/recycle',
-    method: 'put',
-    data: { req }
+    url: `/task/${scriptId}/execute`,
+    method: 'post',
+    data
   })
 }
 
-export function taskTmpExecute(req: TaskTmpExecute): any {
+export function taskRecycle(scriptId: number): any {
   return axios({
-    url: '/task/tmpExecute',
-    method: 'get',
-    params: { req }
+    url: `/task/${scriptId}/recycle`,
+    method: 'patch'
+  })
+}
+
+export function taskInstanceDetail(taskInstanceId: number): any {
+  return axios({
+    url: `/task/${taskInstanceId}`,
+    method: 'get'
+  })
+}
+
+export function taskInstanceKill(taskInstanceId: number): any {
+  return axios({
+    url: `/task/${taskInstanceId}`,
+    method: 'patch'
   })
 }

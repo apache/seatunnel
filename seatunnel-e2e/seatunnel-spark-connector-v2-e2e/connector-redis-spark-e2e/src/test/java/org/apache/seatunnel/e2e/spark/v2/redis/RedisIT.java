@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.e2e.spark.v2.redis;
 
-import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
+import static org.awaitility.Awaitility.given;
 
 import org.apache.seatunnel.e2e.spark.SparkContainer;
 
@@ -56,9 +56,11 @@ public class RedisIT extends SparkContainer {
         Startables.deepStart(Stream.of(redisContainer)).join();
         log.info("Redis container started");
         given().ignoreExceptions()
-                .await()
-                .atMost(180, TimeUnit.SECONDS)
-                .untilAsserted(this::initJedis);
+            .await()
+            .atLeast(100, TimeUnit.MILLISECONDS)
+            .pollInterval(500, TimeUnit.MILLISECONDS)
+            .atMost(180, TimeUnit.SECONDS)
+            .untilAsserted(this::initJedis);
         this.generateTestData();
     }
 
@@ -84,7 +86,6 @@ public class RedisIT extends SparkContainer {
 
     @AfterEach
     public void close() {
-        super.close();
         jedis.close();
         redisContainer.close();
     }

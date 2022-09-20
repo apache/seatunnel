@@ -18,11 +18,14 @@
 import { reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
+import { userLogout } from '@/service/user'
+import { useUserStore } from '@/store/user'
 import type { Router } from 'vue-router'
 
 export function useUserDropdown() {
   const router: Router = useRouter()
   const { t } = useI18n()
+  const userStore = useUserStore()
 
   const dropdownOptions = [
     { key: 'help', label: t('menu.help') },
@@ -37,7 +40,10 @@ export function useUserDropdown() {
     if (key === 'help') {
       window.open('http://seatunnel.incubator.apache.org/versions/')
     } else if (key === 'logout') {
-      router.push({ path: '/login' })
+      userLogout().then(() => {
+        userStore.setUserInfo({})
+        router.push({ path: '/login' })
+      })
     }
   }
 

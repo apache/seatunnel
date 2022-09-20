@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.e2e.flink.v2.jdbc;
 
-import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
+import static org.awaitility.Awaitility.given;
 
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
@@ -51,8 +51,7 @@ public class JdbcDmdbIT extends FlinkContainer {
     private static final String DOCKER_IMAGE = "laglangyue/dmdb8";
     private static final String DRIVER_CLASS = "dm.jdbc.driver.DmDriver";
     private static final String HOST = "flink_e2e_dmdb";
-    private static final String LOCAL_HOST = "localhost";
-    private static final String URL = "jdbc:dm://" + LOCAL_HOST + ":5236";
+    private static final String URL = "jdbc:dm://%s:5236";
     private static final String USERNAME = "SYSDBA";
     private static final String PASSWORD = "SYSDBA";
     private static final String DATABASE = "SYSDBA";
@@ -81,7 +80,8 @@ public class JdbcDmdbIT extends FlinkContainer {
     }
 
     private void initializeJdbcConnection() throws SQLException {
-        jdbcConnection = DriverManager.getConnection(URL, USERNAME, PASSWORD);
+        jdbcConnection = DriverManager.getConnection(String.format(
+            URL, dbServer.getHost()), USERNAME, PASSWORD);
     }
 
     /**
@@ -110,8 +110,7 @@ public class JdbcDmdbIT extends FlinkContainer {
     }
 
     private void assertHasData(String table) {
-        try (Connection connection = DriverManager.getConnection(URL, USERNAME, PASSWORD)) {
-            Statement statement = connection.createStatement();
+        try (Statement statement = jdbcConnection.createStatement();) {
             String sql = String.format("select * from %s.%s limit 1", DATABASE, table);
             ResultSet source = statement.executeQuery(sql);
             Assertions.assertTrue(source.next());

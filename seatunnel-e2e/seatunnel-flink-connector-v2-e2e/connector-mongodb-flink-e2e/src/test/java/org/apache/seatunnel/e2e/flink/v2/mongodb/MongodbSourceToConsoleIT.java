@@ -26,6 +26,7 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import lombok.extern.slf4j.Slf4j;
+import org.awaitility.Awaitility;
 import org.bson.Document;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -36,7 +37,6 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
@@ -77,7 +77,8 @@ public class MongodbSourceToConsoleIT extends FlinkContainer {
         Startables.deepStart(Stream.of(mongodbContainer)).join();
         log.info("Mongodb container started");
         Awaitility.given().ignoreExceptions()
-            .await()
+            .atLeast(100, TimeUnit.MILLISECONDS)
+            .pollInterval(500, TimeUnit.MILLISECONDS)
             .atMost(180, TimeUnit.SECONDS)
             .untilAsserted(this::initConnection);
         this.generateTestData();
@@ -114,7 +115,6 @@ public class MongodbSourceToConsoleIT extends FlinkContainer {
 
     @AfterEach
     public void close() {
-        super.close();
         if (client != null) {
             client.close();
         }

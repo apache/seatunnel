@@ -35,11 +35,11 @@ public class SinkConfig {
 
     public static final String MAX_RETRY_SIZE = "max_retry_size";
 
-    public static void setValue(org.apache.seatunnel.shade.com.typesafe.config.Config pluginConfig){
-        if(pluginConfig.hasPath(MAX_BATCH_SIZE)){
+    public static void setValue(org.apache.seatunnel.shade.com.typesafe.config.Config pluginConfig) {
+        if (pluginConfig.hasPath(MAX_BATCH_SIZE)) {
             BulkConfig.MAX_BATCH_SIZE = pluginConfig.getInt(MAX_BATCH_SIZE);
         }
-        if(pluginConfig.hasPath(MAX_RETRY_SIZE)){
+        if (pluginConfig.hasPath(MAX_RETRY_SIZE)) {
             BulkConfig.MAX_RETRY_SIZE = pluginConfig.getInt(MAX_RETRY_SIZE);
         }
     }
