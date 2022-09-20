@@ -15,14 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.common;
+package org.apache.seatunnel.e2e.common.util;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.factory.FactoryException;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.MountableFile;
@@ -31,13 +34,17 @@ import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.ServiceConfigurationError;
+import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+@Slf4j
 public final class ContainerUtil {
 
     public static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
@@ -167,6 +174,19 @@ public final class ContainerUtil {
     }
 
     public static void checkPathExist(String path) {
-        Assertions.assertTrue(new File(path).exists(), path + "must exist");
+        Assertions.assertTrue(new File(path).exists(), path + " must exist");
+    }
+
+    public static List<TestContainer> discoverTestContainers() {
+        try {
+            final List<TestContainer> result = new LinkedList<>();
+            ServiceLoader.load(TestContainer.class, Thread.currentThread().getContextClassLoader())
+                .iterator()
+                .forEachRemaining(result::add);
+            return result;
+        } catch (ServiceConfigurationError e) {
+            log.error("Could not load service provider for containers.", e);
+            throw new FactoryException("Could not load service provider for containers.", e);
+        }
     }
 }

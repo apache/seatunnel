@@ -15,44 +15,48 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink;
+package org.apache.seatunnel.e2e.common.container.spark;
 
-import org.apache.seatunnel.e2e.common.AbstractFlinkContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
+
+import com.google.auto.service.AutoService;
+import lombok.NoArgsConstructor;
 
 /**
- * This class is the base class of FlinkEnvironment test.
- * The before method will create a Flink cluster, and after method will close the Flink cluster.
- * You can use {@link FlinkContainer#executeSeaTunnelFlinkJob} to submit a seatunnel config and run a seatunnel job.
+ * This class is the base class of SparkEnvironment test. The before method will create a Spark master, and after method will close the Spark master.
+ * You can use {@link Spark2Container#executeJob} to submit a seatunnel conf and a seatunnel spark job.
  */
-public abstract class FlinkContainer extends AbstractFlinkContainer {
+@NoArgsConstructor
+@AutoService(TestContainer.class)
+public class Spark2Container extends AbstractTestSparkContainer {
 
     @Override
     public String identifier() {
-        return "connector-v1/flink:1.13.6";
+        return "spark:2.4.3";
     }
 
     @Override
     protected String getStartModuleName() {
-        return "seatunnel-core-flink";
+        return "seatunnel-spark-starter";
     }
 
     @Override
     protected String getStartShellName() {
-        return "start-seatunnel-flink.sh";
+        return "start-seatunnel-spark-connector-v2.sh";
     }
 
     @Override
     protected String getConnectorType() {
-        return "flink";
+        return "seatunnel";
     }
 
     @Override
     protected String getConnectorModulePath() {
-        return "seatunnel-connectors/seatunnel-connectors-flink";
+        return "seatunnel-connectors-v2";
     }
 
     @Override
     protected String getConnectorNamePrefix() {
-        return "seatunnel-connector-flink-";
+        return "connector-";
     }
 }

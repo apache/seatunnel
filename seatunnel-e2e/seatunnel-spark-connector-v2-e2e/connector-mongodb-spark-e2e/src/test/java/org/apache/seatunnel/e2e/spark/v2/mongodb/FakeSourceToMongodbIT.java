@@ -126,7 +126,6 @@ public class FakeSourceToMongodbIT extends SparkContainer {
 
     @AfterEach
     public void close() {
-        super.close();
         if (client != null) {
             client.close();
         }

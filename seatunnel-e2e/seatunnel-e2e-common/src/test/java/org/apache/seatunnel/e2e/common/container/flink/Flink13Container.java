@@ -15,44 +15,54 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink;
+package org.apache.seatunnel.e2e.common.container.flink;
 
-import org.apache.seatunnel.e2e.common.AbstractFlinkContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
+
+import com.google.auto.service.AutoService;
+import lombok.NoArgsConstructor;
 
 /**
- * This class is the base class of FlinkEnvironment test.
+ * This class is the base class of FlinkEnvironment test for new seatunnel connector API.
  * The before method will create a Flink cluster, and after method will close the Flink cluster.
- * You can use {@link FlinkContainer#executeSeaTunnelFlinkJob} to submit a seatunnel config and run a seatunnel job.
+ * You can use {@link Flink13Container#executeJob} to submit a seatunnel config and run a seatunnel job.
  */
-public abstract class FlinkContainer extends AbstractFlinkContainer {
+@NoArgsConstructor
+@AutoService(TestContainer.class)
+public class Flink13Container extends AbstractTestFlinkContainer {
 
     @Override
     public String identifier() {
-        return "connector-v1/flink:1.13.6";
+        return "flink:1.13.6";
+    }
+
+    @Override
+    protected String getDockerImage() {
+        return "tyrantlucifer/flink:1.13.6-scala_2.11_hadoop27";
     }
 
     @Override
     protected String getStartModuleName() {
-        return "seatunnel-core-flink";
+        return "seatunnel-flink-starter";
     }
 
     @Override
     protected String getStartShellName() {
-        return "start-seatunnel-flink.sh";
+        return "start-seatunnel-flink-connector-v2.sh";
     }
 
     @Override
     protected String getConnectorType() {
-        return "flink";
+        return "seatunnel";
     }
 
     @Override
     protected String getConnectorModulePath() {
-        return "seatunnel-connectors/seatunnel-connectors-flink";
+        return "seatunnel-connectors-v2";
     }
 
     @Override
     protected String getConnectorNamePrefix() {
-        return "seatunnel-connector-flink-";
+        return "connector-";
     }
 }

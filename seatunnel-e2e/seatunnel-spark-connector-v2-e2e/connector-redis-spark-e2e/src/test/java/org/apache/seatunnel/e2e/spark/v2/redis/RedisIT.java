@@ -86,7 +86,6 @@ public class RedisIT extends SparkContainer {
 
     @AfterEach
     public void close() {
-        super.close();
         jedis.close();
         redisContainer.close();
     }
