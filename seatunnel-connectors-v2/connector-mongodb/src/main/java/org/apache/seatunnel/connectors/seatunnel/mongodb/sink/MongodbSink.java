@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbParameters;
@@ -75,6 +76,7 @@ public class MongodbSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
-        return new MongodbSinkWriter(rowType, params);
+        boolean useSimpleTextSchema = SeaTunnelSchema.buildSimpleTextSchema().equals(rowType);
+        return new MongodbSinkWriter(rowType, useSimpleTextSchema, params);
     }
 }

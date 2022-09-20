@@ -19,13 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.source;
 
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.COLLECTION;
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.DEFAULT_FORMAT;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.URI;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -39,7 +36,6 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSpl
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbParameters;
-import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigBeanFactory;
@@ -52,8 +48,6 @@ public class MongodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     private SeaTunnelRowType rowType;
 
     private MongodbParameters params;
-
-    private DeserializationSchema<SeaTunnelRow> deserializationSchema;
 
     @Override
     public String getPluginName() {
@@ -75,17 +69,6 @@ public class MongodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         } else {
             this.rowType = SeaTunnelSchema.buildSimpleTextSchema();
         }
-
-        // TODO: use format SPI
-        // default use json format
-        String format;
-        if (config.hasPath(FORMAT)) {
-            format = config.getString(FORMAT);
-            this.deserializationSchema = null;
-        } else {
-            format = DEFAULT_FORMAT;
-            this.deserializationSchema = new JsonDeserializationSchema(false, false, rowType);
-        }
     }
 
     @Override
@@ -100,7 +83,7 @@ public class MongodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext context) throws Exception {
-        return new MongodbSourceReader(context, this.params, this.deserializationSchema);
+        boolean useSimpleTextSchema = SeaTunnelSchema.buildSimpleTextSchema().equals(rowType);
+        return new MongodbSourceReader(context, this.params, rowType, useSimpleTextSchema);
     }
-
 }
