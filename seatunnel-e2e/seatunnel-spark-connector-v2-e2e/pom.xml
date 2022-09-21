@@ -35,6 +35,7 @@
         <module>connector-jdbc-spark-e2e</module>
         <module>connector-redis-spark-e2e</module>
         <module>connector-mongodb-spark-e2e</module>
+        <module>connector-neo4j-spark-e2e</module>
     </modules>
 
     <dependencies>
