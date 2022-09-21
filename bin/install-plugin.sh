@@ -18,7 +18,7 @@
 
 #This script is used to download the connector plug-ins required during the running process. 
 #All are downloaded by default. You can also choose what you need. 
-#You only need to configure the plug-in name in config/plugin.properties.
+#You only need to configure the plug-in name in config/plugin_config.
 
 # connector default version is 2.2.0, you can also choose a custom version. eg: 2.1.2:  sh install-plugin.sh 2.1.2
 version=2.2.0
@@ -80,4 +80,4 @@ while read line; do
 	  	 path=seatunnel
 	  fi	 
 
-done < config/plugin.properties
+done < config/plugin_config
