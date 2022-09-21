@@ -68,5 +68,13 @@ sink {
 * Console print data
 
 ```text
-{"name":"jared","age":17}
+row=1 : XTblOoJMBr, 1968671376
+row=2 : NAoJoFrthI, 1603900622
+row=3 : VHZBzqQAPr, 1713899051
+row=4 : pfUYOOrPgA, 1412123956
+row=5 : dCNFobURas, 202987936
+row=6 : XGWVgFnfWA, 1879270917
+row=7 : KIGOqnLhqe, 430165110
+row=8 : goMdjHlRpX, 288221239
+row=9 : VBtpiNGArV, 1906991577
 ```
