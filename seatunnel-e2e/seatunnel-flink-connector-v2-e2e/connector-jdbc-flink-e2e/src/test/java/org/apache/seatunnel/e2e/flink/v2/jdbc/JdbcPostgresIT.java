@@ -33,7 +33,6 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -54,11 +53,11 @@ public class JdbcPostgresIT extends FlinkContainer {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
-    public void startPostgreSqlContainer() throws InterruptedException, ClassNotFoundException, SQLException {
-        pg = new PostgreSQLContainer<>(DockerImageName.parse("postgres:alpine3.16"))
+    public void startPostgreSqlContainer() throws Exception {
+        pg = new PostgreSQLContainer<>(DockerImageName.parse("postgres:14.3"))
             .withNetwork(NETWORK)
             .withNetworkAliases("postgresql")
-            .withUrlParam("max_prepared_transactions", "10")
+            .withCommand("postgres -c max_prepared_transactions=100")
             .withLogConsumer(new Slf4jLogConsumer(LOGGER));
         Startables.deepStart(Stream.of(pg)).join();
         LOGGER.info("Postgres container started");
@@ -93,7 +92,7 @@ public class JdbcPostgresIT extends FlinkContainer {
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    private void batchInsertData() throws SQLException {
+    private void batchInsertData() {
         String sql = "insert into source(name, age) values(?,?)";
         try (Connection connection = DriverManager.getConnection(pg.getJdbcUrl(), pg.getUsername(), pg.getPassword())) {
             connection.setAutoCommit(false);
@@ -111,14 +110,14 @@ public class JdbcPostgresIT extends FlinkContainer {
     }
 
     @Test
-    public void testJdbcPostgresSourceAndSink() throws SQLException, IOException, InterruptedException {
+    public void testJdbcPostgresSourceAndSink() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_postgres_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertIterableEquals(generateTestDataset(), queryResult());
     }
 
     @Test
-    public void testJdbcPostgresSourceAndSinkParallel() throws SQLException, IOException, InterruptedException {
+    public void testJdbcPostgresSourceAndSinkParallel() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_postgres_source_and_sink_parallel.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
@@ -133,7 +132,7 @@ public class JdbcPostgresIT extends FlinkContainer {
     }
 
     @Test
-    public void testJdbcPostgresSourceAndSinkParallelUpperLower() throws SQLException, IOException, InterruptedException {
+    public void testJdbcPostgresSourceAndSinkParallelUpperLower() throws Exception {
         Container.ExecResult execResult =
             executeSeaTunnelFlinkJob("/jdbc/jdbc_postgres_source_and_sink_parallel_upper_lower.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
@@ -149,6 +148,14 @@ public class JdbcPostgresIT extends FlinkContainer {
         //lower=1 upper=50
         List<List> limit50 = generateTestDataset().stream().limit(50).collect(Collectors.toList());
         Assertions.assertIterableEquals(limit50, sortedResult);
+    }
+
+    @Test
+    public void testJdbcPostgresSourceAndSinkXA() throws Exception {
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_postgres_source_and_sink_xa.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        Assertions.assertIterableEquals(generateTestDataset(), queryResult());
     }
 
     private List<List> queryResult() {

@@ -33,7 +33,6 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -54,10 +53,12 @@ public class JdbcMysqlIT extends FlinkContainer {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
-    public void startPostgreSqlContainer() throws InterruptedException, ClassNotFoundException, SQLException {
-        mc = new MySQLContainer<>(DockerImageName.parse("mysql:8.0.25"))
+    public void startPostgreSqlContainer() throws Exception {
+        // Non-root users need to grant XA_RECOVER_ADMIN permission on is_exactly_once = "true"
+        mc = new MySQLContainer<>(DockerImageName.parse("mysql:8.0.29"))
             .withNetwork(NETWORK)
             .withNetworkAliases("mysql")
+            .withUsername("root")
             .withLogConsumer(new Slf4jLogConsumer(LOGGER));
         Startables.deepStart(Stream.of(mc)).join();
         LOGGER.info("Mysql container started");
@@ -92,7 +93,7 @@ public class JdbcMysqlIT extends FlinkContainer {
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    private void batchInsertData() throws SQLException {
+    private void batchInsertData() {
         String sql = "insert into source(name, age) values(?,?)";
         try (Connection connection = DriverManager.getConnection(mc.getJdbcUrl(), mc.getUsername(), mc.getPassword())) {
             connection.setAutoCommit(false);
@@ -110,7 +111,7 @@ public class JdbcMysqlIT extends FlinkContainer {
     }
 
     @Test
-    public void testJdbcMysqlSourceAndSink() throws SQLException, IOException, InterruptedException {
+    public void testJdbcMysqlSourceAndSink() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_mysql_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
@@ -118,7 +119,7 @@ public class JdbcMysqlIT extends FlinkContainer {
     }
 
     @Test
-    public void testJdbcMysqlSourceAndSinkParallel() throws SQLException, IOException, InterruptedException {
+    public void testJdbcMysqlSourceAndSinkParallel() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_mysql_source_and_sink_parallel.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
@@ -133,7 +134,7 @@ public class JdbcMysqlIT extends FlinkContainer {
     }
 
     @Test
-    public void testJdbcMysqlSourceAndSinkParallelUpperLower() throws SQLException, IOException, InterruptedException {
+    public void testJdbcMysqlSourceAndSinkParallelUpperLower() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_mysql_source_and_sink_parallel_upper_lower.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
@@ -148,6 +149,14 @@ public class JdbcMysqlIT extends FlinkContainer {
         //lower=1 upper=50
         List<List> limit50 = generateTestDataset().stream().limit(50).collect(Collectors.toList());
         Assertions.assertIterableEquals(limit50, sortedResult);
+    }
+
+    @Test
+    public void testJdbcMysqlSourceAndSinkXA() throws Exception {
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_mysql_source_and_sink_xa.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        Assertions.assertIterableEquals(generateTestDataset(), queryResult());
     }
 
     private List<List> queryResult() {

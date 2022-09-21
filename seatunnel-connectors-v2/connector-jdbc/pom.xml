@@ -30,6 +30,7 @@
     <artifactId>connector-jdbc</artifactId>
 
     <properties>
+        <testcontainers.version>1.17.3</testcontainers.version>
         <phoenix.version>5.2.5-HBase-2.x</phoenix.version>
         <mysql.version>8.0.16</mysql.version>
         <postgresql.version>42.3.3</postgresql.version>
@@ -60,6 +61,21 @@
             <artifactId>ali-phoenix-shaded-thin-client</artifactId>
             <version>${phoenix.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>mysql</artifactId>
+            <version>${testcontainers.version}</version>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
 </project>
