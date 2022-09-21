@@ -34,6 +34,7 @@
                 <exclude>**/.project</exclude>
                 <exclude>**/.settings/**</exclude>
                 <exclude>lib/**</exclude>
+                <exclude>**/.DS_Store</exclude>
             </excludes>
 
             <includes>
@@ -81,6 +82,24 @@
             </includes>
             <outputDirectory>.</outputDirectory>
         </fileSet>
+        <!-- maven wrapper tools -->
+        <fileSet>
+            <directory>${basedir}/.././</directory>
+            <includes>
+                <include>mvnw</include>
+                <include>mvnw.cmd</include>
+            </includes>
+            <fileMode>0755</fileMode>
+            <outputDirectory>.</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${basedir}/.././</directory>
+            <includes>
+                <include>.mvn/wrapper/maven-wrapper.properties</include>
+            </includes>
+            <fileMode>0755</fileMode>
+            <outputDirectory>.</outputDirectory>
+        </fileSet>
     </fileSets>
 
     <files>
@@ -106,41 +125,6 @@
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
             <outputDirectory>/lib</outputDirectory>
-            <scope>provided</scope>
-        </dependencySet>
-
-        <!-- ============ Connectors Jars ============  -->
-        <!-- Flink connectors -->
-        <dependencySet>
-            <useProjectArtifact>false</useProjectArtifact>
-            <useTransitiveDependencies>true</useTransitiveDependencies>
-            <unpack>false</unpack>
-            <includes>
-                <include>org.apache.seatunnel:seatunnel-connector-flink-*:jar</include>
-            </includes>
-            <outputDirectory>/connectors/flink</outputDirectory>
-            <scope>provided</scope>
-        </dependencySet>
-        <!-- Flink SQL connectors -->
-        <dependencySet>
-            <useProjectArtifact>false</useProjectArtifact>
-            <useTransitiveDependencies>true</useTransitiveDependencies>
-            <unpack>false</unpack>
-            <includes>
-                <include>org.apache.seatunnel:flink-sql-connector-*:jar</include>
-            </includes>
-            <outputDirectory>/connectors/flink-sql</outputDirectory>
-            <scope>provided</scope>
-        </dependencySet>
-        <!-- Spark connectors -->
-        <dependencySet>
-            <useProjectArtifact>false</useProjectArtifact>
-            <useTransitiveDependencies>true</useTransitiveDependencies>
-            <unpack>false</unpack>
-            <includes>
-                <include>org.apache.seatunnel:seatunnel-connector-spark-*:jar</include>
-            </includes>
-            <outputDirectory>/connectors/spark</outputDirectory>
             <scope>provided</scope>
         </dependencySet>
     </dependencySets>
