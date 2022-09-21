@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
-import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbParameters;
-import org.apache.seatunnel.format.json.JsonSerializationSchema;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.data.DefaultSerializer;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.data.Serializer;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -35,9 +35,9 @@ public class MongodbSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final SeaTunnelRowType rowType;
 
-    private final SerializationSchema serializationSchema;
+    private final Serializer serializer;
 
-    private MongoClient client;
+    private final MongoClient client;
 
     private final String database;
 
@@ -45,22 +45,30 @@ public class MongodbSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final MongoCollection<Document> mongoCollection;
 
-    public MongodbSinkWriter(SeaTunnelRowType rowType, MongodbParameters params) {
+    private final boolean useSimpleTextSchema;
+
+    public MongodbSinkWriter(SeaTunnelRowType rowType,
+                             boolean useSimpleTextSchema,
+                             MongodbParameters params) {
         this.rowType = rowType;
         this.database = params.getDatabase();
         this.collection = params.getCollection();
         this.client = MongoClients.create(params.getUri());
         this.mongoCollection = this.client.getDatabase(database).getCollection(collection);
-        this.serializationSchema = new JsonSerializationSchema(rowType);
+        this.useSimpleTextSchema = useSimpleTextSchema;
+        this.serializer = useSimpleTextSchema ? null : new DefaultSerializer(rowType);
     }
 
     @Override
-    public void write(SeaTunnelRow rows) throws IOException {
-        byte[] serialize = serializationSchema.serialize(rows);
-        String content = new String(serialize);
-
-        Document doc = Document.parse(content);
-        mongoCollection.insertOne(doc);
+    public void write(SeaTunnelRow row) throws IOException {
+        Document document;
+        if (useSimpleTextSchema) {
+            String simpleText = row.getField(0).toString();
+            document = Document.parse(simpleText);
+        } else {
+            document = serializer.serialize(row);
+        }
+        mongoCollection.insertOne(document);
     }
 
     @Override

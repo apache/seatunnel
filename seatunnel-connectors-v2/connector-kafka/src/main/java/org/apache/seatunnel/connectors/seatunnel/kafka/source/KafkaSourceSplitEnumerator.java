@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.TopicPartition;
@@ -51,29 +52,32 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
     private AdminClient adminClient;
 
     private Set<KafkaSourceSplit> pendingSplit;
-    private Set<KafkaSourceSplit> assignedSplit;
+    private final Set<KafkaSourceSplit> assignedSplit;
 
     KafkaSourceSplitEnumerator(ConsumerMetadata metadata, Context<KafkaSourceSplit> context) {
         this.metadata = metadata;
         this.context = context;
+        this.assignedSplit = new HashSet<>();
+        this.pendingSplit = new HashSet<>();
     }
 
     KafkaSourceSplitEnumerator(ConsumerMetadata metadata, Context<KafkaSourceSplit> context,
                                KafkaSourceState sourceState) {
         this(metadata, context);
-        this.assignedSplit = sourceState.getAssignedSplit();
     }
 
     @Override
     public void open() {
         this.adminClient = initAdminClient(this.metadata.getProperties());
-        this.assignedSplit = new HashSet<>();
-        this.pendingSplit = new HashSet<>();
     }
 
     @Override
     public void run() throws ExecutionException, InterruptedException {
-        pendingSplit = getTopicInfo();
+        getTopicInfo().forEach(split -> {
+            if (!assignedSplit.contains(split)) {
+                pendingSplit.add(split);
+            }
+        });
         assignSplit();
     }
 
@@ -87,8 +91,22 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
     @Override
     public void addSplitsBack(List<KafkaSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
-            pendingSplit.addAll(splits);
+            pendingSplit.addAll(convertToNextSplit(splits));
             assignSplit();
+        }
+    }
+
+    private Collection<? extends KafkaSourceSplit> convertToNextSplit(List<KafkaSourceSplit> splits) {
+        try {
+            Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> listOffsets =
+                getKafkaPartitionLatestOffset(splits.stream().map(KafkaSourceSplit::getTopicPartition).collect(Collectors.toList()));
+            splits.forEach(split -> {
+                split.setStartOffset(split.getEndOffset() + 1);
+                split.setEndOffset(listOffsets.get(split.getTopicPartition()).offset());
+            });
+            return splits;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -131,30 +149,39 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
         if (this.metadata.isPattern()) {
             Pattern pattern = Pattern.compile(this.metadata.getTopic());
             topics = this.adminClient.listTopics().names().get().stream()
-                    .filter(t -> pattern.matcher(t).matches()).collect(Collectors.toSet());
+                .filter(t -> pattern.matcher(t).matches()).collect(Collectors.toSet());
         } else {
             topics = Arrays.asList(this.metadata.getTopic().split(","));
         }
         log.info("Discovered topics: {}", topics);
 
         Collection<TopicPartition> partitions =
-                adminClient.describeTopics(topics).all().get().values().stream().flatMap(t -> t.partitions().stream()
-                        .map(p -> new TopicPartition(t.name(), p.partition()))).collect(Collectors.toSet());
+            adminClient.describeTopics(topics).all().get().values().stream().flatMap(t -> t.partitions().stream()
+                .map(p -> new TopicPartition(t.name(), p.partition()))).collect(Collectors.toSet());
+        return getKafkaPartitionLatestOffset(partitions).entrySet().stream().map(partition -> {
+            KafkaSourceSplit split = new KafkaSourceSplit(partition.getKey());
+            split.setEndOffset(partition.getValue().offset());
+            return split;
+        }).collect(Collectors.toSet());
+    }
+
+    private Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> getKafkaPartitionLatestOffset(Collection<TopicPartition> partitions) throws InterruptedException, ExecutionException {
         return adminClient.listOffsets(partitions.stream().collect(Collectors.toMap(p -> p, p -> OffsetSpec.latest())))
-                .all().get().entrySet().stream().map(partition -> {
-                    KafkaSourceSplit split = new KafkaSourceSplit(partition.getKey());
-                    split.setEndOffset(partition.getValue().offset());
-                    return split;
-                }).collect(Collectors.toSet());
+            .all().get();
     }
 
     private void assignSplit() {
         Map<Integer, List<KafkaSourceSplit>> readySplit = new HashMap<>(Common.COLLECTION_SIZE);
-        for (int taskID = 0;  taskID < context.currentParallelism(); taskID++) {
+        for (int taskID = 0; taskID < context.currentParallelism(); taskID++) {
             readySplit.computeIfAbsent(taskID, id -> new ArrayList<>());
         }
-        pendingSplit.forEach(s -> readySplit.get(getSplitOwner(s.getTopicPartition(), context.currentParallelism()))
-                .add(s));
+
+        pendingSplit.forEach(s -> {
+            if (!assignedSplit.contains(s)) {
+                readySplit.get(getSplitOwner(s.getTopicPartition(), context.currentParallelism()))
+                    .add(s);
+            }
+        });
 
         readySplit.forEach(context::assignSplit);
 

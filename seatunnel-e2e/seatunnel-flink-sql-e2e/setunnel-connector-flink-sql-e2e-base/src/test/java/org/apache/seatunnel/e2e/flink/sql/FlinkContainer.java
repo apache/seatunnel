@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.e2e.flink.sql;
 
-import static org.apache.seatunnel.e2e.common.ContainerUtil.copyConfigFileToContainer;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyConfigFileToContainer;
 
 import org.apache.seatunnel.e2e.common.AbstractFlinkContainer;
 
@@ -31,6 +31,11 @@ import java.io.IOException;
  * You can use {@link FlinkContainer#executeSeaTunnelFlinkJob(String)} to submit a seatunnel config and run a seatunnel job.
  */
 public abstract class FlinkContainer extends AbstractFlinkContainer {
+
+    @Override
+    public String identifier() {
+        return "connector-v1/flink-sql:1.13.6";
+    }
 
     @Override
     protected String getStartModuleName() {

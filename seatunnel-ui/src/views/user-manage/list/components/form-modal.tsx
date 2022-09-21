@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { defineComponent, getCurrentInstance, toRefs } from 'vue'
+import { defineComponent, getCurrentInstance, toRefs, watch } from 'vue'
 import {
   NForm,
   NFormItem,
@@ -52,18 +52,29 @@ const FormModal = defineComponent({
   emits: ['cancelModal', 'confirmModal'],
   setup(props, ctx) {
     const { t } = useI18n()
-    const { state, handleValidate } = useFormModal(props, ctx)
+    const { state, handleValidate, clearForm } = useFormModal(props, ctx)
     const trim = getCurrentInstance()?.appContext.config.globalProperties.trim
 
     const handleCancel = () => {
-      if (props.status === 0) {
-      }
       ctx.emit('cancelModal', props.showModal)
     }
 
     const handleConfirm = () => {
       handleValidate(props.status)
     }
+
+    watch(
+      () => props.showModal,
+      () => {
+        clearForm()
+        if (props.status === 1) {
+          state.model.id = props.row.id
+          state.model.username = props.row.name
+          state.model.status = props.row.status
+        }
+        state.rules.password.required = props.row.id === undefined
+      }
+    )
 
     return { t, ...toRefs(state), trim, handleCancel, handleConfirm }
   },
@@ -78,7 +89,9 @@ const FormModal = defineComponent({
         show={this.showModal}
         onCancel={this.handleCancel}
         onConfirm={this.handleConfirm}
-        confirmDisabled={!this.model.username || !this.model.password}
+        confirmDisabled={
+          !this.model.username || (this.status === 0 && !this.model.password)
+        }
       >
         {{
           default: () => (
@@ -132,17 +145,10 @@ const FormModal = defineComponent({
                   </NTooltip>
                 </NSpace>
               </NFormItem>
-              <NFormItem label={this.t('user_manage.email')} path='email'>
-                <NInput
-                  clearable
-                  allowInput={this.trim}
-                  v-model={[this.model.email, 'value']}
-                />
-              </NFormItem>
-              <NFormItem label={this.t('user_manage.state')} path='state'>
-                <NRadioGroup v-model={[this.model.state, 'value']}>
-                  <NRadio value={0}>{this.t('user_manage.active')}</NRadio>
-                  <NRadio value={1}>{this.t('user_manage.inactive')}</NRadio>
+              <NFormItem label={this.t('user_manage.status')} path='status'>
+                <NRadioGroup v-model={[this.model.status, 'value']}>
+                  <NRadio value={0}>{this.t('user_manage.enable')}</NRadio>
+                  <NRadio value={1}>{this.t('user_manage.disable')}</NRadio>
                 </NRadioGroup>
               </NFormItem>
             </NForm>
