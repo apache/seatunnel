@@ -21,7 +21,7 @@ import java.time.Instant;
 
 public class InstantConverterUtils {
 
-    private static final int MICRO_OF_SECOND = 1000_000;
+    private static final long MICRO_OF_SECOND = 1000_000;
     private static final int MICRO_OF_NANOS = 1000;
 
     /**

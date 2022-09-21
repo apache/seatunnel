@@ -16,10 +16,7 @@
  */
 
 import { axios } from '@/service/service'
-import type {
-  ScriptList,
-  ScriptAdd
-} from '@/service/script/types'
+import type { ScriptList, ScriptAdd } from '@/service/script/types'
 
 export function scriptList(params: ScriptList): any {
   return axios({
