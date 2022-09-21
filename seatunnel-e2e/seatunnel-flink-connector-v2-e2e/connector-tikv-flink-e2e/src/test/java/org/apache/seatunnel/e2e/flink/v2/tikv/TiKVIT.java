@@ -66,17 +66,11 @@ public class TiKVIT extends FlinkContainer {
     private ClientSession clientSession;
     private RawKVClient client;
 
+    /**
+     * tidb starting sequence ==> Placement Driver (PD)、TiKV、TiDB
+     */
     @BeforeEach
     public void startTidbContainer() {
-        // tidb
-        tidbContainer = new GenericContainer<>(PINGCAP_TIDB_IMAGE)
-            .withNetwork(NETWORK)
-            .withNetworkAliases(TIDB_CONTAINER_HOST)
-            .withLogConsumer(new Slf4jLogConsumer(log));
-        tidbContainer.setPortBindings(Lists.newArrayList(String.format("%s:%s", TIDB_PORT, TIDB_PORT)));
-        Startables.deepStart(Stream.of(tidbContainer)).join();
-        log.info("Tidb container started");
-
         // pd
         pdContainer = new GenericContainer<>(PINGCAP_PD_IMAGE)
             .withNetwork(NETWORK)
@@ -94,6 +88,15 @@ public class TiKVIT extends FlinkContainer {
         tikvContainer.setPortBindings(Lists.newArrayList(String.format("%s:%s", TIKV_PORT, TIKV_PORT)));
         Startables.deepStart(Stream.of(tikvContainer)).join();
         log.info("tikv container started");
+
+        // tidb
+        tidbContainer = new GenericContainer<>(PINGCAP_TIDB_IMAGE)
+            .withNetwork(NETWORK)
+            .withNetworkAliases(TIDB_CONTAINER_HOST)
+            .withLogConsumer(new Slf4jLogConsumer(log));
+        tidbContainer.setPortBindings(Lists.newArrayList(String.format("%s:%s", TIDB_PORT, TIDB_PORT)));
+        Startables.deepStart(Stream.of(tidbContainer)).join();
+        log.info("Tidb container started");
 
         given().ignoreExceptions()
             .await()
