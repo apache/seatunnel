@@ -15,25 +15,14 @@
  * limitations under the License.
  */
 
-interface UserList {
-  name?: string
-  pageNo: number
-  pageSize: number
-}
+package org.apache.seatunnel.connectors.seatunnel.mongodb.data;
 
-interface UserLogin {
-  password: string
-  username: string
-}
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-interface UserDetail extends UserLogin {
-  status: number
-  type?: number
-  token?: string
-  id?: number
-  name?: string
-  createTime?: any | null
-  updateTime?: any | null
-}
+import org.bson.Document;
 
-export { UserList, UserLogin, UserDetail }
+import java.io.Serializable;
+
+public interface Serializer extends Serializable {
+    Document serialize(SeaTunnelRow row);
+}

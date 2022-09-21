@@ -1,3 +1,4 @@
+
                                  Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
@@ -175,41 +176,42 @@
 
    END OF TERMS AND CONDITIONS
 
-   APPENDIX: How to apply the Apache License to your work.
+--------------------------------------------------------------------------------
 
-      To apply the Apache License to your work, attach the following
-      boilerplate notice, with the fields enclosed by brackets "{}"
-      replaced with your own identifying information. (Don't include
-      the brackets!)  The text should be enclosed in the appropriate
-      comment syntax for the file format. We also recommend that a
-      file or class name and description of purpose be included on the
-      same "printed page" as the copyright notice for easier
-      identification within third-party archives.
+This product includes code from Apache Avro.
 
-   Copyright {yyyy} {name of copyright owner}
+Copyright: 2014 The Apache Software Foundation.
+Home page: https://avro.apache.org/
+License: http://www.apache.org/licenses/LICENSE-2.0
 
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
+--------------------------------------------------------------------------------
 
-       http://www.apache.org/licenses/LICENSE-2.0
+This project includes code from Daniel Lemire's JavaFastPFOR project. The
+"Lemire" bit packing source code produced by parquet-generator is derived from
+the JavaFastPFOR project.
 
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
-   
-========================================================================
-Apache 2.0 licenses
-========================================================================
+Copyright: 2013 Daniel Lemire
+Home page: http://lemire.me/en/
+Project page: https://github.com/lemire/JavaFastPFOR
+License: Apache License Version 2.0 http://www.apache.org/licenses/LICENSE-2.0
 
-The following components are provided under the Apache License. See project link for details.
-The text of each license is the standard Apache 2.0 license.
+--------------------------------------------------------------------------------
 
-tools/dependencies/checkLicense.sh files from https://github.com/apache/skywalking
-mvnw files from https://github.com/apache/maven-wrapper Apache 2.0
-seatunnel-api/src/main/java/org/apache/seatunnel/api/table/type/RowKind.java from  https://github.com/apache/flink
-seatunnel-config/seatunnel-config-shade/src/main/java/org/apache/seatunnel/shade/com/typesafe/config/    from  https://github.com/lightbend/config
-seatunnel-connectors-v2/connector-jdbc/src/main/java/org/apache/seatunnel/connectors/seatunnel/jdbc/internal/  from https://github.com/apache/flink
-seatunnel-connectors-v2/connector-iceberg/src/main/java/org/apache/seatunnel/connectors/seatunnel/iceberg/source/enumerator/   from https://github.com/apache/iceberg
+This product includes code from Apache Spark.
+
+* dev/merge_parquet_pr.py is based on Spark's dev/merge_spark_pr.py
+
+Copyright: 2014 The Apache Software Foundation.
+Home page: https://spark.apache.org/
+License: http://www.apache.org/licenses/LICENSE-2.0
+
+--------------------------------------------------------------------------------
+
+This product includes code from Twitter's ElephantBird project.
+
+* parquet-hadoop's UnmaterializableRecordCounter.java includes code from
+  ElephantBird's LzoRecordReader.java
+
+Copyright: 2012-2014 Twitter
+Home page: https://github.com/twitter/elephant-bird
+License: http://www.apache.org/licenses/LICENSE-2.0
