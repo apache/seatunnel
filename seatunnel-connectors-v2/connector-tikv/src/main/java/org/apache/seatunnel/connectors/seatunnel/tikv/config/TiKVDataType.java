@@ -22,7 +22,6 @@ import org.tikv.common.util.ScanOption;
 import org.tikv.raw.RawKVClient;
 import org.tikv.shade.com.google.protobuf.ByteString;
 
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;

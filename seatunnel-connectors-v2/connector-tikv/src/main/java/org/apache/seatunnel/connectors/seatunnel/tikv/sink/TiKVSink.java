@@ -32,9 +32,9 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.tikv.config.TiKVConfig;
 import org.apache.seatunnel.connectors.seatunnel.tikv.config.TiKVParameters;
 
-import com.google.auto.service.AutoService;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 import java.util.Optional;

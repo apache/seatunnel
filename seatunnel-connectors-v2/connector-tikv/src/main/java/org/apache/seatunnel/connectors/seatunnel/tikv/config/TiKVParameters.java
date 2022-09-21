@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tikv.config;
 
-import lombok.Data;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import lombok.Data;
 
 import java.io.Serializable;
 
