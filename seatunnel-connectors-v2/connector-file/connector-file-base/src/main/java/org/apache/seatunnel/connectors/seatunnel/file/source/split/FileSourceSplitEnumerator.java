@@ -39,6 +39,7 @@ public class FileSourceSplitEnumerator implements SourceSplitEnumerator<FileSour
     public FileSourceSplitEnumerator(SourceSplitEnumerator.Context<FileSourceSplit> context, List<String> filePaths) {
         this.context = context;
         this.filePaths = filePaths;
+        this.assignedSplit = new HashSet<>();
     }
 
     public FileSourceSplitEnumerator(SourceSplitEnumerator.Context<FileSourceSplit> context, List<String> filePaths,
@@ -49,7 +50,6 @@ public class FileSourceSplitEnumerator implements SourceSplitEnumerator<FileSour
 
     @Override
     public void open() {
-        this.assignedSplit = new HashSet<>();
         this.pendingSplit = new HashSet<>();
     }
 
