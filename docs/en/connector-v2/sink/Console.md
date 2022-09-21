@@ -49,7 +49,9 @@ source {
 }
 
 transform {
-      sql = "select name, age from fake"
+      sql {
+        sql = "select name, age from fake"
+      }
 }
 
 sink {
