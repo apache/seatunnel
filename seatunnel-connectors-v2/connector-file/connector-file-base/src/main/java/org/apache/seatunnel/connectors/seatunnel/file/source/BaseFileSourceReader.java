@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Set;
 
 public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSourceSplit> {
-    private static final long THREAD_WAIT_TIME = 500L;
     private final ReadStrategy readStrategy;
     private final HadoopConf hadoopConf;
     private final SourceReader.Context context;
@@ -56,10 +55,6 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        if (sourceSplits.isEmpty()) {
-            Thread.sleep(THREAD_WAIT_TIME);
-            return;
-        }
         sourceSplits.forEach(source -> {
             try {
                 readStrategy.read(source.splitId(), output);
