@@ -22,16 +22,15 @@ import org.tikv.common.util.ScanOption;
 import org.tikv.raw.RawKVClient;
 import org.tikv.shade.com.google.protobuf.ByteString;
 
-import java.util.*;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/**
- * TiKV access data way
- *
- * @author Xuxiaotuan
- * @since 2022-09-18 09:44
- */
 public enum TiKVDataType {
     /**
      * single key  query
@@ -44,9 +43,9 @@ public enum TiKVDataType {
         @Override
         public List<String> get(RawKVClient client, TiKVParameters tikvParameters) {
             return client.batchGet(Collections.singletonList(ByteString.copyFromUtf8(tikvParameters.getKeyField())))
-                    .stream()
-                    .map(value -> value.getValue().toStringUtf8())
-                    .collect(Collectors.toList());
+                .stream()
+                .map(value -> value.getValue().toStringUtf8())
+                .collect(Collectors.toList());
         }
     },
     /**
@@ -56,16 +55,16 @@ public enum TiKVDataType {
         @Override
         public List<String> get(RawKVClient client, TiKVParameters tikvParameters) {
             return client.batchScan(Collections.singletonList(
-                            ScanOption.newBuilder()
-                                    .setStartKey(ByteString.copyFromUtf8(tikvParameters.getStartKey()))
-                                    .setEndKey(ByteString.copyFromUtf8(tikvParameters.getEndKey()))
-                                    .setLimit(tikvParameters.getLimit())
-                                    .build())
-                    )
-                    .stream()
-                    .flatMap(Collection::stream)
-                    .map(value -> value.getValue().toStringUtf8())
-                    .collect(Collectors.toList());
+                    ScanOption.newBuilder()
+                        .setStartKey(ByteString.copyFromUtf8(tikvParameters.getStartKey()))
+                        .setEndKey(ByteString.copyFromUtf8(tikvParameters.getEndKey()))
+                        .setLimit(tikvParameters.getLimit())
+                        .build())
+                )
+                .stream()
+                .flatMap(Collection::stream)
+                .map(value -> value.getValue().toStringUtf8())
+                .collect(Collectors.toList());
         }
     },
     /**
@@ -75,11 +74,11 @@ public enum TiKVDataType {
         @Override
         public List<String> get(RawKVClient client, TiKVParameters tikvParameters) {
             return client.scan(ByteString.copyFromUtf8(tikvParameters.getStartKey()),
-                            ByteString.copyFromUtf8(tikvParameters.getEndKey()),
-                            tikvParameters.getLimit())
-                    .stream()
-                    .map(value -> value.getValue().toStringUtf8())
-                    .collect(Collectors.toList());
+                    ByteString.copyFromUtf8(tikvParameters.getEndKey()),
+                    tikvParameters.getLimit())
+                .stream()
+                .map(value -> value.getValue().toStringUtf8())
+                .collect(Collectors.toList());
         }
     },
     /**
@@ -89,9 +88,9 @@ public enum TiKVDataType {
         @Override
         public List<String> get(RawKVClient client, TiKVParameters tikvParameters) {
             return client.scanPrefix(ByteString.copyFromUtf8(tikvParameters.getKeyField()))
-                    .stream()
-                    .map(value -> value.getValue().toStringUtf8())
-                    .collect(Collectors.toList());
+                .stream()
+                .map(value -> value.getValue().toStringUtf8())
+                .collect(Collectors.toList());
         }
     },
     /**
@@ -101,17 +100,17 @@ public enum TiKVDataType {
         @Override
         public List<String> get(RawKVClient client, TiKVParameters tikvParameters) {
             return client.batchScanKeys(Stream.of(ScanOption.newBuilder()
-                                            .setStartKey(ByteString.copyFromUtf8(tikvParameters.getStartKey()))
-                                            .setEndKey(ByteString.copyFromUtf8(tikvParameters.getEndKey()))
-                                            .setLimit(tikvParameters.getLimit())
-                                            .build())
-                                    .map(scanOption -> Pair.create(scanOption.getStartKey(), scanOption.getEndKey()))
-                                    .collect(Collectors.toList()),
-                            tikvParameters.getLimit())
-                    .stream()
-                    .flatMap(Collection::stream)
-                    .map(ByteString::toStringUtf8)
-                    .collect(Collectors.toList());
+                            .setStartKey(ByteString.copyFromUtf8(tikvParameters.getStartKey()))
+                            .setEndKey(ByteString.copyFromUtf8(tikvParameters.getEndKey()))
+                            .setLimit(tikvParameters.getLimit())
+                            .build())
+                        .map(scanOption -> Pair.create(scanOption.getStartKey(), scanOption.getEndKey()))
+                        .collect(Collectors.toList()),
+                    tikvParameters.getLimit())
+                .stream()
+                .flatMap(Collection::stream)
+                .map(ByteString::toStringUtf8)
+                .collect(Collectors.toList());
         }
     };
 
@@ -124,8 +123,8 @@ public enum TiKVDataType {
      */
     public List<String> get(RawKVClient client, TiKVParameters tikvParameters) {
         return client.get(ByteString.copyFromUtf8(tikvParameters.getKeyField()))
-                .map(value -> Collections.singletonList(value.toStringUtf8()))
-                .orElse(new ArrayList<>());
+            .map(value -> Collections.singletonList(value.toStringUtf8()))
+            .orElse(new ArrayList<>());
     }
 
     /**
@@ -147,8 +146,8 @@ public enum TiKVDataType {
      */
     public TiKVDataType getDataType(String dataType) {
         return Arrays.stream(values())
-                .filter(e -> this.name().equalsIgnoreCase(dataType))
-                .findFirst()
-                .orElse(TiKVDataType.KEY);
+            .filter(e -> this.name().equalsIgnoreCase(dataType))
+            .findFirst()
+            .orElse(TiKVDataType.KEY);
     }
 }

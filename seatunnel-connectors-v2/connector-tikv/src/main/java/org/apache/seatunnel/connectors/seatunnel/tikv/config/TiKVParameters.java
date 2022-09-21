@@ -18,14 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.tikv.config;
 
 import lombok.Data;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.io.Serializable;
 
-/**
- * @author Xuxiaotuan
- * @since 2022-09-15 18:25
- */
 @Data
 public class TiKVParameters implements Serializable {
     /**

@@ -20,10 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.tikv.config;
 import org.tikv.common.TiConfiguration;
 import org.tikv.common.TiSession;
 
-/**
- * @author Xuxiaotuan
- * @since 2022-09-16 11:02
- */
 public class ClientSession implements AutoCloseable {
 
     public final TiSession session;

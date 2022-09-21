@@ -24,16 +24,12 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSpl
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.tikv.config.ClientSession;
 import org.apache.seatunnel.connectors.seatunnel.tikv.config.TiKVParameters;
+
 import org.tikv.raw.RawKVClient;
 
 import java.io.IOException;
 import java.util.Objects;
 
-/**
- *
- * @author Xuxiaotuan
- * @since 2022-09-15 18:30
- */
 public class TiKVSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private ClientSession clientSession;
@@ -74,8 +70,8 @@ public class TiKVSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         RawKVClient client = clientSession.session.createRawClient();
         // by the key get the value
         tikvParameters.getTikvDataType()
-                .get(client, tikvParameters)
-                .forEach(value -> collectResult(output, value));
+            .get(client, tikvParameters)
+            .forEach(value -> collectResult(output, value));
         // termination signal
         context.signalNoMoreElement();
     }

@@ -25,17 +25,13 @@ import org.apache.seatunnel.connectors.seatunnel.tikv.config.ClientSession;
 import org.apache.seatunnel.connectors.seatunnel.tikv.config.TiKVDataType;
 import org.apache.seatunnel.connectors.seatunnel.tikv.config.TiKVParameters;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
+
 import org.tikv.raw.RawKVClient;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- *
- * @author Xuxiaotuan
- * @since 2022-09-15 18:12
- */
 public class TiKVSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final ClientSession clientSession;

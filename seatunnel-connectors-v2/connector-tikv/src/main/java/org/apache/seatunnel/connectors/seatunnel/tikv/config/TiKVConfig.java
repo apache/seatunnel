@@ -19,10 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.tikv.config;
 
 import java.io.Serializable;
 
-/**
- * @author Xuxiaotuan
- * @since 2022-09-15 18:15
- */
 public class TiKVConfig implements Serializable {
 
     public static final String NAME = "TiKV";

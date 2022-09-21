@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tikv.source;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.serialization.Serializer;
@@ -37,14 +36,11 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReader
 import org.apache.seatunnel.connectors.seatunnel.tikv.config.TiKVConfig;
 import org.apache.seatunnel.connectors.seatunnel.tikv.config.TiKVParameters;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-/**
- * TiKV is similar to Redis KV database
- *
- * @author Xuxiaotuan
- * @since 2022-09-15 18:11
- */
+import com.google.auto.service.AutoService;
+
 @AutoService(SeaTunnelSource.class)
 public class TiKVSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
@@ -53,7 +49,6 @@ public class TiKVSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     private SeaTunnelRowType seaTunnelRowType;
 
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
-
 
     @Override
     public String getPluginName() {
@@ -109,6 +104,5 @@ public class TiKVSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     public Serializer<SingleSplitEnumeratorState> getEnumeratorStateSerializer() {
         return super.getEnumeratorStateSerializer();
     }
-
 
 }
