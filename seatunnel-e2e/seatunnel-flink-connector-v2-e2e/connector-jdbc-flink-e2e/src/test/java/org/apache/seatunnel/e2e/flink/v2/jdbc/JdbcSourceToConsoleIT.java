@@ -111,7 +111,7 @@ public class JdbcSourceToConsoleIT extends FlinkContainer {
 
     @Override
     protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
-        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/flink/seatunnel/plugins/Jdbc/lib && cd /tmp/flink/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
+        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/flink/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
         Assertions.assertEquals(0, extraCommands.getExitCode());
     }
 }
