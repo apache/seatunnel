@@ -36,25 +36,25 @@ Table structure description ,you should assign schema option to tell connector h
 
 ```hocon
 schema = {
-  fields {
-    c_map = "map<string, string>"
-    c_array = "array<tinyint>"
-    c_string = string
-    c_boolean = boolean
-    c_tinyint = tinyint
-    c_smallint = smallint
-    c_int = int
-    c_bigint = bigint
-    c_float = float
-    c_double = double
-    c_decimal = "decimal(30, 8)"
-    c_null = "null"
-    c_bytes = bytes
-    c_date = date
-    c_time = time
-    c_timestamp = timestamp
-  }
-}
+      fields {
+        c_map = "map<string, string>"
+        c_array = "array<tinyint>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_decimal = "decimal(30, 8)"
+        c_null = "null"
+        c_bytes = bytes
+        c_date = date
+        c_time = time
+        c_timestamp = timestamp
+      }
+    }
 ```
 
 ## Example
