@@ -37,13 +37,18 @@
 
         <!-- SeaTunnel connectors -->
         <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>oracle-xe</artifactId>
+            <version>1.17.3</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- jdbc drivers -->
+        <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-jdbc</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
-
-        <!-- jdbc drivers -->
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>

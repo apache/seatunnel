@@ -55,13 +55,20 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- jdbc drivers -->
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>postgresql</artifactId>
             <version>1.17.3</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>oracle-xe</artifactId>
+            <version>1.17.3</version>
+            <scope>test</scope>
+        </dependency>
+        
+        <!-- jdbc drivers -->
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
