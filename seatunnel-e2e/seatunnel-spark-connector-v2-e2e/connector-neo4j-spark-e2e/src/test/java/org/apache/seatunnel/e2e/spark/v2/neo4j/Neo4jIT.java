@@ -97,10 +97,9 @@ public class Neo4jIT extends SparkContainer {
         // given
         neo4jSession.run("CREATE (a:Person {name: 'foo', age: 10})");
         // when
-        final Container.ExecResult execResult = executeSeaTunnelSparkJob("/neo4j/neo4j_to_console.conf");
+        final Container.ExecResult execResult = executeSeaTunnelSparkJob("/neo4j/neo4j_to_assert.conf");
         // then
         Assertions.assertEquals(0, execResult.getExitCode());
-        System.out.println("execResult = " + execResult.getStdout());
     }
 
     @AfterEach
