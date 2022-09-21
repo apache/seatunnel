@@ -81,7 +81,7 @@ public class JdbcConnectorOptions
             this.batchIntervalMs = config.getInt(JdbcConfig.BATCH_INTERVAL_MS);
         }
 
-        if (config.hasPath(JdbcConfig.IS_EXACTLY_ONCE)) {
+        if (config.hasPath(JdbcConfig.IS_EXACTLY_ONCE) && config.getBoolean(JdbcConfig.IS_EXACTLY_ONCE)) {
             this.isExactlyOnce = true;
             this.xaDataSourceClassName = config.getString(JdbcConfig.XA_DATA_SOURCE_CLASS_NAME);
             if (config.hasPath(JdbcConfig.MAX_COMMIT_ATTEMPTS)) {
