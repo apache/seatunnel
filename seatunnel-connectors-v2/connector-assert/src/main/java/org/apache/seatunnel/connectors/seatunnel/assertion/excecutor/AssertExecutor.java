@@ -64,15 +64,15 @@ public class AssertExecutor {
         if (Boolean.FALSE.equals(typeChecked)) {
             return Boolean.FALSE;
         }
-        Boolean valueChecked = checkValue(value, assertFieldRule.getFieldValueRules());
+        Boolean valueChecked = checkValue(value, assertFieldRule.getFieldRules());
         if (Boolean.FALSE.equals(valueChecked)) {
             return Boolean.FALSE;
         }
         return Boolean.TRUE;
     }
 
-    private Boolean checkValue(Object value, List<AssertFieldRule.AssertValueRule> fieldValueRules) {
-        Optional<AssertFieldRule.AssertValueRule> failValueRule = fieldValueRules.stream()
+    private Boolean checkValue(Object value, List<AssertFieldRule.AssertRule> fieldValueRules) {
+        Optional<AssertFieldRule.AssertRule> failValueRule = fieldValueRules.stream()
             .filter(valueRule -> !pass(value, valueRule))
             .findFirst();
         if (failValueRule.isPresent()) {
@@ -82,24 +82,24 @@ public class AssertExecutor {
         }
     }
 
-    private boolean pass(Object value, AssertFieldRule.AssertValueRule valueRule) {
-        if (AssertFieldRule.AssertValueRuleType.NOT_NULL.equals(valueRule.getFieldValueRuleType())) {
+    private boolean pass(Object value, AssertFieldRule.AssertRule valueRule) {
+        if (AssertFieldRule.AssertRuleType.NOT_NULL.equals(valueRule.getFieldRuleType())) {
             return Objects.nonNull(value);
         }
 
-        if (value instanceof Number && AssertFieldRule.AssertValueRuleType.MAX.equals(valueRule.getFieldValueRuleType())) {
+        if (value instanceof Number && AssertFieldRule.AssertRuleType.MAX.equals(valueRule.getFieldRuleType())) {
             return ((Number) value).doubleValue() <= valueRule.getFieldValueRuleValue();
         }
-        if (value instanceof Number && AssertFieldRule.AssertValueRuleType.MIN.equals(valueRule.getFieldValueRuleType())) {
+        if (value instanceof Number && AssertFieldRule.AssertRuleType.MIN.equals(valueRule.getFieldRuleType())) {
             return ((Number) value).doubleValue() >= valueRule.getFieldValueRuleValue();
         }
 
         String valueStr = Objects.isNull(value) ? StringUtils.EMPTY : String.valueOf(value);
-        if (AssertFieldRule.AssertValueRuleType.MAX_LENGTH.equals(valueRule.getFieldValueRuleType())) {
+        if (AssertFieldRule.AssertRuleType.MAX_LENGTH.equals(valueRule.getFieldRuleType())) {
             return valueStr.length() <= valueRule.getFieldValueRuleValue();
         }
 
-        if (AssertFieldRule.AssertValueRuleType.MIN_LENGTH.equals(valueRule.getFieldValueRuleType())) {
+        if (AssertFieldRule.AssertRuleType.MIN_LENGTH.equals(valueRule.getFieldRuleType())) {
             return valueStr.length() >= valueRule.getFieldValueRuleValue();
         }
         return Boolean.TRUE;

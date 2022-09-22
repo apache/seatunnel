@@ -25,21 +25,26 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.atomic.LongAccumulator;
 
 public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final SeaTunnelRowType seaTunnelRowType;
     private final List<AssertFieldRule> assertFieldRules;
+    private final List<AssertFieldRule.AssertRule> assertRowRules;
     private static final AssertExecutor ASSERT_EXECUTOR = new AssertExecutor();
+    private static final LongAccumulator LONG_ACCUMULATOR = new LongAccumulator(Long::sum, 0);
 
-    public AssertSinkWriter(SeaTunnelRowType seaTunnelRowType, List<AssertFieldRule> assertFieldRules) {
+    public AssertSinkWriter(SeaTunnelRowType seaTunnelRowType, List<AssertFieldRule> assertFieldRules, List<AssertFieldRule.AssertRule> assertRowRules) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.assertFieldRules = assertFieldRules;
+        this.assertRowRules = assertRowRules;
     }
 
     @Override
     @SuppressWarnings("checkstyle:RegexpSingleline")
     public void write(SeaTunnelRow element) {
+        LONG_ACCUMULATOR.accumulate(1);
         ASSERT_EXECUTOR
             .fail(element, seaTunnelRowType, assertFieldRules)
             .ifPresent(failRule -> {
@@ -49,7 +54,9 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     @Override
     public void close() throws IOException {
-        // nothing
+//        assertRowRules.stream().filter(assertRule -> {
+//
+//        })
     }
 
 }

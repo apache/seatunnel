@@ -30,6 +30,11 @@ import java.util.stream.Collectors;
 
 public class AssertRuleParser {
 
+    public List<AssertFieldRule.AssertRule> parseRowRules(List<? extends Config> rowRuleList){
+
+        return assembleFieldValueRules(rowRuleList);
+    }
+
     public List<AssertFieldRule> parseRules(List<? extends Config> ruleConfigList) {
         return ruleConfigList.stream()
             .map(config -> {
@@ -40,20 +45,20 @@ public class AssertRuleParser {
                 }
 
                 if (config.hasPath("field_value")) {
-                    List<AssertFieldRule.AssertValueRule> fieldValueRules = assembleFieldValueRules(config.getConfigList("field_value"));
-                    fieldRule.setFieldValueRules(fieldValueRules);
+                    List<AssertFieldRule.AssertRule> fieldValueRules = assembleFieldValueRules(config.getConfigList("field_value"));
+                    fieldRule.setFieldRules(fieldValueRules);
                 }
                 return fieldRule;
             })
             .collect(Collectors.toList());
     }
 
-    private List<AssertFieldRule.AssertValueRule> assembleFieldValueRules(List<? extends Config> fieldValueConfigList) {
+    private List<AssertFieldRule.AssertRule> assembleFieldValueRules(List<? extends Config> fieldValueConfigList) {
         return fieldValueConfigList.stream()
             .map(config -> {
-                AssertFieldRule.AssertValueRule valueRule = new AssertFieldRule.AssertValueRule();
+                AssertFieldRule.AssertRule valueRule = new AssertFieldRule.AssertRule();
                 if (config.hasPath("rule_type")) {
-                    valueRule.setFieldValueRuleType(AssertFieldRule.AssertValueRuleType.valueOf(config.getString("rule_type")));
+                    valueRule.setFieldRuleType(AssertFieldRule.AssertRuleType.valueOf(config.getString("rule_type")));
                 }
                 if (config.hasPath("rule_value")) {
                     valueRule.setFieldValueRuleValue(config.getDouble("rule_value"));
