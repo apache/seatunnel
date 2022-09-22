@@ -15,49 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sink.ftp;
+package org.apache.seatunnel.connectors.seatunnel.file.ftp.sink;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.AbstractFileSink;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.ftp.config.FtpConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.ftp.util.FtpFileUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.SinkFileSystemPlugin;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
+import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConf;
+import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(SeaTunnelSink.class)
-public class FtpFileSink extends AbstractFileSink {
-
-    private String ftpHost;
-    private Integer ftpPort;
-    private String ftpUserName;
-    private String ftpPwd;
-
+public class FtpFileSink extends BaseFileSink {
     @Override
-    public SinkFileSystemPlugin getSinkFileSystemPlugin() {
-        return new FtpFileSinkPlugin();
+    public String getPluginName() {
+        return FileSystemType.FTP.getFileSystemPluginName();
     }
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        super.prepare(pluginConfig);
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
-                FtpConfig.FTP_HOST, FtpConfig.FTP_PORT, FtpConfig.FTP_USERNAME, FtpConfig.FTP_PASSWORD);
+                FtpConfig.FTP_HOST, FtpConfig.FTP_PORT,
+                FtpConfig.FTP_USERNAME, FtpConfig.FTP_PASSWORD);
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
-        } else {
-            this.ftpHost = pluginConfig.getString(FtpConfig.FTP_HOST);
-            this.ftpPort = pluginConfig.getInt(FtpConfig.FTP_PORT);
-            this.ftpUserName = pluginConfig.getString(FtpConfig.FTP_USERNAME);
-            this.ftpPwd = pluginConfig.getString(FtpConfig.FTP_PASSWORD);
-            FtpFileUtils.initFTPClient(this.ftpHost, this.ftpPort, this.ftpUserName, this.ftpPwd);
-
         }
+        super.prepare(pluginConfig);
+        hadoopConf = FtpConf.buildWithConfig(pluginConfig);
     }
 }

@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
-import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo2;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState2;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 
 import java.io.Serializable;
 import java.util.List;
@@ -29,7 +29,7 @@ public interface Transaction extends Serializable {
      * prepare commit operation
      * @return the file commit information
      */
-    Optional<FileCommitInfo2> prepareCommit();
+    Optional<FileCommitInfo> prepareCommit();
 
     /**
      * abort prepare commit operation
@@ -47,14 +47,14 @@ public interface Transaction extends Serializable {
      * @param checkpointId checkpointId
      * @return the list of states
      */
-    List<FileSinkState2> snapshotState(long checkpointId);
+    List<FileSinkState> snapshotState(long checkpointId);
 
     /**
      * get dirty transaction ids from file sink states
      * @param fileSinkState file sink states
      * @return transaction ids
      */
-    List<String> getTransactionIdFromStates(List<FileSinkState2> fileSinkState);
+    List<String> getTransactionIdFromStates(List<FileSinkState> fileSinkState);
 
     /**
      * when a checkpoint triggered, file sink should begin a new transaction
