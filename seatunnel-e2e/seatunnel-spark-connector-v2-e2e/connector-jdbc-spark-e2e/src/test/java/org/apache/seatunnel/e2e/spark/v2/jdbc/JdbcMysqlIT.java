@@ -21,6 +21,8 @@ import static org.awaitility.Awaitility.given;
 
 import org.apache.seatunnel.e2e.spark.SparkContainer;
 
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +35,8 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 
+import java.io.File;
+import java.net.URL;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -50,6 +54,7 @@ import java.util.stream.Stream;
 public class JdbcMysqlIT extends SparkContainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(JdbcMysqlIT.class);
     private MySQLContainer<?> mc;
+    private Config config;
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
@@ -73,20 +78,25 @@ public class JdbcMysqlIT extends SparkContainer {
     }
 
     private void initializeJdbcTable() {
+        URL resource = JdbcMysqlIT.class.getResource("/jdbc/init_sql/mysql_init.conf");
+        if (resource == null) {
+            throw new IllegalArgumentException("can't find find file");
+        }
+        String file = resource.getFile();
+        config = ConfigFactory.parseFile(new File(file));
+
+        assert
+            config.hasPath("source_table") && config.hasPath("sink_table") &&
+                config.hasPath("type_source_table") && config.hasPath("type_sink_table") &&
+                config.hasPath("insert_type_source_table_sql") && config.hasPath("check_type_sink_table_sql");
+
         try (Connection connection = DriverManager.getConnection(mc.getJdbcUrl(), mc.getUsername(), mc.getPassword())) {
             Statement statement = connection.createStatement();
-            String source = "create table source(\n" +
-                "user_id INT primary key NOT NULL AUTO_INCREMENT,\n" +
-                "name char(10),\n" +
-                "age INT\n" +
-                ")";
-            String sink = "create table sink(\n" +
-                "user_id INT primary key NOT NULL AUTO_INCREMENT,\n" +
-                "name char(10),\n" +
-                "age INT\n" +
-                ")";
-            statement.execute(source);
-            statement.execute(sink);
+            statement.execute(config.getString("source_table"));
+            statement.execute(config.getString("sink_table"));
+            statement.execute(config.getString("type_source_table"));
+            statement.execute(config.getString("type_sink_table"));
+            statement.execute(config.getString("insert_type_source_table_sql"));
         } catch (SQLException e) {
             throw new RuntimeException("Initializing Mysql table failed!", e);
         }
