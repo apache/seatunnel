@@ -74,7 +74,7 @@ public class TypeConverterUtilsTest {
 
     @Test
     public void convertBigDecimalType() {
-        Assertions.assertEquals(new BigDecimalTypeInfo(30, 2), TypeConverterUtils.convert(new DecimalType(30, 2)));
+        Assertions.assertEquals(BasicTypeInfo.BIG_DEC_TYPE_INFO, TypeConverterUtils.convert(new DecimalType(30, 2)));
     }
 
     @Test
