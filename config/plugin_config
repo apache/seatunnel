@@ -1,0 +1,92 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
+# This mapping is used to resolve the Jar package name without version (or call artifactId)
+#
+# corresponding to the module in the user Config, helping SeaTunnel to load the correct Jar package.
+# Don't modify the delimiter " -- ", just select the plugin you need
+--flink-sql-connectors--
+flink-sql-connector-elasticsearch-6
+flink-sql-connector-elasticsearch-7
+flink-sql-connector-jdbc
+flink-sql-connector-kafka
+--flink-connectors--
+seatunnel-connector-flink-assert
+seatunnel-connector-flink-druid
+seatunnel-connector-flink-fake
+seatunnel-connector-flink-file
+seatunnel-connector-flink-influxdb
+seatunnel-connector-flink-jdbc
+seatunnel-connector-flink-kafka
+seatunnel-connector-flink-socket
+seatunnel-connector-flink-http
+seatunnel-connector-flink-clickhouse
+seatunnel-connector-flink-console
+seatunnel-connector-flink-doris
+seatunnel-connector-flink-elasticsearch7
+--spark-connectors--
+seatunnel-connector-spark-elasticsearch
+seatunnel-connector-spark-fake
+seatunnel-connector-spark-feishu
+seatunnel-connector-spark-file
+seatunnel-connector-spark-hbase
+seatunnel-connector-spark-hive
+seatunnel-connector-spark-http
+seatunnel-connector-spark-hudi
+seatunnel-connector-spark-iceberg
+seatunnel-connector-spark-jdbc
+seatunnel-connector-spark-kafka
+seatunnel-connector-spark-kudu
+seatunnel-connector-spark-mongodb
+seatunnel-connector-spark-neo4j
+seatunnel-connector-spark-phoenix
+seatunnel-connector-spark-redis
+seatunnel-connector-spark-socket
+seatunnel-connector-spark-tidb
+seatunnel-connector-spark-clickhouse
+seatunnel-connector-spark-console
+seatunnel-connector-spark-doris
+seatunnel-connector-spark-email
+--connectors-v2--
+connector-fake
+connector-console
+onnector-assert
+connector-kafka
+connector-http-base
+connector-http-feishu
+connector-hive
+connector-clickhouse
+connector-jdbc
+connector-kudu
+connector-email
+connector-file-hadoop
+connector-file-local
+connector-file-oss
+connector-pulsar
+connector-hudi
+connector-dingtalk
+connector-elasticsearch
+connector-iotdb
+connector-neo4j
+connector-file-ftp
+connector-socket
+connector-redis
+connector-datahub
+connector-sentry
+connector-mongodb
+connector-iceberg
+--end--
