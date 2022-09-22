@@ -134,7 +134,8 @@
             </includes>
             <excludes>
                 <exclude>org.apache.seatunnel:connector-common</exclude>
-                <exclude>org.apache.seatunnel:connector-*-base</exclude>
+                <!-- Don't exclude connector-http-base, because it contains SPI files -->
+                <exclude>org.apache.seatunnel:connector-file-base</exclude>
             </excludes>
             <outputDirectory>/connectors/seatunnel</outputDirectory>
             <scope>provided</scope>
