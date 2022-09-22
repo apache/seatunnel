@@ -41,7 +41,12 @@ public enum DeployMode {
     }
 
     public static Optional<DeployMode> from(String name) {
-        return Optional.ofNullable(NAME_MAP.get(name));
+        return Optional.ofNullable(NAME_MAP.get(name.toLowerCase()));
+    }
+
+    @Override
+    public String toString() {
+        return getName();
     }
 
 }

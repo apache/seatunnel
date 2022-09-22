@@ -29,12 +29,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class FileSinkAggregatedCommitter2 implements SinkAggregatedCommitter<FileCommitInfo2, FileAggregatedCommitInfo2> {
-    private static final Logger LOGGER = LoggerFactory.getLogger(FileSinkAggregatedCommitter2.class);
+public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo> {
+    private static final Logger LOGGER = LoggerFactory.getLogger(FileSinkAggregatedCommitter.class);
 
     @Override
-    public List<FileAggregatedCommitInfo2> commit(List<FileAggregatedCommitInfo2> aggregatedCommitInfos) throws IOException {
-        List<FileAggregatedCommitInfo2> errorAggregatedCommitInfoList = new ArrayList<>();
+    public List<FileAggregatedCommitInfo> commit(List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
+        List<FileAggregatedCommitInfo> errorAggregatedCommitInfoList = new ArrayList<>();
         aggregatedCommitInfos.forEach(aggregatedCommitInfo -> {
             try {
                 for (Map.Entry<String, Map<String, String>> entry : aggregatedCommitInfo.getTransactionMap().entrySet()) {
@@ -60,7 +60,7 @@ public class FileSinkAggregatedCommitter2 implements SinkAggregatedCommitter<Fil
      * @return The commit message after combine.
      */
     @Override
-    public FileAggregatedCommitInfo2 combine(List<FileCommitInfo2> commitInfos) {
+    public FileAggregatedCommitInfo combine(List<FileCommitInfo> commitInfos) {
         if (commitInfos == null || commitInfos.size() == 0) {
             return null;
         }
@@ -73,7 +73,7 @@ public class FileSinkAggregatedCommitter2 implements SinkAggregatedCommitter<Fil
                 partitionDirAndValuesMap.putAll(commitInfo.getPartitionDirAndValuesMap());
             }
         });
-        return new FileAggregatedCommitInfo2(aggregateCommitInfo, partitionDirAndValuesMap);
+        return new FileAggregatedCommitInfo(aggregateCommitInfo, partitionDirAndValuesMap);
     }
 
     /**
@@ -83,7 +83,7 @@ public class FileSinkAggregatedCommitter2 implements SinkAggregatedCommitter<Fil
      * @throws Exception throw Exception when abort failed.
      */
     @Override
-    public void abort(List<FileAggregatedCommitInfo2> aggregatedCommitInfos) throws Exception {
+    public void abort(List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws Exception {
         if (aggregatedCommitInfos == null || aggregatedCommitInfos.size() == 0) {
             return;
         }

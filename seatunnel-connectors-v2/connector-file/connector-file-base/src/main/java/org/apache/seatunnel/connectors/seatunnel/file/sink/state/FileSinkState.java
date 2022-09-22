@@ -15,14 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
+package org.apache.seatunnel.connectors.seatunnel.file.sink.state;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
 import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
 
-public interface PartitionDirNameGenerator extends Serializable {
-    Map<String, List<String>> generatorPartitionDir(SeaTunnelRow seaTunnelRow);
+@Data
+@AllArgsConstructor
+public class FileSinkState implements Serializable {
+    private final String transactionId;
+    private final Long checkpointId;
 }
