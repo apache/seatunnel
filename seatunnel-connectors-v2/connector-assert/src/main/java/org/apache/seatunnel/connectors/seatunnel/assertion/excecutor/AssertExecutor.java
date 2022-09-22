@@ -51,6 +51,9 @@ public class AssertExecutor {
     }
 
     private boolean pass(SeaTunnelRow rowData, SeaTunnelRowType rowType, AssertFieldRule assertFieldRule) {
+        if (Objects.isNull(rowData)) {
+            return Boolean.FALSE;
+        }
         int index = Iterables.indexOf(Lists.newArrayList(rowType.getFieldNames()), fieldName -> fieldName.equals(assertFieldRule.getFieldName()));
 
         Object value = rowData.getField(index);
