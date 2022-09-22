@@ -32,12 +32,8 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-file-base</artifactId>
+            <artifactId>connector-file-base-hadoop</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-shaded-hadoop-2</artifactId>
         </dependency>
     </dependencies>
 </project>
