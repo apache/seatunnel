@@ -31,6 +31,7 @@ import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
 import org.neo4j.driver.Record;
 import org.neo4j.driver.Session;
+import org.neo4j.driver.SessionConfig;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -75,7 +76,7 @@ public class Neo4jIT extends SparkContainer {
 
     private void initConnection() {
         neo4jDriver = GraphDatabase.driver(CONTAINER_URI, AuthTokens.basic(CONTAINER_NEO4J_USERNAME, CONTAINER_NEO4J_PASSWORD));
-        neo4jSession = neo4jDriver.session();
+        neo4jSession = neo4jDriver.session(SessionConfig.forDatabase("neo4j"));
     }
 
     @Test
