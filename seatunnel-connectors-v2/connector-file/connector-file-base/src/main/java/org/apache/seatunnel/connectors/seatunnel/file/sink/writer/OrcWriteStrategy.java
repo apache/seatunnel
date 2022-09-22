@@ -130,6 +130,15 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         if (BasicType.BYTE_TYPE.equals(type)) {
             return TypeDescription.createByte();
         }
+        if (BasicType.STRING_TYPE.equals(type)) {
+            return TypeDescription.createString();
+        }
+        if (BasicType.VOID_TYPE.equals(type)) {
+            return TypeDescription.createString();
+        }
+
+        // TODO map struct array
+
         return TypeDescription.createString();
     }
 
@@ -170,31 +179,31 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         if (value instanceof Boolean) {
             Boolean bool = (Boolean) value;
             longVector.vector[row] = (bool.equals(Boolean.TRUE)) ? Long.valueOf(1) : Long.valueOf(0);
-        }  else if (value instanceof Integer) {
+        } else if (value instanceof Integer) {
             longVector.vector[row] = ((Integer) value).longValue();
         } else if (value instanceof Long) {
             longVector.vector[row] = (Long) value;
         } else if (value instanceof BigInteger) {
             BigInteger bigInt = (BigInteger) value;
             longVector.vector[row] = bigInt.longValue();
+        } else if (value instanceof Short) {
+            longVector.vector[row] = (Short) value;
+        } else if (value instanceof Byte) {
+            longVector.vector[row] = (Byte) value;
         } else {
             throw new RuntimeException("Long or Integer type expected for field");
         }
     }
 
     private void setByteColumnVector(Object value, BytesColumnVector bytesColVector, int rowNum) {
-        if (value instanceof byte[] || value instanceof String) {
-            byte[] byteVec;
-            if (value instanceof String) {
-                String strVal = (String) value;
-                byteVec = strVal.getBytes(StandardCharsets.UTF_8);
-            } else {
-                byteVec = (byte[]) value;
-            }
-            bytesColVector.setRef(rowNum, byteVec, 0, byteVec.length);
+        byte[] byteVec;
+        if (value instanceof byte[]) {
+            byteVec = (byte[]) value;
         } else {
-            throw new RuntimeException("byte[] or String type expected for field ");
+            String strVal = value.toString();
+            byteVec = strVal.getBytes(StandardCharsets.UTF_8);
         }
+        bytesColVector.setRef(rowNum, byteVec, 0, byteVec.length);
     }
 
     private void setDoubleVector(Object value, DoubleColumnVector doubleVector, int rowNum) {

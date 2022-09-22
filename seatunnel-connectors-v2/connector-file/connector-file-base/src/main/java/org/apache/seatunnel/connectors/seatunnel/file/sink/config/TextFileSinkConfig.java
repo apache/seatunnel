@@ -89,7 +89,7 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
             this.partitionDirExpression = config.getString(Constant.PARTITION_DIR_EXPRESSION);
         }
 
-        if (config.hasPath(Constant.IS_PARTITION_FIELD_WRITE_IN_FILE) && config.getBoolean(Constant.IS_PARTITION_FIELD_WRITE_IN_FILE)) {
+        if (config.hasPath(Constant.IS_PARTITION_FIELD_WRITE_IN_FILE)) {
             this.isPartitionFieldWriteInFile = config.getBoolean(Constant.IS_PARTITION_FIELD_WRITE_IN_FILE);
         }
 
@@ -105,8 +105,8 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
             this.fileNameTimeFormat = config.getString(Constant.FILENAME_TIME_FORMAT);
         }
 
-        if (config.hasPath(Constant.IS_ENABLE_TRANSACTION) && !config.getBoolean(Constant.IS_ENABLE_TRANSACTION)) {
-            this.isEnableTransaction = isEnableTransaction();
+        if (config.hasPath(Constant.IS_ENABLE_TRANSACTION)) {
+            this.isEnableTransaction = config.getBoolean(Constant.IS_ENABLE_TRANSACTION);
         }
 
         if (this.isEnableTransaction && !this.fileNameExpression.contains(Constant.TRANSACTION_EXPRESSION)) {
