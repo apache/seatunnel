@@ -48,6 +48,7 @@ import java.util.stream.Stream;
 public class Neo4jIT extends SparkContainer {
 
     private static final String CONTAINER_IMAGE = "neo4j:latest";
+    private static final String CONTAINER_HOST = "neo4j_host";
     private static final int CONTAINER_PORT = 7687;
     private static final String CONTAINER_NEO4J_USERNAME = "neo4j";
     private static final String CONTAINER_NEO4J_PASSWORD = "1234";
@@ -62,6 +63,8 @@ public class Neo4jIT extends SparkContainer {
         DockerImageName imageName = DockerImageName.parse(CONTAINER_IMAGE);
         container = new GenericContainer<>(imageName)
             .withExposedPorts(CONTAINER_PORT)
+            .withNetwork(NETWORK)
+            .withNetworkAliases(CONTAINER_HOST)
             .withEnv("NEO4J_AUTH", CONTAINER_NEO4J_USERNAME + "/" + CONTAINER_NEO4J_PASSWORD)
             .withLogConsumer(new Slf4jLogConsumer(log));
         container.setPortBindings(Lists.newArrayList(String.format("%s:%s", CONTAINER_PORT, CONTAINER_PORT)));
