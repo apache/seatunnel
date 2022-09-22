@@ -103,9 +103,6 @@ public class Neo4jSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         }
 
         final URI uri = URI.create(config.getString(KEY_NEO4J_URI));
-        if (!"neo4j".equals(uri.getScheme())) {
-            throw new PrepareFailException(Neo4jSourceConfig.PLUGIN_NAME, PluginType.SOURCE, "uri scheme is not `neo4j`");
-        }
 
         final DriverBuilder driverBuilder = DriverBuilder.create(uri);
 

@@ -82,9 +82,6 @@ public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> 
         }
 
         final URI uri = URI.create(config.getString(KEY_NEO4J_URI));
-        if (!"neo4j".equals(uri.getScheme())) {
-            throw new PrepareFailException(PLUGIN_NAME, PluginType.SINK, "uri scheme is not `neo4j`");
-        }
 
         final DriverBuilder driverBuilder = DriverBuilder.create(uri);
 
