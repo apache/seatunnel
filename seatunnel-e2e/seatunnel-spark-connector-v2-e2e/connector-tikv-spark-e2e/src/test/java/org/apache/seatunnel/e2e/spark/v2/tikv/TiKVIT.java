@@ -67,7 +67,7 @@ public class TiKVIT extends SparkContainer {
     private RawKVClient client;
 
     /**
-     * tidb starting sequence ==> Placement Driver (PD)、TiKV、TiDB
+     * tidb starting sequence ==> Placement Driver (PD) -> TiKV -> TiDB
      */
     @BeforeEach
     public void startTidbContainer() {
