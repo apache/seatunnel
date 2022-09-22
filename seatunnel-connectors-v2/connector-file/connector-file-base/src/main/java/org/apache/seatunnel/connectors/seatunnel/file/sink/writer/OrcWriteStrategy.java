@@ -17,9 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
 
 import lombok.NonNull;
@@ -109,28 +113,53 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
     }
 
     private TypeDescription buildFieldWithRowType(SeaTunnelDataType<?> type) {
-        if (BasicType.BOOLEAN_TYPE.equals(type)) {
-            return TypeDescription.createBoolean();
+        switch (type.getSqlType()) {
+            case ARRAY:
+                BasicType<?> elementType = ((ArrayType<?, ?>) type).getElementType();
+                return TypeDescription.createList(buildFieldWithRowType(elementType));
+            case MAP:
+                SeaTunnelDataType<?> keyType = ((MapType<?, ?>) type).getKeyType();
+                SeaTunnelDataType<?> valueType = ((MapType<?, ?>) type).getValueType();
+                return TypeDescription.createMap(buildFieldWithRowType(keyType), buildFieldWithRowType(valueType));
+            case STRING:
+                return TypeDescription.createString();
+            case BOOLEAN:
+                return TypeDescription.createBoolean();
+            case TINYINT:
+                return TypeDescription.createByte();
+            case SMALLINT:
+                return TypeDescription.createShort();
+            case INT:
+                return TypeDescription.createInt();
+            case BIGINT:
+                return TypeDescription.createLong();
+            case FLOAT:
+                return TypeDescription.createFloat();
+            case DOUBLE:
+                return TypeDescription.createDouble();
+            case DECIMAL:
+                int precision = ((DecimalType) type).getPrecision();
+                int scale = ((DecimalType) type).getScale();
+                return TypeDescription.createDecimal().withPrecision(precision).withScale(scale);
+            case BYTES:
+                return TypeDescription.createBinary();
+            case DATE:
+                return TypeDescription.createDate();
+            case TIME:
+            case TIMESTAMP:
+                return TypeDescription.createTimestamp();
+            case ROW:
+                TypeDescription struct = TypeDescription.createStruct();
+                SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) type).getFieldTypes();
+                for (int i = 0; i < fieldTypes.length; i++) {
+                    struct.addField(((SeaTunnelRowType) type).getFieldName(i), buildFieldWithRowType(fieldTypes[i]));
+                }
+                return struct;
+            case NULL:
+            default:
+                String errorMsg = String.format("Orc file not support this type [%s]", type.getSqlType());
+                throw new UnsupportedOperationException(errorMsg);
         }
-        if (BasicType.SHORT_TYPE.equals(type)) {
-            return TypeDescription.createShort();
-        }
-        if (BasicType.INT_TYPE.equals(type)) {
-            return TypeDescription.createInt();
-        }
-        if (BasicType.LONG_TYPE.equals(type)) {
-            return TypeDescription.createLong();
-        }
-        if (BasicType.FLOAT_TYPE.equals(type)) {
-            return TypeDescription.createFloat();
-        }
-        if (BasicType.DOUBLE_TYPE.equals(type)) {
-            return TypeDescription.createDouble();
-        }
-        if (BasicType.BYTE_TYPE.equals(type)) {
-            return TypeDescription.createByte();
-        }
-        return TypeDescription.createString();
     }
 
     private TypeDescription buildSchemaWithRowType() {
