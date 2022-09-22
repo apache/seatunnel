@@ -48,7 +48,7 @@ import java.util.stream.Stream;
 public class Neo4jIT extends SparkContainer {
 
     private static final String CONTAINER_IMAGE = "neo4j:latest";
-    private static final String CONTAINER_HOST = "neo4j_host";
+    private static final String CONTAINER_HOST = "neo4j-host";
     private static final int CONTAINER_PORT = 7687;
     private static final String CONTAINER_NEO4J_USERNAME = "neo4j";
     private static final String CONTAINER_NEO4J_PASSWORD = "1234";
