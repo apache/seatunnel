@@ -121,10 +121,6 @@ public class JdbcPostgresIT extends FlinkContainer {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_postgres_source_and_sink_parallel.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        //Because it is parallel, it is out of order
-        Assertions.assertThrows(org.opentest4j.AssertionFailedError.class,
-            () -> Assertions.assertIterableEquals(generateTestDataset(), queryResult()));
-
         //Sorting is required, because it is read in parallel, so there will be out of order
         List<List> sortedResult = queryResult().stream().sorted(Comparator.comparing(list -> (Integer) list.get(1)))
             .collect(Collectors.toList());
@@ -136,10 +132,6 @@ public class JdbcPostgresIT extends FlinkContainer {
         Container.ExecResult execResult =
             executeSeaTunnelFlinkJob("/jdbc/jdbc_postgres_source_and_sink_parallel_upper_lower.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-
-        //Because it is parallel, it is out of order
-        Assertions.assertThrows(org.opentest4j.AssertionFailedError.class,
-            () -> Assertions.assertIterableEquals(generateTestDataset().stream().limit(50).collect(Collectors.toList()), queryResult()));
 
         //Sorting is required, because it is read in parallel, so there will be out of order
         List<List> sortedResult = queryResult().stream().sorted(Comparator.comparing(list -> (Integer) list.get(1)))

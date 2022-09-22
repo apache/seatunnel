@@ -44,9 +44,9 @@ import javax.transaction.xa.Xid;
 
 import java.util.stream.Stream;
 
-class XaGroupOpsImplTest {
+class XaGroupOpsImplIT {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(XaGroupOpsImplTest.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(XaGroupOpsImplIT.class);
     private MySQLContainer<?> mc;
     private XaGroupOps xaGroupOps;
     private SemanticXidGenerator xidGenerator;
