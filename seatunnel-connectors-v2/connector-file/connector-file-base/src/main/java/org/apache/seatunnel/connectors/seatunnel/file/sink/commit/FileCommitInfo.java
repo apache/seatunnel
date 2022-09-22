@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sink;
+package org.apache.seatunnel.connectors.seatunnel.file.sink.commit;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -27,15 +27,22 @@ import java.util.Map;
 @Data
 @AllArgsConstructor
 public class FileCommitInfo implements Serializable {
-
     /**
      * Storage the commit info in map.
-     * K is the file path need to be moved to target dir.
-     * V is the target file path of the data file.
+     * <p>K is the file path need to be moved to target dir.</p>
+     * <p>V is the target file path of the data file.</p>
      */
-    private Map<String, String> needMoveFiles;
+    private final Map<String, String> needMoveFiles;
 
-    private Map<String, List<String>> partitionDirAndValsMap;
+    /**
+     * Storage the partition information in map.
+     * <p>K is the partition column's name.</p>
+     * <p>V is the list of partition column's values.</p>
+     */
+    private final Map<String, List<String>> partitionDirAndValuesMap;
 
-    private String transactionDir;
+    /**
+     * Storage the transaction directory
+     */
+    private final String transactionDir;
 }
