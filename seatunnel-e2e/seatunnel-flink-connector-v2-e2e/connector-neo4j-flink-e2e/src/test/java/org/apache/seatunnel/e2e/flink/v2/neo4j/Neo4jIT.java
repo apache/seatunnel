@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
-import org.neo4j.driver.Record;
+import org.neo4j.driver.Result;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.SessionConfig;
 import org.testcontainers.containers.Container;
@@ -90,9 +90,9 @@ public class Neo4jIT extends FlinkContainer {
         // then
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        final Stream<Record> recordStream = neo4jSession.run("MATCH (a:Person) RETURN a.name, a.age").stream();
-        Assertions.assertTrue(recordStream.findAny().isPresent());
-        Assertions.assertTrue(recordStream.anyMatch(record -> record.get("a.age").asInt() > 0));
+        final Result result = neo4jSession.run("MATCH (a:Person) RETURN a.name, a.age");
+        Assertions.assertTrue(result.stream().findAny().isPresent());
+        Assertions.assertTrue(result.stream().anyMatch(record -> record.get("a.age").asInt() > 0));
 
     }
 
