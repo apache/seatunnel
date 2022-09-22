@@ -15,11 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sink.ftp.config;
+package org.apache.seatunnel.connectors.seatunnel.file.ftp.config;
 
-public class FtpConfig {
-    public static final String FTP_PASSWORD = "ftp_password";
-    public static final String FTP_USERNAME = "ftp_username";
-    public static final String FTP_HOST = "ftp_host";
-    public static final String FTP_PORT = "ftp_port";
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+
+public class FtpConfig extends BaseSourceConfig {
+    public static final String FTP_PASSWORD = "password";
+    public static final String FTP_USERNAME = "user";
+    public static final String FTP_HOST = "host";
+    public static final String FTP_PORT = "port";
 }

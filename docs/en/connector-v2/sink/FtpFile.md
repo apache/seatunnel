@@ -15,10 +15,10 @@ Output data to Ftp .
 
 | name                             | type    | required | default value                                             |
 |----------------------------------|---------|----------|-----------------------------------------------------------|
-| ftp_host                         | string  | yes      | -                                                         |
-| ftp_port                         | int     | yes      | -                                                         |
-| ftp_username                     | string  | yes      | -                                                         |
-| ftp_password                     | string  | yes      | -                                                         |
+| host                             | string  | yes      | -                                                         |
+| port                             | int     | yes      | -                                                         |
+| username                         | string  | yes      | -                                                         |
+| password                         | string  | yes      | -                                                         |
 | path                             | string  | yes      | -                                                         |
 | file_name_expression             | string  | no       | "${transactionId}"                                        |
 | file_format                      | string  | no       | "text"                                                    |
@@ -32,19 +32,19 @@ Output data to Ftp .
 | is_enable_transaction            | boolean | no       | true                                                      |
 | save_mode                        | string  | no       | "error"                                                   |
 
-### ftp_host [string]
+### host [string]
 
 The target ftp host is required
 
-### ftp_port [int]
+### port [int]
 
 The target ftp port is required
 
-### ftp_username [string]
+### username [string]
 
 The target ftp username is required
 
-### ftp_password [string]
+### password [string]
 
 The target ftp password is required
 
@@ -63,9 +63,9 @@ Please note that, If `is_enable_transaction` is `true`, we will auto add `${tran
 
 We supported as the following file types:
 
-`text`
+`text` `json` `csv` `orc` `parquet`
 
-Please note that, The final file name will ends with the file_format's suffix, the suffix of the text file is `txt`.
+Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
 
 ### filename_time_format [string]
 
@@ -107,7 +107,7 @@ For example, if you want to write a Hive Data File, Its value should be `false`.
 
 ### sink_columns [array]
 
-Which columns need be write to file, default value is all of the columns get from `Transform` or `Source`.
+Which columns need be wrote to file, default value is all the columns get from `Transform` or `Source`.
 The order of the fields determines the order in which the file is actually written.
 
 ### is_enable_transaction [boolean]
@@ -133,10 +133,10 @@ For text file format
 ```bash
 
 FtpFile {
-    ftp_host="xxx.xxx.xxx.xxx"
-    ftp_port=21
-    ftp_username="username"
-    ftp_password="password"
+    host="xxx.xxx.xxx.xxx"
+    port=21
+    username="username"
+    password="password"
     path="/data/ftp"
     field_delimiter="\t"
     row_delimiter="\n"
