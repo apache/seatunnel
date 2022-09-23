@@ -161,6 +161,22 @@ public class JdbcMysqlIT extends SparkContainer {
         Assertions.assertIterableEquals(generateTestDataset(), queryResult());
     }
 
+    @Test
+    public void testJdbcMysqlSourceAndSinkDataType() throws Exception {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/jdbc/jdbc_mysql_source_and_sink_datatype.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        checkSinkDataTypeTable();
+    }
+
+    private void checkSinkDataTypeTable() throws Exception {
+        try (Connection connection = DriverManager.getConnection(mc.getJdbcUrl(), mc.getUsername(), mc.getPassword())) {
+            Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery(config.getString("check_type_sink_table_sql"));
+            resultSet.next();
+            Assertions.assertEquals(resultSet.getInt(1), 2);
+        }
+    }
+
     private List<List> queryResult() {
         List<List> result = new ArrayList<>();
         try (Connection connection = DriverManager.getConnection(mc.getJdbcUrl(), mc.getUsername(), mc.getPassword())) {
