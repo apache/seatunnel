@@ -83,6 +83,7 @@ const sidebars = {
           type: 'category',
           label: 'Connector-V2',
           items: [
+                'connector-health-status',
               {
                   type: 'category',
                   label: 'Sink',
