@@ -94,7 +94,7 @@ public class IoTDBSource implements SeaTunnelSource<SeaTunnelRow, IoTDBSourceSpl
 
     @Override
     public SourceSplitEnumerator<IoTDBSourceSplit, IoTDBSourceState> restoreEnumerator(SourceSplitEnumerator.Context<IoTDBSourceSplit> enumeratorContext, IoTDBSourceState checkpointState) throws Exception {
-        return new IoTDBSourceSplitEnumerator(enumeratorContext, checkpointState, configParams);
+        return new IoTDBSourceSplitEnumerator(enumeratorContext, configParams, checkpointState);
     }
 
 }
