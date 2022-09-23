@@ -54,9 +54,18 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     @Override
     public void close() throws IOException {
-//        assertRowRules.stream().filter(assertRule -> {
-//
-//        })
+        assertRowRules.stream().filter(assertRule -> {
+            switch (assertRule.getRuleType()) {
+                case MAX_ROW:
+                    return LONG_ACCUMULATOR.longValue() < assertRule.getRuleValue();
+                case MIN_ROW:
+                    return LONG_ACCUMULATOR.longValue() > assertRule.getRuleValue();
+                default:
+                    return false;
+            }
+        }).findFirst().ifPresent(failRule -> {
+            throw new IllegalStateException("row num :" + LONG_ACCUMULATOR.longValue() + " fail rule: " + failRule);
+        });
     }
 
 }

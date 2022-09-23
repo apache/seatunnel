@@ -32,8 +32,8 @@ public class AssertFieldRule implements Serializable {
 
     @Data
     public static class AssertRule implements Serializable {
-        private AssertRuleType fieldRuleType;
-        private Double fieldValueRuleValue;
+        private AssertRuleType ruleType;
+        private Double ruleValue;
     }
 
     /**
@@ -60,6 +60,14 @@ public class AssertFieldRule implements Serializable {
         /**
          * maximum string length of a string data
          */
-        MAX_LENGTH
+        MAX_LENGTH,
+        /**
+         * maximum number of rows
+         */
+        MAX_ROW,
+        /**
+         * minimum number of rows
+         */
+        MIN_ROW
     }
 }

@@ -58,10 +58,10 @@ public class AssertRuleParser {
             .map(config -> {
                 AssertFieldRule.AssertRule valueRule = new AssertFieldRule.AssertRule();
                 if (config.hasPath("rule_type")) {
-                    valueRule.setFieldRuleType(AssertFieldRule.AssertRuleType.valueOf(config.getString("rule_type")));
+                    valueRule.setRuleType(AssertFieldRule.AssertRuleType.valueOf(config.getString("rule_type")));
                 }
                 if (config.hasPath("rule_value")) {
-                    valueRule.setFieldValueRuleValue(config.getDouble("rule_value"));
+                    valueRule.setRuleValue(config.getDouble("rule_value"));
                 }
                 return valueRule;
             })

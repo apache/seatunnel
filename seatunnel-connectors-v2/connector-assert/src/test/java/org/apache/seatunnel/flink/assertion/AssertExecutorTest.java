@@ -70,13 +70,13 @@ public class AssertExecutorTest {
         List<AssertFieldRule.AssertRule> valueRules = Lists.newArrayList();
 
         AssertFieldRule.AssertRule valueRule = new AssertFieldRule.AssertRule();
-        valueRule.setFieldRuleType(AssertFieldRule.AssertRuleType.NOT_NULL);
+        valueRule.setRuleType(AssertFieldRule.AssertRuleType.NOT_NULL);
         AssertFieldRule.AssertRule valueRule1 = new AssertFieldRule.AssertRule();
-        valueRule1.setFieldRuleType(AssertFieldRule.AssertRuleType.MIN);
-        valueRule1.setFieldValueRuleValue(13.0);
+        valueRule1.setRuleType(AssertFieldRule.AssertRuleType.MIN);
+        valueRule1.setRuleValue(13.0);
         AssertFieldRule.AssertRule valueRule2 = new AssertFieldRule.AssertRule();
-        valueRule2.setFieldRuleType(AssertFieldRule.AssertRuleType.MAX);
-        valueRule2.setFieldValueRuleValue(25.0);
+        valueRule2.setRuleType(AssertFieldRule.AssertRuleType.MAX);
+        valueRule2.setRuleValue(25.0);
 
         valueRules.add(valueRule);
         valueRules.add(valueRule1);
@@ -93,13 +93,13 @@ public class AssertExecutorTest {
         List<AssertFieldRule.AssertRule> valueRules = Lists.newArrayList();
 
         AssertFieldRule.AssertRule valueRule = new AssertFieldRule.AssertRule();
-        valueRule.setFieldRuleType(AssertFieldRule.AssertRuleType.NOT_NULL);
+        valueRule.setRuleType(AssertFieldRule.AssertRuleType.NOT_NULL);
         AssertFieldRule.AssertRule valueRule1 = new AssertFieldRule.AssertRule();
-        valueRule1.setFieldRuleType(AssertFieldRule.AssertRuleType.MIN_LENGTH);
-        valueRule1.setFieldValueRuleValue(3.0);
+        valueRule1.setRuleType(AssertFieldRule.AssertRuleType.MIN_LENGTH);
+        valueRule1.setRuleValue(3.0);
         AssertFieldRule.AssertRule valueRule2 = new AssertFieldRule.AssertRule();
-        valueRule2.setFieldRuleType(AssertFieldRule.AssertRuleType.MAX_LENGTH);
-        valueRule2.setFieldValueRuleValue(5.0);
+        valueRule2.setRuleType(AssertFieldRule.AssertRuleType.MAX_LENGTH);
+        valueRule2.setRuleValue(5.0);
 
         valueRules.add(valueRule);
         valueRules.add(valueRule1);

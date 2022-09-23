@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
-import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertRowRule;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertRuleParser;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
