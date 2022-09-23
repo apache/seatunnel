@@ -136,7 +136,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     // todo: parse the target field from config
     private SeaTunnelRowSerializer<byte[], byte[]> getSerializer(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
-        return new DefaultSeaTunnelRowSerializer(pluginConfig.getString("topics"), seaTunnelRowType);
+        return new DefaultSeaTunnelRowSerializer(pluginConfig.getString("topic"), seaTunnelRowType);
     }
 
     private KafkaSemantics getKafkaSemantics(Config pluginConfig) {
