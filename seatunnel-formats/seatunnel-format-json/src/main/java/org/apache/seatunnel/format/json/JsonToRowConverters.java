@@ -21,6 +21,7 @@ package org.apache.seatunnel.format.json;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -28,6 +29,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
@@ -77,6 +79,7 @@ public class JsonToRowConverters implements Serializable {
     }
 
     /** Creates a runtime converter which assuming input object is not null. */
+    @SuppressWarnings("unchecked")
     private JsonToRowConverter createNotNullConverter(SeaTunnelDataType<?> type) {
         SqlType sqlType = type.getSqlType();
         switch (sqlType) {
@@ -117,26 +120,6 @@ public class JsonToRowConverters implements Serializable {
             default:
                 throw new UnsupportedOperationException("Unsupported type: " + type);
         }
-    }
-
-    private JsonToRowConverter createArrayConverter(ArrayType<?, ?> type) {
-        JsonToRowConverter valueConverter = createConverter(type.getElementType());
-        return jsonNode -> {
-            Object arr = Array.newInstance(type.getElementType().getTypeClass(), jsonNode.size());
-            for (int i = 0; i < jsonNode.size(); i++) {
-                Array.set(arr, i, valueConverter.convert(jsonNode.get(i)));
-            }
-            return arr;
-        };
-    }
-
-    private JsonToRowConverter createMapConverter(MapType<?, ?> type) {
-        JsonToRowConverter valueConverter = createConverter(type.getValueType());
-        return jsonNode -> {
-            Map<Object, Object> value = new HashMap<>();
-            jsonNode.fields().forEachRemaining(entry -> value.put(entry.getKey(), valueConverter.convert(entry.getValue())));
-            return value;
-        };
     }
 
     private boolean convertToBoolean(JsonNode jsonNode) {
@@ -227,7 +210,7 @@ public class JsonToRowConverters implements Serializable {
         return bigDecimal;
     }
 
-    public JsonToRowConverter createRowConverter(SeaTunnelRowType rowType) {
+    private JsonToRowConverter createRowConverter(SeaTunnelRowType rowType) {
         final JsonToRowConverter[] fieldConverters =
             Arrays.stream(rowType.getFieldTypes())
                 .map(this::createConverter)
@@ -246,10 +229,30 @@ public class JsonToRowConverters implements Serializable {
                     row.setField(i, convertedField);
                 } catch (Throwable t) {
                     throw new JsonParseException(
-                            String.format("Fail to deserialize at field: %s.", fieldName), t);
+                        String.format("Fail to deserialize at field: %s.", fieldName), t);
                 }
             }
             return row;
+        };
+    }
+
+    private JsonToRowConverter createArrayConverter(ArrayType<?, ?> type) {
+        JsonToRowConverter valueConverter = createConverter(type.getElementType());
+        return jsonNode -> {
+            Object arr = Array.newInstance(type.getElementType().getTypeClass(), jsonNode.size());
+            for (int i = 0; i < jsonNode.size(); i++) {
+                Array.set(arr, i, valueConverter.convert(jsonNode.get(i)));
+            }
+            return arr;
+        };
+    }
+
+    private JsonToRowConverter createMapConverter(MapType<?, ?> type) {
+        JsonToRowConverter valueConverter = createConverter(type.getValueType());
+        return jsonNode -> {
+            Map<Object, Object> value = new HashMap<>();
+            jsonNode.fields().forEachRemaining(entry -> value.put(entry.getKey(), valueConverter.convert(entry.getValue())));
+            return value;
         };
     }
 

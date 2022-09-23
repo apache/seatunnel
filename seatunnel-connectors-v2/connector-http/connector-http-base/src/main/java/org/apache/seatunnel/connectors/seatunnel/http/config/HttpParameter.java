@@ -26,12 +26,18 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Data
+@SuppressWarnings("MagicNumber")
 public class HttpParameter implements Serializable {
     private String url;
     private String method;
     private Map<String, String> headers;
     private Map<String, String> params;
     private String body;
+    private int pollIntervalMillis;
+    private int retry;
+    private int retryBackoffMultiplierMillis = 100;
+    private int retryBackoffMaxMillis = 10000;
+
     public void buildWithConfig(Config pluginConfig) {
         // set url
         this.setUrl(pluginConfig.getString(HttpConfig.URL));
@@ -52,6 +58,18 @@ public class HttpParameter implements Serializable {
         // set body
         if (pluginConfig.hasPath(HttpConfig.BODY)) {
             this.setBody(pluginConfig.getString(HttpConfig.BODY));
+        }
+        if (pluginConfig.hasPath(HttpConfig.POLL_INTERVAL_MILLS)) {
+            this.setPollIntervalMillis(pluginConfig.getInt(HttpConfig.POLL_INTERVAL_MILLS));
+        }
+        if (pluginConfig.hasPath(HttpConfig.RETRY)) {
+            this.setRetry(pluginConfig.getInt(HttpConfig.RETRY));
+            if (pluginConfig.hasPath(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS)) {
+                this.setRetryBackoffMultiplierMillis(pluginConfig.getInt(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS));
+            }
+            if (pluginConfig.hasPath(HttpConfig.RETRY_BACKOFF_MAX_MS)) {
+                this.setRetryBackoffMaxMillis(pluginConfig.getInt(HttpConfig.RETRY_BACKOFF_MAX_MS));
+            }
         }
     }
 }

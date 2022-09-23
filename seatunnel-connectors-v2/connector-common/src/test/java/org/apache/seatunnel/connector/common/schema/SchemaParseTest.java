@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -73,6 +74,7 @@ public class SchemaParseTest {
                 new MapType<>(BasicType.STRING_TYPE, new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE)));
         Assertions.assertEquals(seaTunnelRowType.getFieldType(1),
                 new MapType<>(BasicType.STRING_TYPE, new MapType<>(BasicType.STRING_TYPE, ArrayType.INT_ARRAY_TYPE)));
+        Assertions.assertEquals(seaTunnelRowType.getFieldType(17).getSqlType(), SqlType.ROW);
     }
 
     public static String getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {
