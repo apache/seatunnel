@@ -34,6 +34,9 @@ Table structure description ,you should assign schema option to tell connector h
 **Tips**: Most of Unstructured-Datasource contain this param, such as LocalFile,HdfsFile.  
 **Example**:
 
+### row.num
+Number of additional rows of generated data
+
 ```hocon
 schema = {
       fields {
