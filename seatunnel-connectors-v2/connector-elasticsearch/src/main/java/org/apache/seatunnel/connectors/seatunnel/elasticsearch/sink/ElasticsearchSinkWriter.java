@@ -46,7 +46,7 @@ import java.util.Optional;
  */
 public class ElasticsearchSinkWriter<ElasticsearchSinkStateT> implements SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkStateT> {
 
-    private final Context context;
+    private final SinkWriter.Context context;
 
     private final SeaTunnelRowSerializer seaTunnelRowSerializer;
     private final List<String> requestEsList;
@@ -56,7 +56,7 @@ public class ElasticsearchSinkWriter<ElasticsearchSinkStateT> implements SinkWri
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchSinkWriter.class);
 
     public ElasticsearchSinkWriter(
-            Context context,
+            SinkWriter.Context context,
             SeaTunnelRowType seaTunnelRowType,
             Config pluginConfig,
             List<ElasticsearchSinkStateT> elasticsearchStates) {
