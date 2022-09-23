@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 
 import org.apache.flink.api.common.typeinfo.BasicArrayTypeInfo;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
-import org.apache.flink.table.runtime.typeutils.BigDecimalTypeInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
