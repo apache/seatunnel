@@ -31,7 +31,7 @@
     
     <properties>
         <hive.metastore.version>2.3.9</hive.metastore.version>
-        <connector.name>connector.file</connector.name>
+        <connector.name>connector.hive</connector.name>
     </properties>
 
     <dependencies>
