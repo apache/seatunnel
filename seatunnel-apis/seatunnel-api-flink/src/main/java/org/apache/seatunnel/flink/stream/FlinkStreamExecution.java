@@ -81,18 +81,7 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
 
     private void registerResultTable(Plugin<FlinkEnvironment> plugin, DataStream<Row> dataStream) {
         Config config = plugin.getConfig();
-        if (config.hasPath(RESULT_TABLE_NAME)) {
-            String name = config.getString(RESULT_TABLE_NAME);
-            StreamTableEnvironment tableEnvironment = flinkEnvironment.getStreamTableEnvironment();
-            if (!TableUtil.tableExists(tableEnvironment, name)) {
-                if (config.hasPath("field_name")) {
-                    String fieldName = config.getString("field_name");
-                    tableEnvironment.registerDataStream(name, dataStream, fieldName);
-                } else {
-                    tableEnvironment.registerDataStream(name, dataStream);
-                }
-            }
-        }
+        flinkEnvironment.registerResultTable(config, RESULT_TABLE_NAME, dataStream);
     }
 
     private Optional<DataStream<Row>> fromSourceTable(Config pluginConfig) {

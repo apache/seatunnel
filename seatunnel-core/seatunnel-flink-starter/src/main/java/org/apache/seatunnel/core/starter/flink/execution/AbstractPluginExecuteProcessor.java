@@ -60,18 +60,7 @@ public abstract class AbstractPluginExecuteProcessor<T> implements PluginExecute
     protected abstract List<T> initializePlugins(List<? extends Config> pluginConfigs);
 
     protected void registerResultTable(Config pluginConfig, DataStream<Row> dataStream) {
-        if (pluginConfig.hasPath(RESULT_TABLE_NAME)) {
-            String name = pluginConfig.getString(RESULT_TABLE_NAME);
-            StreamTableEnvironment tableEnvironment = flinkEnvironment.getStreamTableEnvironment();
-            if (!TableUtil.tableExists(tableEnvironment, name)) {
-                if (pluginConfig.hasPath("field_name")) {
-                    String fieldName = pluginConfig.getString("field_name");
-                    tableEnvironment.registerDataStream(name, dataStream, fieldName);
-                } else {
-                    tableEnvironment.registerDataStream(name, dataStream);
-                }
-            }
-        }
+        flinkEnvironment.registerResultTable(pluginConfig, RESULT_TABLE_NAME, dataStream);
     }
 
     protected Optional<DataStream<Row>> fromSourceTable(Config pluginConfig) {
