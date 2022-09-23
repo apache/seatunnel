@@ -24,15 +24,15 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkCo
 
 import lombok.NonNull;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.exec.vector.BytesColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.ColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.DoubleColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.LongColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
 import org.apache.orc.CompressionKind;
 import org.apache.orc.OrcFile;
 import org.apache.orc.TypeDescription;
 import org.apache.orc.Writer;
+import org.apache.orc.storage.ql.exec.vector.BytesColumnVector;
+import org.apache.orc.storage.ql.exec.vector.ColumnVector;
+import org.apache.orc.storage.ql.exec.vector.DoubleColumnVector;
+import org.apache.orc.storage.ql.exec.vector.LongColumnVector;
+import org.apache.orc.storage.ql.exec.vector.VectorizedRowBatch;
 
 import java.io.IOException;
 import java.math.BigInteger;
@@ -91,12 +91,12 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             Path path = new Path(filePath);
             try {
                 OrcFile.WriterOptions options = OrcFile.writerOptions(getConfiguration(hadoopConf))
-                        .setSchema(schema)
-                        // temporarily used snappy
-                        .compress(CompressionKind.SNAPPY)
-                        // use orc version 0.12
-                        .version(OrcFile.Version.V_0_12)
-                        .overwrite(true);
+                    .setSchema(schema)
+                    // temporarily used snappy
+                    .compress(CompressionKind.SNAPPY)
+                    // use orc version 0.12
+                    .version(OrcFile.Version.V_0_12)
+                    .overwrite(true);
                 Writer newWriter = OrcFile.createWriter(path, options);
                 this.beingWrittenWriter.put(filePath, newWriter);
                 return newWriter;
@@ -170,7 +170,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         if (value instanceof Boolean) {
             Boolean bool = (Boolean) value;
             longVector.vector[row] = (bool.equals(Boolean.TRUE)) ? Long.valueOf(1) : Long.valueOf(0);
-        }  else if (value instanceof Integer) {
+        } else if (value instanceof Integer) {
             longVector.vector[row] = ((Integer) value).longValue();
         } else if (value instanceof Long) {
             longVector.vector[row] = (Long) value;

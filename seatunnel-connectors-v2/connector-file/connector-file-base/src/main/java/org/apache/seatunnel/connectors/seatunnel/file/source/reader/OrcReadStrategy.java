@@ -36,22 +36,22 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.exec.vector.BytesColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.ColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.DecimalColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.DoubleColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.ListColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.LongColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.MapColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.StructColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.TimestampColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.UnionColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
 import org.apache.hadoop.io.Text;
 import org.apache.orc.OrcFile;
 import org.apache.orc.Reader;
 import org.apache.orc.RecordReader;
 import org.apache.orc.TypeDescription;
+import org.apache.orc.storage.ql.exec.vector.BytesColumnVector;
+import org.apache.orc.storage.ql.exec.vector.ColumnVector;
+import org.apache.orc.storage.ql.exec.vector.DecimalColumnVector;
+import org.apache.orc.storage.ql.exec.vector.DoubleColumnVector;
+import org.apache.orc.storage.ql.exec.vector.ListColumnVector;
+import org.apache.orc.storage.ql.exec.vector.LongColumnVector;
+import org.apache.orc.storage.ql.exec.vector.MapColumnVector;
+import org.apache.orc.storage.ql.exec.vector.StructColumnVector;
+import org.apache.orc.storage.ql.exec.vector.TimestampColumnVector;
+import org.apache.orc.storage.ql.exec.vector.UnionColumnVector;
+import org.apache.orc.storage.ql.exec.vector.VectorizedRowBatch;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -381,15 +381,15 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         ColumnVector.Type keyType = mapVector.keys.type;
         ColumnVector.Type valueType = mapVector.values.type;
         return
-                keyType == ColumnVector.Type.BYTES ||
-                        keyType == ColumnVector.Type.LONG ||
-                        keyType == ColumnVector.Type.DOUBLE
-                        &&
-                        valueType == ColumnVector.Type.LONG ||
-                        valueType == ColumnVector.Type.DOUBLE ||
-                        valueType == ColumnVector.Type.BYTES ||
-                        valueType == ColumnVector.Type.DECIMAL ||
-                        valueType == ColumnVector.Type.TIMESTAMP;
+            keyType == ColumnVector.Type.BYTES ||
+                keyType == ColumnVector.Type.LONG ||
+                keyType == ColumnVector.Type.DOUBLE
+                    &&
+                    valueType == ColumnVector.Type.LONG ||
+                valueType == ColumnVector.Type.DOUBLE ||
+                valueType == ColumnVector.Type.BYTES ||
+                valueType == ColumnVector.Type.DECIMAL ||
+                valueType == ColumnVector.Type.TIMESTAMP;
     }
 
     private Object[] readMapVector(ColumnVector mapVector, TypeDescription childType, int offset, int numValues) {
@@ -397,47 +397,47 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         switch (mapVector.type) {
             case BYTES:
                 mapList =
-                        readBytesListVector(
-                                (BytesColumnVector) mapVector,
-                                childType,
-                                offset,
-                                numValues
-                        );
+                    readBytesListVector(
+                        (BytesColumnVector) mapVector,
+                        childType,
+                        offset,
+                        numValues
+                    );
                 break;
             case LONG:
                 mapList =
-                        readLongListVector(
-                                (LongColumnVector) mapVector,
-                                childType,
-                                offset,
-                                numValues
-                        );
+                    readLongListVector(
+                        (LongColumnVector) mapVector,
+                        childType,
+                        offset,
+                        numValues
+                    );
                 break;
             case DOUBLE:
                 mapList =
-                        readDoubleListVector(
-                                (DoubleColumnVector) mapVector,
-                                childType,
-                                offset,
-                                numValues
-                        );
+                    readDoubleListVector(
+                        (DoubleColumnVector) mapVector,
+                        childType,
+                        offset,
+                        numValues
+                    );
                 break;
             case DECIMAL:
                 mapList =
-                        readDecimalListVector(
-                                (DecimalColumnVector) mapVector,
-                                offset,
-                                numValues
-                        );
+                    readDecimalListVector(
+                        (DecimalColumnVector) mapVector,
+                        offset,
+                        numValues
+                    );
                 break;
             case TIMESTAMP:
                 mapList =
-                        readTimestampListVector(
-                                (TimestampColumnVector) mapVector,
-                                childType,
-                                offset,
-                                numValues
-                        );
+                    readTimestampListVector(
+                        (TimestampColumnVector) mapVector,
+                        childType,
+                        offset,
+                        numValues
+                    );
                 break;
             default:
                 throw new UnsupportedOperationException(mapVector.type.name() + " is not supported for MapColumnVectors");

@@ -29,7 +29,7 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.HdfsFileSource;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.BaseHdfsFileSource;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -43,7 +43,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 
 @AutoService(SeaTunnelSource.class)
-public class HiveSource extends HdfsFileSource {
+public class HiveSource extends BaseHdfsFileSource {
     private Table tableInformation;
 
     @Override
@@ -75,7 +75,7 @@ public class HiveSource extends HdfsFileSource {
             String path = uri.getPath();
             String defaultFs = hdfsLocation.replace(path, "");
             pluginConfig = pluginConfig.withValue(BaseSourceConfig.FILE_PATH, ConfigValueFactory.fromAnyRef(path))
-                    .withValue(FS_DEFAULT_NAME_KEY, ConfigValueFactory.fromAnyRef(defaultFs));
+                .withValue(FS_DEFAULT_NAME_KEY, ConfigValueFactory.fromAnyRef(defaultFs));
         } catch (URISyntaxException e) {
             throw new RuntimeException("Get hdfs cluster address failed, please check.", e);
         }
