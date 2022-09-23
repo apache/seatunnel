@@ -21,7 +21,6 @@ package org.apache.seatunnel.format.json;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -29,7 +28,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
@@ -46,7 +44,6 @@ import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 
 /** Tool class used to convert from {@link JsonNode} to {@link org.apache.seatunnel.api.table.type.SeaTunnelRow}. * */
@@ -80,7 +77,6 @@ public class JsonToRowConverters implements Serializable {
     }
 
     /** Creates a runtime converter which assuming input object is not null. */
-    @SuppressWarnings("unchecked")
     private JsonToRowConverter createNotNullConverter(SeaTunnelDataType<?> type) {
         SqlType sqlType = type.getSqlType();
         switch (sqlType) {
@@ -113,11 +109,11 @@ public class JsonToRowConverters implements Serializable {
             case BYTES:
                 return this::convertToBytes;
             case DECIMAL:
-                return createDecimalConverter((BasicType<BigDecimal>) type);
+                return this::convertToBigDecimal;
             case ARRAY:
-                return createArrayConverter((ArrayType) type);
+                return createArrayConverter((ArrayType<?, ?>) type);
             case MAP:
-                return createMapConverter((MapType) type);
+                return createMapConverter((MapType<?, ?>) type);
             default:
                 throw new UnsupportedOperationException("Unsupported type: " + type);
         }
@@ -200,24 +196,22 @@ public class JsonToRowConverters implements Serializable {
         }
     }
 
-    private JsonToRowConverter createDecimalConverter(BasicType<BigDecimal> decimalType) {
-        return jsonNode -> {
-            BigDecimal bigDecimal;
-            if (jsonNode.isBigDecimal()) {
-                bigDecimal = jsonNode.decimalValue();
-            } else {
-                bigDecimal = new BigDecimal(jsonNode.asText());
-            }
+    private BigDecimal convertToBigDecimal(JsonNode jsonNode) {
+        BigDecimal bigDecimal;
+        if (jsonNode.isBigDecimal()) {
+            bigDecimal = jsonNode.decimalValue();
+        } else {
+            bigDecimal = new BigDecimal(jsonNode.asText());
+        }
 
-            return bigDecimal;
-        };
+        return bigDecimal;
     }
 
     private JsonToRowConverter createRowConverter(SeaTunnelRowType rowType) {
         final JsonToRowConverter[] fieldConverters =
-                Arrays.stream(rowType.getFieldTypes())
-                        .map(this::createConverter)
-                        .toArray(JsonToRowConverter[]::new);
+            Arrays.stream(rowType.getFieldTypes())
+                .map(this::createConverter)
+                .toArray(JsonToRowConverter[]::new);
         final String[] fieldNames = rowType.getFieldNames();
 
         return jsonNode -> {
@@ -232,37 +226,30 @@ public class JsonToRowConverters implements Serializable {
                     row.setField(i, convertedField);
                 } catch (Throwable t) {
                     throw new JsonParseException(
-                            String.format("Fail to deserialize at field: %s.", fieldName), t);
+                        String.format("Fail to deserialize at field: %s.", fieldName), t);
                 }
             }
             return row;
         };
     }
 
-    private JsonToRowConverter createArrayConverter(ArrayType arrayType) {
-        BasicType elementType = arrayType.getElementType();
-        JsonToRowConverter elementConverter = createConverter(elementType);
+    private JsonToRowConverter createArrayConverter(ArrayType<?, ?> type) {
+        JsonToRowConverter valueConverter = createConverter(type.getElementType());
         return jsonNode -> {
-            ArrayNode arrayNode = (ArrayNode) jsonNode;
-            Object[] arrayValue = (Object[]) Array.newInstance(elementType.getTypeClass(), arrayNode.size());
-            for (int i = 0; i < arrayNode.size(); i++) {
-                arrayValue[i] = elementConverter.convert(arrayNode.get(i));
+            Object arr = Array.newInstance(type.getElementType().getTypeClass(), jsonNode.size());
+            for (int i = 0; i < jsonNode.size(); i++) {
+                Array.set(arr, i, valueConverter.convert(jsonNode.get(i)));
             }
-            return arrayValue;
+            return arr;
         };
     }
 
-    private JsonToRowConverter createMapConverter(MapType mapType) {
-        JsonToRowConverter valueConverter = createConverter(mapType.getValueType());
+    private JsonToRowConverter createMapConverter(MapType<?, ?> type) {
+        JsonToRowConverter valueConverter = createConverter(type.getValueType());
         return jsonNode -> {
-            ObjectNode objectNode = (ObjectNode) jsonNode;
-            Map<String, Object> mapValue = new HashMap<>();
-            for (Iterator<Map.Entry<String, JsonNode>> iterator = objectNode.fields();
-                 iterator.hasNext();) {
-                Map.Entry<String, JsonNode> entry = iterator.next();
-                mapValue.put(entry.getKey(), valueConverter.convert(entry.getValue()));
-            }
-            return mapValue;
+            Map<Object, Object> value = new HashMap<>();
+            jsonNode.fields().forEachRemaining(entry -> value.put(entry.getKey(), valueConverter.convert(entry.getValue())));
+            return value;
         };
     }
 
