@@ -29,6 +29,10 @@
 
     <artifactId>connector-file-local</artifactId>
 
+    <properties>
+        <connector.name>connector.file.local</connector.name>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -40,4 +44,5 @@
             <artifactId>flink-shaded-hadoop-2</artifactId>
         </dependency>
     </dependencies>
+
 </project>

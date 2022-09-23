@@ -29,6 +29,10 @@
     <modelVersion>4.0.0</modelVersion>
     <artifactId>connector-file-ftp</artifactId>
 
+    <properties>
+        <connector.name>connector.file.ftp</connector.name>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>

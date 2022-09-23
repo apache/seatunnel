@@ -29,6 +29,10 @@
     <artifactId>connector-file</artifactId>
     <packaging>pom</packaging>
 
+    <properties>
+        <connector.name>connector.file</connector.name>
+    </properties>
+
     <modules>
         <module>connector-file-base</module>
         <module>connector-file-hadoop</module>
@@ -49,24 +53,26 @@
                         <goals>
                             <goal>shade</goal>
                         </goals>
-                        <!-- base module need skip shading -->
                         <configuration>
                             <relocations>
                                 <relocation>
                                     <pattern>org.apache.avro</pattern>
-                                    <shadedPattern>${seatunnel.shade.package}.connector.file.org.apache.avro</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.apache.parquet</pattern>
-                                    <shadedPattern>${seatunnel.shade.package}.connector.file.org.apache.parquet</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>shaded.parquet</pattern>
-                                    <shadedPattern>${seatunnel.shade.package}.connector.file.shaded.parquet</shadedPattern>
+                                    <!--suppress UnresolvedMavenProperty, this property is added by submodule-->
+                                    <shadedPattern>${seatunnel.shade.package}.${connector.name}.org.apache.avro</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>org.apache.orc</pattern>
-                                    <shadedPattern>${seatunnel.shade.package}.connector.file.org.apache.orc</shadedPattern>
+                                    <shadedPattern>${seatunnel.shade.package}.${connector.name}.org.apache.orc</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.parquet</pattern>
+                                    <!--suppress UnresolvedMavenProperty -->
+                                    <shadedPattern>${seatunnel.shade.package}.${connector.name}.org.apache.parquet</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>shaded.parquet</pattern>
+                                    <!--suppress UnresolvedMavenProperty -->
+                                    <shadedPattern>${seatunnel.shade.package}.${connector.name}.shaded.parquet</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>

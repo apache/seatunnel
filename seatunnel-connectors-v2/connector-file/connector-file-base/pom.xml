@@ -35,7 +35,7 @@
         <commons.collecton4.version>4.4</commons.collecton4.version>
         <commons.lang3.version>3.4</commons.lang3.version>
         <flink.hadoop.version>2.7.5-7.0</flink.hadoop.version>
-        <parquet-avro.version>1.10.0</parquet-avro.version>
+        <parquet-avro.version>1.12.3</parquet-avro.version>
     </properties>
 
     <dependencyManagement>

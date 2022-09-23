@@ -29,6 +29,10 @@
 
     <artifactId>connector-file-hadoop</artifactId>
 
+    <properties>
+        <connector.name>connector.file.hadoop</connector.name>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -36,4 +40,5 @@
             <version>${project.version}</version>
         </dependency>
     </dependencies>
+
 </project>
