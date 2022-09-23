@@ -29,11 +29,20 @@
     <modelVersion>4.0.0</modelVersion>
     <artifactId>connector-file-ftp</artifactId>
 
+    <properties>
+        <connector.name>file.ftp</connector.name>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-file-base</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-shaded-hadoop-2</artifactId>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 

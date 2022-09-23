@@ -20,17 +20,21 @@ package org.apache.seatunnel.format.json;
 
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -41,6 +45,9 @@ import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
 /** Tool class used to convert from {@link JsonNode} to {@link org.apache.seatunnel.api.table.type.SeaTunnelRow}. * */
 public class JsonToRowConverters implements Serializable {
@@ -107,6 +114,10 @@ public class JsonToRowConverters implements Serializable {
                 return this::convertToBytes;
             case DECIMAL:
                 return createDecimalConverter((BasicType<BigDecimal>) type);
+            case ARRAY:
+                return createArrayConverter((ArrayType) type);
+            case MAP:
+                return createMapConverter((MapType) type);
             default:
                 throw new UnsupportedOperationException("Unsupported type: " + type);
         }
@@ -202,7 +213,7 @@ public class JsonToRowConverters implements Serializable {
         };
     }
 
-    public JsonToRowConverter createRowConverter(SeaTunnelRowType rowType) {
+    private JsonToRowConverter createRowConverter(SeaTunnelRowType rowType) {
         final JsonToRowConverter[] fieldConverters =
                 Arrays.stream(rowType.getFieldTypes())
                         .map(this::createConverter)
@@ -225,6 +236,33 @@ public class JsonToRowConverters implements Serializable {
                 }
             }
             return row;
+        };
+    }
+
+    private JsonToRowConverter createArrayConverter(ArrayType arrayType) {
+        BasicType elementType = arrayType.getElementType();
+        JsonToRowConverter elementConverter = createConverter(elementType);
+        return jsonNode -> {
+            ArrayNode arrayNode = (ArrayNode) jsonNode;
+            Object[] arrayValue = (Object[]) Array.newInstance(elementType.getTypeClass(), arrayNode.size());
+            for (int i = 0; i < arrayNode.size(); i++) {
+                arrayValue[i] = elementConverter.convert(arrayNode.get(i));
+            }
+            return arrayValue;
+        };
+    }
+
+    private JsonToRowConverter createMapConverter(MapType mapType) {
+        JsonToRowConverter valueConverter = createConverter(mapType.getValueType());
+        return jsonNode -> {
+            ObjectNode objectNode = (ObjectNode) jsonNode;
+            Map<String, Object> mapValue = new HashMap<>();
+            for (Iterator<Map.Entry<String, JsonNode>> iterator = objectNode.fields();
+                 iterator.hasNext();) {
+                Map.Entry<String, JsonNode> entry = iterator.next();
+                mapValue.put(entry.getKey(), valueConverter.convert(entry.getValue()));
+            }
+            return mapValue;
         };
     }
 
