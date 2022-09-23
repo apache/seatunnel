@@ -82,6 +82,7 @@
         <module>seatunnel-core</module>
         <module>seatunnel-transforms</module>
         <module>seatunnel-connectors</module>
+        <module>seatunnel-connectors-v2</module>
         <module>seatunnel-api</module>
         <module>seatunnel-translation</module>
         <module>seatunnel-plugin-discovery</module>
