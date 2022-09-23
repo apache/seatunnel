@@ -28,10 +28,16 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkCo
 
 import lombok.NonNull;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.ql.exec.vector.BytesColumnVector;
 import org.apache.hadoop.hive.ql.exec.vector.ColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.DecimalColumnVector;
 import org.apache.hadoop.hive.ql.exec.vector.DoubleColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.ListColumnVector;
 import org.apache.hadoop.hive.ql.exec.vector.LongColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.MapColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.StructColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.TimestampColumnVector;
 import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
 import org.apache.orc.CompressionKind;
 import org.apache.orc.OrcFile;
@@ -39,9 +45,16 @@ import org.apache.orc.TypeDescription;
 import org.apache.orc.Writer;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.temporal.ChronoField;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class OrcWriteStrategy extends AbstractWriteStrategy {
@@ -63,7 +76,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         for (Integer index : sinkColumnsIndexInRow) {
             Object value = seaTunnelRow.getField(index);
             ColumnVector vector = rowBatch.cols[i];
-            setColumn(value, vector, row);
+            setColumn(value, vector, row, rowBatch.getMaxSize());
             i++;
         }
         try {
@@ -140,7 +153,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             case DECIMAL:
                 int precision = ((DecimalType) type).getPrecision();
                 int scale = ((DecimalType) type).getScale();
-                return TypeDescription.createDecimal().withPrecision(precision).withScale(scale);
+                return TypeDescription.createDecimal().withScale(scale).withPrecision(precision);
             case BYTES:
                 return TypeDescription.createBinary();
             case DATE:
@@ -171,7 +184,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         return schema;
     }
 
-    private void setColumn(Object value, ColumnVector vector, int row) {
+    private void setColumn(Object value, ColumnVector vector, int row, int maxSize) {
         if (value == null) {
             vector.isNull[row] = true;
             vector.noNulls = false;
@@ -189,9 +202,73 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                     BytesColumnVector bytesColumnVector = (BytesColumnVector) vector;
                     setByteColumnVector(value, bytesColumnVector, row);
                     break;
+                case DECIMAL:
+                    DecimalColumnVector decimalColumnVector = (DecimalColumnVector) vector;
+                    setDecimalColumnVector(value, decimalColumnVector, row);
+                    break;
+                case TIMESTAMP:
+                    TimestampColumnVector timestampColumnVector = (TimestampColumnVector) vector;
+                    setTimestampColumnVector(value, timestampColumnVector, row);
+                    break;
+                case LIST:
+                    ListColumnVector listColumnVector = (ListColumnVector) vector;
+                    setListColumnVector(value, listColumnVector, row);
+                    break;
+                case MAP:
+                    MapColumnVector mapColumnVector = (MapColumnVector) vector;
+                    setMapColumnVector(value, mapColumnVector, row, maxSize);
+                    break;
+                case STRUCT:
+                    StructColumnVector structColumnVector = (StructColumnVector) vector;
+                    setStructColumnVector(value, structColumnVector, row);
+                    break;
                 default:
-                    throw new RuntimeException("Unexpected ColumnVector subtype");
+                    throw new RuntimeException("Unexpected ColumnVector subtype " + vector.type);
             }
+        }
+    }
+
+    private void setStructColumnVector(Object value, StructColumnVector structColumnVector, int row) {
+
+    }
+
+    private void setMapColumnVector(Object value, MapColumnVector mapColumnVector, int row, int maxSize) {
+        if (value instanceof Map) {
+            Map map = (Map) value;
+
+            mapColumnVector.offsets[row] = mapColumnVector.childCount;
+            mapColumnVector.lengths[row] = map.size();
+            mapColumnVector.childCount += map.size();
+        }
+    }
+
+    private void setListColumnVector(Object value, ListColumnVector listColumnVector, int row) {
+        if (value instanceof Object[]) {
+//            listColumnVector.child
+        } else if (value instanceof List) {
+
+        } else {
+            throw new RuntimeException("List and Array type expected for field");
+        }
+    }
+
+    private void setDecimalColumnVector(Object value, DecimalColumnVector decimalColumnVector, int row) {
+        if (value instanceof BigDecimal) {
+            decimalColumnVector.set(row, HiveDecimal.create((BigDecimal) value));
+        } else {
+            throw new RuntimeException("BigDecimal type expected for field");
+        }
+    }
+
+    private void setTimestampColumnVector(Object value, TimestampColumnVector timestampColumnVector, int row) {
+        if (value instanceof Timestamp) {
+            timestampColumnVector.set(row, (Timestamp) value);
+        } else if (value instanceof LocalDateTime) {
+            timestampColumnVector.set(row, Timestamp.valueOf((LocalDateTime) value));
+        } else if (value instanceof LocalTime) {
+            timestampColumnVector.set(row, Timestamp.valueOf(((LocalTime) value).atDate(LocalDate.ofEpochDay(0))));
+        } else {
+            throw new RuntimeException("Time series type expected for field");
         }
     }
 
@@ -199,13 +276,19 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         if (value instanceof Boolean) {
             Boolean bool = (Boolean) value;
             longVector.vector[row] = (bool.equals(Boolean.TRUE)) ? Long.valueOf(1) : Long.valueOf(0);
-        }  else if (value instanceof Integer) {
+        } else if (value instanceof Integer) {
             longVector.vector[row] = ((Integer) value).longValue();
         } else if (value instanceof Long) {
             longVector.vector[row] = (Long) value;
         } else if (value instanceof BigInteger) {
             BigInteger bigInt = (BigInteger) value;
             longVector.vector[row] = bigInt.longValue();
+        } else if (value instanceof Byte) {
+            longVector.vector[row] = (Byte) value;
+        } else if (value instanceof Short) {
+            longVector.vector[row] = (Short) value;
+        } else if (value instanceof LocalDate) {
+            longVector.vector[row] = ((LocalDate) value).getLong(ChronoField.EPOCH_DAY);
         } else {
             throw new RuntimeException("Long or Integer type expected for field");
         }
