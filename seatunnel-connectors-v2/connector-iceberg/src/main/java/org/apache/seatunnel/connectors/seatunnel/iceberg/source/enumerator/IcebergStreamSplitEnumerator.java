@@ -29,7 +29,6 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -56,37 +55,43 @@ public class IcebergStreamSplitEnumerator extends AbstractSplitEnumerator {
     }
 
     @Override
+    public synchronized void run() {
+        loadNewSplitsToPendingSplits(icebergTableLoader.loadTable());
+        assignPendingSplits(context.registeredReaders());
+    }
+
+    @Override
     public IcebergSplitEnumeratorState snapshotState(long checkpointId) throws Exception {
         return new IcebergSplitEnumeratorState(enumeratorPosition.get(), pendingSplits);
     }
 
     @Override
-    public void handleSplitRequest(int subtaskId) {
-        synchronized (this) {
-            if (pendingSplits.isEmpty() || pendingSplits.get(subtaskId) == null) {
-                refreshPendingSplits();
-            }
-            assignPendingSplits(Collections.singleton(subtaskId));
+    public synchronized void handleSplitRequest(int subtaskId) {
+        if (pendingSplits.isEmpty() || pendingSplits.get(subtaskId) == null) {
+            loadNewSplitsToPendingSplits(icebergTableLoader.loadTable());
         }
+        assignPendingSplits(Collections.singleton(subtaskId));
     }
 
-    @Override
-    protected List<IcebergFileScanTaskSplit> loadNewSplits(Table table) {
+    private void loadNewSplitsToPendingSplits(Table table) {
         IcebergEnumerationResult result =
                 IcebergScanSplitPlanner.planStreamSplits(
                         table, icebergScanContext, enumeratorPosition.get());
         if (!Objects.equals(result.getFromPosition(), enumeratorPosition.get())) {
-            log.info(
+            log.warn(
                     "Skip {} loaded splits because the scan starting position doesn't match "
                             + "the current enumerator position: enumerator position = {}, scan starting position = {}",
                     result.getSplits().size(),
                     enumeratorPosition.get(),
                     result.getFromPosition());
-            return Collections.emptyList();
-        } else {
-            enumeratorPosition.set(result.getToPosition());
-            log.debug("Update enumerator position to {}", result.getToPosition());
-            return result.getSplits();
+            return;
+        }
+
+        addPendingSplits(result.getSplits());
+
+        enumeratorPosition.set(result.getToPosition());
+        if (!Objects.equals(enumeratorPosition.get(), result.getToPosition())) {
+            log.info("Update enumerator position to {}", result.getToPosition());
         }
     }
 }
