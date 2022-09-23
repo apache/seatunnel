@@ -32,6 +32,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -76,8 +77,10 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
             this.sinkColumnList = Arrays.asList(seaTunnelRowTypeInfo.getFieldNames());
         }
 
-        if (config.hasPath(Constant.PARTITION_BY) && !CollectionUtils.isEmpty(config.getStringList(Constant.PARTITION_BY))) {
+        if (config.hasPath(Constant.PARTITION_BY)) {
             this.partitionFieldList = config.getStringList(Constant.PARTITION_BY);
+        } else {
+            this.partitionFieldList = Collections.emptyList();
         }
 
         if (config.hasPath(Constant.PARTITION_DIR_EXPRESSION) && !StringUtils.isBlank(config.getString(Constant.PARTITION_DIR_EXPRESSION))) {
