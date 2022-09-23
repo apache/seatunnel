@@ -108,12 +108,12 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             Path path = new Path(filePath);
             try {
                 OrcFile.WriterOptions options = OrcFile.writerOptions(getConfiguration(hadoopConf))
-                        .setSchema(schema)
-                        // temporarily used snappy
-                        .compress(CompressionKind.SNAPPY)
-                        // use orc version 0.12
-                        .version(OrcFile.Version.V_0_12)
-                        .overwrite(true);
+                    .setSchema(schema)
+                    // temporarily used snappy
+                    .compress(CompressionKind.SNAPPY)
+                    // use orc version 0.12
+                    .version(OrcFile.Version.V_0_12)
+                    .overwrite(true);
                 Writer newWriter = OrcFile.createWriter(path, options);
                 this.beingWrittenWriter.put(filePath, newWriter);
                 return newWriter;
@@ -323,18 +323,14 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
     }
 
     private void setByteColumnVector(Object value, BytesColumnVector bytesColVector, int rowNum) {
-        if (value instanceof byte[] || value instanceof String) {
-            byte[] byteVec;
-            if (value instanceof String) {
-                String strVal = (String) value;
-                byteVec = strVal.getBytes(StandardCharsets.UTF_8);
-            } else {
-                byteVec = (byte[]) value;
-            }
-            bytesColVector.setRef(rowNum, byteVec, 0, byteVec.length);
+        byte[] byteVec;
+        if (value instanceof byte[]) {
+            byteVec = (byte[]) value;
         } else {
-            throw new RuntimeException("byte[] or String type expected for field ");
+            String strVal = value.toString();
+            byteVec = strVal.getBytes(StandardCharsets.UTF_8);
         }
+        bytesColVector.setRef(rowNum, byteVec, 0, byteVec.length);
     }
 
     private void setDoubleVector(Object value, DoubleColumnVector doubleVector, int rowNum) {

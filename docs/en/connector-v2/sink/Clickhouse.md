@@ -29,6 +29,7 @@ Write data to Clickhouse can also be done using JDBC
 | table          | string | yes      | -             |
 | username       | string | yes      | -             |
 | password       | string | yes      | -             |
+| fields         | string | yes      | -             |
 | clickhouse.*   | string | no       |               |
 | bulk_size      | string | no       | 20000         |
 | split_mode     | string | no       | false         |
@@ -54,6 +55,10 @@ The table name
 ### password [string]
 
 `ClickHouse` user password
+
+### fields [array]
+
+The data field that needs to be output to `ClickHouse` , if not configured, it will be automatically adapted according to the sink table `schema` .
 
 ### clickhouse [string]
 
