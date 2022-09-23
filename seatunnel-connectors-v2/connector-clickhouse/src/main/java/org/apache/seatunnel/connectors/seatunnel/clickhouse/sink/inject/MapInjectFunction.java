@@ -19,23 +19,15 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
 import java.util.regex.Pattern;
 
-public class DateTimeInjectFunction implements ClickhouseFieldInjectFunction {
+public class MapInjectFunction implements ClickhouseFieldInjectFunction {
 
-    private static final Pattern PATTERN = Pattern.compile("(DateTime.*)");
+    private static final Pattern PATTERN = Pattern.compile("(Map.*)");
 
     @Override
     public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
-        if (value instanceof Timestamp) {
-            statement.setTimestamp(index, (Timestamp) value);
-        } else if (value instanceof LocalDateTime) {
-            statement.setObject(index, value);
-        } else {
-            statement.setTimestamp(index, Timestamp.valueOf(value.toString()));
-        }
+        statement.setObject(index, value);
     }
 
     @Override
