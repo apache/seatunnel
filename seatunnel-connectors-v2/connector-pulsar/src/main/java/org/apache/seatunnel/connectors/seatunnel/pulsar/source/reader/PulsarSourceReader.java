@@ -124,8 +124,10 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
             if (recordWithSplitId.isPresent()) {
                 final String splitId = recordWithSplitId.get().getSplitId();
                 final Message<byte[]> message = recordWithSplitId.get().getMessage();
-                splitStates.get(splitId).setLatestConsumedId(message.getMessageId());
-                deserialization.deserialize(message.getData(), output);
+                synchronized (output.getCheckpointLock()) {
+                    splitStates.get(splitId).setLatestConsumedId(message.getMessageId());
+                    deserialization.deserialize(message.getData(), output);
+                }
             }
             if (noMoreSplitsAssignment && finishedSplits.size() == splitStates.size()) {
                 context.signalNoMoreElement();

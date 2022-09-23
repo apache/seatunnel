@@ -43,6 +43,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -77,6 +79,7 @@ public class PulsarSplitEnumerator implements SourceSplitEnumerator<PulsarPartit
     // initializing partition discovery has finished.
     private boolean noMoreNewPartitionSplits = false;
 
+    private ScheduledThreadPoolExecutor executor = null;
     public PulsarSplitEnumerator(
         SourceSplitEnumerator.Context<PulsarPartitionSplit> context,
         PulsarAdminConfig adminConfig,
@@ -127,6 +130,20 @@ public class PulsarSplitEnumerator implements SourceSplitEnumerator<PulsarPartit
 
     @Override
     public void run() throws Exception {
+        if (partitionDiscoveryIntervalMs > 0) {
+            executor = new ScheduledThreadPoolExecutor(1, runnable -> {
+                Thread thread = new Thread(runnable);
+                thread.setDaemon(true);
+                thread.setName("pulsar-split-discovery-executor");
+                return thread;
+            });
+            executor.scheduleAtFixedRate(this::discoverySplits, 0, partitionDiscoveryIntervalMs, TimeUnit.MILLISECONDS);
+        } else {
+            discoverySplits();
+        }
+    }
+
+    private void discoverySplits() {
         Set<TopicPartition> subscribedTopicPartitions = partitionDiscoverer.getSubscribedTopicPartitions(pulsarAdmin);
         checkPartitionChanges(subscribedTopicPartitions);
     }
@@ -137,7 +154,7 @@ public class PulsarSplitEnumerator implements SourceSplitEnumerator<PulsarPartit
         if (newPartitions.isEmpty()) {
             return;
         }
-        if (partitionDiscoveryIntervalMs < 0 && !noMoreNewPartitionSplits) {
+        if (partitionDiscoveryIntervalMs <= 0 && !noMoreNewPartitionSplits) {
             LOG.debug("Partition discovery is disabled.");
             noMoreNewPartitionSplits = true;
         }
@@ -237,6 +254,9 @@ public class PulsarSplitEnumerator implements SourceSplitEnumerator<PulsarPartit
     public void close() throws IOException {
         if (pulsarAdmin != null) {
             pulsarAdmin.close();
+        }
+        if (executor != null) {
+            executor.shutdown();
         }
     }
 
