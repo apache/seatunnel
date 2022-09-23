@@ -29,10 +29,6 @@
 
     <artifactId>connector-file-local</artifactId>
 
-    <properties>
-        <connector.name>file.local</connector.name>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>

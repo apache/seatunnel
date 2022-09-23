@@ -28,7 +28,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>connector-file-base</artifactId>
-    
+
     <properties>
         <commons-net.version>3.6</commons-net.version>
         <orc.version>1.5.6</orc.version>
@@ -37,7 +37,7 @@
         <flink.hadoop.version>2.7.5-7.0</flink.hadoop.version>
         <parquet-avro.version>1.12.3</parquet-avro.version>
     </properties>
-    
+
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -67,6 +67,12 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-core-base</artifactId>
             <version>${project.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.orc</groupId>
+                    <artifactId>orc-core</artifactId>
+                </exclusion>
+            </exclusions>
             <scope>test</scope>
         </dependency>
 
@@ -92,9 +98,14 @@
             <groupId>org.apache.orc</groupId>
             <artifactId>orc-core</artifactId>
             <version>${orc.version}</version>
+            <classifier>nohive</classifier>
             <exclusions>
                 <exclusion>
                     <artifactId>hadoop-common</artifactId>
+                    <groupId>org.apache.hadoop</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>hadoop-hdfs</artifactId>
                     <groupId>org.apache.hadoop</groupId>
                 </exclusion>
             </exclusions>
@@ -116,7 +127,6 @@
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-shaded-hadoop-2</artifactId>
         </dependency>
-
     </dependencies>
 
     <build>
@@ -124,18 +134,9 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                        <!-- base module need skip shading -->
-                        <configuration>
-                            <skip>true</skip>
-                        </configuration>
-                    </execution>
-                </executions>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
             </plugin>
             <!-- make sure that flatten runs after maven-shade-plugin -->
             <plugin>
