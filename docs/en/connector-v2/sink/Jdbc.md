@@ -73,7 +73,7 @@ The number of retries for transaction commit failures
 The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect exactly-once semantics
 
 ## tips
-In the case of is_exactly_once = "true", Xa transactions are used. This requires database support, and some databases require some setup. For example: 
+In the case of is_exactly_once = "true", Xa transactions are used. This requires database support, and some databases require some setup : 
   1 postgres needs to set `max_prepared_transactions > 1` such as `ALTER SYSTEM set max_prepared_transactions to 10`.
   2 mysql version need >= `8.0.29` and Non-root users need to grant `XA_RECOVER_ADMIN` permissions. such as `grant XA_RECOVER_ADMIN on test_db.* to 'user1'@'%'`.
 
