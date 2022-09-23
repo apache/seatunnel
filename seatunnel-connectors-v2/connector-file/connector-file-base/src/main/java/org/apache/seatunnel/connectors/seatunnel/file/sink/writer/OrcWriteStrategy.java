@@ -76,7 +76,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         for (Integer index : sinkColumnsIndexInRow) {
             Object value = seaTunnelRow.getField(index);
             ColumnVector vector = rowBatch.cols[i];
-            setColumn(value, vector, row, rowBatch.getMaxSize());
+            setColumn(value, vector, row);
             i++;
         }
         try {
@@ -184,7 +184,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         return schema;
     }
 
-    private void setColumn(Object value, ColumnVector vector, int row, int maxSize) {
+    private void setColumn(Object value, ColumnVector vector, int row) {
         if (value == null) {
             vector.isNull[row] = true;
             vector.noNulls = false;
@@ -216,7 +216,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                     break;
                 case MAP:
                     MapColumnVector mapColumnVector = (MapColumnVector) vector;
-                    setMapColumnVector(value, mapColumnVector, row, maxSize);
+                    setMapColumnVector(value, mapColumnVector, row);
                     break;
                 case STRUCT:
                     StructColumnVector structColumnVector = (StructColumnVector) vector;
@@ -229,26 +229,54 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
     }
 
     private void setStructColumnVector(Object value, StructColumnVector structColumnVector, int row) {
+        if (value instanceof SeaTunnelRow) {
+            SeaTunnelRow seaTunnelRow = (SeaTunnelRow) value;
+            Object[] fields = seaTunnelRow.getFields();
+            for (int i = 0; i < fields.length; i++) {
+                setColumn(fields[i], structColumnVector.fields[i], row);
+            }
+        } else {
+            throw new RuntimeException("SeaTunnelRow type expected for field");
+        }
 
     }
 
-    private void setMapColumnVector(Object value, MapColumnVector mapColumnVector, int row, int maxSize) {
+    private void setMapColumnVector(Object value, MapColumnVector mapColumnVector, int row) {
         if (value instanceof Map) {
-            Map map = (Map) value;
+            Map<?, ?> map = (Map<?, ?>) value;
 
             mapColumnVector.offsets[row] = mapColumnVector.childCount;
             mapColumnVector.lengths[row] = map.size();
             mapColumnVector.childCount += map.size();
+
+            int i = 0;
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                int mapElem = (int) mapColumnVector.offsets[row] + i;
+                setColumn(entry.getKey(), mapColumnVector.keys, mapElem);
+                setColumn(entry.getValue(), mapColumnVector.values, mapElem);
+                ++i;
+            }
+        } else {
+            throw new RuntimeException("Map type expected for field");
         }
     }
 
     private void setListColumnVector(Object value, ListColumnVector listColumnVector, int row) {
+        Object[] valueArray;
         if (value instanceof Object[]) {
-//            listColumnVector.child
+            valueArray = (Object[]) value;
         } else if (value instanceof List) {
-
+            valueArray = ((List<?>) value).toArray();
         } else {
             throw new RuntimeException("List and Array type expected for field");
+        }
+        listColumnVector.offsets[row] = listColumnVector.childCount;
+        listColumnVector.lengths[row] = valueArray.length;
+        listColumnVector.childCount += valueArray.length;
+
+        for (int i = 0; i < valueArray.length; i++) {
+            int listElem = (int) listColumnVector.offsets[row] + i;
+            setColumn(valueArray[i], listColumnVector.child, listElem);
         }
     }
 

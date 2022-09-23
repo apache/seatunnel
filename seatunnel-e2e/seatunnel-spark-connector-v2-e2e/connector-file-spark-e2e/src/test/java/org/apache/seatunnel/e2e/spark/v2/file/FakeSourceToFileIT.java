@@ -57,4 +57,16 @@ public class FakeSourceToFileIT extends SparkContainer {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_local_json.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    @Test
+    public void testFakeSourceToLocalFileORC() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_local_orc.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @Test
+    public void testLocalFileORCToLocalFileORC() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/local_orc_source_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }
