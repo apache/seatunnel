@@ -57,9 +57,9 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         assertRowRules.stream().filter(assertRule -> {
             switch (assertRule.getRuleType()) {
                 case MAX_ROW:
-                    return LONG_ACCUMULATOR.longValue() <= assertRule.getRuleValue();
+                    return !(LONG_ACCUMULATOR.longValue() <= assertRule.getRuleValue());
                 case MIN_ROW:
-                    return LONG_ACCUMULATOR.longValue() >= assertRule.getRuleValue();
+                    return !(LONG_ACCUMULATOR.longValue() >= assertRule.getRuleValue());
                 default:
                     return false;
             }
