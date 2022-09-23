@@ -21,7 +21,6 @@ package org.apache.seatunnel.format.json;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -29,7 +28,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
@@ -79,7 +77,6 @@ public class JsonToRowConverters implements Serializable {
     }
 
     /** Creates a runtime converter which assuming input object is not null. */
-    @SuppressWarnings("unchecked")
     private JsonToRowConverter createNotNullConverter(SeaTunnelDataType<?> type) {
         SqlType sqlType = type.getSqlType();
         switch (sqlType) {
