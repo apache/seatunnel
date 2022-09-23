@@ -62,6 +62,12 @@
                 <artifactId>spark-core_${scala.binary.version}</artifactId>
                 <version>${spark.2.4.0.version}</version>
                 <scope>${spark.scope}</scope>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.module</groupId>
+                        <artifactId>jackson-module-scala_2.11</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
             <dependency>
                 <groupId>org.apache.spark</groupId>
@@ -93,6 +99,11 @@
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-sql_${scala.binary.version}</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-scala_2.11</artifactId>
+            <version>2.12.6</version>
         </dependency>
     </dependencies>
 
