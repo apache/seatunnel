@@ -137,7 +137,7 @@ public class PulsarSplitEnumerator implements SourceSplitEnumerator<PulsarPartit
                 thread.setName("pulsar-split-discovery-executor");
                 return thread;
             });
-            executor.schedule(this::discoverySplits, partitionDiscoveryIntervalMs, TimeUnit.MILLISECONDS);
+            executor.scheduleAtFixedRate(this::discoverySplits, 0, partitionDiscoveryIntervalMs, TimeUnit.MILLISECONDS);
         } else {
             discoverySplits();
         }
