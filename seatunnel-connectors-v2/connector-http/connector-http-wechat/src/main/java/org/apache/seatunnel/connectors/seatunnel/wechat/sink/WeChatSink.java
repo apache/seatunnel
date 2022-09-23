@@ -17,15 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.wechat.sink;
 
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSink;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.wechat.sink.config.WeChatSinkConfig;
 
 import com.google.auto.service.AutoService;
 
@@ -37,24 +35,9 @@ public class WeChatSink extends HttpSink {
         return "WeChat";
     }
 
-    private Config pluginConfig;
-
-    private SeaTunnelRowType seaTunnelRowType;
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        this.pluginConfig = pluginConfig;
-        super.prepare(pluginConfig);
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
-        super.setTypeInfo(seaTunnelRowType);
-    }
-
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
-        return new WeChatHttpSinkWriter(super.httpParameter, pluginConfig, seaTunnelRowType);
+        return new HttpSinkWriter(seaTunnelRowType, super.httpParameter,
+            new WeChatBotMessageSerializationSchema(new WeChatSinkConfig(pluginConfig), seaTunnelRowType));
     }
 }
