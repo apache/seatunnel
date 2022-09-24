@@ -129,6 +129,6 @@ public class HiveSink extends BaseHdfsFileSink {
         } catch (URISyntaxException e) {
             throw new RuntimeException("Get hdfs cluster address failed, please check.", e);
         }
-        super.prepare(pluginConfig);
+        this.pluginConfig = pluginConfig;
     }
 }
