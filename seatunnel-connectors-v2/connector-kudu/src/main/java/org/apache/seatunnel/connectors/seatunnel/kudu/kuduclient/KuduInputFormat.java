@@ -136,7 +136,7 @@ public class KuduInputFormat implements Serializable {
                 seaTunnelDataTypes.add(KuduTypeMapper.mapping(columnSchemaList, i));
             }
         } catch (Exception e) {
-            LOGGER.warn("get row type info exception.", e);
+            LOGGER.error("Got row type info exception.", e);
             throw new PrepareFailException("kudu", PluginType.SOURCE, ExceptionUtil.getMessage(e));
         }
         return new SeaTunnelRowType(fieldNames.toArray(new String[fieldNames.size()]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));
@@ -168,20 +168,20 @@ public class KuduInputFormat implements Serializable {
             kuduScannerBuilder.setProjectedColumnNames(columnsList);
 
             KuduPredicate lowerPred = KuduPredicate.newComparisonPredicate(
-                    schema.getColumn("" + keyColumn),
+                    schema.getColumn(keyColumn),
                     KuduPredicate.ComparisonOp.GREATER_EQUAL,
                     lowerBound);
 
             KuduPredicate upperPred = KuduPredicate.newComparisonPredicate(
-                    schema.getColumn("" + keyColumn),
+                    schema.getColumn(keyColumn),
                     KuduPredicate.ComparisonOp.LESS,
                     upperBound);
 
             kuduScanner = kuduScannerBuilder.addPredicate(lowerPred)
                     .addPredicate(upperPred).build();
         } catch (KuduException e) {
-            LOGGER.warn("get the Kuduscan object for each splice exception", e);
-            throw new RuntimeException("get the Kuduscan object for each splice exception.", e);
+            LOGGER.error("Got the Kuduscan object for each splice exception", e);
+            throw new RuntimeException("Got the Kuduscan object for each splice exception.", e);
         }
         return kuduScanner;
     }
@@ -190,13 +190,11 @@ public class KuduInputFormat implements Serializable {
         if (kuduClient != null) {
             try {
                 kuduClient.close();
-            } catch (KuduException e) {
-                LOGGER.warn("Kudu Client close failed.", e);
-                throw new RuntimeException("Kudu Client close failed.", e);
+            } catch (KuduException ignored) {
+                LOGGER.warn("Failed to close kudu client, ignored it.", ignored);
             } finally {
                 kuduClient = null;
             }
         }
-
     }
 }
