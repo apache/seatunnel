@@ -55,6 +55,15 @@ upstream data is the following:
 
 ```
 
+You can also save multiple pieces of data in one file and split them by newline:
+
+```json lines
+
+{"code":  200, "data":  "get success", "success":  true}
+{"code":  300, "data":  "get failed", "success":  false}
+
+```
+
 you should assign schema as the following:
 
 ```hocon

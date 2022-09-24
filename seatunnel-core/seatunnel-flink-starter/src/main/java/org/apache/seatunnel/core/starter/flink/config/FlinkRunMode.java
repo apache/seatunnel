@@ -35,4 +35,9 @@ public enum FlinkRunMode {
     public String getMode() {
         return mode;
     }
+
+    @Override
+    public String toString() {
+        return getMode();
+    }
 }

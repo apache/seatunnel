@@ -20,8 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo2;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState2;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
 
 import java.io.IOException;
@@ -29,14 +29,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo2, FileSinkState2> {
+public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> {
     private final WriteStrategy writeStrategy;
     private final HadoopConf hadoopConf;
     private final SinkWriter.Context context;
     private final int subTaskIndex;
     private final String jobId;
 
-    public BaseFileSinkWriter(WriteStrategy writeStrategy, HadoopConf hadoopConf, SinkWriter.Context context, String jobId, List<FileSinkState2> fileSinkStates) {
+    public BaseFileSinkWriter(WriteStrategy writeStrategy, HadoopConf hadoopConf, SinkWriter.Context context, String jobId, List<FileSinkState> fileSinkStates) {
         this.writeStrategy = writeStrategy;
         this.context = context;
         this.hadoopConf = hadoopConf;
@@ -64,7 +64,7 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
     }
 
     @Override
-    public Optional<FileCommitInfo2> prepareCommit() throws IOException {
+    public Optional<FileCommitInfo> prepareCommit() throws IOException {
         return writeStrategy.prepareCommit();
     }
 
@@ -74,7 +74,7 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
     }
 
     @Override
-    public List<FileSinkState2> snapshotState(long checkpointId) throws IOException {
+    public List<FileSinkState> snapshotState(long checkpointId) throws IOException {
         return writeStrategy.snapshotState(checkpointId);
     }
 
