@@ -54,6 +54,7 @@ public class SparkApiTaskExecuteCommand implements Command<SparkCommandArgs> {
             seaTunnelTaskExecution.execute();
         } catch (Exception e) {
             LOGGER.error("Run SeaTunnel on spark failed.", e);
+            throw new CommandExecuteException(e.getMessage());
         }
     }
 

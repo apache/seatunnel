@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import static org.apache.parquet.avro.AvroReadSupport.READ_INT96_AS_FIXED;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
@@ -50,6 +52,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     @Override
     public Configuration getConfiguration(HadoopConf hadoopConf) {
         Configuration configuration = new Configuration();
+        configuration.set(READ_INT96_AS_FIXED, "true");
         if (hadoopConf != null) {
             configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
             configuration.set("fs.hdfs.impl", hadoopConf.getFsHdfsImpl());

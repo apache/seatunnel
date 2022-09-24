@@ -27,7 +27,4 @@ interface ScriptAdd {
   type: string
 }
 
-export {
-  ScriptList,
-  ScriptAdd
-}
+export { ScriptList, ScriptAdd }

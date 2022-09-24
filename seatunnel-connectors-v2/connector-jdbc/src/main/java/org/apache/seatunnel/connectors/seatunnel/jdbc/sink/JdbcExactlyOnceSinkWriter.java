@@ -134,6 +134,7 @@ public class JdbcExactlyOnceSinkWriter
     @Override
     public Optional<XidInfo> prepareCommit()
         throws IOException {
+        tryOpen();
         prepareCurrentTx();
         this.currentXid = null;
         beginTx();

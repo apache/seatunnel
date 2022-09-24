@@ -166,7 +166,7 @@
                       ^sun\.misc\.BASE64Encoder,
                       ^sun\.misc\.BASE64Decoder,
                       ^jdk\.internal\.jline\.internal\.Nullable,
-                      ^org\.junit\.(?!jupiter\.).+"/>
+                      ^org\.junit\.(?!(jupiter|platform)\.).+"/>
         </module>
 
         <module name="OuterTypeFilename">

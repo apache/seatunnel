@@ -27,8 +27,9 @@ interface UserLogin {
 }
 
 interface UserDetail extends UserLogin {
-  status: string
-  type: string
+  status: number
+  type?: number
+  token?: string
   id?: number
   name?: string
   createTime?: any | null

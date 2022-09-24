@@ -39,7 +39,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ### path [string]
 
-The target dir path is required. The `hdfs file` starts with `hdfs://` , and the `local file` starts with `file://`,
+The target dir path is required.
 
 ### file_name_expression [string]
 
@@ -123,7 +123,7 @@ For text file format
 ```bash
 
 LocalFile {
-    path="file:///tmp/hive/warehouse/test2"
+    path="/tmp/hive/warehouse/test2"
     field_delimiter="\t"
     row_delimiter="\n"
     partition_by=["age"]
@@ -143,7 +143,7 @@ For parquet file format
 ```bash
 
 LocalFile {
-    path="file:///tmp/hive/warehouse/test2"
+    path="/tmp/hive/warehouse/test2"
     partition_by=["age"]
     partition_dir_expression="${k0}=${v0}"
     is_partition_field_write_in_file=true
@@ -161,7 +161,7 @@ For orc file format
 ```bash
 
 LocalFile {
-    path="file:///tmp/hive/warehouse/test2"
+    path="/tmp/hive/warehouse/test2"
     partition_by=["age"]
     partition_dir_expression="${k0}=${v0}"
     is_partition_field_write_in_file=true
