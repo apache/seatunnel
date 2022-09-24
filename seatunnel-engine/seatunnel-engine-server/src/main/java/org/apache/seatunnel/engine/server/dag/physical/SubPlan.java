@@ -337,6 +337,10 @@ public class SubPlan {
                 }
                 reset();
                 jobMaster.getPhysicalPlan().addPipelineEndCallback(this);
+                if (jobMaster.getCheckpointManager().isCompletedPipeline(pipelineId)) {
+                    forcePipelineFinish();
+                    return;
+                }
                 reSchedulerPipelineFuture = jobMaster.reSchedulerPipeline(this);
                 if (reSchedulerPipelineFuture != null) {
                     reSchedulerPipelineFuture.join();
@@ -348,6 +352,16 @@ public class SubPlan {
                 cancelPipeline();
             }
         }
+    }
+
+    /**
+     * If the job state in CheckpointManager is complete, we need force this pipeline finish
+     */
+    private void forcePipelineFinish() {
+        coordinatorVertexList.forEach(coordinator -> coordinator.updateTaskExecutionState(
+            new TaskExecutionState(coordinator.getTaskGroupLocation(), ExecutionState.FINISHED, null)));
+        physicalVertexList.forEach(task -> task.updateTaskExecutionState(
+            new TaskExecutionState(task.getTaskGroupLocation(), ExecutionState.FINISHED, null)));
     }
 
     /**
@@ -384,6 +398,8 @@ public class SubPlan {
 
     public void setJobMaster(JobMaster jobMaster) {
         this.jobMaster = jobMaster;
+        coordinatorVertexList.forEach(coordinator -> coordinator.setJobMaster(jobMaster));
+        physicalVertexList.forEach(task -> task.setJobMaster(jobMaster));
     }
 
     public int getPipelineRestoreNum() {

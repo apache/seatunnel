@@ -414,6 +414,9 @@ public class CheckpointCoordinator {
     }
 
     public boolean isCompleted() {
+        if (latestCompletedCheckpoint == null) {
+            return false;
+        }
         return latestCompletedCheckpoint.getCheckpointType() == AUTO_SAVEPOINT_TYPE;
     }
 }
