@@ -24,14 +24,14 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-| name                  | type   | required | default value                                                 |
-|-----------------------| ------ | -------- | ------------------------------------------------------------- |
-| table_name            | string | yes      | -                                                             |
-| metastore_uri         | string | yes      | -                                                             |
-| partition_by          | array  | no       | -                                                             |
-| sink_columns          | array  | no       | When this parameter is empty, all fields are sink columns     |
-| is_enable_transaction | boolean| no       | true                                                          |
-| save_mode             | string | no       | "append"                                                      |
+| name                  | type   | required                                    | default value                                                 |
+|-----------------------| ------ |---------------------------------------------| ------------------------------------------------------------- |
+| table_name            | string | yes                                         | -                                                             |
+| metastore_uri         | string | yes                                         | -                                                             |
+| partition_by          | array  | required if hive sink table have partitions | -                                                             |
+| sink_columns          | array  | no                                          | When this parameter is empty, all fields are sink columns     |
+| is_enable_transaction | boolean| no                                          | true                                                          |
+| save_mode             | string | no                                          | "append"                                                      |
 
 ### table_name [string]
 
@@ -127,5 +127,30 @@ PARTITIONED BY (test_par1 STRING, test_par2 STRING);
 The job config file can like this:
 
 ```
+env {
+  # You can set flink configuration here
+  execution.parallelism = 3
+  job.name="test_hive_source_to_hive"
+}
 
+source {
+  Hive {
+    table_name = "test_hive.test_hive_source"
+    metastore_uri = "thrift://ctyun7:9083"
+  }
+}
+
+transform {
+}
+
+sink {
+  # choose stdout output plugin to output data to console
+
+  Hive {
+    table_name = "test_hive.test_hive_sink_text_simple"
+    metastore_uri = "thrift://ctyun7:9083"
+    partition_by = ["test_par1", "test_par2"]
+    sink_columns = ["test_tinyint", "test_smallint", "test_int", "test_bigint", "test_boolean", "test_float", "test_double", "test_string", "test_binary", "test_timestamp", "test_decimal", "test_char", "test_varchar", "test_date", "test_par1", "test_par2"]
+  }
+}
 ```
