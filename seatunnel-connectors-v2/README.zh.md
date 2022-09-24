@@ -1,6 +1,7 @@
 ## 目的
 
 因为SeaTunnel 为connectors设计了新的API，所以通过这篇文章来介绍新的接口以及新的代码结构，方便开发者快速的帮助新API和翻译层完善，以及开发出新的Connector.
+详细设计请查看该[提议](https://github.com/apache/incubator-seatunnel/issues/1608) 。
 
 ## 代码结构
 
@@ -8,12 +9,16 @@
 
 ### Example
 
-我们已经在`seatunnel-examples`中准备好了新版本的可本地执行Example程序，直接调用`seatunnel-flink-connector-v2-example`
-或`seatunnel-spark-connector-v2-example`中的`SeaTunnelApiExample`即可。这也是本地开发Connector经常会用到的调试方式。
-对应的配置文件保存在同模块的`resources/examples`
-文件夹下，和以前一样。目前在Example模块下测试需要把对应连接器的依赖添加到pom文件中，如果有部分三方依赖请自行添加至模块classpath，如果连接器的某些依赖的scope为provided，需要在Intellij
-IDEAZ中单击 "Run"->"Edit configurations...",在
-"Use classpath of module"选项上选择当前工程，并勾选"Include dependencies with 'Provided Scope".
+我们已经在`seatunnel-examples`
+准备了两个本地可执行的案例程序,其中一个是`seatunnel-examples/seatunnel-flink-connector-v2-example/src/main/java/org/apache/seatunnel/example/flink/v2/SeaTunnelApiExample.java`
+，它运行在flink引擎上。另外一个是`seatunnel-examples/seatunnel-spark-connector-v2-example/src/main/java/org/apache/seatunnel/example/spark/v2/SeaTunnelApiExample.java`
+，它运行在spark引擎上。你可以通过调试这些例子帮你更好的理解程序运行逻辑。使用的配置文件保存在`resources/examples`文件夹里。如果你想增加自己的connectors，你需要按照下面的步骤。
+
+1. 在`seatunnel-examples/seatunnel-flink-connector-v2-example/pom.xml`添加connector依赖的groupId, artifactId 和
+   version.（或者当你想在spark引擎运行时在`seatunnel-examples/seatunnel-spark-connector-v2-example/pom.xml`添加依赖）
+2. 如果你的connector存在scope为test或者provided的依赖则在`seatunnel-examples/seatunnel-flink-connector-v2-example/pom.xml`(
+   或者在`seatunnel-examples/seatunnel-spark-connector-v2-example/pom.xml`)修改为compile。
+3. 参考`SeaTunnelApiExample`开发自己的案例程序。
 
 ### 启动类
 

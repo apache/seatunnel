@@ -1,8 +1,9 @@
 # Purpose
 
 This article introduces the new interface and the new code structure on account of the newly designed API for Connectors
-in Apache SeaTunnel. This helps developers with quick overview regarding API, translation layer improvement, and
-development of new Connector.
+in Apache SeaTunnel. This helps developers quickly understand API and transformation layer improvements. On the other
+hand, it can guide contributors how to use the new API to develop new connectors,See
+this [issue](https://github.com/apache/incubator-seatunnel/issues/1608) for details.
 
 ## **Code Structure**
 
@@ -11,18 +12,27 @@ development at the current stage, and reduces the difficulty of merging.
 
 ### **Example**
 
-We have prepared a new version of the locally executable example program in ``seatunnel-examples``, which can be
-directly called using ``seatunnel-flink-connector-v2-example`` or ``seatunnel-spark-connector-v2-example``
-in ``SeaTunnelApiExample``. This is also the debugging method that is often used in the local development of Connector.
-The corresponding configuration files are saved in the same module ``resources/examples`` folder as before. Currently,
-you need to add the dependencies of the corresponding connectors to the pom file for testing under the
-seatunnel-examples module, if there are some three-party dependencies, please add them to the module classpath by
-yourself, if the scope of some dependencies of the connectors is provided, you also need to set Include dependencies
-with Provided Scope in Intellij IDEA. .
+We have prepared two new version of the locally executable example program in `seatunnel-examples`,one
+is `seatunnel-examples/seatunnel-flink-connector-v2-example/src/main/java/org/apache/seatunnel/example/flink/v2/SeaTunnelApiExample.java`
+, it runs in the Flink engine. Another one
+is `seatunnel-examples/seatunnel-spark-connector-v2-example/src/main/java/org/apache/seatunnel/example/spark/v2/SeaTunnelApiExample.java`
+, it runs in the Spark engine. This is also the debugging method that is often used in the local development of
+Connector. You can debug these examples, which will help you better understand the running logic of the program. The
+configuration files used in example are saved in the "resources/examples" folder. If you want to add examples for your
+own connectors, you need to follow the steps below.
+
+1. Add the groupId, artifactId and version of the connector to be tested to
+   seatunnel-examples/seatunnel-flink-connector-v2-example/pom.xml(or add it to
+   seatunnel-examples/seatunnel-spark-connector-v2-example/pom.xml when you want to runs it in Spark engine) as a
+   dependency.
+2. Find the dependency in your connector pom file which scope is test or provided and then add them to
+   seatunnel-examples/seatunnel-flink-connector-v2-example/pom.xml(or add it to
+   seatunnel-examples/seatunnel-spark-connector-v2-example/pom.xml) file and modify the scope to compile.
+3. Refer to the SeaTunnelApiExample class to develop your sample code.
 
 ### **Startup Class**
 
-Aside from the old startup class, we have created two new startup class projects,
+Aside from the old startup class, we have created two new startup modules,
 namely ``seatunnel-core/seatunnel-flink-starter`` and ``seatunnel-core/seatunnel-spark-starter``. You can find out how
 to parse the configuration file into an executable Flink/Spark process here.
 
