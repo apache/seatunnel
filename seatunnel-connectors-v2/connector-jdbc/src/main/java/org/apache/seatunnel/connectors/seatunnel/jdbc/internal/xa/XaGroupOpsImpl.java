@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class XaGroupOpsImpl
     implements XaGroupOps {
@@ -112,8 +113,11 @@ public class XaGroupOpsImpl
     }
 
     @Override
-    public void recoverAndRollback(JobContext context, SinkWriter.Context sinkContext, XidGenerator xidGenerator, Xid excludeXid) {
-        Collection<Xid> recovered = xaFacade.recover();
+    public void recoverAndRollback(JobContext context, SinkWriter.Context sinkContext, XidGenerator xidGenerator,
+                                   Xid excludeXid) {
+        Collection<Xid> recovered = xaFacade.recover().stream()
+            .map(x -> new XidImpl(x.getFormatId(), x.getGlobalTransactionId(), x.getBranchQualifier())).collect(
+                Collectors.toList());
         recovered.remove(excludeXid);
         if (recovered.isEmpty()) {
             return;
