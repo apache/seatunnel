@@ -36,7 +36,7 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.BaseHdfsFileSink;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.SaveMode;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
@@ -57,7 +57,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @AutoService(SeaTunnelSink.class)
-public class HiveSink extends BaseFileSink {
+public class HiveSink extends BaseHdfsFileSink {
     private String dbName;
     private String tableName;
     private Table tableInformation;
@@ -104,8 +104,8 @@ public class HiveSink extends BaseFileSink {
         if (TEXT_OUTPUT_FORMAT_CLASSNAME.equals(outputFormat)) {
             Map<String, String> parameters = tableInformation.getSd().getSerdeInfo().getParameters();
             pluginConfig = pluginConfig.withValue(FILE_FORMAT, ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()))
-                    .withValue(FIELD_DELIMITER, ConfigValueFactory.fromAnyRef(parameters.get("field.delim")))
-                    .withValue(ROW_DELIMITER, ConfigValueFactory.fromAnyRef(parameters.get("line.delim")));
+                .withValue(FIELD_DELIMITER, ConfigValueFactory.fromAnyRef(parameters.get("field.delim")))
+                .withValue(ROW_DELIMITER, ConfigValueFactory.fromAnyRef(parameters.get("line.delim")));
         } else if (PARQUET_OUTPUT_FORMAT_CLASSNAME.equals(outputFormat)) {
             pluginConfig = pluginConfig.withValue(FILE_FORMAT, ConfigValueFactory.fromAnyRef(FileFormat.PARQUET.toString()));
         } else if (ORC_OUTPUT_FORMAT_CLASSNAME.equals(outputFormat)) {
@@ -114,8 +114,8 @@ public class HiveSink extends BaseFileSink {
             throw new RuntimeException("Only support [text parquet orc] file now");
         }
         pluginConfig = pluginConfig.withValue(IS_PARTITION_FIELD_WRITE_IN_FILE, ConfigValueFactory.fromAnyRef(false))
-                .withValue(FILE_NAME_EXPRESSION, ConfigValueFactory.fromAnyRef("${transactionId}"))
-                .withValue(PATH, ConfigValueFactory.fromAnyRef(tableInformation.getSd().getLocation()));
+            .withValue(FILE_NAME_EXPRESSION, ConfigValueFactory.fromAnyRef("${transactionId}"))
+            .withValue(PATH, ConfigValueFactory.fromAnyRef(tableInformation.getSd().getLocation()));
 
         if (!pluginConfig.hasPath(SAVE_MODE) || StringUtils.isBlank(pluginConfig.getString(SAVE_MODE))) {
             pluginConfig = pluginConfig.withValue(SAVE_MODE, ConfigValueFactory.fromAnyRef(SaveMode.APPEND.toString()));
@@ -129,6 +129,6 @@ public class HiveSink extends BaseFileSink {
         } catch (URISyntaxException e) {
             throw new RuntimeException("Get hdfs cluster address failed, please check.", e);
         }
-        super.prepare(pluginConfig);
+        this.pluginConfig = pluginConfig;
     }
 }

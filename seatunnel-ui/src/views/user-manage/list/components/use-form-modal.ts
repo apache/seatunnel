@@ -17,7 +17,7 @@
 
 import { reactive, ref, SetupContext } from 'vue'
 import { useI18n } from 'vue-i18n'
-import utils from '@/utils'
+import { userAdd, userUpdate } from '@/service/user'
 
 export function useFormModal(
   props: any,
@@ -30,8 +30,7 @@ export function useFormModal(
       id: ref(),
       username: ref(''),
       password: ref(''),
-      email: ref(''),
-      state: ref(0)
+      status: ref(0)
     },
     rules: {
       username: {
@@ -43,27 +42,46 @@ export function useFormModal(
         required: true,
         trigger: ['input', 'blur'],
         message: t('user_manage.model_validate_tips')
-      },
-      email: {
-        trigger: ['input', 'blur'],
-        validator() {
-          if (state.model.email && !utils.regex.email.test(state.model.email)) {
-            return new Error(t('user_manage.model_validate_tips'))
-          }
-        }
       }
     }
   })
 
   const handleValidate = (status: number) => {
     state.userManageForm.validate((errors: any) => {
-      if (!errors) {
-        ctx.emit('confirmModal', props.showModal)
-      } else {
-        return
-      }
+      if (errors) return
+
+      status === 0 ? handleAdd() : handleUpdate()
     })
   }
 
-  return { state, handleValidate }
+  const clearForm = () => {
+    state.model.id = ''
+    state.model.username = ''
+    state.model.password = ''
+    state.model.status = 0
+  }
+
+  const handleAdd = () => {
+    userAdd({
+      username: state.model.username,
+      password: state.model.password,
+      status: state.model.status,
+      type: 0
+    }).then(() => {
+      ctx.emit('confirmModal', props.showModal)
+    })
+  }
+
+  const handleUpdate = () => {
+    userUpdate(state.model.id, {
+      username: state.model.username,
+      password: state.model.password,
+      status: state.model.status,
+      type: 0
+    }).then(() => {
+      ctx.emit('confirmModal', props.showModal)
+    })
+  }
+
+  return { state, handleValidate, clearForm }
 }

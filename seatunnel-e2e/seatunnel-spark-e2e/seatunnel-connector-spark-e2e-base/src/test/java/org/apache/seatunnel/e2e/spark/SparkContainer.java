@@ -26,6 +26,11 @@ import org.apache.seatunnel.e2e.common.AbstractSparkContainer;
 public abstract class SparkContainer extends AbstractSparkContainer {
 
     @Override
+    public String identifier() {
+        return "connector-v1/spark:2.4.3";
+    }
+
+    @Override
     protected String getStartModuleName() {
         return "seatunnel-core-spark";
     }

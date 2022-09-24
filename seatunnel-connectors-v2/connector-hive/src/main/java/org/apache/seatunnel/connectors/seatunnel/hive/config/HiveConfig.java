@@ -27,7 +27,7 @@ import org.apache.hadoop.hive.metastore.api.Table;
 public class HiveConfig {
     public static final String TABLE_NAME = "table_name";
     public static final String METASTORE_URI = "metastore_uri";
-    public static final String TEXT_INPUT_FORMAT_CLASSNAME = "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextInputFormat";
+    public static final String TEXT_INPUT_FORMAT_CLASSNAME = "org.apache.hadoop.mapred.TextInputFormat";
     public static final String TEXT_OUTPUT_FORMAT_CLASSNAME = "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat";
     public static final String PARQUET_INPUT_FORMAT_CLASSNAME = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat";
     public static final String PARQUET_OUTPUT_FORMAT_CLASSNAME = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat";

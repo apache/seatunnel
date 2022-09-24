@@ -13,17 +13,19 @@ Read data from aliyun oss file system.
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [schema projection](../../concept/connector-v2-features.md)
-- [x] file format
-    - [x] text
-    - [x] csv
-    - [x] parquet
-    - [x] orc
-    - [x] json
+- [x] [exactly-once](../../concept/connector-v2-features.md)
 
+Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
+
+- [x] [schema projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] file format
+  - [x] text
+  - [x] csv
+  - [x] parquet
+  - [x] orc
+  - [x] json
 
 ## Options
 
@@ -56,6 +58,15 @@ upstream data is the following:
 ```json
 
 {"code":  200, "data":  "get success", "success":  true}
+
+```
+
+You can also save multiple pieces of data in one file and split them by newline:
+
+```json lines
+
+{"code":  200, "data":  "get success", "success":  true}
+{"code":  300, "data":  "get failed", "success":  false}
 
 ```
 

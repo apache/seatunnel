@@ -8,17 +8,25 @@ Read data from Hive.
 
 In order to use this connector, You must ensure your spark/flink cluster already integrated hive. The tested hive version is 2.3.9.
 
+**Tips: Hive Sink Connector can not add partition field to the output data now**
+
 ## Key features
 
+- [x] [batch](../../concept/connector-v2-features.md)
+- [ ] [stream](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
-By default, we use 2PC commit to ensure `exactly-once`
+Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
-- [ ] [schema projection](../../concept/connector-v2-features.md)
+- [x] [schema projection](../../concept/connector-v2-features.md)
+- [x] [parallelism](../../concept/connector-v2-features.md)
+- [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] file format
   - [x] text
+  - [x] csv
   - [x] parquet
   - [x] orc
+  - [x] json
 
 ## Options
 
