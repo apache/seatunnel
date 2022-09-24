@@ -68,18 +68,22 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         if (pluginConfig.hasPath(HttpConfig.SCHEMA)) {
             Config schema = pluginConfig.getConfig(HttpConfig.SCHEMA);
             this.rowType = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
+            // default use json format
+            String format = HttpConfig.DEFAULT_FORMAT;
+            if (pluginConfig.hasPath(HttpConfig.FORMAT)) {
+                format = pluginConfig.getString(HttpConfig.FORMAT);
+            }
+            switch (format) {
+                case HttpConfig.DEFAULT_FORMAT:
+                    this.deserializationSchema = new JsonDeserializationSchema(false, false, rowType);
+                    break;
+                default:
+                    // TODO: use format SPI
+                    throw new UnsupportedOperationException("Unsupported format: " + format);
+            }
         } else {
             this.rowType = SeaTunnelSchema.buildSimpleTextSchema();
-        }
-        // TODO: use format SPI
-        // default use json format
-        String format;
-        if (pluginConfig.hasPath(HttpConfig.FORMAT)) {
-            format = pluginConfig.getString(HttpConfig.FORMAT);
-            this.deserializationSchema = null;
-        } else {
-            format = HttpConfig.DEFAULT_FORMAT;
-            this.deserializationSchema = new JsonDeserializationSchema(false, false, rowType);
+            this.deserializationSchema = new SimpleTextDeserializationSchema(this.rowType);
         }
     }
 

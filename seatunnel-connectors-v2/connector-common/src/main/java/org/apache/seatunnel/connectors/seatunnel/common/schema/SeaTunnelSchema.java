@@ -33,7 +33,12 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeType;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
 import java.io.Serializable;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class SeaTunnelSchema implements Serializable {
@@ -108,6 +113,11 @@ public class SeaTunnelSchema implements Serializable {
         String valueGenericType = "";
         // convert type to uppercase
         type = type.toUpperCase();
+        String originContent = type;
+        if (type.contains("{") || type.contains("}")) {
+            // Row type
+            type = SqlType.ROW.name();
+        }
         if (type.contains("<") || type.contains(">")) {
             // Map type or Array type
             if (type.startsWith(SqlType.MAP.name())) {
@@ -188,26 +198,34 @@ public class SeaTunnelSchema implements Serializable {
             case TIMESTAMP:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             default:
-                throw new RuntimeException("Not support [row] type now");
+                return mapToSeaTunnelRowType(convertJsonToMap(originContent));
         }
     }
 
-    private static Map<String, String> convertConfig2Map(Config config) {
+    private static Map<String, String> convertConfigToMap(Config config) {
         // Because the entrySet in typesafe config couldn't keep key-value order
         // So use jackson parsing schema information into a map to keep key-value order
         ConfigRenderOptions options = ConfigRenderOptions.concise();
         String schema = config.root().render(options);
-        return JsonUtils.toMap(schema);
+        return convertJsonToMap(schema);
     }
 
-    public static SeaTunnelSchema buildWithConfig(Config schemaConfig) {
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(schemaConfig, FIELD_KEY);
-        if (!checkResult.isSuccess()) {
-            String errorMsg = String.format("Schema config need option [%s], please correct your config first", FIELD_KEY);
-            throw new RuntimeException(errorMsg);
-        }
-        Config fields = schemaConfig.getConfig(FIELD_KEY);
-        Map<String, String> fieldsMap = convertConfig2Map(fields);
+    private static Map<String, String> convertJsonToMap(String json) {
+        ObjectNode jsonNodes = JsonUtils.parseObject(json);
+        LinkedHashMap<String, String> fieldsMap = new LinkedHashMap<>();
+        jsonNodes.fields().forEachRemaining(field -> {
+            String key = field.getKey();
+            JsonNode value = field.getValue();
+            if (value.getNodeType() == JsonNodeType.OBJECT) {
+                fieldsMap.put(key, value.toString());
+            } else {
+                fieldsMap.put(key, value.textValue());
+            }
+        });
+        return fieldsMap;
+    }
+
+    private static SeaTunnelRowType mapToSeaTunnelRowType(Map<String, String> fieldsMap) {
         int fieldsNum = fieldsMap.size();
         int i = 0;
         String[] fieldsName = new String[fieldsNum];
@@ -220,8 +238,18 @@ public class SeaTunnelSchema implements Serializable {
             seaTunnelDataTypes[i] = dataType;
             i++;
         }
-        SeaTunnelRowType seaTunnelRowType = new SeaTunnelRowType(fieldsName, seaTunnelDataTypes);
-        return new SeaTunnelSchema(seaTunnelRowType);
+        return new SeaTunnelRowType(fieldsName, seaTunnelDataTypes);
+    }
+
+    public static SeaTunnelSchema buildWithConfig(Config schemaConfig) {
+        CheckResult checkResult = CheckConfigUtil.checkAllExists(schemaConfig, FIELD_KEY);
+        if (!checkResult.isSuccess()) {
+            String errorMsg = String.format("Schema config need option [%s], please correct your config first", FIELD_KEY);
+            throw new RuntimeException(errorMsg);
+        }
+        Config fields = schemaConfig.getConfig(FIELD_KEY);
+        Map<String, String> fieldsMap = convertConfigToMap(fields);
+        return new SeaTunnelSchema(mapToSeaTunnelRowType(fieldsMap));
     }
 
     public static SeaTunnelRowType buildSimpleTextSchema() {

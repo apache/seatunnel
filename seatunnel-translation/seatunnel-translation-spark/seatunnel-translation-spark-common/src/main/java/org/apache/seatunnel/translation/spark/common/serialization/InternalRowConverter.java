@@ -119,7 +119,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         return new SpecificInternalRow(values);
     }
 
-    private static Object convertMap(Map<?, ?> mapData, MapType<?, ?> mapType) {
+    private static ArrayBasedMapData convertMap(Map<?, ?> mapData, MapType<?, ?> mapType) {
         if (mapData == null || mapData.size() == 0) {
             return ArrayBasedMapData.apply(new Object[]{}, new Object[]{});
         }
@@ -132,7 +132,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         return ArrayBasedMapData.apply(keys, values);
     }
 
-    private static Object reconvertMap(MapData mapData, MapType<?, ?> mapType) {
+    private static Map<Object, Object> reconvertMap(MapData mapData, MapType<?, ?> mapType) {
         if (mapData == null || mapData.numElements() == 0) {
             return Collections.emptyMap();
         }
