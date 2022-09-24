@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.flink;
 
+import org.apache.flink.configuration.ConfigOption;
 import org.apache.seatunnel.apis.base.env.RuntimeEnv;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -47,10 +48,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URL;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+
+import static org.apache.flink.configuration.ConfigOptions.key;
 
 public class FlinkEnvironment implements RuntimeEnv {
 
@@ -181,7 +185,7 @@ public class FlinkEnvironment implements RuntimeEnv {
     }
 
     private void createStreamEnvironment() {
-        environment = StreamExecutionEnvironment.getExecutionEnvironment();
+        environment = creatMetricStreamEEnvironment();
         setTimeCharacteristic();
 
         setCheckpoint();
@@ -320,6 +324,43 @@ public class FlinkEnvironment implements RuntimeEnv {
                 checkpointConfig.setTolerableCheckpointFailureNumber(failNum);
             }
         }
+    }
+
+    public StreamExecutionEnvironment creatMetricStreamEEnvironment() {
+
+        if(!config.hasPath(ConfigKeyName.Metric_Class)){
+            return StreamExecutionEnvironment.getExecutionEnvironment();
+        }
+        //构建flink-metrics参数
+        ConfigOption<String> REPORTERS_LIST =
+                key("metrics.reporters")
+                        .stringType()
+                        .noDefaultValue();
+
+        ConfigOption<String> REPORTER_CLASS =
+                key("metrics.reporter.seatunnel_reporter.class")
+                        .stringType()
+                        .noDefaultValue();
+        ConfigOption<Duration> REPORTER_INTERVAL =
+                key("metrics.reporter.seatunnel_reporter.interval")
+                        .durationType()
+                        .defaultValue(Duration.ofSeconds(10));
+
+        ConfigOption<String> REPORTER_CONFIG_PARAMETER =
+                key("metrics.reporter.seatunnel_reporter.port")
+                        .stringType()
+                        .noDefaultValue();
+
+        Configuration seatunnel_reporter = new Configuration().set(REPORTERS_LIST, "seatunnel_reporter").set(REPORTER_CLASS, "org.apache.seatunnel.metrics.flink.SeatunnelMetricReporter");
+
+        if(config.hasPath(ConfigKeyName.Metric_Interval)){
+            Duration duration = Duration.ofSeconds(config.getLong(ConfigKeyName.Metric_Interval));
+            seatunnel_reporter.set(REPORTER_INTERVAL,duration);
+        }
+
+        return StreamExecutionEnvironment.getExecutionEnvironment(seatunnel_reporter);
+
+
     }
 
 }

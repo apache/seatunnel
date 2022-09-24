@@ -89,6 +89,7 @@
         <module>seatunnel-formats</module>
         <module>seatunnel-dist</module>
 	    <module>seatunnel-server</module>
+        <module>seatunnel-metrics</module>
     </modules>
 
     <profiles>

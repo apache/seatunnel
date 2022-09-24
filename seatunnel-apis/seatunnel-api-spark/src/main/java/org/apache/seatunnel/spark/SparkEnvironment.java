@@ -100,6 +100,9 @@ public class SparkEnvironment implements RuntimeEnv {
     public SparkEnvironment prepare() {
         SparkConf sparkConf = createSparkConf();
         SparkSession.Builder builder = SparkSession.builder().config(sparkConf);
+        if(config.hasPath("spark.metrics.class")){
+            builder.config("spark.metrics.conf.*.sink.console.class", "org.apache.spark.seatunnel.metrics.sink.SeatunnelMetricSink");
+        }
         if (enableHive) {
             builder.enableHiveSupport();
         }

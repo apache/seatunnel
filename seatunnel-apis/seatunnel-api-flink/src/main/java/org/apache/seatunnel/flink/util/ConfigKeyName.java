@@ -45,4 +45,9 @@ public class ConfigKeyName {
     public static final String MIN_STATE_RETENTION_TIME = "execution.query.state.min-retention";
     public static final String STATE_BACKEND = "execution.state.backend";
     public static final String PLANNER = "execution.planner";
+    public static final String Metric_Interval = "execution.metrics.interval";
+    public static final String Metric_Class = "execution.metrics.class";
+    public static final String Metric_Port = "execution.port";
+    public static final String Metric_JobName = "execution.jobName";
+    public static final String Metric_Host = "execution.host";
 }
