@@ -34,6 +34,10 @@ public class TimeUtils {
         return LocalTime.parse(time, FORMATTER_MAP.get(formatter));
     }
 
+    public static String toString(LocalTime time, Formatter formatter) {
+        return time.format(FORMATTER_MAP.get(formatter));
+    }
+
     public enum Formatter {
         HH_MM_SS("HH:mm:ss"),
         HH_MM_SS_SSS("HH:mm:ss.SSS");

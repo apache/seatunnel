@@ -34,22 +34,22 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.Map;
 
-public class TextDeserializationSchemaTest {
-    public String content = "[1,2,3,4,5,6]|" +
-            "{\"tyrantlucifer\": 18, \"Kris\": 21}|" +
-            "tyrantlucifer|" +
-            "true|" +
-            "1|" +
-            "2|" +
-            "3|" +
-            "4|" +
-            "6.66|" +
-            "7.77|" +
-            "8.8888888|" +
-            "null|" +
-            "tyrantlucifer|" +
-            "2022-09-24|" +
-            "22:45:00|" +
+public class TextFormatSchemaTest {
+    public String content = "[1,2,3,4,5,6]#" +
+            "{\"tyrantlucifer\":18,\"Kris\":21}#" +
+            "tyrantlucifer#" +
+            "true#" +
+            "1#" +
+            "2#" +
+            "3#" +
+            "4#" +
+            "6.66#" +
+            "7.77#" +
+            "8.8888888#" +
+            "#" +
+            "tyrantlucifer#" +
+            "2022-09-24#" +
+            "22:45:00#" +
             "2022-09-24 22:45:00";
 
     public SeaTunnelRowType seaTunnelRowType;
@@ -94,15 +94,21 @@ public class TextDeserializationSchemaTest {
     }
 
     @Test
-    public void testParseContent() throws IOException {
-        TextDeserializationSchema schema = TextDeserializationSchema.builder()
+    public void testParse() throws IOException {
+        TextDeserializationSchema deserializationSchema = TextDeserializationSchema.builder()
                 .seaTunnelRowType(seaTunnelRowType)
-                .delimiter("\\|")
+                .delimiter("#")
                 .build();
-        SeaTunnelRow seaTunnelRow = schema.deserialize(content.getBytes());
+        TextSerializationSchema serializationSchema = TextSerializationSchema.builder()
+                .seaTunnelRowType(seaTunnelRowType)
+                .delimiter("#")
+                .build();
+        SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(content.getBytes());
+        String data = new String(serializationSchema.serialize(seaTunnelRow));
         Assertions.assertEquals(((Map<?, ?>) (seaTunnelRow.getField(1))).get("tyrantlucifer"), 18);
         Assertions.assertEquals(((Map<?, ?>) (seaTunnelRow.getField(1))).get("Kris"), 21);
         Assertions.assertArrayEquals((byte[]) seaTunnelRow.getField(12), "tyrantlucifer".getBytes());
         Assertions.assertEquals(seaTunnelRow.getField(2), "tyrantlucifer");
+        Assertions.assertEquals(data, content);
     }
 }

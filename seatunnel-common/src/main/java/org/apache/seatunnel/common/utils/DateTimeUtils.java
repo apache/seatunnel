@@ -37,6 +37,10 @@ public class DateTimeUtils {
         return LocalDateTime.parse(dateTime, FORMATTER_MAP.get(formatter));
     }
 
+    public static String toString(LocalDateTime dateTime, Formatter formatter) {
+        return dateTime.format(FORMATTER_MAP.get(formatter));
+    }
+
     public enum Formatter {
         YYYY_MM_DD_HH_MM_SS("yyyy-MM-dd HH:mm:ss"),
         YYYY_MM_DD_HH_MM_SS_SPOT("yyyy.MM.dd HH:mm:ss"),

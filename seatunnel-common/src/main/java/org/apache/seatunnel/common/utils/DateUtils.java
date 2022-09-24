@@ -35,6 +35,10 @@ public class DateUtils {
         return LocalDate.parse(date, FORMATTER_MAP.get(formatter));
     }
 
+    public static String toString(LocalDate date, Formatter formatter) {
+        return date.format(FORMATTER_MAP.get(formatter));
+    }
+
     public enum Formatter {
         YYYY_MM_DD("yyyy-MM-dd"),
         YYYY_MM_DD_SPOT("yyyy.MM.dd"),

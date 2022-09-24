@@ -106,13 +106,6 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 Map<String, String> fieldsMap = JsonUtils.toMap(field);
                 fieldsMap.forEach((key, value) -> objectMap.put(convert(key, keyType), convert(value, valueType)));
                 return objectMap;
-            case ROW:
-                String[] splits = field.split(delimiter);
-                Object[] objects = new Object[splits.length];
-                for (int i = 0; i < splits.length; i++) {
-                    objects[i] = convert(splits[i], seaTunnelRowType.getFieldType(i));
-                }
-                return new SeaTunnelRow(objects);
             case STRING:
                 return field;
             case BOOLEAN:
@@ -142,9 +135,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
             case TIMESTAMP:
                 return DateTimeUtils.parse(field, dateTimeFormatter);
             default:
-                // do nothing
-                // never get in there
-                return field;
+                throw new UnsupportedOperationException("SeaTunnel format text not supported for parsing [SeaTunnelRow] type");
         }
     }
 }
