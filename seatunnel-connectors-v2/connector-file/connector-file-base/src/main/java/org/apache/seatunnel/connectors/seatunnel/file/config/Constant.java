@@ -38,4 +38,5 @@ public class Constant {
     public static final String SINK_COLUMNS = "sink_columns";
     public static final String FILENAME_TIME_FORMAT = "filename_time_format";
     public static final String IS_ENABLE_TRANSACTION = "is_enable_transaction";
+    public static final String MAX_ROWS_IN_MEMORY = "max_rows_in_memory";
 }

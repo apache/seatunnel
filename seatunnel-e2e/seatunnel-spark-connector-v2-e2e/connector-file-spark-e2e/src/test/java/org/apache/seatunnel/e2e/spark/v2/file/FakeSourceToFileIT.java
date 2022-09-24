@@ -57,4 +57,14 @@ public class FakeSourceToFileIT extends SparkContainer {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_local_json.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    /**
+     *  fake source -> local excel file sink
+     */
+    @Test
+    public void testFakeSourceToLocalFileExcel() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_local_excel.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
 }

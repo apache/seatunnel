@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
 
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -30,6 +31,7 @@ import org.apache.poi.ss.usermodel.CreationHelper;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.IOException;
@@ -47,10 +49,14 @@ public class ExcelGenerator {
     private SeaTunnelRowType seaTunnelRowType;
     private Sheet st;
 
-    public ExcelGenerator(List<Integer> sinkColumnsIndexInRow, SeaTunnelRowType seaTunnelRowType) {
+    public ExcelGenerator(List<Integer> sinkColumnsIndexInRow, SeaTunnelRowType seaTunnelRowType, TextFileSinkConfig textFileSinkConfig) {
         this.sinkColumnsIndexInRow = sinkColumnsIndexInRow;
         this.seaTunnelRowType = seaTunnelRowType;
-        wb = new XSSFWorkbook();
+        if (textFileSinkConfig.getMaxRowsInMemory() > 0) {
+            wb = new SXSSFWorkbook(textFileSinkConfig.getMaxRowsInMemory());
+        } else {
+            wb = new XSSFWorkbook();
+        }
         this.st = wb.createSheet("Sheet1");
         Row row = st.createRow(this.row);
         for (Integer i : sinkColumnsIndexInRow) {
@@ -75,11 +81,8 @@ public class ExcelGenerator {
     }
 
     public void flushAndCloseExcel(OutputStream output) throws IOException {
-        if (wb != null) {
-            wb.write(output);
-            wb.close();
-            wb = null;
-        }
+        wb.write(output);
+        wb.close();
     }
 
     private void makeConverter(SeaTunnelDataType<?> type, Object value, Cell cell) {

@@ -63,7 +63,7 @@ public class ExcelWriteStrategy extends AbstractWriteStrategy {
     private ExcelGenerator getOrCreateExcelGenerator(@NonNull String filePath) {
         ExcelGenerator excelGenerator = this.beingWrittenWriter.get(filePath);
         if (excelGenerator == null) {
-            excelGenerator = new ExcelGenerator(sinkColumnsIndexInRow, seaTunnelRowType);
+            excelGenerator = new ExcelGenerator(sinkColumnsIndexInRow, seaTunnelRowType, textFileSinkConfig);
             this.beingWrittenWriter.put(filePath, excelGenerator);
         }
         return excelGenerator;

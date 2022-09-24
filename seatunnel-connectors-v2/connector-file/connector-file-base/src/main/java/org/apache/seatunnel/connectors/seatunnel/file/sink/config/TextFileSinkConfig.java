@@ -64,6 +64,8 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
 
     private List<Integer> partitionFieldsIndexInRow;
 
+    private int maxRowsInMemory;
+
     public TextFileSinkConfig(@NonNull Config config, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
         super(config);
         checkArgument(!CollectionUtils.isEmpty(Arrays.asList(seaTunnelRowTypeInfo.getFieldNames())));
@@ -142,6 +144,10 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
             this.partitionFieldsIndexInRow = this.partitionFieldList.stream()
                 .map(columnsMap::get)
                 .collect(Collectors.toList());
+        }
+
+        if (config.hasPath(Constant.MAX_ROWS_IN_MEMORY)) {
+            this.maxRowsInMemory = config.getInt(Constant.MAX_ROWS_IN_MEMORY);
         }
     }
 }

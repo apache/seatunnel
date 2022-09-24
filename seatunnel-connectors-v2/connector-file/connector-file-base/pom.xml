@@ -36,6 +36,8 @@
         <commons.lang3.version>3.4</commons.lang3.version>
         <flink.hadoop.version>2.7.5-7.0</flink.hadoop.version>
         <parquet-avro.version>1.12.3</parquet-avro.version>
+        <poi.version>4.1.2</poi.version>
+        <poi-ooxml.version>4.1.2</poi-ooxml.version>
     </properties>
 
     <dependencyManagement>
@@ -126,6 +128,17 @@
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-shaded-hadoop-2</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi</artifactId>
+            <version>${poi.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi-ooxml.version}</version>
         </dependency>
     </dependencies>
 
