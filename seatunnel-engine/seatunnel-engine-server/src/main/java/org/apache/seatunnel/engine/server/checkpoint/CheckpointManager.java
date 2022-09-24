@@ -131,7 +131,6 @@ public class CheckpointManager {
         switch (executionState) {
             case FAILED:
             case CANCELED:
-            case CANCELING:
                 coordinatorMap.get(groupLocation.getPipelineId()).cleanPendingCheckpoint();
                 return;
             default:

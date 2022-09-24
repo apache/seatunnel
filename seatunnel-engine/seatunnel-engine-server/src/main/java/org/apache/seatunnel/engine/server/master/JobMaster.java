@@ -184,6 +184,7 @@ public class JobMaster extends Thread {
     public void handleCheckpointTimeout(long pipelineId) {
         this.physicalPlan.getPipelineList().forEach(pipeline -> {
             if (pipeline.getPipelineLocation().getPipelineId() == pipelineId) {
+                LOGGER.warning(String.format("%s checkpoint timeout, cancel the pipeline", pipeline.getPipelineFullName()));
                 pipeline.cancelPipeline();
             }
         });
