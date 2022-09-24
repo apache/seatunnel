@@ -2,7 +2,7 @@
 
 This article introduces the new interface and the new code structure on account of the newly designed API for Connectors
 in Apache SeaTunnel. This helps developers quickly understand API and transformation layer improvements. On the other
-hand, it can guide contributors how to use the new API to develop new connectors,See
+hand, it can guide contributors how to use the new API to develop new connectors.See
 this [issue](https://github.com/apache/incubator-seatunnel/issues/1608) for details.
 
 ## **Code Structure**
@@ -107,11 +107,13 @@ completed by implementing this interface.
   these 100 pieces of data for batch processing. Stream processing does not have this requirement, so most SourceReaders
   with integrated stream batches will have the following code:
 
-        if ( Boundedness . BOUNDED . equals ( context . getBoundedness ())) 
-        {
-        // signal to the source that we have reached the end of the data. context . signalNoMoreElement ();
-        break ;
-        }
+```java
+if(Boundedness.BOUNDED.equals(context.getBoundedness())){
+    // signal to the source that we have reached the end of the data.
+    context.signalNoMoreElement();
+    break;
+    }
+```
 
 It means that SeaTunnel will be notified only in batch mode.
 
