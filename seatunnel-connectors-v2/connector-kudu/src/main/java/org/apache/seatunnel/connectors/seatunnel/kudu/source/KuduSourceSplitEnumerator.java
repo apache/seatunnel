@@ -110,12 +110,11 @@ public class KuduSourceSplitEnumerator implements SourceSplitEnumerator<KuduSour
     }
 
     private void getBatchSizeAndBatchNum(int parallelism) {
-        batchNum = parallelism;
+        this.batchNum = parallelism;
         long maxElemCount = (maxVal - minVal) + 1;
         if (batchNum > maxElemCount) {
             batchNum = (int) maxElemCount;
         }
-        this.batchNum = batchNum;
         this.batchSize = new Double(Math.ceil((double) maxElemCount / batchNum)).longValue();
     }
 
