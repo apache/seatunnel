@@ -99,7 +99,13 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
     private Object resolveObject(Object field, SeaTunnelDataType<?> fieldType) {
         switch (fieldType.getSqlType()) {
             case ARRAY:
-                List<Object> origArray = ((ArrayList<Object>) field).stream().map(item -> ((GenericData.Record) item).get("array_element")).collect(Collectors.toList());
+                List<Object> origArray = ((ArrayList<Object>) field).stream().map(item -> {
+                    try {
+                        return ((GenericData.Record) item).get("array_element");
+                    } catch (Exception e) {
+                        return item;
+                    }
+                }).collect(Collectors.toList());
                 SeaTunnelDataType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
                 switch (elementType.getSqlType()) {
                     case STRING:
@@ -275,7 +281,12 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                         SeaTunnelDataType<?> valueType = parquetType2SeaTunnelType(groupType.getType(1));
                         return new MapType<>(keyType, valueType);
                     case LIST:
-                        Type elementType = type.asGroupType().getType(0).asGroupType().getType(0);
+                        Type elementType;
+                        try {
+                            elementType = type.asGroupType().getType(0).asGroupType().getType(0);
+                        } catch (Exception e) {
+                            elementType = type.asGroupType().getType(0);
+                        }
                         SeaTunnelDataType<?> fieldType = parquetType2SeaTunnelType(elementType);
                         switch (fieldType.getSqlType()) {
                             case STRING:
