@@ -8,6 +8,8 @@ Read data from Hive.
 
 In order to use this connector, You must ensure your spark/flink cluster already integrated hive. The tested hive version is 2.3.9.
 
+**Tips: Hive Sink Connector can not add partition field to the output data now**
+
 ## Key features
 
 - [x] [batch](../../concept/connector-v2-features.md)
