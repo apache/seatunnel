@@ -35,6 +35,7 @@
         <module>connector-clickhouse</module>
         <module>connector-console</module>
         <module>connector-fake</module>
+        <module>connector-flink-table-store</module>
         <module>connector-http</module>
         <module>connector-jdbc</module>
         <module>connector-kafka</module>
