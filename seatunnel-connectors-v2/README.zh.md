@@ -1,6 +1,6 @@
 ## 目的
 
-因为SeaTunnel 为connectors设计了新的API，所以通过这篇文章来介绍新的接口以及新的代码结构，方便开发者快速的帮助新API和翻译层完善，以及开发出新的Connector.
+SeaTunnel为与计算引擎进行解耦，设计了新的连接器API，通过这篇文章来介绍新的接口以及新的代码结构，方便开发者快速上手使用新版API开发连接器并理解新版API运行原理.
 详细设计请查看该[提议](https://github.com/apache/incubator-seatunnel/issues/1608) 。
 
 ## 代码结构
@@ -77,7 +77,7 @@
   通知SeaTunnel没有数据读取了，那么就可以利用这100条数据进行批处理。流处理没有这个要求，那么大多数流批一体的SourceReader都会出现如下代码：
 
 ```java
-if(Boundedness.BOUNDED.equals(context.getBoundedness())){
+if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
     // signal to the source that we have reached the end of the data.
     context.signalNoMoreElement();
     break;
