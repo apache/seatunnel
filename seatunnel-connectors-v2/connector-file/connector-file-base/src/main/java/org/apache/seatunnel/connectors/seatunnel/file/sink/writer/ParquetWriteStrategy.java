@@ -17,9 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
 
 import lombok.NonNull;
@@ -36,7 +40,12 @@ import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.util.HadoopOutputFile;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -54,7 +63,11 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         ParquetWriter<GenericRecord> writer = getOrCreateWriter(filePath);
         Schema schema = buildSchemaWithRowType();
         GenericRecordBuilder recordBuilder = new GenericRecordBuilder(schema);
-        sinkColumnsIndexInRow.forEach(index -> recordBuilder.set(seaTunnelRowType.getFieldName(index), seaTunnelRow.getField(index)));
+        sinkColumnsIndexInRow.forEach(index -> {
+            String fieldName = seaTunnelRowType.getFieldName(index);
+            Object field = seaTunnelRow.getField(index);
+            recordBuilder.set(fieldName, resolveObject(field, seaTunnelRowType.getFieldType(index)));
+        });
         GenericData.Record record = recordBuilder.build();
         try {
             writer.write(record);
@@ -103,39 +116,100 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         return writer;
     }
 
+    private Object resolveObject(Object data, SeaTunnelDataType<?> seaTunnelDataType) {
+        switch (seaTunnelDataType.getSqlType()) {
+            case ARRAY:
+                BasicType<?> elementType = ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
+                return new GenericData.Array<>(Schema.createArray(seaTunnelDataType2ParquetSchema(elementType)), Arrays.asList((Object[]) data));
+            case MAP:
+            case STRING:
+            case BOOLEAN:
+            case TINYINT:
+            case SMALLINT:
+            case INT:
+            case BIGINT:
+            case FLOAT:
+            case DOUBLE:
+            case NULL:
+            case BYTES:
+                return data;
+            case DATE:
+                return ((LocalDate) data).toEpochDay();
+            case TIMESTAMP:
+                return ((LocalDateTime) data).toEpochSecond(ZoneOffset.UTC);
+            case DECIMAL:
+                byte[] bytes = ((BigDecimal) data).toPlainString().getBytes();
+                return new GenericData.Fixed(seaTunnelDataType2ParquetSchema(seaTunnelDataType), bytes);
+            case ROW:
+            default:
+                String errorMsg = String.format("SeaTunnel file connector is not supported for this data type [%s]", seaTunnelDataType.getSqlType());
+                throw new UnsupportedOperationException(errorMsg);
+        }
+    }
+
+    private Schema seaTunnelDataType2ParquetSchema(SeaTunnelDataType<?> seaTunnelDataType) {
+        switch (seaTunnelDataType.getSqlType()) {
+            case ARRAY:
+                BasicType<?> elementType = ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
+//                Schema.Field elementField = new Schema.Field("array_element", seaTunnelDataType2ParquetSchema(elementType));
+//                Schema element = Schema.createRecord("array_element", null, null, false, Collections.singletonList(elementField));
+                return Schema.createArray(seaTunnelDataType2ParquetSchema(elementType));
+            case MAP:
+                SeaTunnelDataType<?> valueType = ((MapType<?, ?>) seaTunnelDataType).getValueType();
+                return Schema.createMap(seaTunnelDataType2ParquetSchema(valueType));
+            case STRING:
+                return Schema.create(Schema.Type.STRING);
+            case BOOLEAN:
+                return Schema.create(Schema.Type.BOOLEAN);
+            case TINYINT:
+            case SMALLINT:
+            case INT:
+            case DATE:
+                return Schema.create(Schema.Type.INT);
+            case BIGINT:
+            case TIMESTAMP:
+                return Schema.create(Schema.Type.LONG);
+            case FLOAT:
+                return Schema.create(Schema.Type.FLOAT);
+            case DOUBLE:
+                return Schema.create(Schema.Type.DOUBLE);
+            case DECIMAL:
+                return Schema.createFixed("decimal", null,  null, ((DecimalType) seaTunnelDataType).getPrecision());
+            case NULL:
+                return Schema.create(Schema.Type.NULL);
+            case BYTES:
+                return Schema.create(Schema.Type.BYTES);
+            case ROW:
+                ArrayList<Schema.Field> fields = new ArrayList<>();
+                SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) seaTunnelDataType).getFieldTypes();
+                String[] fieldNames = ((SeaTunnelRowType) seaTunnelDataType).getFieldNames();
+                for (int i = 0; i < fieldTypes.length; i++) {
+                    Schema schema = seaTunnelDataType2ParquetSchema(fieldTypes[i]);
+                    Schema.Field field = new Schema.Field(fieldNames[i], schema, null, null);
+                    fields.add(field);
+                }
+                return Schema.createRecord("SeaTunnelRecord",
+                        "The record generated by SeaTunnel file connector",
+                        "org.apache.parquet.avro",
+                        false,
+                        fields);
+            default:
+                String errorMsg = String.format("SeaTunnel file connector is not supported for this data type [%s]", seaTunnelDataType.getSqlType());
+                throw new UnsupportedOperationException(errorMsg);
+        }
+    }
+
     private Schema buildSchemaWithRowType() {
         ArrayList<Schema.Field> fields = new ArrayList<>();
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         String[] fieldNames = seaTunnelRowType.getFieldNames();
         sinkColumnsIndexInRow.forEach(index -> {
-            if (BasicType.BOOLEAN_TYPE.equals(fieldTypes[index])) {
-                Schema.Field field = new Schema.Field(fieldNames[index], Schema.create(Schema.Type.BOOLEAN), null, null);
-                fields.add(field);
-            } else if (BasicType.SHORT_TYPE.equals(fieldTypes[index]) || BasicType.INT_TYPE.equals(fieldTypes[index])) {
-                Schema.Field field = new Schema.Field(fieldNames[index], Schema.create(Schema.Type.INT), null, null);
-                fields.add(field);
-            } else if (BasicType.LONG_TYPE.equals(fieldTypes[index])) {
-                Schema.Field field = new Schema.Field(fieldNames[index], Schema.create(Schema.Type.LONG), null, null);
-                fields.add(field);
-            } else if (BasicType.FLOAT_TYPE.equals(fieldTypes[index])) {
-                Schema.Field field = new Schema.Field(fieldNames[index], Schema.create(Schema.Type.FLOAT), null, null);
-                fields.add(field);
-            } else if (BasicType.DOUBLE_TYPE.equals(fieldTypes[index])) {
-                Schema.Field field = new Schema.Field(fieldNames[index], Schema.create(Schema.Type.DOUBLE), null, null);
-                fields.add(field);
-            } else if (BasicType.STRING_TYPE.equals(fieldTypes[index])) {
-                Schema.Field field = new Schema.Field(fieldNames[index], Schema.create(Schema.Type.STRING), null, null);
-                fields.add(field);
-            } else if (BasicType.BYTE_TYPE.equals(fieldTypes[index])) {
-                Schema.Field field = new Schema.Field(fieldNames[index], Schema.create(Schema.Type.BYTES), null, null);
-                fields.add(field);
-            } else if (BasicType.VOID_TYPE.equals(fieldTypes[index])) {
-                Schema.Field field = new Schema.Field(fieldNames[index], Schema.create(Schema.Type.NULL), null, null);
-                fields.add(field);
-            }
+            Schema schema = seaTunnelDataType2ParquetSchema(fieldTypes[index]);
+            Schema.Field field = new Schema.Field(fieldNames[index], schema);
+            fields.add(field);
         });
-        return Schema.createRecord("SeatunnelRecord",
-                "The record generated by seatunnel file connector",
+        return Schema.createRecord("SeaTunnelRecord",
+                "The record generated by SeaTunnel file connector",
                 "org.apache.parquet.avro",
                 false,
                 fields);
