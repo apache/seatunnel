@@ -19,12 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.config;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseTextFileConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.Constant;
 import org.apache.seatunnel.connectors.seatunnel.file.config.PartitionConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.FileSinkPartitionDirNameGenerator;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -34,6 +32,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -47,9 +46,6 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
 
     private List<String> partitionFieldList;
 
-    /**
-     * default is ${k0}=${v0}/${k1}=${v1}/... {@link FileSinkPartitionDirNameGenerator#generatorPartitionDir(SeaTunnelRow)} ()}
-     */
     private String partitionDirExpression;
 
     private boolean isPartitionFieldWriteInFile = false;
@@ -81,15 +77,17 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
             this.sinkColumnList = Arrays.asList(seaTunnelRowTypeInfo.getFieldNames());
         }
 
-        if (config.hasPath(Constant.PARTITION_BY) && !CollectionUtils.isEmpty(config.getStringList(Constant.PARTITION_BY))) {
+        if (config.hasPath(Constant.PARTITION_BY)) {
             this.partitionFieldList = config.getStringList(Constant.PARTITION_BY);
+        } else {
+            this.partitionFieldList = Collections.emptyList();
         }
 
         if (config.hasPath(Constant.PARTITION_DIR_EXPRESSION) && !StringUtils.isBlank(config.getString(Constant.PARTITION_DIR_EXPRESSION))) {
             this.partitionDirExpression = config.getString(Constant.PARTITION_DIR_EXPRESSION);
         }
 
-        if (config.hasPath(Constant.IS_PARTITION_FIELD_WRITE_IN_FILE) && config.getBoolean(Constant.IS_PARTITION_FIELD_WRITE_IN_FILE)) {
+        if (config.hasPath(Constant.IS_PARTITION_FIELD_WRITE_IN_FILE)) {
             this.isPartitionFieldWriteInFile = config.getBoolean(Constant.IS_PARTITION_FIELD_WRITE_IN_FILE);
         }
 
@@ -105,8 +103,8 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
             this.fileNameTimeFormat = config.getString(Constant.FILENAME_TIME_FORMAT);
         }
 
-        if (config.hasPath(Constant.IS_ENABLE_TRANSACTION) && !config.getBoolean(Constant.IS_ENABLE_TRANSACTION)) {
-            this.isEnableTransaction = isEnableTransaction();
+        if (config.hasPath(Constant.IS_ENABLE_TRANSACTION)) {
+            this.isEnableTransaction = config.getBoolean(Constant.IS_ENABLE_TRANSACTION);
         }
 
         if (this.isEnableTransaction && !this.fileNameExpression.contains(Constant.TRANSACTION_EXPRESSION)) {

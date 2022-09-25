@@ -56,7 +56,7 @@ public class FakeRandomDataTest {
             if (fieldTypes[i].getSqlType() != SqlType.NULL) {
                 Assertions.assertNotNull(fields[i]);
             } else {
-                Assertions.assertSame(fields[i], Void.TYPE);
+                Assertions.assertSame(fields[i], null);
             }
             if (fieldTypes[i].getSqlType() == SqlType.MAP) {
                 Assertions.assertTrue(fields[i] instanceof Map);

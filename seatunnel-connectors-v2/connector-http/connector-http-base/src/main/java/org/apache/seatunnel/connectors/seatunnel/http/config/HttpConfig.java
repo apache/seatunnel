@@ -27,4 +27,8 @@ public class HttpConfig {
     public static final String SCHEMA = "schema";
     public static final String FORMAT = "format";
     public static final String DEFAULT_FORMAT = "json";
+    public static final String POLL_INTERVAL_MILLS = "poll_interval_ms";
+    public static final String RETRY = "retry";
+    public static final String RETRY_BACKOFF_MULTIPLIER_MS = "retry_backoff_multiplier_ms";
+    public static final String RETRY_BACKOFF_MAX_MS = "retry_backoff_max_ms";
 }

@@ -114,7 +114,7 @@ public class FakeRandomData {
         } else if (fieldType instanceof PrimitiveByteArrayType) {
             return RandomUtils.nextBytes(3);
         } else if (VOID_TYPE.equals(fieldType) || fieldType == null) {
-            return Void.TYPE;
+            return null;
         } else {
             throw new UnsupportedOperationException("Unexpected value: " + fieldType);
         }
