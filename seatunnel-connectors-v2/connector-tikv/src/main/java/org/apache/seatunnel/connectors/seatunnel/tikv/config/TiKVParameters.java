@@ -72,7 +72,7 @@ public class TiKVParameters implements Serializable {
         }
 
         // default KEY
-        this.tikvDataType = tikvDataType.getDataType(config.getString(TiKVConfig.DATA_TYPE));
+        this.tikvDataType = TiKVDataType.getDataType(config.getString(TiKVConfig.DATA_TYPE));
     }
 
 }

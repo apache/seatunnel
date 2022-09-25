@@ -1,0 +1,24 @@
+version: '2.1'
+
+services:
+  pd:
+    image: pingcap/pd:latest
+    ports:
+      - "2379:2379"
+    command:
+      - --name=pd
+      - --client-urls=http://0.0.0.0:2379
+      - --peer-urls=http://0.0.0.0:2380
+      - --advertise-client-urls=http://pd:2379
+      - --advertise-peer-urls=http://pd:2380
+      - --initial-cluster=pd=http://pd:2380
+  tikv:
+    image: pingcap/tikv:latest
+    ports:
+      - "20160:20160"
+    command:
+      - --addr=0.0.0.0:20160
+      - --advertise-addr=tikv:20160
+      - --pd=pd:2379
+    depends_on:
+      - "pd"

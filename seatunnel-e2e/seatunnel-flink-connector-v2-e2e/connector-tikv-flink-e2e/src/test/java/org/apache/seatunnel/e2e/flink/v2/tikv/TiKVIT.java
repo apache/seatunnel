@@ -60,7 +60,6 @@ public class TiKVIT extends FlinkContainer {
     // tidb
     private static final String TIKV_CONTAINER_HOST = "flink_e2e_tikv";
     private static final String PINGCAP_TIKV_IMAGE = "pingcap/tikv:latest";
-    private GenericContainer<?> tidbContainer;
     private GenericContainer<?> pdContainer;
     private GenericContainer<?> tikvContainer;
     private ClientSession clientSession;
@@ -75,6 +74,8 @@ public class TiKVIT extends FlinkContainer {
         pdContainer = new GenericContainer<>(PINGCAP_PD_IMAGE)
             .withNetwork(NETWORK)
             .withNetworkAliases(PD_CONTAINER_HOST)
+            .withEnv("name", "PD_CONTAINER_HOST")
+            .withEnv("client-urls", "http://0.0.0.0:2379")
             .withLogConsumer(new Slf4jLogConsumer(log));
         pdContainer.setPortBindings(Lists.newArrayList(String.format("%s:%s", PD_PORT, PD_PORT)));
         Startables.deepStart(Stream.of(pdContainer)).join();
@@ -88,15 +89,6 @@ public class TiKVIT extends FlinkContainer {
         tikvContainer.setPortBindings(Lists.newArrayList(String.format("%s:%s", TIKV_PORT, TIKV_PORT)));
         Startables.deepStart(Stream.of(tikvContainer)).join();
         log.info("tikv container started");
-
-        // tidb
-        tidbContainer = new GenericContainer<>(PINGCAP_TIDB_IMAGE)
-            .withNetwork(NETWORK)
-            .withNetworkAliases(TIDB_CONTAINER_HOST)
-            .withLogConsumer(new Slf4jLogConsumer(log));
-        tidbContainer.setPortBindings(Lists.newArrayList(String.format("%s:%s", TIDB_PORT, TIDB_PORT)));
-        Startables.deepStart(Stream.of(tidbContainer)).join();
-        log.info("Tidb container started");
 
         given().ignoreExceptions()
             .await()
@@ -144,7 +136,6 @@ public class TiKVIT extends FlinkContainer {
     public void close() {
         try {
             clientSession.close();
-            tidbContainer.close();
             pdContainer.close();
             tikvContainer.close();
         } catch (Exception e) {

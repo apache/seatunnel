@@ -115,6 +115,7 @@ public enum TiKVDataType {
 
     /**
      * default get
+     * example: {"content":"Hello"}
      *
      * @param client         RawKVClient
      * @param tikvParameters tiKV parameters
@@ -122,7 +123,8 @@ public enum TiKVDataType {
      */
     public List<String> get(RawKVClient client, TiKVParameters tikvParameters) {
         return client.get(ByteString.copyFromUtf8(tikvParameters.getKeyField()))
-            .map(value -> Collections.singletonList(value.toStringUtf8()))
+            .map(ByteString::toStringUtf8)
+            .map(Collections::singletonList)
             .orElse(new ArrayList<>());
     }
 
@@ -143,9 +145,9 @@ public enum TiKVDataType {
      * @param dataType get key type
      * @return TiKVDataType
      */
-    public TiKVDataType getDataType(String dataType) {
+    public static TiKVDataType getDataType(String dataType) {
         return Arrays.stream(values())
-            .filter(e -> this.name().equalsIgnoreCase(dataType))
+            .filter(e -> e.name().equalsIgnoreCase(dataType))
             .findFirst()
             .orElse(TiKVDataType.KEY);
     }
