@@ -100,9 +100,7 @@ public class SparkEnvironment implements RuntimeEnv {
     public SparkEnvironment prepare() {
         SparkConf sparkConf = createSparkConf();
         SparkSession.Builder builder = SparkSession.builder().config(sparkConf);
-        if(config.hasPath("spark.metrics.class")){
-            builder.config("spark.metrics.conf.*.sink.console.class", "org.apache.spark.seatunnel.metrics.sink.SeatunnelMetricSink");
-        }
+        creatMetricBuilder(builder);
         if (enableHive) {
             builder.enableHiveSupport();
         }
@@ -180,6 +178,22 @@ public class SparkEnvironment implements RuntimeEnv {
             fromDs = ds;
         }
         return sink.output(fromDs, environment);
+    }
+
+    private SparkSession.Builder creatMetricBuilder(SparkSession.Builder builder){
+        if(config.hasPath("spark.metrics.class")){
+            builder.config("spark.metrics.conf.*.sink.console.class", "org.apache.spark.seatunnel.metrics.sink.SeatunnelMetricSink");
+            if(config.hasPath("spark.metrics.host")){
+                builder.config("spark.metrics.conf.*.sink.console.host", config.getString("spark.metrics.host"));
+            }
+            if(config.hasPath("spark.metrics.port")){
+                builder.config("spark.metrics.conf.*.sink.console.port", config.getString("spark.metrics.port"));
+            }
+            if(config.hasPath("spark.metrics.jobName")){
+                builder.config("spark.metrics.conf.*.sink.console.jobName", config.getString("spark.metrics.jobName"));
+            }
+        }
+        return builder;
     }
 }
 

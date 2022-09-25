@@ -18,11 +18,18 @@ import java.util.Map;
 public class SeatunnelMetricReporter extends AbstractSeatunnelReporter implements Scheduled {
     private static final Logger log = LoggerFactory.getLogger(SeatunnelMetricReporter.class);
     private MetricReporter reporter;
+    private String host;
+    private int port;
+    private String jobName;
 
     @Override
     public void open(MetricConfig metricConfig) {
         MetricConfig config = metricConfig;
         config.isEmpty();
+        host = config.getString("host","localhost");
+        port = config.getInteger("port",9091);
+        jobName = config.getString("jobName","flinkJob");
+        //config.
         //String string = metricConfig.getString("name", "de");
         //log.info("StreamMetricReporter init:{}", string);
     }
@@ -87,7 +94,8 @@ public class SeatunnelMetricReporter extends AbstractSeatunnelReporter implement
         }
         //todo handle user config
         //reporter = reporter.open();
-        reporter = new PrometheusPushGatewayReporter("seatunnel_flink_prometheus_job", "localhost", 9091);
+        //String host =
+        reporter = new PrometheusPushGatewayReporter(jobName, host, port);
         reporter.report(gaugesIndex, countersIndex, histogramsIndex, metersIndex);
 
     }

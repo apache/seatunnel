@@ -47,7 +47,7 @@ public class ConfigKeyName {
     public static final String PLANNER = "execution.planner";
     public static final String Metric_Interval = "execution.metrics.interval";
     public static final String Metric_Class = "execution.metrics.class";
-    public static final String Metric_Port = "execution.port";
-    public static final String Metric_JobName = "execution.jobName";
-    public static final String Metric_Host = "execution.host";
+    public static final String Metric_Port = "execution.metrics.port";
+    public static final String Metric_JobName = "execution.metrics.jobName";
+    public static final String Metric_Host = "execution.metrics.host";
 }

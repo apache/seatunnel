@@ -346,8 +346,16 @@ public class FlinkEnvironment implements RuntimeEnv {
                         .durationType()
                         .defaultValue(Duration.ofSeconds(10));
 
-        ConfigOption<String> REPORTER_CONFIG_PARAMETER =
+        ConfigOption<String> REPORTER_CONFIG_PORT =
                 key("metrics.reporter.seatunnel_reporter.port")
+                        .stringType()
+                        .noDefaultValue();
+        ConfigOption<String> REPORTER_CONFIG_HOST =
+                key("metrics.reporter.seatunnel_reporter.host")
+                        .stringType()
+                        .noDefaultValue();
+        ConfigOption<String> REPORTER_CONFIG_JOB_NAME =
+                key("metrics.reporter.seatunnel_reporter.jobName")
                         .stringType()
                         .noDefaultValue();
 
@@ -356,6 +364,18 @@ public class FlinkEnvironment implements RuntimeEnv {
         if(config.hasPath(ConfigKeyName.Metric_Interval)){
             Duration duration = Duration.ofSeconds(config.getLong(ConfigKeyName.Metric_Interval));
             seatunnel_reporter.set(REPORTER_INTERVAL,duration);
+        }
+
+        if(config.hasPath(ConfigKeyName.Metric_Port)){
+            seatunnel_reporter.set(REPORTER_CONFIG_PORT,config.getString(ConfigKeyName.Metric_Port));
+        }
+
+        if(config.hasPath(ConfigKeyName.Metric_Host)){
+            seatunnel_reporter.set(REPORTER_CONFIG_HOST,config.getString(ConfigKeyName.Metric_Host));
+        }
+
+        if(config.hasPath(ConfigKeyName.Metric_JobName)){
+            seatunnel_reporter.set(REPORTER_CONFIG_JOB_NAME,config.getString(ConfigKeyName.Metric_JobName));
         }
 
         return StreamExecutionEnvironment.getExecutionEnvironment(seatunnel_reporter);

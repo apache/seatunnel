@@ -102,7 +102,7 @@ abstract class SeatunnelMetricSink(property: Properties,
           0.99 -> metric.getSnapshot.get99thPercentile()
         }), newMetricInfo(metricName, dimensionKeys, dimensionValues))
       }
-      val reporter = new PrometheusPushGatewayReporter("seatunnel_prometheus_spark_job", "localhost", 9091)
+      val reporter = new PrometheusPushGatewayReporter(pollJobName, pollHost, pollPort)
       //val reporter = new ConsoleLogReporter();
       reporter.report(gaugesIndex, countersIndex, histogramsIndex, metersIndex)
     }
@@ -111,13 +111,19 @@ abstract class SeatunnelMetricSink(property: Properties,
 
   val CONSOLE_DEFAULT_PERIOD = 10
   val CONSOLE_DEFAULT_UNIT = "SECONDS"
+  val CONSOLE_DEFAULT_HOST = "localhost"
+  val CONSOLE_DEFAULT_PORT = 9091
+  val CONSOLE_DEFAULT_JOB_NAME = "sparkJob"
 
   val CONSOLE_KEY_PERIOD = "period"
   val CONSOLE_KEY_UNIT = "unit"
+  val CONSOLE_KEY_HOST = "host"
+  val CONSOLE_KEY_PORT = "port"
+  val CONSOLE_KEY_JOB_NAME = "jobName"
 
   val KEY_RE_METRICS_FILTER = "metrics-filter-([a-zA-Z][a-zA-Z0-9-]*)".r
 
-  val pollPeriod = Option(property.getProperty(CONSOLE_KEY_PERIOD)) match {
+  val pollPeriod: Long = Option(property.getProperty(CONSOLE_KEY_PERIOD)) match {
     case Some(s) => s.toInt
     case None => CONSOLE_DEFAULT_PERIOD
   }
@@ -125,6 +131,21 @@ abstract class SeatunnelMetricSink(property: Properties,
   val pollUnit: TimeUnit = Option(property.getProperty(CONSOLE_KEY_UNIT)) match {
     case Some(s) => TimeUnit.valueOf(s.toUpperCase(Locale.ROOT))
     case None => TimeUnit.valueOf(CONSOLE_DEFAULT_UNIT)
+  }
+
+  val pollHost: String = Option(property.getProperty(CONSOLE_KEY_HOST)) match {
+    case Some(s) => s
+    case None => CONSOLE_DEFAULT_HOST
+  }
+
+  val pollPort: Int = Option(property.getProperty(CONSOLE_KEY_PORT)) match {
+    case Some(s) => s.toInt
+    case None => CONSOLE_DEFAULT_PORT
+  }
+
+  val pollJobName: String = Option(property.getProperty(CONSOLE_KEY_JOB_NAME)) match {
+    case Some(s) => s
+    case None => CONSOLE_DEFAULT_JOB_NAME
   }
 
 
