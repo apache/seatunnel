@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.neo4j.source;
 
+import static org.apache.seatunnel.api.table.type.ArrayType.STRING_ARRAY_TYPE;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -33,6 +35,7 @@ import org.neo4j.driver.internal.value.BytesValue;
 import org.neo4j.driver.internal.value.DateValue;
 import org.neo4j.driver.internal.value.FloatValue;
 import org.neo4j.driver.internal.value.IntegerValue;
+import org.neo4j.driver.internal.value.ListValue;
 import org.neo4j.driver.internal.value.LocalDateTimeValue;
 import org.neo4j.driver.internal.value.LocalTimeValue;
 import org.neo4j.driver.internal.value.MapValue;
@@ -58,6 +61,8 @@ class Neo4jSourceReaderTest {
         assertEquals(LocalDateTime.MIN, Neo4jSourceReader.convertType(LocalTimeType.LOCAL_DATE_TIME_TYPE, new LocalDateTimeValue(LocalDateTime.MIN)));
         assertEquals(Collections.singletonMap("1", false),
             Neo4jSourceReader.convertType(new MapType<>(BasicType.STRING_TYPE, BasicType.BOOLEAN_TYPE), new MapValue(Collections.singletonMap("1", BooleanValue.FALSE))));
+        assertArrayEquals(new Object[]{"foo", "bar"},
+            (Object[]) Neo4jSourceReader.convertType(STRING_ARRAY_TYPE, new ListValue(new StringValue("foo"), new StringValue("bar"))));
         assertEquals(1, Neo4jSourceReader.convertType(BasicType.INT_TYPE, new IntegerValue(1)));
         assertEquals(1.1F, Neo4jSourceReader.convertType(BasicType.FLOAT_TYPE, new FloatValue(1.1F)));
 

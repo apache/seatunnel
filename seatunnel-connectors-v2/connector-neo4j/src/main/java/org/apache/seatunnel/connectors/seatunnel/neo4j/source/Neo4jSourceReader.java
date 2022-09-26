@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.neo4j.source;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -33,6 +34,7 @@ import org.neo4j.driver.Result;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.SessionConfig;
 import org.neo4j.driver.Value;
+import org.neo4j.driver.exceptions.value.LossyCoercion;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -84,7 +86,13 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         this.context.signalNoMoreElement();
     }
 
-    public static Object convertType(SeaTunnelDataType<?> dataType, Value value) {
+    /**
+     * convert {@link SeaTunnelDataType} to java data type
+     *
+     * @throws IllegalArgumentException when not supported data type
+     * @throws LossyCoercion            when conversion cannot be achieved without losing precision.
+     */
+    public static Object convertType(SeaTunnelDataType<?> dataType, Value value) throws IllegalArgumentException, LossyCoercion {
         Objects.requireNonNull(dataType);
         Objects.requireNonNull(value);
 
@@ -112,6 +120,9 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     throw new IllegalArgumentException("Key Type of MapType must String type");
                 }
                 return value.asMap();
+            case ARRAY:
+                final BasicType<?> elementType = ((ArrayType<?, ?>) dataType).getElementType();
+                return value.asList(elementValue -> convertType(elementType, elementValue)).toArray();
             case INT:
                 return value.asInt();
             case FLOAT:
