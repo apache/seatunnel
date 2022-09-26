@@ -14,14 +14,12 @@ This transform **ONLY** supported by Spark.
 
 ## Options
 
-| name                     | type         | required | default value |
-| -------------------------| ------------ | -------- | ------------- |
-| fields                   | string_list  | yes      | -             |
-| rates                    | double_list  | yes      | -             |
-| throw_exception_enable   | boolean      | no       | -             |
-| save_to_table_name       | string       | no       | -             |
-
-
+|          name          |    type     | required | default value |
+|------------------------|-------------|----------|---------------|
+| fields                 | string_list | yes      | -             |
+| rates                  | double_list | yes      | -             |
+| throw_exception_enable | boolean     | no       | -             |
+| save_to_table_name     | string      | no       | -             |
 
 ### field [string_list]
 
@@ -58,12 +56,13 @@ Transform plugin common parameters, please refer to [Transform Plugin](common-op
 Use `NullRate` in transform's Dataset.
 
 ```bash
-  transform {
-    NullRate {
-      fields = ["msg", "name"]
-      rates = [10.0,3.45]
-      save_to_table_name = "tmp"
-      throw_exception_enable = true
-    }
+transform {
+  NullRate {
+    fields = ["msg", "name"]
+    rates = [10.0,3.45]
+    save_to_table_name = "tmp"
+    throw_exception_enable = true
   }
+}
 ```
+

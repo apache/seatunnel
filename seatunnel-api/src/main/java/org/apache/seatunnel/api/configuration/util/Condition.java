@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import java.util.Objects;
 
 public class Condition<T> {
+
     private final Option<T> option;
     private final T expectValue;
     private Boolean and = null;
@@ -104,9 +105,9 @@ public class Condition<T> {
         }
         Condition<?> that = (Condition<?>) obj;
         return Objects.equals(this.option, that.option)
-            && Objects.equals(this.expectValue, that.expectValue)
-            && Objects.equals(this.and, that.and)
-            && Objects.equals(this.next, that.next);
+                && Objects.equals(this.expectValue, that.expectValue)
+                && Objects.equals(this.and, that.and)
+                && Objects.equals(this.next, that.next);
     }
 
     @Override
@@ -121,10 +122,10 @@ public class Condition<T> {
         boolean bracket = false;
         do {
             builder.append("'")
-                .append(cur.option.key())
-                // TODO: support another condition
-                .append("' == ")
-                .append(cur.expectValue);
+                    .append(cur.option.key())
+                    // TODO: support another condition
+                    .append("' == ")
+                    .append(cur.expectValue);
             if (bracket) {
                 builder = new StringBuilder(String.format("(%s)", builder));
                 bracket = false;
