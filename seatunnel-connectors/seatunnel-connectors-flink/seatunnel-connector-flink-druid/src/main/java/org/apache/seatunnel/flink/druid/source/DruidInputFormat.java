@@ -52,6 +52,8 @@ public class DruidInputFormat extends RichInputFormat<Row, InputSplit> implement
     private static final long serialVersionUID = 6404870251026854042L;
 
     private String jdbcURL;
+    private String user;
+    private String password;
     private String query;
     private RowTypeInfo rowTypeInfo;
 
@@ -77,7 +79,7 @@ public class DruidInputFormat extends RichInputFormat<Row, InputSplit> implement
     @Override
     public void openInputFormat() {
         try {
-            dbConn = DriverManager.getConnection(jdbcURL);
+            dbConn = DriverManager.getConnection(jdbcURL, user, password);
             statement = dbConn.prepareStatement(query, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
         } catch (SQLException se) {
             throw new IllegalArgumentException("openInputFormat() failed." + se.getMessage(), se);
@@ -225,6 +227,16 @@ public class DruidInputFormat extends RichInputFormat<Row, InputSplit> implement
 
         public DruidInputFormatBuilder setDBUrl(String dbURL) {
             format.jdbcURL = dbURL;
+            return this;
+        }
+
+        public DruidInputFormatBuilder setDBUser(String user) {
+            format.user = user;
+            return this;
+        }
+
+        public DruidInputFormatBuilder setDBPassword(String password) {
+            format.password = password;
             return this;
         }
 
