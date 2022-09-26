@@ -61,7 +61,6 @@ public class JdbcMysqlIT extends SparkContainer {
     private Config config;
     private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
 
-
     @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
     public void startPostgreSqlContainer() throws Exception {
