@@ -81,7 +81,7 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
 
     private void registerResultTable(Plugin<FlinkEnvironment> plugin, DataStream<Row> dataStream) {
         Config config = plugin.getConfig();
-        flinkEnvironment.registerResultTable(config, RESULT_TABLE_NAME, dataStream);
+        flinkEnvironment.registerResultTable(config, dataStream);
     }
 
     private Optional<DataStream<Row>> fromSourceTable(Config pluginConfig) {

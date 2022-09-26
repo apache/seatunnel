@@ -73,6 +73,8 @@ public class FlinkEnvironment implements RuntimeEnv {
 
     private String jobName = "seatunnel";
 
+    private static final String RESULT_TABLE_NAME = "result_table_name";
+
     @Override
     public FlinkEnvironment setConfig(Config config) {
         this.config = config;
@@ -325,9 +327,9 @@ public class FlinkEnvironment implements RuntimeEnv {
         }
     }
 
-    public void registerResultTable(Config config, String tableName, DataStream<Row> dataStream) {
-        if (config.hasPath(tableName)) {
-            String name = config.getString(tableName);
+    public void registerResultTable(Config config, DataStream<Row> dataStream) {
+        if (config.hasPath(RESULT_TABLE_NAME)) {
+            String name = config.getString(RESULT_TABLE_NAME);
             StreamTableEnvironment tableEnvironment = this.getStreamTableEnvironment();
             if (!TableUtil.tableExists(tableEnvironment, name)) {
                 if (config.hasPath("field_name")) {
