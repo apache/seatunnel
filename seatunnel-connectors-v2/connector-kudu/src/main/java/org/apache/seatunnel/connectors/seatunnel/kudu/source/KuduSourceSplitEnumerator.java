@@ -29,8 +29,9 @@ import java.util.stream.Collectors;
 public class KuduSourceSplitEnumerator implements SourceSplitEnumerator<KuduSourceSplit, KuduSourceState> {
 
     private final SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext;
-    private PartitionParameter partitionParameter;
-    List<KuduSourceSplit> allSplit = new ArrayList<>();
+    private final PartitionParameter partitionParameter;
+    private final List<KuduSourceSplit> allSplit = new ArrayList<>();
+    private final int parallelism;
     private Long maxVal;
     private Long minVal;
     private Long batchSize;
@@ -39,11 +40,19 @@ public class KuduSourceSplitEnumerator implements SourceSplitEnumerator<KuduSour
     public KuduSourceSplitEnumerator(SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext, PartitionParameter partitionParameter) {
         this.enumeratorContext = enumeratorContext;
         this.partitionParameter = partitionParameter;
+        this.parallelism = enumeratorContext.currentParallelism();
     }
 
     @Override
     public void open() {
-
+        if (null != partitionParameter) {
+            Serializable[][] parameterValues = getParameterValues(partitionParameter.minValue, partitionParameter.maxValue, parallelism);
+            for (int i = 0; i < parameterValues.length; i++) {
+                allSplit.add(new KuduSourceSplit(parameterValues[i], i));
+            }
+        } else {
+            allSplit.add(new KuduSourceSplit(null, 0));
+        }
     }
 
     @Override
@@ -73,19 +82,10 @@ public class KuduSourceSplitEnumerator implements SourceSplitEnumerator<KuduSour
 
     @Override
     public void registerReader(int subtaskId) {
-        int parallelism = enumeratorContext.currentParallelism();
-        if (allSplit.isEmpty()) {
-            if (null != partitionParameter) {
-                Serializable[][] parameterValues = getParameterValues(partitionParameter.minValue, partitionParameter.maxValue, parallelism);
-                for (int i = 0; i < parameterValues.length; i++) {
-                    allSplit.add(new KuduSourceSplit(parameterValues[i], i));
-                }
-            } else {
-                allSplit.add(new KuduSourceSplit(null, 0));
-            }
-        }
         // Filter the split that the current task needs to run
-        List<KuduSourceSplit> splits = allSplit.stream().filter(p -> p.splitId % parallelism == subtaskId).collect(Collectors.toList());
+        List<KuduSourceSplit> splits = allSplit.stream()
+                .filter(p -> p.splitId % parallelism == subtaskId)
+                .collect(Collectors.toList());
         enumeratorContext.assignSplit(subtaskId, splits);
         enumeratorContext.signalNoMoreSplits(subtaskId);
     }
