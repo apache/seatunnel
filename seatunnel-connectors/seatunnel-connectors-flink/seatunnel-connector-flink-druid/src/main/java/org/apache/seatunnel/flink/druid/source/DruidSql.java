@@ -20,6 +20,7 @@ package org.apache.seatunnel.flink.druid.source;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 public class DruidSql {
 
@@ -100,7 +101,7 @@ public class DruidSql {
     public String sql() {
         String columns = COLUMNS_DEFAULT;
         if (getColumns() != null && getColumns().size() > 0) {
-            columns = String.join(",", getColumns());
+            columns = String.join(",", getColumns().stream().map(c->"\""+c+"\"").collect(Collectors.toList()));
         }
         String sql = String.format(QUERY_TEMPLATE, columns, getDatasource());
         if (startDate != null) {

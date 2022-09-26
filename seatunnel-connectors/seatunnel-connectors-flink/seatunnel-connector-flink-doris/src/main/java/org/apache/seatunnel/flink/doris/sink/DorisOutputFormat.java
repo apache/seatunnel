@@ -48,7 +48,7 @@ public class DorisOutputFormat<T> extends RichOutputFormat<T> {
     private static final long DEFAULT_INTERVAL_MS = TimeUnit.SECONDS.toMillis(1);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String FIELD_DELIMITER_KEY = "column_separator";
-    private static final String FIELD_DELIMITER_DEFAULT = "\t";
+    private static final String FIELD_DELIMITER_DEFAULT = "\u0001";
     private static final String LINE_DELIMITER_KEY = "line_delimiter";
     private static final String LINE_DELIMITER_DEFAULT = "\n";
     private static final String FORMAT_KEY = "format";
