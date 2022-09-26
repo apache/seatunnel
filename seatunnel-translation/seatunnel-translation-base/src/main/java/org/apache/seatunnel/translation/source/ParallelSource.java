@@ -79,7 +79,10 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
         // Create or restore split enumerator & reader
         try {
             if (restoredState != null && restoredState.size() > 0) {
-                StateT restoredEnumeratorState = enumeratorStateSerializer.deserialize(restoredState.get(-1).get(0));
+                StateT restoredEnumeratorState = null;
+                if (restoredState.containsKey(-1)) {
+                    restoredEnumeratorState = enumeratorStateSerializer.deserialize(restoredState.get(-1).get(0));
+                }
                 restoredSplitState = new ArrayList<>(restoredState.get(subtaskId).size());
                 for (byte[] splitBytes : restoredState.get(subtaskId)) {
                     restoredSplitState.add(splitSerializer.deserialize(splitBytes));
@@ -180,12 +183,14 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
 
     @Override
     public Map<Integer, List<byte[]>> snapshotState(long checkpointId) throws Exception {
-        byte[] enumeratorStateBytes = enumeratorStateSerializer.serialize(splitEnumerator.snapshotState(checkpointId));
-        List<SplitT> splitStates = reader.snapshotState(checkpointId);
         Map<Integer, List<byte[]>> allStates = new HashMap<>(2);
-        if (enumeratorStateBytes != null) {
+
+        StateT enumeratorState = splitEnumerator.snapshotState(checkpointId);
+        if (enumeratorState != null) {
+            byte[] enumeratorStateBytes = enumeratorStateSerializer.serialize(enumeratorState);
             allStates.put(-1, Collections.singletonList(enumeratorStateBytes));
         }
+        List<SplitT> splitStates = reader.snapshotState(checkpointId);
         if (splitStates != null) {
             final List<byte[]> readerStateBytes = new ArrayList<>(splitStates.size());
             for (SplitT splitState : splitStates) {
