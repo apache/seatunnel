@@ -1,9 +1,15 @@
 package org.apache.seatunnel.metrics.core.reporter;
 
+import org.apache.seatunnel.metrics.core.Counter;
+import org.apache.seatunnel.metrics.core.Gauge;
+import org.apache.seatunnel.metrics.core.Histogram;
+import org.apache.seatunnel.metrics.core.Meter;
+import org.apache.seatunnel.metrics.core.Metric;
+import org.apache.seatunnel.metrics.core.MetricInfo;
+
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
 import io.prometheus.client.exporter.PushGateway;
-import org.apache.seatunnel.metrics.core.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,6 +27,7 @@ public class PrometheusPushGatewayReporter implements MetricReporter {
     final URL hostUrl;
     private final PushGateway pushGateway;
     private final String jobName;
+    private static final int DEFAULT_PORT = 9091;
 
     public PrometheusPushGatewayReporter(String jobName, String host, int port) {
         String url = "";
@@ -43,7 +50,7 @@ public class PrometheusPushGatewayReporter implements MetricReporter {
     @Override
     public PrometheusPushGatewayReporter open() {
         //todo Handle user config
-        return new PrometheusPushGatewayReporter("flink_prometheus_job", "localhost", 9091);
+        return new PrometheusPushGatewayReporter("flink_prometheus_job", "localhost", DEFAULT_PORT);
     }
 
     @Override
@@ -81,16 +88,6 @@ public class PrometheusPushGatewayReporter implements MetricReporter {
         }
 
         //todo:add histogram
-//        for (Map.Entry<Histogram, MetricInfo> metric : histograms.entrySet()) {
-//            MetricInfo metricInfo = metric.getValue();
-//            collector = createCollector(metric.getKey(),metricInfo.getMetricName(),metricInfo.getHelpString(),metricInfo.getDimensionKeys(),metricInfo.getDimensionValues());
-//            try {
-//                collector.register(registry);
-//            } catch (Exception e) {
-//                LOG.warn("There was a problem registering metric {}.", metric.getValue().toString(), e);
-//            }
-//            addMetric(metric.getKey(),metricInfo.getDimensionValues() , collector);
-//        }
 
         for (Map.Entry<Meter, MetricInfo> metric : meters.entrySet()) {
             MetricInfo metricInfo = metric.getValue();
@@ -102,7 +99,6 @@ public class PrometheusPushGatewayReporter implements MetricReporter {
             }
             addMetric(metric.getKey(), metricInfo.getDimensionValues(), collector);
         }
-
 
         try {
             pushGateway.pushAdd(registry, jobName);

@@ -8,7 +8,7 @@ public class SimpleHistogram implements Histogram{
     private double max;
     private double stdDev;
     private double mean;
-    private Map<Double,Double> quantile;
+    private Map<Double, Double> quantile;
 
     public SimpleHistogram(long count, double min, double max, double stdDev, double mean, Map<Double, Double> quantile) {
         this.count = count;

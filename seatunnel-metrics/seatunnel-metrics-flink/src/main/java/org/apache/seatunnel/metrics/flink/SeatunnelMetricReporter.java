@@ -1,10 +1,19 @@
 package org.apache.seatunnel.metrics.flink;
 
-import org.apache.flink.metrics.MetricConfig;
-import org.apache.flink.metrics.reporter.Scheduled;
-import org.apache.seatunnel.metrics.core.*;
+import org.apache.seatunnel.metrics.core.Counter;
+import org.apache.seatunnel.metrics.core.Gauge;
+import org.apache.seatunnel.metrics.core.Histogram;
+import org.apache.seatunnel.metrics.core.Meter;
+import org.apache.seatunnel.metrics.core.MetricInfo;
+import org.apache.seatunnel.metrics.core.SimpleCounter;
+import org.apache.seatunnel.metrics.core.SimpleGauge;
+import org.apache.seatunnel.metrics.core.SimpleHistogram;
+import org.apache.seatunnel.metrics.core.SimpleMeter;
 import org.apache.seatunnel.metrics.core.reporter.MetricReporter;
 import org.apache.seatunnel.metrics.core.reporter.PrometheusPushGatewayReporter;
+
+import org.apache.flink.metrics.MetricConfig;
+import org.apache.flink.metrics.reporter.Scheduled;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,22 +25,20 @@ import java.util.Map;
  * exports Flink metrics to Seatunnel
  */
 public class SeatunnelMetricReporter extends AbstractSeatunnelReporter implements Scheduled {
-    private static final Logger log = LoggerFactory.getLogger(SeatunnelMetricReporter.class);
+    private final Logger log = LoggerFactory.getLogger(SeatunnelMetricReporter.class);
     private MetricReporter reporter;
     private String host;
     private int port;
     private String jobName;
+    private static final int DEFAULT_PORT = 9091;
 
     @Override
     public void open(MetricConfig metricConfig) {
         MetricConfig config = metricConfig;
         config.isEmpty();
-        host = config.getString("host","localhost");
-        port = config.getInteger("port",9091);
-        jobName = config.getString("jobName","flinkJob");
-        //config.
-        //String string = metricConfig.getString("name", "de");
-        //log.info("StreamMetricReporter init:{}", string);
+        host = config.getString("host", "localhost");
+        port = config.getInteger("port", DEFAULT_PORT);
+        jobName = config.getString("jobName", "flinkJob");
     }
 
     @Override
@@ -82,14 +89,16 @@ public class SeatunnelMetricReporter extends AbstractSeatunnelReporter implement
             metersIndex.put(new SimpleMeter(metric.getKey().getRate(), metric.getKey().getCount()), metric.getValue());
 
         }
-
+        final double quantile05 = 0.5;
+        final double quantile75 = 0.75;
+        final double quantile95 = 0.95;
         //todo histogram
         for (Map.Entry<org.apache.flink.metrics.Histogram, MetricInfo> metric : histograms.entrySet()) {
             org.apache.flink.metrics.Histogram key = metric.getKey();
             HashMap<Double, Double> quantile = new HashMap<>();
-            quantile.put(0.5, key.getStatistics().getQuantile(0.5));
-            quantile.put(0.75, key.getStatistics().getQuantile(0.75));
-            quantile.put(0.95, key.getStatistics().getQuantile(0.95));
+            quantile.put(quantile05, key.getStatistics().getQuantile(quantile05));
+            quantile.put(quantile75, key.getStatistics().getQuantile(quantile75));
+            quantile.put(quantile95, key.getStatistics().getQuantile(quantile95));
             histogramsIndex.put(new SimpleHistogram(key.getCount(), key.getStatistics().getMin(), key.getStatistics().getMax(), key.getStatistics().getStdDev(), key.getStatistics().getMean(), quantile), metric.getValue());
         }
         //todo handle user config

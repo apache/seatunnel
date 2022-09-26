@@ -5,7 +5,7 @@ public class SimpleMeter implements Meter{
     private double rate;
     private long count;
 
-    public SimpleMeter(double rate,long count){
+    public SimpleMeter(double rate, long count){
         this.rate = rate;
         this.count = count;
     }

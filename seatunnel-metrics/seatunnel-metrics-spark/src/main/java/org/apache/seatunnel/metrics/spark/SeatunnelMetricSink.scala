@@ -1,15 +1,16 @@
 package org.apache.seatunnel.metrics.spark
 
+import java.util
+import java.util.{Locale, Properties}
+import java.util.concurrent.TimeUnit
+
+import scala.collection.JavaConversions._
+
 import com.codahale.metrics
 import com.codahale.metrics.{Counter, Histogram, Meter, _}
-import org.apache.seatunnel.metrics.core.reporter.PrometheusPushGatewayReporter
 import org.apache.seatunnel.metrics.core.{Gauge, _}
+import org.apache.seatunnel.metrics.core.reporter.PrometheusPushGatewayReporter
 import org.apache.spark.internal.Logging
-
-import java.util
-import java.util.concurrent.TimeUnit
-import java.util.{Locale, Properties}
-import scala.collection.JavaConversions._
 
 object SeatunnelMetricSink {
   trait SinkConfig extends Serializable {
@@ -23,15 +24,14 @@ object SeatunnelMetricSink {
   }
 }
 
-abstract class SeatunnelMetricSink(property: Properties,
-                                   registry: MetricRegistry,
-                                   sinkConfig: SeatunnelMetricSink.SinkConfig
-                                  ) extends Logging {
+abstract class SeatunnelMetricSink(
+    property: Properties,
+    registry: MetricRegistry,
+    sinkConfig: SeatunnelMetricSink.SinkConfig) extends Logging {
 
   import sinkConfig._
 
-  protected class SeatunnelMetricReporter(registry: MetricRegistry,
-                                          metricFilter: MetricFilter)
+  protected class SeatunnelMetricReporter(registry: MetricRegistry, metricFilter: MetricFilter)
     extends ScheduledReporter(
       registry,
       "seatunnel-reporter",
@@ -39,9 +39,15 @@ abstract class SeatunnelMetricSink(property: Properties,
       TimeUnit.SECONDS,
       TimeUnit.MILLISECONDS) {
 
-    override def report(gauges: util.SortedMap[String, metrics.Gauge[_]], counters: util.SortedMap[String, Counter], histograms: util.SortedMap[String, Histogram], meters: util.SortedMap[String, Meter], timers: util.SortedMap[String, Timer]): Unit = {
-      logInfo(s"metricsNamespace=$metricsNamespace, sparkAppName=$sparkAppName, sparkAppId=$sparkAppId, " +
-        s"executorId=$executorId")
+    override def report(
+        gauges: util.SortedMap[String, metrics.Gauge[_]],
+        counters: util.SortedMap[String, Counter],
+        histograms: util.SortedMap[String, Histogram],
+        meters: util.SortedMap[String, Meter],
+        timers: util.SortedMap[String, Timer]): Unit = {
+      logInfo(
+        s"metricsNamespace=$metricsNamespace, sparkAppName=$sparkAppName, sparkAppId=$sparkAppId, " +
+          s"executorId=$executorId")
 
       val role: String = (sparkAppId, executorId) match {
         case (Some(_), Some("driver")) | (Some(_), Some("<driver>")) => "driver"
@@ -55,7 +61,7 @@ abstract class SeatunnelMetricSink(property: Properties,
         case _ => metricsNamespace.getOrElse("unknown")
       }
 
-      //val instance: String = "instance"
+      // val instance: String = "instance"
       val appName: String = sparkAppName.getOrElse("")
 
       logInfo(s"role=$role, job=$job")
@@ -71,14 +77,17 @@ abstract class SeatunnelMetricSink(property: Properties,
 
       val countersIndex = new util.HashMap[org.apache.seatunnel.metrics.core.Counter, MetricInfo]
       val gaugesIndex = new util.HashMap[org.apache.seatunnel.metrics.core.Gauge[_], MetricInfo]
-      val histogramsIndex = new util.HashMap[org.apache.seatunnel.metrics.core.Histogram, MetricInfo]
+      val histogramsIndex =
+        new util.HashMap[org.apache.seatunnel.metrics.core.Histogram, MetricInfo]
       val metersIndex = new util.HashMap[org.apache.seatunnel.metrics.core.Meter, MetricInfo]
 
       for (metricName <- gauges.keySet()) {
         val metric = gauges.get(metricName)
         val num = numeric(metric.getValue)
         if (num.toString != Long.MaxValue.toString) {
-          gaugesIndex.put(new SimpleGauge(num), newMetricInfo(metricName, dimensionKeys, dimensionValues))
+          gaugesIndex.put(
+            new SimpleGauge(num),
+            newMetricInfo(metricName, dimensionKeys, dimensionValues))
         } else {
           logError(metricName + " is not a number ")
         }
@@ -86,24 +95,36 @@ abstract class SeatunnelMetricSink(property: Properties,
 
       for (metricName <- counters.keySet()) {
         val metric = counters.get(metricName)
-        countersIndex.put(new SimpleCounter(metric.getCount), newMetricInfo(metricName, dimensionKeys, dimensionValues))
+        countersIndex.put(
+          new SimpleCounter(metric.getCount),
+          newMetricInfo(metricName, dimensionKeys, dimensionValues))
       }
 
       for (metricName <- meters.keySet()) {
         val metric = meters.get(metricName)
-        metersIndex.put(new SimpleMeter(metric.getMeanRate, metric.getCount), newMetricInfo(metricName, dimensionKeys, dimensionValues))
+        metersIndex.put(
+          new SimpleMeter(metric.getMeanRate, metric.getCount),
+          newMetricInfo(metricName, dimensionKeys, dimensionValues))
       }
 
       for (metricName <- histograms.keySet()) {
         val metric = histograms.get(metricName)
-        histogramsIndex.put(new SimpleHistogram(metric.getCount, metric.getSnapshot.getMin, metric.getSnapshot.getMax, metric.getSnapshot.getStdDev, metric.getSnapshot.getMean, new util.HashMap[java.lang.Double, java.lang.Double]() {
-          0.75 -> metric.getSnapshot.get75thPercentile();
-          0.95 -> metric.getSnapshot.get95thPercentile();
-          0.99 -> metric.getSnapshot.get99thPercentile()
-        }), newMetricInfo(metricName, dimensionKeys, dimensionValues))
+        histogramsIndex.put(
+          new SimpleHistogram(
+            metric.getCount,
+            metric.getSnapshot.getMin,
+            metric.getSnapshot.getMax,
+            metric.getSnapshot.getStdDev,
+            metric.getSnapshot.getMean,
+            new util.HashMap[java.lang.Double, java.lang.Double]() {
+              0.75 -> metric.getSnapshot.get75thPercentile();
+              0.95 -> metric.getSnapshot.get95thPercentile();
+              0.99 -> metric.getSnapshot.get99thPercentile()
+            }),
+          newMetricInfo(metricName, dimensionKeys, dimensionValues))
       }
       val reporter = new PrometheusPushGatewayReporter(pollJobName, pollHost, pollPort)
-      //val reporter = new ConsoleLogReporter();
+      // val reporter = new ConsoleLogReporter();
       reporter.report(gaugesIndex, countersIndex, histogramsIndex, metersIndex)
     }
 
@@ -148,7 +169,6 @@ abstract class SeatunnelMetricSink(property: Properties,
     case None => CONSOLE_DEFAULT_JOB_NAME
   }
 
-
   val metricsFilter: MetricFilter = MetricFilter.ALL
 
   val seatunnelReporter = new SeatunnelMetricReporter(registry, metricsFilter)
@@ -166,7 +186,7 @@ abstract class SeatunnelMetricSink(property: Properties,
   }
 
   private def numeric(a: Any): Number = {
-    //val NumericString = Array("double","Double", "float","Float", "int","Int", "long", "Long", "short","Short")
+    // val NumericString = Array("double","Double", "float","Float", "int","Int", "long", "Long", "short","Short")
     a.getClass.getSimpleName match {
       case "Integer" => a.toString.toInt
       case "Double" => a.toString.toDouble
@@ -177,7 +197,10 @@ abstract class SeatunnelMetricSink(property: Properties,
     }
   }
 
-  private def newMetricInfo(info: String, dimensionKeys: util.LinkedList[String], dimensionValues: util.LinkedList[String]): MetricInfo = {
+  private def newMetricInfo(
+      info: String,
+      dimensionKeys: util.LinkedList[String],
+      dimensionValues: util.LinkedList[String]): MetricInfo = {
     val proInfo = info.replace("-", "_")
     val infos = proInfo.split("\\.")
 
@@ -187,8 +210,8 @@ abstract class SeatunnelMetricSink(property: Properties,
     metricName = metricName.dropRight(1)
     val seatunnelMetricName = "seatunnel_" + metricName
 
-    //dimensionKeys.add("sourceName")
-    //dimensionValues.add(infos.apply(2))
+    // dimensionKeys.add("sourceName")
+    // dimensionValues.add(infos.apply(2))
 
     val helpString = infos.apply(2) + "(scope:" + metricName + ")"
 

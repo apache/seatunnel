@@ -1,10 +1,17 @@
 package org.apache.seatunnel.metrics.flink;
 
-import org.apache.flink.metrics.*;
+import org.apache.seatunnel.metrics.core.MetricInfo;
+
+import org.apache.flink.metrics.CharacterFilter;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.Histogram;
+import org.apache.flink.metrics.Meter;
+import org.apache.flink.metrics.Metric;
+import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.reporter.MetricReporter;
 import org.apache.flink.runtime.metrics.groups.AbstractMetricGroup;
 import org.apache.flink.runtime.metrics.groups.FrontMetricGroup;
-import org.apache.seatunnel.metrics.core.MetricInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,10 +34,10 @@ public abstract class AbstractSeatunnelReporter implements MetricReporter {
     private CharacterFilter labelValueCharactersFilter = CHARACTER_FILTER;
 
     protected final Logger log = LoggerFactory.getLogger(this.getClass());
-    protected final Map<Gauge<?>, MetricInfo> gauges = new HashMap();
-    protected final Map<Counter, MetricInfo> counters = new HashMap();
-    protected final Map<Histogram, MetricInfo> histograms = new HashMap();
-    protected final Map<Meter, MetricInfo> meters = new HashMap();
+    protected final Map<Gauge<?>, MetricInfo> gauges = new HashMap<>();
+    protected final Map<Counter, MetricInfo> counters = new HashMap<>();
+    protected final Map<Histogram, MetricInfo> histograms = new HashMap<>();
+    protected final Map<Meter, MetricInfo> meters = new HashMap<>();
 
     public AbstractSeatunnelReporter() {
     }
@@ -47,19 +54,19 @@ public abstract class AbstractSeatunnelReporter implements MetricReporter {
             dimensionValues.add(labelValueCharactersFilter.filterCharacters(dimension.getValue()));
         }
         String metricNameFin = scopedMetricName;
-        if(dimensionKeys.size()>0 && dimensionKeys.get(dimensionKeys.size()-1).equals("subtask_index")){
+        if (dimensionKeys.size() > 0 && dimensionKeys.get(dimensionKeys.size() - 1).equals("subtask_index")) {
             metricNameFin = scopedMetricName + "_" + dimensionValues.get(dimensionValues.size() - 1);
         }
-        MetricInfo metricInfo = new MetricInfo(metricNameFin,helpString,dimensionKeys,dimensionValues);
-        synchronized(this) {
+        MetricInfo metricInfo = new MetricInfo(metricNameFin, helpString, dimensionKeys, dimensionValues);
+        synchronized (this) {
             if (metric instanceof Counter) {
-                this.counters.put((Counter)metric, metricInfo);
+                this.counters.put((Counter) metric, metricInfo);
             } else if (metric instanceof Gauge) {
-                this.gauges.put((Gauge)metric, metricInfo);
+                this.gauges.put((Gauge) metric, metricInfo);
             } else if (metric instanceof Histogram) {
-                this.histograms.put((Histogram)metric, metricInfo);
+                this.histograms.put((Histogram) metric, metricInfo);
             } else if (metric instanceof Meter) {
-                this.meters.put((Meter)metric, metricInfo);
+                this.meters.put((Meter) metric, metricInfo);
             } else {
                 this.log.warn("Cannot add unknown metric type {}. This indicates that the reporter does not support this metric type.", metric.getClass().getName());
             }
@@ -68,7 +75,7 @@ public abstract class AbstractSeatunnelReporter implements MetricReporter {
     }
 
     public void notifyOfRemovedMetric(Metric metric, String metricName, MetricGroup group) {
-        synchronized(this) {
+        synchronized (this) {
             if (metric instanceof Counter) {
                 this.counters.remove(metric);
             } else if (metric instanceof Gauge) {
@@ -90,7 +97,7 @@ public abstract class AbstractSeatunnelReporter implements MetricReporter {
 
     private static String getLogicalScope(MetricGroup group) {
         return ((FrontMetricGroup<AbstractMetricGroup<?>>) group)
-                .getLogicalScope(CHARACTER_FILTER,'_');
+                .getLogicalScope(CHARACTER_FILTER, '_');
     }
 
     static String replaceInvalidChars(String input) {

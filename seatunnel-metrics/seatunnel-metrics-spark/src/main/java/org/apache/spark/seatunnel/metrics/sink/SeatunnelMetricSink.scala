@@ -1,13 +1,13 @@
 package org.apache.spark.seatunnel.metrics.sink
 
+import java.util.Properties
+
 import com.codahale.metrics.MetricRegistry
 import org.apache.seatunnel.metrics.spark.SeatunnelMetricSink.SinkConfig
+import org.apache.spark.{SecurityManager, SparkConf, SparkEnv}
 import org.apache.spark.internal.config
 import org.apache.spark.metrics.sink.Sink
 import org.apache.spark.seatunnel.metrics.sink.SeatunnelMetricSink.SinkConfigProxy
-import org.apache.spark.{SecurityManager, SparkConf, SparkEnv}
-
-import java.util.Properties
 
 object SeatunnelMetricSink {
 
@@ -28,19 +28,16 @@ object SeatunnelMetricSink {
   }
 }
 
-class SeatunnelMetricSink(property: Properties,
-                          registry: MetricRegistry,
-                          sinkConfig: SinkConfig
-                         )
-  extends org.apache.seatunnel.metrics.spark.SeatunnelMetricSink(property, registry, sinkConfig) with Sink {
+class SeatunnelMetricSink(property: Properties, registry: MetricRegistry, sinkConfig: SinkConfig)
+  extends org.apache.seatunnel.metrics.spark.SeatunnelMetricSink(property, registry, sinkConfig)
+  with Sink {
 
   // Constructor required by MetricsSystem::registerSinks() for spark >= 3.2
   def this(property: Properties, registry: MetricRegistry) = {
     this(
       property,
       registry,
-      new SinkConfigProxy
-    )
+      new SinkConfigProxy)
   }
 
   // Legacy Constructor required by MetricsSystem::registerSinks() for spark < 3.2

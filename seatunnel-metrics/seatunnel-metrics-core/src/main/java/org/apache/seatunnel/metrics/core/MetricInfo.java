@@ -2,7 +2,9 @@ package org.apache.seatunnel.metrics.core;
 
 import java.util.List;
 
-/** Stores all child-properties of a metric. */
+/**
+ * Stores all child-properties of a metric.
+ */
 public class MetricInfo {
     private String metricName;
     private List<String> dimensionKeys;
@@ -24,6 +26,7 @@ public class MetricInfo {
     public List<String> getDimensionValues() {
         return dimensionValues;
     }
+
     public MetricInfo(String metricName, String helpString, List<String> dimensionKeys, List<String> dimensionValues) {
         this.metricName = metricName;
         this.helpString = helpString;
@@ -36,16 +39,16 @@ public class MetricInfo {
         String lineSeparator = System.lineSeparator();
         StringBuilder builder = new StringBuilder();
         builder.append("metricName: ")
-                .append(this.metricName)
-                .append(lineSeparator);
+            .append(this.metricName)
+            .append(lineSeparator);
         builder.append("helpString: ")
-                .append(this.helpString)
-                .append(lineSeparator);
-        for(int i=0;i<this.dimensionKeys.size();i++){
+            .append(this.helpString)
+            .append(lineSeparator);
+        for (int i = 0; i < this.dimensionKeys.size(); i++) {
             builder.append(dimensionKeys.get(i))
-                    .append(": ")
-                    .append(dimensionValues.get(i))
-                    .append(lineSeparator);
+                .append(": ")
+                .append(dimensionValues.get(i))
+                .append(lineSeparator);
         }
         return builder.toString();
     }
