@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Values.metadata.namespace }}
+  name: {{ .Values.metadata.name }}
+spec:
+  replicas: {{ .Values.spec.replicas }}
+  selector:
+    matchLabels:
+      app: seatunnel-spark
+  template:
+    metadata:
+      labels:
+        app: seatunnel-spark
+    spec:
+      containers:
+        - name: {{ .Values.spec.template.containers.name }}
+          image: {{ .Values.spec.template.containers.image }}
+          command: ['bash', '-c', {{ .Values.spec.template.containers.command | quote }} ]      
+          volumeMounts:
+            - mountPath: {{ .Values.spec.template.containers.volumeMounts.mountPath }}
+              name: {{ .Values.spec.template.containers.volumeMounts.name }}
+      volumes:
+        - name: {{ .Values.spec.template.volumes.name }}
+          configMap:
+            name: {{ .Values.spec.template.volumes.configMap }}

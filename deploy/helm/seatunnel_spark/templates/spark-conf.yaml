@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.conf.metadata.name }}
+data:
+  spark.conf: {{ .Values.conf.data.sparkConf | quote }}
+

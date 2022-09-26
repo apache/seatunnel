@@ -1,0 +1,58 @@
+metadata:
+  namespace: "default"
+  name: "seatunnel-flink-deployment"
+spec:
+  image: arifgore/seatunnel-flink:2.1.2
+  flinkConf:
+    numberOfTaskSlots: "2"
+  serviceAccount: "flink"
+  jobManager:
+    replicas: "1"
+    resource:
+      memory: "2048m"
+      cpu: "1"
+  taskManager:
+    resource: 
+      memory: "2048m"
+      cpu: "2"
+  podTemplate:
+    containers:
+      name: "flink-main-container"
+      volumeMounts:
+        mountPath: "/data"
+        name: "config-volume"
+    volumes:
+      name: "config-volume"
+      configMap: "flink-conf"
+  job:
+    jarURI: "local:///opt/seatunnel/lib/seatunnel-core-flink.jar"
+    args: '["--config", "/data/flink.conf"]'
+    parallelism: "2"
+    upgradeMode: "stateless"
+
+conf:
+  metadata:
+    name: flink-conf
+  data:
+    flinkConf: |
+      
+      env {
+        execution.parallelism = 1
+      }
+
+      source {
+        FakeSourceStream {
+          result_table_name = "fake"
+          field_name = "name,age"
+        }
+      }
+
+      transform {
+        sql {
+          sql = "select name,age from fake"
+        }
+      }
+
+      sink {
+        ConsoleSink {}
+      }
