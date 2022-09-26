@@ -40,10 +40,16 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     protected final SerializationSchema serializationSchema;
 
     public HttpSinkWriter(SeaTunnelRowType seaTunnelRowType, HttpParameter httpParameter) {
+        this(seaTunnelRowType, httpParameter, new JsonSerializationSchema(seaTunnelRowType));
+    }
+
+    public HttpSinkWriter(SeaTunnelRowType seaTunnelRowType,
+                          HttpParameter httpParameter,
+                          SerializationSchema serializationSchema) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.httpParameter = httpParameter;
         this.httpClient = new HttpClientProvider(httpParameter);
-        this.serializationSchema = new JsonSerializationSchema(seaTunnelRowType);
+        this.serializationSchema = serializationSchema;
     }
 
     @Override
