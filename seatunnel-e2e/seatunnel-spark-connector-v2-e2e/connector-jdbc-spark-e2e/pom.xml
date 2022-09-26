@@ -83,14 +83,17 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.dameng</groupId>
             <artifactId>DmJdbcDriver18</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.aliyun.phoenix</groupId>
             <artifactId>ali-phoenix-shaded-thin-client</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
