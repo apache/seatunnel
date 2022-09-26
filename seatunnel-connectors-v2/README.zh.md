@@ -16,8 +16,8 @@ SeaTunnel为与计算引擎进行解耦，设计了新的连接器API，通过�
 
 1. 在`seatunnel-examples/seatunnel-flink-connector-v2-example/pom.xml`添加connector依赖的groupId, artifactId 和
    version.（或者当你想在spark引擎运行时在`seatunnel-examples/seatunnel-spark-connector-v2-example/pom.xml`添加依赖）
-2. 如果你的connector存在scope为test或者provided的依赖则在`seatunnel-examples/seatunnel-flink-connector-v2-example/pom.xml`(
-   或者在`seatunnel-examples/seatunnel-spark-connector-v2-example/pom.xml`)修改为compile。
+2. 如果你的connector中存在scope为test或provided的依赖，将这些依赖添加到seatunnel-examples/seatunnel-flink-connector-v2-example/pom.xml(
+   或者在seatunnel-examples/seatunnel-spark-connector-v2-example/pom.xml)中，并且修改scope为compile.
 3. 参考`SeaTunnelApiExample`开发自己的案例程序。
 
 ### 启动类
