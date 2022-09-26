@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.flink;
 
-import org.apache.flink.configuration.ConfigOption;
+import static org.apache.flink.configuration.ConfigOptions.key;
+
 import org.apache.seatunnel.apis.base.env.RuntimeEnv;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -30,6 +31,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.ExecutionEnvironment;
+import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
@@ -53,8 +55,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
-
-import static org.apache.flink.configuration.ConfigOptions.key;
 
 public class FlinkEnvironment implements RuntimeEnv {
 
@@ -328,58 +328,58 @@ public class FlinkEnvironment implements RuntimeEnv {
 
     public StreamExecutionEnvironment creatMetricStreamEEnvironment() {
 
-        if(!config.hasPath(ConfigKeyName.Metric_Class)){
+        if (!config.hasPath(ConfigKeyName.METRICS_CLASS)) {
             return StreamExecutionEnvironment.getExecutionEnvironment();
         }
-        //构建flink-metrics参数
-        ConfigOption<String> REPORTERS_LIST =
+        final int defaultDuration = 10;
+        //Build flink-metrics parameters
+        ConfigOption<String> reportersList =
                 key("metrics.reporters")
                         .stringType()
                         .noDefaultValue();
 
-        ConfigOption<String> REPORTER_CLASS =
+        ConfigOption<String> reporterClass =
                 key("metrics.reporter.seatunnel_reporter.class")
                         .stringType()
                         .noDefaultValue();
-        ConfigOption<Duration> REPORTER_INTERVAL =
+        ConfigOption<Duration> reporterInterval =
                 key("metrics.reporter.seatunnel_reporter.interval")
                         .durationType()
-                        .defaultValue(Duration.ofSeconds(10));
+                        .defaultValue(Duration.ofSeconds(defaultDuration));
 
-        ConfigOption<String> REPORTER_CONFIG_PORT =
+        ConfigOption<String> reporterConfigPort =
                 key("metrics.reporter.seatunnel_reporter.port")
                         .stringType()
                         .noDefaultValue();
-        ConfigOption<String> REPORTER_CONFIG_HOST =
+        ConfigOption<String> reporterConfigHost =
                 key("metrics.reporter.seatunnel_reporter.host")
                         .stringType()
                         .noDefaultValue();
-        ConfigOption<String> REPORTER_CONFIG_JOB_NAME =
+        ConfigOption<String> reporterConfigJobName =
                 key("metrics.reporter.seatunnel_reporter.jobName")
                         .stringType()
                         .noDefaultValue();
 
-        Configuration seatunnel_reporter = new Configuration().set(REPORTERS_LIST, "seatunnel_reporter").set(REPORTER_CLASS, "org.apache.seatunnel.metrics.flink.SeatunnelMetricReporter");
+        Configuration seatunnelReporter = new Configuration().set(reportersList, "seatunnel_reporter").set(reporterClass, "org.apache.seatunnel.metrics.flink.SeatunnelMetricReporter");
 
-        if(config.hasPath(ConfigKeyName.Metric_Interval)){
-            Duration duration = Duration.ofSeconds(config.getLong(ConfigKeyName.Metric_Interval));
-            seatunnel_reporter.set(REPORTER_INTERVAL,duration);
+        if (config.hasPath(ConfigKeyName.METRICS_INTERVAL)) {
+            Duration duration = Duration.ofSeconds(config.getLong(ConfigKeyName.METRICS_INTERVAL));
+            seatunnelReporter.set(reporterInterval, duration);
         }
 
-        if(config.hasPath(ConfigKeyName.Metric_Port)){
-            seatunnel_reporter.set(REPORTER_CONFIG_PORT,config.getString(ConfigKeyName.Metric_Port));
+        if (config.hasPath(ConfigKeyName.METRICS_PORT)) {
+            seatunnelReporter.set(reporterConfigPort, config.getString(ConfigKeyName.METRICS_PORT));
         }
 
-        if(config.hasPath(ConfigKeyName.Metric_Host)){
-            seatunnel_reporter.set(REPORTER_CONFIG_HOST,config.getString(ConfigKeyName.Metric_Host));
+        if (config.hasPath(ConfigKeyName.METRICS_HOST)) {
+            seatunnelReporter.set(reporterConfigHost, config.getString(ConfigKeyName.METRICS_HOST));
         }
 
-        if(config.hasPath(ConfigKeyName.Metric_JobName)){
-            seatunnel_reporter.set(REPORTER_CONFIG_JOB_NAME,config.getString(ConfigKeyName.Metric_JobName));
+        if (config.hasPath(ConfigKeyName.METRICS_JOB_NAME)) {
+            seatunnelReporter.set(reporterConfigJobName, config.getString(ConfigKeyName.METRICS_JOB_NAME));
         }
 
-        return StreamExecutionEnvironment.getExecutionEnvironment(seatunnel_reporter);
-
+        return StreamExecutionEnvironment.getExecutionEnvironment(seatunnelReporter);
 
     }
 
