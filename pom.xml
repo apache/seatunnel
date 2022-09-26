@@ -13,8 +13,7 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
@@ -26,50 +25,12 @@
 
     <groupId>org.apache.seatunnel</groupId>
     <artifactId>seatunnel</artifactId>
-    <packaging>pom</packaging>
     <version>${revision}</version>
+    <packaging>pom</packaging>
 
     <name>SeaTunnel</name>
 
-    <description>
-        Production ready big data processing product based on Apache Spark and Apache Flink.
-    </description>
-
-    <url>https://github.com/apache/incubator-seatunnel</url>
-
-    <licenses>
-        <license>
-            <name>The Apache License, Version 2.0</name>
-            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
-        </license>
-    </licenses>
-
-    <scm>
-        <connection>scm:git:https://github.com/apache/incubator-seatunnel.git</connection>
-        <developerConnection>scm:git:https://github.com/apache/incubator-seatunnel.git</developerConnection>
-        <url>https://github.com/apache/incubator-seatunnel</url>
-        <tag>HEAD</tag>
-    </scm>
-
-    <issueManagement>
-        <system>GitHub</system>
-        <url>https://github.com/apache/incubator-seatunnel/issues</url>
-    </issueManagement>
-
-    <mailingLists>
-        <mailingList>
-            <name>SeaTunnel Developer List</name>
-            <post>dev@seatunnel.apache.org</post>
-            <subscribe>dev-subscribe@seatunnel.apache.org</subscribe>
-            <unsubscribe>dev-unsubscribe@seatunnel.apache.org</unsubscribe>
-        </mailingList>
-        <mailingList>
-            <name>SeaTunnel Commits List</name>
-            <post>commits@seatunnel.apache.org</post>
-            <subscribe>commits-subscribe@seatunnel.apache.org</subscribe>
-            <unsubscribe>commits-unsubscribe@seatunnel.apache.org</unsubscribe>
-        </mailingList>
-    </mailingLists>
+    <description>Production ready big data processing product based on Apache Spark and Apache Flink.</description>
 
     <modules>
         <!--
@@ -90,32 +51,6 @@
         <module>seatunnel-dist</module>
         <module>seatunnel-engine</module>
     </modules>
-
-    <profiles>
-        <profile>
-            <id>all</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-                <property>
-                    <name>release</name>
-                    <value>false</value>
-                </property>
-            </activation>
-            <modules>
-                <module>seatunnel-examples</module>
-                <module>seatunnel-e2e</module>
-            </modules>
-        </profile>
-        <profile>
-            <id>release</id>
-            <activation>
-                <property>
-                    <name>release</name>
-                    <value>true</value>
-                </property>
-            </activation>
-        </profile>
-    </profiles>
 
     <properties>
         <!--todo The classification is too confusing, reclassify by type-->
@@ -148,8 +83,6 @@
         <maven.javadoc.skip>false</maven.javadoc.skip>
         <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
         <maven-failsafe-plugin.version>2.22.2</maven-failsafe-plugin.version>
-        <maven-checkstyle-plugin.version>3.1.2</maven-checkstyle-plugin.version>
-        <checkstyle.fails.on.error>true</checkstyle.fails.on.error>
         <nexus-staging-maven-plugin.version>1.6.8</nexus-staging-maven-plugin.version>
         <maven-source-plugin.version>3.0.1</maven-source-plugin.version>
         <maven-javadoc-plugin.version>2.9.1</maven-javadoc-plugin.version>
@@ -180,7 +113,6 @@
         <flatten-maven-plugin.version>1.3.0</flatten-maven-plugin.version>
         <maven-license-maven-plugin>1.20</maven-license-maven-plugin>
         <log4j-core.version>2.17.1</log4j-core.version>
-        <scalastyle-maven-plugin.version>1.0.0</scalastyle-maven-plugin.version>
         <docker-maven-plugin.version>0.38.0</docker-maven-plugin.version>
         <p3c-pmd.version>1.3.0</p3c-pmd.version>
         <maven-scm-provider-jgit.version>1.9.5</maven-scm-provider-jgit.version>
@@ -293,8 +225,8 @@
                         <artifactId>slf4j-api</artifactId>
                     </exclusion>
                     <exclusion>
-                        <artifactId>junit</artifactId>
                         <groupId>junit</groupId>
+                        <artifactId>junit</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -448,17 +380,17 @@
                     <executions>
                         <execution>
                             <id>scala-compile-first</id>
-                            <phase>process-resources</phase>
                             <goals>
                                 <goal>compile</goal>
                             </goals>
+                            <phase>process-resources</phase>
                         </execution>
                         <execution>
                             <id>scala-test-compile</id>
-                            <phase>process-test-resources</phase>
                             <goals>
                                 <goal>testCompile</goal>
                             </goals>
+                            <phase>process-test-resources</phase>
                         </execution>
                         <!-- attach javadocs and sources , -javadoc.jar, sources.jar, to pass mvn deploy-->
                         <execution>
@@ -487,8 +419,7 @@
                     <configuration>
                         <skip>${skipUT}</skip>
                         <systemPropertyVariables>
-                            <jacoco-agent.destfile>${project.build.directory}/jacoco.exec
-                            </jacoco-agent.destfile>
+                            <jacoco-agent.destfile>${project.build.directory}/jacoco.exec</jacoco-agent.destfile>
                         </systemPropertyVariables>
                         <excludes>
                             <exclude>**/*IT.java</exclude>
@@ -549,14 +480,14 @@
 
                     <executions>
                         <execution>
-                            <phase>package</phase>
                             <goals>
                                 <goal>shade</goal>
                             </goals>
+                            <phase>package</phase>
                             <configuration>
                                 <transformers combine.children="append">
                                     <!-- The service transformer is needed to merge META-INF/services files -->
-                                    <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                    <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
                                 </transformers>
                             </configuration>
                         </execution>
@@ -569,79 +500,6 @@
                     <artifactId>maven-assembly-plugin</artifactId>
                     <version>${maven-assembly-plugin.version}</version>
                 </plugin>
-
-                <!-- checkstyle (Start) -->
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-checkstyle-plugin</artifactId>
-                    <version>${maven-checkstyle-plugin.version}</version>
-                    <configuration>
-                        <!--suppress UnresolvedMavenProperty -->
-                        <configLocation>${maven.multiModuleProjectDirectory}/tools/checkstyle/checkStyle.xml
-                        </configLocation>
-                        <encoding>UTF-8</encoding>
-                        <consoleOutput>true</consoleOutput>
-                        <includeTestSourceDirectory>true</includeTestSourceDirectory>
-                        <failOnViolation>${checkstyle.fails.on.error}</failOnViolation>
-                        <sourceDirectories>
-                            <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
-                            <sourceDirectory>${project.build.testSourceDirectory}</sourceDirectory>
-                        </sourceDirectories>
-                        <resourceIncludes>
-                            **/*.properties,
-                            **/*.sh,
-                            **/*.bat,
-                            **/*.yml,
-                            **/*.yaml,
-                            **/*.xml
-                        </resourceIncludes>
-                        <resourceExcludes>
-                            **/.asf.yaml,
-                            **/.github/**
-                        </resourceExcludes>
-                        <excludes>
-                        </excludes>
-                    </configuration>
-                    <executions>
-                        <execution>
-                            <id>validate</id>
-                            <phase>process-sources</phase>
-                            <goals>
-                                <goal>check</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                </plugin>
-
-                <plugin>
-                    <groupId>org.scalastyle</groupId>
-                    <artifactId>scalastyle-maven-plugin</artifactId>
-                    <version>${scalastyle-maven-plugin.version}</version>
-                    <configuration>
-                        <verbose>false</verbose>
-                        <failOnViolation>true</failOnViolation>
-                        <includeTestSourceDirectory>false</includeTestSourceDirectory>
-                        <failOnWarning>false</failOnWarning>
-                        <sourceDirectory>${basedir}/src/main/scala</sourceDirectory>
-                        <testSourceDirectory>${basedir}/src/test/scala</testSourceDirectory>
-                        <!--suppress UnresolvedMavenProperty -->
-                        <configLocation>
-                            ${maven.multiModuleProjectDirectory}/tools/checkstyle/scalastyle-config.xml
-                        </configLocation>
-                        <outputFile>${project.build.directory}/target/scalastyle-output.xml</outputFile>
-                        <inputEncoding>UTF-8</inputEncoding>
-                        <outputEncoding>UTF-8</outputEncoding>
-                    </configuration>
-                    <executions>
-                        <execution>
-                            <goals>
-                                <goal>check</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                </plugin>
-
-                <!-- checkstyle (End) -->
 
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -678,7 +536,6 @@
                     </executions>
                 </plugin>
 
-
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>build-helper-maven-plugin</artifactId>
@@ -714,17 +571,17 @@
                     <executions>
                         <execution>
                             <id>flatten</id>
-                            <phase>process-resources</phase>
                             <goals>
                                 <goal>flatten</goal>
                             </goals>
+                            <phase>process-resources</phase>
                         </execution>
                         <execution>
                             <id>flatten.clean</id>
-                            <phase>clean</phase>
                             <goals>
                                 <goal>clean</goal>
                             </goals>
+                            <phase>clean</phase>
                         </execution>
                     </executions>
                 </plugin>
@@ -771,16 +628,6 @@
             </plugin>
 
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-checkstyle-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.scalastyle</groupId>
-                <artifactId>scalastyle-maven-plugin</artifactId>
-            </plugin>
-
-            <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>license-maven-plugin</artifactId>
             </plugin>
@@ -812,7 +659,8 @@
                             <include>**/*.sc</include>
                         </includes>
 
-                        <scalafmt /> <!-- has its own section below -->
+                        <scalafmt />
+                        <!-- has its own section below -->
                     </scala>
                     <pom>
                         <sortPom>
@@ -853,5 +701,67 @@
 
         </plugins>
     </build>
+
+    <url>https://github.com/apache/incubator-seatunnel</url>
+
+    <licenses>
+        <license>
+            <name>The Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <mailingLists>
+        <mailingList>
+            <name>SeaTunnel Developer List</name>
+            <subscribe>dev-subscribe@seatunnel.apache.org</subscribe>
+            <unsubscribe>dev-unsubscribe@seatunnel.apache.org</unsubscribe>
+            <post>dev@seatunnel.apache.org</post>
+        </mailingList>
+        <mailingList>
+            <name>SeaTunnel Commits List</name>
+            <subscribe>commits-subscribe@seatunnel.apache.org</subscribe>
+            <unsubscribe>commits-unsubscribe@seatunnel.apache.org</unsubscribe>
+            <post>commits@seatunnel.apache.org</post>
+        </mailingList>
+    </mailingLists>
+
+    <scm>
+        <connection>scm:git:https://github.com/apache/incubator-seatunnel.git</connection>
+        <developerConnection>scm:git:https://github.com/apache/incubator-seatunnel.git</developerConnection>
+        <url>https://github.com/apache/incubator-seatunnel</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <issueManagement>
+        <system>GitHub</system>
+        <url>https://github.com/apache/incubator-seatunnel/issues</url>
+    </issueManagement>
+
+    <profiles>
+        <profile>
+            <id>all</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+                <property>
+                    <name>release</name>
+                    <value>false</value>
+                </property>
+            </activation>
+            <modules>
+                <module>seatunnel-examples</module>
+                <module>seatunnel-e2e</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>release</id>
+            <activation>
+                <property>
+                    <name>release</name>
+                    <value>true</value>
+                </property>
+            </activation>
+        </profile>
+    </profiles>
 
 </project>

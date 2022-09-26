@@ -36,7 +36,9 @@ Otherwise, your code could not start in JetBrains IntelliJ IDEA correctly.
 ```
 
 ### Building SeaTunnel from source
+
 After you install the maven, you can use the follow command to compile and package.
+
 ```
 mvn clean package -pl seatunnel-dist -am -Dmaven.test.skip=true
 ```
@@ -52,13 +54,19 @@ See [install plugins for IDEA](https://www.jetbrains.com/help/idea/managing-plug
 Before running the following example, you should also install JetBrains IntelliJ IDEA's [Lombok plugin](https://plugins.jetbrains.com/plugin/6317-lombok).
 See [install plugins for IDEA](https://www.jetbrains.com/help/idea/managing-plugins.html#install-plugins) if you want to.
 
-### Install JetBrains IDEA CheckStyle-IDEA Plugin
+### Code Style
 
-Before coding, you should also install JetBrains IntelliJ IDEA's [CheckStyle-IDEA plugin](https://plugins.jetbrains.com/plugin/1065-checkstyle-idea).
-See [install plugins for IDEA](https://www.jetbrains.com/help/idea/managing-plugins.html#install-plugins) if you want to.
-Next, you should go to `Preferences -> Editor -> Code style -> Scheme -> Import Scheme -> CheckStyle Configration` and import `tools/checkstyle/checkStyle.xml`
-![checkstyle.png](../images/checkstyle.png)
-If you want to change to automatically formatting, these configurations are also required.
+SeaTunnel uses `Spotless` for code style and formatting checks.
+You could run the following command and `Spotless` will automatically fix
+the code style and formatting errors for you:
+
+```shell
+./mvnw spotless:apply
+```
+
+You could copy the `pre-commit hook` file `/tools/style/pre-commit` to your `.git/hooks/`
+directory so that every time you commit your code with `git commit`, `Spotless` will automatically
+fix things for you.
 
 ## Run Simple Example
 
@@ -68,7 +76,6 @@ it in IDEA](https://www.jetbrains.com/help/idea/run-debug-configuration.html) as
 
 Here we use `seatunnel-examples/seatunnel-flink-examples/src/main/java/org/apache/seatunnel/example/flink/LocalFlinkExample.java`
 as an example, when you run it successfully you could see the output as below:
-
 
 ```log
 +I[Ricky Huo, 71]
@@ -83,7 +90,7 @@ as an example, when you run it successfully you could see the output as below:
 
 All our examples use simple source and sink to make it less dependent and easy to run. You can change the example configuration
 in `resources/examples`. You could change your configuration as below, if you want to use PostgreSQL as the source and
-sink to console. 
+sink to console.
 
 ```conf
 env {
@@ -103,3 +110,4 @@ sink {
   ConsoleSink {}
 }
 ```
+

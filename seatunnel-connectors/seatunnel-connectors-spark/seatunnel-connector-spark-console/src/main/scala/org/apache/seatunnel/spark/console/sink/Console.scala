@@ -18,7 +18,15 @@ package org.apache.seatunnel.spark.console.sink
 
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
-import org.apache.seatunnel.spark.console.Config.{LIMIT, SERIALIZER, PLAIN, JSON, SCHEMA, DEFAULT_SERIALIZER, DEFAULT_LIMIT}
+import org.apache.seatunnel.spark.console.Config.{
+  LIMIT,
+  SERIALIZER,
+  PLAIN,
+  JSON,
+  SCHEMA,
+  DEFAULT_SERIALIZER,
+  DEFAULT_LIMIT
+}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
@@ -53,10 +61,15 @@ class Console extends SparkBatchSink {
   }
 
   override def checkConfig(): CheckResult = {
-    if (!config.hasPath(LIMIT) || (config.hasPath(LIMIT) && config.getInt(LIMIT) >= -1)) {
+    if (
+      !config
+        .hasPath(LIMIT) || (config.hasPath(LIMIT) && config.getInt(LIMIT) >= -1)
+    ) {
       CheckResult.success()
     } else {
-      CheckResult.error("Please specify [" + LIMIT + "] as Number[-1, " + Int.MaxValue + "]")
+      CheckResult.error(
+        "Please specify [" + LIMIT + "] as Number[-1, " + Int.MaxValue + "]"
+      )
     }
   }
 
@@ -65,7 +78,8 @@ class Console extends SparkBatchSink {
       Map(
         LIMIT -> DEFAULT_LIMIT,
         SERIALIZER -> DEFAULT_SERIALIZER // plain | json
-      ))
+      )
+    )
     config = config.withFallback(defaultConfig)
   }
 

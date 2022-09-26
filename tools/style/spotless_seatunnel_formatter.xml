@@ -19,7 +19,7 @@
  */
 -->
 <profiles version="22">
-    <profile kind="CodeFormatterProfile" name="'DolphinScheduler Apache Current'" version="13">
+    <profile kind="CodeFormatterProfile" name="Apache SeaTunnel Current" version="13">
         <setting id="org.eclipse.jdt.core.compiler.source" value="1.8" />
         <setting id="org.eclipse.jdt.core.compiler.compliance" value="1.8" />
         <setting id="org.eclipse.jdt.core.compiler.codegen.targetPlatform" value="1.8" />
