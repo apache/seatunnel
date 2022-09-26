@@ -100,10 +100,6 @@
                     <value>false</value>
                 </property>
             </activation>
-            <modules>
-                <module>seatunnel-examples</module>
-                <module>seatunnel-e2e</module>
-            </modules>
         </profile>
         <profile>
             <id>release</id>
