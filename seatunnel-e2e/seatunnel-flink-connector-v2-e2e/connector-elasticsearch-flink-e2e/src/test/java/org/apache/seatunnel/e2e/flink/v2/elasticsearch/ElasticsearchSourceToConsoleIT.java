@@ -40,7 +40,6 @@ public class ElasticsearchSourceToConsoleIT extends FlinkContainer {
 
     private ElasticsearchContainer container;
 
-    @SuppressWarnings({"checkstyle:MagicNumber", "checkstyle:Indentation"})
     @BeforeEach
     public void startElasticsearchContainer() throws InterruptedException {
         container = new ElasticsearchContainer(DockerImageName.parse("elasticsearch:6.8.23").asCompatibleSubstituteFor("docker.elastic.co/elasticsearch/elasticsearch"))
