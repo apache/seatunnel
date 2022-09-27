@@ -9,24 +9,12 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>seatunnel-metrics-spark</artifactId>
+    <artifactId>seatunnel-metrcis-console</artifactId>
 
     <dependencies>
-        <!--  spark. -->
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-core_${scala.binary.version}</artifactId>
-            <version>${spark.2.4.0.version}</version>
-        </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-metrics-core</artifactId>
-            <version>${revision}</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-metrics-prometheus</artifactId>
             <version>${revision}</version>
             <scope>compile</scope>
         </dependency>

@@ -130,8 +130,8 @@ public class FlinkEnvironment implements RuntimeEnv {
         List<Configuration> configurations = new ArrayList<>();
         try {
             configurations.add((Configuration) Objects.requireNonNull(ReflectionUtils.getDeclaredMethod(StreamExecutionEnvironment.class,
-                    "getConfiguration")).orElseThrow(() -> new RuntimeException("can't find " +
-                    "method: getConfiguration")).invoke(this.environment));
+                "getConfiguration")).orElseThrow(() -> new RuntimeException("can't find " +
+                "method: getConfiguration")).invoke(this.environment));
             if (!isStreaming()) {
                 configurations.add(batchEnvironment.getConfiguration());
             }
@@ -165,9 +165,9 @@ public class FlinkEnvironment implements RuntimeEnv {
     private void createStreamTableEnvironment() {
         // use blink and streammode
         EnvironmentSettings.Builder envBuilder = EnvironmentSettings.newInstance()
-                .inStreamingMode();
+            .inStreamingMode();
         if (this.config.hasPath(ConfigKeyName.PLANNER) && "blink"
-                .equals(this.config.getString(ConfigKeyName.PLANNER))) {
+            .equals(this.config.getString(ConfigKeyName.PLANNER))) {
             envBuilder.useBlinkPlanner();
         } else {
             envBuilder.useOldPlanner();
@@ -177,7 +177,7 @@ public class FlinkEnvironment implements RuntimeEnv {
         tableEnvironment = StreamTableEnvironment.create(getStreamExecutionEnvironment(), environmentSettings);
         TableConfig config = tableEnvironment.getConfig();
         if (this.config.hasPath(ConfigKeyName.MAX_STATE_RETENTION_TIME) && this.config
-                .hasPath(ConfigKeyName.MIN_STATE_RETENTION_TIME)) {
+            .hasPath(ConfigKeyName.MIN_STATE_RETENTION_TIME)) {
             long max = this.config.getLong(ConfigKeyName.MAX_STATE_RETENTION_TIME);
             long min = this.config.getLong(ConfigKeyName.MIN_STATE_RETENTION_TIME);
             config.setIdleStateRetentionTime(Time.seconds(min), Time.seconds(max));
@@ -185,7 +185,7 @@ public class FlinkEnvironment implements RuntimeEnv {
     }
 
     private void createStreamEnvironment() {
-        environment = creatMetricStreamEEnvironment();
+        environment = creatMetricStreamEnvironment();
         setTimeCharacteristic();
 
         setCheckpoint();
@@ -248,8 +248,8 @@ public class FlinkEnvironment implements RuntimeEnv {
                     break;
                 default:
                     LOGGER.warn(
-                            "set time-characteristic failed, unknown time-characteristic [{}],only support event-time,ingestion-time,processing-time",
-                            timeType);
+                        "set time-characteristic failed, unknown time-characteristic [{}],only support event-time,ingestion-time,processing-time",
+                        timeType);
                     break;
             }
         }
@@ -272,8 +272,8 @@ public class FlinkEnvironment implements RuntimeEnv {
                         break;
                     default:
                         LOGGER.warn(
-                                "set checkpoint.mode failed, unknown checkpoint.mode [{}],only support exactly-once,at-least-once",
-                                mode);
+                            "set checkpoint.mode failed, unknown checkpoint.mode [{}],only support exactly-once,at-least-once",
+                            mode);
                         break;
                 }
             }
@@ -306,10 +306,10 @@ public class FlinkEnvironment implements RuntimeEnv {
                 boolean cleanup = config.getBoolean(ConfigKeyName.CHECKPOINT_CLEANUP_MODE);
                 if (cleanup) {
                     checkpointConfig.enableExternalizedCheckpoints(
-                            CheckpointConfig.ExternalizedCheckpointCleanup.DELETE_ON_CANCELLATION);
+                        CheckpointConfig.ExternalizedCheckpointCleanup.DELETE_ON_CANCELLATION);
                 } else {
                     checkpointConfig.enableExternalizedCheckpoints(
-                            CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
+                        CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
 
                 }
             }
@@ -326,42 +326,49 @@ public class FlinkEnvironment implements RuntimeEnv {
         }
     }
 
-    public StreamExecutionEnvironment creatMetricStreamEEnvironment() {
+    public StreamExecutionEnvironment creatMetricStreamEnvironment() {
 
         if (!config.hasPath(ConfigKeyName.METRICS_CLASS)) {
             return StreamExecutionEnvironment.getExecutionEnvironment();
         }
+
+        Configuration seatunnelReporter = initMetricConfig();
+
+        return StreamExecutionEnvironment.getExecutionEnvironment(seatunnelReporter);
+
+    }
+
+    private Configuration initMetricConfig() {
         final int defaultDuration = 10;
         //Build flink-metrics parameters
         ConfigOption<String> reportersList =
-                key("metrics.reporters")
-                        .stringType()
-                        .noDefaultValue();
+            key("metrics.reporters")
+                .stringType()
+                .noDefaultValue();
 
         ConfigOption<String> reporterClass =
-                key("metrics.reporter.seatunnel_reporter.class")
-                        .stringType()
-                        .noDefaultValue();
+            key("metrics.reporter.seatunnel_reporter.class")
+                .stringType()
+                .noDefaultValue();
         ConfigOption<Duration> reporterInterval =
-                key("metrics.reporter.seatunnel_reporter.interval")
-                        .durationType()
-                        .defaultValue(Duration.ofSeconds(defaultDuration));
+            key("metrics.reporter.seatunnel_reporter.interval")
+                .durationType()
+                .defaultValue(Duration.ofSeconds(defaultDuration));
 
         ConfigOption<String> reporterConfigPort =
-                key("metrics.reporter.seatunnel_reporter.port")
-                        .stringType()
-                        .noDefaultValue();
+            key("metrics.reporter.seatunnel_reporter.port")
+                .stringType()
+                .noDefaultValue();
         ConfigOption<String> reporterConfigHost =
-                key("metrics.reporter.seatunnel_reporter.host")
-                        .stringType()
-                        .noDefaultValue();
+            key("metrics.reporter.seatunnel_reporter.host")
+                .stringType()
+                .noDefaultValue();
         ConfigOption<String> reporterConfigJobName =
-                key("metrics.reporter.seatunnel_reporter.jobName")
-                        .stringType()
-                        .noDefaultValue();
+            key("metrics.reporter.seatunnel_reporter.jobName")
+                .stringType()
+                .noDefaultValue();
 
         Configuration seatunnelReporter = new Configuration().set(reportersList, "seatunnel_reporter").set(reporterClass, "org.apache.seatunnel.metrics.flink.SeatunnelMetricReporter");
-
         if (config.hasPath(ConfigKeyName.METRICS_INTERVAL)) {
             Duration duration = Duration.ofSeconds(config.getLong(ConfigKeyName.METRICS_INTERVAL));
             seatunnelReporter.set(reporterInterval, duration);
@@ -378,9 +385,7 @@ public class FlinkEnvironment implements RuntimeEnv {
         if (config.hasPath(ConfigKeyName.METRICS_JOB_NAME)) {
             seatunnelReporter.set(reporterConfigJobName, config.getString(ConfigKeyName.METRICS_JOB_NAME));
         }
-
-        return StreamExecutionEnvironment.getExecutionEnvironment(seatunnelReporter);
-
+        return seatunnelReporter;
     }
 
 }

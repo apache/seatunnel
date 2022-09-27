@@ -3,13 +3,11 @@ package org.apache.seatunnel.metrics.spark
 import java.util
 import java.util.{Locale, Properties}
 import java.util.concurrent.TimeUnit
-
 import scala.collection.JavaConversions._
-
 import com.codahale.metrics
 import com.codahale.metrics.{Counter, Histogram, Meter, _}
 import org.apache.seatunnel.metrics.core.{Gauge, _}
-import org.apache.seatunnel.metrics.core.reporter.PrometheusPushGatewayReporter
+import org.apache.seatunnel.metrics.prometheus.PrometheusPushGatewayReporter
 import org.apache.spark.internal.Logging
 
 object SeatunnelMetricSink {

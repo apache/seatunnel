@@ -1,4 +1,4 @@
-package org.apache.seatunnel.metrics.core.reporter;
+package org.apache.seatunnel.metrics.prometheus;
 
 import org.apache.seatunnel.metrics.core.Counter;
 import org.apache.seatunnel.metrics.core.Gauge;
@@ -6,6 +6,7 @@ import org.apache.seatunnel.metrics.core.Histogram;
 import org.apache.seatunnel.metrics.core.Meter;
 import org.apache.seatunnel.metrics.core.Metric;
 import org.apache.seatunnel.metrics.core.MetricInfo;
+import org.apache.seatunnel.metrics.core.reporter.MetricReporter;
 
 import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;

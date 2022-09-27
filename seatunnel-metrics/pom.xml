@@ -15,7 +15,8 @@
         <module>seatunnel-metrics-core</module>
         <module>seatunnel-metrics-flink</module>
         <module>seatunnel-metrics-spark</module>
+        <module>seatunnel-metrics-prometheus</module>
+        <module>seatunnel-metrics-console</module>
     </modules>
-
 
 </project>

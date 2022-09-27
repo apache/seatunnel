@@ -10,7 +10,7 @@ import org.apache.seatunnel.metrics.core.SimpleGauge;
 import org.apache.seatunnel.metrics.core.SimpleHistogram;
 import org.apache.seatunnel.metrics.core.SimpleMeter;
 import org.apache.seatunnel.metrics.core.reporter.MetricReporter;
-import org.apache.seatunnel.metrics.core.reporter.PrometheusPushGatewayReporter;
+import org.apache.seatunnel.metrics.prometheus.PrometheusPushGatewayReporter;
 
 import org.apache.flink.metrics.MetricConfig;
 import org.apache.flink.metrics.reporter.Scheduled;
@@ -102,8 +102,6 @@ public class SeatunnelMetricReporter extends AbstractSeatunnelReporter implement
             histogramsIndex.put(new SimpleHistogram(key.getCount(), key.getStatistics().getMin(), key.getStatistics().getMax(), key.getStatistics().getStdDev(), key.getStatistics().getMean(), quantile), metric.getValue());
         }
         //todo handle user config
-        //reporter = reporter.open();
-        //String host =
         reporter = new PrometheusPushGatewayReporter(jobName, host, port);
         reporter.report(gaugesIndex, countersIndex, histogramsIndex, metersIndex);
 

@@ -1,10 +1,11 @@
-package org.apache.seatunnel.metrics.core.reporter;
+package org.apache.seatuunel.metrcis.console;
 
 import org.apache.seatunnel.metrics.core.Counter;
 import org.apache.seatunnel.metrics.core.Gauge;
 import org.apache.seatunnel.metrics.core.Histogram;
 import org.apache.seatunnel.metrics.core.Meter;
 import org.apache.seatunnel.metrics.core.MetricInfo;
+import org.apache.seatunnel.metrics.core.reporter.MetricReporter;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
