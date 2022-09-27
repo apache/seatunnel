@@ -30,7 +30,7 @@
     <artifactId>connector-hive</artifactId>
     
     <properties>
-        <hive.metastore.version>2.3.9</hive.metastore.version>
+        <hive.exec.version>2.3.9</hive.exec.version>
         <connector.name>connector.hive</connector.name>
     </properties>
 
@@ -54,7 +54,7 @@
         <dependency>
             <groupId>org.apache.hive</groupId>
             <artifactId>hive-exec</artifactId>
-            <version>${hive.metastore.version}</version>
+            <version>${hive.exec.version}</version>
             <scope>provided</scope>
             <exclusions>
                 <exclusion>

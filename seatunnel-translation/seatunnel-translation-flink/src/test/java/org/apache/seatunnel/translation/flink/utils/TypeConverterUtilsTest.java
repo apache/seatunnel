@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 
 import org.apache.flink.api.common.typeinfo.BasicArrayTypeInfo;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
-import org.apache.flink.table.runtime.typeutils.BigDecimalTypeInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -74,7 +73,7 @@ public class TypeConverterUtilsTest {
 
     @Test
     public void convertBigDecimalType() {
-        Assertions.assertEquals(new BigDecimalTypeInfo(30, 2), TypeConverterUtils.convert(new DecimalType(30, 2)));
+        Assertions.assertEquals(BasicTypeInfo.BIG_DEC_TYPE_INFO, TypeConverterUtils.convert(new DecimalType(30, 2)));
     }
 
     @Test
