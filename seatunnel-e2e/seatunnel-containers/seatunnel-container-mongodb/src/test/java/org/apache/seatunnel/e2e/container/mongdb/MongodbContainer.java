@@ -144,6 +144,7 @@ public class MongodbContainer {
         }
     }
 
+    @SuppressWarnings("checkstyle:MagicNumber")
     private static List<Document> generateTestDataSet() {
         String[] fieldNames = new String[]{
             "id",
@@ -194,7 +195,7 @@ public class MongodbContainer {
                     Long.parseLong("1"),
                     Float.parseFloat("1.1"),
                     Double.parseDouble("1.1"),
-                    new BigDecimal("11.1"),
+                    BigDecimal.valueOf(11, 1),
                     "test".getBytes(),
                     LocalDate.now(),
                     LocalDateTime.now()
