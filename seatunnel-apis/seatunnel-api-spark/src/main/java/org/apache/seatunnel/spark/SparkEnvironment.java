@@ -119,6 +119,9 @@ public class SparkEnvironment implements RuntimeEnv {
     private SparkConf createSparkConf() {
         SparkConf sparkConf = new SparkConf();
         this.config.entrySet().forEach(entry -> sparkConf.set(entry.getKey(), String.valueOf(entry.getValue().unwrapped())));
+        if (config.hasPath("job.name")) {
+            sparkConf.setAppName(config.getString("job.name"));
+        }
         return sparkConf;
     }
 
