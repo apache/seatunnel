@@ -54,10 +54,11 @@ public class JdbcPostgresIT extends FlinkContainer {
     @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
     public void startPostgreSqlContainer() throws Exception {
-        pg = new PostgreSQLContainer<>(DockerImageName.parse("postgres:14.3"))
+        pg = new PostgreSQLContainer<>(DockerImageName.parse("postgres:14-alpine"))
             .withNetwork(NETWORK)
             .withNetworkAliases("postgresql")
             .withCommand("postgres -c max_prepared_transactions=100")
+            .withUsername("root")
             .withLogConsumer(new Slf4jLogConsumer(LOGGER));
         Startables.deepStart(Stream.of(pg)).join();
         LOGGER.info("Postgres container started");
