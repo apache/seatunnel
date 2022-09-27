@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.influxdb.converter;
 
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,31 +33,32 @@ public class InfluxDBRowConverter {
         SeaTunnelDataType<?>[] seaTunnelDataTypes = typeInfo.getFieldTypes();
 
         for (int i = 0; i <= seaTunnelDataTypes.length - 1; i++) {
-            Object seatunnelField;
+            Object seaTunnelField;
             int columnIndex = indexList.get(i);
             SeaTunnelDataType<?> seaTunnelDataType = seaTunnelDataTypes[i];
+            SqlType fieldSqlType = seaTunnelDataType.getSqlType();
             if (null == values.get(columnIndex)) {
-                seatunnelField = null;
+                seaTunnelField = null;
             }
-            else if (BasicType.BOOLEAN_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = Boolean.parseBoolean(values.get(columnIndex).toString());
-            } else if (BasicType.SHORT_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = Short.valueOf(values.get(columnIndex).toString());
-            } else if (BasicType.INT_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = Integer.valueOf(values.get(columnIndex).toString());
-            } else if (BasicType.LONG_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = Long.valueOf(values.get(columnIndex).toString());
-            } else if (BasicType.FLOAT_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = ((Double) values.get(columnIndex)).floatValue();
-            } else if (BasicType.DOUBLE_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = values.get(columnIndex);
-            } else if (BasicType.STRING_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = values.get(columnIndex);
+            else if (SqlType.BOOLEAN.equals(fieldSqlType)) {
+                seaTunnelField = Boolean.parseBoolean(values.get(columnIndex).toString());
+            } else if (SqlType.SMALLINT.equals(fieldSqlType)) {
+                seaTunnelField = Short.valueOf(values.get(columnIndex).toString());
+            } else if (SqlType.INT.equals(fieldSqlType)) {
+                seaTunnelField = Integer.valueOf(values.get(columnIndex).toString());
+            } else if (SqlType.BIGINT.equals(fieldSqlType)) {
+                seaTunnelField = Long.valueOf(values.get(columnIndex).toString());
+            } else if (SqlType.FLOAT.equals(fieldSqlType)) {
+                seaTunnelField = ((Double) values.get(columnIndex)).floatValue();
+            } else if (SqlType.DOUBLE.equals(fieldSqlType)) {
+                seaTunnelField = values.get(columnIndex);
+            } else if (SqlType.STRING.equals(fieldSqlType)) {
+                seaTunnelField = values.get(columnIndex);
             } else {
                 throw new IllegalStateException("Unexpected value: " + seaTunnelDataType);
             }
 
-            fields.add(seatunnelField);
+            fields.add(seaTunnelField);
         }
 
         return new SeaTunnelRow(fields.toArray());

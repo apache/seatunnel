@@ -55,8 +55,7 @@ public class InfluxDBSourceSplitEnumerator implements SourceSplitEnumerator<Infl
 
     @Override
     public void open() {
-        this.assignedSplit = new HashSet<>();
-        this.pendingSplit = new HashSet<>();
+        //nothing to do
     }
 
     @Override
