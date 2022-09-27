@@ -62,7 +62,7 @@ public class JdbcMysqlIT extends SparkContainer {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
-    public void startPostgreSqlContainer() throws Exception {
+    public void startMySqlContainer() throws Exception {
         // Non-root users need to grant XA_RECOVER_ADMIN permission on is_exactly_once = "true"
         mc = new MySQLContainer<>(DockerImageName.parse("bitnami/mysql:8.0.29"))
             .withNetwork(NETWORK)
@@ -208,7 +208,7 @@ public class JdbcMysqlIT extends SparkContainer {
     }
 
     @AfterEach
-    public void closePostgreSqlContainer() {
+    public void closeMySqlContainer() {
         if (mc != null) {
             mc.stop();
         }
