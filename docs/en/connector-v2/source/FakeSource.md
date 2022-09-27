@@ -22,15 +22,21 @@ just for testing, such as type conversion and feature testing
 |-------------------|--------|----------|---------------|
 | result_table_name | string | yes      | -             |
 | schema            | config | yes      | -             |
+| row.num           | long   | no       | 10            |
 
 ### result_table_name [string]
 
 The table name.
 
 ### type [string]
+
 Table structure description ,you should assign schema option to tell connector how to parse data to the row you want.  
 **Tips**: Most of Unstructured-Datasource contain this param, such as LocalFile,HdfsFile.  
 **Example**:
+
+### row.num
+Number of additional rows of generated data
+
 ```hocon
 schema = {
       fields {
@@ -55,7 +61,9 @@ schema = {
 ```
 
 ## Example
+
 Simple source for FakeSource which contains enough datatype
+
 ```hocon
 source {
   FakeSource {

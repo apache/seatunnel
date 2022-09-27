@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.pulsar.source.reader;
+package org.apache.seatunnel.common;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
