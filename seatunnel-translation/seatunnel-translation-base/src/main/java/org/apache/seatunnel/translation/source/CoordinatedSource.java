@@ -86,7 +86,10 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
 
     private void createSplitEnumerator() throws Exception {
         if (restoredState != null && restoredState.size() > 0) {
-            StateT restoredEnumeratorState = enumeratorStateSerializer.deserialize(restoredState.get(-1).get(0));
+            StateT restoredEnumeratorState = null;
+            if (restoredState.containsKey(-1)) {
+                restoredEnumeratorState = enumeratorStateSerializer.deserialize(restoredState.get(-1).get(0));
+            }
             splitEnumerator = source.restoreEnumerator(coordinatedEnumeratorContext, restoredEnumeratorState);
             restoredState.forEach((subtaskId, splitBytes) -> {
                 if (subtaskId == -1) {
@@ -182,8 +185,6 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
 
     @Override
     public Map<Integer, List<byte[]>> snapshotState(long checkpointId) throws Exception {
-        StateT enumeratorState = splitEnumerator.snapshotState(checkpointId);
-        byte[] enumeratorStateBytes = enumeratorStateSerializer.serialize(enumeratorState);
         Map<Integer, List<byte[]>> allStates = readerMap.entrySet()
             .parallelStream()
             .collect(Collectors.toMap(
@@ -200,7 +201,11 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                         throw new RuntimeException(e);
                     }
                 }));
-        allStates.put(-1, Collections.singletonList(enumeratorStateBytes));
+        StateT enumeratorState = splitEnumerator.snapshotState(checkpointId);
+        if (enumeratorState != null) {
+            byte[] enumeratorStateBytes = enumeratorStateSerializer.serialize(enumeratorState);
+            allStates.put(-1, Collections.singletonList(enumeratorStateBytes));
+        }
         return allStates;
     }
 
