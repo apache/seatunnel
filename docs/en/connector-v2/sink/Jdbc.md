@@ -30,6 +30,7 @@ Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` f
 | xa_data_source_class_name    | String  | No       | -             |
 | max_commit_attempts          | Int     | No       | 3             |
 | transaction_timeout_sec      | Int     | No       | -1            |
+| common-options               | string  | no       | -             |
 
 ### driver [string]
 The jdbc class name used to connect to the remote data source, if you use MySQL the value is com.mysql.cj.jdbc.Driver.
@@ -71,6 +72,9 @@ The number of retries for transaction commit failures
 
 ### transaction_timeout_sec[int]
 The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect exactly-once semantics
+
+### common options [string]
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## tips
 In the case of is_exactly_once = "true", Xa transactions are used. This requires database support, and some databases require some setup : 

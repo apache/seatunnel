@@ -13,15 +13,16 @@ A sink plugin which use send message to datahub
 
 ## Options
 
-| name       | type   | required | default value |
-|------------|--------|----------|---------------|
-| endpoint   | string | yes      | -             |
-| accessId   | string | yes      | -             |
-| accessKey  | string | yes      | -             |
-| project    | string | yes      | -             |
-| topic      | string | yes      | -             |
-| timeout    | int    | yes      | -             |
-| retryTimes | int    | yes      | -             |
+| name          | type   | required | default value |
+|------------   |--------|----------|---------------|
+| endpoint      | string | yes      | -             |
+| accessId      | string | yes      | -             |
+| accessKey     | string | yes      | -             |
+| project       | string | yes      | -             |
+| topic         | string | yes      | -             |
+| timeout       | int    | yes      | -             |
+| retryTimes    | int    | yes      | -             |
+| common-options| string | no       | -             |
 
 ### url [string]
 
@@ -50,6 +51,10 @@ the max connection timeout (int)
 ### retryTimes [int]
 
 the max retry times when your client put record failed  (int)
+
+### common options [string]
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
 

@@ -19,6 +19,7 @@ Used to send data to Socket Server. Both support streaming and batch mode.
 | host | String | Yes       | -             |
 | port | Integer | yes      | -             |
 | max_retries | Integer | No       | 3             |
+| common-options| string| no | -  |
 
 ### host [string]
 socket server host
@@ -30,6 +31,10 @@ socket server port
 ### max_retries [integer]
 
 The number of retries to send record failed
+
+### common options [string]
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
 

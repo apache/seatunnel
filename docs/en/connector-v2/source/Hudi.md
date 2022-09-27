@@ -30,6 +30,7 @@ Currently, only supports hudi cow table and Snapshot Query with Batch Mode
 | use.kerberos             | boolean | no       | false         |
 | kerberos.principal       | string  | no       | -             |
 | kerberos.principal.file  | string  | no       | -             |
+| result_table_name        | string  | no       | -             |
 
 ### table.path [string]
 
@@ -54,6 +55,10 @@ Currently, only supports hudi cow table and Snapshot Query with Batch Mode
 ### kerberos.principal.file [string]
 
 `kerberos.principal.file` When use kerberos,  we should set kerberos princal file such as '/home/test/test_user.keytab'.
+
+### result_table_name [string]
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
 ## Examples
 

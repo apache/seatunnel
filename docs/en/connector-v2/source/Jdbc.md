@@ -31,6 +31,7 @@ supports query SQL and can achieve projection effect.
 | partition_column             | String | No       | -             |
 | partition_upper_bound        | Long   | No       | -             |
 | partition_lower_bound        | Long   | No       | -             |
+| result_table_name            | string | no       | -             |
 
 ### driver [string]
 The jdbc class name used to connect to the remote data source, if you use MySQL the value is com.mysql.cj.jdbc.Driver.
@@ -62,6 +63,10 @@ The partition_column max value for scan, if not set SeaTunnel will query databas
 
 ### partition_lower_bound [long]
 The partition_column min value for scan, if not set SeaTunnel will query database get min value.
+
+### result_table_name [string]
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
 ## tips
 If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed in parallel according to the concurrency of tasks.

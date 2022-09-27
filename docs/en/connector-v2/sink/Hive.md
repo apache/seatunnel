@@ -32,7 +32,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | sink_columns          | array  | no                                          | When this parameter is empty, all fields are sink columns     |
 | is_enable_transaction | boolean| no                                          | true                                                          |
 | save_mode             | string | no                                          | "append"                                                      |
-
+| common-options| string| no | -  |
 ### table_name [string]
 
 Target Hive table name eg: db1.table1
@@ -61,6 +61,10 @@ Only support `true` now.
 Storage mode, we need support `overwrite` and `append`. `append` is now supported.
 
 Streaming Job not support `overwrite`.
+
+### common options [string]
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
 

@@ -19,8 +19,9 @@ Used to write data to Redis.
 | port      | int    | yes      | -             |
 | key       | string | yes      | -             |
 | data_type | string | yes      | -             |
-| auth      | string | No       | -             |
-| format    | string | No       | json          |
+| auth      | string | no       | -             |
+| format    | string | no       | json          |
+| common-options | string | no  | -             |
 
 ### host [string]
 
@@ -97,6 +98,10 @@ Connector will generate data as the following and write it to redis:
 {"code":  200, "data":  "get success", "success":  "true"}
 
 ```
+
+### common options [string]
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
 

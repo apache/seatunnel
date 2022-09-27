@@ -25,17 +25,18 @@ supports query SQL and can achieve projection effect.
 | host                       | string  | yes      | -             |
 | port                       | Int     | yes      | -             |
 | node_urls                  | string  | yes      | -             |
-| sql                        | string  | yes      |          |
+| sql                        | string  | yes      |               |
 | fields                     | config  | yes      | -             |
 | fetch_size                 | int     | no       | -             |
 | username                   | string  | no       | -             |
-| password   | string  | no       | -             |
+| password                   | string  | no       | -             |
 | lower_bound                | long    | no       | -             |
 | upper_bound                | long    | no       | -             |
 | num_partitions             | int     | no       | -             |
 | thrift_default_buffer_size | int     | no       | -             |
 | enable_cache_leader        | boolean | no       | -             |
 | version                    | string  | no       | -             |
+| result_table_name          | string  | no       | -             |
 
 ### single node, you need to set host and port to connect to the remote data source.
 
@@ -147,3 +148,6 @@ lower bound of the time column
 
 ```
 
+### result_table_name [string]
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details

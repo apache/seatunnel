@@ -31,6 +31,7 @@ Used to read data from Http.
 | retry                              | int    | No       | -             |
 | retry_backoff_multiplier_ms        | int    | No       | 100           |
 | retry_backoff_max_ms               | int    | No       | 10000         |
+| result_table_name | string | no       | -             |
 
 ### url [String]
 
@@ -123,6 +124,10 @@ connector will generate data as the following:
 #### fields [Config]
 
 the schema fields of upstream data
+
+### result_table_name [string]
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
 ## Example
 

@@ -17,13 +17,13 @@ Read data from MongoDB.
 
 ## Options
 
-| name           | type   | required | default value |
-|----------------|--------|----------|---------------|
-| uri            | string | yes      | -             |
-| database       | string | yes      | -             |
-| collection     | string | yes      | -             |
-| schema         | object | yes      | -             |
-| common-options | string | yes      | -             |
+| name              | type   | required | default value |
+| ----------------- | ------ | -------- | ------------- |
+| uri               | string | yes      | -             |
+| database          | string | yes      | -             |
+| collection        | string | yes      | -             |
+| schema            | object | yes      | -             |
+| result_table_name | string | yes      | -             |
 
 ### uri [string]
 
@@ -53,7 +53,7 @@ schema {
 }
 ```
 
-### common options [string]
+### result_table_name [string]
 
 Source Plugin common parameters, refer to [Source Plugin](common-options.md) for details
 

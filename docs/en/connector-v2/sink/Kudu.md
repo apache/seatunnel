@@ -18,8 +18,9 @@ Write data to Kudu.
 | name                     | type    | required | default value |
 |--------------------------|---------|----------|---------------|
 | kudu_master             | string  | yes      | -             |
-| kudu_table               | string  | yes      | -             |
+| kudu_table              | string  | yes      | -             |
 | save_mode               | string  | yes      | -             |
+| common-options          | string  | no       | -             |
 
 ### kudu_master [string]
 
@@ -32,6 +33,10 @@ Write data to Kudu.
 ### save_mode [string]
 
 Storage mode, we need support `overwrite` and `append`. `append` is now supported.
+
+### common options [string]
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
 

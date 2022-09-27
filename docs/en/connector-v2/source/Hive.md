@@ -34,6 +34,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 |-----------------------| ------ | -------- | ------------------------------------------------------------- |
 | table_name            | string | yes      | -                                                             |
 | metastore_uri         | string | yes      | -                                                             |
+| result_table_name                   | string        | no                  | -            |
 
 ### table_name [string]
 
@@ -42,6 +43,10 @@ Target Hive table name eg: db1.table1
 ### metastore_uri [string]
 
 Hive metastore uri
+
+### result_table_name [string]
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
 ## Example
 

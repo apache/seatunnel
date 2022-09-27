@@ -21,6 +21,7 @@ Used to launch feishu web hooks using data.
 | --- |--------| --- | --- |
 | url | String | Yes | - |
 | headers | Map    | No | - |
+| common-options| string| no | -  |
 
 ### url [string]
 
@@ -29,6 +30,10 @@ Feishu webhook url
 ### headers [Map]
 
 Http request headers
+
+### common options [string]
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
 
