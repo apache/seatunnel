@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.flink.druid.sink;
 
-import static org.apache.flink.api.java.io.CsvInputFormat.DEFAULT_FIELD_DELIMITER;
 import static org.apache.flink.api.java.io.CsvInputFormat.DEFAULT_LINE_DELIMITER;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -56,6 +55,9 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class DruidOutputFormat extends RichOutputFormat<Row> {
 
@@ -65,6 +67,13 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
     private static final String DEFAULT_TIMESTAMP_COLUMN = "timestamp";
     private static final String DEFAULT_TIMESTAMP_FORMAT = "auto";
     private static final DateTime DEFAULT_TIMESTAMP_MISSING_VALUE = null;
+    private static final String FIELD_DELIMITER_KEY = "column_separator";
+    private static final String FIELD_DELIMITER_DEFAULT = "\u0001";
+    private static final Pattern DELIMITER_PATTERN = Pattern.compile("\\\\x(\\d{2})");
+    private static final String ESCAPE_DELIMITERS_KEY = "escape_delimiters";
+    private static final String ESCAPE_DELIMITERS_DEFAULT = "false";
+    private static final String LINE_DELIMITER_KEY = "line_delimiter";
+    private static final String LINE_DELIMITER_DEFAULT = "\n";
 
     private final transient StringBuffer data;
     private final String coordinatorURL;
@@ -72,12 +81,17 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
     private final String timestampColumn;
     private final String timestampFormat;
     private final DateTime timestampMissingValue;
+    private String fieldDelimiter;
+    private String lineDelimiter;
+    private Properties streamLoadProp = null;
 
     public DruidOutputFormat(String coordinatorURL,
                              String datasource,
                              String timestampColumn,
                              String timestampFormat,
-                             String timestampMissingValue) {
+                             String timestampMissingValue, Properties streamLoadProp) {
+        this.streamLoadProp = streamLoadProp;
+        parseDelimiter();
         this.data = new StringBuffer();
         this.coordinatorURL = coordinatorURL;
         this.datasource = datasource;
@@ -100,13 +114,13 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
         for (int i = 0; i < fieldIndex; i++) {
             Object v = element.getField(i);
             if (i != 0) {
-                this.data.append(DEFAULT_FIELD_DELIMITER);
+                this.data.append(fieldDelimiter);
             }
             if (v != null) {
                 this.data.append(v);
             }
         }
-        this.data.append(DEFAULT_LINE_DELIMITER);
+        this.data.append(lineDelimiter);
     }
 
     @Override
@@ -153,6 +167,34 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
         }
     }
 
+    private void parseDelimiter() {
+        boolean ifEscape = Boolean.parseBoolean(streamLoadProp.getProperty(ESCAPE_DELIMITERS_KEY, ESCAPE_DELIMITERS_DEFAULT));
+        if (ifEscape) {
+            this.fieldDelimiter = escapeString(streamLoadProp.getProperty(FIELD_DELIMITER_KEY,
+                    FIELD_DELIMITER_DEFAULT));
+            this.lineDelimiter = escapeString(streamLoadProp.getProperty(LINE_DELIMITER_KEY,
+                    LINE_DELIMITER_DEFAULT));
+
+            if (streamLoadProp.contains(ESCAPE_DELIMITERS_KEY)) {
+                streamLoadProp.remove(ESCAPE_DELIMITERS_KEY);
+            }
+        } else {
+            this.fieldDelimiter = streamLoadProp.getProperty(FIELD_DELIMITER_KEY,
+                    FIELD_DELIMITER_DEFAULT);
+            this.lineDelimiter = streamLoadProp.getProperty(LINE_DELIMITER_KEY,
+                    LINE_DELIMITER_DEFAULT);
+        }
+    }
+
+    private String escapeString(String s) {
+        Matcher m = DELIMITER_PATTERN.matcher(s);
+        StringBuffer buf = new StringBuffer();
+        while (m.find()) {
+            m.appendReplacement(buf, String.format("%s", (char) Integer.parseInt(m.group(1))));
+        }
+        m.appendTail(buf);
+        return buf.toString();
+    }
     private ParallelIndexSupervisorTask parallelIndexSupervisorTask(ParallelIndexIOConfig ioConfig, ParallelIndexTuningConfig tuningConfig) {
         return new ParallelIndexSupervisorTask(
                 null,

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.flink.druid.sink;
 
+import org.apache.seatunnel.common.PropertiesUtil;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.BaseFlinkSink;
@@ -29,6 +30,8 @@ import com.google.auto.service.AutoService;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.operators.DataSink;
 import org.apache.flink.types.Row;
+
+import java.util.Properties;
 
 @AutoService(BaseFlinkSink.class)
 public class DruidSink implements FlinkBatchSink {
@@ -47,10 +50,11 @@ public class DruidSink implements FlinkBatchSink {
     private String timestampColumn;
     private String timestampFormat;
     private String timestampMissingValue;
+    private final Properties streamLoadProp = new Properties();
 
     @Override
     public void outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
-        DataSink<Row> dataSink = dataSet.output(new DruidOutputFormat(coordinatorURL, datasource, timestampColumn, timestampFormat, timestampMissingValue));
+        DataSink<Row> dataSink = dataSet.output(new DruidOutputFormat(coordinatorURL, datasource, timestampColumn, timestampFormat, timestampMissingValue, streamLoadProp));
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
             dataSink.setParallelism(parallelism);
@@ -79,6 +83,8 @@ public class DruidSink implements FlinkBatchSink {
         this.timestampColumn = config.hasPath(TIMESTAMP_COLUMN) ? config.getString(TIMESTAMP_COLUMN) : null;
         this.timestampFormat = config.hasPath(TIMESTAMP_FORMAT) ? config.getString(TIMESTAMP_FORMAT) : null;
         this.timestampMissingValue = config.hasPath(TIMESTAMP_MISSING_VALUE) ? config.getString(TIMESTAMP_MISSING_VALUE) : null;
+        String producerPrefix = "druid.";
+        PropertiesUtil.setProperties(config, streamLoadProp, producerPrefix, false);
     }
 
     @Override

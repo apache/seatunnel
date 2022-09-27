@@ -28,12 +28,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-connector-flink-druid</artifactId>
-    
+
     <properties>
         <druid.version>0.22.1</druid.version>
         <calcite-druid.version>1.29.0</calcite-druid.version>
     </properties>
-    
+
     <dependencies>
         <dependency>
             <groupId>org.apache.druid</groupId>
