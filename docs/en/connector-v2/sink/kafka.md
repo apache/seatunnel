@@ -71,7 +71,7 @@ Kafka distinguishes different transactions by different transactionId. This para
 
 ### common options [string]
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
 
 ## Examples
 
