@@ -21,21 +21,21 @@ supports query SQL and can achieve projection effect.
 
 ## Options
 
-| name        | type    | required | default value |
-|-------------|---------|----------|---------------|
-| url         | string  | yes      | -             |
-| sql         | string  | yes      | -             |
-| fields                     | config  | yes      | -             |
-| database            | string  | yes      |               |
-| username    | string  | no       | -             |
-| password    | string  | no       | -             |
-| lower_bound | long    | no       | -             |
-| upper_bound | long    | no       | -             |
-| partition_num | int     | no       | -             |
-| split_column | string     | no       | -             |
-| epoch | string     | no       | n             |
-| connect_timeout_ms | long     | no       | 15000         |
-| query_timeout_sec | int     | no       | 3             |
+| name               | type   | required | default value |
+|--------------------|--------|----------|---------------|
+| url                | string | yes      | -             |
+| sql                | string | yes      | -             |
+| fields             | config | yes      | -             |
+| database           | string | yes      |               |
+| username           | string | no       | -             |
+| password           | string | no       | -             |
+| lower_bound        | long   | no       | -             |
+| upper_bound        | long   | no       | -             |
+| partition_num      | int    | no       | -             |
+| split_column       | string | no       | -             |
+| epoch              | string | no       | n             |
+| connect_timeout_ms | long   | no       | 15000         |
+| query_timeout_sec  | int    | no       | 3             |
 
 ### url
 the url to connect to influxDB e.g.
