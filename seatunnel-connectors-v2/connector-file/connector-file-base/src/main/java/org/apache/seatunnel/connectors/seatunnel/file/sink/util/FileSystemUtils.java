@@ -39,28 +39,33 @@ public class FileSystemUtils {
 
     public static Configuration CONF;
 
-    public static FileSystem getHdfsFs(@NonNull String path) throws IOException {
-        return FileSystem.get(URI.create(path), CONF);
+    public static FileSystem getFileSystem(@NonNull String path) throws IOException {
+        FileSystem fileSystem = FileSystem.get(URI.create(path), CONF);
+        fileSystem.setWriteChecksum(false);
+        return fileSystem;
     }
 
     public static FSDataOutputStream getOutputStream(@NonNull String outFilePath) throws IOException {
-        FileSystem hdfsFs = getHdfsFs(outFilePath);
+        FileSystem fileSystem = getFileSystem(outFilePath);
         Path path = new Path(outFilePath);
-        return hdfsFs.create(path, true, WRITE_BUFFER_SIZE);
+        return fileSystem.create(path, true, WRITE_BUFFER_SIZE);
     }
 
     public static void createFile(@NonNull String filePath) throws IOException {
-        FileSystem hdfsFs = getHdfsFs(filePath);
+        FileSystem fileSystem = getFileSystem(filePath);
         Path path = new Path(filePath);
-        if (!hdfsFs.createNewFile(path)) {
+        if (!fileSystem.createNewFile(path)) {
             throw new IOException("create file " + filePath + " error");
         }
     }
 
     public static void deleteFile(@NonNull String file) throws IOException {
-        FileSystem hdfsFs = getHdfsFs(file);
-        if (!hdfsFs.delete(new Path(file), true)) {
-            throw new IOException("delete file " + file + " error");
+        FileSystem fileSystem = getFileSystem(file);
+        Path path = new Path(file);
+        if (fileSystem.exists(path)) {
+            if (!fileSystem.delete(path, true)) {
+                throw new IOException("delete file " + file + " error");
+            }
         }
     }
 
@@ -73,14 +78,14 @@ public class FileSystemUtils {
      * @throws IOException throw IOException
      */
     public static void renameFile(@NonNull String oldName, @NonNull String newName, boolean rmWhenExist) throws IOException {
-        FileSystem hdfsFs = getHdfsFs(newName);
+        FileSystem fileSystem = getFileSystem(newName);
         LOGGER.info("begin rename file oldName :[" + oldName + "] to newName :[" + newName + "]");
 
         Path oldPath = new Path(oldName);
         Path newPath = new Path(newName);
         if (rmWhenExist) {
             if (fileExist(newName) && fileExist(oldName)) {
-                hdfsFs.delete(newPath, true);
+                fileSystem.delete(newPath, true);
                 LOGGER.info("Delete already file: {}", newPath);
             }
         }
@@ -88,7 +93,7 @@ public class FileSystemUtils {
             createDir(newName.substring(0, newName.lastIndexOf("/")));
         }
 
-        if (hdfsFs.rename(oldPath, newPath)) {
+        if (fileSystem.rename(oldPath, newPath)) {
             LOGGER.info("rename file :[" + oldPath + "] to [" + newPath + "] finish");
         } else {
             throw new IOException("rename file :[" + oldPath + "] to [" + newPath + "] error");
@@ -96,27 +101,27 @@ public class FileSystemUtils {
     }
 
     public static void createDir(@NonNull String filePath) throws IOException {
-        FileSystem hdfsFs = getHdfsFs(filePath);
+        FileSystem fileSystem = getFileSystem(filePath);
         Path dfs = new Path(filePath);
-        if (!hdfsFs.mkdirs(dfs)) {
+        if (!fileSystem.mkdirs(dfs)) {
             throw new IOException("create dir " + filePath + " error");
         }
     }
 
     public static boolean fileExist(@NonNull String filePath) throws IOException {
-        FileSystem hdfsFs = getHdfsFs(filePath);
+        FileSystem fileSystem = getFileSystem(filePath);
         Path fileName = new Path(filePath);
-        return hdfsFs.exists(fileName);
+        return fileSystem.exists(fileName);
     }
 
     /**
      * get the dir in filePath
      */
     public static List<Path> dirList(@NonNull String filePath) throws FileNotFoundException, IOException {
-        FileSystem hdfsFs = getHdfsFs(filePath);
+        FileSystem fileSystem = getFileSystem(filePath);
         List<Path> pathList = new ArrayList<Path>();
         Path fileName = new Path(filePath);
-        FileStatus[] status = hdfsFs.listStatus(fileName);
+        FileStatus[] status = fileSystem.listStatus(fileName);
         if (status != null && status.length > 0) {
             for (FileStatus fileStatus : status) {
                 if (fileStatus.isDirectory()) {

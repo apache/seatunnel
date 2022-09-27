@@ -103,6 +103,7 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
             case MYSQL_MEDIUMINT_UNSIGNED:
             case MYSQL_INT:
             case MYSQL_INTEGER:
+            case MYSQL_YEAR:
                 return BasicType.INT_TYPE;
             case MYSQL_INT_UNSIGNED:
             case MYSQL_INTEGER_UNSIGNED:
@@ -138,8 +139,6 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
                         + "the precision will be set to 2147483647.",
                     MYSQL_LONGTEXT);
                 return BasicType.STRING_TYPE;
-
-            case MYSQL_YEAR:
             case MYSQL_DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;
             case MYSQL_TIME:
