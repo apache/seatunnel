@@ -122,7 +122,7 @@ public class JdbcMysqlIT extends FlinkContainer {
     @Test
     public void testJdbcMysqlSourceAndSink() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_mysql_source_and_sink.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         Assertions.assertIterableEquals(generateTestDataset(), queryResult());
     }
@@ -130,7 +130,7 @@ public class JdbcMysqlIT extends FlinkContainer {
     @Test
     public void testJdbcMysqlSourceAndSinkParallel() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_mysql_source_and_sink_parallel.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         //Sorting is required, because it is read in parallel, so there will be out of order
         List<List> sortedResult = queryResult().stream().sorted(Comparator.comparing(list -> (Integer) list.get(1)))
@@ -142,7 +142,7 @@ public class JdbcMysqlIT extends FlinkContainer {
     public void testJdbcMysqlSourceAndSinkParallelUpperLower() throws Exception {
         Container.ExecResult execResult =
             executeSeaTunnelFlinkJob("/jdbc/jdbc_mysql_source_and_sink_parallel_upper_lower.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         //Sorting is required, because it is read in parallel, so there will be out of order
         List<List> sortedResult = queryResult().stream().sorted(Comparator.comparing(list -> (Integer) list.get(1)))
@@ -164,7 +164,7 @@ public class JdbcMysqlIT extends FlinkContainer {
     @Test
     public void testJdbcMysqlSourceAndSinkDataType() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_mysql_source_and_sink_datatype.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         checkSinkDataTypeTable();
     }
 
