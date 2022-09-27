@@ -29,12 +29,17 @@
     <artifactId>connector-file</artifactId>
     <packaging>pom</packaging>
 
+    <properties>
+        <connector.name>connector.file</connector.name>
+    </properties>
+
     <modules>
         <module>connector-file-base</module>
         <module>connector-file-hadoop</module>
         <module>connector-file-local</module>
         <module>connector-file-oss</module>
         <module>connector-file-ftp</module>
+        <module>connector-file-base-hadoop</module>
     </modules>
 
     <build>
@@ -56,6 +61,10 @@
                                     <shadedPattern>${seatunnel.shade.package}.${connector.name}.org.apache.avro</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>org.apache.orc</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.${connector.name}.org.apache.orc</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>org.apache.parquet</pattern>
                                     <!--suppress UnresolvedMavenProperty -->
                                     <shadedPattern>${seatunnel.shade.package}.${connector.name}.org.apache.parquet</shadedPattern>
@@ -70,7 +79,6 @@
                     </execution>
                 </executions>
             </plugin>
-
             <!-- make sure that flatten runs after maven-shade-plugin -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>

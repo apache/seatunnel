@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.DoubleIn
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.FloatInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.IntInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.LongInjectFunction;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.MapInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.StringInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSinkState;
@@ -189,15 +190,16 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
     private Map<String, ClickhouseFieldInjectFunction> initFieldInjectFunctionMap() {
         Map<String, ClickhouseFieldInjectFunction> result = new HashMap<>(Common.COLLECTION_SIZE);
         List<ClickhouseFieldInjectFunction> clickhouseFieldInjectFunctions = Lists.newArrayList(
-                new ArrayInjectFunction(),
-                new BigDecimalInjectFunction(),
-                new DateInjectFunction(),
-                new DateTimeInjectFunction(),
-                new LongInjectFunction(),
-                new DoubleInjectFunction(),
-                new FloatInjectFunction(),
-                new IntInjectFunction(),
-                new StringInjectFunction()
+            new ArrayInjectFunction(),
+            new MapInjectFunction(),
+            new BigDecimalInjectFunction(),
+            new DateInjectFunction(),
+            new DateTimeInjectFunction(),
+            new LongInjectFunction(),
+            new DoubleInjectFunction(),
+            new FloatInjectFunction(),
+            new IntInjectFunction(),
+            new StringInjectFunction()
         );
         ClickhouseFieldInjectFunction defaultFunction = new StringInjectFunction();
         // get field type
