@@ -41,7 +41,6 @@ import java.util.stream.Stream;
 public class RedisIT extends FlinkContainer {
     private static final String REDIS_IMAGE = "redis:latest";
     private static final String REDIS_CONTAINER_HOST = "flink_e2e_redis";
-    private static final String REDIS_HOST = "localhost";
     private static final int REDIS_PORT = 6379;
     private GenericContainer<?> redisContainer;
     private Jedis jedis;
@@ -49,9 +48,9 @@ public class RedisIT extends FlinkContainer {
     @BeforeEach
     public void startRedisContainer() {
         redisContainer = new GenericContainer<>(REDIS_IMAGE)
-                .withNetwork(NETWORK)
-                .withNetworkAliases(REDIS_CONTAINER_HOST)
-                .withLogConsumer(new Slf4jLogConsumer(log));
+            .withNetwork(NETWORK)
+            .withNetworkAliases(REDIS_CONTAINER_HOST)
+            .withLogConsumer(new Slf4jLogConsumer(log));
         redisContainer.setPortBindings(Lists.newArrayList(String.format("%s:%s", REDIS_PORT, REDIS_PORT)));
         Startables.deepStart(Stream.of(redisContainer)).join();
         log.info("Redis container started");
@@ -65,7 +64,7 @@ public class RedisIT extends FlinkContainer {
     }
 
     private void initJedis() {
-        jedis = new Jedis(REDIS_HOST, REDIS_PORT);
+        jedis = new Jedis(redisContainer.getHost(), REDIS_PORT);
         jedis.connect();
     }
 
