@@ -17,22 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
-import static org.apache.seatunnel.api.table.type.BasicType.BOOLEAN_TYPE;
-import static org.apache.seatunnel.api.table.type.BasicType.BYTE_TYPE;
-import static org.apache.seatunnel.api.table.type.BasicType.DOUBLE_TYPE;
-import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
-import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
-import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
-import static org.apache.seatunnel.api.table.type.BasicType.SHORT_TYPE;
-import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
-import static org.apache.seatunnel.api.table.type.BasicType.VOID_TYPE;
-
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -51,12 +39,14 @@ import java.util.List;
 public class FakeRandomData {
     public static final String SCHEMA = "schema";
     private final SeaTunnelSchema schema;
+    private final FakeConfig fakeConfig;
 
-    public FakeRandomData(SeaTunnelSchema schema) {
+    public FakeRandomData(SeaTunnelSchema schema, FakeConfig fakeConfig) {
         this.schema = schema;
+        this.fakeConfig = fakeConfig;
     }
 
-    public SeaTunnelRow randomRow() {
+    private SeaTunnelRow randomRow() {
         SeaTunnelRowType seaTunnelRowType = schema.getSeaTunnelRowType();
         String[] fieldNames = seaTunnelRowType.getFieldNames();
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
@@ -67,56 +57,80 @@ public class FakeRandomData {
         return new SeaTunnelRow(randomRow.toArray());
     }
 
+    public List<SeaTunnelRow> generateFakedRows() {
+        ArrayList<SeaTunnelRow> seaTunnelRows = new ArrayList<>();
+        for (int i = 0; i < fakeConfig.getRowNum(); i++) {
+            seaTunnelRows.add(randomRow());
+        }
+        return seaTunnelRows;
+    }
+
     @SuppressWarnings("magicnumber")
     private Object randomColumnValue(SeaTunnelDataType<?> fieldType) {
-        if (BOOLEAN_TYPE.equals(fieldType)) {
-            return RandomUtils.nextInt(0, 2) == 1;
-        } else if (BYTE_TYPE.equals(fieldType)) {
-            return (byte) RandomUtils.nextInt(0, 255);
-        } else if (SHORT_TYPE.equals(fieldType)) {
-            return (short) RandomUtils.nextInt(Byte.MAX_VALUE, Short.MAX_VALUE);
-        } else if (INT_TYPE.equals(fieldType)) {
-            return RandomUtils.nextInt(Short.MAX_VALUE, Integer.MAX_VALUE);
-        } else if (LONG_TYPE.equals(fieldType)) {
-            return RandomUtils.nextLong(Integer.MAX_VALUE, Long.MAX_VALUE);
-        } else if (FLOAT_TYPE.equals(fieldType)) {
-            return RandomUtils.nextFloat(Float.MIN_VALUE, Float.MAX_VALUE);
-        } else if (DOUBLE_TYPE.equals(fieldType)) {
-            return RandomUtils.nextDouble(Float.MAX_VALUE, Double.MAX_VALUE);
-        } else if (STRING_TYPE.equals(fieldType)) {
-            return RandomStringUtils.randomAlphabetic(10);
-        } else if (LocalTimeType.LOCAL_DATE_TYPE.equals(fieldType)) {
-            return randomLocalDateTime().toLocalDate();
-        } else if (LocalTimeType.LOCAL_TIME_TYPE.equals(fieldType)) {
-            return randomLocalDateTime().toLocalTime();
-        } else if (LocalTimeType.LOCAL_DATE_TIME_TYPE.equals(fieldType)) {
-            return randomLocalDateTime();
-        } else if (fieldType instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) fieldType;
-            return new BigDecimal(RandomStringUtils.randomNumeric(decimalType.getPrecision() - decimalType.getScale()) + "." +
-                RandomStringUtils.randomNumeric(decimalType.getScale()));
-        } else if (fieldType instanceof ArrayType) {
-            ArrayType<?, ?> arrayType = (ArrayType<?, ?>) fieldType;
-            BasicType<?> elementType = arrayType.getElementType();
-            Object value = randomColumnValue(elementType);
-            Object arr = Array.newInstance(elementType.getTypeClass(), 1);
-            Array.set(arr, 0, value);
-            return arr;
-        } else if (fieldType instanceof MapType) {
-            MapType<?, ?> mapType = (MapType<?, ?>) fieldType;
-            SeaTunnelDataType<?> keyType = mapType.getKeyType();
-            Object key = randomColumnValue(keyType);
-            SeaTunnelDataType<?> valueType = mapType.getValueType();
-            Object value = randomColumnValue(valueType);
-            HashMap<Object, Object> objectObjectHashMap = new HashMap<>();
-            objectObjectHashMap.put(key, value);
-            return objectObjectHashMap;
-        } else if (fieldType instanceof PrimitiveByteArrayType) {
-            return RandomUtils.nextBytes(3);
-        } else if (VOID_TYPE.equals(fieldType) || fieldType == null) {
-            return null;
-        } else {
-            throw new UnsupportedOperationException("Unexpected value: " + fieldType);
+        switch (fieldType.getSqlType()) {
+            case ARRAY:
+                ArrayType<?, ?> arrayType = (ArrayType<?, ?>) fieldType;
+                BasicType<?> elementType = arrayType.getElementType();
+                int length = fakeConfig.getArraySize();
+                Object array = Array.newInstance(elementType.getTypeClass(), length);
+                for (int i = 0; i < length; i++) {
+                    Object value = randomColumnValue(elementType);
+                    Array.set(array, i, value);
+                }
+                return array;
+            case MAP:
+                MapType<?, ?> mapType = (MapType<?, ?>) fieldType;
+                SeaTunnelDataType<?> keyType = mapType.getKeyType();
+                SeaTunnelDataType<?> valueType = mapType.getValueType();
+                HashMap<Object, Object> objectMap = new HashMap<>();
+                int mapSize = fakeConfig.getMapSize();
+                for (int i = 0; i < mapSize; i++) {
+                    Object key = randomColumnValue(keyType);
+                    Object value = randomColumnValue(valueType);
+                    objectMap.put(key, value);
+                }
+                return objectMap;
+            case STRING:
+                return RandomStringUtils.randomAlphabetic(fakeConfig.getStringLength());
+            case BOOLEAN:
+                return RandomUtils.nextInt(0, 2) == 1;
+            case TINYINT:
+                return (byte) RandomUtils.nextInt(0, 255);
+            case SMALLINT:
+                return (short) RandomUtils.nextInt(Byte.MAX_VALUE, Short.MAX_VALUE);
+            case INT:
+                return RandomUtils.nextInt(Short.MAX_VALUE, Integer.MAX_VALUE);
+            case BIGINT:
+                return RandomUtils.nextLong(Integer.MAX_VALUE, Long.MAX_VALUE);
+            case FLOAT:
+                return RandomUtils.nextFloat(Float.MIN_VALUE, Float.MAX_VALUE);
+            case DOUBLE:
+                return RandomUtils.nextDouble(Float.MAX_VALUE, Double.MAX_VALUE);
+            case DECIMAL:
+                DecimalType decimalType = (DecimalType) fieldType;
+                return new BigDecimal(RandomStringUtils.randomNumeric(decimalType.getPrecision() - decimalType.getScale()) + "." +
+                        RandomStringUtils.randomNumeric(decimalType.getScale()));
+            case NULL:
+                return null;
+            case BYTES:
+                return RandomUtils.nextBytes(fakeConfig.getBytesLength());
+            case DATE:
+                return randomLocalDateTime().toLocalDate();
+            case TIME:
+                return randomLocalDateTime().toLocalTime();
+            case TIMESTAMP:
+                return randomLocalDateTime();
+            case ROW:
+                SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) fieldType).getFieldTypes();
+                Object[] objects = new Object[fieldTypes.length];
+                for (int i = 0; i < fieldTypes.length; i++) {
+                    Object object = randomColumnValue(fieldTypes[i]);
+                    objects[i] = object;
+                }
+                return new SeaTunnelRow(objects);
+            default:
+                // never got in there
+                throw new UnsupportedOperationException("SeaTunnel Fake source connector not support this data type");
         }
     }
 

@@ -38,7 +38,7 @@ public class FakeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     private Config pluginConfig;
     private JobContext jobContext;
     private SeaTunnelSchema schema;
-    private FakeOptions fakeOptions;
+    private FakeConfig fakeConfig;
 
     @Override
     public Boundedness getBoundedness() {
@@ -52,7 +52,7 @@ public class FakeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new FakeSourceReader(readerContext, new FakeRandomData(schema), fakeOptions);
+        return new FakeSourceReader(readerContext, new FakeRandomData(schema, fakeConfig));
     }
 
     @Override
@@ -65,7 +65,7 @@ public class FakeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         this.pluginConfig = pluginConfig;
         assert pluginConfig.hasPath(FakeRandomData.SCHEMA);
         this.schema = SeaTunnelSchema.buildWithConfig(pluginConfig.getConfig(FakeRandomData.SCHEMA));
-        this.fakeOptions = FakeOptions.parse(pluginConfig);
+        this.fakeConfig = FakeConfig.buildWithConfig(pluginConfig);
     }
 
     @Override

@@ -17,10 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -32,10 +30,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.lang.reflect.Array;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Map;
 
 public class FakeRandomDataTest {
@@ -43,29 +41,33 @@ public class FakeRandomDataTest {
     @ParameterizedTest
     @ValueSource(strings = {"complex.schema.conf", "simple.schema.conf"})
     public void testComplexSchemaParse(String conf) throws FileNotFoundException, URISyntaxException {
-        Config testConfigFile = getTestConfigFile(conf);
-        SeaTunnelSchema seatunnelSchema = SeaTunnelSchema.buildWithConfig(testConfigFile);
-        FakeRandomData fakeRandomData = new FakeRandomData(seatunnelSchema);
-        SeaTunnelRow seaTunnelRow = fakeRandomData.randomRow();
-        Assertions.assertNotNull(seaTunnelRow);
-        Object[] fields = seaTunnelRow.getFields();
-        Assertions.assertNotNull(fields);
-        SeaTunnelRowType seaTunnelRowType = seatunnelSchema.getSeaTunnelRowType();
-        SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
-        for (int i = 0; i < fieldTypes.length; i++) {
-            if (fieldTypes[i].getSqlType() != SqlType.NULL) {
-                Assertions.assertNotNull(fields[i]);
-            } else {
-                Assertions.assertSame(fields[i], null);
-            }
-            if (fieldTypes[i].getSqlType() == SqlType.MAP) {
-                Assertions.assertTrue(fields[i] instanceof Map);
-                Map<?, ?> field = (Map) fields[i];
-                field.forEach((k, v) -> Assertions.assertTrue(k != null && v != null));
-            }
-            if (fieldTypes[i].getSqlType() == SqlType.ARRAY) {
-                Assertions.assertTrue(fields[i].getClass().isArray());
-                Assertions.assertNotNull(Array.get(fields[i], 0));
+        Config testConfig = getTestConfigFile(conf);
+        SeaTunnelSchema seaTunnelSchema = SeaTunnelSchema.buildWithConfig(testConfig.getConfig(SeaTunnelSchema.SCHEMA));
+        SeaTunnelRowType seaTunnelRowType = seaTunnelSchema.getSeaTunnelRowType();
+        FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
+        FakeRandomData fakeRandomData = new FakeRandomData(seaTunnelSchema, fakeConfig);
+        List<SeaTunnelRow> seaTunnelRows = fakeRandomData.generateFakedRows();
+        Assertions.assertNotNull(seaTunnelRows);
+        Assertions.assertEquals(seaTunnelRows.size(), 10);
+        for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {
+            for (int i = 0; i < seaTunnelRowType.getFieldTypes().length; i++) {
+                switch (seaTunnelRowType.getFieldType(i).getSqlType()) {
+                    case STRING:
+                        Assertions.assertEquals(((String) seaTunnelRow.getField(i)).length(), 10);
+                        break;
+                    case BYTES:
+                        Assertions.assertEquals(((byte[]) seaTunnelRow.getField(i)).length, 10);
+                        break;
+                    case ARRAY:
+                        Assertions.assertEquals(((Object[]) seaTunnelRow.getField(i)).length, 10);
+                        break;
+                    case MAP:
+                        Assertions.assertEquals(((Map<?, ?>) seaTunnelRow.getField(i)).size(), 10);
+                        break;
+                    default:
+                        // do nothing
+                        break;
+                }
             }
         }
     }
@@ -80,8 +82,8 @@ public class FakeRandomDataTest {
         }
         String path = Paths.get(resource.toURI()).toString();
         Config config = ConfigFactory.parseFile(new File(path));
-        assert config.hasPath("schema");
-        return config.getConfig("schema");
+        assert config.hasPath("FakeSource");
+        return config.getConfig("FakeSource");
     }
 
 }
