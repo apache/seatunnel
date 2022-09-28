@@ -29,6 +29,11 @@
     <artifactId>seatunnel-engine-e2e</artifactId>
     <packaging>pom</packaging>
 
+    <properties>
+        <!--  SeaTunnel Engine use     -->
+        <hazelcast.version>5.1</hazelcast.version>
+    </properties>
+
     <modules>
         <module>connector-seatunnel-e2e-base</module>
         <module>connector-console-seatunnel-e2e</module>
@@ -38,6 +43,7 @@
         <dependency>
             <groupId>com.hazelcast</groupId>
             <artifactId>hazelcast</artifactId>
+            <version>${hazelcast.version}</version>
             <scope>test</scope>
             <classifier>tests</classifier>
         </dependency>
