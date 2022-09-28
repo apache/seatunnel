@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
-import org.apache.avro.reflect.AvroSchema;
-import org.apache.parquet.schema.GroupType;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
