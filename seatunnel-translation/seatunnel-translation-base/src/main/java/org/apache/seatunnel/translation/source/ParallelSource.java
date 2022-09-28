@@ -101,13 +101,13 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
 
     @Override
     public void open() throws Exception {
-        parallelEnumeratorContext.register();
         executorService = ThreadPoolExecutorFactory.createScheduledThreadPoolExecutor(1, String.format("parallel-split-enumerator-executor-%s", subtaskId));
         splitEnumerator.open();
         if (restoredSplitState.size() > 0) {
             splitEnumerator.addSplitsBack(restoredSplitState, subtaskId);
         }
         reader.open();
+        parallelEnumeratorContext.register();
         splitEnumerator.registerReader(subtaskId);
     }
 
