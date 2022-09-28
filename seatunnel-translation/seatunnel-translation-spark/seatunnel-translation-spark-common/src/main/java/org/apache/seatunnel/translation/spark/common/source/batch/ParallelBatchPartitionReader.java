@@ -20,9 +20,9 @@ package org.apache.seatunnel.translation.spark.common.source.batch;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.translation.source.BaseSourceFunction;
 import org.apache.seatunnel.translation.source.ParallelSource;
-import org.apache.seatunnel.translation.spark.common.Handover;
 import org.apache.seatunnel.translation.spark.common.InternalRowCollector;
 import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 

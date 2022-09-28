@@ -17,18 +17,39 @@ Used to launch web hooks using data.
 
 ##  Options
 
-| name | type   | required | default value |
-| --- |--------| --- | --- |
-| url | String | Yes | - |
-| headers | Map    | No | - |
+| name                               | type   | required | default value |
+|------------------------------------|--------|----------|---------------|
+| url                                | String | Yes      | -             |
+| headers                            | Map    | No       | -             |
+| params                             | Map    | No       | -             |
+| retry                              | int    | No       | -             |
+| retry_backoff_multiplier_ms        | int    | No       | 100           |
+| retry_backoff_max_ms               | int    | No       | 10000         |
 
-### url [string]
+
+### url [String]
 
 http request url
 
 ### headers [Map]
 
 http headers
+
+### params [Map]
+
+http params
+
+### retry [int]
+
+The max retry times if request http return to `IOException`
+
+### retry_backoff_multiplier_ms [int]
+
+The retry-backoff times(millis) multiplier if request http failed
+
+### retry_backoff_max_ms [int]
+
+The maximum retry-backoff times(millis) if request http failed
 
 ## Example
 

@@ -107,6 +107,9 @@ public final class CompressionUtils {
             TarArchiveEntry entry = null;
             while ((entry = (TarArchiveEntry) debInputStream.getNextEntry()) != null) {
                 final File outputFile = new File(outputDir, entry.getName()).toPath().normalize().toFile();
+                if (!outputFile.toPath().normalize().startsWith(outputDir.toPath())) {
+                    throw new IllegalStateException("Bad zip entry");
+                }
                 if (entry.isDirectory()) {
                     LOGGER.info("Attempting to write output directory {}.", outputFile.getAbsolutePath());
                     if (!outputFile.exists()) {
