@@ -18,6 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import static org.apache.parquet.avro.AvroReadSupport.READ_INT96_AS_FIXED;
+import static org.apache.parquet.avro.AvroSchemaConverter.ADD_LIST_ELEMENT_RECORDS;
+import static org.apache.parquet.avro.AvroWriteSupport.WRITE_FIXED_AS_INT96;
+import static org.apache.parquet.avro.AvroWriteSupport.WRITE_OLD_LIST_STRUCTURE;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
@@ -52,7 +55,12 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     @Override
     public Configuration getConfiguration(HadoopConf hadoopConf) {
         Configuration configuration = new Configuration();
-        configuration.set(READ_INT96_AS_FIXED, "true");
+        configuration.setBoolean(READ_INT96_AS_FIXED, true);
+        configuration.setBoolean(WRITE_FIXED_AS_INT96, true);
+        configuration.setBoolean(ADD_LIST_ELEMENT_RECORDS, false);
+        configuration.setBoolean(WRITE_OLD_LIST_STRUCTURE, false);
+        configuration.setBoolean("parquet.avro.add-list-element-records", false);
+        configuration.setBoolean("parquet.avro.write-old-list-structure", false);
         if (hadoopConf != null) {
             configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
             configuration.set("fs.hdfs.impl", hadoopConf.getFsHdfsImpl());
