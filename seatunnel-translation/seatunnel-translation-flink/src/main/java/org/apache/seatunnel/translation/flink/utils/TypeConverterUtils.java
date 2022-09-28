@@ -67,6 +67,12 @@ public class TypeConverterUtils {
         // basic array types
         BRIDGED_TYPES.put(byte[].class, BridgedType.of(PrimitiveByteArrayType.INSTANCE, PrimitiveArrayTypeInfo.BYTE_PRIMITIVE_ARRAY_TYPE_INFO));
         BRIDGED_TYPES.put(String[].class, BridgedType.of(ArrayType.STRING_ARRAY_TYPE, BasicArrayTypeInfo.STRING_ARRAY_TYPE_INFO));
+        BRIDGED_TYPES.put(boolean[].class, BridgedType.of(ArrayType.BOOLEAN_ARRAY_TYPE, PrimitiveArrayTypeInfo.BOOLEAN_PRIMITIVE_ARRAY_TYPE_INFO));
+        BRIDGED_TYPES.put(short[].class, BridgedType.of(ArrayType.SHORT_ARRAY_TYPE, PrimitiveArrayTypeInfo.SHORT_PRIMITIVE_ARRAY_TYPE_INFO));
+        BRIDGED_TYPES.put(int[].class, BridgedType.of(ArrayType.INT_ARRAY_TYPE, PrimitiveArrayTypeInfo.INT_PRIMITIVE_ARRAY_TYPE_INFO));
+        BRIDGED_TYPES.put(long[].class, BridgedType.of(ArrayType.LONG_ARRAY_TYPE, PrimitiveArrayTypeInfo.LONG_PRIMITIVE_ARRAY_TYPE_INFO));
+        BRIDGED_TYPES.put(float[].class, BridgedType.of(ArrayType.FLOAT_ARRAY_TYPE, PrimitiveArrayTypeInfo.FLOAT_PRIMITIVE_ARRAY_TYPE_INFO));
+        BRIDGED_TYPES.put(double[].class, BridgedType.of(ArrayType.DOUBLE_ARRAY_TYPE, PrimitiveArrayTypeInfo.DOUBLE_PRIMITIVE_ARRAY_TYPE_INFO));
         BRIDGED_TYPES.put(Boolean[].class, BridgedType.of(ArrayType.BOOLEAN_ARRAY_TYPE, PrimitiveArrayTypeInfo.BOOLEAN_PRIMITIVE_ARRAY_TYPE_INFO));
         BRIDGED_TYPES.put(Byte[].class, BridgedType.of(ArrayType.BYTE_ARRAY_TYPE, PrimitiveArrayTypeInfo.BYTE_PRIMITIVE_ARRAY_TYPE_INFO));
         BRIDGED_TYPES.put(Short[].class, BridgedType.of(ArrayType.SHORT_ARRAY_TYPE, PrimitiveArrayTypeInfo.SHORT_PRIMITIVE_ARRAY_TYPE_INFO));

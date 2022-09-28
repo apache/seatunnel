@@ -152,7 +152,7 @@ public class SeaTunnelSchema implements Serializable {
                 } else if (BasicType.BOOLEAN_TYPE.equals(dataType)) {
                     return ArrayType.BOOLEAN_ARRAY_TYPE;
                 } else if (BasicType.BYTE_TYPE.equals(dataType)) {
-                    return ArrayType.BYTE_ARRAY_TYPE;
+                    return PrimitiveByteArrayType.INSTANCE;
                 } else if (BasicType.SHORT_TYPE.equals(dataType)) {
                     return ArrayType.SHORT_ARRAY_TYPE;
                 } else if (BasicType.INT_TYPE.equals(dataType)) {

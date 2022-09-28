@@ -20,6 +20,7 @@ package org.apache.seatunnel.translation.flink.utils;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 
 import org.apache.flink.api.common.typeinfo.BasicArrayTypeInfo;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
@@ -124,5 +125,40 @@ public class TypeConverterUtilsTest {
     @Test
     public void convertShortArrayType() {
         Assertions.assertEquals(PrimitiveArrayTypeInfo.SHORT_PRIMITIVE_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.SHORT_ARRAY_TYPE));
+    }
+
+    @Test
+    public void covertByteArrayTypeFlinkToSeaTunnel() {
+        Assertions.assertEquals(TypeConverterUtils.convert(PrimitiveArrayTypeInfo.BYTE_PRIMITIVE_ARRAY_TYPE_INFO), PrimitiveByteArrayType.INSTANCE);
+    }
+
+    @Test
+    public void convertShortArrayTypeFlinkToSeaTunnel() {
+        Assertions.assertEquals(TypeConverterUtils.convert(PrimitiveArrayTypeInfo.SHORT_PRIMITIVE_ARRAY_TYPE_INFO), ArrayType.SHORT_ARRAY_TYPE);
+    }
+
+    @Test
+    public void convertBooleanArrayTypeFlinkToSeaTunnel() {
+        Assertions.assertEquals(TypeConverterUtils.convert(PrimitiveArrayTypeInfo.BOOLEAN_PRIMITIVE_ARRAY_TYPE_INFO), ArrayType.BOOLEAN_ARRAY_TYPE);
+    }
+
+    @Test
+    public void convertDoubleArrayTypeFlinkToSeaTunnel() {
+        Assertions.assertEquals(TypeConverterUtils.convert(PrimitiveArrayTypeInfo.DOUBLE_PRIMITIVE_ARRAY_TYPE_INFO), ArrayType.DOUBLE_ARRAY_TYPE);
+    }
+
+    @Test
+    public void convertIntegerArrayTypeFlinkToSeaTunnel() {
+        Assertions.assertEquals(TypeConverterUtils.convert(PrimitiveArrayTypeInfo.INT_PRIMITIVE_ARRAY_TYPE_INFO), ArrayType.INT_ARRAY_TYPE);
+    }
+
+    @Test
+    public void convertLongArrayTypeFlinkToSeaTunnel() {
+        Assertions.assertEquals(TypeConverterUtils.convert(PrimitiveArrayTypeInfo.LONG_PRIMITIVE_ARRAY_TYPE_INFO), ArrayType.LONG_ARRAY_TYPE);
+    }
+
+    @Test
+    public void convertFloatArrayTypeFlinkToSeaTunnel() {
+        Assertions.assertEquals(TypeConverterUtils.convert(PrimitiveArrayTypeInfo.FLOAT_PRIMITIVE_ARRAY_TYPE_INFO), ArrayType.FLOAT_ARRAY_TYPE);
     }
 }
