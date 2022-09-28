@@ -71,12 +71,13 @@ public class ElasticsearchSourceReader implements SourceReader<SeaTunnelRow, Ela
         ElasticsearchSourceSplit split = splits.poll();
         if (null != split) {
             SourceIndexInfo sourceIndexInfo = split.getSourceIndexInfo();
-
-            ScrollResult scrollResult = esRestClient.searchByScroll(sourceIndexInfo.getIndex(), sourceIndexInfo.getSource(), sourceIndexInfo.getScrollTime(), sourceIndexInfo.getScrollSize());
-            outputFromScrollResult(scrollResult, sourceIndexInfo.getSource(), output);
-            while (scrollResult.getDocs() != null && scrollResult.getDocs().size() > 0) {
-                scrollResult = esRestClient.searchWithScrollId(scrollResult.getScrollId(), sourceIndexInfo.getScrollTime());
+            synchronized (output.getCheckpointLock()) {
+                ScrollResult scrollResult = esRestClient.searchByScroll(sourceIndexInfo.getIndex(), sourceIndexInfo.getSource(), sourceIndexInfo.getScrollTime(), sourceIndexInfo.getScrollSize());
                 outputFromScrollResult(scrollResult, sourceIndexInfo.getSource(), output);
+                while (scrollResult.getDocs() != null && scrollResult.getDocs().size() > 0) {
+                    scrollResult = esRestClient.searchWithScrollId(scrollResult.getScrollId(), sourceIndexInfo.getScrollTime());
+                    outputFromScrollResult(scrollResult, sourceIndexInfo.getSource(), output);
+                }
             }
         } else if (noMoreSplit) {
             // signal to the source that we have reached the end of the data.
