@@ -59,8 +59,6 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         configuration.setBoolean(WRITE_FIXED_AS_INT96, true);
         configuration.setBoolean(ADD_LIST_ELEMENT_RECORDS, false);
         configuration.setBoolean(WRITE_OLD_LIST_STRUCTURE, false);
-        configuration.setBoolean("parquet.avro.add-list-element-records", false);
-        configuration.setBoolean("parquet.avro.write-old-list-structure", false);
         if (hadoopConf != null) {
             configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
             configuration.set("fs.hdfs.impl", hadoopConf.getFsHdfsImpl());
