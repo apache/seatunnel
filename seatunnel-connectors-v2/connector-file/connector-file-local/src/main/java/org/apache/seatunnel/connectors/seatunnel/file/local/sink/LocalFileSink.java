@@ -17,21 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.local.sink;
 
-<<<<<<<< HEAD:seatunnel-core/seatunnel-spark-starter/src/main/java/org/apache/seatunnel/core/starter/spark/config/SparkEnvironmentFactory.java
-import org.apache.seatunnel.core.starter.config.EnvironmentFactory;
-import org.apache.seatunnel.spark.SparkEnvironment;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-public class SparkEnvironmentFactory extends EnvironmentFactory<SparkEnvironment> {
-    public SparkEnvironmentFactory(Config config) {
-        super(config);
-    }
-
-    @Override
-    protected SparkEnvironment newEnvironment() {
-        return new SparkEnvironment().setEnableHive(checkIsContainHive());
-========
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
@@ -55,6 +40,5 @@ public class LocalFileSink extends BaseFileSink {
     public void prepare(Config pluginConfig) throws PrepareFailException {
         super.prepare(pluginConfig);
         hadoopConf = new LocalConf(CommonConfigurationKeys.FS_DEFAULT_NAME_DEFAULT);
->>>>>>>> upstream/dev:seatunnel-connectors-v2/connector-file/connector-file-local/src/main/java/org/apache/seatunnel/connectors/seatunnel/file/local/sink/LocalFileSink.java
     }
 }

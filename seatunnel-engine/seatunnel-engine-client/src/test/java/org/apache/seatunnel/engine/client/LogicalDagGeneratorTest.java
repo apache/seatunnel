@@ -29,16 +29,13 @@ import org.apache.seatunnel.engine.core.parse.JobConfigParser;
 
 import com.hazelcast.internal.json.JsonObject;
 import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.net.URL;
 import java.util.List;
 import java.util.Set;
 
-@RunWith(JUnit4.class)
 public class LogicalDagGeneratorTest {
     @Test
     public void testLogicalGenerator() {
@@ -58,6 +55,6 @@ public class LogicalDagGeneratorTest {
         JsonObject logicalDagJson = logicalDag.getLogicalDagAsJson();
         String result =
             "{\"vertices\":[{\"id\":1,\"name\":\"LocalFile(id=1)\",\"parallelism\":6},{\"id\":2,\"name\":\"FakeSource(id=2)\",\"parallelism\":3},{\"id\":3,\"name\":\"FakeSource(id=3)\",\"parallelism\":3}],\"edges\":[{\"inputVertex\":\"FakeSource\",\"targetVertex\":\"LocalFile\"},{\"inputVertex\":\"FakeSource\",\"targetVertex\":\"LocalFile\"}]}";
-        Assert.assertEquals(result, logicalDagJson.toString());
+        Assertions.assertEquals(result, logicalDagJson.toString());
     }
 }

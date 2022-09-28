@@ -26,10 +26,10 @@ import static org.junit.jupiter.api.condition.OS.MAC;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 
 import java.util.List;
@@ -40,14 +40,14 @@ public class LocalFileStorageTest {
     private static LocalFileStorage STORAGE = new LocalFileStorage(null);
     private static final String JOB_ID = "chris";
 
-    @Before
-    public void setup() throws CheckpointStorageException {
+    @BeforeAll
+    public static void setup() throws CheckpointStorageException {
         PipelineState pipelineState = PipelineState.builder()
-                .jobId(JOB_ID)
-                .pipelineId(1)
-                .checkpointId(1)
-                .states(new byte[0])
-                .build();
+            .jobId(JOB_ID)
+            .pipelineId(1)
+            .checkpointId(1)
+            .states(new byte[0])
+            .build();
         STORAGE.storeCheckPoint(pipelineState);
         pipelineState.setCheckpointId(2);
         STORAGE.storeCheckPoint(pipelineState);
@@ -81,9 +81,10 @@ public class LocalFileStorageTest {
         Assertions.assertEquals(2, state.size());
     }
 
-    @After
-    public void teardown() {
+    @AfterAll
+    public static void teardown() {
         STORAGE.deleteCheckpoint(JOB_ID);
     }
 
 }
+

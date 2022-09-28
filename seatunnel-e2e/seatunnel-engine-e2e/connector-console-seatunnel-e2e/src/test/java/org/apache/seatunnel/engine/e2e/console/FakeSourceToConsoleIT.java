@@ -19,8 +19,8 @@ package org.apache.seatunnel.engine.e2e.console;
 
 import org.apache.seatunnel.engine.e2e.SeaTunnelContainer;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
@@ -30,6 +30,6 @@ public class FakeSourceToConsoleIT extends SeaTunnelContainer {
     @Test
     public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelJob("/fakesource_to_console.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

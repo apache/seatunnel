@@ -39,8 +39,8 @@ import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 
 import com.google.common.collect.Sets;
 import com.hazelcast.map.IMap;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -59,13 +59,13 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
         config.setName("test");
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
-            nodeEngine.getSerializationService().toData(testLogicalDag), config, Collections.emptyList());
+            NODE_ENGINE.getSerializationService().toData(testLogicalDag), config, Collections.emptyList());
 
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
-            server.getCoordinatorService().submitJob(jobImmutableInformation.getJobId(),
-                nodeEngine.getSerializationService().toData(jobImmutableInformation));
+            SERVER.getCoordinatorService().submitJob(jobImmutableInformation.getJobId(),
+                NODE_ENGINE.getSerializationService().toData(jobImmutableInformation));
 
-        Assert.assertNotNull(voidPassiveCompletableFuture);
+        Assertions.assertNotNull(voidPassiveCompletableFuture);
     }
 
     @Test
@@ -96,22 +96,22 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
         config.setName("test");
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
-            nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
+            NODE_ENGINE.getSerializationService().toData(logicalDag), config, Collections.emptyList());
 
-        IMap<Object, Object> runningJobState = nodeEngine.getHazelcastInstance().getMap("testRunningJobState");
+        IMap<Object, Object> runningJobState = NODE_ENGINE.getHazelcastInstance().getMap("testRunningJobState");
         IMap<Object, Long[]> runningJobStateTimestamp =
-            nodeEngine.getHazelcastInstance().getMap("testRunningJobStateTimestamp");
+            NODE_ENGINE.getHazelcastInstance().getMap("testRunningJobStateTimestamp");
 
-        PhysicalPlan physicalPlan = PlanUtils.fromLogicalDAG(logicalDag, nodeEngine,
+        PhysicalPlan physicalPlan = PlanUtils.fromLogicalDAG(logicalDag, NODE_ENGINE,
             jobImmutableInformation,
             System.currentTimeMillis(),
             Executors.newCachedThreadPool(),
-            instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
+            INSTANCE.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
             runningJobState,
             runningJobStateTimestamp).f0();
 
-        Assert.assertEquals(physicalPlan.getPipelineList().size(), 1);
-        Assert.assertEquals(physicalPlan.getPipelineList().get(0).getCoordinatorVertexList().size(), 1);
-        Assert.assertEquals(physicalPlan.getPipelineList().get(0).getPhysicalVertexList().size(), 2);
+        Assertions.assertEquals(physicalPlan.getPipelineList().size(), 1);
+        Assertions.assertEquals(physicalPlan.getPipelineList().get(0).getCoordinatorVertexList().size(), 1);
+        Assertions.assertEquals(physicalPlan.getPipelineList().get(0).getPhysicalVertexList().size(), 2);
     }
 }

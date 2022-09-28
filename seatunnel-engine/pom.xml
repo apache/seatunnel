@@ -17,26 +17,13 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
+        <artifactId>seatunnel</artifactId>
         <groupId>org.apache.seatunnel</groupId>
-        <artifactId>seatunnel-formats</artifactId>
         <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
-<<<<<<<< HEAD:seatunnel-engine/pom.xml
     <packaging>pom</packaging>
     <artifactId>seatunnel-engine</artifactId>
-========
-
-    <artifactId>seatunnel-format-text</artifactId>
-
-    <dependencies>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-api</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-    </dependencies>
->>>>>>>> upstream/dev:seatunnel-formats/seatunnel-format-text/pom.xml
 
     <modules>
         <module>seatunnel-engine-client</module>
@@ -45,7 +32,7 @@
         <module>seatunnel-engine-core</module>
         <module>seatunnel-engine-storage</module>
     </modules>
-    
+
     <dependencies>
         <dependency>
             <groupId>org.scala-lang</groupId>

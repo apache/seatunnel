@@ -22,10 +22,6 @@
         <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
-<<<<<<<< HEAD:seatunnel-engine/pom.xml
-    <packaging>pom</packaging>
-    <artifactId>seatunnel-engine</artifactId>
-========
 
     <artifactId>seatunnel-format-text</artifactId>
 
@@ -36,21 +32,5 @@
             <version>${project.version}</version>
         </dependency>
     </dependencies>
->>>>>>>> upstream/dev:seatunnel-formats/seatunnel-format-text/pom.xml
 
-    <modules>
-        <module>seatunnel-engine-client</module>
-        <module>seatunnel-engine-common</module>
-        <module>seatunnel-engine-server</module>
-        <module>seatunnel-engine-core</module>
-        <module>seatunnel-engine-storage</module>
-    </modules>
-    
-    <dependencies>
-        <dependency>
-            <groupId>org.scala-lang</groupId>
-            <artifactId>scala-library</artifactId>
-            <scope>provided</scope>
-        </dependency>
-    </dependencies>
 </project>
