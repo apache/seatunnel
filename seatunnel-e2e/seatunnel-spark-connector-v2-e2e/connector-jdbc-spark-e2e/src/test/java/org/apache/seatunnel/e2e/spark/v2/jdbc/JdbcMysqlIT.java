@@ -64,7 +64,7 @@ public class JdbcMysqlIT extends SparkContainer {
     @BeforeEach
     public void startMySqlContainer() throws Exception {
         // Non-root users need to grant XA_RECOVER_ADMIN permission on is_exactly_once = "true"
-        mc = new MySQLContainer<>(DockerImageName.parse("bitnami/mysql:8.0.29"))
+        mc = new MySQLContainer<>(DockerImageName.parse("bitnami/mysql:8.0.29").asCompatibleSubstituteFor("mysql"))
             .withNetwork(NETWORK)
             .withNetworkAliases("mysql")
             .withUsername("root")
