@@ -25,10 +25,12 @@ import lombok.NoArgsConstructor;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -68,16 +70,21 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
             .withNetworkAliases("jobmanager")
             .withExposedPorts()
             .withEnv("FLINK_PROPERTIES", properties)
-            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(dockerImage + ":jobmanager")));
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(dockerImage + ":jobmanager")))
+            .waitingFor(new LogMessageWaitStrategy()
+                .withRegEx(".*Starting the resource manager.*")
+                .withStartupTimeout(Duration.ofMinutes(2)));
 
-        taskManager =
-            new GenericContainer<>(dockerImage)
-                .withCommand("taskmanager")
-                .withNetwork(NETWORK)
-                .withNetworkAliases("taskmanager")
-                .withEnv("FLINK_PROPERTIES", properties)
-                .dependsOn(jobManager)
-                .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(dockerImage + ":taskmanager")));
+        taskManager = new GenericContainer<>(dockerImage)
+            .withCommand("taskmanager")
+            .withNetwork(NETWORK)
+            .withNetworkAliases("taskmanager")
+            .withEnv("FLINK_PROPERTIES", properties)
+            .dependsOn(jobManager)
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(dockerImage + ":taskmanager")))
+            .waitingFor(new LogMessageWaitStrategy()
+                .withRegEx(".*Successful registration at resource manager.*")
+                .withStartupTimeout(Duration.ofMinutes(2)));
 
         Startables.deepStart(Stream.of(jobManager)).join();
         Startables.deepStart(Stream.of(taskManager)).join();
