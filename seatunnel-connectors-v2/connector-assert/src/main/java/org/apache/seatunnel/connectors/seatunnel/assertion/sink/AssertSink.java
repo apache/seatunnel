@@ -67,13 +67,20 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
             Throwables.propagateIfPossible(new ConfigException.Missing(RULES));
         }
         Config ruleConfig = pluginConfig.getConfig(RULES);
-        List<? extends Config> rowConfigList = ruleConfig.getConfigList(ROW_RULES);
-        List<? extends Config> configList = ruleConfig.getConfigList(FIELD_RULES);
+        List<? extends Config> rowConfigList = null;
+        List<? extends Config> configList = null;
+        if (ruleConfig.hasPath(ROW_RULES)) {
+            rowConfigList = ruleConfig.getConfigList(ROW_RULES);
+            assertRowRules = new AssertRuleParser().parseRowRules(rowConfigList);
+        }
+        if (ruleConfig.hasPath(FIELD_RULES)) {
+            configList = ruleConfig.getConfigList(FIELD_RULES);
+            assertFieldRules = new AssertRuleParser().parseRules(configList);
+        }
+
         if (CollectionUtils.isEmpty(configList) && CollectionUtils.isEmpty(rowConfigList)) {
             Throwables.propagateIfPossible(new ConfigException.BadValue(RULES, "Assert rule config is empty, please add rule config."));
         }
-        assertFieldRules = new AssertRuleParser().parseRules(configList);
-        assertRowRules = new AssertRuleParser().parseRowRules(rowConfigList);
     }
 
     @Override
