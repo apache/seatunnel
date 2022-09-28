@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import lombok.extern.slf4j.Slf4j;
@@ -56,6 +57,7 @@ import java.util.stream.Stream;
 
 import scala.Tuple2;
 
+@DisabledOnContainer(value = "spark:2.4.3", disabledReason = "json-format conflicts with the Jackson version of Spark-2.4.3, see:https://github.com/apache/incubator-seatunnel/issues/2929")
 @Slf4j
 public class RedisIT extends TestSuiteBase implements TestResource {
     private static final String IMAGE = "redis:latest";
