@@ -61,10 +61,6 @@ public class FlinkApiTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkComm
     public void execute() throws CommandExecuteException {
         EngineType engine = flinkCommandArgs.getEngineType();
         Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
-        this.flinkCommandArgs.getVariables().stream()
-                .map(variable -> variable.split("=", 2))
-                .filter(pair -> pair.length == 2)
-                .forEach(pair -> System.setProperty(pair[0], pair[1]));
         Config config = new ConfigBuilder(configFile).getConfig();
         FlinkExecutionContext executionContext = new FlinkExecutionContext(config, engine);
         List<BaseSource<FlinkEnvironment>> sources = executionContext.getSources();

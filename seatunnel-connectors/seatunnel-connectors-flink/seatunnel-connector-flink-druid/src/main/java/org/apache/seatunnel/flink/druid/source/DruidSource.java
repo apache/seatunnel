@@ -127,9 +127,6 @@ public class DruidSource implements FlinkBatchSource {
         String startTimestamp = config.hasPath(START_TIMESTAMP) ? config.getString(START_TIMESTAMP).replaceAll(escape_delimiter, " ") : null;
         String endTimestamp = config.hasPath(END_TIMESTAMP) ? config.getString(END_TIMESTAMP).replaceAll(escape_delimiter, " ") : null;
         List<String> columns = config.hasPath(COLUMNS) ? config.getStringList(COLUMNS) : null;
-        System.out.println(jdbcURL);
-        System.out.println(user);
-        System.out.println(password);
         String sql = new DruidSql(datasource, startTimestamp, endTimestamp, columns).sql();
         RowTypeInfo rowTypeInfo = getRowTypeInfo(jdbcURL, user, password, datasource, columns);
         this.druidInputFormat = DruidInputFormat.buildDruidInputFormat()
@@ -179,8 +176,6 @@ public class DruidSource implements FlinkBatchSource {
             names[i] = field;
             i++;
         }
-        long count = Arrays.stream(typeInformation).filter(t -> null == t).count();
-        System.out.println("typeInformation null:::" + count);
         return new RowTypeInfo(typeInformation, names);
     }
 }
