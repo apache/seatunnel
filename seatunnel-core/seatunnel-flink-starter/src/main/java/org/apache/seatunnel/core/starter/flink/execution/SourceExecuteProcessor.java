@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.flink.FlinkEnvironment;
+import org.apache.seatunnel.flink.util.ConfigKeyName;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
 import org.apache.seatunnel.translation.flink.source.BaseSeaTunnelSourceFunction;
@@ -75,6 +76,10 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
                 "SeaTunnel " + internalSource.getClass().getSimpleName(),
                 internalSource.getBoundedness() == org.apache.seatunnel.api.source.Boundedness.BOUNDED);
             Config pluginConfig = pluginConfigs.get(i);
+            if (pluginConfig.hasPath(ConfigKeyName.PARALLELISM)) {
+                int parallelism = pluginConfig.getInt(ConfigKeyName.PARALLELISM);
+                sourceStream.setParallelism(parallelism);
+            }
             registerResultTable(pluginConfig, sourceStream);
             sources.add(sourceStream);
         }
