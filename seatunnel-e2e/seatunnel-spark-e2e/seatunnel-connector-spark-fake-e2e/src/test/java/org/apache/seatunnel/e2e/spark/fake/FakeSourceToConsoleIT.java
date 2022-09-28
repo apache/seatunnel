@@ -36,4 +36,11 @@ public class FakeSourceToConsoleIT extends SparkContainer {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/fake/fakesource_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    @Test
+    public void testFakeSourceCacheToConsoleSine() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/fake/fakesource_cache_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
 }
