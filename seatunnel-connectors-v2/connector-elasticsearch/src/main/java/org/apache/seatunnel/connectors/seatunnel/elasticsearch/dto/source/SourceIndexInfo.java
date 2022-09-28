@@ -17,51 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
 import java.io.Serializable;
 import java.util.List;
 
+@Data
+@AllArgsConstructor
 public class SourceIndexInfo implements Serializable {
     private String index;
     private List<String> source;
     private String scrollTime;
     private int scrollSize;
 
-    public SourceIndexInfo(String index, List<String> source, String scrollTime, int scrollSize) {
-        this.index = index;
-        this.source = source;
-        this.scrollTime = scrollTime;
-        this.scrollSize = scrollSize;
-    }
-
-    public String getIndex() {
-        return index;
-    }
-
-    public void setIndex(String index) {
-        this.index = index;
-    }
-
-    public List<String> getSource() {
-        return source;
-    }
-
-    public void setSource(List<String> source) {
-        this.source = source;
-    }
-
-    public String getScrollTime() {
-        return scrollTime;
-    }
-
-    public void setScrollTime(String scrollTime) {
-        this.scrollTime = scrollTime;
-    }
-
-    public int getScrollSize() {
-        return scrollSize;
-    }
-
-    public void setScrollSize(int scrollSize) {
-        this.scrollSize = scrollSize;
-    }
 }
