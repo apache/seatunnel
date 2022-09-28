@@ -40,8 +40,11 @@ public class Split implements FlinkStreamTransform, FlinkBatchTransform {
 
     private static final String SEPARATOR = "separator";
     private static final String FIELDS = "fields";
+    private static final String NAME = "name";
 
     private String separator = ",";
+
+    private String name = "split";
 
     private int num;
 
@@ -64,11 +67,11 @@ public class Split implements FlinkStreamTransform, FlinkBatchTransform {
         if (flinkEnvironment.isStreaming()) {
             flinkEnvironment
                     .getStreamTableEnvironment()
-                    .registerFunction("split", new ScalarSplit(rowTypeInfo, num, separator));
+                    .registerFunction(name, new ScalarSplit(rowTypeInfo, num, separator));
         } else {
             flinkEnvironment
                     .getBatchTableEnvironment()
-                    .registerFunction("split", new ScalarSplit(rowTypeInfo, num, separator));
+                    .registerFunction(name, new ScalarSplit(rowTypeInfo, num, separator));
         }
     }
 
@@ -93,6 +96,9 @@ public class Split implements FlinkStreamTransform, FlinkBatchTransform {
         num = fields.size();
         if (config.hasPath(SEPARATOR)) {
             separator = config.getString(SEPARATOR);
+        }
+        if (config.hasPath(NAME)) {
+            name = config.getString(NAME);
         }
         TypeInformation<?>[] types = new TypeInformation[fields.size()];
         for (int i = 0; i < types.length; i++) {

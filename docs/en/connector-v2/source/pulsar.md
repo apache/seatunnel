@@ -1,33 +1,44 @@
 # Apache Pulsar
 
+> Apache Pulsar source connector
+
 ## Description
 
-Source connector for Apache Pulsar. It can support both off-line and real-time jobs.
+Source connector for Apache Pulsar.
 
-##  Options
+## Key features
 
-| name | type | required | default value |
-| --- | --- | --- | --- |
-| topic | String | No | - |
-| topic-pattern | String | No | - |
-| topic-discovery.interval | Long | No | 30000 |
-| subscription.name | String | Yes | - |
-| client.service-url | String | Yes | - |
-| admin.service-url | String | Yes | - |
-| auth.plugin-class | String | No | - |
-| auth.params | String | No | - |
-| poll.timeout | Integer | No | 100 |
-| poll.interval | Long | No | 50 |
-| poll.batch.size | Integer | No | 500 |
-| cursor.startup.mode | Enum | No | LATEST |
-| cursor.startup.timestamp | Long | No | - |
-| cursor.reset.mode | Enum | No | LATEST |
-| cursor.stop.mode | Enum | No | NEVER |
-| cursor.stop.timestamp | Long | No | - |
+- [x] [batch](../../concept/connector-v2-features.md)
+- [x] [stream](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [schema projection](../../concept/connector-v2-features.md)
+- [x] [parallelism](../../concept/connector-v2-features.md)
+- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+
+## Options
+
+| name                     | type    | required | default value |
+|--------------------------|---------|----------|---------------|
+| topic                    | String  | No       | -             |
+| topic-pattern            | String  | No       | -             |
+| topic-discovery.interval | Long    | No       | -1            |
+| subscription.name        | String  | Yes      | -             |
+| client.service-url       | String  | Yes      | -             |
+| admin.service-url        | String  | Yes      | -             |
+| auth.plugin-class        | String  | No       | -             |
+| auth.params              | String  | No       | -             |
+| poll.timeout             | Integer | No       | 100           |
+| poll.interval            | Long    | No       | 50            |
+| poll.batch.size          | Integer | No       | 500           |
+| cursor.startup.mode      | Enum    | No       | LATEST        |
+| cursor.startup.timestamp | Long    | No       | -             |
+| cursor.reset.mode        | Enum    | No       | LATEST        |
+| cursor.stop.mode         | Enum    | No       | NEVER         |
+| cursor.stop.timestamp    | Long    | No       | -             |
 
 ### topic [String]
 
-Topic name(s) to read data from when the table is used as source.  It also supports topic list for source by separating topic by semicolon like 'topic-1;topic-2'. 
+Topic name(s) to read data from when the table is used as source. It also supports topic list for source by separating topic by semicolon like 'topic-1;topic-2'.
 
 **Note, only one of "topic-pattern" and "topic" can be specified for sources.**
 
@@ -57,7 +68,7 @@ For example, `localhost`: `pulsar://localhost:6650,localhost:6651`.
 
 ### admin.service-url [String]
 
-The Pulsar service HTTP URL for the admin endpoint. 
+The Pulsar service HTTP URL for the admin endpoint.
 
 For example, `http://my-broker.example.com:8080`, or `https://my-broker.example.com:8443` for TLS.
 
@@ -77,7 +88,7 @@ The maximum time (in ms) to wait when fetching records. A longer time increases 
 
 ### poll.interval [Long]
 
-The interval time(in ms) when fetcing records.  A shorter time increases throughput, but also increases CPU load.
+The interval time(in ms) when fetcing records. A shorter time increases throughput, but also increases CPU load.
 
 ### poll.batch.size [Integer]
 

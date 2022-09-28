@@ -29,9 +29,61 @@
     <artifactId>connector-file</artifactId>
     <packaging>pom</packaging>
 
+    <properties>
+        <connector.name>connector.file</connector.name>
+    </properties>
+
     <modules>
         <module>connector-file-base</module>
         <module>connector-file-hadoop</module>
         <module>connector-file-local</module>
+        <module>connector-file-oss</module>
+        <module>connector-file-ftp</module>
+        <module>connector-file-base-hadoop</module>
     </modules>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.apache.avro</pattern>
+                                    <!--suppress UnresolvedMavenProperty, this property is added by submodule-->
+                                    <shadedPattern>${seatunnel.shade.package}.${connector.name}.org.apache.avro</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.orc</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.${connector.name}.org.apache.orc</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.parquet</pattern>
+                                    <!--suppress UnresolvedMavenProperty -->
+                                    <shadedPattern>${seatunnel.shade.package}.${connector.name}.org.apache.parquet</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>shaded.parquet</pattern>
+                                    <!--suppress UnresolvedMavenProperty -->
+                                    <shadedPattern>${seatunnel.shade.package}.${connector.name}.shaded.parquet</shadedPattern>
+                                </relocation>
+                            </relocations>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- make sure that flatten runs after maven-shade-plugin -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>

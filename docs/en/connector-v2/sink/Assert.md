@@ -1,8 +1,15 @@
 # Assert
 
+> Assert sink connector
+
 ## Description
 
 A flink sink plugin which can assert illegal data by user defined rules
+
+## Key features
+
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [schema projection](../../concept/connector-v2-features.md)
 
 ## Options
 
@@ -35,13 +42,11 @@ A list value rule define the data value validation
 ### rule_type [string]
 
 The following rules are supported for now
-`
-NOT_NULL,   // value can't be null
-MIN,        // define the minimum value of data
-MAX,        // define the maximum value of data
-MIN_LENGTH, // define the minimum string length of a string data
-MAX_LENGTH  // define the maximum string length of a string data
-`
+- NOT_NULL `value can't be null`
+- MIN `define the minimum value of data`
+- MAX `define the maximum value of data`
+- MIN_LENGTH `define the minimum string length of a string data`
+- MAX_LENGTH `define the maximum string length of a string data`
 
 ### rule_value [double]
 

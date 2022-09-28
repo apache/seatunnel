@@ -20,9 +20,12 @@ package org.apache.seatunnel.core.starter.flink;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.core.starter.Starter;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
-import org.apache.seatunnel.core.starter.flink.utils.CommandLineUtils;
+import org.apache.seatunnel.core.starter.flink.config.StarterConstant;
+import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * The SeaTunnel flink starter. This class is responsible for generate the final flink job execute command.
@@ -43,7 +46,7 @@ public class FlinkStarter implements Starter {
     private final String appJar;
 
     FlinkStarter(String[] args) {
-        this.flinkCommandArgs = CommandLineUtils.parseCommandArgs(args);
+        this.flinkCommandArgs = CommandLineUtils.parse(args, new FlinkCommandArgs(), StarterConstant.SHELL_NAME, true);
         // set the deployment mode, used to get the job jar path.
         Common.setDeployMode(flinkCommandArgs.getDeployMode());
         Common.setStarter(true);
@@ -58,7 +61,24 @@ public class FlinkStarter implements Starter {
 
     @Override
     public List<String> buildCommands() {
-        return CommandLineUtils.buildFlinkCommand(flinkCommandArgs, APP_NAME, appJar);
+        List<String> command = new ArrayList<>();
+        command.add("${FLINK_HOME}/bin/flink");
+        command.add(flinkCommandArgs.getRunMode().getMode());
+        command.addAll(flinkCommandArgs.getOriginalParameters());
+        command.add("-c");
+        command.add(APP_NAME);
+        command.add(appJar);
+        command.add("--config");
+        command.add(flinkCommandArgs.getConfigFile());
+        if (flinkCommandArgs.isCheckConfig()) {
+            command.add("--check");
+        }
+        // set System properties
+        flinkCommandArgs.getVariables().stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .forEach(variable -> command.add("-D" + variable));
+        return command;
     }
 
 }

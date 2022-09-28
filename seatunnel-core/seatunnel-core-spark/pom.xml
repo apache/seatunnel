@@ -56,25 +56,32 @@
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-streaming_${scala.binary.version}</artifactId>
+            <version>${spark.2.4.0.version}</version>
+            <scope>${spark.scope}</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_${scala.binary.version}</artifactId>
+            <version>${spark.2.4.0.version}</version>
+            <scope>${spark.scope}</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-sql_${scala.binary.version}</artifactId>
+            <version>${spark.2.4.0.version}</version>
+            <scope>${spark.scope}</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-translation-spark</artifactId>
+            <artifactId>seatunnel-translation-spark-common</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-translation-spark-2.4</artifactId>
+            <version>${project.version}</version>
         </dependency>
 
         <dependency>
@@ -150,7 +157,7 @@
                                         <argument>build</argument>
                                         <argument>--no-cache</argument>
                                         <argument>--build-arg</argument>
-                                        <argument>SPARK_VERSION=${spark.version}</argument>
+                                        <argument>SPARK_VERSION=${spark.2.4.0.version}</argument>
                                         <argument>--build-arg</argument>
                                         <argument>HADOOP_VERSION=${hadoop.binary.version}</argument>
                                         <argument>-t</argument>
@@ -179,7 +186,7 @@
                                         <argument>build</argument>
                                         <argument>--no-cache</argument>
                                         <argument>--build-arg</argument>
-                                        <argument>SPARK_VERSION=${spark.version}</argument>
+                                        <argument>SPARK_VERSION=${spark.2.4.0.version}</argument>
                                         <argument>--build-arg</argument>
                                         <argument>HADOOP_VERSION=${hadoop.binary.version}</argument>
                                         <argument>--push</argument>

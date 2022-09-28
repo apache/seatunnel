@@ -3,6 +3,8 @@ import TabItem from '@theme/TabItem';
 
 # Jdbc
 
+> JDBC sink connector
+
 ## Description
 
 Write data through jdbc
@@ -34,7 +36,7 @@ Engine Supported and plugin name
 | user             | string | yes      | -             |
 | password         | string | yes      | -             |
 | dbTable          | string | yes      | -             |
-| saveMode         | string | no       | error         |
+| saveMode         | string | no       | update         |
 | useSsl           | string | no       | false         |
 | customUpdateStmt | string | no       | -             |
 | duplicateIncs    | string | no       | -             |
@@ -54,7 +56,7 @@ user password
 
 ### dbTable [string]
 
-Source data table name
+Sink table name, if the table does not exist, it will be created.
 
 ### saveMode [string]
 
@@ -72,9 +74,10 @@ The transaction isolation level, which applies to current connection. The defaul
 
 ### customUpdateStmt [string]
 
-Configure when `saveMode` is specified as `update` , which is used to specify the update statement template for key conflicts
-
-Refer to the usage of `INSERT INTO table (...) values (...) ON DUPLICATE KEY UPDATE... ` of `mysql` , use placeholders or fixed values in `values`
+Configure when `saveMode` is specified as `update` , which is used to specify the update statement template for key conflicts.
+If `customUpdateStmt` is empty, the sql will auto-generate for all columns, else use the sql which refer to the usage of
+`INSERT INTO table (...) values (...) ON DUPLICATE KEY UPDATE... ` of `mysql` , use placeholders or fixed values in `values`
+tips: the tableName of sql should be consistent with the `dbTable`.
 
 ### duplicateIncs [string]
 
@@ -164,6 +167,7 @@ Sink plugin common parameters, please refer to [Sink Plugin](common-options.md) 
 
 ```bash
 jdbc {
+    driver = "com.mysql.cj.jdbc.Driver",
     saveMode = "update",
     url = "jdbc:mysql://ip:3306/database",
     user = "userName",
@@ -177,13 +181,14 @@ jdbc {
 
 ```bash
 jdbc {
+    driver = "com.mysql.cj.jdbc.Driver",
     saveMode = "update",
     truncate = "true",
     url = "jdbc:mysql://ip:3306/database",
     user = "userName",
     password = "***********",
     dbTable = "tableName",
-    customUpdateStmt = "INSERT INTO table (column1, column2, created, modified, yn) values(?, ?, now(), now(), 1) ON DUPLICATE KEY UPDATE column1 = IFNULL(VALUES (column1), column1), column2 = IFNULL(VALUES (column2), column2)"
+    customUpdateStmt = "INSERT INTO tableName (column1, column2, created, modified, yn) values(?, ?, now(), now(), 1) ON DUPLICATE KEY UPDATE column1 = IFNULL(VALUES (column1), column1), column2 = IFNULL(VALUES (column2), column2)"
     jdbc.connect_timeout = 10000
     jdbc.socket_timeout = 10000
 }
@@ -196,7 +201,7 @@ jdbc {
 ```conf
 JdbcSink {
     source_table_name = fake
-    driver = com.mysql.jdbc.Driver
+    driver = com.mysql.cj.jdbc.Driver
     url = "jdbc:mysql://localhost/test"
     username = root
     query = "insert into test(name,age) values(?,?)"

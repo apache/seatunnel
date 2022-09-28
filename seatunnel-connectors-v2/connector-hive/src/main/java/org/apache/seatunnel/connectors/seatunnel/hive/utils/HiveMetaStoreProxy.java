@@ -17,18 +17,26 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import lombok.NonNull;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
 
+import java.util.List;
+import java.util.Objects;
+
 public class HiveMetaStoreProxy {
+    private final HiveMetaStoreClient hiveMetaStoreClient;
+    private static volatile HiveMetaStoreProxy INSTANCE = null;
 
-    private HiveMetaStoreClient hiveMetaStoreClient;
-
-    public HiveMetaStoreProxy(@NonNull String uris) {
+    private HiveMetaStoreProxy(@NonNull String uris) {
         HiveConf hiveConf = new HiveConf();
         hiveConf.set("hive.metastore.uris", uris);
         try {
@@ -38,15 +46,40 @@ public class HiveMetaStoreProxy {
         }
     }
 
+    public static HiveMetaStoreProxy getInstance(Config config) {
+        if (INSTANCE == null) {
+            synchronized (HiveMetaStoreProxy.class) {
+                if (INSTANCE == null) {
+                    String metastoreUri = config.getString(HiveConfig.METASTORE_URI);
+                    INSTANCE = new HiveMetaStoreProxy(metastoreUri);
+                }
+            }
+        }
+        return INSTANCE;
+    }
+
     public Table getTable(@NonNull String dbName, @NonNull String tableName) {
         try {
             return hiveMetaStoreClient.getTable(dbName, tableName);
         } catch (TException e) {
-            throw new RuntimeException(e);
+            String errorMsg = String.format("Get table [%s.%s] information failed", dbName, tableName);
+            throw new RuntimeException(errorMsg, e);
         }
     }
 
-    public HiveMetaStoreClient getHiveMetaStoreClient() {
-        return hiveMetaStoreClient;
+    public List<FieldSchema> getTableFields(@NonNull String dbName, @NonNull String tableName) {
+        try {
+            return hiveMetaStoreClient.getFields(dbName, tableName);
+        } catch (TException e) {
+            String errorMsg = String.format("Get table [%s.%s] fields information failed", dbName, tableName);
+            throw new RuntimeException(errorMsg, e);
+        }
+    }
+
+    public synchronized void close() {
+        if (Objects.nonNull(hiveMetaStoreClient)) {
+            hiveMetaStoreClient.close();
+            HiveMetaStoreProxy.INSTANCE = null;
+        }
     }
 }

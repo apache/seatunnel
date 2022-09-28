@@ -28,30 +28,22 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-connector-flink-druid</artifactId>
-
+    
+    <properties>
+        <druid.version>0.22.1</druid.version>
+        <calcite-druid.version>1.29.0</calcite-druid.version>
+    </properties>
+    
     <dependencies>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-api-flink</artifactId>
-            <version>${project.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-common</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-java</artifactId>
-        </dependency>
         <dependency>
             <groupId>org.apache.druid</groupId>
             <artifactId>druid-indexing-service</artifactId>
+            <version>${druid.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.calcite</groupId>
             <artifactId>calcite-druid</artifactId>
+            <version>${calcite-druid.version}</version>
         </dependency>
     </dependencies>
 </project>

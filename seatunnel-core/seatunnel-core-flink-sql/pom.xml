@@ -39,26 +39,22 @@
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
-            <version>${flink.version}</version>
+            <version>${flink.1.13.6.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-table-common</artifactId>
-            <version>${flink.version}</version>
+            <version>${flink.1.13.6.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-table-api-java-bridge_${scala.binary.version}</artifactId>
-            <version>${flink.version}</version>
+            <version>${flink.1.13.6.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
-            <version>${flink.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
+            <version>${flink.1.13.6.version}</version>
         </dependency>
     </dependencies>
 

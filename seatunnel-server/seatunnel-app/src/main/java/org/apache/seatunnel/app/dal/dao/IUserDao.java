@@ -18,10 +18,11 @@
 package org.apache.seatunnel.app.dal.dao;
 
 import org.apache.seatunnel.app.dal.entity.User;
+import org.apache.seatunnel.app.dal.entity.UserLoginLog;
 import org.apache.seatunnel.app.domain.dto.user.ListUserDto;
 import org.apache.seatunnel.app.domain.dto.user.UpdateUserDto;
-
-import java.util.List;
+import org.apache.seatunnel.app.domain.dto.user.UserLoginLogDto;
+import org.apache.seatunnel.server.common.PageData;
 
 public interface IUserDao {
     int add(UpdateUserDto dto);
@@ -36,5 +37,17 @@ public interface IUserDao {
 
     void disable(int id);
 
-    List<User> list(ListUserDto dto, int pageNo, int pageSize);
+    PageData<User> list(ListUserDto dto, int pageNo, int pageSize);
+
+    User getById(int operatorId);
+
+    User getByName(String user);
+
+    User checkPassword(String username, String password);
+
+    long insertLoginLog(UserLoginLogDto dto);
+
+    void disableToken(int userId);
+
+    UserLoginLog getLastLoginLog(Integer userId);
 }

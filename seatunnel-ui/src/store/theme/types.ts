@@ -19,4 +19,4 @@ interface ThemeState {
   darkTheme: boolean
 }
 
-export default ThemeState
+export { ThemeState }

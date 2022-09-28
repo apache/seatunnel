@@ -20,10 +20,10 @@ package org.apache.seatunnel.app.service;
 import org.apache.seatunnel.app.domain.request.user.AddUserReq;
 import org.apache.seatunnel.app.domain.request.user.UpdateUserReq;
 import org.apache.seatunnel.app.domain.request.user.UserListReq;
+import org.apache.seatunnel.app.domain.request.user.UserLoginReq;
+import org.apache.seatunnel.app.domain.response.PageInfo;
 import org.apache.seatunnel.app.domain.response.user.AddUserRes;
 import org.apache.seatunnel.app.domain.response.user.UserSimpleInfoRes;
-
-import java.util.List;
 
 public interface IUserService {
 
@@ -33,9 +33,11 @@ public interface IUserService {
 
     void delete(int id);
 
-    List<UserSimpleInfoRes> list(UserListReq userListReq);
+    PageInfo<UserSimpleInfoRes> list(UserListReq userListReq);
 
     void enable(int id);
 
     void disable(int id);
+
+    UserSimpleInfoRes login(UserLoginReq req);
 }

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.common.utils;
 
+import org.apache.seatunnel.common.Constants;
+
 import org.apache.commons.lang3.text.StrSubstitutor;
 
 import java.time.ZonedDateTime;
@@ -40,8 +42,8 @@ public final class VariablesSubstitute {
         final String formattedDate = df.format(ZonedDateTime.now());
 
         final Map<String, String> valuesMap = new HashMap<>(3);
-        valuesMap.put("uuid", UUID.randomUUID().toString());
-        valuesMap.put("now", formattedDate);
+        valuesMap.put(Constants.UUID, UUID.randomUUID().toString());
+        valuesMap.put(Constants.NOW, formattedDate);
         valuesMap.put(timeFormat, formattedDate);
         return substitute(text, valuesMap);
     }

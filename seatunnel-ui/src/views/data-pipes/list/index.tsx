@@ -15,12 +15,100 @@
  * limitations under the License.
  */
 
-import { defineComponent } from 'vue'
+import { defineComponent, onMounted, toRefs } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useTable } from './use-table'
+import { NButton, NCard, NDataTable, NPagination, NSpace } from 'naive-ui'
+import { useRouter } from 'vue-router'
+import DeleteModal from './components/delete-modal'
+import PublishModal from './components/publish-modal'
+import type { Router } from 'vue-router'
 
 const DataPipesList = defineComponent({
-  setup() {},
+  setup() {
+    const { t } = useI18n()
+    const router: Router = useRouter()
+    const { state, createColumns } = useTable()
+
+    const handleCancelDeleteModal = () => {
+      state.showDeleteModal = false
+    }
+
+    const handleConfirmDeleteModal = () => {
+      state.showDeleteModal = false
+    }
+
+    const handleCancelPublishModal = () => {
+      state.showPublishModal = false
+    }
+
+    const handleConfirmPublishModal = () => {
+      state.showPublishModal = false
+    }
+
+    const handleCreate = () => {
+      router.push({ path: '/data-pipes/create' })
+    }
+
+    onMounted(() => {
+      createColumns(state)
+    })
+
+    return {
+      t,
+      ...toRefs(state),
+      handleCancelDeleteModal,
+      handleConfirmDeleteModal,
+      handleCancelPublishModal,
+      handleConfirmPublishModal,
+      handleCreate
+    }
+  },
   render() {
-    return <div>datapipes</div>
+    return (
+      <NSpace vertical>
+        <NCard title={this.t('data_pipes.data_pipes')}>
+          {{
+            'header-extra': () => (
+              <NButton onClick={this.handleCreate}>
+                {this.t('data_pipes.create')}
+              </NButton>
+            )
+          }}
+        </NCard>
+        <NCard>
+          <NSpace vertical>
+            <NDataTable
+              loading={this.loading}
+              columns={this.columns}
+              data={this.tableData}
+            />
+            <NSpace justify='center'>
+              <NPagination
+                v-model:page={this.page}
+                v-model:page-size={this.pageSize}
+                page-count={this.totalPage}
+                show-size-picker
+                page-sizes={[10, 30, 50]}
+                show-quick-jumper
+              />
+            </NSpace>
+          </NSpace>
+        </NCard>
+        <DeleteModal
+          showModal={this.showDeleteModal}
+          row={this.row}
+          onCancelModal={this.handleCancelDeleteModal}
+          onConfirmModal={this.handleConfirmDeleteModal}
+        />
+        <PublishModal
+          showModal={this.showPublishModal}
+          row={this.row}
+          onCancelModal={this.handleCancelPublishModal}
+          onConfirmModal={this.handleConfirmPublishModal}
+        />
+      </NSpace>
+    )
   }
 })
 

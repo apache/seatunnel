@@ -30,6 +30,31 @@
     <artifactId>seatunnel-core</artifactId>
     <packaging>pom</packaging>
 
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <configuration>
+                    <shadedArtifactAttached>false</shadedArtifactAttached>
+                    <createDependencyReducedPom>true</createDependencyReducedPom>
+                    <!-- Make sure the transitive dependencies are written to the generated pom under <dependencies> -->
+                    <promoteTransitiveDependencies>true</promoteTransitiveDependencies>
+                    <artifactSet>
+                        <excludes>
+                            <exclude>ch.qos.logback:*</exclude>
+                        </excludes>
+                    </artifactSet>
+                </configuration>
+            </plugin>
+
+            <!-- make sure that flatten runs after maven-shade-plugin -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
     <profiles>
         <profile>
             <id>all</id>
