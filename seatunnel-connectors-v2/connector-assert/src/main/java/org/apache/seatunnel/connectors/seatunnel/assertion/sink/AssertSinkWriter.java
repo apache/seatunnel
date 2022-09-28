@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.LongAccumulator;
 
 public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
@@ -45,27 +46,31 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     @SuppressWarnings("checkstyle:RegexpSingleline")
     public void write(SeaTunnelRow element) {
         LONG_ACCUMULATOR.accumulate(1);
-        ASSERT_EXECUTOR
-            .fail(element, seaTunnelRowType, assertFieldRules)
-            .ifPresent(failRule -> {
-                throw new IllegalStateException("row :" + element + " fail rule: " + failRule);
-            });
+        if (Objects.nonNull(assertFieldRules)) {
+            ASSERT_EXECUTOR
+                .fail(element, seaTunnelRowType, assertFieldRules)
+                .ifPresent(failRule -> {
+                    throw new IllegalStateException("row :" + element + " fail rule: " + failRule);
+                });
+        }
     }
 
     @Override
     public void close() throws IOException {
-        assertRowRules.stream().filter(assertRule -> {
-            switch (assertRule.getRuleType()) {
-                case MAX_ROW:
-                    return !(LONG_ACCUMULATOR.longValue() <= assertRule.getRuleValue());
-                case MIN_ROW:
-                    return !(LONG_ACCUMULATOR.longValue() >= assertRule.getRuleValue());
-                default:
-                    return false;
-            }
-        }).findFirst().ifPresent(failRule -> {
-            throw new IllegalStateException("row num :" + LONG_ACCUMULATOR.longValue() + " fail rule: " + failRule);
-        });
+        if (Objects.nonNull(assertRowRules)) {
+            assertRowRules.stream().filter(assertRule -> {
+                switch (assertRule.getRuleType()) {
+                    case MAX_ROW:
+                        return !(LONG_ACCUMULATOR.longValue() <= assertRule.getRuleValue());
+                    case MIN_ROW:
+                        return !(LONG_ACCUMULATOR.longValue() >= assertRule.getRuleValue());
+                    default:
+                        return false;
+                }
+            }).findFirst().ifPresent(failRule -> {
+                throw new IllegalStateException("row num :" + LONG_ACCUMULATOR.longValue() + " fail rule: " + failRule);
+            });
+        }
     }
 
 }
