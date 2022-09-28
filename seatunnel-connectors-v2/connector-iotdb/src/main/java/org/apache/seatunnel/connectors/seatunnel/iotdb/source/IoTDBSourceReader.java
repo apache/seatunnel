@@ -34,44 +34,47 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.DefaultSeaTunnelRowDeserializer;
+import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.SeaTunnelRowDeserializer;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.iotdb.rpc.IoTDBConnectionException;
 import org.apache.iotdb.session.Session;
 import org.apache.iotdb.session.SessionDataSet;
 import org.apache.iotdb.session.util.Version;
-import org.apache.iotdb.tsfile.read.common.Field;
 import org.apache.iotdb.tsfile.read.common.RowRecord;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Queue;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
 public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSourceSplit> {
 
-    private static final long THREAD_WAIT_TIME = 500L;
+    private final Map<String, Object> conf;
 
-    private Map<String, Object> conf;
-
-    private Set<IoTDBSourceSplit> sourceSplits;
+    private final Queue<IoTDBSourceSplit> pendingSplits;
 
     private final SourceReader.Context context;
 
-    private SeaTunnelRowType seaTunnelRowType;
+    private final SeaTunnelRowDeserializer deserializer;
 
     private Session session;
 
-    public IoTDBSourceReader(Map<String, Object> conf, SourceReader.Context readerContext, SeaTunnelRowType seaTunnelRowType) {
+    private volatile boolean noMoreSplitsAssignment;
+
+    public IoTDBSourceReader(Map<String, Object> conf,
+                             SourceReader.Context readerContext,
+                             SeaTunnelRowType rowType) {
         this.conf = conf;
-        this.sourceSplits = new HashSet<>();
+        this.pendingSplits = new LinkedList<>();
         this.context = readerContext;
-        this.seaTunnelRowType = seaTunnelRowType;
+        this.deserializer = new DefaultSeaTunnelRowDeserializer(rowType);
     }
 
     @Override
@@ -92,21 +95,18 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        if (sourceSplits.isEmpty()) {
-            Thread.sleep(THREAD_WAIT_TIME);
-            return;
-        }
-        sourceSplits.forEach(source -> {
-            try {
-                read(source, output);
-            } catch (Exception e) {
-                throw new RuntimeException("IotDB source read error", e);
+        while (!pendingSplits.isEmpty()) {
+            synchronized (output.getCheckpointLock()) {
+                IoTDBSourceSplit split = pendingSplits.poll();
+                read(split, output);
             }
-        });
+        }
 
-        if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
+        if (Boundedness.BOUNDED.equals(context.getBoundedness())
+            && noMoreSplitsAssignment
+            && pendingSplits.isEmpty()) {
             // signal to the source that we have reached the end of the data.
-            log.info("Closed the bounded fake source");
+            log.info("Closed the bounded iotdb source");
             context.signalNoMoreElement();
         }
     }
@@ -114,34 +114,10 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
     private void read(IoTDBSourceSplit split, Collector<SeaTunnelRow> output) throws Exception {
         try (SessionDataSet dataSet = session.executeQueryStatement(split.getQuery())) {
             while (dataSet.hasNext()) {
-                RowRecord row = dataSet.next();
-                Object[] datas = new Object[row.getFields().size()];
-                for (int i = 0; i < row.getFields().size(); i++) {
-                    row.getFields().get(i).getDataType();
-                    datas[i] = convertToDataType(row.getFields().get(i));
-                }
-                output.collect(new SeaTunnelRow(datas));
+                RowRecord rowRecord = dataSet.next();
+                SeaTunnelRow seaTunnelRow = deserializer.deserialize(rowRecord);
+                output.collect(seaTunnelRow);
             }
-        }
-    }
-
-    private Object convertToDataType(Field field) {
-
-        switch (field.getDataType()) {
-            case INT32:
-                return field.getIntV();
-            case INT64:
-                return field.getLongV();
-            case FLOAT:
-                return field.getFloatV();
-            case DOUBLE:
-                return field.getDoubleV();
-            case TEXT:
-                return field.getStringValue();
-            case BOOLEAN:
-                return field.getBoolV();
-            default:
-                throw new IllegalArgumentException("unknown TSData type: " + field.getDataType());
         }
     }
 
@@ -185,17 +161,18 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
 
     @Override
     public List<IoTDBSourceSplit> snapshotState(long checkpointId) {
-        return new ArrayList<>(sourceSplits);
+        return new ArrayList<>(pendingSplits);
     }
 
     @Override
     public void addSplits(List<IoTDBSourceSplit> splits) {
-        sourceSplits.addAll(splits);
+        pendingSplits.addAll(splits);
     }
 
     @Override
     public void handleNoMoreSplits() {
-        // do nothing
+        log.info("Reader received NoMoreSplits event.");
+        noMoreSplitsAssignment = true;
     }
 
     @Override
