@@ -15,16 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.example.spark.v2;
+package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
-import org.apache.seatunnel.core.starter.exception.CommandException;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import java.io.FileNotFoundException;
-import java.net.URISyntaxException;
+import lombok.Getter;
+import lombok.Setter;
 
-public class SeaTunnelApiToClickHouseExample {
+import java.io.Serializable;
 
-    public static void main(String[] args) throws FileNotFoundException, URISyntaxException, CommandException {
-        ExampleUtils.builder("/examples/spark.batch.clickhouse.conf");
+public class FakeOptions implements Serializable {
+
+    private static final String ROW_NUM = "row.num";
+    private static final Long DEFAULT_ROW_NUM = 10L;
+    @Getter
+    @Setter
+    private Long rowNum;
+
+    public static FakeOptions parse(Config config) {
+        FakeOptions fakeOptions = new FakeOptions();
+        fakeOptions.setRowNum(config.hasPath(ROW_NUM) ? config.getLong(ROW_NUM) : DEFAULT_ROW_NUM);
+        return fakeOptions;
     }
 }
