@@ -43,5 +43,10 @@
             <artifactId>jackson-dataformat-properties</artifactId>
             <version>${jackson.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-metrics-core</artifactId>
+            <version>${revision}</version>
+        </dependency>
     </dependencies>
 </project>

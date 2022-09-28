@@ -142,5 +142,16 @@
             <outputDirectory>/lib</outputDirectory>
             <scope>provided</scope>
         </dependencySet>
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <includes>
+                <include>
+
+                </include>
+            </includes>
+
+        </dependencySet>
     </dependencySets>
 </assembly>

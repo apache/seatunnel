@@ -48,6 +48,12 @@
             <version>${project.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-metrics-flink</artifactId>
+            <version>${revision}</version>
+        </dependency>
+
         <!-- todo: use another module to execute new API?        -->
         <dependency>
             <groupId>org.apache.flink</groupId>

@@ -134,7 +134,7 @@ abstract class SeatunnelMetricSink(
   val CONSOLE_DEFAULT_PORT = 9091
   val CONSOLE_DEFAULT_JOB_NAME = "sparkJob"
 
-  val CONSOLE_KEY_PERIOD = "period"
+  val CONSOLE_KEY_INTERVAL = "interval"
   val CONSOLE_KEY_UNIT = "unit"
   val CONSOLE_KEY_HOST = "host"
   val CONSOLE_KEY_PORT = "port"
@@ -142,7 +142,7 @@ abstract class SeatunnelMetricSink(
 
   val KEY_RE_METRICS_FILTER = "metrics-filter-([a-zA-Z][a-zA-Z0-9-]*)".r
 
-  val pollPeriod: Long = Option(property.getProperty(CONSOLE_KEY_PERIOD)) match {
+  val pollPeriod: Long = Option(property.getProperty(CONSOLE_KEY_INTERVAL)) match {
     case Some(s) => s.toInt
     case None => CONSOLE_DEFAULT_PERIOD
   }

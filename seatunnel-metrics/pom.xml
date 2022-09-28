@@ -18,5 +18,4 @@
         <module>seatunnel-metrics-prometheus</module>
         <module>seatunnel-metrics-console</module>
     </modules>
-
 </project>

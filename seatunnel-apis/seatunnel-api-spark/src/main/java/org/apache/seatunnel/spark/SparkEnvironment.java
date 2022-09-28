@@ -192,6 +192,9 @@ public class SparkEnvironment implements RuntimeEnv {
             if (config.hasPath("spark.metrics.jobName")) {
                 builder.config("spark.metrics.conf.*.sink.console.jobName", config.getString("spark.metrics.jobName"));
             }
+            if (config.hasPath("spark.metrics.interval")) {
+                builder.config("spark.metrics.conf.*.sink.console.interval", config.getString("spark.metrics.interval"));
+            }
         }
         return builder;
     }
