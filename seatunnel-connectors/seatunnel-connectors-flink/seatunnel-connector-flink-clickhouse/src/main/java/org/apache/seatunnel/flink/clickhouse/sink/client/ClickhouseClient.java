@@ -63,8 +63,10 @@ public class ClickhouseClient {
                 clickhouseProperties.put(e.getKey(), String.valueOf(e.getValue().unwrapped()));
             });
         }
-        clickhouseProperties.put("user", config.getString(USERNAME));
-        clickhouseProperties.put("password", config.getString(PASSWORD));
+        if (config.hasPath(USERNAME) && config.hasPath(PASSWORD)) {
+            clickhouseProperties.put("user", config.getString(USERNAME));
+            clickhouseProperties.put("password", config.getString(PASSWORD));
+        }
         String jdbcUrl = "jdbc:clickhouse://" + config.getString(HOST) + "/" + config.getString(DATABASE);
         this.balancedClickhouseDataSource = new BalancedClickhouseDataSource(jdbcUrl, clickhouseProperties);
     }

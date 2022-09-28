@@ -1,5 +1,7 @@
 # Hbase
 
+> Hbase sink connector
+
 ## Description
 
 Use [hbase-connectors](https://github.com/apache/hbase-connectors/tree/master/spark) to output data to `Hbase` , `Hbase (>=2.1.0)` and `Spark (>=2.0.0)` version compatibility depends on `hbase-connectors` . The `hbase-connectors` in the official Apache Hbase documentation is also one of the [Apache Hbase Repos](https://hbase.apache.org/book.html#repos).

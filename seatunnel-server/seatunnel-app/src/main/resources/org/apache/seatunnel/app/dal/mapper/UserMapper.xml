@@ -80,4 +80,20 @@
         from `user`
         where username = #{username,jdbcType=VARCHAR}
     </select>
+    <select id="countBySelective" resultType="java.lang.Integer">
+    select
+        count(1)
+        from `user`
+        <where>
+            <if test="user.username != null and user.username != ''">
+                and `username` = #{user.username,jdbcType=VARCHAR}
+            </if>
+        </where>
+    </select>
+    <select id="selectByNameAndPasswd" resultType="org.apache.seatunnel.app.dal.entity.User">
+        select
+        <include refid="Base_Column_List"/>
+        from `user`
+        where username = #{username,jdbcType=VARCHAR} and password = #{password,jdbcType=VARCHAR}
+    </select>
 </mapper>

@@ -32,8 +32,8 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Path;
 
 /**
- * todo: do we need to move these class to a new module? since this may cause version conflict with the old flink version.
- * This command is used to execute the Flink job by SeaTunnel new API.
+ * todo: do we need to move these class to a new module? since this may cause version conflict with the old Spark version.
+ * This command is used to execute the Spark job by SeaTunnel new API.
  */
 public class SparkApiTaskExecuteCommand implements Command<SparkCommandArgs> {
 
@@ -54,6 +54,7 @@ public class SparkApiTaskExecuteCommand implements Command<SparkCommandArgs> {
             seaTunnelTaskExecution.execute();
         } catch (Exception e) {
             LOGGER.error("Run SeaTunnel on spark failed.", e);
+            throw new CommandExecuteException(e.getMessage());
         }
     }
 

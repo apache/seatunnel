@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.core.sql;
 
+import org.apache.seatunnel.core.base.utils.CommandLineUtils;
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.flink.config.FlinkJobType;
-import org.apache.seatunnel.core.flink.utils.CommandLineUtils;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -30,7 +30,7 @@ public class FlinkEnvParameterParser {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     public static void main(String[] args) {
-        FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.SQL);
+        FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parse(args, new FlinkCommandArgs(), FlinkJobType.SQL.getType(), true);
         List<String> envParameters = getEnvParameters(flinkCommandArgs);
         System.out.println(String.join(" ", envParameters));
     }

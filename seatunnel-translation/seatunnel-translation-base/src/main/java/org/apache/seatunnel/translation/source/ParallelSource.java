@@ -27,6 +27,9 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -38,6 +41,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serializable> implements BaseSourceFunction<T> {
+    private static final Logger LOG = LoggerFactory.getLogger(ParallelSource.class);
 
     protected final SeaTunnelSource<T, SplitT, StateT> source;
     protected final ParallelEnumeratorContext<SplitT> parallelEnumeratorContext;
@@ -75,7 +79,10 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
         // Create or restore split enumerator & reader
         try {
             if (restoredState != null && restoredState.size() > 0) {
-                StateT restoredEnumeratorState = enumeratorStateSerializer.deserialize(restoredState.get(-1).get(0));
+                StateT restoredEnumeratorState = null;
+                if (restoredState.containsKey(-1)) {
+                    restoredEnumeratorState = enumeratorStateSerializer.deserialize(restoredState.get(-1).get(0));
+                }
                 restoredSplitState = new ArrayList<>(restoredState.get(subtaskId).size());
                 for (byte[] splitBytes : restoredState.get(subtaskId)) {
                     restoredSplitState.add(splitSerializer.deserialize(splitBytes));
@@ -121,6 +128,7 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
             reader.pollNext(collector);
             Thread.sleep(SLEEP_TIME_INTERVAL);
         }
+        LOG.debug("Parallel source runs complete.");
     }
 
     @Override
@@ -130,14 +138,17 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
         running = false;
 
         if (executorService != null) {
+            LOG.debug("Close the thread pool resource.");
             executorService.shutdown();
         }
 
         if (splitEnumerator != null) {
+            LOG.debug("Close the split enumerator for the Apache SeaTunnel source.");
             splitEnumerator.close();
         }
 
         if (reader != null) {
+            LOG.debug("Close the data reader for the Apache SeaTunnel source.");
             reader.close();
         }
     }
@@ -172,12 +183,14 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
 
     @Override
     public Map<Integer, List<byte[]>> snapshotState(long checkpointId) throws Exception {
-        byte[] enumeratorStateBytes = enumeratorStateSerializer.serialize(splitEnumerator.snapshotState(checkpointId));
-        List<SplitT> splitStates = reader.snapshotState(checkpointId);
         Map<Integer, List<byte[]>> allStates = new HashMap<>(2);
-        if (enumeratorStateBytes != null) {
+
+        StateT enumeratorState = splitEnumerator.snapshotState(checkpointId);
+        if (enumeratorState != null) {
+            byte[] enumeratorStateBytes = enumeratorStateSerializer.serialize(enumeratorState);
             allStates.put(-1, Collections.singletonList(enumeratorStateBytes));
         }
+        List<SplitT> splitStates = reader.snapshotState(checkpointId);
         if (splitStates != null) {
             final List<byte[]> readerStateBytes = new ArrayList<>(splitStates.size());
             for (SplitT splitState : splitStates) {

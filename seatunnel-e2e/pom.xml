@@ -26,52 +26,44 @@
     <artifactId>seatunnel-e2e</artifactId>
     <packaging>pom</packaging>
 
-    <profiles>
-        <profile>
-            <id>all</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
-            <modules>
-                <module>seatunnel-flink-e2e</module>
-                <module>seatunnel-spark-e2e</module>
-                <module>seatunnel-flink-connector-v2-e2e</module>
-                <module>seatunnel-spark-connector-v2-e2e</module>
-                <module>seatunnel-flink-sql-e2e</module>
-                <module>seatunnel-engine-e2e</module>
-            </modules>
-            <dependencies>
-                <dependency>
-                    <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-connectors-v2-dist</artifactId>
-                    <version>${project.version}</version>
-                </dependency>
-                <dependency>
-                    <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-connectors-spark-dist</artifactId>
-                    <version>${project.version}</version>
-                </dependency>
-                <dependency>
-                    <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-connectors-flink-dist</artifactId>
-                    <version>${project.version}</version>
-                </dependency>
-            </dependencies>
-        </profile>
-        <profile>
-            <id>engine-all</id>
-            <dependencies>
-                <dependency>
-                    <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-connectors-v2-dist</artifactId>
-                    <version>${project.version}</version>
-                </dependency>
-            </dependencies>
-        </profile>
-        <profile>
-            <id>release</id>
-        </profile>
-    </profiles>
+    <modules>
+        <module>seatunnel-e2e-common</module>
+        <module>seatunnel-connector-v2-e2e</module>
+        <module>seatunnel-flink-connector-v2-e2e</module>
+        <module>seatunnel-flink-e2e</module>
+        <module>seatunnel-flink-sql-e2e</module>
+        <module>seatunnel-spark-connector-v2-e2e</module>
+        <module>seatunnel-spark-e2e</module>
+        <module>seatunnel-engine-e2e</module>
+    </modules>
+
+    <properties>
+        <junit4.version>4.13.2</junit4.version>
+        <maven-jar-plugin.version>2.4</maven-jar-plugin.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Testcontainers 1.x is tightly coupled with the JUnit 4.x rule API-->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>${junit4.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.awaitility</groupId>
+            <artifactId>awaitility</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
     <build>
         <plugins>
             <plugin>

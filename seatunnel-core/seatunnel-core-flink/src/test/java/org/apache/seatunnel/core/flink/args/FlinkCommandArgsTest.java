@@ -17,9 +17,11 @@
 
 package org.apache.seatunnel.core.flink.args;
 
-import com.beust.jcommander.JCommander;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.seatunnel.core.base.utils.CommandLineUtils;
+import org.apache.seatunnel.core.flink.config.FlinkJobType;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
@@ -28,14 +30,10 @@ public class FlinkCommandArgsTest {
     @Test
     public void testParseFlinkArgs() {
         String[] args = {"-c", "app.conf", "-ck", "-i", "city=shenyang", "-i", "date=20200202"};
-        FlinkCommandArgs flinkArgs = new FlinkCommandArgs();
-        JCommander.newBuilder()
-            .addObject(flinkArgs)
-            .build()
-            .parse(args);
-        Assert.assertEquals("app.conf", flinkArgs.getConfigFile());
-        Assert.assertTrue(flinkArgs.isCheckConfig());
-        Assert.assertEquals(Arrays.asList("city=shenyang", "date=20200202"), flinkArgs.getVariables());
+        FlinkCommandArgs flinkArgs = CommandLineUtils.parse(args, new FlinkCommandArgs(), FlinkJobType.JAR.getType(), true);
+        Assertions.assertEquals("app.conf", flinkArgs.getConfigFile());
+        Assertions.assertTrue(flinkArgs.isCheckConfig());
+        Assertions.assertEquals(Arrays.asList("city=shenyang", "date=20200202"), flinkArgs.getVariables());
     }
 
 }

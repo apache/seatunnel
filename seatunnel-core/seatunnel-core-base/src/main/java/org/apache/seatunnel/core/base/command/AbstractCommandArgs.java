@@ -29,12 +29,13 @@ import java.util.List;
 public abstract class AbstractCommandArgs implements CommandArgs {
 
     @Parameter(names = {"-c", "--config"},
-        description = "Config file",
-        required = true)
+            description = "Config file",
+            required = true)
     private String configFile;
 
     @Parameter(names = {"-i", "--variable"},
-        description = "variable substitution, such as -i city=beijing, or -i date=20190318")
+            splitter = NoopParameterSplitter.class,
+            description = "variable substitution, such as -i city=beijing, or -i date=20190318")
     private List<String> variables = Collections.emptyList();
 
     // todo: use command type enum
@@ -46,6 +47,11 @@ public abstract class AbstractCommandArgs implements CommandArgs {
             help = true,
             description = "Show the usage message")
     private boolean help = false;
+
+    /**
+     * Undefined parameters parsed will be stored here as engine original command parameters.
+     */
+    private List<String> originalParameters;
 
     public String getConfigFile() {
         return configFile;
@@ -77,6 +83,14 @@ public abstract class AbstractCommandArgs implements CommandArgs {
 
     public void setHelp(boolean help) {
         this.help = help;
+    }
+
+    public List<String> getOriginalParameters() {
+        return originalParameters;
+    }
+
+    public void setOriginalParameters(List<String> originalParameters) {
+        this.originalParameters = originalParameters;
     }
 
     public EngineType getEngineType() {

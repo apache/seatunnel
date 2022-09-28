@@ -30,6 +30,7 @@
     <artifactId>seatunnel-flink-connector-v2-example</artifactId>
     <properties>
         <flink.scope>compile</flink.scope>
+        <mock-webserver.version>3.6.0</mock-webserver.version>
     </properties>
 
     <dependencies>
@@ -56,56 +57,50 @@
             <artifactId>connector-console</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-file-local</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-socket</artifactId>
-            <version>${project.version}</version>
-        </dependency>
         <!--   seatunnel connectors   -->
-
         <!--flink-->
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-java</artifactId>
-            <version>${flink.version}</version>
+            <version>${flink.1.13.6.version}</version>
             <scope>${flink.scope}</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
-            <version>${flink.version}</version>
+            <version>${flink.1.13.6.version}</version>
             <scope>${flink.scope}</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-table-planner-blink_${scala.binary.version}</artifactId>
-            <version>${flink.version}</version>
+            <version>${flink.1.13.6.version}</version>
             <scope>${flink.scope}</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
-            <version>${flink.version}</version>
+            <version>${flink.1.13.6.version}</version>
             <scope>${flink.scope}</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-clients_${scala.binary.version}</artifactId>
-            <version>${flink.version}</version>
+            <version>${flink.1.13.6.version}</version>
             <scope>${flink.scope}</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-runtime-web_${scala.binary.version}</artifactId>
-            <version>${flink.version}</version>
+            <version>${flink.1.13.6.version}</version>
             <scope>${flink.scope}</scope>
         </dependency>
 
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>mockwebserver</artifactId>
+            <version>${mock-webserver.version}</version>
+        </dependency>
     </dependencies>
 
 </project>

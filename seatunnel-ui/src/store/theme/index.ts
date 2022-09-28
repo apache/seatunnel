@@ -16,7 +16,7 @@
  */
 
 import { defineStore } from 'pinia'
-import ThemeState from './types'
+import { ThemeState } from './types'
 
 export const useThemeStore = defineStore({
   id: 'theme',

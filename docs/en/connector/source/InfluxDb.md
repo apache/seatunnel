@@ -1,5 +1,7 @@
 # InfluxDb
 
+> InfluxDb source connector
+
 ## Description
 
 Read data from InfluxDB.

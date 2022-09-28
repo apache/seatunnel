@@ -1,5 +1,7 @@
 # Flink SQL JDBC Connector
 
+> JDBC connector based flink sql
+
 ## Description
 
 We can use the Flink SQL JDBC Connector to connect to a JDBC database. Refer to the [Flink SQL JDBC Connector](https://nightlies.apache.org/flink/flink-docs-release-1.13/docs/connectors/table/jdbc/index.html) for more information.

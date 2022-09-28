@@ -28,20 +28,23 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>connector-kafka</artifactId>
+    
+    <properties>
+        <kafka.client.version>3.2.0</kafka.client.version>
+    </properties>
 
     <dependencies>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-api</artifactId>
-            <version>${project.version}</version>
-        </dependency>
 
         <!-- TODO add to dependency management after version unify-->
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
-            <version>3.2.0</version>
+            <version>${kafka.client.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-format-json</artifactId>
+            <version>${project.version}</version>
         </dependency>
     </dependencies>
 

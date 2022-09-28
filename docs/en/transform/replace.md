@@ -1,5 +1,7 @@
 # Replace
 
+> Replace transform plugin
+
 ## Description
 
 Examines string value in a given field and replaces substring of the string value that matches the given string literal or regexes with the given replacement.
@@ -67,7 +69,7 @@ Use `Replace` as udf in sql.
   Replace {
     fields = "_replaced"
     pattern = "([^ ]*) ([^ ]*)"
-    replacement = "$2
+    replacement = "$2"
     isRegex = true
     replaceFirst = true
   }

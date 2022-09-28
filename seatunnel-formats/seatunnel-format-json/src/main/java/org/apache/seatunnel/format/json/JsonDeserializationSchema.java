@@ -54,7 +54,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
     private final SeaTunnelRowType rowType;
 
     /**
-     * Runtime converter that converts {@link JsonNode}s into objects of Flink SQL internal data
+     * Runtime converter that converts {@link JsonNode}s into objects of internal data
      * structures.
      */
     private final JsonToRowConverters.JsonToRowConverter runtimeConverter;
@@ -104,8 +104,27 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
         if (message == null) {
             return null;
         }
+        return convertJsonNode(convertBytes(message));
+    }
+
+    public SeaTunnelRow convertJsonNode(JsonNode jsonNode) throws IOException {
+        if (jsonNode == null) {
+            return null;
+        }
         try {
-            return (SeaTunnelRow) runtimeConverter.convert(objectMapper.readTree(message));
+            return (SeaTunnelRow) runtimeConverter.convert(jsonNode);
+        } catch (Throwable t) {
+            if (ignoreParseErrors) {
+                return null;
+            }
+            throw new IOException(
+                format("Failed to deserialize JSON '%s'.", jsonNode.asText()), t);
+        }
+    }
+
+    public JsonNode convertBytes(byte[] message) throws IOException {
+        try {
+            return objectMapper.readTree(message);
         } catch (Throwable t) {
             if (ignoreParseErrors) {
                 return null;

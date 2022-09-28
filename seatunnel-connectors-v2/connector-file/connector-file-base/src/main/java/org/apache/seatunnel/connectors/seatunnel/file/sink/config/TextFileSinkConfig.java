@@ -34,7 +34,9 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -80,15 +82,17 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
             this.sinkColumnList = Arrays.asList(seaTunnelRowTypeInfo.getFieldNames());
         }
 
-        if (config.hasPath(Constant.PARTITION_BY) && !CollectionUtils.isEmpty(config.getStringList(Constant.PARTITION_BY))) {
+        if (config.hasPath(Constant.PARTITION_BY)) {
             this.partitionFieldList = config.getStringList(Constant.PARTITION_BY);
+        } else {
+            this.partitionFieldList = Collections.emptyList();
         }
 
         if (config.hasPath(Constant.PARTITION_DIR_EXPRESSION) && !StringUtils.isBlank(config.getString(Constant.PARTITION_DIR_EXPRESSION))) {
             this.partitionDirExpression = config.getString(Constant.PARTITION_DIR_EXPRESSION);
         }
 
-        if (config.hasPath(Constant.IS_PARTITION_FIELD_WRITE_IN_FILE) && config.getBoolean(Constant.IS_PARTITION_FIELD_WRITE_IN_FILE)) {
+        if (config.hasPath(Constant.IS_PARTITION_FIELD_WRITE_IN_FILE)) {
             this.isPartitionFieldWriteInFile = config.getBoolean(Constant.IS_PARTITION_FIELD_WRITE_IN_FILE);
         }
 
@@ -104,8 +108,8 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
             this.fileNameTimeFormat = config.getString(Constant.FILENAME_TIME_FORMAT);
         }
 
-        if (config.hasPath(Constant.IS_ENABLE_TRANSACTION) && !config.getBoolean(Constant.IS_ENABLE_TRANSACTION)) {
-            this.isEnableTransaction = isEnableTransaction();
+        if (config.hasPath(Constant.IS_ENABLE_TRANSACTION)) {
+            this.isEnableTransaction = config.getBoolean(Constant.IS_ENABLE_TRANSACTION);
         }
 
         if (this.isEnableTransaction && !this.fileNameExpression.contains(Constant.TRANSACTION_EXPRESSION)) {
@@ -114,7 +118,7 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
 
         // check partition field must in seaTunnelRowTypeInfo
         if (!CollectionUtils.isEmpty(this.partitionFieldList)
-            && (CollectionUtils.isEmpty(this.sinkColumnList) || !this.sinkColumnList.containsAll(this.partitionFieldList))) {
+            && (CollectionUtils.isEmpty(this.sinkColumnList) || !new HashSet<>(this.sinkColumnList).containsAll(this.partitionFieldList))) {
             throw new RuntimeException("partition fields must in sink columns");
         }
 
@@ -136,12 +140,12 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
 
         // init sink column index and partition field index, we will use the column index to found the data in SeaTunnelRow
         this.sinkColumnsIndexInRow = this.sinkColumnList.stream()
-            .map(columnName -> columnsMap.get(columnName))
+            .map(columnsMap::get)
             .collect(Collectors.toList());
 
         if (!CollectionUtils.isEmpty(this.partitionFieldList)) {
             this.partitionFieldsIndexInRow = this.partitionFieldList.stream()
-                .map(columnName -> columnsMap.get(columnName))
+                .map(columnsMap::get)
                 .collect(Collectors.toList());
         }
     }

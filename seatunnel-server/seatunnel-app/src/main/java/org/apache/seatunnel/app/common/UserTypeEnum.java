@@ -19,6 +19,7 @@ package org.apache.seatunnel.app.common;
 
 public enum UserTypeEnum {
     NORMAL(0, "normal"),
+    ADMIN(1, "admin"),
     ;
 
     private final int code;

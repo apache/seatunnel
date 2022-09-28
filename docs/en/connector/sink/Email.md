@@ -1,5 +1,7 @@
 # Email
 
+> Email sink connector
+
 ## Description
 
 Supports data output through `email attachments`. The attachments are in the `xlsx` format that supports `excel` to open, which can be used to notify the task statistics results through email attachments.
