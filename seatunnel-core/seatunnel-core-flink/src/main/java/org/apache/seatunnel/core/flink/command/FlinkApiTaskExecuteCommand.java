@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.core.flink.command;
 
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.apis.base.api.BaseSink;
 import org.apache.seatunnel.apis.base.api.BaseSource;
 import org.apache.seatunnel.apis.base.api.BaseTransform;
@@ -39,7 +38,10 @@ import org.apache.seatunnel.flink.batch.FlinkBatchTransform;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 import org.apache.seatunnel.flink.stream.FlinkStreamSource;
 import org.apache.seatunnel.flink.stream.FlinkStreamTransform;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import com.google.common.annotations.VisibleForTesting;
 
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -61,6 +63,7 @@ public class FlinkApiTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkComm
     public void execute() throws CommandExecuteException {
         EngineType engine = flinkCommandArgs.getEngineType();
         Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
+
         Config config = new ConfigBuilder(configFile).getConfig();
         FlinkExecutionContext executionContext = new FlinkExecutionContext(config, engine);
         List<BaseSource<FlinkEnvironment>> sources = executionContext.getSources();
@@ -68,7 +71,7 @@ public class FlinkApiTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkComm
         List<BaseSink<FlinkEnvironment>> sinks = executionContext.getSinks();
 
         checkPluginType(executionContext.getJobMode(), sources, transforms, sinks);
-        baseCheckConfig(sinks, transforms, sinks);
+        baseCheckConfig(sources, transforms, sinks);
         showAsciiLogo();
 
         try (Execution<BaseSource<FlinkEnvironment>,
