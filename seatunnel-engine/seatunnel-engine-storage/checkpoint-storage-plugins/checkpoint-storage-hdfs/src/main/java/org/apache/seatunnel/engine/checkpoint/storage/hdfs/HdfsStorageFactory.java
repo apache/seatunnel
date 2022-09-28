@@ -20,6 +20,7 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.hdfs;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
@@ -34,6 +35,11 @@ public class HdfsStorageFactory implements CheckpointStorageFactory {
     @Override
     public String factoryIdentifier() {
         return "hdfs";
+    }
+
+    @Override
+    public OptionRule optionRule() {
+        return OptionRule.builder().build();
     }
 
     @Override

@@ -15,21 +15,10 @@
  * limitations under the License.
  */
 
-<<<<<<<< HEAD:seatunnel-engine/seatunnel-engine-core/src/main/java/org/apache/seatunnel/engine/core/dag/actions/Action.java
 package org.apache.seatunnel.engine.core.dag.actions;
-========
-package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.phoenix;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
->>>>>>>> upstream/dev:seatunnel-connectors-v2/connector-jdbc/src/main/java/org/apache/seatunnel/connectors/seatunnel/jdbc/internal/dialect/phoenix/PhoenixJdbcRowConverter.java
+import lombok.NonNull;
 
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-
-<<<<<<<< HEAD:seatunnel-engine/seatunnel-engine-core/src/main/java/org/apache/seatunnel/engine/core/dag/actions/Action.java
 import java.io.Serializable;
 import java.net.URL;
 import java.util.List;
@@ -53,16 +42,4 @@ public interface Action extends Serializable {
     long getId();
 
     Set<URL> getJarUrls();
-========
-public class PhoenixJdbcRowConverter extends AbstractJdbcRowConverter {
-    @Override
-    public String converterName() {
-        return "Phoenix";
-    }
-
-    @Override
-    public SeaTunnelRow toInternal(ResultSet rs, ResultSetMetaData metaData, SeaTunnelRowType typeInfo) throws SQLException {
-        return super.toInternal(rs, metaData, typeInfo);
-    }
->>>>>>>> upstream/dev:seatunnel-connectors-v2/connector-jdbc/src/main/java/org/apache/seatunnel/connectors/seatunnel/jdbc/internal/dialect/phoenix/PhoenixJdbcRowConverter.java
 }

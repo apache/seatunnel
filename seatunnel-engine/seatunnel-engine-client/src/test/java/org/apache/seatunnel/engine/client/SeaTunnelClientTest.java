@@ -32,28 +32,25 @@ import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("checkstyle:MagicNumber")
-@RunWith(JUnit4.class)
 public class SeaTunnelClientTest {
 
-    private HazelcastInstance instance;
+    private static HazelcastInstance INSTANCE;
 
-    @Before
-    public void beforeClass() throws Exception {
+    @BeforeAll
+    public static void beforeClass() throws Exception {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(TestUtils.getClusterName("SeaTunnelClientTest"));
-        instance = HazelcastInstanceFactory.newHazelcastInstance(seaTunnelConfig.getHazelcastConfig(),
+        INSTANCE = HazelcastInstanceFactory.newHazelcastInstance(seaTunnelConfig.getHazelcastConfig(),
             Thread.currentThread().getName(),
             new SeaTunnelNodeContext(ConfigProvider.locateAndGetSeaTunnelConfig()));
     }
@@ -66,7 +63,7 @@ public class SeaTunnelClientTest {
 
         String msg = "Hello world";
         String s = engineClient.printMessageToMaster(msg);
-        Assert.assertEquals(msg, s);
+        Assertions.assertEquals(msg, s);
     }
 
     @Test
@@ -88,7 +85,7 @@ public class SeaTunnelClientTest {
             });
 
             await().atMost(30000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assert.assertTrue(
+                .untilAsserted(() -> Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
 
         } catch (ExecutionException | InterruptedException e) {
@@ -96,8 +93,8 @@ public class SeaTunnelClientTest {
         }
     }
 
-    @After
-    public void after() {
-        instance.shutdown();
+    @AfterAll
+    public static void after() {
+        INSTANCE.shutdown();
     }
 }

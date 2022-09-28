@@ -33,9 +33,9 @@ import com.google.common.collect.Lists;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import org.awaitility.Awaitility;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +45,7 @@ import java.util.concurrent.TimeUnit;
 public class JobExecutionIT {
     private static final Logger LOGGER = LoggerFactory.getLogger(JobExecutionIT.class);
 
-    @BeforeClass
+    @BeforeAll
     public static void beforeClass() throws Exception {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(TestUtils.getClusterName("JobExecutionIT"));
@@ -63,7 +63,7 @@ public class JobExecutionIT {
 
         String msg = "Hello world";
         String s = engineClient.printMessageToMaster(msg);
-        Assert.assertEquals(msg, s);
+        Assertions.assertEquals(msg, s);
     }
 
     @Test
@@ -87,7 +87,7 @@ public class JobExecutionIT {
             });
 
             Awaitility.await().atMost(20000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assert.assertTrue(
+                .untilAsserted(() -> Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
 
         } catch (Exception e) {
@@ -111,7 +111,7 @@ public class JobExecutionIT {
         try {
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
             JobStatus jobStatus1 = clientJobProxy.getJobStatus();
-            Assert.assertFalse(jobStatus1.isEndState());
+            Assertions.assertFalse(jobStatus1.isEndState());
             ClientJobProxy finalClientJobProxy = clientJobProxy;
             CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
                 return finalClientJobProxy.waitForJobComplete();
@@ -120,7 +120,7 @@ public class JobExecutionIT {
             clientJobProxy.cancelJob();
 
             Awaitility.await().atMost(20000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assert.assertTrue(
+                .untilAsserted(() -> Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
 
         } catch (Exception e) {

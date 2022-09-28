@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.engine.e2e;
 
-import org.junit.After;
-import org.junit.Before;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
@@ -52,23 +52,23 @@ public abstract class SeaTunnelContainer {
     private static final String SEATUNNEL_CONNECTORS = Paths.get(SEATUNNEL_HOME, "connectors").toString();
     private static final String CLIENT_SHELL = "seatunnel.sh";
     private static final String SERVER_SHELL = "seatunnel-cluster.sh";
-    private GenericContainer<?> server;
+    private static GenericContainer<?> SERVER;
 
-    @Before
-    public void before() {
+    @BeforeAll
+    public static void before() {
         Map<String, String> mountMapping = getFileMountMapping();
-        server = new GenericContainer<>(JDK_DOCKER_IMAGE)
+        SERVER = new GenericContainer<>(JDK_DOCKER_IMAGE)
             .withNetwork(NETWORK)
             .withCommand(Paths.get(SEATUNNEL_BIN, SERVER_SHELL).toString())
             .withNetworkAliases("server")
             .withExposedPorts()
             .withLogConsumer(new Slf4jLogConsumer(LOG))
             .waitingFor(Wait.forLogMessage(".*received new worker register.*\\n", 1));
-        mountMapping.forEach(server::withFileSystemBind);
-        server.start();
+        mountMapping.forEach(SERVER::withFileSystemBind);
+        SERVER.start();
     }
 
-    protected Map<String, String> getFileMountMapping() {
+    protected static Map<String, String> getFileMountMapping() {
 
         Map<String, String> mountMapping = new HashMap<>();
         // copy lib
@@ -96,7 +96,7 @@ public abstract class SeaTunnelContainer {
             throw new IllegalArgumentException(confFile + " doesn't exist");
         }
         final String targetConfInContainer = Paths.get("/tmp", confFile).toString();
-        server.copyFileToContainer(MountableFile.forHostPath(confPath), targetConfInContainer);
+        SERVER.copyFileToContainer(MountableFile.forHostPath(confPath), targetConfInContainer);
 
         // Running IT use cases under Windows requires replacing \ with /
         String conf = targetConfInContainer.replaceAll("\\\\", "/");
@@ -108,21 +108,21 @@ public abstract class SeaTunnelContainer {
             try {
                 Thread.sleep(15000);
                 // cancel server if bash command not return
-                server.stop();
+                SERVER.stop();
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
         });
-        Container.ExecResult execResult = server.execInContainer("bash", "-c", String.join(" ", command));
+        Container.ExecResult execResult = SERVER.execInContainer("bash", "-c", String.join(" ", command));
         LOG.info(execResult.getStdout());
         LOG.error(execResult.getStderr());
         return execResult;
     }
 
-    @After
-    public void after() {
-        if (server != null) {
-            server.close();
+    @AfterAll
+    public static void after() {
+        if (SERVER != null) {
+            SERVER.close();
         }
     }
 

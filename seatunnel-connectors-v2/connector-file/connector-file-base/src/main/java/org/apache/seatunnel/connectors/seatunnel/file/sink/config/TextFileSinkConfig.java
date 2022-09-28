@@ -19,12 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.config;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseTextFileConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.Constant;
 import org.apache.seatunnel.connectors.seatunnel.file.config.PartitionConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.FileSinkPartitionDirNameGenerator;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -48,9 +46,6 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
 
     private List<String> partitionFieldList;
 
-    /**
-     * default is ${k0}=${v0}/${k1}=${v1}/... {@link FileSinkPartitionDirNameGenerator#generatorPartitionDir(SeaTunnelRow)} ()}
-     */
     private String partitionDirExpression;
 
     private boolean isPartitionFieldWriteInFile = false;
