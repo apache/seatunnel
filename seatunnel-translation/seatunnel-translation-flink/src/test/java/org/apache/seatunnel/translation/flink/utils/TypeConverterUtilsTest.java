@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 
 import org.apache.flink.api.common.typeinfo.BasicArrayTypeInfo;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
+import org.apache.flink.api.common.typeinfo.PrimitiveArrayTypeInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -87,7 +88,7 @@ public class TypeConverterUtilsTest {
 
     @Test
     public void convertBooleanArrayType() {
-        Assertions.assertEquals(BasicArrayTypeInfo.BOOLEAN_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.BOOLEAN_ARRAY_TYPE));
+        Assertions.assertEquals(PrimitiveArrayTypeInfo.BOOLEAN_PRIMITIVE_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.BOOLEAN_ARRAY_TYPE));
     }
 
     @Test
@@ -97,31 +98,31 @@ public class TypeConverterUtilsTest {
 
     @Test
     public void convertDoubleArrayType() {
-        Assertions.assertEquals(BasicArrayTypeInfo.DOUBLE_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.DOUBLE_ARRAY_TYPE));
+        Assertions.assertEquals(PrimitiveArrayTypeInfo.DOUBLE_PRIMITIVE_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.DOUBLE_ARRAY_TYPE));
     }
 
     @Test
     public void convertIntegerArrayType() {
-        Assertions.assertEquals(BasicArrayTypeInfo.INT_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.INT_ARRAY_TYPE));
+        Assertions.assertEquals(PrimitiveArrayTypeInfo.INT_PRIMITIVE_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.INT_ARRAY_TYPE));
     }
 
     @Test
     public void convertLongArrayType() {
-        Assertions.assertEquals(BasicArrayTypeInfo.LONG_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.LONG_ARRAY_TYPE));
+        Assertions.assertEquals(PrimitiveArrayTypeInfo.LONG_PRIMITIVE_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.LONG_ARRAY_TYPE));
     }
 
     @Test
     public void convertFloatArrayType() {
-        Assertions.assertEquals(BasicArrayTypeInfo.FLOAT_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.FLOAT_ARRAY_TYPE));
+        Assertions.assertEquals(PrimitiveArrayTypeInfo.FLOAT_PRIMITIVE_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.FLOAT_ARRAY_TYPE));
     }
 
     @Test
     public void convertByteArrayType() {
-        Assertions.assertEquals(BasicArrayTypeInfo.BYTE_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.BYTE_ARRAY_TYPE));
+        Assertions.assertEquals(PrimitiveArrayTypeInfo.BYTE_PRIMITIVE_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.BYTE_ARRAY_TYPE));
     }
 
     @Test
     public void convertShortArrayType() {
-        Assertions.assertEquals(BasicArrayTypeInfo.SHORT_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.SHORT_ARRAY_TYPE));
+        Assertions.assertEquals(PrimitiveArrayTypeInfo.SHORT_PRIMITIVE_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.SHORT_ARRAY_TYPE));
     }
 }
