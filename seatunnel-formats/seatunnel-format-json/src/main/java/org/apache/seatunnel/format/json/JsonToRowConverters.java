@@ -45,6 +45,9 @@ import java.time.temporal.TemporalQueries;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.IntFunction;
 
 /** Tool class used to convert from {@link JsonNode} to {@link org.apache.seatunnel.api.table.type.SeaTunnelRow}. * */
 public class JsonToRowConverters implements Serializable {
@@ -65,8 +68,8 @@ public class JsonToRowConverters implements Serializable {
     private final boolean ignoreParseErrors;
 
     public JsonToRowConverters(
-            boolean failOnMissingField,
-            boolean ignoreParseErrors) {
+        boolean failOnMissingField,
+        boolean ignoreParseErrors) {
         this.failOnMissingField = failOnMissingField;
         this.ignoreParseErrors = ignoreParseErrors;
     }
@@ -83,33 +86,103 @@ public class JsonToRowConverters implements Serializable {
             case ROW:
                 return createRowConverter((SeaTunnelRowType) type);
             case NULL:
-                return jsonNode -> null;
+                return new JsonToRowConverter() {
+                    @Override
+                    public Object convert(JsonNode jsonNode) {
+                        return null;
+                    }
+                };
             case BOOLEAN:
-                return this::convertToBoolean;
+                return new JsonToRowConverter() {
+                    @Override
+                    public Object convert(JsonNode jsonNode) {
+                        return convertToBoolean(jsonNode);
+                    }
+                };
             case TINYINT:
-                return jsonNode -> Byte.parseByte(jsonNode.asText().trim());
+                return new JsonToRowConverter() {
+                    @Override
+                    public Object convert(JsonNode jsonNode) {
+                        return Byte.parseByte(jsonNode.asText().trim());
+                    }
+                };
             case SMALLINT:
-                return jsonNode -> Short.parseShort(jsonNode.asText().trim());
+                return new JsonToRowConverter() {
+                    @Override
+                    public Object convert(JsonNode jsonNode) {
+                        return Short.parseShort(jsonNode.asText().trim());
+                    }
+                };
             case INT:
-                return this::convertToInt;
+                return new JsonToRowConverter() {
+                    @Override
+                    public Object convert(JsonNode jsonNode) {
+                        return convertToInt(jsonNode);
+                    }
+                };
             case BIGINT:
-                return this::convertToLong;
+                return new JsonToRowConverter() {
+                    @Override
+                    public Object convert(JsonNode jsonNode) {
+                        return convertToLong(jsonNode);
+                    }
+                };
             case DATE:
-                return this::convertToLocalDate;
+                return new JsonToRowConverter() {
+                    @Override
+                    public Object convert(JsonNode jsonNode) {
+                        return convertToLocalDate(jsonNode);
+                    }
+                };
             case TIME:
-                return this::convertToLocalTime;
+                return new JsonToRowConverter() {
+                    @Override
+                    public Object convert(JsonNode jsonNode) {
+                        return convertToLocalTime(jsonNode);
+                    }
+                };
             case TIMESTAMP:
-                return this::convertToLocalDateTime;
+                return new JsonToRowConverter() {
+                    @Override
+                    public Object convert(JsonNode jsonNode) {
+                        return convertToLocalDateTime(jsonNode);
+                    }
+                };
             case FLOAT:
-                return this::convertToFloat;
+                return new JsonToRowConverter() {
+                    @Override
+                    public Object convert(JsonNode jsonNode) {
+                        return convertToFloat(jsonNode);
+                    }
+                };
             case DOUBLE:
-                return this::convertToDouble;
+                return new JsonToRowConverter() {
+                    @Override
+                    public Object convert(JsonNode jsonNode) {
+                        return convertToDouble(jsonNode);
+                    }
+                };
             case STRING:
-                return this::convertToString;
+                return new JsonToRowConverter() {
+                    @Override
+                    public Object convert(JsonNode jsonNode) {
+                        return convertToString(jsonNode);
+                    }
+                };
             case BYTES:
-                return this::convertToBytes;
+                return new JsonToRowConverter() {
+                    @Override
+                    public Object convert(JsonNode jsonNode) {
+                        return convertToBytes(jsonNode);
+                    }
+                };
             case DECIMAL:
-                return this::convertToBigDecimal;
+                return new JsonToRowConverter() {
+                    @Override
+                    public Object convert(JsonNode jsonNode) {
+                        return convertToBigDecimal(jsonNode);
+                    }
+                };
             case ARRAY:
                 return createArrayConverter((ArrayType<?, ?>) type);
             case MAP:
@@ -210,46 +283,70 @@ public class JsonToRowConverters implements Serializable {
     private JsonToRowConverter createRowConverter(SeaTunnelRowType rowType) {
         final JsonToRowConverter[] fieldConverters =
             Arrays.stream(rowType.getFieldTypes())
-                .map(this::createConverter)
-                .toArray(JsonToRowConverter[]::new);
+                .map(new Function<SeaTunnelDataType<?>, Object>() {
+                    @Override
+                    public Object apply(SeaTunnelDataType<?> seaTunnelDataType) {
+                        return createConverter(seaTunnelDataType);
+                    }
+                })
+                .toArray(new IntFunction<JsonToRowConverter[]>() {
+                    @Override
+                    public JsonToRowConverter[] apply(int value) {
+                        return new JsonToRowConverter[value];
+                    }
+                });
         final String[] fieldNames = rowType.getFieldNames();
 
-        return jsonNode -> {
-            ObjectNode node = (ObjectNode) jsonNode;
-            int arity = fieldNames.length;
-            SeaTunnelRow row = new SeaTunnelRow(arity);
-            for (int i = 0; i < arity; i++) {
-                String fieldName = fieldNames[i];
-                JsonNode field = node.get(fieldName);
-                try {
-                    Object convertedField = convertField(fieldConverters[i], fieldName, field);
-                    row.setField(i, convertedField);
-                } catch (Throwable t) {
-                    throw new JsonParseException(
-                        String.format("Fail to deserialize at field: %s.", fieldName), t);
+        return new JsonToRowConverter() {
+            @Override
+            public Object convert(JsonNode jsonNode) {
+                ObjectNode node = (ObjectNode) jsonNode;
+                int arity = fieldNames.length;
+                SeaTunnelRow row = new SeaTunnelRow(arity);
+                for (int i = 0; i < arity; i++) {
+                    String fieldName = fieldNames[i];
+                    JsonNode field = node.get(fieldName);
+                    try {
+                        Object convertedField = convertField(fieldConverters[i], fieldName, field);
+                        row.setField(i, convertedField);
+                    } catch (Throwable t) {
+                        throw new JsonParseException(
+                            String.format("Fail to deserialize at field: %s.", fieldName), t);
+                    }
                 }
+                return row;
             }
-            return row;
         };
     }
 
     private JsonToRowConverter createArrayConverter(ArrayType<?, ?> type) {
         JsonToRowConverter valueConverter = createConverter(type.getElementType());
-        return jsonNode -> {
-            Object arr = Array.newInstance(type.getElementType().getTypeClass(), jsonNode.size());
-            for (int i = 0; i < jsonNode.size(); i++) {
-                Array.set(arr, i, valueConverter.convert(jsonNode.get(i)));
+        return new JsonToRowConverter() {
+            @Override
+            public Object convert(JsonNode jsonNode) {
+                Object arr = Array.newInstance(type.getElementType().getTypeClass(), jsonNode.size());
+                for (int i = 0; i < jsonNode.size(); i++) {
+                    Array.set(arr, i, valueConverter.convert(jsonNode.get(i)));
+                }
+                return arr;
             }
-            return arr;
         };
     }
 
     private JsonToRowConverter createMapConverter(MapType<?, ?> type) {
         JsonToRowConverter valueConverter = createConverter(type.getValueType());
-        return jsonNode -> {
-            Map<Object, Object> value = new HashMap<>();
-            jsonNode.fields().forEachRemaining(entry -> value.put(entry.getKey(), valueConverter.convert(entry.getValue())));
-            return value;
+        return new JsonToRowConverter() {
+            @Override
+            public Object convert(JsonNode jsonNode) {
+                Map<Object, Object> value = new HashMap<>();
+                jsonNode.fields().forEachRemaining(new Consumer<Map.Entry<String, JsonNode>>() {
+                    @Override
+                    public void accept(Map.Entry<String, JsonNode> entry) {
+                        value.put(entry.getKey(), valueConverter.convert(entry.getValue()));
+                    }
+                });
+                return value;
+            }
         };
     }
 
@@ -267,17 +364,20 @@ public class JsonToRowConverters implements Serializable {
     }
 
     private JsonToRowConverter wrapIntoNullableConverter(JsonToRowConverter converter) {
-        return jsonNode -> {
-            if (jsonNode == null || jsonNode.isNull() || jsonNode.isMissingNode()) {
-                return null;
-            }
-            try {
-                return converter.convert(jsonNode);
-            } catch (Throwable t) {
-                if (!ignoreParseErrors) {
-                    throw t;
+        return new JsonToRowConverter() {
+            @Override
+            public Object convert(JsonNode jsonNode) {
+                if (jsonNode == null || jsonNode.isNull() || jsonNode.isMissingNode()) {
+                    return null;
                 }
-                return null;
+                try {
+                    return converter.convert(jsonNode);
+                } catch (Throwable t) {
+                    if (!ignoreParseErrors) {
+                        throw t;
+                    }
+                    return null;
+                }
             }
         };
     }
