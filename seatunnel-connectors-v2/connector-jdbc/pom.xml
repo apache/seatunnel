@@ -76,13 +76,10 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <version>${postgresql.version}</version>
         </dependency>
         <dependency>
             <groupId>com.dameng</groupId>
             <artifactId>DmJdbcDriver18</artifactId>
-            <version>${dm-jdbc.version}</version>
-            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.aliyun.phoenix</groupId>
