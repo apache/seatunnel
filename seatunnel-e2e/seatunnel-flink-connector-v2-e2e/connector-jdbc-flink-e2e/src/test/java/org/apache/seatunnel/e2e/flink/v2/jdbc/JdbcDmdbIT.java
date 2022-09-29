@@ -59,6 +59,7 @@ public class JdbcDmdbIT extends FlinkContainer {
     private static final String SINK_TABLE = "e2e_table_sink";
     private Connection jdbcConnection;
     private GenericContainer<?> dbServer;
+    private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/com/dameng/DmJdbcDriver18/8.1.2.141/DmJdbcDriver18-8.1.2.141.jar";
 
     @BeforeEach
     public void startDmdbContainer() throws ClassNotFoundException, SQLException {
@@ -144,4 +145,9 @@ public class JdbcDmdbIT extends FlinkContainer {
         assertHasData(SINK_TABLE);
     }
 
+    @Override
+    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
+        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
+        Assertions.assertEquals(0, extraCommands.getExitCode());
+    }
 }
