@@ -22,10 +22,18 @@ import org.apache.seatunnel.core.base.command.Command;
 import org.apache.seatunnel.core.base.command.CommandBuilder;
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
 
+import java.util.Objects;
+
 public class FlinkCommandBuilder implements CommandBuilder<FlinkCommandArgs> {
 
     @Override
     public Command<FlinkCommandArgs> buildCommand(FlinkCommandArgs commandArgs) {
+        commandArgs.getVariables()
+                .stream()
+                .filter(Objects::nonNull)
+                .map(variable -> variable.split("=", 2))
+                .filter(pair -> pair.length == 2)
+                .forEach(pair -> System.setProperty(pair[0], pair[1]));
         Common.setDeployMode(commandArgs.getDeployMode());
         return commandArgs.isCheckConfig() ? new FlinkApiConfValidateCommand(commandArgs)
             : new FlinkApiTaskExecuteCommand(commandArgs);

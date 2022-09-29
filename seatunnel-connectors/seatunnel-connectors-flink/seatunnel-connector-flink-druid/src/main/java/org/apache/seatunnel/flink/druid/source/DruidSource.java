@@ -67,8 +67,8 @@ public class DruidSource implements FlinkBatchSource {
     private static final String END_TIMESTAMP = "end_date";
     private static final String COLUMNS = "columns";
     private static final String PARALLELISM = "parallelism";
-    private static final String ESCAPE_DELIMITER_KEY = "escape_delimiter";
-    private static final String ESCAPE_DELIMITER_DEFAULT = "\u0001";
+    private static final String ESCAPE_DELIMITERS_KEY = "escape_delimiters";
+    private static final String ESCAPE_DELIMITERS_DEFAULT = "\u0001";
 
     private HashMap<String, TypeInformation> informationMapping = new HashMap<>();
 
@@ -120,12 +120,12 @@ public class DruidSource implements FlinkBatchSource {
         String user = config.getString("user");
         String password = config.getString("password");
         String datasource = config.getString(DATASOURCE);
-        String escape_delimiter = config.getString(ESCAPE_DELIMITER_KEY);
-        if (StringUtils.isBlank(escape_delimiter)){
-            escape_delimiter = ESCAPE_DELIMITER_DEFAULT;
+        String escape_delimiters = config.hasPath(ESCAPE_DELIMITERS_KEY) ? config.getString(ESCAPE_DELIMITERS_KEY) : null;
+        if (StringUtils.isBlank(escape_delimiters)){
+            escape_delimiters = ESCAPE_DELIMITERS_DEFAULT;
         }
-        String startTimestamp = config.hasPath(START_TIMESTAMP) ? config.getString(START_TIMESTAMP).replaceAll(escape_delimiter, " ") : null;
-        String endTimestamp = config.hasPath(END_TIMESTAMP) ? config.getString(END_TIMESTAMP).replaceAll(escape_delimiter, " ") : null;
+        String startTimestamp = config.hasPath(START_TIMESTAMP) ? config.getString(START_TIMESTAMP).replaceAll(escape_delimiters, " ") : null;
+        String endTimestamp = config.hasPath(END_TIMESTAMP) ? config.getString(END_TIMESTAMP).replaceAll(escape_delimiters, " ") : null;
         List<String> columns = config.hasPath(COLUMNS) ? config.getStringList(COLUMNS) : null;
         String sql = new DruidSql(datasource, startTimestamp, endTimestamp, columns).sql();
         RowTypeInfo rowTypeInfo = getRowTypeInfo(jdbcURL, user, password, datasource, columns);
