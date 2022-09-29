@@ -57,11 +57,13 @@ public class JdbcDmdbIT extends FlinkContainer {
     private static final String DATABASE = "SYSDBA";
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SINK_TABLE = "e2e_table_sink";
+    private static final String DM_DRIVER_JAR = "https://repo1.maven.org/maven2/com/dameng/DmJdbcDriver18/8.1.1.193/DmJdbcDriver18-8.1.1.193.jar";
     private Connection jdbcConnection;
     private GenericContainer<?> dbServer;
+    private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/com/dameng/DmJdbcDriver18/8.1.2.141/DmJdbcDriver18-8.1.2.141.jar";
 
     @BeforeEach
-    public void startDmdbContainer() throws ClassNotFoundException, SQLException {
+    public void startDmdbContainer() throws ClassNotFoundException {
         dbServer = new GenericContainer<>(DOCKER_IMAGE)
             .withNetwork(NETWORK)
             .withNetworkAliases(HOST)
@@ -82,6 +84,12 @@ public class JdbcDmdbIT extends FlinkContainer {
     private void initializeJdbcConnection() throws SQLException {
         jdbcConnection = DriverManager.getConnection(String.format(
             URL, dbServer.getHost()), USERNAME, PASSWORD);
+    }
+
+    @Override
+    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
+        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + DM_DRIVER_JAR);
+        Assertions.assertEquals(0, extraCommands.getExitCode());
     }
 
     /**
@@ -110,7 +118,7 @@ public class JdbcDmdbIT extends FlinkContainer {
     }
 
     private void assertHasData(String table) {
-        try (Statement statement = jdbcConnection.createStatement();) {
+        try (Statement statement = jdbcConnection.createStatement()) {
             String sql = String.format("select * from %s.%s limit 1", DATABASE, table);
             ResultSet source = statement.executeQuery(sql);
             Assertions.assertTrue(source.next());
@@ -142,6 +150,16 @@ public class JdbcDmdbIT extends FlinkContainer {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_dm_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         assertHasData(SINK_TABLE);
+        JdbcE2eUtil.compare(jdbcConnection, String.format("select * from %s.%s limit 1", DATABASE, SOURCE_TABLE),
+            String.format("select * from %s.%s limit 1", DATABASE, SINK_TABLE),
+            "DM_BIT, DM_INT, DM_INTEGER, DM_PLS_INTEGER, DM_TINYINT, DM_BYTE, DM_SMALLINT, DM_BIGINT, DM_NUMERIC, DM_NUMBER, "
+                + "DM_DECIMAL, DM_DEC, DM_REAL, DM_FLOAT, DM_DOUBLE_PRECISION, DM_DOUBLE, DM_CHAR, DM_CHARACTER, DM_VARCHAR, DM_VARCHAR2,"
+                + " DM_TEXT, DM_LONG, DM_LONGVARCHAR, DM_CLOB, DM_TIMESTAMP, DM_DATETIME, DM_TIME, DM_DATE, DM_BLOB, DM_BINARY, DM_VARBINARY, DM_LONGVARBINARY");
     }
 
+    @Override
+    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
+        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
+        Assertions.assertEquals(0, extraCommands.getExitCode());
+    }
 }

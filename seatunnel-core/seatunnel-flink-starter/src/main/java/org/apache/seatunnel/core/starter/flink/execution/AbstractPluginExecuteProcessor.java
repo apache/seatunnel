@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
-import static org.apache.seatunnel.apis.base.plugin.Plugin.RESULT_TABLE_NAME;
 import static org.apache.seatunnel.apis.base.plugin.Plugin.SOURCE_TABLE_NAME;
 
 import org.apache.seatunnel.api.common.JobContext;
@@ -60,18 +59,7 @@ public abstract class AbstractPluginExecuteProcessor<T> implements PluginExecute
     protected abstract List<T> initializePlugins(List<? extends Config> pluginConfigs);
 
     protected void registerResultTable(Config pluginConfig, DataStream<Row> dataStream) {
-        if (pluginConfig.hasPath(RESULT_TABLE_NAME)) {
-            String name = pluginConfig.getString(RESULT_TABLE_NAME);
-            StreamTableEnvironment tableEnvironment = flinkEnvironment.getStreamTableEnvironment();
-            if (!TableUtil.tableExists(tableEnvironment, name)) {
-                if (pluginConfig.hasPath("field_name")) {
-                    String fieldName = pluginConfig.getString("field_name");
-                    tableEnvironment.registerDataStream(name, dataStream, fieldName);
-                } else {
-                    tableEnvironment.registerDataStream(name, dataStream);
-                }
-            }
-        }
+        flinkEnvironment.registerResultTable(pluginConfig, dataStream);
     }
 
     protected Optional<DataStream<Row>> fromSourceTable(Config pluginConfig) {
