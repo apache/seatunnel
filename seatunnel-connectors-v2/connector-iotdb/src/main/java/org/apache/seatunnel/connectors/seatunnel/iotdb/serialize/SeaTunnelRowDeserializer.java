@@ -15,28 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.http.source;
+package org.apache.seatunnel.connectors.seatunnel.iotdb.serialize;
 
-import org.apache.seatunnel.api.serialization.DeserializationSchema;
-import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
-import lombok.AllArgsConstructor;
+import org.apache.iotdb.tsfile.read.common.RowRecord;
 
-import java.io.IOException;
+public interface SeaTunnelRowDeserializer {
 
-@AllArgsConstructor
-public class DeserializationCollector {
-
-    private DeserializationSchema<SeaTunnelRow> deserializationSchema;
-
-    public void collect(byte[] message, Collector<SeaTunnelRow> out) throws IOException {
-        if (deserializationSchema instanceof JsonDeserializationSchema) {
-            ((JsonDeserializationSchema) deserializationSchema).collect(message, out);
-        } else {
-            SeaTunnelRow deserialize = deserializationSchema.deserialize(message);
-            out.collect(deserialize);
-        }
-    }
+    SeaTunnelRow deserialize(RowRecord rowRecord);
 }

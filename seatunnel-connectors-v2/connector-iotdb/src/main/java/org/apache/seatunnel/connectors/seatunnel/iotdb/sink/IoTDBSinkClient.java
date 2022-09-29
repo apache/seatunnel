@@ -131,7 +131,7 @@ public class IoTDBSinkClient {
         }
     }
 
-    private synchronized void flush() throws IOException {
+    synchronized void flush() throws IOException {
         checkFlushException();
         if (batchList.isEmpty()) {
             return;
