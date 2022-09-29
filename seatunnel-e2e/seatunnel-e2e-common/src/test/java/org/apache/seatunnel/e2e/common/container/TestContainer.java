@@ -30,7 +30,7 @@ public interface TestContainer extends TestResource {
 
     String identifier();
 
-    void executeExtraCommands(ContainerExtendedFactory extendedFactory);
+    void executeExtraCommands(ContainerExtendedFactory extendedFactory) throws IOException, InterruptedException;
 
     Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException;
 }
