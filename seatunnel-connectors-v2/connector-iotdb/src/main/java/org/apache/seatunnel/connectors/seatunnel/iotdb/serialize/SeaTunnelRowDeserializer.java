@@ -15,35 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
+package org.apache.seatunnel.connectors.seatunnel.iotdb.serialize;
 
-import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-import lombok.ToString;
+import org.apache.iotdb.tsfile.read.common.RowRecord;
 
-@ToString
-public class IoTDBSourceSplit implements SourceSplit {
+public interface SeaTunnelRowDeserializer {
 
-    private static final long serialVersionUID = -1L;
-
-    private String splitId;
-
-    /**
-     * final query statement
-     */
-    private String query;
-
-    @Override
-    public String splitId() {
-        return splitId;
-    }
-
-    public String getQuery() {
-        return query;
-    }
-
-    public IoTDBSourceSplit(String splitId, String query) {
-        this.splitId = splitId;
-        this.query = query;
-    }
+    SeaTunnelRow deserialize(RowRecord rowRecord);
 }

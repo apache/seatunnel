@@ -32,11 +32,13 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 
+import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.sql.Connection;
@@ -57,6 +59,7 @@ public class JdbcMysqlIT extends SparkContainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(JdbcMysqlIT.class);
     private MySQLContainer<?> mc;
     private Config config;
+    private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
@@ -214,5 +217,11 @@ public class JdbcMysqlIT extends SparkContainer {
         if (mc != null) {
             mc.stop();
         }
+    }
+
+    @Override
+    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
+        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
+        Assertions.assertEquals(0, extraCommands.getExitCode());
     }
 }
