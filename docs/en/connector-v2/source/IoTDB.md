@@ -1,6 +1,6 @@
 # IoTDB
 
-> IoTDB source connector 
+> IoTDB source connector
 
 ## Description
 
@@ -140,7 +140,7 @@ lower bound of the time column
      sql = "select * from test where age > 0 and age < 10"
      
      split result
-     
+
      split 1: select * from test  where (time >= 1 and time < 6)  and (  age > 0 and age < 10 )
      
      split 2: select * from test  where (time >= 6 and time < 11) and (  age > 0 and age < 10 )
@@ -176,7 +176,7 @@ sink {
     fields {
       ts = bigint
       device_name = string
-      
+
       temperature = float
       moisture = bigint
     }
