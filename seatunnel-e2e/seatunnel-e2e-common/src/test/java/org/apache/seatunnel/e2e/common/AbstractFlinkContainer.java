@@ -19,10 +19,11 @@ package org.apache.seatunnel.e2e.common;
 
 import org.apache.seatunnel.e2e.common.container.flink.AbstractTestFlinkContainer;
 
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
@@ -32,9 +33,9 @@ import java.io.IOException;
  * The before method will create a Flink cluster, and after method will close the Flink cluster.
  * You can use {@link AbstractFlinkContainer#executeJob} to submit a seatunnel config and run a seatunnel job.
  */
-@Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractFlinkContainer extends AbstractTestFlinkContainer {
+    protected final Logger log = LoggerFactory.getLogger(this.getClass());
 
     @Override
     @BeforeAll
