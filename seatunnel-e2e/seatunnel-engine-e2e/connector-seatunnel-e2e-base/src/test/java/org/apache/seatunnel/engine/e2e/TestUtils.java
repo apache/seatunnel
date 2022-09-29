@@ -35,6 +35,7 @@ public class TestUtils {
     }
 
     public static void initPluginDir() {
+        // TODO change connector get method
         // copy connectors to project_root/connectors dir
         System.setProperty("SEATUNNEL_HOME", System.getProperty("user.dir") +
             String.format("%s..%s..%s..%s", File.separator, File.separator, File.separator, File.separator));
