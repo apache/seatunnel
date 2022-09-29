@@ -1,7 +1,6 @@
 # IoTDB
 
 > IoTDB source connector
-
 ## Description
 
 Read external data source data through IoTDB.
@@ -22,14 +21,14 @@ supports query SQL and can achieve projection effect.
 
 | name                       | type    | required | default value |
 |----------------------------|---------|----------|---------------|
-| host                       | string  | yes      | -             |
-| port                       | Int     | yes      | -             |
-| node_urls                  | string  | yes      | -             |
-| sql                        | string  | yes      |          |
+| host                       | string  | no       | -             |
+| port                       | int     | no       | -             |
+| node_urls                  | string  | no       | -             |
+| username                   | string  | yes      | -             |
+| password                   | string  | yes      | -             |
+| sql                        | string  | yes      | -             |
 | fields                     | config  | yes      | -             |
 | fetch_size                 | int     | no       | -             |
-| username                   | string  | no       | -             |
-| password   | string  | no       | -             |
 | lower_bound                | long    | no       | -             |
 | upper_bound                | long    | no       | -             |
 | num_partitions             | int     | no       | -             |
@@ -140,10 +139,64 @@ lower bound of the time column
      sql = "select * from test where age > 0 and age < 10"
      
      split result
-
      split 1: select * from test  where (time >= 1 and time < 6)  and (  age > 0 and age < 10 )
      
      split 2: select * from test  where (time >= 6 and time < 11) and (  age > 0 and age < 10 )
-
 ```
 
+## Examples
+
+### Case1
+
+Common options:
+
+```hocon
+source {
+  IoTDB {
+    node_urls = "localhost:6667"
+    username = "root"
+    password = "root"
+  }
+}
+```
+
+When you assign `sql`、`fields`、`partition`, for example:
+
+```hocon
+sink {
+  IoTDB {
+    ...
+    sql = "SELECT temperature, moisture FROM root.test_group.* WHERE time < 4102329600000 align by device"
+    lower_bound = 1
+    upper_bound = 4102329600000
+    num_partitions = 10
+    fields {
+      ts = bigint
+      device_name = string
+      temperature = float
+      moisture = bigint
+    }
+  }
+}
+```
+
+Upstream `IoTDB` data format is the following:
+
+```shell
+IoTDB> SELECT temperature, moisture FROM root.test_group.* WHERE time < 4102329600000 align by device;
++------------------------+------------------------+--------------+-----------+
+|                    Time|                  Device|   temperature|   moisture|
++------------------------+------------------------+--------------+-----------+
+|2022-09-25T00:00:00.001Z|root.test_group.device_a|          36.1|        100|
+|2022-09-25T00:00:00.001Z|root.test_group.device_b|          36.2|        101|
+|2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102|
++------------------------+------------------------+--------------+-----------+
+```
+
+Loaded to SeaTunnelRow data format is the following:
+
+|ts                  | device_name                | temperature | moisture    |
+|--------------------|----------------------------|-------------|-------------|
+|1664035200001       | root.test_group.device_a   | 36.1        | 100         |
+|1664035200001       | root.test_group.device_b   | 36.2        | 101         |
+|1664035200001       | root.test_group.device_c   | 36.3        | 102         |
