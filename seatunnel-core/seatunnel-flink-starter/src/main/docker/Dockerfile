@@ -20,18 +20,29 @@ FROM $BASE_IMAGE
 
 ARG SCALA_VERSION
 ARG FLINK_VERSION
+ARG SEATUNNEL_VERSION
 
 RUN mkdir -p /flink ; cd /flink ; \
     tar_file=flink-${FLINK_VERSION}-bin-scala_${SCALA_VERSION}.tgz ; \
     curl -LsO https://archive.apache.org/dist/flink/flink-${FLINK_VERSION}/$tar_file ; \
     tar -zxf $tar_file --strip 1 -C . ; \
     rm $tar_file
-
+    
 ENV FLINK_HOME=/flink
+
+RUN mkdir /seatunnel ; cd /seatunnel ; \
+    seatunnel_archive_name=apache-seatunnel-incubating-${SEATUNNEL_VERSION}-bin.tar.gz ; \
+    curl -LsO https://archive.apache.org/dist/incubator/seatunnel/${SEATUNNEL_VERSION}/$seatunnel_archive_name ; \
+    tar -zxf $seatunnel_archive_name --strip 1 -C . ; \
+    rm $seatunnel_archive_name; \
+    rm -rf /seatunnel/connectors/spark /seatunnel/bin/start-seatunnel-{"spark","sql"}.sh /seatunnel/lib/seatunnel-core-spark.jar /seatunnel/config/seatunnel-env.sh
 
 WORKDIR /seatunnel
 
-COPY target/seatunnel-core-flink.jar /seatunnel/lib/
-COPY src/main/bin /seatunnel/bin/
+RUN ep="/seatunnel/entrypoint.sh" ; \
+    echo "#!/bin/bash" > $ep ; \
+    echo "${FLINK_HOME}/bin/start-cluster.sh" >> $ep ; \
+    echo "/seatunnel/bin/start-seatunnel-flink.sh \$1" >> $ep ; \
+    chmod ugo+x /seatunnel/entrypoint.sh
 
-ENTRYPOINT [ "/seatunnel/bin/start-seatunnel-flink.sh" ]
+ENTRYPOINT [ "/seatunnel/entrypoint.sh" ]
