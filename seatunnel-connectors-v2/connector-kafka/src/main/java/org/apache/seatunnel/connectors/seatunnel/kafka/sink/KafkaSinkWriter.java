@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.ASSIGN_PARTITIONS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PARTITION;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TRANSACTION_PREFIX;
@@ -59,12 +58,6 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     private final SeaTunnelRowSerializer<byte[], byte[]> seaTunnelRowSerializer;
 
     private static final int PREFIX_RANGE = 10000;
-    private static List<String> ASSIGNPARTATIONS;
-
-    public static List<String> getASSIGNPARTATIONS() {
-        return ASSIGNPARTATIONS;
-    }
-
     // check config
     @Override
     public void write(SeaTunnelRow element) {
@@ -81,9 +74,6 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         this.pluginConfig = pluginConfig;
         if (pluginConfig.hasPath(PARTITION)) {
             this.partition = pluginConfig.getInt(PARTITION);
-        }
-        if (pluginConfig.hasPath(ASSIGN_PARTITIONS)) {
-            ASSIGNPARTATIONS = pluginConfig.getStringList(ASSIGN_PARTITIONS);
         }
         if (pluginConfig.hasPath(TRANSACTION_PREFIX)) {
             this.transactionPrefix = pluginConfig.getString(TRANSACTION_PREFIX);
@@ -143,9 +133,6 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         kafkaConfig.entrySet().forEach(entry -> {
             kafkaProperties.put(entry.getKey(), entry.getValue().unwrapped());
         });
-        if (pluginConfig.hasPath(ASSIGN_PARTITIONS)) {
-            kafkaProperties.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, "org.apache.seatunnel.connectors.seatunnel.kafka.sink.CustomPartitioner");
-        }
         kafkaProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, pluginConfig.getString(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
         kafkaProperties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
         kafkaProperties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());

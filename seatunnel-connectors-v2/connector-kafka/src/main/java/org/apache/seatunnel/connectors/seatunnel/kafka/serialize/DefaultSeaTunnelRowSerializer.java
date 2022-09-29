@@ -35,9 +35,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byt
     }
 
     public DefaultSeaTunnelRowSerializer(String topic, int partation, SeaTunnelRowType seaTunnelRowType) {
-        this.topic = topic;
+        this(topic, seaTunnelRowType);
         this.partation = partation;
-        this.jsonSerializationSchema = new JsonSerializationSchema(seaTunnelRowType);
     }
 
     @Override
