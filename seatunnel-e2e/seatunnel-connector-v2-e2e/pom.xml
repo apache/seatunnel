@@ -25,7 +25,8 @@
     <packaging>pom</packaging>
     <modules>
         <module>connector-assert-e2e</module>
-        <module>connector-jdbc-it</module>
+        <module>connector-jdbc-e2e</module>
+        <module>connector-redis-e2e</module>
     </modules>
 
     <artifactId>seatunnel-connector-v2-e2e</artifactId>

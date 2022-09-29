@@ -79,12 +79,9 @@ public class IcebergSource implements SeaTunnelSource<SeaTunnelRow, IcebergFileS
 
     @SneakyThrows
     private Schema loadIcebergSchema(SourceConfig sourceConfig) {
-        IcebergTableLoader icebergTableLoader = IcebergTableLoader.create(sourceConfig);
-        try {
+        try (IcebergTableLoader icebergTableLoader = IcebergTableLoader.create(sourceConfig)) {
             icebergTableLoader.open();
             return icebergTableLoader.loadTable().schema();
-        } finally {
-            icebergTableLoader.close();
         }
     }
 
