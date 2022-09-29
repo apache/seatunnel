@@ -60,7 +60,6 @@ public class JdbcDmdbIT extends FlinkContainer {
     private static final String DM_DRIVER_JAR = "https://repo1.maven.org/maven2/com/dameng/DmJdbcDriver18/8.1.1.193/DmJdbcDriver18-8.1.1.193.jar";
     private Connection jdbcConnection;
     private GenericContainer<?> dbServer;
-    private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/com/dameng/DmJdbcDriver18/8.1.2.141/DmJdbcDriver18-8.1.2.141.jar";
 
     @BeforeEach
     public void startDmdbContainer() throws ClassNotFoundException {
@@ -155,11 +154,5 @@ public class JdbcDmdbIT extends FlinkContainer {
             "DM_BIT, DM_INT, DM_INTEGER, DM_PLS_INTEGER, DM_TINYINT, DM_BYTE, DM_SMALLINT, DM_BIGINT, DM_NUMERIC, DM_NUMBER, "
                 + "DM_DECIMAL, DM_DEC, DM_REAL, DM_FLOAT, DM_DOUBLE_PRECISION, DM_DOUBLE, DM_CHAR, DM_CHARACTER, DM_VARCHAR, DM_VARCHAR2,"
                 + " DM_TEXT, DM_LONG, DM_LONGVARCHAR, DM_CLOB, DM_TIMESTAMP, DM_DATETIME, DM_TIME, DM_DATE, DM_BLOB, DM_BINARY, DM_VARBINARY, DM_LONGVARBINARY");
-    }
-
-    @Override
-    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
-        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
-        Assertions.assertEquals(0, extraCommands.getExitCode());
     }
 }
