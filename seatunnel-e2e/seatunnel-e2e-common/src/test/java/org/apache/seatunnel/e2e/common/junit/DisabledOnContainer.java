@@ -15,35 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
+package org.apache.seatunnel.e2e.common.junit;
 
-import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
-import lombok.ToString;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-@ToString
-public class IoTDBSourceSplit implements SourceSplit {
-
-    private static final long serialVersionUID = -1L;
-
-    private String splitId;
+@Target({ ElementType.TYPE, ElementType.METHOD })
+@Retention(RetentionPolicy.RUNTIME)
+public @interface DisabledOnContainer {
 
     /**
-     * final query statement
+     * {@link TestContainer#identifier()}
      */
-    private String query;
+    String[] value();
 
-    @Override
-    public String splitId() {
-        return splitId;
-    }
-
-    public String getQuery() {
-        return query;
-    }
-
-    public IoTDBSourceSplit(String splitId, String query) {
-        this.splitId = splitId;
-        this.query = query;
-    }
+    /**
+     * Custom reason to provide if the test container is disabled.
+     *
+     * <p>If a custom reason is supplied, it will be combined with the default
+     * reason for this annotation. If a custom reason is not supplied, the default
+     * reason will be used.
+     */
+    String disabledReason() default "";
 }
