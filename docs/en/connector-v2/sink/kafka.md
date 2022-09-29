@@ -111,7 +111,6 @@ public class CustomPartitioner implements Partitioner {
 We also need to configure the full class name.
 
 ```hocon
-kafka.partitioner.class = "org.apache.seatunnel.connectors.seatunnel.kafka.sink.CustomPartitioner"
 sink {
 
   kafka {
