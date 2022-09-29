@@ -52,7 +52,6 @@ public class JdbcDmdbIT extends SparkContainer {
     private static final String DM_DOCKER_IMAGE = "laglangyue/dmdb8";
     private static final String DRIVER_CLASS = "dm.jdbc.driver.DmDriver";
     private static final String HOST = "spark_e2e_dmdb";
-    private static final String LOCAL_HOST = "localhost";
     private static final String URL = "jdbc:dm://%s:5236";
     private static final String USERNAME = "SYSDBA";
     private static final String PASSWORD = "SYSDBA";
@@ -61,6 +60,7 @@ public class JdbcDmdbIT extends SparkContainer {
     private static final String SINK_TABLE = "e2e_table_sink";
     private GenericContainer<?> dbServer;
     private Connection jdbcConnection;
+    private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/com/dameng/DmJdbcDriver18/8.1.2.141/DmJdbcDriver18-8.1.2.141.jar";
 
     @BeforeEach
     public void beforeAllForDM() {
@@ -146,6 +146,12 @@ public class JdbcDmdbIT extends SparkContainer {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/jdbc/jdbc_dm_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         assertHasData(SINK_TABLE);
+    }
+
+    @Override
+    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
+        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
+        Assertions.assertEquals(0, extraCommands.getExitCode());
     }
 
 }
