@@ -60,7 +60,7 @@ public final class ContainerUtil {
                                                    String connectorPrefix,
                                                    String connectorType,
                                                    String seatunnelHome) {
-        Config jobConfig = getConfig(getConfigFile(confFile));
+        Config jobConfig = getConfig(getResourcesFile(confFile));
         Config connectorsMapping = getConfig(new File(PROJECT_ROOT_PATH + File.separator + PLUGIN_MAPPING_FILE));
         if (!connectorsMapping.hasPath(connectorType) || connectorsMapping.getConfig(connectorType).isEmpty()) {
             return;
@@ -79,7 +79,7 @@ public final class ContainerUtil {
 
     public static String copyConfigFileToContainer(GenericContainer<?> container, String confFile) {
         final String targetConfInContainer = Paths.get("/tmp", confFile).toString();
-        container.copyFileToContainer(MountableFile.forHostPath(getConfigFile(confFile).getAbsolutePath()), targetConfInContainer);
+        container.copyFileToContainer(MountableFile.forHostPath(getResourcesFile(confFile).getAbsolutePath()), targetConfInContainer);
         return targetConfInContainer;
     }
 
@@ -158,7 +158,7 @@ public final class ContainerUtil {
         return Paths.get(System.getProperty("user.dir"));
     }
 
-    private static File getConfigFile(String confFile) {
+    public static File getResourcesFile(String confFile) {
         File file = new File(getCurrentModulePath() + "/src/test/resources" + confFile);
         if (file.exists()) {
             return file;
