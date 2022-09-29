@@ -58,6 +58,7 @@ public class JdbcPhoenixIT extends FlinkContainer {
     private GenericContainer<?> phoenixServer;
 
     private Connection connection;
+    private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/com/aliyun/phoenix/ali-phoenix-shaded-thin-client/5.2.5-HBase-2.x/ali-phoenix-shaded-thin-client-5.2.5-HBase-2.x.jar";
 
     @BeforeEach
     public void startPhoenixContainer() throws ClassNotFoundException, SQLException {
@@ -176,5 +177,11 @@ public class JdbcPhoenixIT extends FlinkContainer {
             connection.rollback();
             throw e;
         }
+    }
+
+    @Override
+    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
+        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
+        Assertions.assertEquals(0, extraCommands.getExitCode());
     }
 }
