@@ -35,7 +35,7 @@ import java.util.stream.Stream;
 public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractTestSparkContainer.class);
-    private static final String DEFAULT_DOCKER_IMAGE = "bitnami/spark:2.4.3";
+    private static final String DEFAULT_DOCKER_IMAGE = "bitnami/spark:2.4.6";
 
     protected GenericContainer<?> master;
 

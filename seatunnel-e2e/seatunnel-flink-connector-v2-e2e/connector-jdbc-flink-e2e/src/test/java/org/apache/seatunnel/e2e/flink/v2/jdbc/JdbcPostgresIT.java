@@ -28,11 +28,13 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -50,6 +52,7 @@ import java.util.stream.Stream;
 public class JdbcPostgresIT extends FlinkContainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(JdbcPostgresIT.class);
     private PostgreSQLContainer<?> pg;
+    private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
@@ -187,5 +190,11 @@ public class JdbcPostgresIT extends FlinkContainer {
         if (pg != null) {
             pg.stop();
         }
+    }
+
+    @Override
+    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
+        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
+        Assertions.assertEquals(0, extraCommands.getExitCode());
     }
 }
