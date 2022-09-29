@@ -74,7 +74,7 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
             "--deploy-mode client");
     }
 
-    public void executeExtraCommands(ContainerExtendedFactory extendedFactory) {
+    public void executeExtraCommands(ContainerExtendedFactory extendedFactory) throws IOException, InterruptedException {
         extendedFactory.extend(master);
     }
 
