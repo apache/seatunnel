@@ -22,7 +22,6 @@ Write data to `MongoDB`
 | uri        | string | yes      | -             |
 | database   | string | yes      | -             |
 | collection | string | yes      | -             |
-| common-options| string| no     | -             |
 
 ### uri [string]
 
@@ -35,10 +34,6 @@ database to write to mongoDB
 ### collection [string]
 
 collection to write to mongoDB
-
-### common options [string]
-
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
 

@@ -27,7 +27,6 @@ Write data to Neo4j.
 | queryParamPosition         | Object | Yes      | -             |
 | max_transaction_retry_time | Long   | No       | 30            |
 | max_connection_timeout     | Long   | No       | 30            |
-| common-options             | string | no       | -             |
 
 
 ### uri [string]
@@ -65,9 +64,7 @@ maximum transaction retry time(seconds). transaction fail if exceeded
 ### max_connection_timeout [long]
 The maximum amount of time to wait for a TCP connection to be established (seconds)
 
-### common options [string]
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 ## Example
 ```
 sink {

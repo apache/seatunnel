@@ -40,7 +40,6 @@ Source connector for Apache Iceberg. It can support batch and stream mode.
 | use_snapshot_id                   | long     | false    | -                       |
 | use_snapshot_timestamp            | long     | false    | -                       |
 | stream_scan_strategy              | enum     | false    | FROM_LATEST_SNAPSHOT    |
-| result_table_name | string | no       | -             |
 
 ### catalog_name [string]
 
@@ -105,10 +104,6 @@ The optional values are:
 - FROM_EARLIEST_SNAPSHOT: Start incremental mode from the earliest snapshot inclusive.
 - FROM_SNAPSHOT_ID: Start incremental mode from a snapshot with a specific id inclusive.
 - FROM_SNAPSHOT_TIMESTAMP: Start incremental mode from a snapshot with a specific timestamp inclusive.
-
-### result_table_name [string]
-
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
 ## Example
 

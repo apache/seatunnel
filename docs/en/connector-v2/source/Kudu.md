@@ -21,10 +21,9 @@ Used to read data from Kudu.
 
 | name                     | type    | required | default value |
 |--------------------------|---------|----------|---------------|
-| kudu_master              | string  | yes      | -             |
+| kudu_master             | string  | yes      | -             |
 | kudu_table               | string  | yes      | -             |
-| columnsList              | string  | yes      | -             |
-| result_table_name        | string  | no       | -             |
+| columnsList               | string  | yes      | -             |
 
 ### kudu_master [string]
 
@@ -37,10 +36,6 @@ Used to read data from Kudu.
 ### columnsList [string]
 
 `columnsList` Specifies the column names of the table.
-
-### result_table_name [string]
-
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
 ## Examples
 

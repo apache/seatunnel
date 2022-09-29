@@ -33,7 +33,6 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | xa_data_source_class_name    | String  | No       | -             |
 | max_commit_attempts          | Int     | No       | 3             |
 | transaction_timeout_sec      | Int     | No       | -1            |
-| common-options               | string  | no       | -             |
 
 ### driver [string]
 
@@ -93,9 +92,6 @@ The number of retries for transaction commit failures
 
 The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect
 exactly-once semantics
-
-### common options [string]
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## tips
 

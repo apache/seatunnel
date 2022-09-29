@@ -18,11 +18,10 @@ Write message to Sentry.
 | env                        | string  | no       | -             |
 | release                    | string  | no       | -             |
 | cacheDirPath               | string  | no       | -             |
-| enableExternalConfiguration | boolean | no      | -             |
+| enableExternalConfiguration | boolean | no       | -             |
 | maxCacheItems              | number  | no       | -             |
 | flushTimeoutMills          | number  | no       | -             |
 | maxQueueSize               | number  | no       | -             |
-| common-options             | string  | no       | -             |
 ### dsn [string]
 
 The DSN tells the SDK where to send the events to.
@@ -47,10 +46,6 @@ Controls how many seconds to wait before flushing down. Sentry SDKs cache events
 
 ### maxQueueSize [number]
 Max queue size before flushing events/envelopes to the disk
-
-### common options [string]
-
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
 ```

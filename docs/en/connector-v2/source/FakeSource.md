@@ -23,7 +23,6 @@ just for testing, such as type conversion and feature testing
 | result_table_name | string | yes      | -             |
 | schema            | config | yes      | -             |
 | row.num           | long   | no       | 10            |
-| result_table_name | string | no       | -             |
 
 ### result_table_name [string]
 
@@ -35,7 +34,7 @@ Table structure description ,you should assign schema option to tell connector h
 **Tips**: Most of Unstructured-Datasource contain this param, such as LocalFile,HdfsFile.  
 **Example**:
 
-### row.num[long]
+### row.num
 Number of additional rows of generated data
 
 ```hocon
@@ -60,10 +59,6 @@ schema = {
       }
     }
 ```
-
-### result_table_name [string]
-
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
 ## Example
 

@@ -31,7 +31,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | path   | string | yes      | -             |
 | type   | string | yes      | -             |
 | schema | config | no       | -             |
-| result_table_name | string | no       | -  |
+
 ### path [string]
 
 The source file path.
@@ -96,10 +96,6 @@ Now connector will treat the upstream data as the following:
 ### schema [config]
 
 The schema information of upstream data.
-
-### result_table_name [string]
-
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
 ## Example
 

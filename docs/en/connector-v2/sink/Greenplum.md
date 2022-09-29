@@ -30,7 +30,3 @@ Warn: for license compliance, if you use `GreenplumDriver` the have to provide G
 ### url [string]
 
 The URL of the JDBC connection. if you use postgresql driver the value is `jdbc:postgresql://${yous_host}:${yous_port}/${yous_database}`, or you use greenplum driver the value is `jdbc:pivotal:greenplum://${yous_host}:${yous_port};DatabaseName=${yous_database}`
-
-### common options [string]
-
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details

@@ -26,7 +26,6 @@ Used to read data from Redis.
 | auth      | string | No       | -             |
 | schema    | config | No       | -             |
 | format    | string | No       | json          |
-| result_table_name | string | no | -           |
 
 ### host [string]
 
@@ -126,10 +125,6 @@ connector will generate data as the following:
 #### fields [Config]
 
 the schema fields of upstream data
-
-### result_table_name [string]
-
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
 ## Example
 

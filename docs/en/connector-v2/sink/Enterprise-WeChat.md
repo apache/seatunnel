@@ -25,7 +25,6 @@ A sink plugin which use Enterprise WeChat robot send message
 | url | String | Yes      | - |
 | mentioned_list | array | No       | - |
 | mentioned_mobile_list | array | No       | - |
-| common-options| string| no | -  |
 
 ### url [string]
 
@@ -38,9 +37,6 @@ A list of userids to remind the specified members in the group (@ a member), @ a
 ### mentioned_mobile_list [array]
 
 Mobile phone number list, remind the group member corresponding to the mobile phone number (@ a member), @ all means remind everyone
-### common options [string]
-
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
 

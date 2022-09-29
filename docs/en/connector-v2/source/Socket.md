@@ -21,7 +21,6 @@ Used to read data from Socket.
 | --- |--------| --- | --- |
 | host | String | No | localhost |
 | port | Integer | No | 9999 |
-| result_table_name | string | no | - |
 
 ### host [string]
 socket server host
@@ -29,10 +28,6 @@ socket server host
 ### port [integer]
 
 socket server port
-
-### result_table_name [string]
-
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
 ## Example
 

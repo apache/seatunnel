@@ -25,8 +25,7 @@ Used to launch web hooks using data.
 | retry                              | int    | No       | -             |
 | retry_backoff_multiplier_ms        | int    | No       | 100           |
 | retry_backoff_max_ms               | int    | No       | 10000         |
-| common-options                                                     | string       | no                 | -  
-|
+
 
 ### url [String]
 
@@ -51,10 +50,6 @@ The retry-backoff times(millis) multiplier if request http failed
 ### retry_backoff_max_ms [int]
 
 The maximum retry-backoff times(millis) if request http failed
-
-### common options [string]
-
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
 

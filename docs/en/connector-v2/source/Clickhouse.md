@@ -26,14 +26,14 @@ Reading data from Clickhouse can also be done using JDBC
 
 ## Options
 
-| name              | type   | required | default value |
-| ----------------- | ------ | -------- | ------------- |
-| host              | string | yes      | -             |
-| database          | string | yes      | -             |
-| sql               | string | yes      | -             |
-| username          | string | yes      | -             |
-| password          | string | yes      | -             |
-| result_table_name | string | no       | -             |
+| name           | type   | required | default value |
+|----------------|--------|----------|---------------|
+| host           | string | yes      | -             |
+| database       | string | yes      | -             |
+| sql            | string | yes      | -             |
+| username       | string | yes      | -             |
+| password       | string | yes      | -             |
+| common-options | string | yes      | -             |
 
 ### host [string]
 
@@ -55,7 +55,7 @@ The query sql used to search data though Clickhouse server
 
 `ClickHouse` user password
 
-### result_table_name [string]
+### common options [string]
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 

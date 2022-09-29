@@ -16,12 +16,6 @@ Used to send data to Console. Both support streaming and batch mode.
 
 | name | type   | required | default value |
 | --- |--------|----------|---------------|
-| common-options| string| no | -  |
-
-
-### common options [string]
-
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 ## Example
 
 simple:

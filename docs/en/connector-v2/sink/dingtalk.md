@@ -13,11 +13,10 @@ A sink plugin which use DingTalk robot send message
 
 ## Options
 
-| name             | type        | required | default value |
-|------------------| ----------  | -------- | ------------- |
-| url              | string      | yes      | -             |
-| secret           | string      | yes      | -             |
-| common-options   | string      | no       | -             |
+| name                         | type        | required | default value |
+|------------------------------| ----------  | -------- | ------------- |
+| url                            | string      | yes      | -             |
+| secret             | string      | yes       | -             |
 
 ### url [string]
 
@@ -26,10 +25,6 @@ DingTalk robot address format is https://oapi.dingtalk.com/robot/send?access_tok
 ### secret [string]
 
 DingTalk robot secret (string)
-
-### common options [string]
-
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
 

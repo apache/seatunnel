@@ -39,7 +39,6 @@ In order to use this connector, You must ensure your spark/flink cluster already
 | sink_columns                     | array  | no       | When this parameter is empty, all fields are sink columns |
 | is_enable_transaction            | boolean| no       | true                                                    |
 | save_mode                        | string | no       | "error"                                                 |
-| common-options| string| no | -  |
 
 ### fs.defaultFS [string]
 
@@ -123,9 +122,6 @@ Storage mode, currently supports `overwrite`. This means we will delete the old 
 If `is_enable_transaction` is `true`, Basically, we won't encounter the same file name. Because we will add the transaction id to file name.
 
 For the specific meaning of each mode, see [save-modes](https://spark.apache.org/docs/latest/sql-programming-guide.html#save-modes)
-### common options [string]
-
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
 

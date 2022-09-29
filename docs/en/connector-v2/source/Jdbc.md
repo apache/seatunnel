@@ -31,7 +31,6 @@ supports query SQL and can achieve projection effect.
 | partition_column             | String | No       | -             |
 | partition_upper_bound        | Long   | No       | -             |
 | partition_lower_bound        | Long   | No       | -             |
-| result_table_name            | string | no       | -             |
 
 ### driver [string]
 
@@ -70,10 +69,6 @@ The partition_column max value for scan, if not set SeaTunnel will query databas
 ### partition_lower_bound [long]
 
 The partition_column min value for scan, if not set SeaTunnel will query database get min value.
-
-### result_table_name [string]
-
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
 ## tips
 
