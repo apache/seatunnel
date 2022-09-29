@@ -108,7 +108,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
         return Collections.emptyList();
     }
 
-    public void executeExtraCommands(ContainerExtendedFactory extendedFactory) {
+    public void executeExtraCommands(ContainerExtendedFactory extendedFactory) throws IOException, InterruptedException {
         extendedFactory.extend(jobManager);
     }
 
