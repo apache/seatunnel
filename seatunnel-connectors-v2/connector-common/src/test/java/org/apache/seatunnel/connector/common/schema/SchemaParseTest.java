@@ -52,7 +52,7 @@ public class SchemaParseTest {
         SeaTunnelSchema seatunnelSchema = SeaTunnelSchema.buildWithConfig(config);
         SeaTunnelRowType seaTunnelRowType = seatunnelSchema.getSeaTunnelRowType();
         Assertions.assertNotNull(seatunnelSchema);
-        Assertions.assertEquals(seaTunnelRowType.getFieldType(1), ArrayType.BYTE_ARRAY_TYPE);
+        Assertions.assertEquals(seaTunnelRowType.getFieldType(1), PrimitiveByteArrayType.INSTANCE);
         Assertions.assertEquals(seaTunnelRowType.getFieldType(2), BasicType.STRING_TYPE);
         Assertions.assertEquals(seaTunnelRowType.getFieldType(10), new DecimalType(30, 8));
         Assertions.assertEquals(seaTunnelRowType.getFieldType(11), BasicType.VOID_TYPE);

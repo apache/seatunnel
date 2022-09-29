@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 
+import org.apache.commons.lang3.ClassUtils;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -80,8 +82,9 @@ public abstract class RowConverter<T> {
             case STRING:
             case DECIMAL:
             case BYTES:
-            case ARRAY:
                 return dataType.getTypeClass() == field.getClass();
+            case ARRAY:
+                return ClassUtils.wrapperToPrimitive(dataType.getTypeClass().getComponentType()) == field.getClass().getComponentType();
             case MAP:
                 if (!(field instanceof Map)) {
                     return false;
