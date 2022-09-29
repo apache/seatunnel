@@ -23,25 +23,26 @@ There is a conflict of thrift version between IoTDB and Spark.Therefore, you nee
 
 ## Options
 
-| name                          | type              | required | default value |
-|-------------------------------|-------------------|----------|---------------|
-| node_urls                     | list              | yes      | -             |
-| username                      | string            | yes      | -             |
-| password                      | string            | yes      | -             |
-| batch_size                    | int               | no       | 1024          |
-| batch_interval_ms             | int               | no       | -             |
-| max_retries                   | int               | no       | -             |
-| retry_backoff_multiplier_ms   | int               | no       | -             |
-| max_retry_backoff_ms          | int               | no       | -             |
-| default_thrift_buffer_size    | int               | no       | -             |
-| max_thrift_frame_size         | int               | no       | -             |
-| zone_id                       | string            | no       | -             |
-| enable_rpc_compression        | boolean           | no       | -             |
-| connection_timeout_in_ms      | int               | no       | -             |
-| timeseries_options            | list              | no       | -             |
-| timeseries_options.path       | string            | no       | -             |
-| timeseries_options.data_type  | string            | no       | -             |
-| common-options                | string            | no       | -             |
+| name                          | type              | required | default value                     |
+|-------------------------------|-------------------|----------|-----------------------------------|
+| node_urls                     | list              | yes      | -                                 |
+| username                      | string            | yes      | -                                 |
+| password                      | string            | yes      | -                                 |
+| key_device                    | string            | yes      | -                                 |
+| key_timestamp                 | string            | no       | processing time                   |
+| key_measurement_fields        | array             | no       | exclude `device` & `timestamp`    |
+| storage_group                 | string            | no       | -                                 |
+| batch_size                    | int               | no       | 1024                              |
+| batch_interval_ms             | int               | no       | -                                 |
+| max_retries                   | int               | no       | -                                 |
+| retry_backoff_multiplier_ms   | int               | no       | -                                 |
+| max_retry_backoff_ms          | int               | no       | -                                 |
+| default_thrift_buffer_size    | int               | no       | -                                 |
+| max_thrift_frame_size         | int               | no       | -                                 |
+| zone_id                       | string            | no       | -                                 |
+| enable_rpc_compression        | boolean           | no       | -                                 |
+| connection_timeout_in_ms      | int               | no       | -                                 |
+| common-options                | string            | no       | -                                 |
 
 ### node_urls [list]
 
@@ -54,6 +55,24 @@ There is a conflict of thrift version between IoTDB and Spark.Therefore, you nee
 ### password [string]
 
 `IoTDB` user password
+
+### key_device [string]
+
+Specify field name of the `IoTDB` deviceId in SeaTunnelRow
+
+### key_timestamp [string]
+
+Specify field-name of the `IoTDB` timestamp in SeaTunnelRow. If not specified, use processing-time as timestamp
+
+### key_measurement_fields [array]
+
+Specify field-name of the `IoTDB` measurement list in SeaTunnelRow. If not specified, include all fields but exclude `device` & `timestamp`
+
+### storage_group [string]
+
+Specify device storage group(path prefix)
+
+example: deviceId = ${storage_group} + "." +  ${key_device}
 
 ### batch_size [int]
 
@@ -95,23 +114,15 @@ Enable rpc compression in `IoTDB` client
 
 The maximum time (in ms) to wait when connect `IoTDB`
 
-### timeseries_options [list]
-
-Timeseries options
-
-### timeseries_options.path [string]
-
-Timeseries path
-
-### timeseries_options.data_type [string]
-
-Timeseries data type
-
 ### common options [string]
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Examples
+
+### Case1
+
+Common options:
 
 ```hocon
 sink {
@@ -123,4 +134,72 @@ sink {
     batch_interval_ms = 1000
   }
 }
+```
+
+When you assign `key_device`  is `device_name`, for example:
+
+```hocon
+sink {
+  IoTDB {
+    ...
+    key_device = "device_name"
+  }
+}
+```
+
+Upstream SeaTunnelRow data format is the following:
+
+| device_name                | field_1     | field_2     |
+|----------------------------|-------------|-------------|
+| root.test_group.device_a   | 1001        | 1002        |
+| root.test_group.device_b   | 2001        | 2002        |
+| root.test_group.device_c   | 3001        | 3002        |
+
+Output to `IoTDB` data format is the following:
+
+```shell
+IoTDB> SELECT * FROM root.test_group.* align by device;
++------------------------+------------------------+-----------+----------+
+|                    Time|                  Device|   field_1|    field_2|
++------------------------+------------------------+----------+-----------+
+|2022-09-26T17:50:01.201Z|root.test_group.device_a|      1001|       1002|
+|2022-09-26T17:50:01.202Z|root.test_group.device_b|      2001|       2002|
+|2022-09-26T17:50:01.203Z|root.test_group.device_c|      3001|       3002|
++------------------------+------------------------+----------+-----------+
+```
+
+### Case2
+
+When you assign `key_device`、`key_timestamp`、`key_measurement_fields`, for example:
+
+```hocon
+sink {
+  IoTDB {
+    ...
+    key_device = "device_name"
+    key_timestamp = "ts"
+    key_measurement_fields = ["temperature", "moisture"]
+  }
+}
+```
+
+Upstream SeaTunnelRow data format is the following:
+
+|ts                  | device_name                | field_1     | field_2     | temperature | moisture    |
+|--------------------|----------------------------|-------------|-------------|-------------|-------------|
+|1664035200001       | root.test_group.device_a   | 1001        | 1002        | 36.1        | 100         |
+|1664035200001       | root.test_group.device_b   | 2001        | 2002        | 36.2        | 101         |
+|1664035200001       | root.test_group.device_c   | 3001        | 3002        | 36.3        | 102         |
+
+Output to `IoTDB` data format is the following:
+
+```shell
+IoTDB> SELECT * FROM root.test_group.* align by device;
++------------------------+------------------------+--------------+-----------+
+|                    Time|                  Device|   temperature|   moisture|
++------------------------+------------------------+--------------+-----------+
+|2022-09-25T00:00:00.001Z|root.test_group.device_a|          36.1|        100|
+|2022-09-25T00:00:00.001Z|root.test_group.device_b|          36.2|        101|
+|2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102|
++------------------------+------------------------+--------------+-----------+
 ```
