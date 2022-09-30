@@ -42,7 +42,7 @@ public class ParallelEnumeratorContext<SplitT extends SourceSplit> implements So
 
     @Override
     public int currentParallelism() {
-        return running ? parallelism : 0;
+        return parallelism;
     }
 
     @Override
