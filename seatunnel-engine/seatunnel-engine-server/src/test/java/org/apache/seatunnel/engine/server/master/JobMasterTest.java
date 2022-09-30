@@ -36,6 +36,8 @@ import com.hazelcast.map.IMap;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.util.Collections;
 import java.util.Map;
@@ -44,6 +46,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * JobMaster Tester.
  */
+@DisabledOnOs(OS.WINDOWS)
 public class JobMasterTest extends AbstractSeaTunnelServerTest {
     private static Long JOB_ID;
 
