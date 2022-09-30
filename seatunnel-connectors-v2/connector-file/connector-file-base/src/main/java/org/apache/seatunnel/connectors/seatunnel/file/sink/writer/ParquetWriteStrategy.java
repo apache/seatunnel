@@ -256,7 +256,6 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
                 int precision = ((DecimalType) seaTunnelDataType).getPrecision();
                 int scale = ((DecimalType) seaTunnelDataType).getScale();
                 return Types.optional(PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY).length(PRECISION_TO_BYTE_COUNT[precision - 1])
-                        .as(LogicalTypeAnnotation.decimalType(scale, precision))
                         .as(OriginalType.DECIMAL)
                         .precision(precision)
                         .scale(scale)
