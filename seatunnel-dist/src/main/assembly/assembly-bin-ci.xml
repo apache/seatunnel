@@ -70,6 +70,11 @@
             <outputDirectory>/bin</outputDirectory>
             <fileMode>0755</fileMode>
         </fileSet>
+        <fileSet>
+            <directory>../seatunnel-core/seatunnel-starter/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
 
         <fileSet>
             <directory>${project.build.directory}/bin</directory>
@@ -117,6 +122,8 @@
                 <include>org.apache.seatunnel:seatunnel-core-flink-sql:jar</include>
                 <!-- Spark starter -->
                 <include>org.apache.seatunnel:seatunnel-core-spark:jar</include>
+                <!-- SeaTunnel Engine starter -->
+                <include>org.apache.seatunnel:seatunnel-starter:jar</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
             <outputDirectory>/lib</outputDirectory>

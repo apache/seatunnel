@@ -43,7 +43,7 @@ public enum SeatunnelErrorEnum {
     UNSUPPORTED_OPERATION(99996, "unsupported operation", "This operation [%s] is not supported now."),
     HTTP_REQUEST_FAILED(99997, "http request failed", "Http request failed, url is %s"),
     ILLEGAL_STATE(99998, "illegal state", "%s"),
-    UNKNOWN(99999, "unknown exception", "Unknown exception")
+    UNKNOWN(99999, "unknown exception", "%s")
     ;
 
     private final int code;
