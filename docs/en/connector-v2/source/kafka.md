@@ -17,14 +17,15 @@ Source connector for Apache Kafka.
 
 ## Options
 
-| name              | type   | required | default value            |
-| ----------------- | ------ | -------- | ------------------------ |
-| topic             | String | yes      | -                        |
-| bootstrap.servers | String | yes      | -                        |
-| pattern           | String | no       | false                    |
-| consumer.group    | String | no       | SeaTunnel-Consumer-Group |
-| kafka.*           | String | no       | -                        |
-| common-options    |        | no       | -                        |
+| name              | type    | required | default value            |
+| ----------------- | ------- | -------- | ------------------------ |
+| topic             | String  | yes      | -                        |
+| bootstrap.servers | String  | yes      | -                        |
+| pattern           | Boolean | no       | false                    |
+| consumer.group    | String  | no       | SeaTunnel-Consumer-Group |
+| commit_on_checkpoint    | Boolean | no       | true |
+| kafka.*           | String  | no       | -                        |
+| common-options    |         | no       | -                        |
 
 ### topic [string]
 
@@ -34,13 +35,17 @@ Source connector for Apache Kafka.
 
 `Kafka` cluster address, separated by `","`.
 
-### pattern [String]
+### pattern [boolean]
 
 If `pattern` is set to `true`,the regular expression for a pattern of topic names to read from. All topics in clients with names that match the specified regular expression will be subscribed by the consumer.
 
 ### consumer.group [string]
 
 `Kafka consumer group id`, used to distinguish different consumer groups.
+
+### commit_on_checkpoint [boolean]
+
+If true the consumer's offset will be periodically committed in the background.
 
 ### kafka.* [string]
 
