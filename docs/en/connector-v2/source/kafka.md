@@ -17,15 +17,15 @@ Source connector for Apache Kafka.
 
 ## Options
 
-| name              | type    | required | default value            |
-| ----------------- | ------- | -------- | ------------------------ |
-| topic             | String  | yes      | -                        |
-| bootstrap.servers | String  | yes      | -                        |
-| pattern           | Boolean | no       | false                    |
-| consumer.group    | String  | no       | SeaTunnel-Consumer-Group |
-| commit_on_checkpoint    | Boolean | no       | true |
-| kafka.*           | String  | no       | -                        |
-| common-options    |         | no       | -                        |
+| name                 | type    | required | default value            |
+| -------------------- | ------- | -------- | ------------------------ |
+| topic                | String  | yes      | -                        |
+| bootstrap.servers    | String  | yes      | -                        |
+| pattern              | Boolean | no       | false                    |
+| consumer.group       | String  | no       | SeaTunnel-Consumer-Group |
+| commit_on_checkpoint | Boolean | no       | true                     |
+| kafka.*              | String  | no       | -                        |
+| common-options       |         | no       | -                        |
 
 ### topic [string]
 
@@ -87,5 +87,3 @@ source {
 
 }
 ```
-
-### 
