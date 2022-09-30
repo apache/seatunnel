@@ -16,7 +16,6 @@
 #
 
 name: Backend
-
 on:
   push:
   pull_request:
