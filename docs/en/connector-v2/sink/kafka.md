@@ -96,7 +96,7 @@ public class CustomPartitioner implements Partitioner {
         int numPartitions = partitions.size();
 
         int assignPartitionsSize = assignPartitions.size();
-        String message = new String(valueBytes);
+        String message = new String(valueBytes); 
         for (int i = 0; i < assignPartitionsSize; i++) {
             if (message.contains(assignPartitions.get(i))) {
                 return i;
