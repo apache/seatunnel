@@ -56,7 +56,7 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         if (Objects.nonNull(assertRowRules)) {
             assertRowRules.stream().filter(assertRule -> {
                 switch (assertRule.getRuleType()) {
