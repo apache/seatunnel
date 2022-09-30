@@ -30,16 +30,6 @@
     <artifactId>seatunnel-core</artifactId>
     <packaging>pom</packaging>
 
-    <modules>
-        <module>seatunnel-core-base</module>
-        <module>seatunnel-core-flink</module>
-        <module>seatunnel-core-spark</module>
-        <module>seatunnel-core-flink-sql</module>
-        <module>seatunnel-core-starter</module>
-        <module>seatunnel-flink-starter</module>
-        <module>seatunnel-spark-starter</module>
-    </modules>
-
     <build>
         <plugins>
             <plugin>
@@ -65,4 +55,43 @@
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <id>all</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <modules>
+                <module>seatunnel-core-base</module>
+                <module>seatunnel-core-flink</module>
+                <module>seatunnel-core-spark</module>
+                <module>seatunnel-core-flink-sql</module>
+                <module>seatunnel-core-starter</module>
+                <module>seatunnel-flink-starter</module>
+                <module>seatunnel-spark-starter</module>
+                <module>seatunnel-starter</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>engine-all</id>
+            <modules>
+                <module>seatunnel-core-base</module>
+                <module>seatunnel-core-starter</module>
+                <module>seatunnel-starter</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>release</id>
+            <modules>
+                <module>seatunnel-core-base</module>
+                <module>seatunnel-core-flink</module>
+                <module>seatunnel-core-spark</module>
+                <module>seatunnel-core-flink-sql</module>
+                <module>seatunnel-core-starter</module>
+                <module>seatunnel-flink-starter</module>
+                <module>seatunnel-spark-starter</module>
+                <module>seatunnel-starter</module>
+            </modules>
+        </profile>
+    </profiles>
 </project>
