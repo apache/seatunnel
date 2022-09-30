@@ -29,7 +29,7 @@ github:
     - etl-framework
   enabled_merge_buttons:
     squash: true
-    merge: true
+    merge: false
     rebase: false
   protected_branches:
     dev:
