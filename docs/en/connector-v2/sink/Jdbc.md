@@ -4,7 +4,7 @@
 
 ## Description
 
-Write data through jdb c. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
+Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
 semantics (using XA transaction guarantee).
 
 ## Key features
@@ -37,7 +37,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 ### driver [string]
 
 The jdbc class name used to connect to the remote data source, if you use MySQL the value is com.mysql.cj.jdbc.Driver.
-Warn: for license compliance, you have to provide MySQL JDBC driver yourself, e.g. copy mysql-connector-java-xxx.jar to
+Warn: for license compliance, you have to provide any driver yourself like MySQL JDBC Driver, e.g. copy mysql-connector-java-xxx.jar to
 $SEATNUNNEL_HOME/lib for Standalone.
 
 ### user [string]
@@ -102,13 +102,13 @@ In the case of is_exactly_once = "true", Xa transactions are used. This requires
 ## appendix
 
 there are some reference value for params above.
-
-| datasource | driver                                       | url                                                                   | xa_data_source_class_name           | maven                                                                                 |
-|------------|----------------------------------------------|-----------------------------------------------------------------------|-------------------------------------|---------------------------------------------------------------------------------------|
-| mysql      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                      | com.mysql.cj.jdbc.MysqlXADataSource | https://mvnrepository.com/artifact/mysql/mysql-connector-java                         |
-| postgresql | org.postgresql.Driver                        | jdbc:postgresql://localhost:5432/postgres                             | org.postgresql.xa.PGXADataSource    | https://mvnrepository.com/artifact/org.postgresql/postgresql                          |                                                             |
-| dm         | dm.jdbc.driver.DmDriver                      | jdbc:dm://localhost:5236                                              | dm.jdbc.driver.DmdbXADataSource     | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18                          |
-| phoenix    | org.apache.phoenix.queryserver.client.Driver | jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF    | /                                   | https://mvnrepository.com/artifact/com.aliyun.phoenix/ali-phoenix-shaded-thin-client  |
+| datasource | driver                                       | url                                                                   | xa_data_source_class_name                              | maven                                                                                 |
+|------------|----------------------------------------------|-----------------------------------------------------------------------|--------------------------------------------------------|---------------------------------------------------------------------------------------|
+| mysql      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                      | com.mysql.cj.jdbc.MysqlXADataSource                    | https://mvnrepository.com/artifact/mysql/mysql-connector-java                         |
+| postgresql | org.postgresql.Driver                        | jdbc:postgresql://localhost:5432/postgres                             | org.postgresql.xa.PGXADataSource                       | https://mvnrepository.com/artifact/org.postgresql/postgresql                          |                                                             |
+| dm         | dm.jdbc.driver.DmDriver                      | jdbc:dm://localhost:5236                                              | dm.jdbc.driver.DmdbXADataSource                        | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18                          |
+| phoenix    | org.apache.phoenix.queryserver.client.Driver | jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF    | /                                                      | https://mvnrepository.com/artifact/com.aliyun.phoenix/ali-phoenix-shaded-thin-client  |
+| sqlserver  | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:microsoft:sqlserver://localhost:1433                             | com.microsoft.sqlserver.jdbc.SQLServerXADataSource     | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc                 |
 
 ## Example
 

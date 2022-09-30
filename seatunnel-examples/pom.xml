@@ -29,13 +29,31 @@
 
     <artifactId>seatunnel-examples</artifactId>
     <packaging>pom</packaging>
-    <modules>
-        <module>seatunnel-flink-examples</module>
-        <module>seatunnel-spark-examples</module>
-        <module>seatunnel-flink-sql-examples</module>
-        <module>seatunnel-flink-connector-v2-example</module>
-        <module>seatunnel-spark-connector-v2-example</module>
-    </modules>
+    <profiles>
+        <profile>
+            <id>all</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <modules>
+                <module>seatunnel-flink-examples</module>
+                <module>seatunnel-spark-examples</module>
+                <module>seatunnel-flink-sql-examples</module>
+                <module>seatunnel-flink-connector-v2-example</module>
+                <module>seatunnel-spark-connector-v2-example</module>
+                <module>seatunnel-engine-examples</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>engine-all</id>
+            <modules>
+                <module>seatunnel-engine-examples</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>release</id>
+        </profile>
+    </profiles>
     <build>
         <plugins>
             <plugin>

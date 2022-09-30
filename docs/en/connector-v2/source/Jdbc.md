@@ -79,12 +79,13 @@ in parallel according to the concurrency of tasks.
 
 there are some reference value for params above.
 
-| datasource | driver                                       | url                                                                | maven                                                                                 |
-|------------|----------------------------------------------|--------------------------------------------------------------------|---------------------------------------------------------------------------------------|
-| mysql      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | https://mvnrepository.com/artifact/mysql/mysql-connector-java                         |
-| postgresql | org.postgresql.Driver                        | jdbc:postgresql://localhost:5432/postgres                          | https://mvnrepository.com/artifact/org.postgresql/postgresql                          |                                                             |
-| dm         | dm.jdbc.driver.DmDriver                      | jdbc:dm://localhost:5236                                           | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18                          |
+| datasource | driver                   | url                                                                                    | maven                                                                                 |
+|------------|--------------------------|----------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
+| mysql      | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306/test                                                       | https://mvnrepository.com/artifact/mysql/mysql-connector-java                         |
+| postgresql | org.postgresql.Driver    | jdbc:postgresql://localhost:5432/postgres                                              | https://mvnrepository.com/artifact/org.postgresql/postgresql                          |
+| dm         | dm.jdbc.driver.DmDriver  | jdbc:dm://localhost:5236                                                               | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18                          |
 | phoenix    | org.apache.phoenix.queryserver.client.Driver | jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF | https://mvnrepository.com/artifact/com.aliyun.phoenix/ali-phoenix-shaded-thin-client  |
+| sqlserver  | com.microsoft.sqlserver.jdbc.SQLServerDriver  | jdbc:microsoft:sqlserver://localhost:1433                         | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc                 |
 
 ## Example
 
