@@ -20,13 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.SQL_WHERE;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.state.InfluxDBSourceState;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -36,43 +35,54 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+@Slf4j
 public class InfluxDBSourceSplitEnumerator implements SourceSplitEnumerator<InfluxDBSourceSplit, InfluxDBSourceState> {
     final InfluxDBConfig config;
-
     private final Context<InfluxDBSourceSplit> context;
-    private Set<InfluxDBSourceSplit> pendingSplit;
-    private Set<InfluxDBSourceSplit> assignedSplit;
+    private final Map<Integer, List<InfluxDBSourceSplit>> pendingSplit;
+    private final Object stateLock = new Object();
+    private volatile boolean shouldEnumerate;
 
     public InfluxDBSourceSplitEnumerator(SourceSplitEnumerator.Context<InfluxDBSourceSplit> context, InfluxDBConfig config) {
-        this.context = context;
-        this.config = config;
+        this(context, null, config);
     }
 
     public InfluxDBSourceSplitEnumerator(SourceSplitEnumerator.Context<InfluxDBSourceSplit> context, InfluxDBSourceState sourceState, InfluxDBConfig config) {
-        this(context, config);
-        this.assignedSplit = sourceState.getAssignedSplit();
+        this.context = context;
+        this.config = config;
+        this.pendingSplit = new HashMap<>();
+        this.shouldEnumerate = sourceState == null;
+        if (sourceState != null) {
+            this.shouldEnumerate = sourceState.isShouldEnumerate();
+            this.pendingSplit.putAll(sourceState.getPendingSplit());
+        }
     }
 
     @Override
-    public void open() {
-        //nothing to do
-    }
+    public void run() {
+        Set<Integer> readers = context.registeredReaders();
+        if (shouldEnumerate) {
+            Set<InfluxDBSourceSplit> newSplits = getInfluxDBSplit();
 
-    @Override
-    public void run() throws Exception {
-        pendingSplit = getInfluxDBSplit();
-        assignSplit(context.registeredReaders());
-    }
+            synchronized (stateLock) {
+                addPendingSplit(newSplits);
+                shouldEnumerate = false;
+            }
 
-    @Override
-    public void close() throws IOException {
-        //nothing to do
+            assignSplit(readers);
+        }
+
+        log.debug("No more splits to assign." +
+                " Sending NoMoreSplitsEvent to reader {}.", readers);
+        readers.forEach(context::signalNoMoreSplits);
     }
 
     @Override
     public void addSplitsBack(List splits, int subtaskId) {
+        log.debug("Add back splits {} to InfluxDBSourceSplitEnumerator.",
+                splits);
         if (!splits.isEmpty()) {
-            pendingSplit.addAll(splits);
+            addPendingSplit(splits);
             assignSplit(Collections.singletonList(subtaskId));
         }
     }
@@ -83,26 +93,19 @@ public class InfluxDBSourceSplitEnumerator implements SourceSplitEnumerator<Infl
     }
 
     @Override
-    public void handleSplitRequest(int subtaskId) {
-        //nothing to do
-    }
-
-    @Override
     public void registerReader(int subtaskId) {
+        log.debug("Register reader {} to InfluxDBSourceSplitEnumerator.",
+                subtaskId);
         if (!pendingSplit.isEmpty()) {
             assignSplit(Collections.singletonList(subtaskId));
         }
     }
 
     @Override
-    public InfluxDBSourceState snapshotState(long checkpointId) throws Exception {
-        return new InfluxDBSourceState(assignedSplit);
-    }
-
-    @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-        //nothing to do
-
+    public InfluxDBSourceState snapshotState(long checkpointId) {
+        synchronized (stateLock) {
+            return new InfluxDBSourceState(shouldEnumerate, pendingSplit);
+        }
     }
 
     private Set<InfluxDBSourceSplit> getInfluxDBSplit() {
@@ -155,20 +158,58 @@ public class InfluxDBSourceSplitEnumerator implements SourceSplitEnumerator<Infl
         return rangeList;
     }
 
-    private void assignSplit(Collection<Integer> taskIDList) {
-        Map<Integer, List<InfluxDBSourceSplit>> readySplit = new HashMap<>(Common.COLLECTION_SIZE);
-        for (int taskID : taskIDList) {
-            readySplit.computeIfAbsent(taskID, id -> new ArrayList<>());
+    private void addPendingSplit(Collection<InfluxDBSourceSplit> splits) {
+        int readerCount = context.currentParallelism();
+        for (InfluxDBSourceSplit split : splits) {
+            int ownerReader = getSplitOwner(split.splitId(), readerCount);
+            log.info("Assigning {} to {} reader.", split, ownerReader);
+            pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>())
+                    .add(split);
         }
-        pendingSplit.forEach(s -> readySplit.get(getSplitOwner(s.splitId(), taskIDList.size()))
-                .add(s));
-        readySplit.forEach(context::assignSplit);
-        assignedSplit.addAll(pendingSplit);
-        pendingSplit.clear();
+    }
+
+    private void assignSplit(Collection<Integer> readers) {
+        log.debug("Assign pendingSplits to readers {}", readers);
+
+        for (int reader : readers) {
+            List<InfluxDBSourceSplit> assignmentForReader = pendingSplit.remove(reader);
+            if (assignmentForReader != null && !assignmentForReader.isEmpty()) {
+                log.info("Assign splits {} to reader {}",
+                        assignmentForReader, reader);
+                try {
+                    context.assignSplit(reader, assignmentForReader);
+                } catch (Exception e) {
+                    log.error("Failed to assign splits {} to reader {}",
+                            assignmentForReader, reader, e);
+                    pendingSplit.put(reader, assignmentForReader);
+                }
+            }
+        }
     }
 
     private static int getSplitOwner(String tp, int numReaders) {
-        return tp.hashCode() % numReaders;
+        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+    }
+
+    @Override
+    public void open() {
+        //nothing to do
+    }
+
+    @Override
+    public void close() {
+        //nothing to do
+    }
+
+    @Override
+    public void notifyCheckpointComplete(long checkpointId) {
+        //nothing to do
+
+    }
+
+    @Override
+    public void handleSplitRequest(int subtaskId) {
+        throw new UnsupportedOperationException("Unsupported handleSplitRequest: " + subtaskId);
     }
 
 }

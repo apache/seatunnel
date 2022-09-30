@@ -19,18 +19,17 @@ package org.apache.seatunnel.connectors.seatunnel.influxdb.state;
 
 import org.apache.seatunnel.connectors.seatunnel.influxdb.source.InfluxDBSourceSplit;
 
-import java.io.Serializable;
-import java.util.Set;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
+import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
+
+@AllArgsConstructor
+@Getter
 public class InfluxDBSourceState implements Serializable {
 
-    private Set<InfluxDBSourceSplit> assignedSplit;
-
-    public InfluxDBSourceState(Set<InfluxDBSourceSplit> assignedSplit) {
-        this.assignedSplit = assignedSplit;
-    }
-
-    public Set<InfluxDBSourceSplit> getAssignedSplit() {
-        return assignedSplit;
-    }
+    private boolean shouldEnumerate;
+    private Map<Integer, List<InfluxDBSourceSplit>> pendingSplit;
 }
