@@ -56,12 +56,16 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @SuppressWarnings("checkstyle:MagicNumber")
 public class ParquetWriteStrategy extends AbstractWriteStrategy {
     private final Map<String, ParquetWriter<GenericRecord>> beingWrittenWriter;
     private AvroSchemaConverter schemaConverter;
+    private Schema schema;
     public static final int[] PRECISION_TO_BYTE_COUNT = new int[38];
 
     static {
@@ -87,7 +91,6 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
     public void write(@NonNull SeaTunnelRow seaTunnelRow) {
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         ParquetWriter<GenericRecord> writer = getOrCreateWriter(filePath);
-        Schema schema = buildSchemaWithRowType();
         GenericRecordBuilder recordBuilder = new GenericRecordBuilder(schema);
         for (Integer integer : sinkColumnsIndexInRow) {
             String fieldName = seaTunnelRowType.getFieldName(integer);
@@ -117,13 +120,15 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
     }
 
     private ParquetWriter<GenericRecord> getOrCreateWriter(@NonNull String filePath) {
+        if (schema == null) {
+            schema = buildAvroSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow);
+        }
         ParquetWriter<GenericRecord> writer = this.beingWrittenWriter.get(filePath);
         GenericData dataModel = new GenericData();
         dataModel.addLogicalTypeConversion(new Conversions.DecimalConversion());
         dataModel.addLogicalTypeConversion(new TimeConversions.DateConversion());
         dataModel.addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
         if (writer == null) {
-            Schema schema = buildSchemaWithRowType();
             Path path = new Path(filePath);
             try {
                 HadoopOutputFile outputFile = HadoopOutputFile.fromPath(path, getConfiguration(hadoopConf));
@@ -176,6 +181,17 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
             case BYTES:
                 return ByteBuffer.wrap((byte[]) data);
             case ROW:
+                SeaTunnelRow seaTunnelRow = (SeaTunnelRow) data;
+                SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) seaTunnelDataType).getFieldTypes();
+                String[] fieldNames = ((SeaTunnelRowType) seaTunnelDataType).getFieldNames();
+                List<Integer> sinkColumnsIndex = IntStream.rangeClosed(0, fieldNames.length - 1)
+                        .boxed().collect(Collectors.toList());
+                Schema recordSchema = buildAvroSchemaWithRowType((SeaTunnelRowType) seaTunnelDataType, sinkColumnsIndex);
+                GenericRecordBuilder recordBuilder = new GenericRecordBuilder(recordSchema);
+                for (int i = 0; i < fieldNames.length; i++) {
+                    recordBuilder.set(fieldNames[i], resolveObject(seaTunnelRow.getField(i), fieldTypes[i]));
+                }
+                return recordBuilder.build();
             default:
                 String errorMsg = String.format("SeaTunnel file connector is not supported for this data type [%s]", seaTunnelDataType.getSqlType());
                 throw new UnsupportedOperationException(errorMsg);
@@ -240,6 +256,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
                 int precision = ((DecimalType) seaTunnelDataType).getPrecision();
                 int scale = ((DecimalType) seaTunnelDataType).getScale();
                 return Types.optional(PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY).length(PRECISION_TO_BYTE_COUNT[precision - 1])
+                        .as(LogicalTypeAnnotation.decimalType(scale, precision))
                         .as(OriginalType.DECIMAL)
                         .precision(precision)
                         .scale(scale)
@@ -263,11 +280,11 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         }
     }
 
-    private Schema buildSchemaWithRowType() {
+    private Schema buildAvroSchemaWithRowType(SeaTunnelRowType seaTunnelRowType, List<Integer> sinkColumnsIndex) {
         ArrayList<Type> types = new ArrayList<>();
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         String[] fieldNames = seaTunnelRowType.getFieldNames();
-        sinkColumnsIndexInRow.forEach(index -> {
+        sinkColumnsIndex.forEach(index -> {
             Type type = seaTunnelDataType2ParquetDataType(fieldNames[index], fieldTypes[index]);
             types.add(type);
         });
