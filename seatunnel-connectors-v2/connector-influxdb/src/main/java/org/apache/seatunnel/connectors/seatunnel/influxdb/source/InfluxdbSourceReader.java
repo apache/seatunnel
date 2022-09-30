@@ -32,30 +32,29 @@ import org.influxdb.InfluxDB;
 import org.influxdb.dto.Query;
 import org.influxdb.dto.QueryResult;
 
-import java.io.IOException;
 import java.net.ConnectException;
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.Set;
+import java.util.Queue;
 
 @Slf4j
 public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDBSourceSplit> {
     private InfluxDB influxDB;
     InfluxDBConfig config;
 
-    private static final long THREAD_WAIT_TIME = 500L;
-
-    private Set<InfluxDBSourceSplit> sourceSplits;
-
-    private final Context context;
+    private final SourceReader.Context context;
 
     private SeaTunnelRowType seaTunnelRowType;
 
     List<Integer> columnsIndexList;
+    private final Queue<InfluxDBSourceSplit> pendingSplits;
+
+    private volatile boolean noMoreSplitsAssignment;
 
     InfluxdbSourceReader(InfluxDBConfig config, Context readerContext, SeaTunnelRowType seaTunnelRowType, List<Integer> columnsIndexList) {
         this.config = config;
-        this.sourceSplits = new HashSet<>();
+        this.pendingSplits = new LinkedList<>();
         this.context = readerContext;
         this.seaTunnelRowType = seaTunnelRowType;
         this.columnsIndexList = columnsIndexList;
@@ -82,7 +81,7 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         if (influxDB != null) {
             influxDB.close();
             influxDB = null;
@@ -90,47 +89,45 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
     }
 
     @Override
-    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        if (sourceSplits.isEmpty()) {
-            Thread.sleep(THREAD_WAIT_TIME);
-            return;
-        }
-        sourceSplits.forEach(source -> {
-            try {
-                read(source, output);
-            } catch (Exception e) {
-                throw new RuntimeException("influxDB source read error", e);
+    public void pollNext(Collector<SeaTunnelRow> output) {
+        while (!pendingSplits.isEmpty()) {
+            synchronized (output.getCheckpointLock()) {
+                InfluxDBSourceSplit split = pendingSplits.poll();
+                read(split, output);
             }
-        });
+        }
 
-        if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
+        if (Boundedness.BOUNDED.equals(context.getBoundedness())
+                && noMoreSplitsAssignment
+                && pendingSplits.isEmpty()) {
             // signal to the source that we have reached the end of the data.
-            log.info("Closed the bounded fake source");
+            log.info("Closed the bounded influxDB source");
             context.signalNoMoreElement();
         }
     }
 
     @Override
-    public List<InfluxDBSourceSplit> snapshotState(long checkpointId) throws Exception {
-        return null;
+    public List<InfluxDBSourceSplit> snapshotState(long checkpointId) {
+        return new ArrayList<>(pendingSplits);
     }
 
     @Override
     public void addSplits(List<InfluxDBSourceSplit> splits) {
-        sourceSplits.addAll(splits);
+        pendingSplits.addAll(splits);
     }
 
     @Override
     public void handleNoMoreSplits() {
-
+        log.info("Reader received NoMoreSplits event.");
+        noMoreSplitsAssignment = true;
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+    public void notifyCheckpointComplete(long checkpointId)  {
 
     }
 
-    private void read(InfluxDBSourceSplit split, Collector<SeaTunnelRow> output) throws Exception {
+    private void read(InfluxDBSourceSplit split, Collector<SeaTunnelRow> output) {
         QueryResult queryResult = influxDB.query(new Query(split.getQuery(), config.getDatabase()));
         for (QueryResult.Result result : queryResult.getResults()) {
             List<QueryResult.Series> serieList = result.getSeries();
