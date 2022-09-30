@@ -36,7 +36,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 
-public class FakeRandomDataTest {
+public class FakeDataGeneratorTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"complex.schema.conf", "simple.schema.conf"})
@@ -45,8 +45,8 @@ public class FakeRandomDataTest {
         SeaTunnelSchema seaTunnelSchema = SeaTunnelSchema.buildWithConfig(testConfig.getConfig(SeaTunnelSchema.SCHEMA));
         SeaTunnelRowType seaTunnelRowType = seaTunnelSchema.getSeaTunnelRowType();
         FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
-        FakeRandomData fakeRandomData = new FakeRandomData(seaTunnelSchema, fakeConfig);
-        List<SeaTunnelRow> seaTunnelRows = fakeRandomData.generateFakedRows();
+        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(seaTunnelSchema, fakeConfig);
+        List<SeaTunnelRow> seaTunnelRows = fakeDataGenerator.generateFakedRows();
         Assertions.assertNotNull(seaTunnelRows);
         Assertions.assertEquals(seaTunnelRows.size(), 10);
         for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {
@@ -76,7 +76,7 @@ public class FakeRandomDataTest {
         if (!configFile.startsWith("/")) {
             configFile = "/" + configFile;
         }
-        URL resource = FakeRandomDataTest.class.getResource(configFile);
+        URL resource = FakeDataGeneratorTest.class.getResource(configFile);
         if (resource == null) {
             throw new FileNotFoundException("Can't find config file: " + configFile);
         }

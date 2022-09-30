@@ -36,12 +36,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-public class FakeRandomData {
+public class FakeDataGenerator {
     public static final String SCHEMA = "schema";
     private final SeaTunnelSchema schema;
     private final FakeConfig fakeConfig;
 
-    public FakeRandomData(SeaTunnelSchema schema, FakeConfig fakeConfig) {
+    public FakeDataGenerator(SeaTunnelSchema schema, FakeConfig fakeConfig) {
         this.schema = schema;
         this.fakeConfig = fakeConfig;
     }
