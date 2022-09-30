@@ -23,6 +23,7 @@ import static org.apache.seatunnel.apis.base.plugin.Plugin.SOURCE_TABLE_NAME;
 import org.apache.seatunnel.apis.base.env.RuntimeEnv;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
+import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.JobMode;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -181,20 +182,21 @@ public class SparkEnvironment implements RuntimeEnv {
     }
 
     private SparkSession.Builder creatMetricBuilder(SparkSession.Builder builder){
-        if (config.hasPath("spark.metrics.class")) {
+        if (config.hasPath(CollectionConstants.METRICS_CLASS)) {
             builder.config("spark.metrics.conf.*.sink.console.class", "org.apache.spark.seatunnel.metrics.sink.SeatunnelMetricSink");
-            if (config.hasPath("spark.metrics.host")) {
-                builder.config("spark.metrics.conf.*.sink.console.host", config.getString("spark.metrics.host"));
+            if (config.hasPath(CollectionConstants.METRICS_HOST)) {
+                builder.config("spark.metrics.conf.*.sink.console.host", config.getString(CollectionConstants.METRICS_HOST));
             }
-            if (config.hasPath("spark.metrics.port")) {
-                builder.config("spark.metrics.conf.*.sink.console.port", config.getString("spark.metrics.port"));
+            if (config.hasPath(CollectionConstants.METRICS_PORT)) {
+                builder.config("spark.metrics.conf.*.sink.console.port", config.getString(CollectionConstants.METRICS_PORT));
             }
-            if (config.hasPath("spark.metrics.jobName")) {
-                builder.config("spark.metrics.conf.*.sink.console.jobName", config.getString("spark.metrics.jobName"));
+            if (config.hasPath(CollectionConstants.METRICS_JOB_NAME)) {
+                builder.config("spark.metrics.conf.*.sink.console.jobName", config.getString(CollectionConstants.METRICS_JOB_NAME));
             }
-            if (config.hasPath("spark.metrics.interval")) {
-                builder.config("spark.metrics.conf.*.sink.console.interval", config.getString("spark.metrics.interval"));
+            if (config.hasPath(CollectionConstants.METRICS_INTERVAL)) {
+                builder.config("spark.metrics.conf.*.sink.console.interval", config.getString(CollectionConstants.METRICS_INTERVAL));
             }
+            builder.config("spark.metrics.conf.*.sink.console.reporterName", config.getString(CollectionConstants.METRICS_CLASS));
         }
         return builder;
     }

@@ -10,7 +10,6 @@ import org.apache.seatunnel.metrics.core.SimpleGauge;
 import org.apache.seatunnel.metrics.core.SimpleHistogram;
 import org.apache.seatunnel.metrics.core.SimpleMeter;
 import org.apache.seatunnel.metrics.core.reporter.MetricReporter;
-import org.apache.seatunnel.metrics.prometheus.PrometheusPushGatewayReporter;
 
 import org.apache.flink.metrics.MetricConfig;
 import org.apache.flink.metrics.reporter.Scheduled;
@@ -30,6 +29,7 @@ public class SeatunnelMetricReporter extends AbstractSeatunnelReporter implement
     private String host;
     private int port;
     private String jobName;
+    private String className;
     private static final int DEFAULT_PORT = 9091;
 
     @Override
@@ -39,6 +39,7 @@ public class SeatunnelMetricReporter extends AbstractSeatunnelReporter implement
         host = config.getString("host", "localhost");
         port = config.getInteger("port", DEFAULT_PORT);
         jobName = config.getString("jobName", "flinkJob");
+        className = config.getString("reporterName", "org.apache.seatunnel.metrics.console.ConsoleLogReporter");
     }
 
     @Override
@@ -102,8 +103,19 @@ public class SeatunnelMetricReporter extends AbstractSeatunnelReporter implement
             histogramsIndex.put(new SimpleHistogram(key.getCount(), key.getStatistics().getMin(), key.getStatistics().getMax(), key.getStatistics().getStdDev(), key.getStatistics().getMean(), quantile), metric.getValue());
         }
         //todo handle user config
-        reporter = new PrometheusPushGatewayReporter(jobName, host, port);
-        reporter.report(gaugesIndex, countersIndex, histogramsIndex, metersIndex);
+        try {
+            //ClassLoader classLoader = PrometheusPushGatewayReporter.class.getClassLoader();
+            Class<?> aClass = Class.forName(className);
+            reporter = (MetricReporter) aClass.newInstance();
+            org.apache.seatunnel.metrics.core.MetricConfig config = new org.apache.seatunnel.metrics.core.MetricConfig();
+            config.setJobName(jobName);
+            config.setHost(host);
+            config.setPort(port);
+            reporter.open(config);
+            reporter.report(gaugesIndex, countersIndex, histogramsIndex, metersIndex);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
 
     }
 

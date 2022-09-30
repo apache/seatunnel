@@ -20,4 +20,9 @@ package org.apache.seatunnel.common.constants;
 public class CollectionConstants {
 
     public static final int MAP_SIZE = 6;
+    public static final String METRICS_INTERVAL = "seatunnel.metrics.interval";
+    public static final String METRICS_CLASS = "seatunnel.metrics.class";
+    public static final String METRICS_PORT = "seatunnel.metrics.port";
+    public static final String METRICS_JOB_NAME = "seatunnel.metrics.jobName";
+    public static final String METRICS_HOST = "seatunnel.metrics.host";
 }

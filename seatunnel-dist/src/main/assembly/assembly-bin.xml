@@ -147,11 +147,12 @@
             <useTransitiveDependencies>true</useTransitiveDependencies>
             <unpack>false</unpack>
             <includes>
-                <include>
-
-                </include>
+                <include>org.apache.seatunnel:seatunnel-metrics-console:jar</include>
+                <include>org.apache.seatunnel:seatunnel-metrics-prometheus:jar</include>
             </includes>
-
+            <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
+            <outputDirectory>/option</outputDirectory>
+            <scope>provided</scope>
         </dependencySet>
     </dependencySets>
 </assembly>

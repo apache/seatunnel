@@ -31,6 +31,11 @@
             <version>${revision}</version>
             <scope>compile</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-metrics-console</artifactId>
+            <version>${revision}</version>
+        </dependency>
     </dependencies>
 
 </project>

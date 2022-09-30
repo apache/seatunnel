@@ -1,9 +1,10 @@
-package org.apache.seatuunel.metrcis.console;
+package org.apache.seatunnel.metrics.console;
 
 import org.apache.seatunnel.metrics.core.Counter;
 import org.apache.seatunnel.metrics.core.Gauge;
 import org.apache.seatunnel.metrics.core.Histogram;
 import org.apache.seatunnel.metrics.core.Meter;
+import org.apache.seatunnel.metrics.core.MetricConfig;
 import org.apache.seatunnel.metrics.core.MetricInfo;
 import org.apache.seatunnel.metrics.core.reporter.MetricReporter;
 
@@ -23,9 +24,8 @@ public class ConsoleLogReporter implements MetricReporter {
     private int previousSize = DEFAULT_SIZE;
 
     @Override
-    public ConsoleLogReporter open() {
+    public void open(MetricConfig config) {
         LOG.info("reporter open");
-        return new ConsoleLogReporter();
     }
 
     @Override

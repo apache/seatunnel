@@ -5,13 +5,14 @@ import org.apache.seatunnel.metrics.core.Gauge;
 import org.apache.seatunnel.metrics.core.Histogram;
 import org.apache.seatunnel.metrics.core.Meter;
 import org.apache.seatunnel.metrics.core.Metric;
+import org.apache.seatunnel.metrics.core.MetricConfig;
 import org.apache.seatunnel.metrics.core.MetricInfo;
 
 import java.util.Map;
 
 /** Reporters are used to export seatunnel {@link Metric Metrics} to an external backend. */
 public interface MetricReporter {
-    MetricReporter open();
+    void open(MetricConfig config);
 
     void close();
 

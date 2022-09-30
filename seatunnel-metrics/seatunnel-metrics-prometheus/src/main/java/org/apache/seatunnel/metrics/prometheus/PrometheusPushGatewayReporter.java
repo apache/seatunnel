@@ -5,6 +5,7 @@ import org.apache.seatunnel.metrics.core.Gauge;
 import org.apache.seatunnel.metrics.core.Histogram;
 import org.apache.seatunnel.metrics.core.Meter;
 import org.apache.seatunnel.metrics.core.Metric;
+import org.apache.seatunnel.metrics.core.MetricConfig;
 import org.apache.seatunnel.metrics.core.MetricInfo;
 import org.apache.seatunnel.metrics.core.reporter.MetricReporter;
 
@@ -25,33 +26,27 @@ import java.util.Map;
 public class PrometheusPushGatewayReporter implements MetricReporter {
 
     private static final Logger LOG = LoggerFactory.getLogger(PrometheusPushGatewayReporter.class);
-    final URL hostUrl;
-    private final PushGateway pushGateway;
-    private final String jobName;
+    URL hostUrl;
+    private PushGateway pushGateway;
+    private String jobName;
     private static final int DEFAULT_PORT = 9091;
-
-    public PrometheusPushGatewayReporter(String jobName, String host, int port) {
+    @Override
+    public void open(MetricConfig config) {
         String url = "";
-        if (isNullOrWhitespaceOnly(host) || port < 1) {
+        if (isNullOrWhitespaceOnly(config.getHost()) || config.getPort() < 1) {
             throw new IllegalArgumentException(
-                    "Invalid host/port configuration. Host: " + host + " Port: " + port);
+                    "Invalid host/port configuration. Host: " + config.getHost() + " Port: " + config.getPort());
         } else {
-            url = "http://" + host + ":" + port;
+            url = "http://" + config.getHost() + ":" + config.getPort();
         }
 
-        this.jobName = jobName;
+        this.jobName = config.getJobName();
         try {
             this.hostUrl = new URL(url);
         } catch (MalformedURLException e) {
             throw new RuntimeException(e);
         }
         this.pushGateway = new PushGateway(hostUrl);
-    }
-
-    @Override
-    public PrometheusPushGatewayReporter open() {
-        //todo Handle user config
-        return new PrometheusPushGatewayReporter("flink_prometheus_job", "localhost", DEFAULT_PORT);
     }
 
     @Override

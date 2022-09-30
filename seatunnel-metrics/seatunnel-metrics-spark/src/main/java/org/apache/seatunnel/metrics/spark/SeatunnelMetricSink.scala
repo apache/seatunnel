@@ -6,6 +6,7 @@ import java.util.concurrent.TimeUnit
 import scala.collection.JavaConversions._
 import com.codahale.metrics
 import com.codahale.metrics.{Counter, Histogram, Meter, _}
+import org.apache.seatunnel.metrics.core.reporter.MetricReporter
 import org.apache.seatunnel.metrics.core.{Gauge, _}
 import org.apache.seatunnel.metrics.prometheus.PrometheusPushGatewayReporter
 import org.apache.spark.internal.Logging
@@ -42,10 +43,7 @@ abstract class SeatunnelMetricSink(
         counters: util.SortedMap[String, Counter],
         histograms: util.SortedMap[String, Histogram],
         meters: util.SortedMap[String, Meter],
-        timers: util.SortedMap[String, Timer]): Unit = {
-      logInfo(
-        s"metricsNamespace=$metricsNamespace, sparkAppName=$sparkAppName, sparkAppId=$sparkAppId, " +
-          s"executorId=$executorId")
+        timers: util.SortedMap[String, Timer]) = {
 
       val role: String = (sparkAppId, executorId) match {
         case (Some(_), Some("driver")) | (Some(_), Some("<driver>")) => "driver"
@@ -121,9 +119,26 @@ abstract class SeatunnelMetricSink(
             }),
           newMetricInfo(metricName, dimensionKeys, dimensionValues))
       }
-      val reporter = new PrometheusPushGatewayReporter(pollJobName, pollHost, pollPort)
-      // val reporter = new ConsoleLogReporter();
-      reporter.report(gaugesIndex, countersIndex, histogramsIndex, metersIndex)
+//      val reporter = new PrometheusPushGatewayReporter
+//      val config = new MetricConfig
+//      config.setJobName(pollJobName)
+//      config.setHost(pollHost)
+//      config.setPort(pollPort)
+//      reporter.open(config)
+//      reporter.report(gaugesIndex, countersIndex, histogramsIndex, metersIndex)
+      try {
+        val aClass = Class.forName(pollReporter)
+        val reporter = aClass.newInstance.asInstanceOf[MetricReporter]
+        val config = new MetricConfig
+        config.setJobName(pollJobName)
+        config.setHost(pollHost)
+        config.setPort(pollPort)
+        reporter.open(config)
+        reporter.report(gaugesIndex, countersIndex, histogramsIndex, metersIndex)
+      } catch {
+        case e: Exception =>
+          throw new RuntimeException(e)
+      }
     }
 
   }
@@ -133,12 +148,14 @@ abstract class SeatunnelMetricSink(
   val CONSOLE_DEFAULT_HOST = "localhost"
   val CONSOLE_DEFAULT_PORT = 9091
   val CONSOLE_DEFAULT_JOB_NAME = "sparkJob"
+  val CONSOLE_DEFAULT_REPORTER_NAME = "org.apache.seatunnel.metrics.console.ConsoleLogReporter"
 
   val CONSOLE_KEY_INTERVAL = "interval"
   val CONSOLE_KEY_UNIT = "unit"
   val CONSOLE_KEY_HOST = "host"
   val CONSOLE_KEY_PORT = "port"
   val CONSOLE_KEY_JOB_NAME = "jobName"
+  val CONSOLE_KEY_REPORTER_NAME = "reporterName"
 
   val KEY_RE_METRICS_FILTER = "metrics-filter-([a-zA-Z][a-zA-Z0-9-]*)".r
 
@@ -165,6 +182,11 @@ abstract class SeatunnelMetricSink(
   val pollJobName: String = Option(property.getProperty(CONSOLE_KEY_JOB_NAME)) match {
     case Some(s) => s
     case None => CONSOLE_DEFAULT_JOB_NAME
+  }
+
+  val pollReporter: String = Option(property.getProperty(CONSOLE_KEY_REPORTER_NAME)) match {
+    case Some(s) => s
+    case None => CONSOLE_DEFAULT_REPORTER_NAME
   }
 
   val metricsFilter: MetricFilter = MetricFilter.ALL
