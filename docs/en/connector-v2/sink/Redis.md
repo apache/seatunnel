@@ -13,14 +13,15 @@ Used to write data to Redis.
 
 ##  Options
 
-| name      | type   | required | default value |
-|-----------|--------|----------|---------------|
-| host      | string | yes      | -             |
-| port      | int    | yes      | -             |
-| key       | string | yes      | -             |
-| data_type | string | yes      | -             |
-| auth      | string | No       | -             |
-| format    | string | No       | json          |
+| name          | type   | required | default value |
+|-------------- |--------|----------|---------------|
+| host          | string | yes      | -             |
+| port          | int    | yes      | -             |
+| key           | string | yes      | -             |
+| data_type     | string | yes      | -             |
+| auth          | string | no       | -             |
+| format        | string | no       | json          |
+| common-options|        | no       | -             |
 
 ### host [string]
 
@@ -97,6 +98,10 @@ Connector will generate data as the following and write it to redis:
 {"code":  200, "data":  "get success", "success":  "true"}
 
 ```
+
+### common options
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
 
