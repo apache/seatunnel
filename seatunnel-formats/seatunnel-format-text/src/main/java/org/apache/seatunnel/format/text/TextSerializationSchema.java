@@ -84,7 +84,7 @@ public class TextSerializationSchema implements SerializationSchema {
             case TIMESTAMP:
                 return DateTimeUtils.toString((LocalDateTime) field, dateTimeFormatter);
             case NULL:
-                return "null";
+                return "";
             case BYTES:
                 return new String((byte[]) field);
             case ROW:
