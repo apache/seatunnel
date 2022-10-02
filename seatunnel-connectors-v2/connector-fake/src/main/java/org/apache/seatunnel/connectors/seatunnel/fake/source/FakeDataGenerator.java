@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.RandomUtils;
@@ -57,9 +58,9 @@ public class FakeDataGenerator {
         return new SeaTunnelRow(randomRow.toArray());
     }
 
-    public List<SeaTunnelRow> generateFakedRows() {
+    public List<SeaTunnelRow> generateFakedRows(int rowNum) {
         ArrayList<SeaTunnelRow> seaTunnelRows = new ArrayList<>();
-        for (int i = 0; i < fakeConfig.getRowNum(); i++) {
+        for (int i = 0; i < rowNum; i++) {
             seaTunnelRows.add(randomRow());
         }
         return seaTunnelRows;

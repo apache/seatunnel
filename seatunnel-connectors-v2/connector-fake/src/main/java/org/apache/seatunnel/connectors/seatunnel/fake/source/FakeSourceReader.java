@@ -19,24 +19,27 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
-import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.LinkedList;
 import java.util.List;
 
-public class FakeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
+public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSplit> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceReader.class);
 
-    private final SingleSplitReaderContext context;
-
+    private final SourceReader.Context context;
+    private final Deque<FakeSourceSplit> splits = new LinkedList<>();
     private final FakeDataGenerator fakeDataGenerator;
+    boolean noMoreSplit;
 
-    public FakeSourceReader(SingleSplitReaderContext context, FakeDataGenerator randomData) {
+    public FakeSourceReader(SourceReader.Context context, FakeDataGenerator randomData) {
         this.context = context;
         this.fakeDataGenerator = randomData;
     }
@@ -54,16 +57,48 @@ public class FakeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     @Override
     @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
-        // Generate a random number of rows to emit.
-        List<SeaTunnelRow> seaTunnelRows = fakeDataGenerator.generateFakedRows();
-        for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {
-            output.collect(seaTunnelRow);
+        synchronized (output.getCheckpointLock()) {
+            FakeSourceSplit split = splits.poll();
+            if (null != split) {
+                // Generate a random number of rows to emit.
+                List<SeaTunnelRow> seaTunnelRows = fakeDataGenerator.generateFakedRows(split.getRowNum());
+                for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {
+                    output.collect(seaTunnelRow);
+                }
+                if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
+                    // signal to the source that we have reached the end of the data.
+                    LOGGER.info("Closed the bounded fake source");
+                    context.signalNoMoreElement();
+                }
+            } else if (noMoreSplit) {
+                // signal to the source that we have reached the end of the data.
+                LOGGER.info("Closed the bounded fake source");
+                context.signalNoMoreElement();
+            } else {
+                Thread.sleep(1000L);
+            }
+
         }
-        if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
-            // signal to the source that we have reached the end of the data.
-            LOGGER.info("Closed the bounded fake source");
-            context.signalNoMoreElement();
-        }
-        Thread.sleep(1000L);
+    }
+
+    @Override
+    public List<FakeSourceSplit> snapshotState(long checkpointId) throws Exception {
+        return new ArrayList<>(splits);
+    }
+
+    @Override
+    public void addSplits(List<FakeSourceSplit> splits) {
+        this.splits.addAll(splits);
+    }
+
+    @Override
+    public void handleNoMoreSplits() {
+        noMoreSplit = true;
+
+    }
+
+    @Override
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+
     }
 }
