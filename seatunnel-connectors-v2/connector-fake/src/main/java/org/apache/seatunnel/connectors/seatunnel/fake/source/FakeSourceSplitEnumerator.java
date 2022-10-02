@@ -93,15 +93,15 @@ public class FakeSourceSplitEnumerator implements SourceSplitEnumerator<FakeSour
     private void discoverySplits() {
         List<FakeSourceSplit> allSplit = new ArrayList<>();
         LOG.info("Starting to calculate splits.");
-        if (null != totalRowNum) {
+        int numReaders = enumeratorContext.currentParallelism();
 
-            for (int i = 1; i <= enumeratorContext.currentParallelism(); i++) {
-                allSplit.add(new FakeSourceSplit(this.splitRowNum(totalRowNum, enumeratorContext.currentParallelism(), i), i));
+        if (null != totalRowNum) {
+            for (int i = 1; i <= numReaders; i++) {
+                allSplit.add(new FakeSourceSplit(this.splitRowNum(totalRowNum, numReaders, i), i));
             }
         } else {
             allSplit.add(new FakeSourceSplit(null, 0));
         }
-        int numReaders = enumeratorContext.currentParallelism();
         for (FakeSourceSplit split : allSplit) {
             int ownerReader = split.getSplitId() % numReaders;
             pendingSplits.computeIfAbsent(ownerReader, r -> new HashSet<>())
