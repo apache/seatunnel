@@ -23,7 +23,6 @@ import org.apache.seatunnel.connectors.seatunnel.assertion.excecutor.AssertExecu
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.LongAccumulator;
