@@ -66,7 +66,7 @@ public abstract class EnvironmentFactory<ENVIRONMENT extends RuntimeEnv> {
         return false;
     }
 
-    private JobMode getJobMode(Config envConfig) {
+    public JobMode getJobMode(Config envConfig) {
         JobMode jobMode;
         if (envConfig.hasPath("job.mode")) {
             jobMode = envConfig.getEnum(JobMode.class, "job.mode");

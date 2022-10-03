@@ -27,7 +27,9 @@ import org.apache.seatunnel.core.starter.flink.config.FlinkEnvironmentFactory;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.types.Row;
 import org.slf4j.Logger;
@@ -37,6 +39,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -50,15 +53,24 @@ public class FlinkExecution implements TaskExecution {
     private final PluginExecuteProcessor sourcePluginExecuteProcessor;
     private final PluginExecuteProcessor transformPluginExecuteProcessor;
     private final PluginExecuteProcessor sinkPluginExecuteProcessor;
+    private final List<URL> jarPaths;
 
     public FlinkExecution(Config config) {
-        this.flinkEnvironment = new FlinkEnvironmentFactory(config).getEnvironment();
-        JobContext jobContext = new JobContext();
-        jobContext.setJobMode(flinkEnvironment.getJobMode());
+        jarPaths = new ArrayList<>();
         registerPlugin();
-        this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(flinkEnvironment, jobContext, config.getConfigList(Constants.SOURCE));
-        this.transformPluginExecuteProcessor = new TransformExecuteProcessor(flinkEnvironment, jobContext, config.getConfigList(Constants.TRANSFORM));
-        this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(flinkEnvironment, jobContext, config.getConfigList(Constants.SINK));
+        JobContext jobContext = new JobContext();
+        jobContext.setJobMode(new FlinkEnvironmentFactory(config).getJobMode(config.getConfig("env")));
+
+        this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(jarPaths, config.getConfigList(Constants.SOURCE), jobContext);
+        this.transformPluginExecuteProcessor = new TransformExecuteProcessor(jarPaths, config.getConfigList(Constants.TRANSFORM), jobContext);
+        this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(jarPaths, config.getConfigList(Constants.SINK), jobContext);
+
+        this.flinkEnvironment = new FlinkEnvironmentFactory(this.registerPlugin(config, jarPaths)).getEnvironment();
+
+        this.sourcePluginExecuteProcessor.setFlinkEnvironment(flinkEnvironment);
+        this.transformPluginExecuteProcessor.setFlinkEnvironment(flinkEnvironment);
+        this.sinkPluginExecuteProcessor.setFlinkEnvironment(flinkEnvironment);
+
     }
 
     @Override
@@ -90,6 +102,34 @@ public class FlinkExecution implements TaskExecution {
 
         pluginsJarDependencies.forEach(url -> FlinkCommon.ADD_URL_TO_CLASSLOADER.accept(Thread.currentThread().getContextClassLoader(), url));
 
-        flinkEnvironment.registerPlugin(pluginsJarDependencies);
+        jarPaths.addAll(pluginsJarDependencies);
+    }
+
+    private Config registerPlugin(Config config, List<URL> jars) {
+        config = this.parseConfig(config, "env." + PipelineOptions.JARS.key(), jars);
+        return this.parseConfig(config, "env." + PipelineOptions.CLASSPATHS.key(), jars);
+    }
+
+    private Config parseConfig(Config config, String path, List<URL> jars) {
+
+        if (config.hasPath(path)) {
+            List<URL> paths = Arrays.stream(config.getString(path).split(";")).map(s -> {
+                try {
+                    return new URL(s);
+                } catch (MalformedURLException e) {
+                    e.printStackTrace();
+                }
+                return null;
+            }).collect(Collectors.toList());
+            paths.addAll(jars);
+
+            config = config.withValue(path,
+                ConfigValueFactory.fromAnyRef(paths.stream().map(URL::toString).collect(Collectors.joining(";"))));
+
+        } else {
+            config = config.withValue(path,
+                ConfigValueFactory.fromAnyRef(jars.stream().map(URL::toString).collect(Collectors.joining(";"))));
+        }
+        return config;
     }
 }
