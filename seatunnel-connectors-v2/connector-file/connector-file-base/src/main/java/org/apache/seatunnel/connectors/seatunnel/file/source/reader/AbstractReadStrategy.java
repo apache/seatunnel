@@ -32,7 +32,10 @@ import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 public abstract class AbstractReadStrategy implements ReadStrategy {
@@ -94,4 +97,12 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         return fileNames;
     }
 
+    protected Map<String, String> parsePartitionsByPath(String path) {
+        LinkedHashMap<String, String> partitions = new LinkedHashMap<>();
+        Arrays.stream(path.split("/", -1))
+                .filter(split -> split.contains("="))
+                .map(split -> split.split("=", -1))
+                .forEach(kv -> partitions.put(kv[0], kv[1]));
+        return partitions;
+    }
 }
