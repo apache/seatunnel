@@ -54,4 +54,9 @@ public class Config {
      * Send information according to the specified partition.
      */
     public static final String PARTITION = "partition";
+
+    /**
+     * Determine the partition to send based on the content of the message.
+     */
+    public static final String ASSIGN_PARTITIONS = "assign_partitions";
 }
