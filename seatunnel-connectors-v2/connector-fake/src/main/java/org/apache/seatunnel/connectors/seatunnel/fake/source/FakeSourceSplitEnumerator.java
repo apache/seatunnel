@@ -94,7 +94,7 @@ public class FakeSourceSplitEnumerator implements SourceSplitEnumerator<FakeSour
         List<FakeSourceSplit> allSplit = new ArrayList<>();
         LOG.info("Starting to calculate splits.");
         int numReaders = enumeratorContext.currentParallelism();
-        for (int i = 1; i <= numReaders; i++) {
+        for (int i = 0; i < numReaders; i++) {
             allSplit.add(new FakeSourceSplit(rowNum, i));
         }
         for (FakeSourceSplit split : allSplit) {
