@@ -41,7 +41,7 @@ public class Config {
     public static final String CONSUMER_GROUP = "consumer.group";
 
     /**
-     * consumer group of kafka client consume message.
+     * consumer's offset will be periodically committed in the background.
      */
     public static final String COMMIT_ON_CHECKPOINT = "commit_on_checkpoint";
 

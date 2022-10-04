@@ -23,6 +23,7 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 | kafka.*            | kafka producer config  | no       | -             |
 | semantic           | string                 | no       | NON           |
 | partition          | int                    | no       | -             |
+| assign_partitions  | list                   | no       | -             |
 | transaction_prefix | string                 | no       | -             |
 | common-options     |                        | no       | -             |
 
@@ -54,6 +55,17 @@ NON does not provide any guarantees: messages may be lost in case of issues on t
 
 We can specify the partition, all messages will be sent to this partition.
 
+### assign_partitions [list]
+
+We can decide which partition to send based on the content of the message. The function of this parameter is to distribute information.
+
+For example, there are five partitions in total, and the assign_partitions field in config is as follows:
+assign_partitions = ["shoe", "clothing"]
+
+Then the message containing "shoe" will be sent to partition zero ,because "shoe" is subscripted as zero in assign_partitions, and the message containing "clothing" will be sent to partition one.For other messages, the hash algorithm will be used to divide them into the remaining partitions.
+
+This function by `CustomPartitioner` class implements `org.apache.kafka.clients.producer.Partitioner` interface.If we need custom partitions, we need to implement this interface as well.
+
 ### transaction_prefix [string]
 
 If semantic is specified as EXACTLY_ONCE, the producer will write all messages in a Kafka transaction.
@@ -64,8 +76,6 @@ Kafka distinguishes different transactions by different transactionId. This para
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
 
 ## Examples
-
-#### Exactly_Once
 
 ```hocon
 sink {
@@ -80,45 +90,3 @@ sink {
   
 }
 ```
-
-#### Custom Partitioner
-
-We should implement the `org.apache.kafka.clients.producer.Partitioner` interface, for example:
-
-```java
-//Determine the partition to send based on the content of the message
-public class CustomPartitioner implements Partitioner {
-    List<String> assignPartitions =  Arrays.asList("shoe", "clothing");
-    @Override
-    public int partition(String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-        //Get the total number of partitions
-        List<PartitionInfo> partitions = cluster.partitionsForTopic(topic);
-        int numPartitions = partitions.size();
-
-        int assignPartitionsSize = assignPartitions.size();
-        String message = new String(valueBytes); 
-        for (int i = 0; i < assignPartitionsSize; i++) {
-            if (message.contains(assignPartitions.get(i))) {
-                return i;
-            }
-        }
-        //Choose one of the remaining partitions according to the hashcode.
-        return ((message.hashCode() & Integer.MAX_VALUE) % (numPartitions - assignPartitionsSize)) + assignPartitionsSize;
-    }
-}
-```
-
-We also need to configure the full class name.
-
-```hocon
-sink {
-
-  kafka {
-      topic = "seatunnel"
-      bootstrap.servers = "localhost:9092"
-	  kafka.partitioner.class = "org.apache.seatunnel.connectors.seatunnel.kafka.sink.CustomPartitioner"
-  }
-  
-}
-```
-
