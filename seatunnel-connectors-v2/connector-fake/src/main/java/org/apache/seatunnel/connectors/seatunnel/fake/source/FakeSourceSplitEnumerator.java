@@ -36,12 +36,12 @@ public class FakeSourceSplitEnumerator implements SourceSplitEnumerator<FakeSour
     private static final Logger LOG = LoggerFactory.getLogger(FakeSourceSplitEnumerator.class);
     private final SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext;
     private final Map<Integer, Set<FakeSourceSplit>> pendingSplits;
-    private final Integer totalRowNum;
+    private final int rowNum;
 
-    public FakeSourceSplitEnumerator(SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext, Integer totalRowNum) {
+    public FakeSourceSplitEnumerator(SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext, int rowNum) {
         this.enumeratorContext = enumeratorContext;
         this.pendingSplits = new HashMap<>();
-        this.totalRowNum = totalRowNum;
+        this.rowNum = rowNum;
     }
 
     @Override
@@ -94,13 +94,8 @@ public class FakeSourceSplitEnumerator implements SourceSplitEnumerator<FakeSour
         List<FakeSourceSplit> allSplit = new ArrayList<>();
         LOG.info("Starting to calculate splits.");
         int numReaders = enumeratorContext.currentParallelism();
-
-        if (null != totalRowNum) {
-            for (int i = 1; i <= numReaders; i++) {
-                allSplit.add(new FakeSourceSplit(this.splitRowNum(totalRowNum, numReaders, i), i));
-            }
-        } else {
-            allSplit.add(new FakeSourceSplit(null, 0));
+        for (int i = 1; i <= numReaders; i++) {
+            allSplit.add(new FakeSourceSplit(rowNum, i));
         }
         for (FakeSourceSplit split : allSplit) {
             int ownerReader = split.getSplitId() % numReaders;
@@ -125,25 +120,5 @@ public class FakeSourceSplitEnumerator implements SourceSplitEnumerator<FakeSour
                 enumeratorContext.signalNoMoreSplits(pendingReader);
             }
         }
-    }
-
-    private Integer splitRowNum(int countNum, int splitNum, int current) {
-        if (countNum < splitNum && countNum % splitNum == countNum) {
-            if (current == 1) {
-                return countNum;
-            } else {
-                return 0;
-            }
-        } else if (countNum == splitNum && countNum % splitNum == 0) {
-            return countNum / splitNum;
-        } else if (countNum > splitNum) {
-            int a = countNum - (countNum % splitNum);
-            if (current == 1) {
-                return (a / splitNum) + (countNum % splitNum);
-            } else {
-                return a / splitNum;
-            }
-        }
-        return 0;
     }
 }
