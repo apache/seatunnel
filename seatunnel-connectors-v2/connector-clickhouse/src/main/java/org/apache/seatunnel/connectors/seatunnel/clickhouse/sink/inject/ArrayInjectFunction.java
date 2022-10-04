@@ -27,7 +27,7 @@ public class ArrayInjectFunction implements ClickhouseFieldInjectFunction {
 
     @Override
     public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
-        statement.setArray(index, (java.sql.Array) value);
+        statement.setArray(index, statement.getConnection().createArrayOf("varchar", new Object[]{value}));
     }
 
     @Override
