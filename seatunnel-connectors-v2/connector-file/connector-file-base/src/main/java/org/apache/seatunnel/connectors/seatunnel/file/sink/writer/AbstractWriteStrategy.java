@@ -39,6 +39,7 @@ import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -48,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
 public abstract class AbstractWriteStrategy implements WriteStrategy {
@@ -141,7 +143,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
                 stringBuilder.append(partitionFieldList.get(i))
                         .append("=")
                         .append(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)])
-                        .append("/");
+                        .append(File.separator);
                 vals.add(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)].toString());
             }
             partitionDir = stringBuilder.toString();
@@ -236,7 +238,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      */
     public List<String> getTransactionIdFromStates(List<FileSinkState> fileStates) {
         String[] pathSegments = new String[]{textFileSinkConfig.getPath(), Constant.SEATUNNEL, jobId};
-        String jobDir = String.join("/", pathSegments) + "/";
+        String jobDir = String.join(File.separator, pathSegments) + File.separator;
         try {
             List<String> transactionDirList = FileSystemUtils.dirList(jobDir).stream().map(Path::toString).collect(Collectors.toList());
             return transactionDirList.stream().map(dir -> dir.replaceAll(jobDir, "")).collect(Collectors.toList());
@@ -266,7 +268,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      */
     private String getTransactionDir(@NonNull String transactionId) {
         String[] strings = new String[]{textFileSinkConfig.getTmpPath(), Constant.SEATUNNEL, jobId, transactionId};
-        return String.join("/", strings);
+        return String.join(File.separator, strings);
     }
 
     public String getOrCreateFilePathBeingWritten(@NonNull SeaTunnelRow seaTunnelRow) {
@@ -278,7 +280,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
             return beingWrittenFilePath;
         } else {
             String[] pathSegments = new String[]{transactionDirectory, beingWrittenFileKey, generateFileName(transactionId)};
-            String newBeingWrittenFilePath = String.join("/", pathSegments);
+            String newBeingWrittenFilePath = String.join(File.separator, pathSegments);
             beingWrittenFile.put(beingWrittenFileKey, newBeingWrittenFilePath);
             if (!Constant.NON_PARTITION.equals(dataPartitionDirAndValuesMap.keySet().toArray()[0].toString())){
                 partitionDirAndValuesMap.putAll(dataPartitionDirAndValuesMap);
@@ -288,7 +290,8 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     }
 
     public String getTargetLocation(@NonNull String seaTunnelFilePath) {
-        String tmpPath = seaTunnelFilePath.replaceAll(transactionDirectory, textFileSinkConfig.getPath());
-        return tmpPath.replaceAll(Constant.NON_PARTITION + "/", "");
+        String tmpPath = seaTunnelFilePath.replaceAll(Matcher.quoteReplacement(transactionDirectory),
+                Matcher.quoteReplacement(textFileSinkConfig.getPath()));
+        return tmpPath.replaceAll(Constant.NON_PARTITION + Matcher.quoteReplacement(File.separator), "");
     }
 }
