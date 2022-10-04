@@ -26,9 +26,9 @@ import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,7 +40,7 @@ public class FileSystemUtils {
     public static Configuration CONF;
 
     public static FileSystem getFileSystem(@NonNull String path) throws IOException {
-        FileSystem fileSystem = FileSystem.get(URI.create(path), CONF);
+        FileSystem fileSystem = FileSystem.get(new File(path).toURI(), CONF);
         fileSystem.setWriteChecksum(false);
         return fileSystem;
     }
@@ -89,8 +89,8 @@ public class FileSystemUtils {
                 LOGGER.info("Delete already file: {}", newPath);
             }
         }
-        if (!fileExist(newName.substring(0, newName.lastIndexOf("/")))) {
-            createDir(newName.substring(0, newName.lastIndexOf("/")));
+        if (!fileExist(newPath.getParent().toString())) {
+            createDir(newPath.getParent().toString());
         }
 
         if (fileSystem.rename(oldPath, newPath)) {
@@ -119,7 +119,7 @@ public class FileSystemUtils {
      */
     public static List<Path> dirList(@NonNull String filePath) throws FileNotFoundException, IOException {
         FileSystem fileSystem = getFileSystem(filePath);
-        List<Path> pathList = new ArrayList<Path>();
+        List<Path> pathList = new ArrayList<>();
         Path fileName = new Path(filePath);
         FileStatus[] status = fileSystem.listStatus(fileName);
         if (status != null && status.length > 0) {
