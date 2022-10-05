@@ -19,11 +19,12 @@ package org.apache.seatunnel.core.starter.spark.execution;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
 import org.apache.seatunnel.spark.SparkEnvironment;
-import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
+import org.apache.seatunnel.translation.spark.common.utils.TypeConverterUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -53,10 +54,18 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
         List<Dataset<Row>> sources = new ArrayList<>();
         for (int i = 0; i < plugins.size(); i++) {
             SeaTunnelSource<?, ?, ?> source = plugins.get(i);
+            Config pluginConfig = pluginConfigs.get(i);
+            int parallelism;
+            if (pluginConfig.hasPath(Constants.SOURCE_PARALLELISM)) {
+                parallelism = pluginConfig.getInt(Constants.SOURCE_PARALLELISM);
+            } else {
+                parallelism = sparkEnvironment.getSparkConf().getInt(Constants.SOURCE_PARALLELISM, 1);
+            }
             Dataset<Row> dataset = sparkEnvironment.getSparkSession()
                 .read()
                 .format(SeaTunnelSource.class.getSimpleName())
-                .option("source.serialization", SerializationUtils.objectToString(source))
+                .option(Constants.SOURCE_PARALLELISM, parallelism)
+                .option(Constants.SOURCE_SERIALIZATION, SerializationUtils.objectToString(source))
                 .schema((StructType) TypeConverterUtils.convert(source.getProducedType())).load();
             sources.add(dataset);
             registerInputTempView(pluginConfigs.get(i), dataset);

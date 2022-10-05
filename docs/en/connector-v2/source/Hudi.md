@@ -1,21 +1,36 @@
 # Hudi
 
+> Hudi source connector
+
 ## Description
 
 Used to read data from Hudi. Currently, only supports hudi cow table and Snapshot Query with Batch Mode.
 
 In order to use this connector, You must ensure your spark/flink cluster already integrated hive. The tested hive version is 2.3.9.
 
+## Key features
+
+- [x] [batch](../../concept/connector-v2-features.md)
+
+Currently, only supports hudi cow table and Snapshot Query with Batch Mode
+
+- [ ] [stream](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [schema projection](../../concept/connector-v2-features.md)
+- [x] [parallelism](../../concept/connector-v2-features.md)
+- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+
 ## Options
 
-| name                     | type    | required | default value |
-|--------------------------|---------|----------|---------------|
-| table.path               | string  | yes      | -             |
-| table.type               | string  | yes      | -             |
-| conf.files               | string  | yes      | -             |
-| use.kerberos             | boolean | no       | false         |
-| kerberos.principal       | string  | no       | -             |
-| kerberos.principal.file  | string  | no       | -             |
+| name                    | type    | required | default value |
+| ----------------------- | ------- | -------- | ------------- |
+| table.path              | string  | yes      | -             |
+| table.type              | string  | yes      | -             |
+| conf.files              | string  | yes      | -             |
+| use.kerberos            | boolean | no       | false         |
+| kerberos.principal      | string  | no       | -             |
+| kerberos.principal.file | string  | no       | -             |
+| common-options          |         | no       | -             |
 
 ### table.path [string]
 
@@ -40,6 +55,10 @@ In order to use this connector, You must ensure your spark/flink cluster already
 ### kerberos.principal.file [string]
 
 `kerberos.principal.file` When use kerberos,  we should set kerberos princal file such as '/home/test/test_user.keytab'.
+
+### common options 
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
 ## Examples
 

@@ -33,9 +33,11 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.util.Collections;
 import java.util.Map;
@@ -44,8 +46,9 @@ import java.util.concurrent.TimeUnit;
 /**
  * JobMaster Tester.
  */
+@DisabledOnOs(OS.WINDOWS)
 public class JobMasterTest extends AbstractSeaTunnelServerTest {
-    private Long jobId;
+    private static Long JOB_ID;
 
     /**
      * IMap key is jobId and value is a Tuple2
@@ -87,32 +90,32 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
      */
     private IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap;
 
-    @Before
-    public void before() {
-        super.before();
-        jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+    @BeforeAll
+    public static void before() {
+        AbstractSeaTunnelServerTest.before();
+        JOB_ID = INSTANCE.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
     }
 
     @Test
     public void testHandleCheckpointTimeout() throws Exception {
         LogicalDag testLogicalDag =
-            TestUtils.createTestLogicalPlan("stream_fakesource_to_file.conf", "test_clear_coordinator_service", jobId);
+            TestUtils.createTestLogicalPlan("stream_fakesource_to_file.conf", "test_clear_coordinator_service", JOB_ID);
 
-        JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(jobId,
-            nodeEngine.getSerializationService().toData(testLogicalDag), testLogicalDag.getJobConfig(),
+        JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(JOB_ID,
+            NODE_ENGINE.getSerializationService().toData(testLogicalDag), testLogicalDag.getJobConfig(),
             Collections.emptyList());
 
-        Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
+        Data data = NODE_ENGINE.getSerializationService().toData(jobImmutableInformation);
 
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
-            server.getCoordinatorService().submitJob(jobId, data);
+            SERVER.getCoordinatorService().submitJob(JOB_ID, data);
         voidPassiveCompletableFuture.join();
 
-        JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
+        JobMaster jobMaster = SERVER.getCoordinatorService().getJobMaster(JOB_ID);
 
         // waiting for job status turn to running
         await().atMost(60000, TimeUnit.MILLISECONDS)
-            .untilAsserted(() -> Assert.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
+            .untilAsserted(() -> Assertions.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
 
         // call checkpoint timeout
         jobMaster.handleCheckpointTimeout(1);
@@ -122,7 +125,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
 
         // test job still run
         await().atMost(60000, TimeUnit.MILLISECONDS)
-            .untilAsserted(() -> Assert.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
+            .untilAsserted(() -> Assertions.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
 
         PassiveCompletableFuture<JobStatus> jobMasterCompleteFuture = jobMaster.getJobMasterCompleteFuture();
         // cancel job
@@ -130,46 +133,46 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
 
         // test job turn to complete
         await().atMost(60000, TimeUnit.MILLISECONDS)
-            .untilAsserted(() -> Assert.assertTrue(
+            .untilAsserted(() -> Assertions.assertTrue(
                 jobMasterCompleteFuture.isDone() && JobStatus.CANCELED.equals(jobMasterCompleteFuture.get())));
 
         testIMapRemovedAfterJobComplete(jobMaster);
     }
 
     private void testIMapRemovedAfterJobComplete(JobMaster jobMaster) {
-        runningJobInfoIMap = nodeEngine.getHazelcastInstance().getMap("runningJobInfo");
-        runningJobStateIMap = nodeEngine.getHazelcastInstance().getMap("runningJobState");
-        runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap("stateTimestamps");
-        ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
+        runningJobInfoIMap = NODE_ENGINE.getHazelcastInstance().getMap("runningJobInfo");
+        runningJobStateIMap = NODE_ENGINE.getHazelcastInstance().getMap("runningJobState");
+        runningJobStateTimestampsIMap = NODE_ENGINE.getHazelcastInstance().getMap("stateTimestamps");
+        ownedSlotProfilesIMap = NODE_ENGINE.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
 
         await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {
-                Assert.assertNull(runningJobInfoIMap.get(jobId));
-                Assert.assertNull(runningJobStateIMap.get(jobId));
-                Assert.assertNull(runningJobStateTimestampsIMap.get(jobId));
-                Assert.assertNull(ownedSlotProfilesIMap.get(jobId));
+                Assertions.assertNull(runningJobInfoIMap.get(JOB_ID));
+                Assertions.assertNull(runningJobStateIMap.get(JOB_ID));
+                Assertions.assertNull(runningJobStateTimestampsIMap.get(JOB_ID));
+                Assertions.assertNull(ownedSlotProfilesIMap.get(JOB_ID));
 
                 jobMaster.getPhysicalPlan().getPipelineList().forEach(pipeline -> {
-                    Assert.assertNull(
+                    Assertions.assertNull(
                         runningJobStateIMap.get(pipeline.getPipelineLocation()));
 
-                    Assert.assertNull(
+                    Assertions.assertNull(
                         runningJobStateTimestampsIMap.get(pipeline.getPipelineLocation()));
                 });
                 jobMaster.getPhysicalPlan().getPipelineList().forEach(pipeline -> {
                     pipeline.getCoordinatorVertexList().forEach(coordinator -> {
-                        Assert.assertNull(
+                        Assertions.assertNull(
                             runningJobStateIMap.get(coordinator.getTaskGroupLocation()));
 
-                        Assert.assertNull(
+                        Assertions.assertNull(
                             runningJobStateTimestampsIMap.get(coordinator.getTaskGroupLocation()));
                     });
 
                     pipeline.getPhysicalVertexList().forEach(task -> {
-                        Assert.assertNull(
+                        Assertions.assertNull(
                             runningJobStateIMap.get(task.getTaskGroupLocation()));
 
-                        Assert.assertNull(
+                        Assertions.assertNull(
                             runningJobStateTimestampsIMap.get(task.getTaskGroupLocation()));
                     });
                 });

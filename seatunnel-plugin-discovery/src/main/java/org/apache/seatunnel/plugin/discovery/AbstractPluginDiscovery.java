@@ -110,8 +110,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             } catch (Exception e) {
                 LOGGER.warn("can't load jar use current thread classloader, use URLClassLoader instead now." +
                     " message: " + e.getMessage());
-                classLoader =
-                    new URLClassLoader(new URL[]{pluginJarPath.get()}, Thread.currentThread().getContextClassLoader());
+                classLoader = new URLClassLoader(new URL[]{pluginJarPath.get()}, Thread.currentThread().getContextClassLoader());
             }
             pluginInstance = loadPluginInstance(pluginIdentifier, classLoader);
             if (pluginInstance != null) {
@@ -136,8 +135,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             } else if (t instanceof PluginIdentifierInterface) {
                 // new api
                 PluginIdentifierInterface pluginIdentifierInstance = (PluginIdentifierInterface) t;
-                if (StringUtils.equalsIgnoreCase(pluginIdentifierInstance.getPluginName(),
-                    pluginIdentifier.getPluginName())) {
+                if (StringUtils.equalsIgnoreCase(pluginIdentifierInstance.getPluginName(), pluginIdentifier.getPluginName())) {
                     return (T) pluginIdentifierInstance;
                 }
             } else {
@@ -195,8 +193,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         File[] targetPluginFiles = pluginDir.toFile().listFiles(new FileFilter() {
             @Override
             public boolean accept(File pathname) {
-                return pathname.getName().endsWith(".jar") &&
-                    StringUtils.startsWithIgnoreCase(pathname.getName(), pluginJarPrefix);
+                return pathname.getName().endsWith(".jar") && StringUtils.startsWithIgnoreCase(pathname.getName(), pluginJarPrefix);
             }
         });
         if (ArrayUtils.isEmpty(targetPluginFiles)) {

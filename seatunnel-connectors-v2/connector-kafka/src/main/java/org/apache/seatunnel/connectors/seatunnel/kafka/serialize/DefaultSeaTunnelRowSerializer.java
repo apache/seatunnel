@@ -19,32 +19,22 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.serialize;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.Common;
-import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
 
-import java.util.HashMap;
-import java.util.Map;
-
-public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<String, String> {
+public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byte[], byte[]> {
 
     private final String topic;
-    private final SeaTunnelRowType seaTunnelRowType;
+    private final JsonSerializationSchema jsonSerializationSchema;
 
     public DefaultSeaTunnelRowSerializer(String topic, SeaTunnelRowType seaTunnelRowType) {
         this.topic = topic;
-        this.seaTunnelRowType = seaTunnelRowType;
+        this.jsonSerializationSchema = new JsonSerializationSchema(seaTunnelRowType);
     }
 
     @Override
-    public ProducerRecord<String, String> serializeRow(SeaTunnelRow row) {
-        Map<Object, Object> map = new HashMap<>(Common.COLLECTION_SIZE);
-        String[] fieldNames = seaTunnelRowType.getFieldNames();
-        Object[] fields = row.getFields();
-        for (int i = 0; i < fieldNames.length; i++) {
-            map.put(fieldNames[i], fields[i]);
-        }
-        return new ProducerRecord<>(topic, null, JsonUtils.toJsonString(map));
+    public ProducerRecord<byte[], byte[]> serializeRow(SeaTunnelRow row) {
+        return new ProducerRecord<>(topic, null, jsonSerializationSchema.serialize(row));
     }
 }

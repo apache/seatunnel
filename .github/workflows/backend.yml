@@ -23,11 +23,6 @@ on:
       - 'docs/**'
       - '**/*.md'
       - 'seatunnel-ui/**'
-      - 'seatunnel-engine/**'
-      - 'seatunnel-e2e/seatunnel-engine-e2e/**'
-      - 'seatunnel-examples/seatunnel-engine-examples/**'
-      - 'seatunnel-core/seatunnel-seatunnel-starter/**'
-      - 'generate_client_protocol.sh'
 
 concurrency:
   group: backend-${{ github.event.pull_request.number || github.ref }}
@@ -115,7 +110,8 @@ jobs:
           -D"maven.wagon.httpconnectionManager.ttlSeconds"=120
 
   dependency-license:
-    if: github.repository == 'apache/incubator-seatunnel'
+    # This job has somethings need todo, and it is not a blocker for the release.
+    if: "contains(toJSON(github.event.commits.*.message), '[ci-auto-license]')"
     name: Dependency licenses
     needs: [ sanity-check ]
     runs-on: ubuntu-latest
@@ -148,7 +144,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest', 'windows-latest' ]
-    timeout-minutes: 80
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}
@@ -171,7 +167,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 80
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}

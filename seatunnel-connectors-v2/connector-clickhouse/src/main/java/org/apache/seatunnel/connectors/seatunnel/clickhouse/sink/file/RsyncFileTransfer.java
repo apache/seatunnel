@@ -37,13 +37,15 @@ public class RsyncFileTransfer implements FileTransfer {
     private static final int SSH_PORT = 22;
 
     private final String host;
+    private final String user;
     private final String password;
 
     private ClientSession clientSession;
     private SshClient sshClient;
 
-    public RsyncFileTransfer(String host, String password) {
+    public RsyncFileTransfer(String host, String user, String password) {
         this.host = host;
+        this.user = user;
         this.password = password;
     }
 
@@ -52,7 +54,7 @@ public class RsyncFileTransfer implements FileTransfer {
         try {
             sshClient = SshClient.setUpDefaultClient();
             sshClient.start();
-            clientSession = sshClient.connect("root", host, SSH_PORT).verify().getSession();
+            clientSession = sshClient.connect(user, host, SSH_PORT).verify().getSession();
             if (password != null) {
                 clientSession.addPasswordIdentity(password);
             }
@@ -61,7 +63,7 @@ public class RsyncFileTransfer implements FileTransfer {
                 throw new IOException("ssh host " + host + "authentication failed");
             }
         } catch (IOException e) {
-            throw new RuntimeException("Failed to connect to host: " + host + " by user: root on port 22", e);
+            throw new RuntimeException("Failed to connect to host: " + host + " by user: " + user + " on port 22", e);
         }
     }
 

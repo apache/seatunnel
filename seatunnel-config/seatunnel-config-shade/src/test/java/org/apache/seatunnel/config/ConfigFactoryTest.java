@@ -22,8 +22,8 @@ import org.apache.seatunnel.config.utils.FileUtils;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.net.URISyntaxException;
 import java.util.Arrays;
@@ -36,21 +36,21 @@ public class ConfigFactoryTest {
 
         Config config = ConfigFactory.parseFile(FileUtils.getFileFromResources("/factory/config.conf"));
 
-        Assert.assertTrue(config.hasPath("env"));
-        Assert.assertTrue(config.hasPath("source"));
-        Assert.assertTrue(config.hasPath("transform"));
-        Assert.assertTrue(config.hasPath("sink"));
+        Assertions.assertTrue(config.hasPath("env"));
+        Assertions.assertTrue(config.hasPath("source"));
+        Assertions.assertTrue(config.hasPath("transform"));
+        Assertions.assertTrue(config.hasPath("sink"));
 
         // check evn config
         Config env = config.getConfig("env");
-        Assert.assertEquals("SeaTunnel", env.getString("spark.app.name"));
-        Assert.assertEquals("2", env.getString("spark.executor.instances"));
-        Assert.assertEquals("1", env.getString("spark.executor.cores"));
-        Assert.assertEquals("1g", env.getString("spark.executor.memory"));
-        Assert.assertEquals("5", env.getString("spark.streaming.batchDuration"));
+        Assertions.assertEquals("SeaTunnel", env.getString("spark.app.name"));
+        Assertions.assertEquals("2", env.getString("spark.executor.instances"));
+        Assertions.assertEquals("1", env.getString("spark.executor.cores"));
+        Assertions.assertEquals("1g", env.getString("spark.executor.memory"));
+        Assertions.assertEquals("5", env.getString("spark.stream.batchDuration"));
 
         // check custom plugin
-        Assert.assertEquals("c.Console", config.getConfigList("sink").get(1).getString("plugin_name"));
+        Assertions.assertEquals("c.Console", config.getConfigList("sink").get(1).getString("plugin_name"));
     }
 
     @Test
@@ -61,11 +61,11 @@ public class ConfigFactoryTest {
         String[] pluginNames = {"split", "sql1", "sql2", "sql3", "json"};
 
         List<? extends Config> transforms = config.getConfigList("transform");
-        Assert.assertEquals(pluginNames.length, transforms.size());
+        Assertions.assertEquals(pluginNames.length, transforms.size());
 
         for (int i = 0; i < transforms.size(); i++) {
             String parsedPluginName = String.valueOf(transforms.get(i).root().get("plugin_name").unwrapped());
-            Assert.assertEquals(pluginNames[i], parsedPluginName);
+            Assertions.assertEquals(pluginNames[i], parsedPluginName);
         }
 
     }
@@ -73,11 +73,11 @@ public class ConfigFactoryTest {
     @Test
     public void testQuotedString() throws URISyntaxException {
         List<String> keys = Arrays.asList("spark.app.name", "spark.executor.instances", "spark.executor.cores",
-                "spark.executor.memory", "spark.streaming.batchDuration");
+                "spark.executor.memory", "spark.stream.batchDuration");
 
         Config config = ConfigFactory.parseFile(FileUtils.getFileFromResources("/factory/config.conf"));
         Config evnConfig = config.getConfig("env");
-        evnConfig.entrySet().forEach(entry -> Assert.assertTrue(keys.contains(entry.getKey())));
+        evnConfig.entrySet().forEach(entry -> Assertions.assertTrue(keys.contains(entry.getKey())));
 
     }
 }

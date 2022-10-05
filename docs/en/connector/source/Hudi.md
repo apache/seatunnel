@@ -1,5 +1,7 @@
 # Hudi
 
+> Hudi source connector
+
 ## Description
 
 Read data from Hudi.

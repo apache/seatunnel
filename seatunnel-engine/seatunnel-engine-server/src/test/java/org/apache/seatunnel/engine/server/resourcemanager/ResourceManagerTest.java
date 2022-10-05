@@ -23,9 +23,9 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.Memory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,15 +33,15 @@ import java.util.concurrent.ExecutionException;
 
 public class ResourceManagerTest extends AbstractSeaTunnelServerTest {
 
-    private ResourceManager resourceManager;
+    private static ResourceManager RESOURCE_MANAGER;
 
     private final long jobId = 5;
 
-    @Before
-    public void before() {
-        super.before();
-        resourceManager = server.getCoordinatorService().getResourceManager();
-        server.getSlotService();
+    @BeforeAll
+    public static void before() {
+        AbstractSeaTunnelServerTest.before();
+        RESOURCE_MANAGER = SERVER.getCoordinatorService().getResourceManager();
+        SERVER.getSlotService();
     }
 
     @Test
@@ -50,19 +50,19 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest {
         resourceProfiles.add(new ResourceProfile(CPU.of(0), Memory.of(100)));
         resourceProfiles.add(new ResourceProfile(CPU.of(0), Memory.of(200)));
         resourceProfiles.add(new ResourceProfile(CPU.of(0), Memory.of(300)));
-        List<SlotProfile> slotProfiles = resourceManager.applyResources(jobId, resourceProfiles).get();
+        List<SlotProfile> slotProfiles = RESOURCE_MANAGER.applyResources(jobId, resourceProfiles).get();
 
-        Assert.assertEquals(resourceProfiles.get(0).getHeapMemory().getBytes(), slotProfiles.get(0).getResourceProfile().getHeapMemory().getBytes());
-        Assert.assertEquals(resourceProfiles.get(1).getHeapMemory().getBytes(), slotProfiles.get(1).getResourceProfile().getHeapMemory().getBytes());
-        Assert.assertEquals(resourceProfiles.get(2).getHeapMemory().getBytes(), slotProfiles.get(2).getResourceProfile().getHeapMemory().getBytes());
+        Assertions.assertEquals(resourceProfiles.get(0).getHeapMemory().getBytes(), slotProfiles.get(0).getResourceProfile().getHeapMemory().getBytes());
+        Assertions.assertEquals(resourceProfiles.get(1).getHeapMemory().getBytes(), slotProfiles.get(1).getResourceProfile().getHeapMemory().getBytes());
+        Assertions.assertEquals(resourceProfiles.get(2).getHeapMemory().getBytes(), slotProfiles.get(2).getResourceProfile().getHeapMemory().getBytes());
 
-        Assert.assertThrows(ExecutionException.class, () -> resourceManager.releaseResources(jobId + 1, slotProfiles).get());
+        Assertions.assertThrows(ExecutionException.class, () -> RESOURCE_MANAGER.releaseResources(jobId + 1, slotProfiles).get());
 
-        resourceManager.releaseResources(jobId, slotProfiles).get();
+        RESOURCE_MANAGER.releaseResources(jobId, slotProfiles).get();
 
-        Assert.assertThrows(ExecutionException.class, () -> resourceManager.releaseResources(jobId, slotProfiles).get());
+        Assertions.assertThrows(ExecutionException.class, () -> RESOURCE_MANAGER.releaseResources(jobId, slotProfiles).get());
 
-        Assert.assertThrows(ExecutionException.class, () -> resourceManager.applyResource(jobId, new ResourceProfile(CPU.of(0), Memory.of(Long.MAX_VALUE))).get());
+        Assertions.assertThrows(ExecutionException.class, () -> RESOURCE_MANAGER.applyResource(jobId, new ResourceProfile(CPU.of(0), Memory.of(Long.MAX_VALUE))).get());
     }
 
 }

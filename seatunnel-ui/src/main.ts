@@ -24,6 +24,10 @@ import router from './router'
 import utils from '@/utils'
 import './index.css'
 
+const meta = document.createElement('meta')
+meta.name = 'naive-ui-style'
+document.head.appendChild(meta)
+
 const app = createApp(App)
 const pinia = createPinia()
 

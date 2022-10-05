@@ -31,8 +31,15 @@
 
     <properties>
         <spark.scope>compile</spark.scope>
+        <spark.2.4.0.jackson.version>2.6.7</spark.2.4.0.jackson.version>
     </properties>
     <dependencies>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${spark.2.4.0.jackson.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-spark-starter</artifactId>
@@ -56,29 +63,35 @@
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-streaming_${scala.binary.version}</artifactId>
-            <version>${spark.version}</version>
+            <version>${spark.2.4.0.version}</version>
             <scope>${spark.scope}</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_${scala.binary.version}</artifactId>
-            <version>${spark.version}</version>
+            <version>${spark.2.4.0.version}</version>
             <scope>${spark.scope}</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-sql_${scala.binary.version}</artifactId>
-            <version>${spark.version}</version>
+            <version>${spark.2.4.0.version}</version>
             <scope>${spark.scope}</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-hive_${scala.binary.version}</artifactId>
-            <version>${spark.version}</version>
+            <version>${spark.2.4.0.version}</version>
             <scope>${spark.scope}</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.glassfish.web</groupId>
+                    <artifactId>javax.servlet.jsp</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

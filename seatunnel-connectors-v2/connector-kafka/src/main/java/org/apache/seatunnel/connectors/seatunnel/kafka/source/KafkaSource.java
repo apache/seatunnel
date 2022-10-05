@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVER;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.COMMIT_ON_CHECKPOINT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONSUMER_GROUP;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PATTERN;
@@ -67,7 +67,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(config, TOPIC, BOOTSTRAP_SERVER);
+        CheckResult result = CheckConfigUtil.checkAllExists(config, TOPIC, BOOTSTRAP_SERVERS);
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
@@ -75,7 +75,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
         if (config.hasPath(PATTERN)) {
             this.metadata.setPattern(config.getBoolean(PATTERN));
         }
-        this.metadata.setBootstrapServer(config.getString(BOOTSTRAP_SERVER));
+        this.metadata.setBootstrapServers(config.getString(BOOTSTRAP_SERVERS));
         this.metadata.setProperties(new Properties());
 
         if (config.hasPath(CONSUMER_GROUP)) {

@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.app.dal.dao.impl;
 
-import static org.apache.seatunnel.app.common.SeatunnelErrorEnum.SCRIPT_ALREADY_EXIST;
+import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.SCRIPT_ALREADY_EXIST;
 import static com.google.common.base.Preconditions.checkState;
 
 import org.apache.seatunnel.app.common.ScriptStatusEnum;
@@ -28,6 +28,7 @@ import org.apache.seatunnel.app.domain.dto.script.AddEmptyScriptDto;
 import org.apache.seatunnel.app.domain.dto.script.CheckScriptDuplicateDto;
 import org.apache.seatunnel.app.domain.dto.script.ListScriptsDto;
 import org.apache.seatunnel.app.domain.dto.script.UpdateScriptContentDto;
+import org.apache.seatunnel.server.common.PageData;
 
 import org.springframework.stereotype.Repository;
 
@@ -76,11 +77,14 @@ public class ScriptDaoImpl implements IScriptDao {
     }
 
     @Override
-    public List<Script> list(ListScriptsDto dto, Integer pageNo, Integer pageSize) {
+    public PageData<Script> list(ListScriptsDto dto, Integer pageNo, Integer pageSize) {
         final Script script = new Script();
         script.setName(dto.getName());
         script.setStatus(dto.getStatus());
 
-        return scriptMapper.selectBySelectiveAndPage(script, pageNo * pageSize, pageSize);
+        final List<Script> scripts = scriptMapper.selectBySelectiveAndPage(script, pageNo * pageSize, pageSize);
+        int count = scriptMapper.countBySelectiveAndPage(script);
+
+        return new PageData<Script>(count, scripts);
     }
 }

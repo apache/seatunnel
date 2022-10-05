@@ -29,6 +29,11 @@
     <artifactId>seatunnel-engine-e2e</artifactId>
     <packaging>pom</packaging>
 
+    <properties>
+        <!--  SeaTunnel Engine use     -->
+        <hazelcast.version>5.1</hazelcast.version>
+    </properties>
+
     <modules>
         <module>connector-seatunnel-e2e-base</module>
         <module>connector-console-seatunnel-e2e</module>
@@ -38,6 +43,7 @@
         <dependency>
             <groupId>com.hazelcast</groupId>
             <artifactId>hazelcast</artifactId>
+            <version>${hazelcast.version}</version>
             <scope>test</scope>
             <classifier>tests</classifier>
         </dependency>
@@ -58,28 +64,8 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connectors-v2-dist</artifactId>
-            <version>${project.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>*</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-engine-server</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.awaitility</groupId>
-            <artifactId>awaitility</artifactId>
-            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>

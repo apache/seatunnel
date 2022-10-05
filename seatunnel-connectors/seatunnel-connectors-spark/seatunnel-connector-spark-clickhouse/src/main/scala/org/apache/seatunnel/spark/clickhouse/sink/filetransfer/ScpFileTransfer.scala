@@ -23,10 +23,12 @@ import org.apache.sshd.scp.client.{ScpClient, ScpClientCreator}
 
 class ScpFileTransfer(host: String) extends FileTransfer {
 
+  var username: String = _
   var password: String = _
 
-  def this(host: String, password: String) {
+  def this(host: String, username: String, password: String) {
     this(host)
+    this.username = username
     this.password = password
   }
 
@@ -60,7 +62,7 @@ class ScpFileTransfer(host: String) extends FileTransfer {
   override def init(): Unit = {
     client = SshClient.setUpDefaultClient()
     client.start()
-    session = client.connect("root", this.host, 22).verify().getSession
+    session = client.connect(username, this.host, 22).verify().getSession
     if (password != null) {
       session.addPasswordIdentity(this.password)
     }

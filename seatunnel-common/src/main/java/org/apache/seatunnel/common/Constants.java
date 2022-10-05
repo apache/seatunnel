@@ -23,6 +23,28 @@ public final class Constants {
 
     public static final String LOGO = "SeaTunnel";
 
+    public static final String SOURCE = "source";
+
+    public static final String TRANSFORM = "transform";
+
+    public static final String SINK = "sink";
+
+    public static final String SOURCE_SERIALIZATION = "source.serialization";
+
+    public static final String SOURCE_PARALLELISM = "parallelism";
+
+    public static final String HDFS_ROOT = "hdfs.root";
+
+    public static final String HDFS_USER = "hdfs.user";
+
+    public static final String CHECKPOINT_INTERVAL = "checkpoint.interval";
+
+    public static final String CHECKPOINT_ID = "checkpoint.id";
+
+    public static final String UUID = "uuid";
+
+    public static final String NOW = "now";
+
     private Constants() {
     }
 }

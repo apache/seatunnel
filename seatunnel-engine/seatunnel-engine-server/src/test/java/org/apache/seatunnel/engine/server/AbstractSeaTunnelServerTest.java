@@ -20,31 +20,31 @@ package org.apache.seatunnel.engine.server;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.NodeEngine;
-import org.junit.After;
-import org.junit.Before;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 
 public abstract class AbstractSeaTunnelServerTest {
 
-    protected SeaTunnelServer server;
+    protected static SeaTunnelServer SERVER;
 
-    protected NodeEngine nodeEngine;
+    protected static NodeEngine NODE_ENGINE;
 
-    protected HazelcastInstanceImpl instance;
+    protected static HazelcastInstanceImpl INSTANCE;
 
-    protected ILogger logger;
+    protected static ILogger LOGGER;
 
-    @Before
-    public void before() {
-        instance = SeaTunnelServerStarter.createHazelcastInstance(
-            TestUtils.getClusterName(this.getClass().getSimpleName() + "_" + System.currentTimeMillis()));
-        nodeEngine = instance.node.nodeEngine;
-        server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
-        logger = nodeEngine.getLogger(this.getClass());
+    @BeforeAll
+    public static void before() {
+        INSTANCE = SeaTunnelServerStarter.createHazelcastInstance(
+            TestUtils.getClusterName("AbstractSeaTunnelServerTest_" + System.currentTimeMillis()));
+        NODE_ENGINE = INSTANCE.node.nodeEngine;
+        SERVER = NODE_ENGINE.getService(SeaTunnelServer.SERVICE_NAME);
+        LOGGER = NODE_ENGINE.getLogger(AbstractSeaTunnelServerTest.class);
     }
 
-    @After
-    public void after() {
-        server.shutdown(true);
-        instance.shutdown();
+    @AfterAll
+    public static void after() {
+        SERVER.shutdown(true);
+        INSTANCE.shutdown();
     }
 }

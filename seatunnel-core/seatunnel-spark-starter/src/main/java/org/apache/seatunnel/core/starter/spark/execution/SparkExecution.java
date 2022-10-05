@@ -18,6 +18,7 @@
 package org.apache.seatunnel.core.starter.spark.execution;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.spark.config.SparkEnvironmentFactory;
 import org.apache.seatunnel.spark.SparkEnvironment;
@@ -35,7 +36,6 @@ import java.util.List;
 public class SparkExecution {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SparkExecution.class);
-
     private final SparkEnvironment sparkEnvironment;
     private final PluginExecuteProcessor sourcePluginExecuteProcessor;
     private final PluginExecuteProcessor transformPluginExecuteProcessor;
@@ -45,9 +45,9 @@ public class SparkExecution {
         this.sparkEnvironment = new SparkEnvironmentFactory(config).getEnvironment();
         JobContext jobContext = new JobContext();
         jobContext.setJobMode(sparkEnvironment.getJobMode());
-        this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(sparkEnvironment, jobContext, config.getConfigList("source"));
-        this.transformPluginExecuteProcessor = new TransformExecuteProcessor(sparkEnvironment, jobContext, config.getConfigList("transform"));
-        this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(sparkEnvironment, jobContext, config.getConfigList("sink"));
+        this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(sparkEnvironment, jobContext, config.getConfigList(Constants.SOURCE));
+        this.transformPluginExecuteProcessor = new TransformExecuteProcessor(sparkEnvironment, jobContext, config.getConfigList(Constants.TRANSFORM));
+        this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(sparkEnvironment, jobContext, config.getConfigList(Constants.SINK));
     }
 
     public void execute() throws TaskExecuteException {

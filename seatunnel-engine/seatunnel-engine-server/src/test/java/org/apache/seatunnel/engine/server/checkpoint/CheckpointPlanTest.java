@@ -35,8 +35,8 @@ import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 
 import com.hazelcast.map.IMap;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.Map;
@@ -55,33 +55,33 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
         config.setName("test");
 
         JobImmutableInformation jobInfo = new JobImmutableInformation(1,
-            nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
+            NODE_ENGINE.getSerializationService().toData(logicalDag), config, Collections.emptyList());
 
-        IMap<Object, Object> runningJobState = nodeEngine.getHazelcastInstance().getMap("testRunningJobState");
+        IMap<Object, Object> runningJobState = NODE_ENGINE.getHazelcastInstance().getMap("testRunningJobState");
         IMap<Object, Long[]> runningJobStateTimestamp =
-            nodeEngine.getHazelcastInstance().getMap("testRunningJobStateTimestamp");
+            NODE_ENGINE.getHazelcastInstance().getMap("testRunningJobStateTimestamp");
 
-        Map<Integer, CheckpointPlan> checkpointPlans = PlanUtils.fromLogicalDAG(logicalDag, nodeEngine,
+        Map<Integer, CheckpointPlan> checkpointPlans = PlanUtils.fromLogicalDAG(logicalDag, NODE_ENGINE,
             jobInfo,
             System.currentTimeMillis(),
             Executors.newCachedThreadPool(),
-            instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
+            INSTANCE.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
             runningJobState,
             runningJobStateTimestamp).f1();
-        Assert.assertNotNull(checkpointPlans);
-        Assert.assertEquals(2, checkpointPlans.size());
+        Assertions.assertNotNull(checkpointPlans);
+        Assertions.assertEquals(2, checkpointPlans.size());
         // enum(1) + reader(2) + writer(2)
-        Assert.assertEquals(5, checkpointPlans.get(1).getPipelineSubtasks().size());
+        Assertions.assertEquals(5, checkpointPlans.get(1).getPipelineSubtasks().size());
         // enum
-        Assert.assertEquals(1, checkpointPlans.get(1).getStartingSubtasks().size());
+        Assertions.assertEquals(1, checkpointPlans.get(1).getStartingSubtasks().size());
         // enum + reader
-        Assert.assertEquals(2, checkpointPlans.get(1).getPipelineActions().size());
+        Assertions.assertEquals(2, checkpointPlans.get(1).getPipelineActions().size());
         // enum(1) + reader(3) + writer(3)
-        Assert.assertEquals(7, checkpointPlans.get(2).getPipelineSubtasks().size());
+        Assertions.assertEquals(7, checkpointPlans.get(2).getPipelineSubtasks().size());
         // enum
-        Assert.assertEquals(1, checkpointPlans.get(2).getStartingSubtasks().size());
+        Assertions.assertEquals(1, checkpointPlans.get(2).getStartingSubtasks().size());
         // enum + reader
-        Assert.assertEquals(2, checkpointPlans.get(2).getPipelineActions().size());
+        Assertions.assertEquals(2, checkpointPlans.get(2).getPipelineActions().size());
     }
 
     private static void fillVirtualVertex(IdGenerator idGenerator, LogicalDag logicalDag, int parallelism) {

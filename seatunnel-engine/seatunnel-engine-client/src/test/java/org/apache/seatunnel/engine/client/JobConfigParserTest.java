@@ -26,16 +26,13 @@ import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.parse.JobConfigParser;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.net.URL;
 import java.util.List;
 import java.util.Set;
 
-@RunWith(JUnit4.class)
 public class JobConfigParserTest {
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -48,13 +45,13 @@ public class JobConfigParserTest {
         JobConfigParser jobConfigParser = new JobConfigParser(filePath, new IdGenerator(), jobConfig);
         ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
         List<Action> actions = parse.getLeft();
-        Assert.assertEquals(1, actions.size());
-        Assert.assertEquals("LocalFile", actions.get(0).getName());
-        Assert.assertEquals(1, actions.get(0).getUpstream().size());
-        Assert.assertEquals("FakeSource", actions.get(0).getUpstream().get(0).getName());
+        Assertions.assertEquals(1, actions.size());
+        Assertions.assertEquals("LocalFile", actions.get(0).getName());
+        Assertions.assertEquals(1, actions.get(0).getUpstream().size());
+        Assertions.assertEquals("FakeSource", actions.get(0).getUpstream().get(0).getName());
 
-        Assert.assertEquals(3, actions.get(0).getUpstream().get(0).getParallelism());
-        Assert.assertEquals(3, actions.get(0).getParallelism());
+        Assertions.assertEquals(3, actions.get(0).getUpstream().get(0).getParallelism());
+        Assertions.assertEquals(3, actions.get(0).getParallelism());
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -67,15 +64,15 @@ public class JobConfigParserTest {
         JobConfigParser jobConfigParser = new JobConfigParser(filePath, new IdGenerator(), jobConfig);
         ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
         List<Action> actions = parse.getLeft();
-        Assert.assertEquals(1, actions.size());
+        Assertions.assertEquals(1, actions.size());
 
-        Assert.assertEquals("LocalFile", actions.get(0).getName());
-        Assert.assertEquals(2, actions.get(0).getUpstream().size());
-        Assert.assertEquals("FakeSource", actions.get(0).getUpstream().get(0).getName());
-        Assert.assertEquals("FakeSource", actions.get(0).getUpstream().get(1).getName());
+        Assertions.assertEquals("LocalFile", actions.get(0).getName());
+        Assertions.assertEquals(2, actions.get(0).getUpstream().size());
+        Assertions.assertEquals("FakeSource", actions.get(0).getUpstream().get(0).getName());
+        Assertions.assertEquals("FakeSource", actions.get(0).getUpstream().get(1).getName());
 
-        Assert.assertEquals(3, actions.get(0).getUpstream().get(0).getParallelism());
-        Assert.assertEquals(3, actions.get(0).getUpstream().get(1).getParallelism());
-        Assert.assertEquals(6, actions.get(0).getParallelism());
+        Assertions.assertEquals(3, actions.get(0).getUpstream().get(0).getParallelism());
+        Assertions.assertEquals(3, actions.get(0).getUpstream().get(1).getParallelism());
+        Assertions.assertEquals(6, actions.get(0).getParallelism());
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source.reader;
 
+import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConsumerConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.start.StartCursor;

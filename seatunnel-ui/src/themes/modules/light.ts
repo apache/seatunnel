@@ -15,6 +15,20 @@
  * limitations under the License.
  */
 
-const light = {}
+import type { GlobalThemeOverrides } from 'naive-ui'
+
+const light: GlobalThemeOverrides = {
+  common: {
+    primaryColor: '#1890ff',
+    primaryColorHover: '#40a9ff',
+    primaryColorPressed: '#096dd9',
+    primaryColorSuppl: '#1890ff',
+
+    infoColor: '#1890ff',
+    successColor: '#52c41a',
+    warningColor: '#faad14',
+    errorColor: '#ff4d4f'
+  }
+}
 
 export default light

@@ -25,6 +25,11 @@
     <packaging>pom</packaging>
     <artifactId>seatunnel-engine</artifactId>
 
+    <properties>
+        <!--  SeaTunnel Engine use     -->
+        <hazelcast.version>5.1</hazelcast.version>
+    </properties>
+
     <modules>
         <module>seatunnel-engine-client</module>
         <module>seatunnel-engine-common</module>
@@ -32,7 +37,28 @@
         <module>seatunnel-engine-core</module>
         <module>seatunnel-engine-storage</module>
     </modules>
-    
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- SeaTunnel engine use begin -->
+            <dependency>
+                <groupId>com.hazelcast</groupId>
+                <artifactId>hazelcast</artifactId>
+                <version>${hazelcast.version}</version>
+            </dependency>
+
+            <!-- test dependencies -->
+            <dependency>
+                <groupId>com.hazelcast</groupId>
+                <artifactId>hazelcast</artifactId>
+                <scope>test</scope>
+                <version>${hazelcast.version}</version>
+                <classifier>tests</classifier>
+            </dependency>
+            <!-- SeaTunnel engine use end -->
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>org.scala-lang</groupId>

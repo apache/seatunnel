@@ -48,7 +48,7 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT> implements SinkWriter<
     @Override
     public void write(InputT element, org.apache.flink.api.connector.sink.SinkWriter.Context context) throws IOException {
         if (element instanceof Row) {
-            sinkWriter.write(rowSerialization.convert((Row) element));
+            sinkWriter.write(rowSerialization.reconvert((Row) element));
         } else {
             throw new InvalidClassException("only support Flink Row at now, the element Class is " + element.getClass());
         }

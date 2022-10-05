@@ -27,8 +27,8 @@ import org.apache.seatunnel.engine.core.job.JobStatus;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -48,13 +48,13 @@ public class CoordinatorServiceTest {
         SeaTunnelServer server2 = instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
 
         CoordinatorService coordinatorService1 = server1.getCoordinatorService();
-        Assert.assertTrue(coordinatorService1.isCoordinatorActive());
+        Assertions.assertTrue(coordinatorService1.isCoordinatorActive());
 
         try {
             server2.getCoordinatorService();
-            Assert.fail("Need throw SeaTunnelEngineException here but not.");
+            Assertions.fail("Need throw SeaTunnelEngineException here but not.");
         } catch (Exception e) {
-            Assert.assertTrue(e instanceof SeaTunnelEngineException);
+            Assertions.assertTrue(e instanceof SeaTunnelEngineException);
         }
 
         // shutdown instance1
@@ -63,13 +63,13 @@ public class CoordinatorServiceTest {
             .untilAsserted(() -> {
                 try {
                     CoordinatorService coordinatorService = server2.getCoordinatorService();
-                    Assert.assertTrue(coordinatorService.isMasterNode());
+                    Assertions.assertTrue(coordinatorService.isMasterNode());
                 } catch (SeaTunnelEngineException e) {
-                    Assert.assertTrue(false);
+                    Assertions.assertTrue(false);
                 }
             });
         CoordinatorService coordinatorService2 = server2.getCoordinatorService();
-        Assert.assertTrue(coordinatorService2.isCoordinatorActive());
+        Assertions.assertTrue(coordinatorService2.isCoordinatorActive());
         instance2.shutdown();
     }
 
@@ -81,7 +81,7 @@ public class CoordinatorServiceTest {
             TestUtils.getClusterName("CoordinatorServiceTest_testClearCoordinatorService"));
         SeaTunnelServer server1 = coordinatorServiceTest.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
         CoordinatorService coordinatorService = server1.getCoordinatorService();
-        Assert.assertTrue(coordinatorService.isCoordinatorActive());
+        Assertions.assertTrue(coordinatorService.isCoordinatorActive());
 
         Long jobId = coordinatorServiceTest.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
         LogicalDag testLogicalDag =
@@ -97,7 +97,7 @@ public class CoordinatorServiceTest {
 
         // waiting for job status turn to running
         await().atMost(10000, TimeUnit.MILLISECONDS)
-            .untilAsserted(() -> Assert.assertEquals(JobStatus.RUNNING, coordinatorService.getJobStatus(jobId)));
+            .untilAsserted(() -> Assertions.assertEquals(JobStatus.RUNNING, coordinatorService.getJobStatus(jobId)));
 
         Class<CoordinatorService> clazz = CoordinatorService.class;
         Method clearCoordinatorServiceMethod = clazz.getDeclaredMethod("clearCoordinatorService", null);
@@ -106,7 +106,7 @@ public class CoordinatorServiceTest {
         clearCoordinatorServiceMethod.setAccessible(false);
 
         // because runningJobMasterMap is empty and we have no JobHistoryServer, so return finished.
-        Assert.assertTrue(JobStatus.FINISHED.equals(coordinatorService.getJobStatus(jobId)));
+        Assertions.assertTrue(JobStatus.FINISHED.equals(coordinatorService.getJobStatus(jobId)));
     }
 
     @Test

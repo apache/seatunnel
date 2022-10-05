@@ -16,17 +16,16 @@
  */
 
 import { defineComponent, toRefs, withKeys, getCurrentInstance } from 'vue'
-import { NSpace, NForm, NFormItem, NInput, NButton } from 'naive-ui'
+import { NSpace, NForm, NFormItem, NInput, NButton, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useForm } from './use-form'
 
 const Login = defineComponent({
   setup() {
+    window.$message = useMessage()
     const { t } = useI18n()
-    const { state } = useForm()
+    const { state, handleLogin } = useForm()
     const trim = getCurrentInstance()?.appContext.config.globalProperties.trim
-
-    const handleLogin = () => {}
 
     return {
       t,
@@ -37,9 +36,13 @@ const Login = defineComponent({
   },
   render() {
     return (
-      <NSpace justify='center' align='center' class='w-full h-screen'>
-        <div>
-          <h2>{this.t('login.login_to_sea_tunnel')}</h2>
+      <NSpace
+        justify='center'
+        align='center'
+        class='w-full h-screen bg-blue-400'
+      >
+        <div class='w-96 bg-white px-10 py-8'>
+          <h2 class='text-2xl mb-6'>{this.t('login.login_to_sea_tunnel')}</h2>
           <NForm rules={this.rules} ref='loginFormRef'>
             <NFormItem
               label={this.t('login.username')}
