@@ -39,9 +39,9 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     private final FakeDataGenerator fakeDataGenerator;
     boolean noMoreSplit;
 
-    public FakeSourceReader(SourceReader.Context context, FakeDataGenerator randomData) {
+    public FakeSourceReader(SourceReader.Context context, FakeDataGenerator fakeDataGenerator) {
         this.context = context;
-        this.fakeDataGenerator = randomData;
+        this.fakeDataGenerator = fakeDataGenerator;
     }
 
     @Override

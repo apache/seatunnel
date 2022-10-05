@@ -29,6 +29,6 @@ public class FakeSourceSplit implements SourceSplit {
 
     @Override
     public String splitId() {
-        return splitId.toString();
+        return String.valueOf(splitId);
     }
 }
