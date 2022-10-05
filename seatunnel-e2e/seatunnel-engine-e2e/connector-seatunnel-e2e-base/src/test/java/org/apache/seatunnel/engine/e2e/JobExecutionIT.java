@@ -64,7 +64,7 @@ public class JobExecutionIT {
     @Test
     public void testExecuteJob() {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/batch_fakesource_to_file.conf");
+        String filePath = TestUtils.getResource("batch_fakesource_to_file.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_file");
 
@@ -93,7 +93,7 @@ public class JobExecutionIT {
     public void cancelJobTest() {
         TestUtils.initPluginDir();
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/streaming_fakesource_to_file_complex.conf");
+        String filePath = TestUtils.getResource("streaming_fakesource_to_file_complex.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_file");
 

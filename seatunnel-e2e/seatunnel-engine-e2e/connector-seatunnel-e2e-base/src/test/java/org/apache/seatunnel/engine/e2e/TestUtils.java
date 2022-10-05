@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.engine.e2e;
 
+import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.common.utils.VariablesSubstitute;
+
+import lombok.NonNull;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -24,10 +29,29 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
+import java.util.Map;
 
 public class TestUtils {
     public static String getResource(String confFile) {
-        return System.getProperty("user.dir") + "/src/test/resources" + confFile;
+        return System.getProperty("user.dir") + File.separator + "src" + File.separator + "test" + File.separator + "resources" + File.separator + confFile;
+    }
+
+    /**
+     * For reduce the config files num, we can define a job config template and then create new job config file base on it.
+     *
+     * @param templateFile   The basic job configuration file, which often contains some content that needs to be replaced
+     *                       at runtime, generates a new final job configuration file for testing after replacement
+     * @param valueMap  replace kv
+     * @param targetFilePath    The new config file path
+     */
+    public static void createTestConfigFileFromTemplate(@NonNull String templateFile,
+                                                        @NonNull Map<String, String> valueMap,
+                                                        @NonNull String targetFilePath) {
+        String templateFilePath = getResource(templateFile);
+        String confContent = FileUtils.readFile2Str(Paths.get(templateFilePath));
+        String targetConfContent = VariablesSubstitute.substitute(confContent, valueMap);
+        FileUtils.createNewFile(targetFilePath);
+        FileUtils.writeStringToFile(targetFilePath, targetConfContent);
     }
 
     public static String getClusterName(String testClassName) {

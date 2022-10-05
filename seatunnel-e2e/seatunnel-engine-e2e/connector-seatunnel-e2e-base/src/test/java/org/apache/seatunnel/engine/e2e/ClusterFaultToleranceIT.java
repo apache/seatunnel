@@ -34,6 +34,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -48,7 +51,7 @@ public class ClusterFaultToleranceIT {
     }
 
     @Test
-    public void testBatchJobRecoveryWhenWorkerDone() {
+    public void testBatchJobRunOkIn3Node() {
         HazelcastInstanceImpl node1 =
             SeaTunnelServerStarter.createHazelcastInstance(
                 TestUtils.getClusterName("ClusterFaultToleranceIT_testBatchJobRecoveryWhenWorkerDone"));
@@ -67,7 +70,13 @@ public class ClusterFaultToleranceIT {
 
         // TODO Need FakeSource support parallel first
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/test_cluster_fault_worker_batch_job.conf");
+        String targetJobConfigNamePrefix = "cluster_batch_fake_to_localfile_fine";
+        Map<String, String> valueMap = new HashMap<>();
+        valueMap.put("target_test_job_config_file_name", targetJobConfigNamePrefix);
+
+        String targetConfigFilePath = File.separator + "tmp" + File.separator + "test_conf" + File.separator + targetJobConfigNamePrefix + ".conf";
+        TestUtils.createTestConfigFileFromTemplate("cluster_batch_fake_to_localfile_template.conf", valueMap,
+            targetConfigFilePath);
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("test_cluster_fault_worker_batch_job");
 
@@ -75,7 +84,7 @@ public class ClusterFaultToleranceIT {
         clientConfig.setClusterName(
             TestUtils.getClusterName("ClusterFaultToleranceIT_testBatchJobRecoveryWhenWorkerDone"));
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
-        JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
+        JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(targetConfigFilePath, jobConfig);
         try {
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
