@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
-import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -35,7 +34,6 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final SeaTunnelRowType seaTunnelRowType;
     public static final AtomicLong CNT = new AtomicLong(0);
-    public SinkWriter.Context context;
 
     public ConsoleSinkWriter(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
