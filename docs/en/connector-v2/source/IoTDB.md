@@ -50,7 +50,8 @@ supports query SQL and can achieve projection effect.
 
 e.g.
 
-``` 127.0.0.1:8080,127.0.0.2:8080
+```text
+127.0.0.1:8080,127.0.0.2:8080
 ```
 
 ### other parameters
