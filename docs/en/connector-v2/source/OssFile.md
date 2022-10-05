@@ -38,6 +38,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | access_secret | string | yes      | -             |
 | endpoint      | string | yes      | -             |
 | schema        | config | no       | -             |
+| common-options|        | no       | -             |
 
 ### path [string]
 
@@ -118,7 +119,13 @@ The endpoint of oss file system.
 
 ### schema [config]
 
+#### fields [Config]
+
 The schema of upstream data.
+
+### common options 
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
 ## Example
 
