@@ -32,6 +32,7 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
 
     private TaskGroupLocation taskGroupLocation;
     private long taskID;
+    private int index;
 
     public TaskLocation() {
     }
@@ -39,6 +40,7 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
     public TaskLocation(TaskGroupLocation taskGroupLocation, long idPrefix, int index) {
         this.taskGroupLocation = taskGroupLocation;
         this.taskID = mixIDPrefixAndIndex(idPrefix, index);
+        this.index = index;
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -67,9 +69,8 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
         return taskID / 10000;
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public int getTaskIndex() {
-        return (int) (taskID % 10000);
+        return index;
     }
 
     public void setTaskGroupLocation(TaskGroupLocation taskGroupLocation) {

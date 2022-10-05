@@ -15,19 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
-import java.io.Serializable;
+public class SqlServerDialect implements JdbcDialect {
+    @Override
+    public String dialectName() {
+        return "Sqlserver";
+    }
 
-@Data
-@AllArgsConstructor
-public class PartitionParameter implements Serializable {
+    @Override
+    public JdbcRowConverter getRowConverter() {
+        return new SqlserverJdbcRowConverter();
+    }
 
-    String partitionColumnName;
-    Long minValue;
-    Long maxValue;
-    Integer partitionNumber;
+    @Override
+    public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
+        return new SqlserverTypeMapper();
+    }
 }

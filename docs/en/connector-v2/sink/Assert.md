@@ -25,6 +25,7 @@ A flink sink plugin which can assert illegal data by user defined rules
 |rules.row_rules                              | string      | yes      | -             |
 |rules.row_rules.rule_type                    | string      | no       | -             |
 |rules.row_rules.rule_value                   | string      | no       | -             |
+| common-options                              |             | no       | -             |
 
 ### rules [ConfigList]
 
@@ -60,6 +61,10 @@ The following rules are supported for now
 ### rule_value [double]
 
 the value related to rule type
+
+### common options
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
 the whole config obey with `hocon` style

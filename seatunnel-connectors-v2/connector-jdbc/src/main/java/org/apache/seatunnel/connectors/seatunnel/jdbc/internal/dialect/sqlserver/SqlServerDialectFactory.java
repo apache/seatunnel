@@ -15,26 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.fake.source;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
-import lombok.Getter;
-import lombok.Setter;
+import com.google.auto.service.AutoService;
 
-import java.io.Serializable;
+/**
+ * Factory for {@link SqlServerDialect}.
+ */
 
-public class FakeOptions implements Serializable {
+@AutoService(JdbcDialectFactory.class)
+public class SqlServerDialectFactory implements JdbcDialectFactory {
+    @Override
+    public boolean acceptsURL(String url) {
+        return url.startsWith("jdbc:sqlserver:");
+    }
 
-    private static final String ROW_NUM = "row.num";
-    private static final Long DEFAULT_ROW_NUM = 10L;
-    @Getter
-    @Setter
-    private Long rowNum;
-
-    public static FakeOptions parse(Config config) {
-        FakeOptions fakeOptions = new FakeOptions();
-        fakeOptions.setRowNum(config.hasPath(ROW_NUM) ? config.getLong(ROW_NUM) : DEFAULT_ROW_NUM);
-        return fakeOptions;
+    @Override
+    public JdbcDialect create() {
+        return new SqlServerDialect();
     }
 }
