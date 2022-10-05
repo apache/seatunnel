@@ -44,12 +44,10 @@ public class DingTalkSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
     protected final DingTalkParameter dtParameter;
     protected DingTalkClient dtClient;
     protected OapiV2DepartmentListsubRequest dtRequest;
-    protected final DeserializationSchema<SeaTunnelRow> deserializationSchema;
 
-    public DingTalkSourceReader(DingTalkParameter dtParameter, SingleSplitReaderContext context, DeserializationSchema<SeaTunnelRow> deserializationSchema) {
+    public DingTalkSourceReader(DingTalkParameter dtParameter, SingleSplitReaderContext context) {
         this.context = context;
         this.dtParameter = dtParameter;
-        this.deserializationSchema = deserializationSchema;
     }
 
     @Override
@@ -75,9 +73,12 @@ public class DingTalkSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
                     for (JsonNode tmpJson : resJson) {
                         output.collect(new SeaTunnelRow(new Object[]{tmpJson.toString()}));
                     }
+                }else {
+                    LOGGER.error("Ding Talk client get body exception, get body is not array json content:[{}]", response.getBody());
                 }
+            }else {
+                LOGGER.error("Ding Talk client execute exception, response status code:[{}], content:[{}]", response.getErrorCode(), response.getBody());
             }
-            LOGGER.error("Ding Talk client execute exception, response status code:[{}], content:[{}]", response.getErrorCode(), response.getBody());
             if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
                 context.signalNoMoreElement();
             }

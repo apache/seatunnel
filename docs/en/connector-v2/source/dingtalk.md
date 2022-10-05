@@ -8,7 +8,7 @@ A source plugin which use DingTalk
 ## Key features
 
 - [x] [batch](../../concept/connector-v2-features.md)
-- [ ] [stream](../../concept/connector-v2-features.md)
+- [x] [stream](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [ ] [schema projection](../../concept/connector-v2-features.md)
 - [ ] [parallelism](../../concept/connector-v2-features.md)
@@ -16,12 +16,12 @@ A source plugin which use DingTalk
 
 ## Options
 
-| name      | type        | required | default value |
-|-----------| ----------  | -------- | ------------- |
-| api_client       | string      | yes      | -             |
-| access_token    | string      | yes       | -             |
-| app_key    | string      | yes       | -             |
-| app_secret    | string      | yes       | -             |
+| name          | type        | required   | default value |
+|---------------| ----------  |------------| ------------- |
+| api_client    | string      | yes        | -             |
+| access_token  | string      | yes        | -             |
+| app_key       | string      | yes        | -             |
+| app_secret    | string      | yes        | -             |
 
 
 ### url [string]

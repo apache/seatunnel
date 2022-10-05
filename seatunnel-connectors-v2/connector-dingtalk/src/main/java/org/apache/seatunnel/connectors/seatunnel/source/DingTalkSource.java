@@ -99,7 +99,7 @@ public class DingTalkSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new DingTalkSourceReader(this.dtParameter, readerContext, this.deserializationSchema);
+        return new DingTalkSourceReader(this.dtParameter, readerContext);
     }
 
 }

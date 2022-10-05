@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.common;
 
 import com.aliyun.dingtalkoauth2_1_0.models.GetAccessTokenResponse;
+import java.io.IOException;
 
 /**
  * @description: Ding Talk util
@@ -44,7 +45,7 @@ public class DingTalkUtil {
             GetAccessTokenResponse res = client.getAccessToken(getAccessTokenRequest);
             appToken = res.getBody().getAccessToken();
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
         return appToken;
     }
