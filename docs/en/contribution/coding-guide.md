@@ -1,5 +1,30 @@
 # Coding guide
 
+## Modules Overview
+
+| Module Name                            | Introduction                                                 |
+| -------------------------------------- | ------------------------------------------------------------ |
+| seatunnel-api                          | SeaTunnel connector V2 API module                            |
+| seatunnel-apis                         | SeaTunnel connector V1 API module                            |
+| seatunnel-common                       | SeaTunnel common module                                      |
+| seatunnel-connectors                   | SeaTunnel connector V1 module, currently connector V1 is in a stable state, the community will continue to maintain it, but there will be no major feature updates |
+| seatunnel-connectors-v2                | SeaTunnel connector V2 module, currently connector V2 is under development and the community will focus on it |
+| seatunnel-core/seatunnel-spark         | SeaTunnel core starter module of connector V1 on spark engine |
+| seatunnel-core/seatunnel-flink         | SeaTunnel core starter module of connector V1 on flink engine |
+| seatunnel-core/seatunnel-flink-sql     | SeaTunnel core starter module of connector V1 on flink-sql engine |
+| seatunnel-core/seatunnel-spark-starter | SeaTunnel core starter module of connector V2 on Spark engine |
+| seatunnel-core/seatunnel-flink-starter | SeaTunnel core starter module of connector V2 on Flink engine |
+| seatunnel-core/seatunnel-starter       | SeaTunnel core starter module of connector V2 on SeaTunnel engine |
+| seatunnel-e2e                          | SeaTunnel end-to-end test module                             |
+| seatunnel-examples                     | SeaTunnel local examples module, developer can use it to do unit test and integration test |
+| seatunnel-engine                       | SeaTunnel engine module, seatunnel-engine is a new computational engine developed by the SeaTunnel Community that focuses on data synchronization. |
+| seatunnel-formats                      | SeaTunnel formats module, used to offer the ability of formatting data |
+| seatunnel-plugin-discovery             | SeaTunnel plugin discovery moudle, used to offer the ability of loading SPI plugins from classpath |
+| seatunnel-transforms                   | SeaTunnel transform plugin module                            |
+| seatunnel-translation                  | SeaTunnel translation module, used to adapt Connector V2 and other computing engines such as Spark Flink etc... |
+
+## Pull Request Rules
+
 1. Create entity classes using annotations in the `lombok` plugin (`@Data` `@Getter` `@Setter` `@NonNull` etc...) to reduce the amount of code
 
 2. If you need to use log4j to print logs in a class, preferably use the annotation `@Slf4j` in the `lombok` plugin
@@ -8,8 +33,8 @@
 
    > Title specification: [purpose] [module name] Description
 
-   1. pr purpose includes: `Hotfix`, `Feature`, `Improve`, `Bug`, `Docs`, `WIP`
-   2. issue purpose includes: `Feature`, `Bug`, `Docs`, `WIP`, `Discuss`
+   1. pr purpose includes: `Hotfix`, `Feature`, `Improve`, `Bug`, `Docs`, `WIP`.Please note that if your pr purpose is WIP, then you need to use github's draft pr
+   2. issue purpose includes: `Feature`, `Bug`, `Docs`, `Discuss`
    3. module name: the current pr or issue involves the name of the module, for example: `Core`, `Connector-V2`, `Connector-V1`, etc.
    4. description: highly summarize what the current pr and issue to do, as far as possible to do the name to know the meaning
 
@@ -26,15 +51,17 @@
    6. If-else should be wrapped in `{}` even if the method body is only one line
    7. etc....
 
+   Tips: **For more details, please check `checkStyle.xml` that at tools/checkstyle**
+
 5. Code segments are never repeated. If a code segment is used multiple times, you should not define it multiple times, but make it a public segment for other modules to use
 
-6. When throwing an exception, you need to throw the exception along with a hint message. For example, if your connector encounters an `IOException` while reading data, a reasonable approach would be to the following:
+6. When throwing an exception, you need to throw the exception along with a hint message and the exception should be smaller in scope.Throwing overly broad exceptions promotes complex error handling code that is more likely to contain security vulnerabilities.For example, if your connector encounters an `IOException` while reading data, a reasonable approach would be to the following:
 
    ```java
    try {
        // read logic
    } catch (IOException e) {
-       throw RuntimeException("Meet a IOException, it might has some problems between client and database", e);
+       throw IOException("Meet a IOException, it might has some problems between client and database", e);
    }
    ```
 
