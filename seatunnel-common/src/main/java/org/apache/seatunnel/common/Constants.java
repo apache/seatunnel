@@ -31,7 +31,7 @@ public final class Constants {
 
     public static final String SOURCE_SERIALIZATION = "source.serialization";
 
-    public static final String SOURCE_PARALLELISM = "source.parallelism";
+    public static final String SOURCE_PARALLELISM = "parallelism";
 
     public static final String HDFS_ROOT = "hdfs.root";
 
