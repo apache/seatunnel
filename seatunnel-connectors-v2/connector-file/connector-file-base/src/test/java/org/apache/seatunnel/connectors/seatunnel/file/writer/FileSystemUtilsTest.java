@@ -34,7 +34,7 @@ import java.util.List;
 
 public class FileSystemUtilsTest {
     private final Configuration conf = new Configuration();
-    private final URL resource = FileSystemUtils.class.getResource("/test.txt");
+    private final URL resource = FileSystemUtils.class.getResource("/test_filesystem.orc");
 
     @BeforeEach
     void init() {
