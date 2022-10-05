@@ -18,21 +18,27 @@ just for some test cases such as type conversion or connector new feature testin
 
 ## Options
 
-| name          | type   | required | default value |
-|---------------|--------|----------|---------------|
-| schema        | config | yes      | -             |
-| row.num       | int    | no       | 5             |
-| map.size      | int    | no       | 5             |
-| array.size    | int    | no       | 5             |
-| bytes.length  | int    | no       | 5             |
-| string.length | int    | no       | 5             |
-
+| name           | type   | required | default value |
+| -------------- | ------ | -------- | ------------- |
+| schema         | config | yes      | -             |
+| row.num        | int    | no       | 5             |
+| map.size       | int    | no       | 5             |
+| array.size     | int    | no       | 5             |
+| bytes.length   | int    | no       | 5             |
+| string.length  | int    | no       | 5             |
+| common-options |        | no       | -             |
 
 ### schema [config]
 
+#### fields [Config]
+
 The schema of fake data that you want to generate
 
-For example:
+### common options 
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
+
+## Examples
 
 ```hocon
   schema = {

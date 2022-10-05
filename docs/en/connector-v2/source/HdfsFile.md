@@ -26,12 +26,13 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 
 ## Options
 
-| name          | type   | required | default value |
-|---------------|--------|----------|---------------|
-| path          | string | yes      | -             |
-| type          | string | yes      | -             |
-| fs.defaultFS  | string | yes      | -             |
-| schema        | config | no       | -             |
+| name           | type   | required | default value |
+| -------------- | ------ | -------- | ------------- |
+| path           | string | yes      | -             |
+| type           | string | yes      | -             |
+| fs.defaultFS   | string | yes      | -             |
+| schema         | config | no       | -             |
+| common-options |        | no       | -             |
 
 ### path [string]
 
@@ -97,6 +98,16 @@ Now connector will treat the upstream data as the following:
 ### fs.defaultFS [string]
 
 Hdfs cluster address.
+
+### schema [Config]
+
+#### fields [Config]
+
+the schema fields of upstream data
+
+### common options 
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
 ## Example
 
