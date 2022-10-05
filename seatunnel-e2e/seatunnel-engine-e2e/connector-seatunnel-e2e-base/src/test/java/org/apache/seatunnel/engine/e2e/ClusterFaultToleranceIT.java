@@ -31,6 +31,7 @@ import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CompletableFuture;
@@ -40,6 +41,11 @@ import java.util.concurrent.TimeUnit;
  * Cluster fault tolerance test. Test the job recovery capability and data consistency assurance capability in case of cluster node failure
  */
 public class ClusterFaultToleranceIT {
+
+    @BeforeAll
+    public static void beforeAll() {
+        TestUtils.initPluginDir();
+    }
 
     @Test
     public void testBatchJobRecoveryWhenWorkerDone() {
@@ -60,7 +66,6 @@ public class ClusterFaultToleranceIT {
             .untilAsserted(() -> Assertions.assertEquals(3, node1.getCluster().getMembers().size()));
 
         // TODO Need FakeSource support parallel first
-        TestUtils.initPluginDir();
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/test_cluster_fault_worker_batch_job.conf");
         JobConfig jobConfig = new JobConfig();
