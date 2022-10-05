@@ -29,8 +29,8 @@ public class InfluxDBRowConverter {
 
     public static SeaTunnelRow convert(List<Object> values, SeaTunnelRowType typeInfo, List<Integer> indexList) {
 
-        List<Object> fields = new ArrayList<>();
         SeaTunnelDataType<?>[] seaTunnelDataTypes = typeInfo.getFieldTypes();
+        List<Object> fields = new ArrayList<>(seaTunnelDataTypes.length);
 
         for (int i = 0; i <= seaTunnelDataTypes.length - 1; i++) {
             Object seaTunnelField;
