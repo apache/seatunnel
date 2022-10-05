@@ -155,10 +155,7 @@ public class CheckpointCoordinator {
     // --------------------------------------------------------------------------------------------
 
     protected void reportedTask(TaskReportStatusOperation operation) {
-        TaskLocation location = operation.getLocation();
-        Long taskID = location.getTaskID();
-        SeaTunnelTaskState status = operation.getStatus();
-        pipelineTaskStatus.put(taskID, status);
+        pipelineTaskStatus.put(operation.getLocation().getTaskID(), operation.getStatus());
         CompletableFuture.runAsync(() -> {
             switch (operation.getStatus()) {
                 case WAITING_RESTORE:
