@@ -36,6 +36,7 @@ supports query SQL and can achieve projection effect.
 | thrift_default_buffer_size | int     | no       | -             |
 | enable_cache_leader        | boolean | no       | -             |
 | version                    | string  | no       | -             |
+| common-options             |         | no       | -             |
 
 ### single node, you need to set host and port to connect to the remote data source.
 
@@ -146,6 +147,10 @@ lower bound of the time column
      split 2: select * from test  where (time >= 6 and time < 11) and (  age > 0 and age < 10 )
 
 ```
+
+### common options 
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
 ## Examples
 
