@@ -64,7 +64,7 @@ public class AssignSplitOperation<SplitT extends SourceSplit> extends Operation 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         out.writeByteArray(splits);
-        taskID.writeData(out);
+        out.writeObject(taskID);
     }
 
     @Override

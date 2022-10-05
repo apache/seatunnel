@@ -30,8 +30,8 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import org.awaitility.Awaitility;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -57,7 +57,7 @@ public class ClusterFaultToleranceIT {
 
         // waiting all node added to cluster
         Awaitility.await().atMost(10000, TimeUnit.MILLISECONDS)
-            .untilAsserted(() -> Assert.assertEquals(3, node1.getCluster().getMembers().size()));
+            .untilAsserted(() -> Assertions.assertEquals(3, node1.getCluster().getMembers().size()));
 
         // TODO Need FakeSource support parallel first
         TestUtils.initPluginDir();
@@ -79,7 +79,7 @@ public class ClusterFaultToleranceIT {
             });
 
             Awaitility.await().atMost(20000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assert.assertTrue(
+                .untilAsserted(() -> Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
 
         } catch (Exception e) {

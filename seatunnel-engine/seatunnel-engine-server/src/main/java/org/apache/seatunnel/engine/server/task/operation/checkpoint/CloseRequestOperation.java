@@ -61,7 +61,7 @@ public class CloseRequestOperation extends Operation implements IdentifiedDataSe
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        readerLocation.writeData(out);
+        out.writeObject(readerLocation);
     }
 
     @Override
