@@ -67,7 +67,7 @@ public class CloseRequestOperation extends Operation implements IdentifiedDataSe
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        readerLocation.readData(in);
+        readerLocation = in.readObject();
     }
 
     @Override

@@ -35,7 +35,8 @@ public abstract class AbstractSeaTunnelServerTest {
 
     @Before
     public void before() {
-        instance = TestUtils.createHazelcastInstance(this.getClass().getSimpleName() + "_" + System.currentTimeMillis());
+        instance = SeaTunnelServerStarter.createHazelcastInstance(
+            TestUtils.getClusterName(this.getClass().getSimpleName() + "_" + System.currentTimeMillis()));
         nodeEngine = instance.node.nodeEngine;
         server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
         logger = nodeEngine.getLogger(this.getClass());

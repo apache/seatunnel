@@ -22,6 +22,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import java.io.Serializable;
 
 public class ResourceProfile implements Serializable {
+    private static final long serialVersionUID = 7683323453014131725L;
 
     private final CPU cpu;
 
