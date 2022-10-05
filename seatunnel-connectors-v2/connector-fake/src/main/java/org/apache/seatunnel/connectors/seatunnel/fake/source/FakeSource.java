@@ -52,12 +52,12 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
 
     @Override
     public SourceSplitEnumerator<FakeSourceSplit, FakeSourceState> createEnumerator(SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext) throws Exception {
-        return new FakeSourceSplitEnumerator(enumeratorContext, fakeConfig.getRowNum());
+        return new FakeSourceSplitEnumerator(enumeratorContext);
     }
 
     @Override
     public SourceSplitEnumerator<FakeSourceSplit, FakeSourceState> restoreEnumerator(SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext, FakeSourceState checkpointState) throws Exception {
-        return new FakeSourceSplitEnumerator(enumeratorContext, fakeConfig.getRowNum());
+        return new FakeSourceSplitEnumerator(enumeratorContext);
     }
 
     @Override

@@ -61,7 +61,7 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
             FakeSourceSplit split = splits.poll();
             if (null != split) {
                 // Generate a random number of rows to emit.
-                List<SeaTunnelRow> seaTunnelRows = fakeDataGenerator.generateFakedRows(split.getRowNum());
+                List<SeaTunnelRow> seaTunnelRows = fakeDataGenerator.generateFakedRows();
                 for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {
                     output.collect(seaTunnelRow);
                 }

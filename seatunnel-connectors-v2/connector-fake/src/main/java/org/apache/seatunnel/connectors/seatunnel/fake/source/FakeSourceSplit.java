@@ -25,7 +25,6 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class FakeSourceSplit implements SourceSplit {
-    private Integer rowNum;
     private Integer splitId;
 
     @Override

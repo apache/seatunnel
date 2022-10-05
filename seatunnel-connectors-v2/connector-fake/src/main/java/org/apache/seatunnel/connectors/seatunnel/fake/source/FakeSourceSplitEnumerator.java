@@ -36,12 +36,10 @@ public class FakeSourceSplitEnumerator implements SourceSplitEnumerator<FakeSour
     private static final Logger LOG = LoggerFactory.getLogger(FakeSourceSplitEnumerator.class);
     private final SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext;
     private final Map<Integer, Set<FakeSourceSplit>> pendingSplits;
-    private final int rowNum;
 
-    public FakeSourceSplitEnumerator(SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext, int rowNum) {
+    public FakeSourceSplitEnumerator(SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext) {
         this.enumeratorContext = enumeratorContext;
         this.pendingSplits = new HashMap<>();
-        this.rowNum = rowNum;
     }
 
     @Override
@@ -95,7 +93,7 @@ public class FakeSourceSplitEnumerator implements SourceSplitEnumerator<FakeSour
         LOG.info("Starting to calculate splits.");
         int numReaders = enumeratorContext.currentParallelism();
         for (int i = 0; i < numReaders; i++) {
-            allSplit.add(new FakeSourceSplit(rowNum, i));
+            allSplit.add(new FakeSourceSplit(i));
         }
         for (FakeSourceSplit split : allSplit) {
             int ownerReader = split.getSplitId() % numReaders;
