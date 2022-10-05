@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.server.resourcemanager.resource;
 
 public class CPU implements Resource {
-    private static final long serialVersionUID = 7683323453014131725L;
 
     private final int core;
 
