@@ -94,7 +94,6 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     @Override
     public void handleNoMoreSplits() {
         noMoreSplit = true;
-
     }
 
     @Override
