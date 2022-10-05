@@ -17,10 +17,11 @@ Used to read data from Socket.
 
 ##  Options
 
-| name | type   | required | default value |
-| --- |--------| --- | --- |
-| host | String | No | localhost |
-| port | Integer | No | 9999 |
+| name           | type   | required | default value |
+| -------------- |--------| -------- | ------------- |
+| host           | String | No       | localhost     |
+| port           | Integer| No       | 9999          |
+| common-options |        | no       | -             |
 
 ### host [string]
 socket server host
@@ -28,6 +29,10 @@ socket server host
 ### port [integer]
 
 socket server port
+
+### common options 
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
 ## Example
 
