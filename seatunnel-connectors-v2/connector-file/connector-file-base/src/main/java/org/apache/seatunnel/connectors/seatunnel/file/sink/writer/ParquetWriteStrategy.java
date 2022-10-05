@@ -157,7 +157,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         switch (seaTunnelDataType.getSqlType()) {
             case ARRAY:
                 BasicType<?> elementType = ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
-                ArrayList<Object> records = new ArrayList<>();
+                ArrayList<Object> records = new ArrayList<>(((Object[]) data).length);
                 for (Object object : (Object[]) data) {
                     Object resolvedObject = resolveObject(object, elementType);
                     records.add(resolvedObject);
