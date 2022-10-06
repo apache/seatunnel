@@ -20,17 +20,20 @@ supports query SQL and can achieve projection effect.
 
 ## Options
 
-| name                         | type   | required | default value |
-|------------------------------|--------|----------|---------------|
-| url                          | String | Yes      | -             |
-| driver                       | String | Yes      | -             |
-| user                         | String | No       | -             |
-| password                     | String | No       | -             |
-| query                        | String | Yes      | -             |
-| connection_check_timeout_sec | Int    | No       | 30            |
-| partition_column             | String | No       | -             |
-| partition_upper_bound        | Long   | No       | -             |
-| partition_lower_bound        | Long   | No       | -             |
+| name                         | type   | required | default value   |
+|------------------------------|--------|----------|-----------------|
+| url                          | String | Yes      | -               |
+| driver                       | String | Yes      | -               |
+| user                         | String | No       | -               |
+| password                     | String | No       | -               |
+| query                        | String | Yes      | -               |
+| connection_check_timeout_sec | Int    | No       | 30              |
+| partition_column             | String | No       | -               |
+| partition_upper_bound        | Long   | No       | -               |
+| partition_lower_bound        | Long   | No       | -               |
+| partition_num                | Int    | No       | job parallelism |
+| common-options               |        | No       | -               |
+
 
 ### driver [string]
 
@@ -69,6 +72,14 @@ The partition_column max value for scan, if not set SeaTunnel will query databas
 ### partition_lower_bound [long]
 
 The partition_column min value for scan, if not set SeaTunnel will query database get min value.
+
+### partition_num [int]
+
+The number of partition count, only support positive integer. default value is job parallelism
+
+### common options 
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
 ## tips
 
@@ -111,6 +122,7 @@ parallel:
         user = "root"
         password = "123456"
         query = "select * from type_bin"
-        partition_column= "id"
+        partition_column = "id"
+        partition_num = 10
     }
 ```

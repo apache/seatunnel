@@ -35,6 +35,8 @@ Source connector for Apache Pulsar.
 | cursor.reset.mode        | Enum    | No       | LATEST        |
 | cursor.stop.mode         | Enum    | No       | NEVER         |
 | cursor.stop.timestamp    | Long    | No       | -             |
+| schema                   | config  | No       | -             |
+| common-options           |         | no       | -             |
 
 ### topic [String]
 
@@ -121,6 +123,16 @@ Stop mode for Pulsar consumer, valid values are `'NEVER'`, `'LATEST'`and `'TIMES
 Stop from the specified epoch timestamp (in milliseconds).
 
 **Note, This option is required when the "cursor.stop.mode" option used `'TIMESTAMP'`.**
+
+### schema [Config]
+
+#### fields [Config]
+
+the schema fields of upstream data.
+
+### common options 
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
 ## Example
 
