@@ -36,22 +36,20 @@ import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduSourceState;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.client.KuduClient;
 import org.apache.kudu.client.KuduException;
 import org.apache.kudu.client.KuduScanner;
 import org.apache.kudu.client.RowResult;
 import org.apache.kudu.client.RowResultIterator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @AutoService(SeaTunnelSource.class)
 public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit, KuduSourceState> {
-    private static final Logger LOGGER = LoggerFactory.getLogger(KuduSource.class);
-
     private SeaTunnelRowType rowTypeInfo;
     private KuduInputFormat kuduInputFormat;
     private PartitionParameter partitionParameter;
@@ -79,13 +77,13 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
 
     @Override
     public SourceSplitEnumerator<KuduSourceSplit, KuduSourceState> createEnumerator(
-            SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext) {
+        SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext) {
         return new KuduSourceSplitEnumerator(enumeratorContext, partitionParameter);
     }
 
     @Override
     public SourceSplitEnumerator<KuduSourceSplit, KuduSourceState> restoreEnumerator(
-            SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext, KuduSourceState checkpointState) {
+        SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext, KuduSourceState checkpointState) {
         // todo:
         return new KuduSourceSplitEnumerator(enumeratorContext, partitionParameter);
     }
@@ -115,7 +113,7 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
         }
         try {
             KuduClient.KuduClientBuilder kuduClientBuilder = new
-                    KuduClient.KuduClientBuilder(kudumaster);
+                KuduClient.KuduClientBuilder(kudumaster);
             kuduClientBuilder.defaultOperationTimeoutMs(TIMEOUTMS);
 
             KuduClient kuduClient = kuduClientBuilder.build();
@@ -134,7 +132,7 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
         boolean flag = true;
         try {
             KuduScanner.KuduScannerBuilder kuduScannerBuilder =
-                    kuduClient.newScannerBuilder(kuduClient.openTable(tableName));
+                kuduClient.newScannerBuilder(kuduClient.openTable(tableName));
             ArrayList<String> columnsList = new ArrayList<String>();
             keyColumn = kuduClient.openTable(tableName).getSchema().getPrimaryKeyColumns().get(0).getName();
             columnsList.add("" + keyColumn);
@@ -176,7 +174,7 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
             }
 
         } catch (Exception e) {
-            LOGGER.warn("get row type info exception", e);
+            log.warn("get row type info exception", e);
             throw new PrepareFailException("kudu", PluginType.SOURCE, e.toString());
         }
         return new SeaTunnelRowType(fieldNames.toArray(new String[fieldNames.size()]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));

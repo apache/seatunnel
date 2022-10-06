@@ -18,13 +18,12 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.util;
 
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -32,8 +31,8 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 public class FileSystemUtils {
-    private static final Logger LOGGER = LoggerFactory.getLogger(FileSystemUtils.class);
 
     public static final int WRITE_BUFFER_SIZE = 2048;
 
@@ -79,14 +78,14 @@ public class FileSystemUtils {
      */
     public static void renameFile(@NonNull String oldName, @NonNull String newName, boolean rmWhenExist) throws IOException {
         FileSystem fileSystem = getFileSystem(newName);
-        LOGGER.info("begin rename file oldName :[" + oldName + "] to newName :[" + newName + "]");
+        log.info("begin rename file oldName :[" + oldName + "] to newName :[" + newName + "]");
 
         Path oldPath = new Path(oldName);
         Path newPath = new Path(newName);
         if (rmWhenExist) {
             if (fileExist(newName) && fileExist(oldName)) {
                 fileSystem.delete(newPath, true);
-                LOGGER.info("Delete already file: {}", newPath);
+                log.info("Delete already file: {}", newPath);
             }
         }
         if (!fileExist(newName.substring(0, newName.lastIndexOf("/")))) {
@@ -94,7 +93,7 @@ public class FileSystemUtils {
         }
 
         if (fileSystem.rename(oldPath, newPath)) {
-            LOGGER.info("rename file :[" + oldPath + "] to [" + newPath + "] finish");
+            log.info("rename file :[" + oldPath + "] to [" + newPath + "] finish");
         } else {
             throw new IOException("rename file :[" + oldPath + "] to [" + newPath + "] error");
         }

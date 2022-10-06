@@ -17,14 +17,13 @@
 
 package org.apache.seatunnel.flink.doris.sink;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.shaded.guava18.com.google.common.collect.Maps;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.flink.types.Row;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -42,8 +41,8 @@ import java.util.regex.Pattern;
 /**
  * DorisDynamicOutputFormat
  **/
+@Slf4j
 public class DorisOutputFormat<T> extends RichOutputFormat<T> {
-    private static final Logger LOGGER = LoggerFactory.getLogger(DorisOutputFormat.class);
     private static final long serialVersionUID = -4514164348993670086L;
     private static final long DEFAULT_INTERVAL_MS = TimeUnit.SECONDS.toMillis(1);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -88,18 +87,18 @@ public class DorisOutputFormat<T> extends RichOutputFormat<T> {
         boolean ifEscape = Boolean.parseBoolean(streamLoadProp.getProperty(ESCAPE_DELIMITERS_KEY, ESCAPE_DELIMITERS_DEFAULT));
         if (ifEscape) {
             this.fieldDelimiter = escapeString(streamLoadProp.getProperty(FIELD_DELIMITER_KEY,
-                    FIELD_DELIMITER_DEFAULT));
+                FIELD_DELIMITER_DEFAULT));
             this.lineDelimiter = escapeString(streamLoadProp.getProperty(LINE_DELIMITER_KEY,
-                    LINE_DELIMITER_DEFAULT));
+                LINE_DELIMITER_DEFAULT));
 
             if (streamLoadProp.contains(ESCAPE_DELIMITERS_KEY)) {
                 streamLoadProp.remove(ESCAPE_DELIMITERS_KEY);
             }
         } else {
             this.fieldDelimiter = streamLoadProp.getProperty(FIELD_DELIMITER_KEY,
-                    FIELD_DELIMITER_DEFAULT);
+                FIELD_DELIMITER_DEFAULT);
             this.lineDelimiter = streamLoadProp.getProperty(LINE_DELIMITER_KEY,
-                    LINE_DELIMITER_DEFAULT);
+                LINE_DELIMITER_DEFAULT);
         }
     }
 
@@ -215,7 +214,7 @@ public class DorisOutputFormat<T> extends RichOutputFormat<T> {
                 batch.clear();
                 break;
             } catch (Exception e) {
-                LOGGER.error("doris sink error, retry times = {}", i, e);
+                log.error("doris sink error, retry times = {}", i, e);
                 if (i >= maxRetries) {
                     throw new IOException(e);
                 }

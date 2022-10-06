@@ -25,8 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkConfig;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.sun.mail.util.MailSSLSocketFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.activation.DataHandler;
 import javax.activation.DataSource;
@@ -48,9 +47,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Properties;
 
+@Slf4j
 public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(EmailSinkWriter.class);
 
     private final SeaTunnelRowType seaTunnelRowType;
     private EmailSinkConfig config;
@@ -104,7 +102,7 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
             // Set the recipient email address
             message.addRecipient(Message.RecipientType.TO,
-                    new InternetAddress(config.getEmailToAddress()));
+                new InternetAddress(config.getEmailToAddress()));
 
             // Setting the Email subject
             message.setSubject(config.getEmailMessageHeadline());
@@ -130,9 +128,9 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
             //   send a message
             Transport.send(message);
-            LOGGER.info("Sent message successfully....");
+            log.info("Sent message successfully....");
         } catch (Exception e) {
-            LOGGER.warn("send email Fail.", e);
+            log.warn("send email Fail.", e);
             throw new RuntimeException("send email Fail.", e);
         }
     }
@@ -148,9 +146,9 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             FileWriter fileWritter = new FileWriter(file.getName());
             fileWritter.write(data);
             fileWritter.close();
-            LOGGER.info("Create File successfully....");
+            log.info("Create File successfully....");
         } catch (IOException e) {
-            LOGGER.warn("Create File Fail.", e);
+            log.warn("Create File Fail.", e);
             throw new RuntimeException("Create File Fail.", e);
         }
 

@@ -22,12 +22,11 @@ import static org.awaitility.Awaitility.given;
 import org.apache.seatunnel.e2e.spark.SparkContainer;
 
 import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -44,19 +43,19 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
+@Slf4j
 public class FakeSourceToJdbcIT extends SparkContainer {
-    private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceToJdbcIT.class);
     private PostgreSQLContainer<?> psl;
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
     public void startPostgreSqlContainer() throws InterruptedException, ClassNotFoundException, SQLException {
         psl = new PostgreSQLContainer<>(DockerImageName.parse("postgres:alpine3.16"))
-                .withNetwork(NETWORK)
-                .withNetworkAliases("postgresql")
-                .withLogConsumer(new Slf4jLogConsumer(LOGGER));
+            .withNetwork(NETWORK)
+            .withNetworkAliases("postgresql")
+            .withLogConsumer(new Slf4jLogConsumer(log));
         Startables.deepStart(Stream.of(psl)).join();
-        LOGGER.info("PostgreSql container started");
+        log.info("PostgreSql container started");
         Class.forName(psl.getDriverClassName());
         given().ignoreExceptions()
             .await()
@@ -70,8 +69,8 @@ public class FakeSourceToJdbcIT extends SparkContainer {
         try (Connection connection = DriverManager.getConnection(psl.getJdbcUrl(), psl.getUsername(), psl.getPassword())) {
             Statement statement = connection.createStatement();
             String sql = "CREATE TABLE test (\n" +
-                    "  name varchar(255) NOT NULL\n" +
-                    ")";
+                "  name varchar(255) NOT NULL\n" +
+                ")";
             statement.execute(sql);
         } catch (SQLException e) {
             throw new RuntimeException("Initializing PostgreSql table failed!", e);

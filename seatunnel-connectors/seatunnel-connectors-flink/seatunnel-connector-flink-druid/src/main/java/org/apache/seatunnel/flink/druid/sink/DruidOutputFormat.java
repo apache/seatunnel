@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.druid.data.input.MaxSizeSplitHintSpec;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.DimensionsSpec;
@@ -44,8 +45,6 @@ import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.types.Row;
 import org.joda.time.DateTime;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -57,9 +56,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 
+@Slf4j
 public class DruidOutputFormat extends RichOutputFormat<Row> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(DruidOutputFormat.class);
     private static final long serialVersionUID = -7410857670269773005L;
 
     private static final String DEFAULT_TIMESTAMP_COLUMN = "timestamp";
@@ -149,79 +148,79 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
             while ((responseLine = br.readLine()) != null) {
                 response.append(responseLine.trim());
             }
-            LOGGER.info("Druid write task has been sent, and the response is {}", response.toString());
+            log.info("Druid write task has been sent, and the response is {}", response.toString());
         }
     }
 
     private ParallelIndexSupervisorTask parallelIndexSupervisorTask(ParallelIndexIOConfig ioConfig, ParallelIndexTuningConfig tuningConfig) {
         return new ParallelIndexSupervisorTask(
-                null,
-                null,
-                null,
-                new ParallelIndexIngestionSpec(
-                        new DataSchema(
-                                this.datasource,
-                                new TimestampSpec(this.timestampColumn, this.timestampFormat, this.timestampMissingValue),
-                                new DimensionsSpec(Collections.emptyList()),
-                                null,
-                                new UniformGranularitySpec(Granularities.HOUR, Granularities.MINUTE, false, null),
-                                null
-                        ),
-                        ioConfig,
-                        tuningConfig
+            null,
+            null,
+            null,
+            new ParallelIndexIngestionSpec(
+                new DataSchema(
+                    this.datasource,
+                    new TimestampSpec(this.timestampColumn, this.timestampFormat, this.timestampMissingValue),
+                    new DimensionsSpec(Collections.emptyList()),
+                    null,
+                    new UniformGranularitySpec(Granularities.HOUR, Granularities.MINUTE, false, null),
+                    null
                 ),
-                null
+                ioConfig,
+                tuningConfig
+            ),
+            null
         );
     }
 
     private ParallelIndexIOConfig parallelIndexIOConfig() {
         return new ParallelIndexIOConfig(
+            null,
+            new InlineInputSource(this.data.toString()),
+            new CsvInputFormat(
+                Arrays.asList("name", timestampColumn),
+                "|",
                 null,
-                new InlineInputSource(this.data.toString()),
-                new CsvInputFormat(
-                        Arrays.asList("name", timestampColumn),
-                        "|",
-                        null,
-                        false,
-                        0
-                ),
                 false,
-                null
+                0
+            ),
+            false,
+            null
         );
     }
 
     private ParallelIndexTuningConfig tuningConfig() {
         return new ParallelIndexTuningConfig(
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                new MaxSizeSplitHintSpec(null, 1),
-                null,
-                null,
-                null,
-                null,
-                false,
-                null,
-                null,
-                null,
-                null,
-                1,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            new MaxSizeSplitHintSpec(null, 1),
+            null,
+            null,
+            null,
+            null,
+            false,
+            null,
+            null,
+            null,
+            null,
+            1,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
         );
     }
 }

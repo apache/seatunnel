@@ -27,8 +27,7 @@ import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.base.utils.AsciiArtUtils;
 import org.apache.seatunnel.core.base.utils.CompressionUtils;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.util.List;
@@ -39,9 +38,8 @@ import java.util.Objects;
  *
  * @param <T> command args.
  */
+@Slf4j
 public abstract class BaseTaskExecuteCommand<T extends AbstractCommandArgs, E extends RuntimeEnv> implements Command<T> {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(BaseTaskExecuteCommand.class);
 
     /**
      * Check the plugin config.
@@ -81,9 +79,9 @@ public abstract class BaseTaskExecuteCommand<T extends AbstractCommandArgs, E ex
                     // ignore
                 } catch (Exception e) {
                     exceptionHolder = exceptionHolder == null ?
-                            new PluginClosedException("below plugins closed error:") : exceptionHolder;
+                        new PluginClosedException("below plugins closed error:") : exceptionHolder;
                     exceptionHolder.addSuppressed(new PluginClosedException(
-                            String.format("plugin %s closed error", plugin.getClass()), e));
+                        String.format("plugin %s closed error", plugin.getClass()), e));
                 }
             }
         }
@@ -117,7 +115,7 @@ public abstract class BaseTaskExecuteCommand<T extends AbstractCommandArgs, E ex
                     checkResult = CheckResult.error(e.getMessage());
                 }
                 if (!checkResult.isSuccess()) {
-                    LOGGER.error("Plugin[{}] contains invalid config, error: {} \n", plugin.getClass().getName(), checkResult.getMsg());
+                    log.error("Plugin[{}] contains invalid config, error: {} \n", plugin.getClass().getName(), checkResult.getMsg());
                     System.exit(-1); // invalid configuration
                 }
             }
@@ -128,11 +126,11 @@ public abstract class BaseTaskExecuteCommand<T extends AbstractCommandArgs, E ex
         final DeployMode mode = Common.getDeployMode();
         if (DeployMode.CLUSTER == mode) {
 
-            LOGGER.info("preparing cluster mode work dir files...");
+            log.info("preparing cluster mode work dir files...");
             File workDir = new File(".");
 
             for (File file : Objects.requireNonNull(workDir.listFiles())) {
-                LOGGER.warn("\t list file: {} ", file.getAbsolutePath());
+                log.warn("\t list file: {} ", file.getAbsolutePath());
             }
             // decompress plugin dir
             File compressedFile = new File("plugins.tar.gz");
@@ -141,10 +139,10 @@ public abstract class BaseTaskExecuteCommand<T extends AbstractCommandArgs, E ex
                 File tempFile = CompressionUtils.unGzip(compressedFile, workDir);
                 CompressionUtils.unTar(tempFile, workDir);
             } catch (Exception e) {
-                LOGGER.error("failed to decompress plugins.tar.gz", e);
+                log.error("failed to decompress plugins.tar.gz", e);
                 System.exit(-1);
             }
-            LOGGER.info("succeeded to decompress plugins.tar.gz");
+            log.info("succeeded to decompress plugins.tar.gz");
         }
     }
 
