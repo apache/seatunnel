@@ -178,9 +178,9 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
                 null,
                 new InlineInputSource(this.data.toString()),
                 new CsvInputFormat(
-                    Arrays.asList("name", timestampColumn),
+                        Arrays.asList("name", timestampColumn),
                         "|",
-                           null,
+                        null,
                         false,
                         0
                 ),
