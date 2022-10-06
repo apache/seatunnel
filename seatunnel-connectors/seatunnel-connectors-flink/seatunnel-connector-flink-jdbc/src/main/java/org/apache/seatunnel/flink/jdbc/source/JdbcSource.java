@@ -18,10 +18,6 @@
 
 package org.apache.seatunnel.flink.jdbc.source;
 
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BIG_INT_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.INT_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.SHORT_TYPE_INFO;
 import static org.apache.seatunnel.flink.jdbc.Config.DRIVER;
 import static org.apache.seatunnel.flink.jdbc.Config.PARALLELISM;
 import static org.apache.seatunnel.flink.jdbc.Config.PARTITION_COLUMN;
@@ -32,6 +28,10 @@ import static org.apache.seatunnel.flink.jdbc.Config.QUERY;
 import static org.apache.seatunnel.flink.jdbc.Config.SOURCE_FETCH_SIZE;
 import static org.apache.seatunnel.flink.jdbc.Config.URL;
 import static org.apache.seatunnel.flink.jdbc.Config.USERNAME;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BIG_INT_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.INT_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.SHORT_TYPE_INFO;
 
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
