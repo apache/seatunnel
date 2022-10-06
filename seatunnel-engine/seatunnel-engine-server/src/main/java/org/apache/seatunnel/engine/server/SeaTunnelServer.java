@@ -180,7 +180,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
      * @param taskGroupLocation taskGroupLocation
      * @return
      */
-    public boolean taskIsEnded(TaskGroupLocation taskGroupLocation) {
+    public boolean taskIsEnded(@NonNull TaskGroupLocation taskGroupLocation) {
         IMap<Object, Object> runningJobState = nodeEngine.getHazelcastInstance().getMap("runningJobState");
         if (runningJobState == null) {
             return false;
