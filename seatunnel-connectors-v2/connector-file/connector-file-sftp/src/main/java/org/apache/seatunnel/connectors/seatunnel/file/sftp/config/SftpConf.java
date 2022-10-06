@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sftp.config;
 
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.sftp.system.SFTPFileSystem;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -42,5 +41,4 @@ public class SftpConf extends HadoopConf {
         hadoopConf.setExtraOptions(sftpOptions);
         return hadoopConf;
     }
-
 }
