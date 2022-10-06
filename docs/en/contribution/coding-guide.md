@@ -108,21 +108,19 @@
 
 11. If you submit a pr with a feature that requires updated documentation, please update the documentation
 
-12. If a new dependency is introduced in pr, you need to add the license declaration of the new dependency in the specified location
+12. Submit the pr of connector type can write e2e test to ensure the robustness and robustness of the code, e2e test should include the full data type, and e2e test as little as possible to initialize the docker image, write the test cases of sink and source together to reduce the loss of resources, while using asynchronous features to ensure the stability of the test. A good example can be found at: [MongodbIT.java](https://github.com/apache/incubator-seatunnel/blob/dev/seatunnel-e2e/seatunnel-flink-connector-v2-e2e/connector-mongodb-flink-e2e/src/test/java/org/apache/seatunnel/e2e/flink/v2/mongodb/MongodbIT.java)
 
-13. Submit the pr of connector type can write e2e test to ensure the robustness and robustness of the code, e2e test should include the full data type, and e2e test as little as possible to initialize the docker image, write the test cases of sink and source together to reduce the loss of resources, while using asynchronous features to ensure the stability of the test. A good example can be found at: [MongodbIT.java](https://github.com/apache/incubator-seatunnel/blob/dev/seatunnel-e2e/seatunnel-flink-connector-v2-e2e/connector-mongodb-flink-e2e/src/test/java/org/apache/seatunnel/e2e/flink/v2/mongodb/MongodbIT.java)
+13. The priority of property permission in the class is set to `private`, and mutability is set to `final`, which can be changed reasonably if special circumstances are encountered
 
-14. The priority of property permission in the class is set to `private`, and mutability is set to `final`, which can be changed reasonably if special circumstances are encountered
+14. The properties in the class and method parameters prefer to use the base type(int boolean double float...), not recommended to use the wrapper type(Integer Boolean Double Float...), if encounter special circumstances reasonable change
 
-15. The properties in the class and method parameters prefer to use the base type(int boolean double float...), not recommended to use the wrapper type(Integer Boolean Double Float...), if encounter special circumstances reasonable change
+15. When developing a sink connector you need to be aware that the sink will be serialized, and if some properties cannot be serialized, encapsulate the properties into classes and use the singleton pattern
 
-16. When developing a sink connector you need to be aware that the sink will be serialized, and if some properties cannot be serialized, encapsulate the properties into classes and use the singleton pattern
+16. If there are multiple if process judgments in the code flow, try to simplify the flow to multiple ifs instead of if-else-if
 
-17. If there are multiple if process judgments in the code flow, try to simplify the flow to multiple ifs instead of if-else-if
+17. Pr has the characteristic of single responsibility, not allowed to include in pr, and you submit the feature of the irrelevant code, once this situation please deal with their own branch before submitting pr, otherwise the community will actively close pr
 
-18. Pr has the characteristic of single responsibility, not allowed to include in pr, and you submit the feature of the irrelevant code, once this situation please deal with their own branch before submitting pr, otherwise the community will actively close pr
+18. Contributors should be responsible for their own pr. If your pr contains new features or modifies old features, please add test cases or e2e tests to prove the reasonableness and functional integrity of your pr
 
-19. Contributors should be responsible for their own pr. If your pr contains new features or modifies old features, please add test cases or e2e tests to prove the reasonableness and functional integrity of your pr
-
-20. If you think which part of the community's current code is unreasonable (especially the core `core` module and the `api` module), the function needs to be updated or modified, please first propose a `discuss issue` or `email` with the community to discuss the need to modify this part of the function, if the community agrees to submit pr again, do not submit the issue and pr directly without discussion, so the community will directly consider this pr is useless, and will be closed down
+19. If you think which part of the community's current code is unreasonable (especially the core `core` module and the `api` module), the function needs to be updated or modified, please first propose a `discuss issue` or `email` with the community to discuss the need to modify this part of the function, if the community agrees to submit pr again, do not submit the issue and pr directly without discussion, so the community will directly consider this pr is useless, and will be closed down
 
