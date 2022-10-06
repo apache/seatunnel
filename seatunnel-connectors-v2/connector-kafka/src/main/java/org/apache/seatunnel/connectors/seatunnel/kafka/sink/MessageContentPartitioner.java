@@ -24,7 +24,7 @@ import org.apache.kafka.common.PartitionInfo;
 import java.util.List;
 import java.util.Map;
 
-public class CustomPartitioner implements Partitioner {
+public class MessageContentPartitioner implements Partitioner {
     private static List<String> ASSIGNPARTITIONS;
 
     public static void setAssignPartitions(List<String> assignPartitionList) {

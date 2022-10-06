@@ -77,7 +77,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             this.partition = pluginConfig.getInt(PARTITION);
         }
         if (pluginConfig.hasPath(ASSIGN_PARTITIONS)) {
-            CustomPartitioner.setAssignPartitions(pluginConfig.getStringList(ASSIGN_PARTITIONS));
+            MessageContentPartitioner.setAssignPartitions(pluginConfig.getStringList(ASSIGN_PARTITIONS));
         }
         if (pluginConfig.hasPath(TRANSACTION_PREFIX)) {
             this.transactionPrefix = pluginConfig.getString(TRANSACTION_PREFIX);
@@ -138,7 +138,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             kafkaProperties.put(entry.getKey(), entry.getValue().unwrapped());
         });
         if (pluginConfig.hasPath(ASSIGN_PARTITIONS)) {
-            kafkaProperties.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, "org.apache.seatunnel.connectors.seatunnel.kafka.sink.CustomPartitioner");
+            kafkaProperties.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, "org.apache.seatunnel.connectors.seatunnel.kafka.sink.MessageContentPartitioner");
         }
         kafkaProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, pluginConfig.getString(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
         kafkaProperties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
