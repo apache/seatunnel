@@ -156,19 +156,19 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
         return new ParallelIndexSupervisorTask(
                 null,
                 null,
-            null,
+                null,
                 new ParallelIndexIngestionSpec(
-                    new DataSchema(
-                        this.datasource,
-                        new TimestampSpec(this.timestampColumn, this.timestampFormat, this.timestampMissingValue),
-                        new DimensionsSpec(Collections.emptyList()),
-                        null,
-                        new UniformGranularitySpec(Granularities.HOUR, Granularities.MINUTE, false, null),
-                        null
-                    ),
-                    ioConfig,
-                    tuningConfig
-            ),
+                        new DataSchema(
+                                this.datasource,
+                                new TimestampSpec(this.timestampColumn, this.timestampFormat, this.timestampMissingValue),
+                                new DimensionsSpec(Collections.emptyList()),
+                                null,
+                                new UniformGranularitySpec(Granularities.HOUR, Granularities.MINUTE, false, null),
+                                null
+                        ),
+                        ioConfig,
+                        tuningConfig
+                ),
                 null
         );
     }
@@ -179,12 +179,12 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
                 new InlineInputSource(this.data.toString()),
                 new CsvInputFormat(
                     Arrays.asList("name", timestampColumn),
-                    "|",
-                    null,
-                    false,
-                    0
+                        "|",
+                           null,
+                        false,
+                        0
                 ),
-            false,
+                false,
                 null
         );
     }

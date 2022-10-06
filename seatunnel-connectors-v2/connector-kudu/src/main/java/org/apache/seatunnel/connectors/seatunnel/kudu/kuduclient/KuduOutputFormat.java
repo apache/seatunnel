@@ -40,10 +40,9 @@ import java.sql.Timestamp;
 /**
  * A Kudu outputFormat
  */
-
 @Slf4j
 public class KuduOutputFormat
-    implements Serializable {
+        implements Serializable {
 
     public static final long TIMEOUTMS = 18000;
     public static final long SESSIONTIMEOUTMS = 100000;

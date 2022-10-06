@@ -82,7 +82,7 @@ public class FileSink implements FlinkStreamSink, FlinkBatchSink {
         final DefaultRollingPolicy<Row, String> rollingPolicy = DefaultRollingPolicy.builder()
                 .withMaxPartSize(MB * TypesafeConfigUtils.getConfig(config, MAX_PART_SIZE, DEFAULT_MAX_PART_SIZE))
                 .withRolloverInterval(
-                    TimeUnit.MINUTES.toMillis(TypesafeConfigUtils.getConfig(config, ROLLOVER_INTERVAL, DEFAULT_ROLLOVER_INTERVAL)))
+                        TimeUnit.MINUTES.toMillis(TypesafeConfigUtils.getConfig(config, ROLLOVER_INTERVAL, DEFAULT_ROLLOVER_INTERVAL)))
                 .build();
         OutputFileConfig outputFileConfig = OutputFileConfig.builder()
                 .withPartPrefix(TypesafeConfigUtils.getConfig(config, PART_PREFIX, DEFAULT_PART_PREFIX))

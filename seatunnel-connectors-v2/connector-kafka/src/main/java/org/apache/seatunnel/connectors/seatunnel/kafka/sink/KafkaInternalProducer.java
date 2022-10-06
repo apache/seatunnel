@@ -130,7 +130,7 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
             constructor.setAccessible(true);
             return constructor.newInstance(producerId, epoch);
         } catch (InvocationTargetException | InstantiationException | IllegalAccessException |
-                NoSuchFieldException | NoSuchMethodException e) {
+                 NoSuchFieldException | NoSuchMethodException e) {
             throw new RuntimeException("Incompatible KafkaProducer version", e);
         }
     }

@@ -79,7 +79,7 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
         shardLocalDataPaths = shardRouter.getShards().values().stream()
                 .collect(Collectors.toMap(Function.identity(), shard -> {
                     ClickhouseTable shardTable = proxy.getClickhouseTable(shard.getNode().getDatabase().get(),
-                        clickhouseTable.getLocalTableName());
+                            clickhouseTable.getLocalTableName());
                     return shardTable.getDataPaths();
                 }));
     }
@@ -131,7 +131,7 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
     }
 
     private List<String> generateClickhouseLocalFiles(List<SeaTunnelRow> rows) throws IOException,
-           InterruptedException {
+            InterruptedException {
         if (rows.isEmpty()) {
             return Collections.emptyList();
         }
@@ -142,8 +142,8 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
         try (FileChannel fileChannel = FileChannel.open(Paths.get(clickhouseLocalFileTmpFile), StandardOpenOption.WRITE,
                 StandardOpenOption.READ, StandardOpenOption.CREATE_NEW)) {
             String data = rows.stream()
-                   .map(row -> this.readerOption.getFields().stream().map(field -> row.getField(this.readerOption.getSeaTunnelRowType().indexOf(field)).toString())
-                        .collect(Collectors.joining("\t")))
+                    .map(row -> this.readerOption.getFields().stream().map(field -> row.getField(this.readerOption.getSeaTunnelRowType().indexOf(field)).toString())
+                            .collect(Collectors.joining("\t")))
                     .collect(Collectors.joining("\n"));
             MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_WRITE, fileChannel.size(),
                     data.getBytes(StandardCharsets.UTF_8).length);
@@ -174,7 +174,7 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
                         return "NULL";
                     }
                 }).collect(Collectors.joining(",")),
-            uuid));
+                uuid));
         command.add("--path");
         command.add("\"" + clickhouseLocalFile + "\"");
         log.info("Generate clickhouse local file command: {}", String.join(" ", command));
