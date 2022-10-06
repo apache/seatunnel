@@ -22,7 +22,9 @@ import static org.awaitility.Awaitility.given;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
@@ -49,6 +51,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     protected Connection jdbcConnection;
     protected GenericContainer<?> dbServer;
     private JdbcCase jdbcCase;
+    protected static final String HOST = "HOST";
 
     abstract JdbcCase getJdbcCase();
 
@@ -56,11 +59,18 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     abstract SeaTunnelRow initTestData();
 
+    @TestContainerExtension
+    private final ContainerExtendedFactory extendedFactory = container -> {
+        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + jdbcCase.getDriverJar());
+        Assertions.assertEquals(0, extraCommands.getExitCode());
+    };
+
     private void getContainer() throws ClassNotFoundException, SQLException {
         jdbcCase = this.getJdbcCase();
         dbServer = new GenericContainer<>(jdbcCase.getDockerImage())
             .withNetwork(NETWORK)
             .withNetworkAliases(jdbcCase.getHost())
+            .withEnv(jdbcCase.getContainerEnv())
             .withLogConsumer(new Slf4jLogConsumer(log));
         dbServer.setPortBindings(Lists.newArrayList(
             String.format("%s:%s", jdbcCase.getPort(), jdbcCase.getPort())));
@@ -74,7 +84,8 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     }
 
     protected Connection initializeJdbcConnection() throws SQLException {
-        jdbcConnection = DriverManager.getConnection(jdbcCase.getJdbcUrl(), jdbcCase.getUserName(), jdbcCase.getPassword());
+        String jdbcUrl = jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
+        jdbcConnection = DriverManager.getConnection(jdbcUrl, jdbcCase.getUserName(), jdbcCase.getPassword());
         return jdbcConnection;
     }
 
@@ -129,5 +140,6 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         Assertions.assertEquals(0, this.compareResult());
     }
+
 
 }

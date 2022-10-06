@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.Map;
+
 @Data
 @Builder
 public class JdbcCase {
@@ -41,4 +43,5 @@ public class JdbcCase {
     private String initDataSql;
     private String configFile;
     private SeaTunnelRow seaTunnelRow;
+    private Map<String, String> containerEnv;
 }
