@@ -124,7 +124,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     }
 
     @TestTemplate
-    public void testJdbcDb(TestContainer container) throws IOException, InterruptedException {
+    public void testJdbcDb(TestContainer container) throws IOException, InterruptedException, SQLException {
         Container.ExecResult execResult = container.executeJob(jdbcCase.getConfigFile());
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         Assertions.assertEquals(0, this.compareResult());
