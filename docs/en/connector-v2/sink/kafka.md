@@ -1,7 +1,6 @@
 # Kafka
 
 > Kafka sink connector
-
 ## Description
 
 Write Rows to a Kafka topic.
@@ -64,7 +63,7 @@ assign_partitions = ["shoe", "clothing"]
 
 Then the message containing "shoe" will be sent to partition zero ,because "shoe" is subscripted as zero in assign_partitions, and the message containing "clothing" will be sent to partition one.For other messages, the hash algorithm will be used to divide them into the remaining partitions.
 
-This function by `CustomPartitioner` class implements `org.apache.kafka.clients.producer.Partitioner` interface.If we need custom partitions, we need to implement this interface as well.
+This function by `MessageContentPartitioner` class implements `org.apache.kafka.clients.producer.Partitioner` interface.If we need custom partitions, we need to implement this interface as well.
 
 ### transaction_prefix [string]
 
