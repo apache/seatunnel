@@ -48,10 +48,11 @@ import java.util.stream.Stream;
 @Slf4j
 public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResource {
 
+    protected static final String HOST = "HOST";
     protected Connection jdbcConnection;
     protected GenericContainer<?> dbServer;
     private JdbcCase jdbcCase;
-    protected static final String HOST = "HOST";
+    private String jdbcUrl;
 
     abstract JdbcCase getJdbcCase();
 
@@ -83,31 +84,30 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         initializeJdbcTable();
     }
 
-    protected Connection initializeJdbcConnection() throws SQLException {
-        String jdbcUrl = jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
+    protected void initializeJdbcConnection() throws SQLException {
+        jdbcUrl = jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
         jdbcConnection = DriverManager.getConnection(jdbcUrl, jdbcCase.getUserName(), jdbcCase.getPassword());
-        return jdbcConnection;
     }
 
-    private void batchInsertData() throws SQLException {
-        try {
-            jdbcConnection.setAutoCommit(false);
-            try (PreparedStatement preparedStatement = jdbcConnection.prepareStatement(jdbcCase.getInitDataSql())) {
+    private void batchInsertData() {
+        try (Connection connection = DriverManager.getConnection(jdbcUrl, jdbcCase.getUserName(), jdbcCase.getPassword())) {
+            connection.setAutoCommit(false);
+            try (PreparedStatement preparedStatement = connection.prepareStatement(jdbcCase.getInitDataSql())) {
 
                 for (int index = 0; index < jdbcCase.getSeaTunnelRow().getFields().length; index++) {
                     preparedStatement.setObject(index + 1, jdbcCase.getSeaTunnelRow().getFields()[index]);
                 }
                 preparedStatement.execute();
             }
-            jdbcConnection.commit();
-        } catch (SQLException e) {
-            jdbcConnection.rollback();
-            throw e;
+            connection.commit();
+        } catch (SQLException exception) {
+            exception.printStackTrace();
         }
     }
 
     private void initializeJdbcTable() throws SQLException {
-        try (Statement statement = jdbcConnection.createStatement()) {
+        try (Connection connection = DriverManager.getConnection(jdbcUrl, jdbcCase.getUserName(), jdbcCase.getPassword())) {
+            Statement statement = connection.createStatement();
             String createSource = jdbcCase.getDdlSource();
             String createSink = jdbcCase.getDdlSink();
             statement.execute(createSource);
@@ -140,6 +140,5 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         Assertions.assertEquals(0, this.compareResult());
     }
-
 
 }

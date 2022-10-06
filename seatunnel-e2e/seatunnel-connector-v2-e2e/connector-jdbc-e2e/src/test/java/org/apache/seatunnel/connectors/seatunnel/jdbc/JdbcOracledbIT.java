@@ -49,7 +49,7 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
     private static final String DDL_SINK = "CREATE TABLE sink (a VARCHAR(5),\n" +
         "                b VARCHAR(30),\n" +
         "                c VARCHAR(20));  ";
-    private static final String INIT_DATA_SQL = "insert into source values(?,?,?);";
+    private static final String INIT_DATA_SQL = "insert into source(a,b,c) values(?,?,?);";
 
     @Override
     JdbcCase getJdbcCase() {
