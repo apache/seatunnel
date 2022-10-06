@@ -53,7 +53,7 @@ public class SFTPFileSystem extends FileSystem {
     private URI uri;
 
     private static final int DEFAULT_SFTP_PORT = 22;
-    private static final int DEFAULT_MAX_CONNECTION = 5;
+    public static final int DEFAULT_MAX_CONNECTION = 5;
     public static final int DEFAULT_BUFFER_SIZE = 1024 * 1024;
     public static final int DEFAULT_BLOCK_SIZE = 4 * 1024;
     public static final String FS_SFTP_USER_PREFIX = "fs.sftp.user.";
@@ -121,7 +121,7 @@ public class SFTPFileSystem extends FileSystem {
 
         int connectionMax =
                 conf.getInt(FS_SFTP_CONNECTION_MAX, DEFAULT_MAX_CONNECTION);
-        connectionPool = new SFTPConnectionPool(connectionMax);
+        connectionPool = new SFTPConnectionPool(connectionMax, connectionMax);
     }
 
     private ChannelSftp connect() throws IOException {
