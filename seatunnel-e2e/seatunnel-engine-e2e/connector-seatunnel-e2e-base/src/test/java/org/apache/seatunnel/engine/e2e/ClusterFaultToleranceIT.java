@@ -31,7 +31,6 @@ import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -45,11 +44,6 @@ import java.util.concurrent.TimeUnit;
  * Cluster fault tolerance test. Test the job recovery capability and data consistency assurance capability in case of cluster node failure
  */
 public class ClusterFaultToleranceIT {
-
-    @BeforeAll
-    public static void beforeAll() {
-        TestUtils.initPluginDir();
-    }
 
     @Test
     public void testBatchJobRunOkIn3Node() throws ExecutionException, InterruptedException {

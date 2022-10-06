@@ -30,31 +30,28 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import com.google.common.collect.Lists;
 import com.hazelcast.client.config.ClientConfig;
+import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 public class JobExecutionIT {
-    private static final Logger LOGGER = LoggerFactory.getLogger(JobExecutionIT.class);
 
     @BeforeAll
     public static void beforeClass() throws Exception {
-        TestUtils.initPluginDir();
         SeaTunnelServerStarter.createHazelcastInstance(TestUtils.getClusterName("JobExecutionIT"));
     }
 
     @Test
     public void testSayHello() {
-        SeaTunnelClientConfig seaTunnelClientConfig = new SeaTunnelClientConfig();
-        seaTunnelClientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
-        seaTunnelClientConfig.getNetworkConfig().setAddresses(Lists.newArrayList("localhost:5801"));
-        SeaTunnelClient engineClient = new SeaTunnelClient(seaTunnelClientConfig);
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
+        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
 
         String msg = "Hello world";
         String s = engineClient.printMessageToMaster(msg);
@@ -91,7 +88,6 @@ public class JobExecutionIT {
 
     @Test
     public void cancelJobTest() {
-        TestUtils.initPluginDir();
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("streaming_fakesource_to_file_complex.conf");
         JobConfig jobConfig = new JobConfig();
