@@ -33,7 +33,7 @@
 
    > Title specification: [purpose] [module name] Description
 
-   1. pr purpose includes: `Hotfix`, `Feature`, `Improve`, `Bug`, `Docs`, `WIP`.Please note that if your pr purpose is WIP, then you need to use github's draft pr
+   1. pr purpose includes: `Hotfix`, `Feature`, `Improve`, `Docs`, `WIP`.Please note that if your pr purpose is WIP, then you need to use github's draft pr
    2. issue purpose includes: `Feature`, `Bug`, `Docs`, `Discuss`
    3. module name: the current pr or issue involves the name of the module, for example: `Core`, `Connector-V2`, `Connector-V1`, etc.
    4. description: highly summarize what the current pr and issue to do, as far as possible to do the name to know the meaning
