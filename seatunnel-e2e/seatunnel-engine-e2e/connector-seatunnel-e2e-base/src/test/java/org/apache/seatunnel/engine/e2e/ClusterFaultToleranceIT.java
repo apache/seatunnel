@@ -97,6 +97,5 @@ public class ClusterFaultToleranceIT {
         Awaitility.await().atMost(20000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertTrue(
                 objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
-
     }
 }
