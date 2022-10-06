@@ -122,11 +122,11 @@ public class KafkaTableStream implements FlinkStreamSource {
     public DataStream<Row> getData(FlinkEnvironment env) {
         StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
         tableEnvironment
-            .connect(getKafkaConnect())
-            .withFormat(setFormat())
-            .withSchema(getSchema())
-            .inAppendMode()
-            .createTemporaryTable(tableName);
+                .connect(getKafkaConnect())
+                .withFormat(setFormat())
+                .withSchema(getSchema())
+                .inAppendMode()
+                .createTemporaryTable(tableName);
         Table table = tableEnvironment.scan(tableName);
         return TableUtil.tableToDataStream(tableEnvironment, table, true);
     }

@@ -147,7 +147,7 @@ public class SparkEnvironment implements RuntimeEnv {
             return data;
         } else {
             throw new ConfigRuntimeException("Plugin[" + source.getClass().getName() + "] " +
-                "must be registered as dataset/table, please set \"" + RESULT_TABLE_NAME + "\" config");
+                    "must be registered as dataset/table, please set \"" + RESULT_TABLE_NAME + "\" config");
         }
     }
 

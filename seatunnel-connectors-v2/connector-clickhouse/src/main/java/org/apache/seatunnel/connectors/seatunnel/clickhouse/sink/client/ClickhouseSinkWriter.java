@@ -140,8 +140,8 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
                 }
                 String fieldType = option.getTableSchema().get(fieldName);
                 fieldInjectFunctionMap
-                    .getOrDefault(fieldType, DEFAULT_INJECT_FUNCTION)
-                    .injectFields(clickHouseStatement, i + 1, fieldValue);
+                        .getOrDefault(fieldType, DEFAULT_INJECT_FUNCTION)
+                        .injectFields(clickHouseStatement, i + 1, fieldValue);
             }
             clickHouseStatement.addBatch();
         } catch (SQLException e) {
@@ -162,11 +162,11 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
         shardRouter.getShards().forEach((weight, s) -> {
             try {
                 ClickHouseConnectionImpl clickhouseConnection = new ClickHouseConnectionImpl(s.getJdbcUrl(),
-                    this.option.getProperties());
+                        this.option.getProperties());
                 PreparedStatement preparedStatement = clickhouseConnection.prepareStatement(prepareSql);
                 IntHolder intHolder = new IntHolder();
                 ClickhouseBatchStatement batchStatement =
-                    new ClickhouseBatchStatement(clickhouseConnection, preparedStatement, intHolder);
+                        new ClickhouseBatchStatement(clickhouseConnection, preparedStatement, intHolder);
                 result.put(s, batchStatement);
             } catch (SQLException e) {
                 throw new RuntimeException("Clickhouse prepare statement error: " + e.getMessage(), e);
@@ -180,9 +180,9 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
         Arrays.fill(placeholder, "?");
 
         return String.format("INSERT INTO %s (%s) VALUES (%s)",
-            shardRouter.getShardTable(),
-            String.join(",", option.getFields()),
-            String.join(",", placeholder));
+                shardRouter.getShardTable(),
+                String.join(",", option.getFields()),
+                String.join(",", placeholder));
     }
 
     private Map<String, ClickhouseFieldInjectFunction> initFieldInjectFunctionMap() {

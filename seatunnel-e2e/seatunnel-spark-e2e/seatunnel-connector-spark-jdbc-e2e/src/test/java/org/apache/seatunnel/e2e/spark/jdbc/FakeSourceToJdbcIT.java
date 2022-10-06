@@ -51,9 +51,9 @@ public class FakeSourceToJdbcIT extends SparkContainer {
     @BeforeEach
     public void startPostgreSqlContainer() throws InterruptedException, ClassNotFoundException, SQLException {
         psl = new PostgreSQLContainer<>(DockerImageName.parse("postgres:alpine3.16"))
-            .withNetwork(NETWORK)
-            .withNetworkAliases("postgresql")
-            .withLogConsumer(new Slf4jLogConsumer(log));
+                .withNetwork(NETWORK)
+                .withNetworkAliases("postgresql")
+                .withLogConsumer(new Slf4jLogConsumer(log));
         Startables.deepStart(Stream.of(psl)).join();
         log.info("PostgreSql container started");
         Class.forName(psl.getDriverClassName());
@@ -69,8 +69,8 @@ public class FakeSourceToJdbcIT extends SparkContainer {
         try (Connection connection = DriverManager.getConnection(psl.getJdbcUrl(), psl.getUsername(), psl.getPassword())) {
             Statement statement = connection.createStatement();
             String sql = "CREATE TABLE test (\n" +
-                "  name varchar(255) NOT NULL\n" +
-                ")";
+                    "  name varchar(255) NOT NULL\n" +
+                    ")";
             statement.execute(sql);
         } catch (SQLException e) {
             throw new RuntimeException("Initializing PostgreSql table failed!", e);

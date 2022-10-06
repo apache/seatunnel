@@ -154,73 +154,73 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
 
     private ParallelIndexSupervisorTask parallelIndexSupervisorTask(ParallelIndexIOConfig ioConfig, ParallelIndexTuningConfig tuningConfig) {
         return new ParallelIndexSupervisorTask(
+                null,
+                null,
             null,
-            null,
-            null,
-            new ParallelIndexIngestionSpec(
-                new DataSchema(
-                    this.datasource,
-                    new TimestampSpec(this.timestampColumn, this.timestampFormat, this.timestampMissingValue),
-                    new DimensionsSpec(Collections.emptyList()),
-                    null,
-                    new UniformGranularitySpec(Granularities.HOUR, Granularities.MINUTE, false, null),
-                    null
-                ),
-                ioConfig,
-                tuningConfig
+                new ParallelIndexIngestionSpec(
+                    new DataSchema(
+                        this.datasource,
+                        new TimestampSpec(this.timestampColumn, this.timestampFormat, this.timestampMissingValue),
+                        new DimensionsSpec(Collections.emptyList()),
+                        null,
+                        new UniformGranularitySpec(Granularities.HOUR, Granularities.MINUTE, false, null),
+                        null
+                    ),
+                    ioConfig,
+                    tuningConfig
             ),
-            null
+                null
         );
     }
 
     private ParallelIndexIOConfig parallelIndexIOConfig() {
         return new ParallelIndexIOConfig(
-            null,
-            new InlineInputSource(this.data.toString()),
-            new CsvInputFormat(
-                Arrays.asList("name", timestampColumn),
-                "|",
                 null,
-                false,
-                0
-            ),
+                new InlineInputSource(this.data.toString()),
+                new CsvInputFormat(
+                    Arrays.asList("name", timestampColumn),
+                    "|",
+                    null,
+                    false,
+                    0
+                ),
             false,
-            null
+                null
         );
     }
 
     private ParallelIndexTuningConfig tuningConfig() {
         return new ParallelIndexTuningConfig(
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            new MaxSizeSplitHintSpec(null, 1),
-            null,
-            null,
-            null,
-            null,
-            false,
-            null,
-            null,
-            null,
-            null,
-            1,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new MaxSizeSplitHintSpec(null, 1),
+                null,
+                null,
+                null,
+                null,
+                false,
+                null,
+                null,
+                null,
+                null,
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
         );
     }
 }

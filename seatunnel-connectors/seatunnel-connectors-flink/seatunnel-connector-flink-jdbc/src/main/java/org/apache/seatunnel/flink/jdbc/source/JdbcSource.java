@@ -140,19 +140,19 @@ public class JdbcSource implements FlinkBatchSource {
                 String partitionColumn = config.getString(PARTITION_COLUMN);
                 if (!tableFieldInfo.containsKey(partitionColumn)) {
                     throw new IllegalArgumentException(String.format("field %s not contain in query sql %s",
-                        partitionColumn, query));
+                            partitionColumn, query));
                 }
                 if (!isNumericType(rowTypeInfo.getTypeAt(partitionColumn))) {
                     throw new IllegalArgumentException(String.format("%s is not numeric type", partitionColumn));
                 }
                 JdbcParameterValuesProvider jdbcParameterValuesProvider =
-                    initPartition(partitionColumn, connection, query);
+                        initPartition(partitionColumn, connection, query);
                 builder.setParametersProvider(jdbcParameterValuesProvider);
                 query = String.format("SELECT * FROM (%s) tt where " + partitionColumn + " >= ? AND " + partitionColumn + " <= ?", query);
             }
             builder.setDrivername(driverName).setDBUrl(dbUrl).setUsername(username)
-                .setPassword(password).setQuery(query).setFetchSize(fetchSize)
-                .setRowTypeInfo(rowTypeInfo);
+                    .setPassword(password).setQuery(query).setFetchSize(fetchSize)
+                    .setRowTypeInfo(rowTypeInfo);
             jdbcInputFormat = builder.finish();
         } catch (SQLException e) {
             throw new RuntimeException("jdbc connection init failed.", e);
@@ -173,12 +173,12 @@ public class JdbcSource implements FlinkBatchSource {
             return new JdbcNumericBetweenParametersProvider(min, max).ofBatchNum(parallelism * 2);
         }
         try (ResultSet rs = connection.createStatement().executeQuery(String.format("SELECT MAX(%s),MIN(%s) " +
-            "FROM (%s) tt", columnName, columnName, query))) {
+                "FROM (%s) tt", columnName, columnName, query))) {
             if (rs.next()) {
                 max = config.hasPath(PARTITION_UPPER_BOUND) ? config.getLong(PARTITION_UPPER_BOUND) :
-                    Long.parseLong(rs.getString(1));
+                        Long.parseLong(rs.getString(1));
                 min = config.hasPath(PARTITION_LOWER_BOUND) ? config.getLong(PARTITION_LOWER_BOUND) :
-                    Long.parseLong(rs.getString(2));
+                        Long.parseLong(rs.getString(2));
             }
         }
         return new JdbcNumericBetweenParametersProvider(min, max).ofBatchNum(parallelism * 2);
@@ -186,7 +186,7 @@ public class JdbcSource implements FlinkBatchSource {
 
     private boolean isNumericType(TypeInformation<?> type) {
         return type.equals(INT_TYPE_INFO) || type.equals(SHORT_TYPE_INFO)
-            || type.equals(LONG_TYPE_INFO) || type.equals(BIG_INT_TYPE_INFO);
+                || type.equals(LONG_TYPE_INFO) || type.equals(BIG_INT_TYPE_INFO);
     }
 
     private Map<String, TypeInformation<?>> initTableField(Connection connection, String selectSql) {

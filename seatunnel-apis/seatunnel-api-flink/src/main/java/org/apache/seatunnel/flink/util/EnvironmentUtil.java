@@ -52,8 +52,8 @@ public final class EnvironmentUtil {
                         int rate = config.getInt(ConfigKeyName.RESTART_FAILURE_RATE);
                         long delayInterval = config.getLong(ConfigKeyName.RESTART_DELAY_INTERVAL);
                         executionConfig.setRestartStrategy(RestartStrategies.failureRateRestart(rate,
-                            Time.of(failureInterval, TimeUnit.MILLISECONDS),
-                            Time.of(delayInterval, TimeUnit.MILLISECONDS)));
+                                Time.of(failureInterval, TimeUnit.MILLISECONDS),
+                                Time.of(delayInterval, TimeUnit.MILLISECONDS)));
                         break;
                     default:
                         log.warn("set restart.strategy failed, unknown restart.strategy [{}],only support no,fixed-delay,failure-rate", restartStrategy);

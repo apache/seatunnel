@@ -49,7 +49,7 @@ public final class AsciiArtUtils {
         g.setFont(new Font("Dialog", Font.PLAIN, FONT_SIZE));
         Graphics2D graphics = (Graphics2D) g;
         graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
-            RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         graphics.drawString(str, DRAW_X, FONT_SIZE);
 
         for (int y = 0; y < height; y++) {

@@ -107,8 +107,8 @@ public class KuduInputFormat implements Serializable {
             } else if (seaTunnelDataType instanceof DecimalType) {
                 Object value = rs.getObject(i);
                 seatunnelField = value instanceof BigInteger ?
-                    new BigDecimal((BigInteger) value, 0)
-                    : value;
+                        new BigDecimal((BigInteger) value, 0)
+                        : value;
             } else if (BasicType.FLOAT_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getFloat(i);
             } else if (BasicType.DOUBLE_TYPE.equals(seaTunnelDataType)) {
@@ -143,7 +143,7 @@ public class KuduInputFormat implements Serializable {
 
     public void openInputFormat() {
         KuduClient.KuduClientBuilder kuduClientBuilder = new
-            KuduClient.KuduClientBuilder(kuduMaster);
+                KuduClient.KuduClientBuilder(kuduMaster);
         kuduClientBuilder.defaultOperationTimeoutMs(TIMEOUTMS);
 
         kuduClient = kuduClientBuilder.build();
@@ -162,22 +162,22 @@ public class KuduInputFormat implements Serializable {
         KuduScanner kuduScanner = null;
         try {
             KuduScanner.KuduScannerBuilder kuduScannerBuilder =
-                kuduClient.newScannerBuilder(kuduClient.openTable(tableName));
+                    kuduClient.newScannerBuilder(kuduClient.openTable(tableName));
 
             kuduScannerBuilder.setProjectedColumnNames(columnsList);
 
             KuduPredicate lowerPred = KuduPredicate.newComparisonPredicate(
-                schema.getColumn("" + keyColumn),
-                KuduPredicate.ComparisonOp.GREATER_EQUAL,
-                lowerBound);
+                    schema.getColumn("" + keyColumn),
+                    KuduPredicate.ComparisonOp.GREATER_EQUAL,
+                    lowerBound);
 
             KuduPredicate upperPred = KuduPredicate.newComparisonPredicate(
-                schema.getColumn("" + keyColumn),
-                KuduPredicate.ComparisonOp.LESS,
-                upperBound);
+                    schema.getColumn("" + keyColumn),
+                    KuduPredicate.ComparisonOp.LESS,
+                    upperBound);
 
             kuduScanner = kuduScannerBuilder.addPredicate(lowerPred)
-                .addPredicate(upperPred).build();
+                    .addPredicate(upperPred).build();
         } catch (KuduException e) {
             log.warn("get the Kuduscan object for each splice exception", e);
             throw new RuntimeException("get the Kuduscan object for each splice exception.", e);

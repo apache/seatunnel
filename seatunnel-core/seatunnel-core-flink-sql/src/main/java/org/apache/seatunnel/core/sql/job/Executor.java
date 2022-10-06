@@ -75,7 +75,7 @@ public class Executor {
         final Configuration executionEnvConfiguration;
         try {
             executionEnvConfiguration =
-                (Configuration) Objects.requireNonNull(ReflectionUtils.getDeclaredMethod(StreamExecutionEnvironment.class,
+                  (Configuration) Objects.requireNonNull(ReflectionUtils.getDeclaredMethod(StreamExecutionEnvironment.class,
                     "getConfiguration")).orElseThrow(() -> new RuntimeException("can't find " +
                     "method: getConfiguration")).invoke(env);
         } catch (Exception e) {

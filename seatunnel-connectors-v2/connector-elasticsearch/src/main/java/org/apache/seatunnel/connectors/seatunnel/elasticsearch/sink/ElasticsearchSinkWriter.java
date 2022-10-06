@@ -53,10 +53,10 @@ public class ElasticsearchSinkWriter<ElasticsearchSinkStateT> implements SinkWri
     private EsRestClient esRestClient;
 
     public ElasticsearchSinkWriter(
-        SinkWriter.Context context,
-        SeaTunnelRowType seaTunnelRowType,
-        Config pluginConfig,
-        List<ElasticsearchSinkStateT> elasticsearchStates) {
+            SinkWriter.Context context,
+            SeaTunnelRowType seaTunnelRowType,
+            Config pluginConfig,
+            List<ElasticsearchSinkStateT> elasticsearchStates) {
         this.context = context;
 
         IndexInfo indexInfo = new IndexInfo(pluginConfig);

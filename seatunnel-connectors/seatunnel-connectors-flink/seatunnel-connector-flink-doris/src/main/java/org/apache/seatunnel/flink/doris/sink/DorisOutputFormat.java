@@ -87,18 +87,18 @@ public class DorisOutputFormat<T> extends RichOutputFormat<T> {
         boolean ifEscape = Boolean.parseBoolean(streamLoadProp.getProperty(ESCAPE_DELIMITERS_KEY, ESCAPE_DELIMITERS_DEFAULT));
         if (ifEscape) {
             this.fieldDelimiter = escapeString(streamLoadProp.getProperty(FIELD_DELIMITER_KEY,
-                FIELD_DELIMITER_DEFAULT));
+                    FIELD_DELIMITER_DEFAULT));
             this.lineDelimiter = escapeString(streamLoadProp.getProperty(LINE_DELIMITER_KEY,
-                LINE_DELIMITER_DEFAULT));
+                    LINE_DELIMITER_DEFAULT));
 
             if (streamLoadProp.contains(ESCAPE_DELIMITERS_KEY)) {
                 streamLoadProp.remove(ESCAPE_DELIMITERS_KEY);
             }
         } else {
             this.fieldDelimiter = streamLoadProp.getProperty(FIELD_DELIMITER_KEY,
-                FIELD_DELIMITER_DEFAULT);
+                    FIELD_DELIMITER_DEFAULT);
             this.lineDelimiter = streamLoadProp.getProperty(LINE_DELIMITER_KEY,
-                LINE_DELIMITER_DEFAULT);
+                    LINE_DELIMITER_DEFAULT);
         }
     }
 

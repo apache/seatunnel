@@ -84,7 +84,7 @@ public class ScpFileTransfer implements FileTransfer {
         command.add("ls");
         command.add("-l");
         command.add(targetPath.substring(0,
-            StringUtils.stripEnd(targetPath, "/").lastIndexOf("/")) + "/");
+                StringUtils.stripEnd(targetPath, "/").lastIndexOf("/")) + "/");
         command.add("| tail -n 1 | awk '{print $3}' | xargs -t -i chown -R {}:{} " + targetPath);
         try {
             String finalCommand = String.join(" ", command);

@@ -77,7 +77,7 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
 
     @Override
     public SourceSplitEnumerator<KuduSourceSplit, KuduSourceState> createEnumerator(
-        SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext) {
+            SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext) {
         return new KuduSourceSplitEnumerator(enumeratorContext, partitionParameter);
     }
 
@@ -113,7 +113,7 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
         }
         try {
             KuduClient.KuduClientBuilder kuduClientBuilder = new
-                KuduClient.KuduClientBuilder(kudumaster);
+                    KuduClient.KuduClientBuilder(kudumaster);
             kuduClientBuilder.defaultOperationTimeoutMs(TIMEOUTMS);
 
             KuduClient kuduClient = kuduClientBuilder.build();
@@ -132,7 +132,7 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
         boolean flag = true;
         try {
             KuduScanner.KuduScannerBuilder kuduScannerBuilder =
-                kuduClient.newScannerBuilder(kuduClient.openTable(tableName));
+                    kuduClient.newScannerBuilder(kuduClient.openTable(tableName));
             ArrayList<String> columnsList = new ArrayList<String>();
             keyColumn = kuduClient.openTable(tableName).getSchema().getPrimaryKeyColumns().get(0).getName();
             columnsList.add("" + keyColumn);

@@ -37,7 +37,7 @@ import java.util.Properties;
 public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
 
     private static final String TRANSACTION_MANAGER_STATE_ENUM =
-        "org.apache.kafka.clients.producer.internals.TransactionManager$State";
+            "org.apache.kafka.clients.producer.internals.TransactionManager$State";
     private static final String PRODUCER_ID_AND_EPOCH_FIELD_NAME = "producerIdAndEpoch";
     private String transactionalId;
 
@@ -73,7 +73,7 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
             synchronized (transactionManager) {
                 ReflectionUtils.setField(transactionManager, "transactionalId", transactionalId);
                 ReflectionUtils.setField(transactionManager, "currentState",
-                    getTransactionManagerState("UNINITIALIZED"));
+                        getTransactionManagerState("UNINITIALIZED"));
                 this.transactionalId = transactionalId;
             }
         }
@@ -82,37 +82,37 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
     public short getEpoch() {
         Object transactionManager = getTransactionManager();
         Optional<Object> producerIdAndEpoch = ReflectionUtils.getField(transactionManager,
-            PRODUCER_ID_AND_EPOCH_FIELD_NAME);
+                PRODUCER_ID_AND_EPOCH_FIELD_NAME);
         return (short) ReflectionUtils.getField(producerIdAndEpoch.get(), "epoch").get();
     }
 
     public long getProducerId() {
         Object transactionManager = getTransactionManager();
         Object producerIdAndEpoch = ReflectionUtils.getField(transactionManager,
-            PRODUCER_ID_AND_EPOCH_FIELD_NAME).get();
+                PRODUCER_ID_AND_EPOCH_FIELD_NAME).get();
         return (long) ReflectionUtils.getField(producerIdAndEpoch, "producerId").get();
     }
 
     public void resumeTransaction(long producerId, short epoch) {
 
         log.info(
-            "Attempting to resume transaction {} with producerId {} and epoch {}",
-            transactionalId,
-            producerId,
-            epoch);
+                "Attempting to resume transaction {} with producerId {} and epoch {}",
+                transactionalId,
+                producerId,
+                epoch);
 
         Object transactionManager = getTransactionManager();
         synchronized (transactionManager) {
             Object topicPartitionBookkeeper =
-                ReflectionUtils.getField(transactionManager, transactionManager.getClass(),
-                    "topicPartitionBookkeeper").get();
+                    ReflectionUtils.getField(transactionManager, transactionManager.getClass(),
+                            "topicPartitionBookkeeper").get();
 
             transitionTransactionManagerStateTo(transactionManager, "INITIALIZING");
             ReflectionUtils.invoke(topicPartitionBookkeeper, "reset");
 
             ReflectionUtils.setField(
-                transactionManager, PRODUCER_ID_AND_EPOCH_FIELD_NAME,
-                createProducerIdAndEpoch(producerId, epoch));
+                    transactionManager, PRODUCER_ID_AND_EPOCH_FIELD_NAME,
+                    createProducerIdAndEpoch(producerId, epoch));
 
             transitionTransactionManagerStateTo(transactionManager, "READY");
 
@@ -124,20 +124,20 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
     private static Object createProducerIdAndEpoch(long producerId, short epoch) {
         try {
             Field field =
-                TransactionManager.class.getDeclaredField(PRODUCER_ID_AND_EPOCH_FIELD_NAME);
+                    TransactionManager.class.getDeclaredField(PRODUCER_ID_AND_EPOCH_FIELD_NAME);
             Class<?> clazz = field.getType();
             Constructor<?> constructor = clazz.getDeclaredConstructor(Long.TYPE, Short.TYPE);
             constructor.setAccessible(true);
             return constructor.newInstance(producerId, epoch);
         } catch (InvocationTargetException | InstantiationException | IllegalAccessException |
-            NoSuchFieldException | NoSuchMethodException e) {
+                NoSuchFieldException | NoSuchMethodException e) {
             throw new RuntimeException("Incompatible KafkaProducer version", e);
         }
     }
 
     private Object getTransactionManager() {
         Optional<Object> transactionManagerOptional = ReflectionUtils.getField(this, KafkaProducer.class,
-            "transactionManager");
+                "transactionManager");
         if (!transactionManagerOptional.isPresent()) {
             throw new RuntimeException("can't get transactionManager in KafkaProducer");
         }
@@ -145,7 +145,7 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
     }
 
     private static void transitionTransactionManagerStateTo(
-        Object transactionManager, String state) {
+            Object transactionManager, String state) {
         ReflectionUtils.invoke(transactionManager, "transitionTo", getTransactionManagerState(state));
     }
 

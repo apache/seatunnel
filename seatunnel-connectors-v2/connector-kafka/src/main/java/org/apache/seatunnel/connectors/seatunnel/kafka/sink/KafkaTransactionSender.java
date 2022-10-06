@@ -66,7 +66,7 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     @Override
     public Optional<KafkaCommitInfo> prepareCommit() {
         KafkaCommitInfo kafkaCommitInfo = new KafkaCommitInfo(transactionId, kafkaProperties,
-            this.kafkaProducer.getProducerId(), this.kafkaProducer.getEpoch());
+                this.kafkaProducer.getProducerId(), this.kafkaProducer.getEpoch());
         return Optional.of(kafkaCommitInfo);
     }
 
@@ -83,7 +83,7 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
             producer = this.kafkaProducer;
         } else {
             producer = getTransactionProducer(this.kafkaProperties,
-                generateTransactionId(this.transactionPrefix, checkpointId));
+                    generateTransactionId(this.transactionPrefix, checkpointId));
         }
 
         for (long i = checkpointId; ; i++) {
@@ -102,7 +102,7 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     @Override
     public List<KafkaSinkState> snapshotState(long checkpointId) {
         return Lists.newArrayList(new KafkaSinkState(transactionId, transactionPrefix, checkpointId,
-            kafkaProperties));
+                kafkaProperties));
     }
 
     @Override

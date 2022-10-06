@@ -114,8 +114,8 @@ public class KuduOutputFormat
                 }
             } catch (ClassCastException e) {
                 throw new IllegalArgumentException(
-                    "Value type does not match column type " + col.getType() +
-                        " for column " + col.getName());
+                        "Value type does not match column type " + col.getType() +
+                                " for column " + col.getName());
             }
 
         }
@@ -162,7 +162,7 @@ public class KuduOutputFormat
 
     private void init() {
         KuduClient.KuduClientBuilder kuduClientBuilder = new
-            KuduClient.KuduClientBuilder(kuduMaster);
+                KuduClient.KuduClientBuilder(kuduMaster);
         kuduClientBuilder.defaultOperationTimeoutMs(TIMEOUTMS);
         this.kuduClient = kuduClientBuilder.build();
         this.kuduSession = kuduClient.newSession();

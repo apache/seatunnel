@@ -102,7 +102,7 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
             // Set the recipient email address
             message.addRecipient(Message.RecipientType.TO,
-                new InternetAddress(config.getEmailToAddress()));
+                    new InternetAddress(config.getEmailToAddress()));
 
             // Setting the Email subject
             message.setSubject(config.getEmailMessageHeadline());

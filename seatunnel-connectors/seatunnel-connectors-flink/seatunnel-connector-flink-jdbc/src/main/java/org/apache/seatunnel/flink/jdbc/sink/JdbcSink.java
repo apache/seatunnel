@@ -170,14 +170,14 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
         int[] types = Arrays.stream(fieldTypes).mapToInt(JdbcTypeUtil::typeInformationToSqlType).toArray();
 
         JdbcOutputFormat format = JdbcOutputFormat.buildJdbcOutputFormat()
-            .setDrivername(driverName)
-            .setDBUrl(dbUrl)
-            .setUsername(username)
-            .setPassword(password)
-            .setQuery(query)
-            .setBatchSize(batchSize)
-            .setSqlTypes(types)
-            .finish();
+                .setDrivername(driverName)
+                .setDBUrl(dbUrl)
+                .setUsername(username)
+                .setPassword(password)
+                .setQuery(query)
+                .setBatchSize(batchSize)
+                .setSqlTypes(types)
+                .finish();
         dataSet.output(format);
     }
 
@@ -214,7 +214,7 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
 
     private void executeSql(String sql) throws SQLException {
         try (Connection connection = DriverManager.getConnection(dbUrl, username, password);
-             Statement statement = connection.createStatement()) {
+              Statement statement = connection.createStatement()) {
 
             statement.execute(sql);
             log.info("Executed sql successfully.");

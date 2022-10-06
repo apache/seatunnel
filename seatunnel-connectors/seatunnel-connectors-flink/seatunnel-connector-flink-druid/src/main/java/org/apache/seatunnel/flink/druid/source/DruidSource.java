@@ -123,10 +123,10 @@ public class DruidSource implements FlinkBatchSource {
         String sql = new DruidSql(datasource, startTimestamp, endTimestamp, columns).sql();
 
         this.druidInputFormat = DruidInputFormat.buildDruidInputFormat()
-            .setDBUrl(jdbcURL)
-            .setQuery(sql)
-            .setRowTypeInfo(getRowTypeInfo(jdbcURL, datasource, columns))
-            .finish();
+                .setDBUrl(jdbcURL)
+                .setQuery(sql)
+                .setRowTypeInfo(getRowTypeInfo(jdbcURL, datasource, columns))
+                .finish();
     }
 
     @Override

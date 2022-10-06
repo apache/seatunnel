@@ -61,7 +61,7 @@ public class UDF implements FlinkStreamTransform, FlinkBatchTransform {
     @Override
     public void registerFunction(FlinkEnvironment flinkEnvironment) {
         TableEnvironment tEnv = flinkEnvironment.isStreaming() ?
-            flinkEnvironment.getStreamTableEnvironment() : flinkEnvironment.getBatchTableEnvironment();
+                flinkEnvironment.getStreamTableEnvironment() : flinkEnvironment.getBatchTableEnvironment();
 
         for (int i = 0; i < functionNames.size(); i++) {
             try {

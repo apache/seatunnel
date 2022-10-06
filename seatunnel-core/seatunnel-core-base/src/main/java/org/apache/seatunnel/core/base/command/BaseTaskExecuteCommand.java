@@ -79,9 +79,9 @@ public abstract class BaseTaskExecuteCommand<T extends AbstractCommandArgs, E ex
                     // ignore
                 } catch (Exception e) {
                     exceptionHolder = exceptionHolder == null ?
-                        new PluginClosedException("below plugins closed error:") : exceptionHolder;
+                            new PluginClosedException("below plugins closed error:") : exceptionHolder;
                     exceptionHolder.addSuppressed(new PluginClosedException(
-                        String.format("plugin %s closed error", plugin.getClass()), e));
+                            String.format("plugin %s closed error", plugin.getClass()), e));
                 }
             }
         }
