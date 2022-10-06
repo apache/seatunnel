@@ -36,10 +36,11 @@ By default, we use 2PC commit to ensure `exactly-once`
 | sink_columns                      | array  | no       | When this parameter is empty, all fields are sink columns |
 | is_enable_transaction             | boolean| no       | true                                                |
 | save_mode                         | string | no       | "error"                                             |
+| common-options                    |        | no       | -                                                  |
 
 ### path [string]
 
-The target dir path is required. The `hdfs file` starts with `hdfs://` , and the `local file` starts with `file://`,
+The target dir path is required.
 
 ### file_name_expression [string]
 
@@ -114,7 +115,11 @@ Storage mode, currently supports `overwrite`. This means we will delete the old 
 
 If `is_enable_transaction` is `true`, Basically, we won't encounter the same file name. Because we will add the transaction id to file name.
 
-For the specific meaning of each mode, see [save-modes](https://spark.apache.org/docs/latest/sql-programming-guide.html#save-modes)
+For the specific meaning of each mode, see [save-modes](https://spark.apache.org/docs/latest/sql-programming-guide.html#save-modes).
+
+### common options
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
 
 ## Example
 
@@ -123,7 +128,7 @@ For text file format
 ```bash
 
 LocalFile {
-    path="file:///tmp/hive/warehouse/test2"
+    path="/tmp/hive/warehouse/test2"
     field_delimiter="\t"
     row_delimiter="\n"
     partition_by=["age"]
@@ -143,7 +148,7 @@ For parquet file format
 ```bash
 
 LocalFile {
-    path="file:///tmp/hive/warehouse/test2"
+    path="/tmp/hive/warehouse/test2"
     partition_by=["age"]
     partition_dir_expression="${k0}=${v0}"
     is_partition_field_write_in_file=true
@@ -161,7 +166,7 @@ For orc file format
 ```bash
 
 LocalFile {
-    path="file:///tmp/hive/warehouse/test2"
+    path="/tmp/hive/warehouse/test2"
     partition_by=["age"]
     partition_dir_expression="${k0}=${v0}"
     is_partition_field_write_in_file=true

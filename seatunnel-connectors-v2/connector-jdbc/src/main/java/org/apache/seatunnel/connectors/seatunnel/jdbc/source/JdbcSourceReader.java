@@ -58,20 +58,22 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
     @Override
     @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        JdbcSourceSplit split = splits.poll();
-        if (null != split) {
-            inputFormat.open(split);
-            while (!inputFormat.reachedEnd()) {
-                SeaTunnelRow seaTunnelRow = inputFormat.nextRecord();
-                output.collect(seaTunnelRow);
+        synchronized (output.getCheckpointLock()) {
+            JdbcSourceSplit split = splits.poll();
+            if (null != split) {
+                inputFormat.open(split);
+                while (!inputFormat.reachedEnd()) {
+                    SeaTunnelRow seaTunnelRow = inputFormat.nextRecord();
+                    output.collect(seaTunnelRow);
+                }
+                inputFormat.close();
+            } else if (noMoreSplit) {
+                // signal to the source that we have reached the end of the data.
+                LOG.info("Closed the bounded jdbc source");
+                context.signalNoMoreElement();
+            } else {
+                Thread.sleep(1000L);
             }
-            inputFormat.close();
-        } else if (noMoreSplit) {
-            // signal to the source that we have reached the end of the data.
-            LOG.info("Closed the bounded jdbc source");
-            context.signalNoMoreElement();
-        } else {
-            Thread.sleep(1000L);
         }
     }
 

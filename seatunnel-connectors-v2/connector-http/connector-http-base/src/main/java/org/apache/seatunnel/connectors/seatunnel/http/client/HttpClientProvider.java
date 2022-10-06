@@ -17,6 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.client;
 
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+
+import com.github.rholder.retry.Attempt;
+import com.github.rholder.retry.RetryListener;
+import com.github.rholder.retry.Retryer;
+import com.github.rholder.retry.RetryerBuilder;
+import com.github.rholder.retry.StopStrategies;
+import com.github.rholder.retry.WaitStrategies;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.http.HttpStatus;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.config.RequestConfig;
@@ -48,9 +58,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
+@Slf4j
 public class HttpClientProvider implements AutoCloseable {
-    private final CloseableHttpClient httpClient;
     private static final String ENCODING = "UTF-8";
     private static final String APPLICATION_JSON = "application/json";
     private static final int CONNECT_TIMEOUT = 6000 * 2;
@@ -60,13 +71,33 @@ public class HttpClientProvider implements AutoCloseable {
             .setConnectTimeout(CONNECT_TIMEOUT)
             .setSocketTimeout(SOCKET_TIMEOUT)
             .build();
+    private final CloseableHttpClient httpClient;
+    private final Retryer<CloseableHttpResponse> retryer;
 
-    private HttpClientProvider() {
-        httpClient = HttpClients.createDefault();
+    public HttpClientProvider(HttpParameter httpParameter) {
+        this.httpClient = HttpClients.createDefault();
+        this.retryer = buildRetryer(httpParameter);
     }
 
-    public static HttpClientProvider getInstance() {
-        return Singleton.INSTANCE;
+    private Retryer<CloseableHttpResponse> buildRetryer(HttpParameter httpParameter) {
+        if (httpParameter.getRetry() < 1) {
+            return RetryerBuilder.<CloseableHttpResponse>newBuilder().build();
+        }
+        return RetryerBuilder.<CloseableHttpResponse>newBuilder()
+            .retryIfException(ex -> ExceptionUtils.indexOfType(ex, IOException.class) != -1)
+            .withStopStrategy(StopStrategies.stopAfterAttempt(httpParameter.getRetry()))
+            .withWaitStrategy(WaitStrategies.fibonacciWait(httpParameter.getRetryBackoffMultiplierMillis(),
+                httpParameter.getRetryBackoffMaxMillis(), TimeUnit.MILLISECONDS))
+            .withRetryListener(new RetryListener() {
+                @Override
+                public <V> void onRetry(Attempt<V> attempt) {
+                    if (attempt.hasException()) {
+                        log.warn(String.format("[%d] request http failed",
+                            attempt.getAttemptNumber()), attempt.getExceptionCause());
+                    }
+                }
+            })
+            .build();
     }
 
     public HttpResponse execute(String url, String method, Map<String, String> headers, Map<String, String> params) throws Exception {
@@ -275,9 +306,9 @@ public class HttpClientProvider implements AutoCloseable {
         return doPost(url, params);
     }
 
-    private HttpResponse getResponse(HttpRequestBase request) throws IOException {
+    private HttpResponse getResponse(HttpRequestBase request) throws Exception {
         // execute request
-        try (CloseableHttpResponse httpResponse = httpClient.execute(request)) {
+        try (CloseableHttpResponse httpResponse = retryWithException(request)) {
             // get return result
             if (httpResponse != null && httpResponse.getStatusLine() != null) {
                 String content = "";
@@ -288,6 +319,10 @@ public class HttpClientProvider implements AutoCloseable {
             }
         }
         return new HttpResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+    }
+
+    private CloseableHttpResponse retryWithException(HttpRequestBase request) throws Exception {
+        return retryer.call(() -> httpClient.execute(request));
     }
 
     private void addParameters(URIBuilder builder, Map<String, String> params) {
@@ -332,9 +367,5 @@ public class HttpClientProvider implements AutoCloseable {
         if (Objects.nonNull(httpClient)) {
             httpClient.close();
         }
-    }
-
-    private static class Singleton {
-        private static final HttpClientProvider INSTANCE = new HttpClientProvider();
     }
 }

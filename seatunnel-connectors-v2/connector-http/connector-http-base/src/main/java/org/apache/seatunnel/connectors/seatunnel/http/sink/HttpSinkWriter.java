@@ -34,15 +34,22 @@ import java.util.Objects;
 
 public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpSinkWriter.class);
-    protected final HttpClientProvider httpClient = HttpClientProvider.getInstance();
+    protected final HttpClientProvider httpClient;
     protected final SeaTunnelRowType seaTunnelRowType;
     protected final HttpParameter httpParameter;
     protected final SerializationSchema serializationSchema;
 
     public HttpSinkWriter(SeaTunnelRowType seaTunnelRowType, HttpParameter httpParameter) {
+        this(seaTunnelRowType, httpParameter, new JsonSerializationSchema(seaTunnelRowType));
+    }
+
+    public HttpSinkWriter(SeaTunnelRowType seaTunnelRowType,
+                          HttpParameter httpParameter,
+                          SerializationSchema serializationSchema) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.httpParameter = httpParameter;
-        this.serializationSchema = new JsonSerializationSchema(seaTunnelRowType);
+        this.httpClient = new HttpClientProvider(httpParameter);
+        this.serializationSchema = serializationSchema;
     }
 
     @Override

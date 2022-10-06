@@ -32,6 +32,7 @@
     <properties>
         <elasticsearch-rest-client.version>7.5.1</elasticsearch-rest-client.version>
         <jackson.databind.version>2.12.6</jackson.databind.version>
+        <jackson-datatype-jsr310.version>2.13.3</jackson-datatype-jsr310.version>
     </properties>
 
     <dependencies>
@@ -44,6 +45,11 @@
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <version>${jackson.databind.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+            <version>${jackson-datatype-jsr310.version}</version>
         </dependency>
     </dependencies>
 

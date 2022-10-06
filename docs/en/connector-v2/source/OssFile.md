@@ -38,6 +38,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | access_secret | string | yes      | -             |
 | endpoint      | string | yes      | -             |
 | schema        | config | no       | -             |
+| common-options|        | no       | -             |
 
 ### path [string]
 
@@ -58,6 +59,15 @@ upstream data is the following:
 ```json
 
 {"code":  200, "data":  "get success", "success":  true}
+
+```
+
+You can also save multiple pieces of data in one file and split them by newline:
+
+```json lines
+
+{"code":  200, "data":  "get success", "success":  true}
+{"code":  300, "data":  "get failed", "success":  false}
 
 ```
 
@@ -109,7 +119,13 @@ The endpoint of oss file system.
 
 ### schema [config]
 
+#### fields [Config]
+
 The schema of upstream data.
+
+### common options 
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
 ## Example
 

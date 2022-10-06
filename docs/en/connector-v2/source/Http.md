@@ -17,22 +17,26 @@ Used to read data from Http.
 
 ##  Options
 
-| name          | type   | required | default value |
-|---------------|--------|----------|---------------|
-| url           | String | Yes      | -             |
-| schema        | config | No       | -             |
-| schema.fields | config | No       | -             |
-| format        | string | No       | json          |
-| method        | String | No       | get           |
-| headers       | Map    | No       | -             |
-| params        | Map    | No       | -             |
-| body          | String | No       | -             |
-
-### url [string]
+| name                        | type   | required | default value |
+| --------------------------- | ------ | -------- | ------------- |
+| url                         | String | Yes      | -             |
+| schema                      | Config | No       | -             |
+| schema.fields               | Config | No       | -             |
+| format                      | String | No       | json          |
+| method                      | String | No       | get           |
+| headers                     | Map    | No       | -             |
+| params                      | Map    | No       | -             |
+| body                        | String | No       | -             |
+| poll_interval_ms            | int    | No       | -             |
+| retry                       | int    | No       | -             |
+| retry_backoff_multiplier_ms | int    | No       | 100           |
+| retry_backoff_max_ms        | int    | No       | 10000         |
+| common-options              |        | No       | -             |
+### url [String]
 
 http request url
 
-### method [string]
+### method [String]
 
 http request method, only supports GET, POST method.
 
@@ -47,6 +51,22 @@ http params
 ### body [String]
 
 http body
+
+### poll_interval_ms [int]
+
+request http api interval(millis) in stream mode
+
+### retry [int]
+
+The max retry times if request http return to `IOException`
+
+### retry_backoff_multiplier_ms [int]
+
+The retry-backoff times(millis) multiplier if request http failed
+
+### retry_backoff_max_ms [int]
+
+The maximum retry-backoff times(millis) if request http failed
 
 ### format [String]
 
@@ -103,6 +123,10 @@ connector will generate data as the following:
 #### fields [Config]
 
 the schema fields of upstream data
+
+### common options 
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
 ## Example
 

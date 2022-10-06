@@ -19,16 +19,16 @@ Engine Supported
 
 ## Options
 
-| name              | type   | required | default value | 
-|-------------------| ------ | -------- |---------------|
-| hosts             | array  | yes      | -             |
-| index             | string | yes      | -             |
-| index_type        | string | no       |               |
-| username          | string | no       |               |
-| password          | string | no       |               | 
-| max_retry_size    | int    | no       | 3             |
-| max_batch_size    | int    | no       | 10            |
-
+| name           | type   | required | default value | 
+|----------------|--------|----------|---------------|
+| hosts          | array  | yes      | -             |
+| index          | string | yes      | -             |
+| index_type     | string | no       |               |
+| username       | string | no       |               |
+| password       | string | no       |               | 
+| max_retry_size | int    | no       | 3             |
+| max_batch_size | int    | no       | 10            |
+| common-options |        | no       | -             |
 
 
 ### hosts [array]
@@ -36,6 +36,7 @@ Engine Supported
 
 ### index [string]
 `Elasticsearch`  `index` name.Index support contains variables of field name,such as `seatunnel_${age}`,and the field must appear at seatunnel row.
+If not, we will treat it as a normal index.
 
 ### index_type [string]
 `Elasticsearch` index type, it is recommended not to specify in elasticsearch 6 and above
@@ -51,6 +52,10 @@ one bulk request max try size
 
 ### max_batch_size [int]
 batch bulk doc max size
+
+### common options
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Examples
 ```bash

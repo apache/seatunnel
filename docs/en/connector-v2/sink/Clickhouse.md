@@ -29,11 +29,12 @@ Write data to Clickhouse can also be done using JDBC
 | table          | string | yes      | -             |
 | username       | string | yes      | -             |
 | password       | string | yes      | -             |
+| fields         | string | yes      | -             |
 | clickhouse.*   | string | no       |               |
 | bulk_size      | string | no       | 20000         |
 | split_mode     | string | no       | false         |
 | sharding_key   | string | no       | -             |
-| common-options | string | no       | -             |
+| common-options |        | no       | -             |
 
 ### host [string]
 
@@ -54,6 +55,10 @@ The table name
 ### password [string]
 
 `ClickHouse` user password
+
+### fields [array]
+
+The data field that needs to be output to `ClickHouse` , if not configured, it will be automatically adapted according to the sink table `schema` .
 
 ### clickhouse [string]
 
@@ -77,7 +82,7 @@ When use split_mode, which node to send data to is a problem, the default is ran
 'sharding_key' parameter can be used to specify the field for the sharding algorithm. This option only
 worked when 'split_mode' is true.
 
-### common options [string]
+### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 

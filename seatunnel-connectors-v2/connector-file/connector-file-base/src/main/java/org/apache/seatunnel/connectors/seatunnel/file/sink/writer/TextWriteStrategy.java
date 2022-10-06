@@ -25,6 +25,7 @@ import lombok.NonNull;
 import org.apache.hadoop.fs.FSDataOutputStream;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -89,6 +90,20 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     }
 
     private String transformRowToLine(@NonNull SeaTunnelRow seaTunnelRow) {
-        return this.sinkColumnsIndexInRow.stream().map(index -> seaTunnelRow.getFields()[index] == null ? "" : seaTunnelRow.getFields()[index].toString()).collect(Collectors.joining(fieldDelimiter));
+        return Arrays.stream(seaTunnelRow.getFields()).map(v -> {
+            if (v == null) {
+                return "";
+            } else if (v.getClass().isArray()) {
+                if (v instanceof byte[]) {
+                    return Arrays.toString((byte[]) v);
+                } else {
+                    return Arrays.toString((Object[]) v);
+                }
+            } else if (v instanceof SeaTunnelRow) {
+                return "{" + transformRowToLine((SeaTunnelRow) v) + "}";
+            } else {
+                return v.toString();
+            }
+        }).collect(Collectors.joining(fieldDelimiter));
     }
 }

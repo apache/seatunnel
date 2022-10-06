@@ -26,17 +26,19 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReader
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
+
 public class FakeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceReader.class);
 
     private final SingleSplitReaderContext context;
 
-    private final FakeRandomData fakeRandomData;
+    private final FakeDataGenerator fakeDataGenerator;
 
-    public FakeSourceReader(SingleSplitReaderContext context, FakeRandomData randomData) {
+    public FakeSourceReader(SingleSplitReaderContext context, FakeDataGenerator randomData) {
         this.context = context;
-        this.fakeRandomData = randomData;
+        this.fakeDataGenerator = randomData;
     }
 
     @Override
@@ -53,8 +55,8 @@ public class FakeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
         // Generate a random number of rows to emit.
-        for (int i = 0; i < 10; i++) {
-            SeaTunnelRow seaTunnelRow = fakeRandomData.randomRow();
+        List<SeaTunnelRow> seaTunnelRows = fakeDataGenerator.generateFakedRows();
+        for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {
             output.collect(seaTunnelRow);
         }
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
