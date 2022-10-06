@@ -15,24 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.config;
+package org.apache.seatunnel.connectors.seatunnel.file.sftp.config;
 
-import java.io.Serializable;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 
-public enum FileSystemType implements Serializable {
-    HDFS("HdfsFile"),
-    LOCAL("LocalFile"),
-    OSS("OssFile"),
-    FTP("FtpFile"),
-    SFTP("SftpFile");
-
-    private final String fileSystemPluginName;
-
-    FileSystemType(String fileSystemPluginName) {
-        this.fileSystemPluginName = fileSystemPluginName;
-    }
-
-    public String getFileSystemPluginName() {
-        return fileSystemPluginName;
-    }
+public class SftpConfig extends BaseSourceConfig {
+    public static final String SFTP_PASSWORD = "password";
+    public static final String SFTP_USERNAME = "user";
+    public static final String SFTP_HOST = "host";
+    public static final String SFTP_PORT = "port";
 }
