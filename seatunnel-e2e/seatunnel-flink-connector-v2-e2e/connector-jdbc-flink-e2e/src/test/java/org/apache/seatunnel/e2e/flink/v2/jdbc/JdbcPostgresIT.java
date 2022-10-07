@@ -61,7 +61,7 @@ public class JdbcPostgresIT extends FlinkContainer {
             .withNetworkAliases("postgresql")
             .withCommand("postgres -c max_prepared_transactions=100")
             .withUsername("root")
-            .withLogConsumer(new Slf4jLogConsumer(LOGGER));
+            .withLogConsumer(new Slf4jLogConsumer(log));
         Startables.deepStart(Stream.of(pg)).join();
         log.info("Postgres container started");
         Class.forName(pg.getDriverClassName());
