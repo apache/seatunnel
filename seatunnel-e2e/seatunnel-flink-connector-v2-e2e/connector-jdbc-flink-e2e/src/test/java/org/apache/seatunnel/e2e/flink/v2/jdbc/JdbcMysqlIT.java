@@ -38,6 +38,8 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -49,6 +51,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -61,9 +64,9 @@ public class JdbcMysqlIT extends FlinkContainer {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
-    public void startPostgreSqlContainer() throws Exception {
+    public void startMySqlContainer() throws Exception {
         // Non-root users need to grant XA_RECOVER_ADMIN permission on is_exactly_once = "true"
-        mc = new MySQLContainer<>(DockerImageName.parse("mysql:8.0.29"))
+        mc = new MySQLContainer<>(DockerImageName.parse("bitnami/mysql:8.0.29").asCompatibleSubstituteFor("mysql"))
             .withNetwork(NETWORK)
             .withNetworkAliases("mysql")
             .withUsername("root")
@@ -76,17 +79,14 @@ public class JdbcMysqlIT extends FlinkContainer {
             .atLeast(100, TimeUnit.MILLISECONDS)
             .pollInterval(500, TimeUnit.MILLISECONDS)
             .atMost(5, TimeUnit.SECONDS)
-            .untilAsserted(() -> initializeJdbcTable());
+            .untilAsserted(this::initializeJdbcTable);
         batchInsertData();
     }
 
-    private void initializeJdbcTable() {
-        java.net.URL resource = FlinkContainer.class.getResource("/jdbc/init_sql/mysql_init.conf");
-        if (resource == null) {
-            throw new IllegalArgumentException("can't find find file");
-        }
+    private void initializeJdbcTable() throws URISyntaxException {
+        URI resource = Objects.requireNonNull(FlinkContainer.class.getResource("/jdbc/init_sql/mysql_init.conf")).toURI();
 
-        config = new ConfigBuilder(Paths.get(resource.getPath())).getConfig();
+        config = new ConfigBuilder(Paths.get(resource)).getConfig();
 
         CheckConfigUtil.checkAllExists(this.config, "source_table", "sink_table", "type_source_table",
             "type_sink_table", "insert_type_source_table_sql", "check_type_sink_table_sql");
@@ -124,7 +124,7 @@ public class JdbcMysqlIT extends FlinkContainer {
     @Test
     public void testJdbcMysqlSourceAndSink() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_mysql_source_and_sink.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         Assertions.assertIterableEquals(generateTestDataset(), queryResult());
     }
@@ -132,7 +132,7 @@ public class JdbcMysqlIT extends FlinkContainer {
     @Test
     public void testJdbcMysqlSourceAndSinkParallel() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_mysql_source_and_sink_parallel.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         //Sorting is required, because it is read in parallel, so there will be out of order
         List<List> sortedResult = queryResult().stream().sorted(Comparator.comparing(list -> (Integer) list.get(1)))
@@ -144,7 +144,7 @@ public class JdbcMysqlIT extends FlinkContainer {
     public void testJdbcMysqlSourceAndSinkParallelUpperLower() throws Exception {
         Container.ExecResult execResult =
             executeSeaTunnelFlinkJob("/jdbc/jdbc_mysql_source_and_sink_parallel_upper_lower.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         //Sorting is required, because it is read in parallel, so there will be out of order
         List<List> sortedResult = queryResult().stream().sorted(Comparator.comparing(list -> (Integer) list.get(1)))
@@ -166,7 +166,7 @@ public class JdbcMysqlIT extends FlinkContainer {
     @Test
     public void testJdbcMysqlSourceAndSinkDataType() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_mysql_source_and_sink_datatype.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         checkSinkDataTypeTable();
     }
 
@@ -212,7 +212,7 @@ public class JdbcMysqlIT extends FlinkContainer {
     }
 
     @AfterEach
-    public void closePostgreSqlContainer() {
+    public void closeMySqlContainer() {
         if (mc != null) {
             mc.stop();
         }
