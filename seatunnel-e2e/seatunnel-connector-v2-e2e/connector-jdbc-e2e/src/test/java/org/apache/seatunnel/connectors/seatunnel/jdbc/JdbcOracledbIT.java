@@ -42,14 +42,14 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SINK_TABLE = "e2e_table_sink";
     private static final String DRIVER_JAR = "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar";
-    private static final String CONFIG_FILE = "/jdbc_oracle_source_and_sink.conf";
+    private static final String CONFIG_FILE = "/jdbc_oracle_source_to_sink.conf";
     private static final String DDL_SOURCE = "CREATE TABLE source (a VARCHAR(5),\n" +
         "                b VARCHAR(30),\n" +
-        "                c VARCHAR(20));  ";
+        "                c VARCHAR(20))";
     private static final String DDL_SINK = "CREATE TABLE sink (a VARCHAR(5),\n" +
         "                b VARCHAR(30),\n" +
-        "                c VARCHAR(20));  ";
-    private static final String INIT_DATA_SQL = "insert into source(a,b,c) values(?,?,?);";
+        "                c VARCHAR(20))";
+    private static final String INIT_DATA_SQL = "insert into source(a,b,c) values(?,?,?)";
 
     @Override
     JdbcCase getJdbcCase() {
