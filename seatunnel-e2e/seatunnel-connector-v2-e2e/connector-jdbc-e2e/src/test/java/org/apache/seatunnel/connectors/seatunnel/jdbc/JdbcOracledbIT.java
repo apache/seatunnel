@@ -67,7 +67,7 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
 
     @Override
     int compareResult() throws SQLException {
-        String sql = "select a,b,c from sinks";
+        String sql = "select a,b,c from sink";
         List<Object> result = new ArrayList<>();
         try (Statement statement = jdbcConnection.createStatement()) {
             ResultSet resultSet = statement.executeQuery(sql);
