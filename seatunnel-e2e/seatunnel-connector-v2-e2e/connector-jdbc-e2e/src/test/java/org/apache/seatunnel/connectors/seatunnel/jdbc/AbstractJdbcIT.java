@@ -58,6 +58,8 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     abstract void compareResult() throws SQLException;
 
+    abstract void clearSinkTable();
+
     abstract SeaTunnelRow initTestData();
 
     @TestContainerExtension

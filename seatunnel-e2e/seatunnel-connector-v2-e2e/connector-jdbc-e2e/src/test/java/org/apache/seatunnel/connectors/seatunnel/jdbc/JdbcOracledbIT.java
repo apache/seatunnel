@@ -78,6 +78,16 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
             }
         }
         Assertions.assertIterableEquals(Arrays.asList(this.getJdbcCase().getSeaTunnelRow().getFields()), result);
+        clearSinkTable();
+    }
+
+    @Override
+    void clearSinkTable() {
+        try (Statement statement = jdbcConnection.createStatement()) {
+            statement.execute(String.format("TRUNCATE TABLE %s.%s", DATABASE, SINK_TABLE));
+        } catch (SQLException e) {
+            throw new RuntimeException("test dm server image error", e);
+        }
     }
 
     @Override
