@@ -41,6 +41,8 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
     private static final String ORACLE_BINARY_FLOAT = "BINARY_FLOAT";
     private static final String ORACLE_NUMBER = "NUMBER";
     private static final String ORACLE_FLOAT = "FLOAT";
+    private static final String ORACLE_REAL = "REAL";
+    private static final String ORACLE_INTEGER = "INTEGER";
 
     // -------------------------string----------------------------
     private static final String ORACLE_CHAR = "CHAR";
@@ -72,12 +74,15 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
         switch (oracleType) {
+            case ORACLE_INTEGER:
+                return BasicType.INT_TYPE;
             case ORACLE_NUMBER:
                 return new DecimalType(precision, scale);
             case ORACLE_FLOAT:
             case ORACLE_BINARY_DOUBLE:
                 return BasicType.DOUBLE_TYPE;
             case ORACLE_BINARY_FLOAT:
+            case ORACLE_REAL:
                 return BasicType.FLOAT_TYPE;
             case ORACLE_CHAR:
             case ORACLE_NCHAR:

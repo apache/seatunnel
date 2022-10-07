@@ -24,6 +24,8 @@ import org.junit.jupiter.api.Assertions;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -44,13 +46,59 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
     private static final String SINK_TABLE = "e2e_table_sink";
     private static final String DRIVER_JAR = "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar";
     private static final String CONFIG_FILE = "/jdbc_oracle_source_to_sink.conf";
-    private static final String DDL_SOURCE = "CREATE TABLE " + SOURCE_TABLE + " (a VARCHAR(5),\n" +
-        "                b VARCHAR(30),\n" +
-        "                c VARCHAR(20))";
-    private static final String DDL_SINK = "CREATE TABLE " + SINK_TABLE + " (a VARCHAR(5),\n" +
-        "                b VARCHAR(30),\n" +
-        "                c VARCHAR(20))";
-    private static final String INIT_DATA_SQL = "insert into " + SOURCE_TABLE + "(a,b,c) values(?,?,?)";
+    private static final String DDL_SOURCE = "create table " + SOURCE_TABLE + " (\n" +
+        "  varchar_10_col   varchar2(10),\n" +
+        "  char_10_col      char(10),\n" +
+        "  clob_col         clob,\n" +
+        "  number_3_sf_2_dp  number(3, 2),\n" +
+        "  integer_col       integer,\n" +
+        "  float_col         float(10),\n" +
+        "  real_col          real,\n" +
+        "  binary_float_col  binary_float,\n" +
+        "  binary_double_col binary_double,\n" +
+        "  date_col                      date,\n" +
+        "  timestamp_with_3_frac_sec_col timestamp(3),\n" +
+        "  timestamp_with_tz             timestamp with time zone,\n" +
+        "  timestamp_with_local_tz       timestamp with local time zone,\n" +
+        "  raw_col  raw(1000),\n" +
+        "  blob_col blob\n" +
+        ")";
+    private static final String DDL_SINK = "create table " + SINK_TABLE + "(\n" +
+        "  varchar_10_col   varchar2(10),\n" +
+        "  char_10_col      char(10),\n" +
+        "  clob_col         clob,\n" +
+        "  number_3_sf_2_dp  number(3, 2),\n" +
+        "  integer_col       integer,\n" +
+        "  float_col         float(10),\n" +
+        "  real_col          real,\n" +
+        "  binary_float_col  binary_float,\n" +
+        "  binary_double_col binary_double,\n" +
+        "  date_col                      date,\n" +
+        "  timestamp_with_3_frac_sec_col timestamp(3),\n" +
+        "  timestamp_with_tz             timestamp with time zone,\n" +
+        "  timestamp_with_local_tz       timestamp with local time zone,\n" +
+        "  raw_col  raw(1000),\n" +
+        "  blob_col blob\n" +
+        ")";
+    private static final String INIT_DATA_SQL = "insert into " + SOURCE_TABLE + " (\n" +
+        "  varchar_10_col,\n" +
+        "  char_10_col,\n" +
+        "  clob_col,\n" +
+        "  number_3_sf_2_dp,\n" +
+        "  integer_col,\n" +
+        "  float_col,\n" +
+        "  real_col,\n" +
+        "  binary_float_col,\n" +
+        "  binary_double_col,\n" +
+        "  date_col,\n" +
+        "  timestamp_with_3_frac_sec_col,\n" +
+        "  timestamp_with_tz,\n" +
+        "  timestamp_with_local_tz,\n" +
+        "  raw_col,\n" +
+        "  blob_col\n" +
+        ")values(\n" +
+        "\t?,?,?,?,?,?,?,?,?,?,?,?,?,rawtohex(?),rawtohex(?)\n" +
+        ")";
 
     @Override
     JdbcCase getJdbcCase() {
@@ -92,6 +140,13 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
 
     @Override
     SeaTunnelRow initTestData() {
-        return new SeaTunnelRow(new Object[]{"a", "b", "c"});
+        return new SeaTunnelRow(
+            new Object[]{"varchar", "char10col", "clobS", 1.12, 2022, 1.2222, 1.22222, 1.22222, 1.22222,
+                LocalDate.now(),
+                LocalDateTime.now(),
+                LocalDateTime.now(),
+                LocalDateTime.now(),
+                "raw", "blob"
+            });
     }
 }
