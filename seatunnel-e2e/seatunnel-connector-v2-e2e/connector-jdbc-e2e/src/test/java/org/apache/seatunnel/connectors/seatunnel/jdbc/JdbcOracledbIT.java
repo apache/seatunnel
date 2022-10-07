@@ -44,13 +44,13 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
     private static final String SINK_TABLE = "e2e_table_sink";
     private static final String DRIVER_JAR = "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar";
     private static final String CONFIG_FILE = "/jdbc_oracle_source_to_sink.conf";
-    private static final String DDL_SOURCE = "CREATE TABLE source (a VARCHAR(5),\n" +
+    private static final String DDL_SOURCE = "CREATE TABLE " + SOURCE_TABLE + " (a VARCHAR(5),\n" +
         "                b VARCHAR(30),\n" +
         "                c VARCHAR(20))";
-    private static final String DDL_SINK = "CREATE TABLE sink (a VARCHAR(5),\n" +
+    private static final String DDL_SINK = "CREATE TABLE " + SINK_TABLE + " (a VARCHAR(5),\n" +
         "                b VARCHAR(30),\n" +
         "                c VARCHAR(20))";
-    private static final String INIT_DATA_SQL = "insert into source(a,b,c) values(?,?,?)";
+    private static final String INIT_DATA_SQL = "insert into " + SOURCE_TABLE + "(a,b,c) values(?,?,?)";
 
     @Override
     JdbcCase getJdbcCase() {
@@ -67,7 +67,7 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
 
     @Override
     void compareResult() throws SQLException {
-        String sql = "select a,b,c from sink";
+        String sql = "select a,b,c from " + SINK_TABLE;
         List<Object> result = new ArrayList<>();
         try (Statement statement = jdbcConnection.createStatement()) {
             ResultSet resultSet = statement.executeQuery(sql);
@@ -84,9 +84,9 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
     @Override
     void clearSinkTable() {
         try (Statement statement = jdbcConnection.createStatement()) {
-            statement.execute(String.format("TRUNCATE TABLE %s.%s", DATABASE, SINK_TABLE));
+            statement.execute(String.format("TRUNCATE TABLE %s", SINK_TABLE));
         } catch (SQLException e) {
-            throw new RuntimeException("test dm server image error", e);
+            throw new RuntimeException("test oracle server image error", e);
         }
     }
 
