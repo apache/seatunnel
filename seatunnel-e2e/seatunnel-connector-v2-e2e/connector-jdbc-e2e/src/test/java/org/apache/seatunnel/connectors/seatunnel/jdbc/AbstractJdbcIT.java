@@ -56,7 +56,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     abstract JdbcCase getJdbcCase();
 
-    abstract int compareResult() throws SQLException;
+    abstract void compareResult() throws SQLException;
 
     abstract SeaTunnelRow initTestData();
 
@@ -138,7 +138,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     public void testJdbcDb(TestContainer container) throws IOException, InterruptedException, SQLException {
         Container.ExecResult execResult = container.executeJob(jdbcCase.getConfigFile());
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        Assertions.assertEquals(0, this.compareResult());
+        this.compareResult();
     }
 
 }

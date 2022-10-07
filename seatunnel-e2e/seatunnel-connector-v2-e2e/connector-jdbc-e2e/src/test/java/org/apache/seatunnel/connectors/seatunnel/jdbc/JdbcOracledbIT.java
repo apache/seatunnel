@@ -66,19 +66,18 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
     }
 
     @Override
-    int compareResult() throws SQLException {
+    void compareResult() throws SQLException {
         String sql = "select a,b,c from sink";
         List<Object> result = new ArrayList<>();
         try (Statement statement = jdbcConnection.createStatement()) {
             ResultSet resultSet = statement.executeQuery(sql);
             while (resultSet.next()) {
                 for (int index = 0; index < this.getJdbcCase().getSeaTunnelRow().getFields().length; index++) {
-                    result.add(resultSet.getObject(index));
+                    result.add(resultSet.getObject(index + 1));
                 }
             }
         }
         Assertions.assertIterableEquals(Arrays.asList(this.getJdbcCase().getSeaTunnelRow().getFields()), result);
-        return 0;
     }
 
     @Override
