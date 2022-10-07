@@ -46,6 +46,8 @@ public class SparkEnvironment implements RuntimeEnv {
 
     private static final long DEFAULT_SPARK_STREAMING_DURATION = 5;
 
+    private SparkConf sparkConf;
+
     private SparkSession sparkSession;
 
     private StreamingContext streamingContext;
@@ -98,7 +100,7 @@ public class SparkEnvironment implements RuntimeEnv {
 
     @Override
     public SparkEnvironment prepare() {
-        SparkConf sparkConf = createSparkConf();
+        sparkConf = createSparkConf();
         SparkSession.Builder builder = SparkSession.builder().config(sparkConf);
         if (enableHive) {
             builder.enableHiveSupport();
@@ -114,6 +116,10 @@ public class SparkEnvironment implements RuntimeEnv {
 
     public StreamingContext getStreamingContext() {
         return this.streamingContext;
+    }
+
+    public SparkConf getSparkConf() {
+        return this.sparkConf;
     }
 
     private SparkConf createSparkConf() {
