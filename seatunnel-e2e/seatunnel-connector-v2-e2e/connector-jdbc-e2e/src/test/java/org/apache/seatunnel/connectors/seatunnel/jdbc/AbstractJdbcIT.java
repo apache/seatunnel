@@ -70,7 +70,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         jdbcCase = this.getJdbcCase();
         dbServer = new GenericContainer<>(jdbcCase.getDockerImage())
             .withNetwork(NETWORK)
-            .withNetworkAliases(jdbcCase.getHost())
+            .withNetworkAliases(jdbcCase.getNetworkAliases())
             .withEnv(jdbcCase.getContainerEnv())
             .withLogConsumer(new Slf4jLogConsumer(log));
         dbServer.setPortBindings(Lists.newArrayList(

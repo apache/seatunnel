@@ -33,6 +33,7 @@ import java.util.Map;
 public class JdbcOracledbIT extends AbstractJdbcIT {
 
     private static final String DOCKER_IMAGE = "gvenzl/oracle-xe:18.4.0-slim";
+    private static final String NETWORK_ALIASES = "e2e_oracleDb";
     private static final String DRIVER_CLASS = "oracle.jdbc.OracleDriver";
     private static final int PORT = 1521;
     private static final String URL = "jdbc:oracle:thin:@" + HOST + ":%s/%s";
@@ -58,7 +59,7 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
         containerEnv.put("APP_USER", USERNAME);
         containerEnv.put("APP_USER_PASSWORD", PASSWORD);
         String jdbcUrl = String.format(URL, PORT, DATABASE);
-        return JdbcCase.builder().dockerImage(DOCKER_IMAGE).containerEnv(containerEnv).driverClass(DRIVER_CLASS)
+        return JdbcCase.builder().dockerImage(DOCKER_IMAGE).networkAliases(NETWORK_ALIASES).containerEnv(containerEnv).driverClass(DRIVER_CLASS)
             .host(HOST).port(PORT).jdbcUrl(jdbcUrl).userName(USERNAME).password(PASSWORD).dataBase(DATABASE)
             .sourceTable(SOURCE_TABLE).sinkTable(SINK_TABLE).driverJar(DRIVER_JAR)
             .ddlSource(DDL_SOURCE).ddlSink(DDL_SINK).initDataSql(INIT_DATA_SQL).configFile(CONFIG_FILE).seaTunnelRow(initTestData()).build();

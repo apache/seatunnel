@@ -28,6 +28,7 @@ import java.util.Map;
 @Builder
 public class JdbcCase {
     private String dockerImage;
+    private String networkAliases;
     private String driverClass;
     private String host;
     private String userName;
