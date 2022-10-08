@@ -32,6 +32,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.Conversions;
+import org.apache.avro.data.TimeConversions;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.conf.Configuration;
@@ -53,23 +55,20 @@ import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.Type;
 
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.sql.Timestamp;
-import java.time.LocalDate;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 @Slf4j
 public class ParquetReadStrategy extends AbstractReadStrategy {
-
     private SeaTunnelRowType seaTunnelRowType;
-
     private static final byte[] PARQUET_MAGIC = new byte[]{(byte) 'P', (byte) 'A', (byte) 'R', (byte) '1'};
     private static final long NANOS_PER_MILLISECOND = 1000000;
     private static final long MILLIS_PER_DAY = TimeUnit.DAYS.toMillis(1L);
@@ -83,8 +82,15 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         Path filePath = new Path(path);
         HadoopInputFile hadoopInputFile = HadoopInputFile.fromPath(filePath, getConfiguration());
         int fieldsCount = seaTunnelRowType.getTotalFields();
+        GenericData dataModel = new GenericData();
+        dataModel.addLogicalTypeConversion(new Conversions.DecimalConversion());
+        dataModel.addLogicalTypeConversion(new TimeConversions.DateConversion());
+        dataModel.addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
         GenericRecord record;
-        try (ParquetReader<GenericData.Record> reader = AvroParquetReader.<GenericData.Record>builder(hadoopInputFile).build()) {
+        try (ParquetReader<GenericData.Record> reader = AvroParquetReader
+                .<GenericData.Record>builder(hadoopInputFile)
+                .withDataModel(dataModel)
+                .build()) {
             while ((record = reader.read()) != null) {
                 Object[] fields = new Object[fieldsCount];
                 for (int i = 0; i < fieldsCount; i++) {
@@ -99,7 +105,8 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
     private Object resolveObject(Object field, SeaTunnelDataType<?> fieldType) {
         switch (fieldType.getSqlType()) {
             case ARRAY:
-                List<Object> origArray = ((ArrayList<Object>) field).stream().map(item -> ((GenericData.Record) item).get("array_element")).collect(Collectors.toList());
+                ArrayList<Object> origArray = new ArrayList<>();
+                ((GenericData.Array<?>) field).iterator().forEachRemaining(origArray::add);
                 SeaTunnelDataType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
                 switch (elementType.getSqlType()) {
                     case STRING:
@@ -134,6 +141,8 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
             case BIGINT:
             case FLOAT:
             case DOUBLE:
+            case DECIMAL:
+            case DATE:
                 return field;
             case STRING:
                 return field.toString();
@@ -141,10 +150,6 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                 return Byte.parseByte(field.toString());
             case SMALLINT:
                 return Short.parseShort(field.toString());
-            case DECIMAL:
-                int precision = ((DecimalType) fieldType).getPrecision();
-                int scale = ((DecimalType) fieldType).getScale();
-                return bytes2Decimal(((GenericData.Fixed) field).bytes(), precision, scale);
             case NULL:
                 return null;
             case BYTES:
@@ -152,15 +157,17 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                 byte[] bytes = new byte[buffer.remaining()];
                 buffer.get(bytes, 0, bytes.length);
                 return bytes;
-            case DATE:
-                return LocalDate.ofEpochDay(Long.parseLong(field.toString()));
             case TIMESTAMP:
-                Binary binary = Binary.fromConstantByteArray(((GenericData.Fixed) field).bytes());
-                NanoTime nanoTime = NanoTime.fromBinary(binary);
-                int julianDay = nanoTime.getJulianDay();
-                long nanosOfDay = nanoTime.getTimeOfDayNanos();
-                long timestamp = (julianDay - JULIAN_DAY_NUMBER_FOR_UNIX_EPOCH) * MILLIS_PER_DAY + nanosOfDay / NANOS_PER_MILLISECOND;
-                return new Timestamp(timestamp).toLocalDateTime();
+                if (field instanceof GenericData.Fixed) {
+                    Binary binary = Binary.fromConstantByteArray(((GenericData.Fixed) field).bytes());
+                    NanoTime nanoTime = NanoTime.fromBinary(binary);
+                    int julianDay = nanoTime.getJulianDay();
+                    long nanosOfDay = nanoTime.getTimeOfDayNanos();
+                    long timestamp = (julianDay - JULIAN_DAY_NUMBER_FOR_UNIX_EPOCH) * MILLIS_PER_DAY + nanosOfDay / NANOS_PER_MILLISECOND;
+                    return new Timestamp(timestamp).toLocalDateTime();
+                }
+                Instant instant = Instant.ofEpochMilli((long) field);
+                return LocalDateTime.ofInstant(instant, ZoneId.of("+8"));
             case ROW:
                 SeaTunnelRowType rowType = (SeaTunnelRowType) fieldType;
                 Object[] objects = new Object[rowType.getTotalFields()];
@@ -226,6 +233,9 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                             throw new UnsupportedOperationException(errorMsg);
                     }
                 case INT64:
+                    if (type.asPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MILLIS) {
+                        return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+                    }
                     return BasicType.LONG_TYPE;
                 case INT96:
                     return LocalTimeType.LOCAL_DATE_TIME_TYPE;
@@ -241,6 +251,9 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                 case BOOLEAN:
                     return BasicType.BOOLEAN_TYPE;
                 case FIXED_LEN_BYTE_ARRAY:
+                    if (type.getLogicalTypeAnnotation() == null) {
+                        return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+                    }
                     String typeInfo = type.getLogicalTypeAnnotation().toString()
                             .replaceAll(SqlType.DECIMAL.toString(), "")
                             .replaceAll("\\(", "")
@@ -275,7 +288,12 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                         SeaTunnelDataType<?> valueType = parquetType2SeaTunnelType(groupType.getType(1));
                         return new MapType<>(keyType, valueType);
                     case LIST:
-                        Type elementType = type.asGroupType().getType(0).asGroupType().getType(0);
+                        Type elementType;
+                        try {
+                            elementType = type.asGroupType().getType(0).asGroupType().getType(0);
+                        } catch (Exception e) {
+                            elementType = type.asGroupType().getType(0);
+                        }
                         SeaTunnelDataType<?> fieldType = parquetType2SeaTunnelType(elementType);
                         switch (fieldType.getSqlType()) {
                             case STRING:
@@ -302,32 +320,6 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                         throw new UnsupportedOperationException("SeaTunnel file connector not support this nest type");
                 }
             }
-        }
-    }
-
-    @SuppressWarnings("checkstyle:MagicNumber")
-    private BigDecimal bytes2Decimal(byte[] bytesArray, int precision, int scale) {
-        Binary value = Binary.fromConstantByteArray(bytesArray);
-        if (precision <= 18) {
-            ByteBuffer buffer = value.toByteBuffer();
-            byte[] bytes = buffer.array();
-            int start = buffer.arrayOffset() + buffer.position();
-            int end = buffer.arrayOffset() + buffer.limit();
-            long unscaled = 0L;
-            int i = start;
-            while (i < end) {
-                unscaled = unscaled << 8 | bytes[i] & 0xff;
-                i++;
-            }
-            int bits = 8 * (end - start);
-            long unscaledNew = (unscaled << (64 - bits)) >> (64 - bits);
-            if (unscaledNew <= -Math.pow(10, 18) || unscaledNew >= Math.pow(10, 18)) {
-                return new BigDecimal(unscaledNew);
-            } else {
-                return BigDecimal.valueOf(unscaledNew / Math.pow(10, scale));
-            }
-        } else {
-            return new BigDecimal(new BigInteger(value.getBytes()), scale);
         }
     }
 

@@ -32,21 +32,18 @@ import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 import com.google.common.collect.Lists;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-@Disabled("Disabled because connector-v2 jar dist not exist")
+@Slf4j
 public class JobExecutionIT {
-    private static final Logger LOGGER = LoggerFactory.getLogger(JobExecutionIT.class);
-
     @BeforeAll
     public static void beforeClass() throws Exception {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
@@ -69,7 +66,7 @@ public class JobExecutionIT {
     }
 
     @Test
-    public void testExecuteJob() {
+    public void testExecuteJob() throws IOException {
         TestUtils.initPluginDir();
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/batch_fakesource_to_file.conf");
@@ -98,7 +95,7 @@ public class JobExecutionIT {
     }
 
     @Test
-    public void cancelJobTest() {
+    public void cancelJobTest() throws IOException {
         TestUtils.initPluginDir();
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/streaming_fakesource_to_file_complex.conf");

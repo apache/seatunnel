@@ -47,7 +47,7 @@ public class ConsoleSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
-        return new ConsoleSinkWriter(seaTunnelRowType);
+        return new ConsoleSinkWriter(seaTunnelRowType, context);
     }
 
     @Override
