@@ -66,7 +66,7 @@ processing plug-in, because the whole system is easy to expand.
 
 - Transform supported [check out](https://seatunnel.apache.org/docs/transform/common-options/)
 
-### Here's a list of our connectors with their health status.[connector status](/docs/en/connector-v2/connector-status/connector-health-status.md)
+### Here's a list of our connectors with their health status.[connector status](/docs/en/Connector-v2-release-state.md)
 
 ## Environmental dependency
 
