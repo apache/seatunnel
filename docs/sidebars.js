@@ -216,6 +216,7 @@ const sidebars = {
       items: [
         'contribution/setup',
         'contribution/new-license',
+        'contribution/coding-guide',
       ],
     },
     'faq',
