@@ -32,7 +32,7 @@ import java.nio.file.Path;
 @Slf4j
 public class FileUtils {
 
-    public static String readFile2Str(Path path) {
+    public static String readFileToStr(Path path) {
         try {
             byte[] bytes = Files.readAllBytes(path);
             return new String(bytes);
