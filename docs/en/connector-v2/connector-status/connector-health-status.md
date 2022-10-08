@@ -50,8 +50,8 @@ SeaTunnel uses a grading system for connectors to help you understand what to ex
 | [Phoenix](../sink/Phoenix.md)                     | Sink   | Alpha  | 2.2.0-beta      |
 | [Phoenix](../source/Phoenix.md)                   | Source | Alpha  | 2.2.0-beta      |
 | [Pulsar](../source/pulsar.md)                     | Source | Beta   | 2.2.0-beta      |
-| [Redis](../sink/redis.md)                         | Sink   | Beta   | 2.2.0-beta      |
-| [Redis](../source/redis.md)                       | Source | Alpha  | 2.2.0-beta      |
+| [Redis](../sink/Redis.md)                         | Sink   | Beta   | 2.2.0-beta      |
+| [Redis](../source/Redis.md)                       | Source | Alpha  | 2.2.0-beta      |
 | [Sentry](../sink/Sentry.md)                       | Sink   | Alpha  | 2.2.0-beta      |
 | [Socket](../sink/Socket.md)                       | Sink   | Alpha  | 2.2.0-beta      |
 | [Socket](../source/Socket.md)                     | Source | Alpha  | 2.2.0-beta      |
