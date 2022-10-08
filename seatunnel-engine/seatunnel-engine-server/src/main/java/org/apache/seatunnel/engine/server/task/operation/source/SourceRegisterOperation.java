@@ -61,7 +61,8 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
             task.receivedReader(readerTaskID, readerAddress);
             return null;
         }, new RetryUtils.RetryMaterial(RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException, RETRY_TIME_OUT));
+            exception -> exception instanceof NullPointerException &&
+                !server.taskIsEnded(enumeratorTaskID.getTaskGroupLocation()), RETRY_TIME_OUT));
     }
 
     @Override

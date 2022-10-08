@@ -1,4 +1,4 @@
-# TiDb
+# TiDB
 
 > TiDB sink connector
 
@@ -10,7 +10,7 @@ Write data to TiDB.
 
 Engine Supported and plugin name
 
-* [x] Spark: TiDb
+* [x] Spark: TiDB
 * [ ] Flink
 
 :::

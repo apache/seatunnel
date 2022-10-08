@@ -23,8 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -32,8 +31,8 @@ import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 
+@Slf4j
 public class SocketSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
-    private static final Logger LOGGER = LoggerFactory.getLogger(SocketSourceReader.class);
     private static final int CHAR_BUFFER_SIZE = 8192;
     private final SocketSourceParameter parameter;
     private final SingleSplitReaderContext context;
@@ -48,7 +47,7 @@ public class SocketSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
     @Override
     public void open() throws Exception {
         socket = new Socket();
-        LOGGER.info("connect socket server, host:[{}], port:[{}] ", this.parameter.getHost(), this.parameter.getPort());
+        log.info("connect socket server, host:[{}], port:[{}] ", this.parameter.getHost(), this.parameter.getPort());
         socket.connect(new InetSocketAddress(this.parameter.getHost(), this.parameter.getPort()), 0);
     }
 

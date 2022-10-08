@@ -26,13 +26,12 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.DataSourceUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
 
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
@@ -45,10 +44,10 @@ import javax.transaction.xa.Xid;
 
 import java.util.stream.Stream;
 
+@Slf4j
 @Disabled("Temporary fast fix, reason: JdbcDatabaseContainer: ClassNotFoundException: com.mysql.jdbc.Driver")
 class XaGroupOpsImplIT {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(XaGroupOpsImplIT.class);
     private MySQLContainer<?> mc;
     private XaGroupOps xaGroupOps;
     private SemanticXidGenerator xidGenerator;
@@ -61,7 +60,7 @@ class XaGroupOpsImplIT {
         // Non-root users need to grant XA_RECOVER_ADMIN permission
         mc = new MySQLContainer<>(DockerImageName.parse("mysql:8.0.29"))
             .withUsername("root")
-            .withLogConsumer(new Slf4jLogConsumer(LOGGER));
+            .withLogConsumer(new Slf4jLogConsumer(log));
         Startables.deepStart(Stream.of(mc)).join();
 
         jdbcConnectionOptions = JdbcConnectionOptions.builder()

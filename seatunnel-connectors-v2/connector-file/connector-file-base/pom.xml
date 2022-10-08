@@ -78,6 +78,10 @@
                     <groupId>org.apache.orc</groupId>
                     <artifactId>orc-core</artifactId>
                 </exclusion>
+                <exclusion>
+                    <artifactId>avro</artifactId>
+                    <groupId>org.apache.avro</groupId>
+                </exclusion>
             </exclusions>
             <scope>test</scope>
         </dependency>
@@ -132,6 +136,13 @@
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-shaded-hadoop-2</artifactId>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <artifactId>avro</artifactId>
+                    <groupId>org.apache.avro</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 
