@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import lombok.Getter;
 
 public class JsonSerializationSchema implements SerializationSchema {
 
@@ -38,6 +39,7 @@ public class JsonSerializationSchema implements SerializationSchema {
     private transient ObjectNode node;
 
     /** Object mapper that is used to create output JSON objects. */
+    @Getter
     private final ObjectMapper mapper = new ObjectMapper();
 
     private final RowToJsonConverters.RowToJsonConverter runtimeConverter;
@@ -59,7 +61,7 @@ public class JsonSerializationSchema implements SerializationSchema {
             return mapper.writeValueAsBytes(node);
         } catch (Throwable e) {
             throw new RuntimeException(
-                    String.format("Failed to deserialize JSON '%s'.", row), e);
+                String.format("Failed to deserialize JSON '%s'.", row), e);
         }
     }
 }

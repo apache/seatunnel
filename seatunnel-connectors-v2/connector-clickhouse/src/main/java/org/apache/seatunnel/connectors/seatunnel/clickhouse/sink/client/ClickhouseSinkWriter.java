@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.DoubleIn
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.FloatInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.IntInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.LongInjectFunction;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.MapInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.StringInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSinkState;
@@ -38,9 +39,8 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.tool.IntHolder;
 
 import com.clickhouse.jdbc.internal.ClickHouseConnectionImpl;
 import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.sql.PreparedStatement;
@@ -53,9 +53,8 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@Slf4j
 public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitInfo, ClickhouseSinkState> {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(ClickhouseSinkWriter.class);
 
     private final Context context;
     private final ReaderOption option;
@@ -189,15 +188,16 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
     private Map<String, ClickhouseFieldInjectFunction> initFieldInjectFunctionMap() {
         Map<String, ClickhouseFieldInjectFunction> result = new HashMap<>(Common.COLLECTION_SIZE);
         List<ClickhouseFieldInjectFunction> clickhouseFieldInjectFunctions = Lists.newArrayList(
-                new ArrayInjectFunction(),
-                new BigDecimalInjectFunction(),
-                new DateInjectFunction(),
-                new DateTimeInjectFunction(),
-                new LongInjectFunction(),
-                new DoubleInjectFunction(),
-                new FloatInjectFunction(),
-                new IntInjectFunction(),
-                new StringInjectFunction()
+            new ArrayInjectFunction(),
+            new MapInjectFunction(),
+            new BigDecimalInjectFunction(),
+            new DateInjectFunction(),
+            new DateTimeInjectFunction(),
+            new LongInjectFunction(),
+            new DoubleInjectFunction(),
+            new FloatInjectFunction(),
+            new IntInjectFunction(),
+            new StringInjectFunction()
         );
         ClickhouseFieldInjectFunction defaultFunction = new StringInjectFunction();
         // get field type

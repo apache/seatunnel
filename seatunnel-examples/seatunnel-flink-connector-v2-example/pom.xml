@@ -30,6 +30,7 @@
     <artifactId>seatunnel-flink-connector-v2-example</artifactId>
     <properties>
         <flink.scope>compile</flink.scope>
+        <mock-webserver.version>3.6.0</mock-webserver.version>
     </properties>
 
     <dependencies>
@@ -54,26 +55,6 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-console</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-file-local</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-file-ftp</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-socket</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-dingtalk</artifactId>
             <version>${project.version}</version>
         </dependency>
         <!--   seatunnel connectors   -->
@@ -115,6 +96,11 @@
             <scope>${flink.scope}</scope>
         </dependency>
 
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>mockwebserver</artifactId>
+            <version>${mock-webserver.version}</version>
+        </dependency>
     </dependencies>
 
 </project>

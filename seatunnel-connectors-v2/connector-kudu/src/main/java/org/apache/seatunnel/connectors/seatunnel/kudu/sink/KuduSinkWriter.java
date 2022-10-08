@@ -26,20 +26,16 @@ import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduOutputForma
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.NonNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 
+@Slf4j
 public class KuduSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
-    private static final Logger LOGGER = LoggerFactory.getLogger(KuduSinkWriter.class);
 
     private SeaTunnelRowType seaTunnelRowType;
     private Config pluginConfig;
-
-
     private KuduOutputFormat fileWriter;
-
     private KuduSinkConfig kuduSinkConfig;
 
     public KuduSinkWriter(@NonNull SeaTunnelRowType seaTunnelRowType,

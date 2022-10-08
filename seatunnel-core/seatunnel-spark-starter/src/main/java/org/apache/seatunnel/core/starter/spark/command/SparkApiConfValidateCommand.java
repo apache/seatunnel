@@ -24,17 +24,16 @@ import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
 import org.apache.seatunnel.core.starter.spark.config.SparkApiConfigChecker;
 import org.apache.seatunnel.core.starter.utils.FileUtils;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 
 /**
  * Use to validate the configuration of the SeaTunnel API.
  */
-public class SparkApiConfValidateCommand implements Command<SparkCommandArgs> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(SparkApiConfValidateCommand.class);
+@Slf4j
+public class SparkApiConfValidateCommand implements Command<SparkCommandArgs> {
 
     private final SparkCommandArgs sparkCommandArgs;
 
@@ -48,6 +47,6 @@ public class SparkApiConfValidateCommand implements Command<SparkCommandArgs> {
         // todo: validate the config by new api
         ConfigBuilder configBuilder = new ConfigBuilder(configPath);
         new SparkApiConfigChecker().checkConfig(configBuilder.getConfig());
-        LOGGER.info("config OK !");
+        log.info("config OK !");
     }
 }

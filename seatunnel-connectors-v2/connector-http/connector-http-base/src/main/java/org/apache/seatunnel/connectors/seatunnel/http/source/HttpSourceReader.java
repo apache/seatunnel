@@ -27,28 +27,28 @@ import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.google.common.base.Strings;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Objects;
 
+@Slf4j
 public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
-    private static final Logger LOGGER = LoggerFactory.getLogger(HttpSourceReader.class);
     protected final SingleSplitReaderContext context;
     protected final HttpParameter httpParameter;
     protected HttpClientProvider httpClient;
-    protected final DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    private final DeserializationCollector deserializationCollector;
 
     public HttpSourceReader(HttpParameter httpParameter, SingleSplitReaderContext context, DeserializationSchema<SeaTunnelRow> deserializationSchema) {
         this.context = context;
         this.httpParameter = httpParameter;
-        this.deserializationSchema = deserializationSchema;
+        this.deserializationCollector = new DeserializationCollector(deserializationSchema);
     }
 
     @Override
     public void open() {
-        httpClient = HttpClientProvider.getInstance();
+        httpClient = new HttpClientProvider(httpParameter);
     }
 
     @Override
@@ -64,22 +64,23 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             HttpResponse response = httpClient.execute(this.httpParameter.getUrl(), this.httpParameter.getMethod(), this.httpParameter.getHeaders(), this.httpParameter.getParams());
             if (HttpResponse.STATUS_OK == response.getCode()) {
                 String content = response.getContent();
-                if (deserializationSchema != null) {
-                    deserializationSchema.deserialize(content.getBytes(), output);
-                } else {
-                    // TODO: use seatunnel-text-format
-                    output.collect(new SeaTunnelRow(new Object[]{content}));
+                if (!Strings.isNullOrEmpty(content)) {
+                    deserializationCollector.collect(content.getBytes(), output);
                 }
                 return;
             }
-            LOGGER.error("http client execute exception, http response status code:[{}], content:[{}]", response.getCode(), response.getContent());
+            log.error("http client execute exception, http response status code:[{}], content:[{}]", response.getCode(), response.getContent());
         } catch (Exception e) {
-            LOGGER.error(e.getMessage(), e);
+            log.error(e.getMessage(), e);
         } finally {
             if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
                 // signal to the source that we have reached the end of the data.
-                LOGGER.info("Closed the bounded http source");
+                log.info("Closed the bounded http source");
                 context.signalNoMoreElement();
+            } else {
+                if (httpParameter.getPollIntervalMillis() > 0) {
+                    Thread.sleep(httpParameter.getPollIntervalMillis());
+                }
             }
         }
     }

@@ -17,27 +17,44 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
 
 import lombok.NonNull;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.exec.vector.BytesColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.ColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.DoubleColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.LongColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
 import org.apache.orc.CompressionKind;
 import org.apache.orc.OrcFile;
 import org.apache.orc.TypeDescription;
 import org.apache.orc.Writer;
+import org.apache.orc.storage.common.type.HiveDecimal;
+import org.apache.orc.storage.ql.exec.vector.BytesColumnVector;
+import org.apache.orc.storage.ql.exec.vector.ColumnVector;
+import org.apache.orc.storage.ql.exec.vector.DecimalColumnVector;
+import org.apache.orc.storage.ql.exec.vector.DoubleColumnVector;
+import org.apache.orc.storage.ql.exec.vector.ListColumnVector;
+import org.apache.orc.storage.ql.exec.vector.LongColumnVector;
+import org.apache.orc.storage.ql.exec.vector.MapColumnVector;
+import org.apache.orc.storage.ql.exec.vector.StructColumnVector;
+import org.apache.orc.storage.ql.exec.vector.TimestampColumnVector;
+import org.apache.orc.storage.ql.exec.vector.VectorizedRowBatch;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.temporal.ChronoField;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class OrcWriteStrategy extends AbstractWriteStrategy {
@@ -91,12 +108,12 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             Path path = new Path(filePath);
             try {
                 OrcFile.WriterOptions options = OrcFile.writerOptions(getConfiguration(hadoopConf))
-                        .setSchema(schema)
-                        // temporarily used snappy
-                        .compress(CompressionKind.SNAPPY)
-                        // use orc version 0.12
-                        .version(OrcFile.Version.V_0_12)
-                        .overwrite(true);
+                    .setSchema(schema)
+                    // temporarily used snappy
+                    .compress(CompressionKind.SNAPPY)
+                    // use orc version 0.12
+                    .version(OrcFile.Version.V_0_12)
+                    .overwrite(true);
                 Writer newWriter = OrcFile.createWriter(path, options);
                 this.beingWrittenWriter.put(filePath, newWriter);
                 return newWriter;
@@ -109,28 +126,53 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
     }
 
     private TypeDescription buildFieldWithRowType(SeaTunnelDataType<?> type) {
-        if (BasicType.BOOLEAN_TYPE.equals(type)) {
-            return TypeDescription.createBoolean();
+        switch (type.getSqlType()) {
+            case ARRAY:
+                BasicType<?> elementType = ((ArrayType<?, ?>) type).getElementType();
+                return TypeDescription.createList(buildFieldWithRowType(elementType));
+            case MAP:
+                SeaTunnelDataType<?> keyType = ((MapType<?, ?>) type).getKeyType();
+                SeaTunnelDataType<?> valueType = ((MapType<?, ?>) type).getValueType();
+                return TypeDescription.createMap(buildFieldWithRowType(keyType), buildFieldWithRowType(valueType));
+            case STRING:
+                return TypeDescription.createString();
+            case BOOLEAN:
+                return TypeDescription.createBoolean();
+            case TINYINT:
+                return TypeDescription.createByte();
+            case SMALLINT:
+                return TypeDescription.createShort();
+            case INT:
+                return TypeDescription.createInt();
+            case BIGINT:
+                return TypeDescription.createLong();
+            case FLOAT:
+                return TypeDescription.createFloat();
+            case DOUBLE:
+                return TypeDescription.createDouble();
+            case DECIMAL:
+                int precision = ((DecimalType) type).getPrecision();
+                int scale = ((DecimalType) type).getScale();
+                return TypeDescription.createDecimal().withScale(scale).withPrecision(precision);
+            case BYTES:
+                return TypeDescription.createBinary();
+            case DATE:
+                return TypeDescription.createDate();
+            case TIME:
+            case TIMESTAMP:
+                return TypeDescription.createTimestamp();
+            case ROW:
+                TypeDescription struct = TypeDescription.createStruct();
+                SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) type).getFieldTypes();
+                for (int i = 0; i < fieldTypes.length; i++) {
+                    struct.addField(((SeaTunnelRowType) type).getFieldName(i), buildFieldWithRowType(fieldTypes[i]));
+                }
+                return struct;
+            case NULL:
+            default:
+                String errorMsg = String.format("Orc file not support this type [%s]", type.getSqlType());
+                throw new UnsupportedOperationException(errorMsg);
         }
-        if (BasicType.SHORT_TYPE.equals(type)) {
-            return TypeDescription.createShort();
-        }
-        if (BasicType.INT_TYPE.equals(type)) {
-            return TypeDescription.createInt();
-        }
-        if (BasicType.LONG_TYPE.equals(type)) {
-            return TypeDescription.createLong();
-        }
-        if (BasicType.FLOAT_TYPE.equals(type)) {
-            return TypeDescription.createFloat();
-        }
-        if (BasicType.DOUBLE_TYPE.equals(type)) {
-            return TypeDescription.createDouble();
-        }
-        if (BasicType.BYTE_TYPE.equals(type)) {
-            return TypeDescription.createByte();
-        }
-        return TypeDescription.createString();
     }
 
     private TypeDescription buildSchemaWithRowType() {
@@ -160,9 +202,101 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                     BytesColumnVector bytesColumnVector = (BytesColumnVector) vector;
                     setByteColumnVector(value, bytesColumnVector, row);
                     break;
+                case DECIMAL:
+                    DecimalColumnVector decimalColumnVector = (DecimalColumnVector) vector;
+                    setDecimalColumnVector(value, decimalColumnVector, row);
+                    break;
+                case TIMESTAMP:
+                    TimestampColumnVector timestampColumnVector = (TimestampColumnVector) vector;
+                    setTimestampColumnVector(value, timestampColumnVector, row);
+                    break;
+                case LIST:
+                    ListColumnVector listColumnVector = (ListColumnVector) vector;
+                    setListColumnVector(value, listColumnVector, row);
+                    break;
+                case MAP:
+                    MapColumnVector mapColumnVector = (MapColumnVector) vector;
+                    setMapColumnVector(value, mapColumnVector, row);
+                    break;
+                case STRUCT:
+                    StructColumnVector structColumnVector = (StructColumnVector) vector;
+                    setStructColumnVector(value, structColumnVector, row);
+                    break;
                 default:
-                    throw new RuntimeException("Unexpected ColumnVector subtype");
+                    throw new RuntimeException("Unexpected ColumnVector subtype " + vector.type);
             }
+        }
+    }
+
+    private void setStructColumnVector(Object value, StructColumnVector structColumnVector, int row) {
+        if (value instanceof SeaTunnelRow) {
+            SeaTunnelRow seaTunnelRow = (SeaTunnelRow) value;
+            Object[] fields = seaTunnelRow.getFields();
+            for (int i = 0; i < fields.length; i++) {
+                setColumn(fields[i], structColumnVector.fields[i], row);
+            }
+        } else {
+            throw new RuntimeException("SeaTunnelRow type expected for field");
+        }
+
+    }
+
+    private void setMapColumnVector(Object value, MapColumnVector mapColumnVector, int row) {
+        if (value instanceof Map) {
+            Map<?, ?> map = (Map<?, ?>) value;
+
+            mapColumnVector.offsets[row] = mapColumnVector.childCount;
+            mapColumnVector.lengths[row] = map.size();
+            mapColumnVector.childCount += map.size();
+
+            int i = 0;
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                int mapElem = (int) mapColumnVector.offsets[row] + i;
+                setColumn(entry.getKey(), mapColumnVector.keys, mapElem);
+                setColumn(entry.getValue(), mapColumnVector.values, mapElem);
+                ++i;
+            }
+        } else {
+            throw new RuntimeException("Map type expected for field");
+        }
+    }
+
+    private void setListColumnVector(Object value, ListColumnVector listColumnVector, int row) {
+        Object[] valueArray;
+        if (value instanceof Object[]) {
+            valueArray = (Object[]) value;
+        } else if (value instanceof List) {
+            valueArray = ((List<?>) value).toArray();
+        } else {
+            throw new RuntimeException("List and Array type expected for field");
+        }
+        listColumnVector.offsets[row] = listColumnVector.childCount;
+        listColumnVector.lengths[row] = valueArray.length;
+        listColumnVector.childCount += valueArray.length;
+
+        for (int i = 0; i < valueArray.length; i++) {
+            int listElem = (int) listColumnVector.offsets[row] + i;
+            setColumn(valueArray[i], listColumnVector.child, listElem);
+        }
+    }
+
+    private void setDecimalColumnVector(Object value, DecimalColumnVector decimalColumnVector, int row) {
+        if (value instanceof BigDecimal) {
+            decimalColumnVector.set(row, HiveDecimal.create((BigDecimal) value));
+        } else {
+            throw new RuntimeException("BigDecimal type expected for field");
+        }
+    }
+
+    private void setTimestampColumnVector(Object value, TimestampColumnVector timestampColumnVector, int row) {
+        if (value instanceof Timestamp) {
+            timestampColumnVector.set(row, (Timestamp) value);
+        } else if (value instanceof LocalDateTime) {
+            timestampColumnVector.set(row, Timestamp.valueOf((LocalDateTime) value));
+        } else if (value instanceof LocalTime) {
+            timestampColumnVector.set(row, Timestamp.valueOf(((LocalTime) value).atDate(LocalDate.ofEpochDay(0))));
+        } else {
+            throw new RuntimeException("Time series type expected for field");
         }
     }
 
@@ -170,31 +304,33 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         if (value instanceof Boolean) {
             Boolean bool = (Boolean) value;
             longVector.vector[row] = (bool.equals(Boolean.TRUE)) ? Long.valueOf(1) : Long.valueOf(0);
-        }  else if (value instanceof Integer) {
+        } else if (value instanceof Integer) {
             longVector.vector[row] = ((Integer) value).longValue();
         } else if (value instanceof Long) {
             longVector.vector[row] = (Long) value;
         } else if (value instanceof BigInteger) {
             BigInteger bigInt = (BigInteger) value;
             longVector.vector[row] = bigInt.longValue();
+        } else if (value instanceof Byte) {
+            longVector.vector[row] = (Byte) value;
+        } else if (value instanceof Short) {
+            longVector.vector[row] = (Short) value;
+        } else if (value instanceof LocalDate) {
+            longVector.vector[row] = ((LocalDate) value).getLong(ChronoField.EPOCH_DAY);
         } else {
             throw new RuntimeException("Long or Integer type expected for field");
         }
     }
 
     private void setByteColumnVector(Object value, BytesColumnVector bytesColVector, int rowNum) {
-        if (value instanceof byte[] || value instanceof String) {
-            byte[] byteVec;
-            if (value instanceof String) {
-                String strVal = (String) value;
-                byteVec = strVal.getBytes(StandardCharsets.UTF_8);
-            } else {
-                byteVec = (byte[]) value;
-            }
-            bytesColVector.setRef(rowNum, byteVec, 0, byteVec.length);
+        byte[] byteVec;
+        if (value instanceof byte[]) {
+            byteVec = (byte[]) value;
         } else {
-            throw new RuntimeException("byte[] or String type expected for field ");
+            String strVal = value.toString();
+            byteVec = strVal.getBytes(StandardCharsets.UTF_8);
         }
+        bytesColVector.setRef(rowNum, byteVec, 0, byteVec.length);
     }
 
     private void setDoubleVector(Object value, DoubleColumnVector doubleVector, int rowNum) {
