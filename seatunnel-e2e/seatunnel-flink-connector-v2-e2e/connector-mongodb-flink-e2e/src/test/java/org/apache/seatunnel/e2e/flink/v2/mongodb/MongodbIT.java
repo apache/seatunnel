@@ -51,6 +51,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -90,7 +91,7 @@ public class MongodbIT extends FlinkContainer {
                 .forPort(MONGODB_PORT)
                 .forStatusCodeMatching(response -> response == HTTP_OK || response == HTTP_UNAUTHORIZED)
                 .withStartupTimeout(Duration.ofMinutes(2)))
-            .withLogConsumer(new Slf4jLogConsumer(log));
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MONGODB_IMAGE)));
         Startables.deepStart(Stream.of(mongodbContainer)).join();
         log.info("Mongodb container started");
 
