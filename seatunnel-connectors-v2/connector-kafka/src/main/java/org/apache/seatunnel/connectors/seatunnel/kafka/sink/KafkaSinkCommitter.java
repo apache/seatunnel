@@ -22,17 +22,15 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Properties;
 
+@Slf4j
 public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(KafkaSinkCommitter.class);
 
     private final Config pluginConfig;
 
@@ -49,8 +47,8 @@ public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
         }
         for (KafkaCommitInfo commitInfo : commitInfos) {
             String transactionId = commitInfo.getTransactionId();
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("Committing transaction {}", transactionId);
+            if (log.isDebugEnabled()) {
+                log.debug("Committing transaction {}", transactionId);
             }
             KafkaProducer<?, ?> producer = getProducer(commitInfo);
             producer.commitTransaction();
