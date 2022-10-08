@@ -50,14 +50,24 @@ else
     args=$@
 fi
 
-CMD=$(java -cp ${APP_JAR} ${APP_MAIN} ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
+set +u
+# Log4j2 Config
+if [ -e "${CONF_DIR}/log4j2.properties" ]; then
+  JAVA_OPTS="${JAVA_OPTS} -Dlog4j2.configurationFile=${CONF_DIR}/log4j2.properties"
+  JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.path=${APP_DIR}/logs"
+  JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-spark-starter"
+fi
+
+CLASS_PATH=${APP_DIR}/lib/logging/*:${APP_JAR}
+
+CMD=$(java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
 if [ ${EXIT_CODE} -eq 234 ]; then
     # print usage
     echo "${CMD}"
     exit 0
 elif [ ${EXIT_CODE} -eq 0 ]; then
-    echo "Execute SeaTunnel Spark Job: $(echo ${CMD} | tail -n 1)"
-    eval $(echo ${CMD} | tail -n 1)
+    echo "Execute SeaTunnel Spark Job: $(echo "${CMD}" | tail -n 1)"
+    eval $(echo "${CMD}" | tail -n 1)
 else
     echo "${CMD}"
     exit ${EXIT_CODE}

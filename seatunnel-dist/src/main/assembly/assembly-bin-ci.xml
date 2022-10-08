@@ -115,6 +115,21 @@
         </file>
     </files>
     <dependencySets>
+        <!-- ============ Logging Jars ============  -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <outputDirectory>/lib/logging</outputDirectory>
+            <includes>
+                <include>org.slf4j:slf4j-api:jar</include>
+                <include>org.slf4j:jcl-over-slf4j:jar</include>
+                <include>org.apache.logging.log4j:log4j-api:jar</include>
+                <include>org.apache.logging.log4j:log4j-core:jar</include>
+                <include>org.apache.logging.log4j:log4j-slf4j-impl:jar</include>
+            </includes>
+        </dependencySet>
+
         <!-- ============ Starter Jars ============  -->
         <dependencySet>
             <useProjectArtifact>false</useProjectArtifact>
