@@ -24,20 +24,18 @@ import org.apache.seatunnel.flink.util.TableUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkStreamTransform, FlinkStreamSink, FlinkEnvironment> {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkStreamExecution.class);
 
     private Config config;
 
@@ -71,10 +69,10 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
             sink.outputStream(flinkEnvironment, stream);
         }
         try {
-            LOGGER.info("Flink Execution Plan:{}", flinkEnvironment.getStreamExecutionEnvironment().getExecutionPlan());
+            log.info("Flink Execution Plan:{}", flinkEnvironment.getStreamExecutionEnvironment().getExecutionPlan());
             flinkEnvironment.getStreamExecutionEnvironment().execute(flinkEnvironment.getJobName());
         } catch (Exception e) {
-            LOGGER.warn("Flink with job name [{}] execute failed", flinkEnvironment.getJobName());
+            log.warn("Flink with job name [{}] execute failed", flinkEnvironment.getJobName());
             throw e;
         }
     }

@@ -36,14 +36,13 @@ import org.apache.seatunnel.flink.batch.FlinkBatchSource;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.common.typeinfo.SqlTimeTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.operators.DataSource;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.types.Row;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -54,12 +53,11 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 
+@Slf4j
 @AutoService(BaseFlinkSource.class)
 public class DruidSource implements FlinkBatchSource {
 
     private static final long serialVersionUID = 8152628883440481281L;
-    private static final Logger LOGGER = LoggerFactory.getLogger(DruidSource.class);
-
     private Config config;
     private DruidInputFormat druidInputFormat;
 
@@ -150,7 +148,7 @@ public class DruidSource implements FlinkBatchSource {
                 }
             }
         } catch (Exception e) {
-            LOGGER.warn("Failed to get column information from JDBC URL: {}", jdbcURL, e);
+            log.warn("Failed to get column information from JDBC URL: {}", jdbcURL, e);
         }
 
         int size = map.size();
