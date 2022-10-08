@@ -25,10 +25,7 @@ import org.apache.seatunnel.core.flink.config.FlinkJobType;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.FileNotFoundException;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Used to parse the variables need to set into the environment.
@@ -38,6 +35,12 @@ public class FlinkEnvParameterParser {
     @SuppressWarnings("checkstyle:RegexpSingleline")
     public static void main(String[] args) throws FileNotFoundException {
         FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parse(args, new FlinkCommandArgs(), FlinkJobType.JAR.getType(), true);
+        flinkCommandArgs.getVariables()
+                .stream()
+                .filter(Objects::nonNull)
+                .map(variable -> variable.split("=", 2))
+                .filter(pair -> pair.length == 2)
+                .forEach(pair -> System.setProperty(pair[0], pair[1]));
         List<String> envParameters = getEnvParameters(flinkCommandArgs);
         System.out.println(String.join(" ", envParameters));
     }

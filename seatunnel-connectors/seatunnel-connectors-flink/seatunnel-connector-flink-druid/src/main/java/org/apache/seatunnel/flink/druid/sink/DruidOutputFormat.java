@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.flink.druid.sink;
 
-import static org.apache.flink.api.java.io.CsvInputFormat.DEFAULT_LINE_DELIMITER;
-
 import org.apache.seatunnel.common.utils.JsonUtils;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;

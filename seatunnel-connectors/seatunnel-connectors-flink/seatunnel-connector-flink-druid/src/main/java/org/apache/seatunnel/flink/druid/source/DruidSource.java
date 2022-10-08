@@ -28,7 +28,6 @@ import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.SHORT_TYPE_INFO
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INFO;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.BaseFlinkSource;
 import org.apache.seatunnel.flink.FlinkEnvironment;
@@ -50,7 +49,12 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+
+import org.apache.seatunnel.common.config.CheckConfigUtil;
 
 @AutoService(BaseFlinkSource.class)
 public class DruidSource implements FlinkBatchSource {
@@ -67,8 +71,8 @@ public class DruidSource implements FlinkBatchSource {
     private static final String END_TIMESTAMP = "end_date";
     private static final String COLUMNS = "columns";
     private static final String PARALLELISM = "parallelism";
-    private static final String ESCAPE_DELIMITERS_KEY = "escape_delimiters";
-    private static final String ESCAPE_DELIMITERS_DEFAULT = "\u0001";
+    private static final String SPACE_DELIMITERS_KEY = "space_delimiters";
+    private static final String SPACE_DELIMITERS_DEFAULT = "\u0001";
 
     private HashMap<String, TypeInformation> informationMapping = new HashMap<>();
 
@@ -120,12 +124,12 @@ public class DruidSource implements FlinkBatchSource {
         String user = config.getString("user");
         String password = config.getString("password");
         String datasource = config.getString(DATASOURCE);
-        String escape_delimiters = config.hasPath(ESCAPE_DELIMITERS_KEY) ? config.getString(ESCAPE_DELIMITERS_KEY) : null;
-        if (StringUtils.isBlank(escape_delimiters)){
-            escape_delimiters = ESCAPE_DELIMITERS_DEFAULT;
+        String space_delimiters = config.hasPath(SPACE_DELIMITERS_KEY) ? config.getString(SPACE_DELIMITERS_KEY) : null;
+        if (StringUtils.isBlank(space_delimiters)){
+            space_delimiters = SPACE_DELIMITERS_DEFAULT;
         }
-        String startTimestamp = config.hasPath(START_TIMESTAMP) ? config.getString(START_TIMESTAMP).replaceAll(escape_delimiters, " ") : null;
-        String endTimestamp = config.hasPath(END_TIMESTAMP) ? config.getString(END_TIMESTAMP).replaceAll(escape_delimiters, " ") : null;
+        String startTimestamp = config.hasPath(START_TIMESTAMP) ? config.getString(START_TIMESTAMP).replaceAll(space_delimiters, " ") : null;
+        String endTimestamp = config.hasPath(END_TIMESTAMP) ? config.getString(END_TIMESTAMP).replaceAll(space_delimiters, " ") : null;
         List<String> columns = config.hasPath(COLUMNS) ? config.getStringList(COLUMNS) : null;
         String sql = new DruidSql(datasource, startTimestamp, endTimestamp, columns).sql();
         RowTypeInfo rowTypeInfo = getRowTypeInfo(jdbcURL, user, password, datasource, columns);
