@@ -24,18 +24,11 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.Arrays;
 import java.util.Map;
 
 @Slf4j
 public class TestUtils {
-    public static final Object LOCK = new Object();
-
     public static String getResource(String confFile) {
         return System.getProperty("user.dir") + File.separator + "src" + File.separator + "test" + File.separator +
             "resources" + File.separator + confFile;
@@ -61,65 +54,5 @@ public class TestUtils {
 
     public static String getClusterName(String testClassName) {
         return System.getProperty("user.name") + "_" + testClassName;
-    }
-
-    public static void initPluginDir() {
-        // TODO change connector get method
-        // copy connectors to project_root/connectors dir
-        synchronized (LOCK) {
-            File seatunnelRootDir = new File(System.getProperty("SEATUNNEL_HOME"));
-            if (seatunnelRootDir.exists()) {
-                log.info("Already init plugin dir");
-                return;
-            }
-
-            System.setProperty("SEATUNNEL_HOME", System.getProperty("user.dir") +
-                String.format("%s..%s..%s..%s", File.separator, File.separator, File.separator, File.separator));
-            seatunnelRootDir = new File(System.getProperty("SEATUNNEL_HOME"));
-
-            File connectorDir = new File(seatunnelRootDir +
-                File.separator +
-                "connectors/seatunnel");
-
-            if (connectorDir.exists()) {
-                connectorDir.delete();
-            }
-
-            connectorDir.mkdirs();
-
-            File connectorDistDir = new File(
-                seatunnelRootDir +
-                    File.separator +
-                    "seatunnel-connectors-v2-dist" +
-                    File.separator +
-                    "target" +
-                    File.separator +
-                    "lib");
-
-            Arrays.stream(connectorDistDir.listFiles()).forEach(file -> {
-                if (file.getName().startsWith("connector-")) {
-                    Path copied = Paths.get(connectorDir + File.separator + file.getName());
-                    Path originalPath = file.toPath();
-                    try {
-                        Files.copy(originalPath, copied, StandardCopyOption.REPLACE_EXISTING);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-            });
-
-            Path targetPluginMappingFile = Paths.get(seatunnelRootDir +
-                File.separator +
-                "connectors" +
-                File.separator +
-                "plugin-mapping.properties");
-
-            Path sourcePluginMappingFile = Paths.get(seatunnelRootDir + File.separator + "plugin-mapping.properties");
-            try {
-                Files.copy(sourcePluginMappingFile, targetPluginMappingFile, StandardCopyOption.REPLACE_EXISTING);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
     }
 }

@@ -36,8 +36,7 @@ public class JdbcSourceOptions implements Serializable {
     private String partitionColumn;
     private Long partitionUpperBound;
     private Long partitionLowerBound;
-
-    private Integer parallelism;
+    private Integer partitionNumber;
 
     public JdbcSourceOptions(Config config) {
         this.jdbcConnectionOptions = buildJdbcConnectionOptions(config);
@@ -50,8 +49,8 @@ public class JdbcSourceOptions implements Serializable {
         if (config.hasPath(JdbcConfig.PARTITION_LOWER_BOUND)) {
             this.partitionLowerBound = config.getLong(JdbcConfig.PARTITION_LOWER_BOUND);
         }
-        if (config.hasPath(JdbcConfig.PARALLELISM)) {
-            this.parallelism = config.getInt(JdbcConfig.PARALLELISM);
+        if (config.hasPath(JdbcConfig.PARTITION_NUM)) {
+            this.partitionNumber = config.getInt(JdbcConfig.PARTITION_NUM);
         }
     }
 
@@ -71,7 +70,7 @@ public class JdbcSourceOptions implements Serializable {
         return Optional.ofNullable(partitionLowerBound);
     }
 
-    public Optional<Integer> getParallelism() {
-        return Optional.ofNullable(parallelism);
+    public Optional<Integer> getPartitionNumber() {
+        return Optional.ofNullable(partitionNumber);
     }
 }

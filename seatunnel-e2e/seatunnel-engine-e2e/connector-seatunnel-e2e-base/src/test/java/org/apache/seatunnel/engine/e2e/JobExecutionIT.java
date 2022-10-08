@@ -39,7 +39,6 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class JobExecutionIT {
-
     @BeforeAll
     public static void beforeClass() throws Exception {
         SeaTunnelServerStarter.createHazelcastInstance(TestUtils.getClusterName("JobExecutionIT"));

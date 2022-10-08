@@ -26,18 +26,17 @@ import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.types.Row;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @AutoService(BaseFlinkSink.class)
+@Slf4j
 public class ConsoleSink extends RichOutputFormat<Row> implements FlinkBatchSink, FlinkStreamSink {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ConsoleSink.class);
     private static final String LIMIT = "limit";
     private Integer limit = Integer.MAX_VALUE;
 
@@ -49,7 +48,7 @@ public class ConsoleSink extends RichOutputFormat<Row> implements FlinkBatchSink
         try {
             rowDataSet.first(limit).print();
         } catch (Exception e) {
-            LOGGER.error("Failed to print result! ", e);
+            log.error("Failed to print result! ", e);
         }
     }
 

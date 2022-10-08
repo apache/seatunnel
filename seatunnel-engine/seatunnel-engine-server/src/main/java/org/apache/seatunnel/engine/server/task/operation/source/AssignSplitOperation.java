@@ -58,7 +58,8 @@ public class AssignSplitOperation<SplitT extends SourceSplit> extends Operation 
             task.receivedSourceSplit(Arrays.stream(o).map(i -> (SplitT) i).collect(Collectors.toList()));
             return null;
         }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException, Constant.OPERATION_RETRY_SLEEP));
+            exception -> exception instanceof NullPointerException &&
+                !server.taskIsEnded(taskID.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
     }
 
     @Override

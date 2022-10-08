@@ -22,12 +22,11 @@ import static org.awaitility.Awaitility.given;
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
 import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -44,23 +43,22 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
+@Slf4j
 public class FakeSourceToClickhouseIT extends FlinkContainer {
 
     private GenericContainer<?> clickhouseServer;
     private BalancedClickhouseDataSource dataSource;
     private static final String CLICKHOUSE_DOCKER_IMAGE = "yandex/clickhouse-server:22.1.3.7";
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceToClickhouseIT.class);
-
     @BeforeEach
     public void startClickhouseContainer() throws InterruptedException {
         clickhouseServer = new GenericContainer<>(CLICKHOUSE_DOCKER_IMAGE)
             .withNetwork(NETWORK)
             .withNetworkAliases("clickhouse")
-            .withLogConsumer(new Slf4jLogConsumer(LOGGER));
+            .withLogConsumer(new Slf4jLogConsumer(log));
         clickhouseServer.setPortBindings(Lists.newArrayList("8123:8123"));
         Startables.deepStart(Stream.of(clickhouseServer)).join();
-        LOGGER.info("Clickhouse container started");
+        log.info("Clickhouse container started");
         // wait for clickhouse fully start
         dataSource = createDatasource();
         given().ignoreExceptions()

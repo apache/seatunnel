@@ -39,6 +39,7 @@ import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
@@ -51,8 +52,6 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.types.Row;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -60,10 +59,10 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
 
+@Slf4j
 @AutoService(BaseFlinkSink.class)
 public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSink.class);
     private static final long serialVersionUID = 3677571223952518115L;
     private static final int DEFAULT_BATCH_SIZE = 5000;
     private static final int DEFAULT_MAX_RETRY_TIMES = 3;
@@ -189,11 +188,11 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
 
     private void executePreSql() {
         if (StringUtils.isNotBlank(preSql)) {
-            LOGGER.info("Starting to execute pre sql: \n {}", preSql);
+            log.info("Starting to execute pre sql: \n {}", preSql);
             try {
                 executeSql(preSql);
             } catch (SQLException e) {
-                LOGGER.error("Execute pre sql failed, pre sql is : \n {} \n", preSql, e);
+                log.error("Execute pre sql failed, pre sql is : \n {} \n", preSql, e);
                 throw new RuntimeException(e);
             }
         }
@@ -201,11 +200,11 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
 
     private void executePostSql() {
         if (StringUtils.isNotBlank(postSql)) {
-            LOGGER.info("Starting to execute post sql: \n {}", postSql);
+            log.info("Starting to execute post sql: \n {}", postSql);
             try {
                 executeSql(postSql);
             } catch (SQLException e) {
-                LOGGER.error("Execute post sql failed, post sql is : \n {} \n", postSql, e);
+                log.error("Execute post sql failed, post sql is : \n {} \n", postSql, e);
                 if (!ignorePostSqlExceptions) {
                     throw new RuntimeException(e);
                 }
@@ -215,10 +214,10 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
 
     private void executeSql(String sql) throws SQLException {
         try (Connection connection = DriverManager.getConnection(dbUrl, username, password);
-            Statement statement = connection.createStatement()) {
+              Statement statement = connection.createStatement()) {
 
             statement.execute(sql);
-            LOGGER.info("Executed sql successfully.");
+            log.info("Executed sql successfully.");
         }
     }
 }
