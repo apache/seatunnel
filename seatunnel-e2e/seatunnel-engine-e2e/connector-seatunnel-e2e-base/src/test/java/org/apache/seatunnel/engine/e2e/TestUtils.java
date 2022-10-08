@@ -53,7 +53,7 @@ public class TestUtils {
                                                         @NonNull Map<String, String> valueMap,
                                                         @NonNull String targetFilePath) {
         String templateFilePath = getResource(templateFile);
-        String confContent = FileUtils.readFile2Str(Paths.get(templateFilePath));
+        String confContent = FileUtils.readFileToStr(Paths.get(templateFilePath));
         String targetConfContent = VariablesSubstitute.substitute(confContent, valueMap);
         FileUtils.createNewFile(targetFilePath);
         FileUtils.writeStringToFile(targetFilePath, targetConfContent);

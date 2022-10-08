@@ -43,7 +43,7 @@ public class FileUtils {
     }
 
     public static void writeStringToFile(String filePath, String str) {
-        PrintStream ps;
+        PrintStream ps = null;
         try {
             File file = new File(filePath);
             ps = new PrintStream(new FileOutputStream(file));
@@ -51,6 +51,10 @@ public class FileUtils {
         } catch (FileNotFoundException e) {
             log.error(ExceptionUtil.getMessage(e));
             throw new RuntimeException(e);
+        } finally {
+            if (ps != null) {
+                ps.close();
+            }
         }
     }
 
@@ -68,7 +72,9 @@ public class FileUtils {
      */
     public static void createNewFile(String filePath) {
         File file = new File(filePath);
-        file.deleteOnExit();
+        if (file.exists()) {
+            file.delete();
+        }
 
         if (!file.getParentFile().exists()) {
             createParentFile(file);
