@@ -19,11 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.internals.TransactionManager;
 import org.apache.kafka.common.errors.ProducerFencedException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -34,9 +33,8 @@ import java.util.Properties;
 /**
  * A {@link KafkaProducer} that allow resume transaction from transactionId
  */
+@Slf4j
 public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(KafkaInternalProducer.class);
 
     private static final String TRANSACTION_MANAGER_STATE_ENUM =
             "org.apache.kafka.clients.producer.internals.TransactionManager$State";
@@ -97,7 +95,7 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
 
     public void resumeTransaction(long producerId, short epoch) {
 
-        LOGGER.info(
+        log.info(
                 "Attempting to resume transaction {} with producerId {} and epoch {}",
                 transactionalId,
                 producerId,

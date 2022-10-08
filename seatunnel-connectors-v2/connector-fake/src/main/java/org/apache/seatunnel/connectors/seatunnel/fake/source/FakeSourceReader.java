@@ -23,22 +23,20 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
+import java.util.List;
+
+@Slf4j
 public class FakeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceReader.class);
 
     private final SingleSplitReaderContext context;
 
-    private final FakeRandomData fakeRandomData;
-    private final FakeOptions options;
+    private final FakeDataGenerator fakeDataGenerator;
 
-    public FakeSourceReader(SingleSplitReaderContext context, FakeRandomData randomData, FakeOptions options) {
+    public FakeSourceReader(SingleSplitReaderContext context, FakeDataGenerator randomData) {
         this.context = context;
-        this.fakeRandomData = randomData;
-        this.options = options;
+        this.fakeDataGenerator = randomData;
     }
 
     @Override
@@ -55,13 +53,13 @@ public class FakeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
         // Generate a random number of rows to emit.
-        for (int i = 0; i < options.getRowNum(); i++) {
-            SeaTunnelRow seaTunnelRow = fakeRandomData.randomRow();
+        List<SeaTunnelRow> seaTunnelRows = fakeDataGenerator.generateFakedRows();
+        for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {
             output.collect(seaTunnelRow);
         }
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
-            LOGGER.info("Closed the bounded fake source");
+            log.info("Closed the bounded fake source");
             context.signalNoMoreElement();
         }
         Thread.sleep(1000L);

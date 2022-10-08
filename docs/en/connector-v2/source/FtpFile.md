@@ -21,15 +21,16 @@ Read data from ftp file server.
 
 ## Options
 
-| name     | type   | required | default value |
-|----------|--------|----------|---------------|
-| host     | string | yes      | -             |
-| port     | int    | yes      | -             |
-| user     | string | yes      | -             |
-| password | string | yes      | -             |
-| path     | string | yes      | -             |
-| type     | string | yes      | -             |
-| schema   | config | no       | -             |
+| name           | type   | required | default value |
+| -------------- | ------ | -------- | ------------- |
+| host           | string | yes      | -             |
+| port           | int    | yes      | -             |
+| user           | string | yes      | -             |
+| password       | string | yes      | -             |
+| path           | string | yes      | -             |
+| type           | string | yes      | -             |
+| schema         | config | no       | -             |
+| common-options |        | no       | -             |
 
 ### host [string]
 
@@ -99,7 +100,13 @@ Now connector will treat the upstream data as the following:
 
 ### schema [config]
 
+#### fields [Config]
+
 The schema information of upstream data.
+
+### common options 
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
 ## Example
 
