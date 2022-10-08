@@ -19,8 +19,10 @@ package org.apache.seatunnel.e2e.common.container;
 
 import org.testcontainers.containers.GenericContainer;
 
+import java.io.IOException;
+
 @FunctionalInterface
 public interface ContainerExtendedFactory {
 
-    void extend(GenericContainer<?> engineMasterContainer);
+    void extend(GenericContainer<?> engineMasterContainer) throws IOException, InterruptedException;
 }
