@@ -28,7 +28,6 @@ import org.apache.seatunnel.common.utils.TimeUtils;
 
 import lombok.Builder;
 import lombok.NonNull;
-import org.apache.commons.lang3.StringUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -57,10 +56,13 @@ public class TextSerializationSchema implements SerializationSchema {
         for (int i = 0; i < fields.length; i++) {
             strings[i] = convert(fields[i], seaTunnelRowType.getFieldType(i));
         }
-        return StringUtils.join(strings, delimiter).getBytes();
+        return String.join(delimiter, strings).getBytes();
     }
 
     private String convert(Object field, SeaTunnelDataType<?> fieldType) {
+        if (field == null) {
+            return "";
+        }
         switch (fieldType.getSqlType()) {
             case ARRAY:
             case MAP:
@@ -85,8 +87,15 @@ public class TextSerializationSchema implements SerializationSchema {
                 return "";
             case BYTES:
                 return new String((byte[]) field);
+            case ROW:
+                Object[] fields = ((SeaTunnelRow) field).getFields();
+                String[] strings = new String[fields.length];
+                for (int i = 0; i < fields.length; i++) {
+                    strings[i] = convert(fields[i], ((SeaTunnelRowType) fieldType).getFieldType(i));
+                }
+                return String.join(delimiter, strings);
             default:
-                throw new UnsupportedOperationException("SeaTunnel format text not supported for parsing [SeaTunnelRow] type");
+                throw new UnsupportedOperationException("SeaTunnel format text not supported for parsing this type");
         }
     }
 }

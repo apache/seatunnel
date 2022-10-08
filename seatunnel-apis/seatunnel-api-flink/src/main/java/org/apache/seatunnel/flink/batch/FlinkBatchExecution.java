@@ -23,21 +23,19 @@ import org.apache.seatunnel.flink.util.TableUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
 import org.apache.flink.types.Row;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBatchTransform, FlinkBatchSink, FlinkEnvironment> {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkBatchExecution.class);
 
     private Config config;
 
@@ -73,11 +71,11 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
 
         if (whetherExecute(sinks)) {
             try {
-                LOGGER.info("Flink Execution Plan:{}", flinkEnvironment.getBatchEnvironment().getExecutionPlan());
+                log.info("Flink Execution Plan:{}", flinkEnvironment.getBatchEnvironment().getExecutionPlan());
                 JobExecutionResult execute = flinkEnvironment.getBatchEnvironment().execute(flinkEnvironment.getJobName());
-                LOGGER.info(execute.toString());
+                log.info(execute.toString());
             } catch (Exception e) {
-                LOGGER.warn("Flink with job name [{}] execute failed", flinkEnvironment.getJobName());
+                log.warn("Flink with job name [{}] execute failed", flinkEnvironment.getJobName());
                 throw e;
             }
         }

@@ -23,14 +23,12 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 
+@Slf4j
 public class FakeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceReader.class);
 
     private final SingleSplitReaderContext context;
 
@@ -61,7 +59,7 @@ public class FakeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
-            LOGGER.info("Closed the bounded fake source");
+            log.info("Closed the bounded fake source");
             context.signalNoMoreElement();
         }
         Thread.sleep(1000L);

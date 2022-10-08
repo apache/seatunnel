@@ -38,11 +38,10 @@ import org.apache.seatunnel.flink.clickhouse.sink.file.ScpFileTransfer;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.flink.types.Row;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import ru.yandex.clickhouse.ClickHouseConnectionImpl;
 
 import java.io.BufferedReader;
@@ -66,9 +65,9 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class ClickhouseFileOutputFormat {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ClickhouseFileOutputFormat.class);
     private static final String CLICKHOUSE_LOCAL_FILE_PREFIX = "/tmp/clickhouse-local/flink-file";
     private static final int UUID_LENGTH = 10;
 
@@ -195,7 +194,7 @@ public class ClickhouseFileOutputFormat {
             uuid));
         command.add("--path");
         command.add("\"" + clickhouseLocalFile + "\"");
-        LOGGER.info("Generate clickhouse local file command: {}", String.join(" ", command));
+        log.info("Generate clickhouse local file command: {}", String.join(" ", command));
         ProcessBuilder processBuilder = new ProcessBuilder("bash", "-c", String.join(" ", command));
         Process start = processBuilder.start();
         // we just wait for the process to finish
@@ -204,7 +203,7 @@ public class ClickhouseFileOutputFormat {
              BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
             String line;
             while ((line = bufferedReader.readLine()) != null) {
-                LOGGER.info(line);
+                log.info(line);
             }
         }
         start.waitFor();

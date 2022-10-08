@@ -22,6 +22,6 @@
         "http://www.puppycrawl.com/dtds/suppressions_1_1.dtd">
 
 <suppressions>
-    <suppress files="[\\/]org/apache/seatunnel/engine/core/protocol/codec" checks="[a-zA-Z0-9]*"/>
-    <suppress files="[\\/]org/apache/seatunnel/engine/core/protocol/compatibility" checks="[a-zA-Z0-9]*"/>
+    <suppress files="[/\\]org[\\/]apache[\\/]seatunnel[\\/]engine[\\/]core[\\/]protocol[\\/]codec[/\\]" checks="[a-zA-Z0-9]*"/>
+    <suppress files="[/\\]org[\\/]apache[\\/]seatunnel[\\/]engine[\\/]core[\\/]protocol[\\/]compatibility[/\\]" checks="[a-zA-Z0-9]*"/>
 </suppressions>
