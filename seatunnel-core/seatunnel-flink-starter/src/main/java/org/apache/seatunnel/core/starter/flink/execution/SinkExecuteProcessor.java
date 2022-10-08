@@ -21,9 +21,9 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.util.ConfigKeyName;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.translation.flink.sink.FlinkSink;
@@ -79,8 +79,8 @@ public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunn
             DataStream<Row> stream = fromSourceTable(sinkConfig).orElse(input);
             seaTunnelSink.setTypeInfo((SeaTunnelRowType) TypeConverterUtils.convert(stream.getType()));
             DataStreamSink<Row> dataStreamSink = stream.sinkTo(new FlinkSink<>(seaTunnelSink)).name(seaTunnelSink.getPluginName());
-            if (sinkConfig.hasPath(ConfigKeyName.PARALLELISM)) {
-                int parallelism = sinkConfig.getInt(ConfigKeyName.PARALLELISM);
+            if (sinkConfig.hasPath(CollectionConstants.PARALLELISM)) {
+                int parallelism = sinkConfig.getInt(CollectionConstants.PARALLELISM);
                 dataStreamSink.setParallelism(parallelism);
             }
         }
