@@ -131,7 +131,7 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
                     if (!Objects.deepEquals(source, sink)) {
 
                         InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(column);
-                        InputStream sinkAsciiStream = sourceResultSet.getBinaryStream(column);
+                        InputStream sinkAsciiStream = sinkResultSet.getBinaryStream(column);
                         String sourceValue = IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
                         String sinkValue = IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
                         Assertions.assertEquals(sourceValue, sinkValue);
