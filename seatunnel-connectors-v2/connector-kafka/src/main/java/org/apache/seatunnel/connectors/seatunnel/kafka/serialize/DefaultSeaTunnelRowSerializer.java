@@ -25,7 +25,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byte[], byte[]> {
 
-    private Integer partation = null;
+    private int partation = -1;
     private final String topic;
     private final JsonSerializationSchema jsonSerializationSchema;
 
@@ -41,7 +41,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byt
 
     @Override
     public ProducerRecord<byte[], byte[]> serializeRow(SeaTunnelRow row) {
-        if (this.partation != null) {
+        if (this.partation != -1) {
             return new ProducerRecord<>(topic, this.partation, null, jsonSerializationSchema.serialize(row));
         }
         else {
