@@ -62,7 +62,6 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
         "  binary_double_col binary_double,\n" +
         "  date_col                      date,\n" +
         "  timestamp_with_3_frac_sec_col timestamp(3),\n" +
-        "  timestamp_with_tz             timestamp with time zone,\n" +
         "  timestamp_with_local_tz       timestamp with local time zone,\n" +
         "  raw_col  raw(1000),\n" +
         "  blob_col blob\n" +
@@ -79,7 +78,6 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
         "  binary_double_col binary_double,\n" +
         "  date_col                      date,\n" +
         "  timestamp_with_3_frac_sec_col timestamp(3),\n" +
-        "  timestamp_with_tz             timestamp with time zone,\n" +
         "  timestamp_with_local_tz       timestamp with local time zone,\n" +
         "  raw_col  raw(1000),\n" +
         "  blob_col blob\n" +
@@ -96,7 +94,6 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
         "  binary_double_col,\n" +
         "  date_col,\n" +
         "  timestamp_with_3_frac_sec_col,\n" +
-        "  timestamp_with_tz,\n" +
         "  timestamp_with_local_tz,\n" +
         "  raw_col,\n" +
         "  blob_col\n" +
@@ -121,7 +118,7 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
     void compareResult() throws SQLException, IOException {
         String sourceSql = "select * from " + SOURCE_TABLE;
         String sinkSql = "select * from " + SINK_TABLE;
-        List<String> columns = Lists.newArrayList("varchar_10_col", "char_10_col", "clob_col", "number_3_sf_2_dp", "integer_col", "float_col", "real_col", "binary_float_col", "binary_double_col", "date_col", "timestamp_with_3_frac_sec_col", "timestamp_with_tz", "timestamp_with_local_tz", "raw_col", "blob_col");
+        List<String> columns = Lists.newArrayList("varchar_10_col", "char_10_col", "clob_col", "number_3_sf_2_dp", "integer_col", "float_col", "real_col", "binary_float_col", "binary_double_col", "date_col", "timestamp_with_3_frac_sec_col", "timestamp_with_local_tz", "raw_col", "blob_col");
         Statement sourceStatement = jdbcConnection.createStatement();
         Statement sinkStatement = jdbcConnection.createStatement();
         ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
@@ -160,7 +157,6 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
         return new SeaTunnelRow(
             new Object[]{"varchar", "char10col1", "clobS", 1.12, 2022, 1.2222, 1.22222, 1.22222, 1.22222,
                 LocalDate.now(),
-                LocalDateTime.now(),
                 LocalDateTime.now(),
                 LocalDateTime.now(),
                 "raw", "blob"

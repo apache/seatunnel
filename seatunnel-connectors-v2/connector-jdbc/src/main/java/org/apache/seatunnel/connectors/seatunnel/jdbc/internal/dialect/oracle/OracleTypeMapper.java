@@ -76,7 +76,10 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
             case ORACLE_INTEGER:
                 return BasicType.INT_TYPE;
             case ORACLE_NUMBER:
-                return new DecimalType(precision, scale);
+                if (precision < 38) {
+                    return new DecimalType(precision, scale);
+                }
+                return new DecimalType(38, 18);
             case ORACLE_FLOAT:
             case ORACLE_BINARY_DOUBLE:
                 return BasicType.DOUBLE_TYPE;
