@@ -23,33 +23,53 @@ import org.apache.seatunnel.connectors.seatunnel.assertion.excecutor.AssertExecu
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
-import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.atomic.LongAccumulator;
 
 public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final SeaTunnelRowType seaTunnelRowType;
     private final List<AssertFieldRule> assertFieldRules;
+    private final List<AssertFieldRule.AssertRule> assertRowRules;
     private static final AssertExecutor ASSERT_EXECUTOR = new AssertExecutor();
+    private static final LongAccumulator LONG_ACCUMULATOR = new LongAccumulator(Long::sum, 0);
 
-    public AssertSinkWriter(SeaTunnelRowType seaTunnelRowType, List<AssertFieldRule> assertFieldRules) {
+    public AssertSinkWriter(SeaTunnelRowType seaTunnelRowType, List<AssertFieldRule> assertFieldRules, List<AssertFieldRule.AssertRule> assertRowRules) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.assertFieldRules = assertFieldRules;
+        this.assertRowRules = assertRowRules;
     }
 
     @Override
     @SuppressWarnings("checkstyle:RegexpSingleline")
     public void write(SeaTunnelRow element) {
-        ASSERT_EXECUTOR
-            .fail(element, seaTunnelRowType, assertFieldRules)
-            .ifPresent(failRule -> {
-                throw new IllegalStateException("row :" + element + " fail rule: " + failRule);
-            });
+        LONG_ACCUMULATOR.accumulate(1);
+        if (Objects.nonNull(assertFieldRules)) {
+            ASSERT_EXECUTOR
+                .fail(element, seaTunnelRowType, assertFieldRules)
+                .ifPresent(failRule -> {
+                    throw new IllegalStateException("row :" + element + " fail rule: " + failRule);
+                });
+        }
     }
 
     @Override
-    public void close() throws IOException {
-        // nothing
+    public void close() {
+        if (Objects.nonNull(assertRowRules)) {
+            assertRowRules.stream().filter(assertRule -> {
+                switch (assertRule.getRuleType()) {
+                    case MAX_ROW:
+                        return !(LONG_ACCUMULATOR.longValue() <= assertRule.getRuleValue());
+                    case MIN_ROW:
+                        return !(LONG_ACCUMULATOR.longValue() >= assertRule.getRuleValue());
+                    default:
+                        return false;
+                }
+            }).findFirst().ifPresent(failRule -> {
+                throw new IllegalStateException("row num :" + LONG_ACCUMULATOR.longValue() + " fail rule: " + failRule);
+            });
+        }
     }
 
 }

@@ -22,29 +22,31 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.NodeEngine;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractSeaTunnelServerTest {
 
-    protected static SeaTunnelServer SERVER;
+    protected SeaTunnelServer server;
 
-    protected static NodeEngine NODE_ENGINE;
+    protected NodeEngine nodeEngine;
 
-    protected static HazelcastInstanceImpl INSTANCE;
+    protected HazelcastInstanceImpl instance;
 
     protected static ILogger LOGGER;
 
     @BeforeAll
-    public static void before() {
-        INSTANCE = SeaTunnelServerStarter.createHazelcastInstance(
+    public  void before() {
+        instance = SeaTunnelServerStarter.createHazelcastInstance(
             TestUtils.getClusterName("AbstractSeaTunnelServerTest_" + System.currentTimeMillis()));
-        NODE_ENGINE = INSTANCE.node.nodeEngine;
-        SERVER = NODE_ENGINE.getService(SeaTunnelServer.SERVICE_NAME);
-        LOGGER = NODE_ENGINE.getLogger(AbstractSeaTunnelServerTest.class);
+        nodeEngine = instance.node.nodeEngine;
+        server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
+        LOGGER = nodeEngine.getLogger(AbstractSeaTunnelServerTest.class);
     }
 
     @AfterAll
-    public static void after() {
-        SERVER.shutdown(true);
-        INSTANCE.shutdown();
+    public void after() {
+        server.shutdown(true);
+        instance.shutdown();
     }
 }

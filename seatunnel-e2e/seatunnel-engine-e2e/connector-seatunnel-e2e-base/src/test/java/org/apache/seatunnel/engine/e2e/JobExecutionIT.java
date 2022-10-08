@@ -56,7 +56,7 @@ public class JobExecutionIT {
     }
 
     @Test
-    public void testExecuteJob() {
+    public void testExecuteJob() throws Exception {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("batch_fakesource_to_file.conf");
         JobConfig jobConfig = new JobConfig();
@@ -67,24 +67,20 @@ public class JobExecutionIT {
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
 
-        try {
-            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+        final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
-                return clientJobProxy.waitForJobComplete();
-            });
+        CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
+            return clientJobProxy.waitForJobComplete();
+        });
 
-            Awaitility.await().atMost(20000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertTrue(
-                    objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
+        Awaitility.await().atMost(20000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> Assertions.assertTrue(
+                objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
 
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Test
-    public void cancelJobTest() {
+    public void cancelJobTest() throws Exception {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("streaming_fakesource_to_file_complex.conf");
         JobConfig jobConfig = new JobConfig();
@@ -95,23 +91,19 @@ public class JobExecutionIT {
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
 
-        try {
-            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            JobStatus jobStatus1 = clientJobProxy.getJobStatus();
-            Assertions.assertFalse(jobStatus1.isEndState());
-            ClientJobProxy finalClientJobProxy = clientJobProxy;
-            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
-                return finalClientJobProxy.waitForJobComplete();
-            });
-            Thread.sleep(1000);
-            clientJobProxy.cancelJob();
+        final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+        JobStatus jobStatus1 = clientJobProxy.getJobStatus();
+        Assertions.assertFalse(jobStatus1.isEndState());
+        ClientJobProxy finalClientJobProxy = clientJobProxy;
+        CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
+            return finalClientJobProxy.waitForJobComplete();
+        });
+        Thread.sleep(1000);
+        clientJobProxy.cancelJob();
 
-            Awaitility.await().atMost(20000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertTrue(
-                    objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
+        Awaitility.await().atMost(20000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> Assertions.assertTrue(
+                objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
 
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 }
