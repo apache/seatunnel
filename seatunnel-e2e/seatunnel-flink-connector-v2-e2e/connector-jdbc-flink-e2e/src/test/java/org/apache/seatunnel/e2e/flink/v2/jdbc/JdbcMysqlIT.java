@@ -25,12 +25,11 @@ import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
@@ -57,8 +56,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Slf4j
 public class JdbcMysqlIT extends FlinkContainer {
-    private static final Logger LOGGER = LoggerFactory.getLogger(JdbcMysqlIT.class);
     private MySQLContainer<?> mc;
     private Config config;
     private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
@@ -71,9 +70,9 @@ public class JdbcMysqlIT extends FlinkContainer {
             .withNetwork(NETWORK)
             .withNetworkAliases("mysql")
             .withUsername("root")
-            .withLogConsumer(new Slf4jLogConsumer(LOGGER));
+            .withLogConsumer(new Slf4jLogConsumer(log));
         Startables.deepStart(Stream.of(mc)).join();
-        LOGGER.info("Mysql container started");
+        log.info("Mysql container started");
         Class.forName(mc.getDriverClassName());
         given().ignoreExceptions()
             .await()

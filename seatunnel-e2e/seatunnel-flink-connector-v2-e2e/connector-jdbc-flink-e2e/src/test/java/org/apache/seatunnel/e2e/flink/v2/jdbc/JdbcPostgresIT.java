@@ -26,8 +26,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -52,7 +50,6 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class JdbcPostgresIT extends FlinkContainer {
-    private static final Logger LOGGER = LoggerFactory.getLogger(JdbcPostgresIT.class);
     private PostgreSQLContainer<?> pg;
     private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
 
@@ -64,9 +61,9 @@ public class JdbcPostgresIT extends FlinkContainer {
             .withNetworkAliases("postgresql")
             .withCommand("postgres -c max_prepared_transactions=100")
             .withUsername("root")
-            .withLogConsumer(new Slf4jLogConsumer(LOGGER));
+            .withLogConsumer(new Slf4jLogConsumer(log));
         Startables.deepStart(Stream.of(pg)).join();
-        LOGGER.info("Postgres container started");
+        log.info("Postgres container started");
         Class.forName(pg.getDriverClassName());
         given().ignoreExceptions()
             .await()

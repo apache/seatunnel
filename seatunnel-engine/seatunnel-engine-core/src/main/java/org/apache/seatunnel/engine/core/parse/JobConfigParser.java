@@ -76,17 +76,21 @@ public class JobConfigParser {
 
     private JobConfig jobConfig;
 
+    private Config seaTunnelJobConfig;
+
+    private Config envConfigs;
+
     public JobConfigParser(@NonNull String jobDefineFilePath,
                            @NonNull IdGenerator idGenerator,
                            @NonNull JobConfig jobConfig) {
         this.jobDefineFilePath = jobDefineFilePath;
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
+        this.seaTunnelJobConfig = new ConfigBuilder(Paths.get(jobDefineFilePath)).getConfig();
+        this.envConfigs = seaTunnelJobConfig.getConfig("env");
     }
 
     public ImmutablePair<List<Action>, Set<URL>> parse() {
-        Config seaTunnelJobConfig = new ConfigBuilder(Paths.get(jobDefineFilePath)).getConfig();
-        Config envConfigs = seaTunnelJobConfig.getConfig("env");
         List<? extends Config> sinkConfigs = seaTunnelJobConfig.getConfigList("sink");
         List<? extends Config> transformConfigs = seaTunnelJobConfig.getConfigList("transform");
         List<? extends Config> sourceConfigs = seaTunnelJobConfig.getConfigList("source");
@@ -322,7 +326,11 @@ public class JobConfigParser {
             int sourceParallelism = sourceConfig.getInt(CollectionConstants.PARALLELISM);
             return Math.max(sourceParallelism, 1);
         }
-        return 1;
+        int executionParallelism = 0;
+        if (envConfigs.hasPath(CollectionConstants.PARALLELISM)) {
+            executionParallelism = envConfigs.getInt(CollectionConstants.PARALLELISM);
+        }
+        return Math.max(executionParallelism, 1);
     }
 
     private SourceAction createSourceAction(long id,
