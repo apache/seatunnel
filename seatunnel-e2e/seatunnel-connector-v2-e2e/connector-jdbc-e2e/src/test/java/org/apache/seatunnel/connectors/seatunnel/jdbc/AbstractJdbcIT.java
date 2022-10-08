@@ -56,7 +56,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     abstract JdbcCase getJdbcCase();
 
-    abstract void compareResult() throws SQLException;
+    abstract void compareResult() throws SQLException, IOException;
 
     abstract void clearSinkTable();
 

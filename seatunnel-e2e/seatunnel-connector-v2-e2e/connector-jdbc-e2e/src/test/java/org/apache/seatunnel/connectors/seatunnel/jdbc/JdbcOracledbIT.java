@@ -20,17 +20,21 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.junit.jupiter.api.Assertions;
+import org.testcontainers.shaded.com.google.common.collect.Lists;
+import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class JdbcOracledbIT extends AbstractJdbcIT {
 
@@ -114,18 +118,31 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult() throws SQLException {
-        String sql = "select a,b,c from " + SINK_TABLE;
-        List<Object> result = new ArrayList<>();
-        try (Statement statement = jdbcConnection.createStatement()) {
-            ResultSet resultSet = statement.executeQuery(sql);
-            while (resultSet.next()) {
-                for (int index = 0; index < this.getJdbcCase().getSeaTunnelRow().getFields().length; index++) {
-                    result.add(resultSet.getObject(index + 1));
+    void compareResult() throws SQLException, IOException {
+        String sourceSql = "select * from " + SOURCE_TABLE;
+        String sinkSql = "select * from " + SINK_TABLE;
+        List<String> columns = Lists.newArrayList("varchar_10_col", "char_10_col", "clob_col", "number_3_sf_2_dp", "integer_col", "float_col", "real_col", "binary_float_col", "binary_double_col", "date_col", "timestamp_with_3_frac_sec_col", "timestamp_with_tz", "timestamp_with_local_tz", "raw_col", "blob_col");
+        Statement sourceStatement = jdbcConnection.createStatement();
+        Statement sinkStatement = jdbcConnection.createStatement();
+        ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
+        ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
+        while (sourceResultSet.next()) {
+            if (sinkResultSet.next()) {
+                for (String column : columns) {
+                    Object source = sourceResultSet.getObject(column);
+                    Object sink = sinkResultSet.getObject(column);
+                    if (!Objects.deepEquals(source, sink)) {
+
+                        InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(column);
+                        InputStream sinkAsciiStream = sourceResultSet.getBinaryStream(column);
+                        String sourceValue = IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
+                        String sinkValue = IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
+                        Assertions.assertEquals(sourceValue, sinkValue);
+                    }
+                    Assertions.assertTrue(true);
                 }
             }
         }
-        Assertions.assertIterableEquals(Arrays.asList(this.getJdbcCase().getSeaTunnelRow().getFields()), result);
         clearSinkTable();
     }
 
@@ -141,7 +158,7 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
     @Override
     SeaTunnelRow initTestData() {
         return new SeaTunnelRow(
-            new Object[]{"varchar", "char10col", "clobS", 1.12, 2022, 1.2222, 1.22222, 1.22222, 1.22222,
+            new Object[]{"varchar", "char10col1", "clobS", 1.12, 2022, 1.2222, 1.22222, 1.22222, 1.22222,
                 LocalDate.now(),
                 LocalDateTime.now(),
                 LocalDateTime.now(),

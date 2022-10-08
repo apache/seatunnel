@@ -57,7 +57,6 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
     // ------------------------------time-------------------------
     private static final String ORACLE_DATE = "DATE";
     private static final String ORACLE_TIMESTAMP = "TIMESTAMP";
-    private static final String ORACLE_TIMESTAMP_WITH_TIME_ZONE = "TIMESTAMP WITH TIME ZONE";
     private static final String ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE = "TIMESTAMP WITH LOCAL TIME ZONE";
 
     // ------------------------------blob-------------------------
@@ -95,7 +94,6 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
                 return BasicType.STRING_TYPE;
             case ORACLE_DATE:
             case ORACLE_TIMESTAMP:
-            case ORACLE_TIMESTAMP_WITH_TIME_ZONE:
             case ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case ORACLE_BLOB:
