@@ -23,7 +23,7 @@ Read data from MongoDB.
 | database       | string | yes      | -             |
 | collection     | string | yes      | -             |
 | schema         | object | yes      | -             |
-| common-options | string | yes      | -             |
+| common-options |        | yes      | -             |
 
 ### uri [string]
 
@@ -39,6 +39,8 @@ MongoDB collection
 
 ### schema [object]
 
+#### fields [Config]
+
 Because `MongoDB` does not have the concept of `schema`, when engine reads `MongoDB` , it will sample `MongoDB` data and infer the `schema` . In fact, this process will be slow and may be inaccurate. This parameter can be manually specified. Avoid these problems. 
 
 such as:
@@ -53,7 +55,7 @@ schema {
 }
 ```
 
-### common options [string]
+### common options 
 
 Source Plugin common parameters, refer to [Source Plugin](common-options.md) for details
 

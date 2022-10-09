@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -32,10 +33,12 @@ import org.apache.seatunnel.common.utils.TimeUtils;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import lombok.Builder;
 import lombok.NonNull;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -55,13 +58,10 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
         String content = new String(message);
-        String[] splits = content.split(delimiter);
-        if (seaTunnelRowType.getTotalFields() != splits.length) {
-            throw new IndexOutOfBoundsException("The data does not match the configured schema information, please check");
-        }
-        Object[] objects = new Object[splits.length];
-        for (int i = 0; i < splits.length; i++) {
-            objects[i] = convert(splits[i], seaTunnelRowType.getFieldType(i));
+        Map<Integer, String> splitsMap = splitLineBySeaTunnelRowType(content, seaTunnelRowType);
+        Object[] objects = new Object[splitsMap.size()];
+        for (int i = 0; i < objects.length; i++) {
+            objects[i] = convert(splitsMap.get(i), seaTunnelRowType.getFieldType(i));
         }
         return new SeaTunnelRow(objects);
     }
@@ -71,7 +71,30 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
         return seaTunnelRowType;
     }
 
+    private Map<Integer, String> splitLineBySeaTunnelRowType(String line, SeaTunnelRowType seaTunnelRowType) {
+        String[] splits = line.split(delimiter, -1);
+        LinkedHashMap<Integer, String> splitsMap = new LinkedHashMap<>();
+        SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
+        int cursor = 0;
+        for (int i = 0; i < fieldTypes.length; i++) {
+            if (fieldTypes[i].getSqlType() == SqlType.ROW) {
+                // row type
+                int totalFields = ((SeaTunnelRowType) fieldTypes[i]).getTotalFields();
+                ArrayList<String> rowSplits = new ArrayList<>(Arrays.asList(splits).subList(cursor, cursor + totalFields));
+                splitsMap.put(i, String.join(delimiter, rowSplits));
+                cursor += totalFields;
+            } else {
+                // not row type
+                splitsMap.put(i, splits[cursor++]);
+            }
+        }
+        return splitsMap;
+    }
+
     private Object convert(String field, SeaTunnelDataType<?> fieldType) {
+        if (StringUtils.isBlank(field)) {
+            return null;
+        }
         switch (fieldType.getSqlType()) {
             case ARRAY:
                 BasicType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
@@ -134,8 +157,15 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 return TimeUtils.parse(field, timeFormatter);
             case TIMESTAMP:
                 return DateTimeUtils.parse(field, dateTimeFormatter);
+            case ROW:
+                Map<Integer, String> splitsMap = splitLineBySeaTunnelRowType(field, (SeaTunnelRowType) fieldType);
+                Object[] objects = new Object[splitsMap.size()];
+                for (int i = 0; i < objects.length; i++) {
+                    objects[i] = convert(splitsMap.get(i), ((SeaTunnelRowType) fieldType).getFieldType(i));
+                }
+                return new SeaTunnelRow(objects);
             default:
-                throw new UnsupportedOperationException("SeaTunnel format text not supported for parsing [SeaTunnelRow] type");
+                throw new UnsupportedOperationException("SeaTunnel format text not supported for parsing this type");
         }
     }
 }
