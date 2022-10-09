@@ -36,6 +36,7 @@ import java.util.Map;
 
 public class TextWriteStrategy extends AbstractWriteStrategy {
     private final Map<String, FSDataOutputStream> beingWrittenOutputStream;
+    private final Map<String, Boolean> isFirstWrite;
     private final String fieldDelimiter;
     private final String rowDelimiter;
     private final DateUtils.Formatter dateFormat;
@@ -46,6 +47,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     public TextWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
         super(textFileSinkConfig);
         this.beingWrittenOutputStream = new HashMap<>();
+        this.isFirstWrite = new HashMap<>();
         this.fieldDelimiter = textFileSinkConfig.getFieldDelimiter();
         this.rowDelimiter = textFileSinkConfig.getRowDelimiter();
         this.dateFormat = textFileSinkConfig.getDateFormat();
@@ -70,8 +72,12 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         FSDataOutputStream fsDataOutputStream = getOrCreateOutputStream(filePath);
         try {
+            if (isFirstWrite.get(filePath)) {
+                isFirstWrite.put(filePath, false);
+            } else {
+                fsDataOutputStream.write(rowDelimiter.getBytes());
+            }
             fsDataOutputStream.write(serializationSchema.serialize(seaTunnelRow));
-            fsDataOutputStream.write(rowDelimiter.getBytes());
         } catch (IOException e) {
             log.error("write data to file {} error", filePath);
             throw new RuntimeException(e);
@@ -103,6 +109,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
             try {
                 fsDataOutputStream = FileSystemUtils.getOutputStream(filePath);
                 beingWrittenOutputStream.put(filePath, fsDataOutputStream);
+                isFirstWrite.put(filePath, true);
             } catch (IOException e) {
                 log.error("can not get output file stream");
                 throw new RuntimeException(e);
