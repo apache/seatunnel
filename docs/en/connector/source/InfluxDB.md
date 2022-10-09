@@ -1,6 +1,6 @@
-# InfluxDb
+# InfluxDB
 
-> InfluxDb source connector
+> InfluxDB source connector
 
 ## Description
 
@@ -11,7 +11,7 @@ Read data from InfluxDB.
 Engine Supported and plugin name
 
 * [ ] Spark
-* [x] Flink: InfluxDb
+* [x] Flink: InfluxDB
 
 :::
 
