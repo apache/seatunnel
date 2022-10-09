@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.core.base.utils;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.compress.archivers.ArchiveException;
 import org.apache.commons.compress.archivers.ArchiveStreamFactory;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
@@ -24,8 +25,6 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.apache.commons.compress.utils.IOUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -44,9 +43,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
+@Slf4j
 public final class CompressionUtils {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(CompressionUtils.class);
 
     private CompressionUtils() {
     }
@@ -58,7 +56,7 @@ public final class CompressionUtils {
      * @param outputFile the output tarball file.
      */
     public static void tarGzip(final Path inputDir, final Path outputFile) throws IOException {
-        LOGGER.info("Tar directory '{}' to file '{}'.", inputDir, outputFile);
+        log.info("Tar directory '{}' to file '{}'.", inputDir, outputFile);
         try (OutputStream out = Files.newOutputStream(outputFile);
              BufferedOutputStream bufferedOut = new BufferedOutputStream(out);
              GzipCompressorOutputStream gzOut = new GzipCompressorOutputStream(bufferedOut);
@@ -78,9 +76,9 @@ public final class CompressionUtils {
                 }
             });
             tarOut.finish();
-            LOGGER.info("Creating tar file '{}'.", outputFile);
+            log.info("Creating tar file '{}'.", outputFile);
         } catch (IOException e) {
-            LOGGER.error("Error when tar directory '{}' to file '{}'.", inputDir, outputFile);
+            log.error("Error when tar directory '{}' to file '{}'.", inputDir, outputFile);
             throw e;
         }
     }
@@ -99,7 +97,7 @@ public final class CompressionUtils {
      */
     public static void unTar(final File inputFile, final File outputDir) throws IOException, ArchiveException {
 
-        LOGGER.info("Untaring {} to dir {}.", inputFile.getAbsolutePath(), outputDir.getAbsolutePath());
+        log.info("Untaring {} to dir {}.", inputFile.getAbsolutePath(), outputDir.getAbsolutePath());
 
         final List<File> untaredFiles = new LinkedList<>();
         try (final InputStream is = new FileInputStream(inputFile);
@@ -111,15 +109,15 @@ public final class CompressionUtils {
                     throw new IllegalStateException("Bad zip entry");
                 }
                 if (entry.isDirectory()) {
-                    LOGGER.info("Attempting to write output directory {}.", outputFile.getAbsolutePath());
+                    log.info("Attempting to write output directory {}.", outputFile.getAbsolutePath());
                     if (!outputFile.exists()) {
-                        LOGGER.info("Attempting to create output directory {}.", outputFile.getAbsolutePath());
+                        log.info("Attempting to create output directory {}.", outputFile.getAbsolutePath());
                         if (!outputFile.mkdirs()) {
                             throw new IllegalStateException(String.format("Couldn't create directory %s.", outputFile.getAbsolutePath()));
                         }
                     }
                 } else {
-                    LOGGER.info("Creating output file {}.", outputFile.getAbsolutePath());
+                    log.info("Creating output file {}.", outputFile.getAbsolutePath());
                     File outputParentFile = outputFile.getParentFile();
                     if (outputParentFile != null && !outputParentFile.exists()) {
                         outputParentFile.mkdirs();
@@ -147,7 +145,7 @@ public final class CompressionUtils {
      */
     public static File unGzip(final File inputFile, final File outputDir) throws IOException {
 
-        LOGGER.info("Unzipping {} to dir {}.", inputFile.getAbsolutePath(), outputDir.getAbsolutePath());
+        log.info("Unzipping {} to dir {}.", inputFile.getAbsolutePath(), outputDir.getAbsolutePath());
 
         final File outputFile = new File(outputDir, inputFile.getName().substring(0, inputFile.getName().length() - 3));
 

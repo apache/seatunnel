@@ -54,7 +54,8 @@ public class RequestSplitOperation extends Operation implements IdentifiedDataSe
             task.requestSplit(taskID.getTaskID());
             return null;
         }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException, Constant.OPERATION_RETRY_SLEEP));
+            exception -> exception instanceof NullPointerException &&
+                !server.taskIsEnded(enumeratorTaskID.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
     }
 
     @Override
@@ -65,8 +66,8 @@ public class RequestSplitOperation extends Operation implements IdentifiedDataSe
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        taskID.writeData(out);
-        enumeratorTaskID.writeData(out);
+        out.writeObject(taskID);
+        out.writeObject(enumeratorTaskID);
     }
 
     @Override

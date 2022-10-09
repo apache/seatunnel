@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
 import org.apache.kudu.client.Insert;
@@ -30,8 +31,6 @@ import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.SessionConfiguration;
 import org.apache.kudu.client.Upsert;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -41,10 +40,9 @@ import java.sql.Timestamp;
 /**
  * A Kudu outputFormat
  */
+@Slf4j
 public class KuduOutputFormat
         implements Serializable {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(KuduOutputFormat.class);
 
     public static final long TIMEOUTMS = 18000;
     public static final long SESSIONTIMEOUTMS = 100000;
@@ -130,7 +128,7 @@ public class KuduOutputFormat
         try {
             kuduSession.apply(upsert);
         } catch (KuduException e) {
-            LOGGER.error("Failed to upsert.", e);
+            log.error("Failed to upsert.", e);
             throw new RuntimeException("Failed to upsert.", e);
         }
     }
@@ -143,7 +141,7 @@ public class KuduOutputFormat
         try {
             kuduSession.apply(insert);
         } catch (KuduException e) {
-            LOGGER.error("Failed to insert.", e);
+            log.error("Failed to insert.", e);
             throw new RuntimeException("Failed to insert.", e);
         }
     }
@@ -172,10 +170,10 @@ public class KuduOutputFormat
         try {
             kuduTable = kuduClient.openTable(kuduTableName);
         } catch (KuduException e) {
-            LOGGER.error("Failed to initialize the Kudu client.", e);
+            log.error("Failed to initialize the Kudu client.", e);
             throw new RuntimeException("Failed to initialize the Kudu client.", e);
         }
-        LOGGER.info("The Kudu client for Master: {} is initialized successfully.", kuduMaster);
+        log.info("The Kudu client for Master: {} is initialized successfully.", kuduMaster);
     }
 
     public void closeOutputFormat() {
@@ -184,7 +182,7 @@ public class KuduOutputFormat
                 kuduClient.close();
                 kuduSession.close();
             } catch (KuduException ignored) {
-                LOGGER.warn("Failed to close Kudu Client.", ignored);
+                log.warn("Failed to close Kudu Client.", ignored);
             } finally {
                 kuduClient = null;
                 kuduSession = null;
