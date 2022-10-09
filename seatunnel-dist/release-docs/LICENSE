@@ -301,7 +301,12 @@ The text of each license is the standard Apache 2.0 license.
      (Apache-2.0) snappy-java (org.xerial.snappy:snappy-java:1.1.8.3 - https://github.com/xerial/snappy-java)
      (Apache-2.0) snappy-java (org.xerial.snappy:snappy-java:1.1.1.3 - https://github.com/xerial/snappy-java)
      (Apache-2.0) maven-wrapper (org.apache.maven:maven-wrapper:3.8.4 https://maven.apache.org/wrapper/)
-
+     (The Apache Software License, Version 2.0) protostuff (io.protostuff:protostuff-collectionschema:1.8.0 - https://github.com/protostuff/protostuff)     
+     (The Apache Software License, Version 2.0) protostuff (io.protostuff:protostuff-core:1.8.0 - https://github.com/protostuff/protostuff)
+     (The Apache Software License, Version 2.0) protostuff (io.protostuff:protostuff-api:1.8.0 - https://github.com/protostuff/protostuff)
+     (The Apache Software License, Version 2.0) protostuff (io.protostuff:protostuff-runtime:1.8.0 - https://github.com/protostuff/protostuff)     
+     (The Apache Software License, Version 2.0) hazelcast (com.hazelcast:hazelcast:5.1 - https://github.com/hazelcast/hazelcast)
+     
 ========================================================================
 MOZILLA PUBLIC LICENSE License
 ========================================================================
@@ -344,7 +349,8 @@ CDDL License
 The following components are provided under the CDDL License. See project link for details.
 The text of each license is also included at licenses/LICENSE-[project].txt.     
      
-     (CDDL License) javax.annotation API (javax.annotation:javax.annotation-api:1.3.2 - http://jcp.org/en/jsr/detail?id=250)       
+     (CDDL License) javax.annotation API (javax.annotation:javax.annotation-api:1.3.2 - http://jcp.org/en/jsr/detail?id=250) 
+            
 ========================================================================
 MIT License
 ========================================================================
