@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.core.sql.classloader;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -26,9 +25,8 @@ import java.net.URLClassLoader;
 import java.nio.file.Path;
 
 // TODO: maybe a unified plugin-style discovery mechanism is better.
+@Slf4j
 public class CustomClassLoader extends URLClassLoader {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(CustomClassLoader.class);
 
     public CustomClassLoader() {
         super(new URL[0]);
@@ -45,7 +43,7 @@ public class CustomClassLoader extends URLClassLoader {
         try {
             this.addURL(jarPath.toUri().toURL());
         } catch (MalformedURLException e) {
-            LOGGER.error("Failed to add jar to classloader. Jar: {}", jarPath, e);
+            log.error("Failed to add jar to classloader. Jar: {}", jarPath, e);
         }
     }
 }
