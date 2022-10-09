@@ -20,8 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.commit;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -29,8 +28,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo> {
-    private static final Logger LOGGER = LoggerFactory.getLogger(FileSinkAggregatedCommitter.class);
 
     @Override
     public List<FileAggregatedCommitInfo> commit(List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
@@ -46,7 +45,7 @@ public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<File
                     FileSystemUtils.deleteFile(entry.getKey());
                 }
             } catch (Exception e) {
-                LOGGER.error("commit aggregatedCommitInfo error ", e);
+                log.error("commit aggregatedCommitInfo error ", e);
                 errorAggregatedCommitInfoList.add(aggregatedCommitInfo);
             }
         });
@@ -100,7 +99,7 @@ public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<File
                     FileSystemUtils.deleteFile(entry.getKey());
                 }
             } catch (Exception e) {
-                LOGGER.error("abort aggregatedCommitInfo error ", e);
+                log.error("abort aggregatedCommitInfo error ", e);
             }
         });
     }

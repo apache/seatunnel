@@ -39,9 +39,6 @@ public class JdbcConfig implements Serializable {
 
     public static final String QUERY = "query";
 
-    public static final String PARALLELISM = "parallelism";
-
-
     public static final String BATCH_SIZE = "batch_size";
 
     public static final String BATCH_INTERVAL_MS = "batch_interval_ms";
@@ -61,6 +58,7 @@ public class JdbcConfig implements Serializable {
     public static final String PARTITION_COLUMN = "partition_column";
     public static final String PARTITION_UPPER_BOUND = "partition_upper_bound";
     public static final String PARTITION_LOWER_BOUND = "partition_lower_bound";
+    public static final String PARTITION_NUM = "partition_num";
 
     public static JdbcConnectionOptions buildJdbcConnectionOptions(Config config) {
 

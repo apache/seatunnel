@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.core.starter.config;
 
-import org.apache.seatunnel.apis.base.env.RuntimeEnv;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -25,9 +24,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 /**
  * Check the config is valid.
  *
- * @param <ENVIRONMENT> the environment type.
  */
-public interface ConfigChecker<ENVIRONMENT extends RuntimeEnv> {
+public interface ConfigChecker {
 
     /**
      * Check if the config is validated, if check fails, throw exception.
