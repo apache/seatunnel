@@ -37,6 +37,8 @@ import org.neo4j.driver.Value;
 import org.neo4j.driver.exceptions.value.LossyCoercion;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
+import java.util.List;
 import java.util.Objects;
 
 public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
@@ -119,10 +121,16 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 if (!((MapType<?, ?>) dataType).getKeyType().equals(BasicType.STRING_TYPE)) {
                     throw new IllegalArgumentException("Key Type of MapType must String type");
                 }
-                return value.asMap();
+                final SeaTunnelDataType<?> valueType = ((MapType<?, ?>) dataType).getValueType();
+                return value.asMap(v -> valueType.getTypeClass().cast(convertType(valueType, v)));
             case ARRAY:
                 final BasicType<?> elementType = ((ArrayType<?, ?>) dataType).getElementType();
-                return value.asList(elementValue -> convertType(elementType, elementValue)).toArray();
+                final List<?> list = value.asList(v -> elementType.getTypeClass().cast(convertType(elementType, v)));
+                final Object array = Array.newInstance(elementType.getTypeClass(), list.size());
+                for (int i = 0; i < list.size(); i++) {
+                    Array.set(array, i, list.get(i));
+                }
+                return array;
             case INT:
                 return value.asInt();
             case FLOAT:

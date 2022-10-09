@@ -17,12 +17,16 @@
 
 package org.apache.seatunnel.e2e.flink.v2.neo4j;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.neo4j.driver.Values.parameters;
+
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -32,6 +36,8 @@ import org.neo4j.driver.GraphDatabase;
 import org.neo4j.driver.Result;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.SessionConfig;
+import org.neo4j.driver.Value;
+import org.neo4j.driver.types.Node;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -41,6 +47,10 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
 import java.net.URI;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -83,34 +93,36 @@ public class Neo4jIT extends FlinkContainer {
     }
 
     @Test
-    public void testSink() throws IOException, InterruptedException {
-        // when
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/neo4j/fake_to_neo4j.conf");
-
-        // then
-        Assertions.assertEquals(0, execResult.getExitCode());
-
-        final Result result = neo4jSession.run("MATCH (a:Person) RETURN a.name, a.age");
-        Assertions.assertTrue(result.stream().findAny().isPresent());
-        Assertions.assertTrue(result.stream().anyMatch(record -> record.get("a.age").asInt() > 0));
-
-    }
-
-    @Test
-    public void testSource() throws IOException, InterruptedException {
+    public void test() throws IOException, InterruptedException {
         // given
-        neo4jSession.run("CREATE (a:Person {name: 'foo', age: 10})");
+        neo4jSession.run("CREATE (t:Test {string:'foo', boolean:true, long:2147483648, double:1.7976931348623157E308, " +
+                "byteArray:$byteArray, date:date('2022-10-07'), localTime:localtime('20:04:00'), localDateTime:localdatetime('2022-10-07T20:04:00'), " +
+                "list:[0, 1], int:2147483647, float:$float})",
+            parameters("byteArray", new byte[]{(byte) 1}, "float", Float.MAX_VALUE)
+        );
         // when
-        final Container.ExecResult execResult = executeSeaTunnelFlinkJob("/neo4j/neo4j_to_assert.conf");
+        final Container.ExecResult execResult = executeSeaTunnelFlinkJob("/neo4j/neo4j_to_neo4j.conf");
         // then
         Assertions.assertEquals(0, execResult.getExitCode());
-    }
 
-    @AfterEach
-    public void cleanUp() {
-        if (neo4jSession != null) {
-            neo4jSession.run("MATCH (n) DETACH DELETE n");
-        }
+        final Result result = neo4jSession.run("MATCH (tt:TestTest) RETURN tt");
+        final Node tt = result.single().get("tt").asNode();
+
+        assertEquals("foo", tt.get("string").asString());
+        assertTrue(tt.get("boolean").asBoolean());
+        assertEquals(2147483648L, tt.get("long").asLong());
+        assertEquals(Double.MAX_VALUE, tt.get("double").asDouble());
+        assertArrayEquals(new byte[]{(byte) 1}, tt.get("byteArray").asByteArray());
+        assertEquals(LocalDate.parse("2022-10-07"), tt.get("date").asLocalDate());
+        assertEquals(LocalTime.parse("20:04:00"), tt.get("localTime").asLocalTime());
+        assertEquals(LocalDateTime.parse("2022-10-07T20:04:00"), tt.get("localDateTime").asLocalDateTime());
+        final ArrayList<Integer> expectedList = new ArrayList<>();
+        expectedList.add(0);
+        expectedList.add(1);
+        assertTrue(tt.get("list").asList(Value::asInt).containsAll(expectedList));
+        assertEquals(2147483647, tt.get("int").asInt());
+        assertEquals(2147483647, tt.get("mapValue").asInt());
+        assertEquals(Float.MAX_VALUE, tt.get("float").asFloat());
     }
 
     @AfterAll
