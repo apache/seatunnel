@@ -232,7 +232,7 @@ The text of each license is the standard Apache 2.0 license.
      (Apache License, Version 2.0) Apache Commons Collections (org.apache.commons:commons-collections:3.2.2 - https://commons.apache.org/proper/commons-collections/)
      (Apache License, Version 2.0) Apache Commons Compress (org.apache.commons:commons-compress:1.20 - https://commons.apache.org/proper/commons-compress/)
      (The Apache Software License, Version 2.0) Commons Lang (commons-lang:commons-lang:2.6 - http://commons.apache.org/lang/)
-     (Apache License, Version 2.0) Apache Commons IO (commons-io:commons-io:2.8.0 - http://commons.apache.org/proper/commons-io/)    
+     (Apache License, Version 2.0) Apache Commons IO (commons-io:commons-io:2.11.0 - http://commons.apache.org/proper/commons-io/)    
      (Apache License, Version 2.0) Apache Commons Lang (org.apache.commons:commons-lang3:3.4 - http://commons.apache.org/proper/commons-lang/)
      (The Apache Software License, Version 2.0) Apache Commons Math (org.apache.commons:commons-math3:3.5 - http://commons.apache.org/proper/commons-math/)
      (The Apache Software License, Version 2.0) Commons Pool (commons-pool:commons-pool:1.6 - http://commons.apache.org/pool/)
