@@ -19,11 +19,13 @@ package org.apache.seatunnel.engine.e2e;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.Arrays;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class TestUtils {
     public static String getResource(String confFile) {
@@ -34,7 +36,8 @@ public class TestUtils {
         return System.getProperty("user.name") + "_" + testClassName;
     }
 
-    public static void initPluginDir() {
+    @SuppressWarnings("checkstyle:MagicNumber")
+    public static void initPluginDir() throws IOException {
         // TODO change connector get method
         // copy connectors to project_root/connectors dir
         System.setProperty("SEATUNNEL_HOME", System.getProperty("user.dir") +
@@ -54,23 +57,19 @@ public class TestUtils {
         File connectorDistDir = new File(
             seatunnelRootDir +
                 File.separator +
-                "seatunnel-connectors-v2-dist" +
-                File.separator +
-                "target" +
-                File.separator +
-                "lib");
-
-        Arrays.stream(connectorDistDir.listFiles()).forEach(file -> {
-            if (file.getName().startsWith("connector-")) {
-                Path copied = Paths.get(connectorDir + File.separator + file.getName());
-                Path originalPath = file.toPath();
-                try {
-                    Files.copy(originalPath, copied, StandardCopyOption.REPLACE_EXISTING);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        });
+                "seatunnel-connectors-v2");
+        try (Stream<Path> paths = Files.walk(connectorDistDir.toPath(), 6, FileVisitOption.FOLLOW_LINKS)) {
+            paths.filter(path -> path.getFileName().toFile().getName().startsWith("connector-") && path.getFileName().toFile().getName().endsWith(".jar") && !path.getFileName().toString().contains("javadoc"))
+                .collect(Collectors.toSet()).forEach(file -> {
+                    Path copied = Paths.get(connectorDir + File.separator + file.toFile().getName());
+                    Path originalPath = file.toAbsolutePath();
+                    try {
+                        Files.copy(originalPath, copied, StandardCopyOption.REPLACE_EXISTING);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+        }
 
         Path targetPluginMappingFile = Paths.get(seatunnelRootDir +
             File.separator +

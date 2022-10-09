@@ -54,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
 public abstract class AbstractWriteStrategy implements WriteStrategy {
@@ -151,7 +152,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
                 stringBuilder.append(partitionFieldList.get(i))
                         .append("=")
                         .append(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)])
-                        .append("/");
+                        .append(File.separator);
                 vals.add(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)].toString());
             }
             partitionDir = stringBuilder.toString();
@@ -246,7 +247,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      */
     public List<String> getTransactionIdFromStates(List<FileSinkState> fileStates) {
         String[] pathSegments = new String[]{textFileSinkConfig.getPath(), Constant.SEATUNNEL, jobId};
-        String jobDir = String.join(File.separator, pathSegments) + "/";
+        String jobDir = String.join(File.separator, pathSegments) + File.separator;
         try {
             List<String> transactionDirList = FileSystemUtils.dirList(jobDir).stream().map(Path::toString).collect(Collectors.toList());
             return transactionDirList.stream().map(dir -> dir.replaceAll(jobDir, "")).collect(Collectors.toList());
@@ -298,7 +299,8 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     }
 
     public String getTargetLocation(@NonNull String seaTunnelFilePath) {
-        String tmpPath = seaTunnelFilePath.replaceAll(transactionDirectory, textFileSinkConfig.getPath());
-        return tmpPath.replaceAll(Constant.NON_PARTITION + File.separator, "");
+        String tmpPath = seaTunnelFilePath.replaceAll(Matcher.quoteReplacement(transactionDirectory),
+                Matcher.quoteReplacement(textFileSinkConfig.getPath()));
+        return tmpPath.replaceAll(Constant.NON_PARTITION + Matcher.quoteReplacement(File.separator), "");
     }
 }

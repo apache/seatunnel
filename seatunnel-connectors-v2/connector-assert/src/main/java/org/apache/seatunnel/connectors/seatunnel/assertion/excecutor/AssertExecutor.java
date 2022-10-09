@@ -51,6 +51,9 @@ public class AssertExecutor {
     }
 
     private boolean pass(SeaTunnelRow rowData, SeaTunnelRowType rowType, AssertFieldRule assertFieldRule) {
+        if (Objects.isNull(rowData)) {
+            return Boolean.FALSE;
+        }
         int index = Iterables.indexOf(Lists.newArrayList(rowType.getFieldNames()), fieldName -> fieldName.equals(assertFieldRule.getFieldName()));
 
         Object value = rowData.getField(index);
@@ -61,15 +64,15 @@ public class AssertExecutor {
         if (Boolean.FALSE.equals(typeChecked)) {
             return Boolean.FALSE;
         }
-        Boolean valueChecked = checkValue(value, assertFieldRule.getFieldValueRules());
+        Boolean valueChecked = checkValue(value, assertFieldRule.getFieldRules());
         if (Boolean.FALSE.equals(valueChecked)) {
             return Boolean.FALSE;
         }
         return Boolean.TRUE;
     }
 
-    private Boolean checkValue(Object value, List<AssertFieldRule.AssertValueRule> fieldValueRules) {
-        Optional<AssertFieldRule.AssertValueRule> failValueRule = fieldValueRules.stream()
+    private Boolean checkValue(Object value, List<AssertFieldRule.AssertRule> fieldValueRules) {
+        Optional<AssertFieldRule.AssertRule> failValueRule = fieldValueRules.stream()
             .filter(valueRule -> !pass(value, valueRule))
             .findFirst();
         if (failValueRule.isPresent()) {
@@ -79,25 +82,25 @@ public class AssertExecutor {
         }
     }
 
-    private boolean pass(Object value, AssertFieldRule.AssertValueRule valueRule) {
-        if (AssertFieldRule.AssertValueRuleType.NOT_NULL.equals(valueRule.getFieldValueRuleType())) {
+    private boolean pass(Object value, AssertFieldRule.AssertRule valueRule) {
+        if (AssertFieldRule.AssertRuleType.NOT_NULL.equals(valueRule.getRuleType())) {
             return Objects.nonNull(value);
         }
 
-        if (value instanceof Number && AssertFieldRule.AssertValueRuleType.MAX.equals(valueRule.getFieldValueRuleType())) {
-            return ((Number) value).doubleValue() <= valueRule.getFieldValueRuleValue();
+        if (value instanceof Number && AssertFieldRule.AssertRuleType.MAX.equals(valueRule.getRuleType())) {
+            return ((Number) value).doubleValue() <= valueRule.getRuleValue();
         }
-        if (value instanceof Number && AssertFieldRule.AssertValueRuleType.MIN.equals(valueRule.getFieldValueRuleType())) {
-            return ((Number) value).doubleValue() >= valueRule.getFieldValueRuleValue();
+        if (value instanceof Number && AssertFieldRule.AssertRuleType.MIN.equals(valueRule.getRuleType())) {
+            return ((Number) value).doubleValue() >= valueRule.getRuleValue();
         }
 
         String valueStr = Objects.isNull(value) ? StringUtils.EMPTY : String.valueOf(value);
-        if (AssertFieldRule.AssertValueRuleType.MAX_LENGTH.equals(valueRule.getFieldValueRuleType())) {
-            return valueStr.length() <= valueRule.getFieldValueRuleValue();
+        if (AssertFieldRule.AssertRuleType.MAX_LENGTH.equals(valueRule.getRuleType())) {
+            return valueStr.length() <= valueRule.getRuleValue();
         }
 
-        if (AssertFieldRule.AssertValueRuleType.MIN_LENGTH.equals(valueRule.getFieldValueRuleType())) {
-            return valueStr.length() >= valueRule.getFieldValueRuleValue();
+        if (AssertFieldRule.AssertRuleType.MIN_LENGTH.equals(valueRule.getRuleType())) {
+            return valueStr.length() >= valueRule.getRuleValue();
         }
         return Boolean.TRUE;
     }

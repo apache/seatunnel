@@ -13,19 +13,27 @@ A flink sink plugin which can assert illegal data by user defined rules
 
 ## Options
 
-| name                          | type        | required | default value |
-| ----------------------------- | ----------  | -------- | ------------- |
-|rules                          | ConfigList  | yes      | -             |
-|rules.field_name               | string      | yes      | -             |
-|rules.field_type               | string      | no       | -             |
-|rules.field_value              | ConfigList  | no       | -             |
-|rules.field_value.rule_type    | string      | no       | -             |
-|rules.field_value.rule_value   | double      | no       | -             |
-| common-options                |             | no       | -             |
+| name                                        | type        | required | default value |
+| ------------------------------------------- | ----------  | -------- | ------------- |
+|rules                                        | ConfigMap   | yes      | -             |
+|rules.field_rules                            | string      | yes      | -             |
+|rules.field_rules.field_name                 | string      | yes      | -             |
+|rules.field_rules.field_type                 | string      | no       | -             |
+|rules.field_rules.field_value                | ConfigList  | no       | -             |
+|rules.field_rules.field_value.rule_type      | string      | no       | -             |
+|rules.field_rules.field_value.rule_value     | double      | no       | -             |
+|rules.row_rules                              | string      | yes      | -             |
+|rules.row_rules.rule_type                    | string      | no       | -             |
+|rules.row_rules.rule_value                   | string      | no       | -             |
+| common-options                              |             | no       | -             |
 
-### rules [ConfigList]
+### rules [ConfigMap]
 
-Rule definition of user's available data.  Each rule represents one field validation.
+Rule definition of user's available data.  Each rule represents one field validation or row num validation.
+
+### field_rules [ConfigList]
+
+field rules for field validation
 
 ### field_name [string]
 
@@ -47,6 +55,8 @@ The following rules are supported for now
 - MAX `define the maximum value of data`
 - MIN_LENGTH `define the minimum string length of a string data`
 - MAX_LENGTH `define the maximum string length of a string data`
+- MIN_ROW `define the minimun number of rows`
+- MAX_ROW `define the maximum number of rows`
 
 ### rule_value [double]
 
@@ -56,48 +66,59 @@ the value related to rule type
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
-
 ## Example
 the whole config obey with `hocon` style
 
 ```hocon
 Assert {
-    rules = 
-        [{
-            field_name = name
-            field_type = string
-            field_value = [
-                {
-                    rule_type = NOT_NULL
-                },
-                {
-                    rule_type = MIN_LENGTH
-                    rule_value = 3
-                },
-                {
-                     rule_type = MAX_LENGTH
-                     rule_value = 5
-                }
-            ]
-        },{
-            field_name = age
-            field_type = int
-            field_value = [
-                {
-                    rule_type = NOT_NULL
-                },
-                {
-                    rule_type = MIN
-                    rule_value = 10
-                },
-                {
-                     rule_type = MAX
-                     rule_value = 20
-                }
-            ]
+    rules =
+      {
+        row_rules = [
+          {
+            rule_type = MAX_ROW
+            rule_value = 10
+          },
+          {
+            rule_type = MIN_ROW
+            rule_value = 5
+          }
+        ],
+        field_rules = [{
+          field_name = name
+          field_type = string
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            },
+            {
+              rule_type = MIN_LENGTH
+              rule_value = 5
+            },
+            {
+              rule_type = MAX_LENGTH
+              rule_value = 10
+            }
+          ]
+        }, {
+          field_name = age
+          field_type = int
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            },
+            {
+              rule_type = MIN
+              rule_value = 32767
+            },
+            {
+              rule_type = MAX
+              rule_value = 2147483647
+            }
+          ]
         }
         ]
-    
-}
+      }
+
+  }
 
 ```

@@ -36,14 +36,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
-@Disabled("Disabled because connector-v2 jar dist not exist")
 public class JobExecutionIT {
     @BeforeAll
     public static void beforeClass() throws Exception {
@@ -67,7 +66,7 @@ public class JobExecutionIT {
     }
 
     @Test
-    public void testExecuteJob() {
+    public void testExecuteJob() throws IOException {
         TestUtils.initPluginDir();
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/batch_fakesource_to_file.conf");
@@ -96,7 +95,7 @@ public class JobExecutionIT {
     }
 
     @Test
-    public void cancelJobTest() {
+    public void cancelJobTest() throws IOException {
         TestUtils.initPluginDir();
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/streaming_fakesource_to_file_complex.conf");
