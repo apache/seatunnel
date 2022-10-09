@@ -39,4 +39,14 @@ public class Constant {
     public static final int OPERATION_RETRY_TIME = 5;
 
     public static final int OPERATION_RETRY_SLEEP = 2000;
+
+    public static final String IMAP_RUNNING_JOB_INFO = "runningJobInfo";
+
+    public static final String IMAP_RUNNING_JOB_STATE = "runningJobState";
+
+    public static final String IMAP_STATE_TIMESTAMPS = "stateTimestamps";
+
+    public static final String IMAP_OWNED_SLOT_PROFILES = "ownedSlotProfilesIMap";
+
+    public static final String IMAP_RESOURCE_MANAGER_REGISTER_WORKER = "ResourceManager_RegisterWorker";
 }

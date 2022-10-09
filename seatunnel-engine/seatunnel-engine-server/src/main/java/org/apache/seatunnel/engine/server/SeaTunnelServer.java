@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
@@ -181,7 +182,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
      * @return
      */
     public boolean taskIsEnded(@NonNull TaskGroupLocation taskGroupLocation) {
-        IMap<Object, Object> runningJobState = nodeEngine.getHazelcastInstance().getMap("runningJobState");
+        IMap<Object, Object> runningJobState = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
         if (runningJobState == null) {
             return false;
         }
