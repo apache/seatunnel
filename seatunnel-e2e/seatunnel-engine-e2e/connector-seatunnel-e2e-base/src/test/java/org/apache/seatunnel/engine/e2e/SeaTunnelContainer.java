@@ -51,6 +51,8 @@ public abstract class SeaTunnelContainer {
     private static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
     private static final String SEATUNNEL_BIN = Paths.get(SEATUNNEL_HOME, "bin").toString();
     private static final String SEATUNNEL_LIB = Paths.get(SEATUNNEL_HOME, "lib").toString();
+    private static final String SEATUNNEL_CONFIG = Paths.get(SEATUNNEL_HOME, "config").toString();
+
     private static final String SEATUNNEL_CONNECTORS = Paths.get(SEATUNNEL_HOME, "connectors").toString();
     private static final String CLIENT_SHELL = "seatunnel.sh";
     private static final String SERVER_SHELL = "seatunnel-cluster.sh";
@@ -76,6 +78,9 @@ public abstract class SeaTunnelContainer {
         // copy lib
         mountMapping.put(PROJECT_ROOT_PATH + "/seatunnel-core/seatunnel-starter/target/seatunnel-starter.jar",
             Paths.get(SEATUNNEL_LIB, "seatunnel-starter.jar").toString());
+
+        mountMapping.put(PROJECT_ROOT_PATH + "/seatunnel-engine/seatunnel-engine-common/src/main/resources/",
+            SEATUNNEL_CONFIG);
 
         // copy bin
         mountMapping.put(PROJECT_ROOT_PATH + "/seatunnel-core/seatunnel-starter/src/main/bin/",
