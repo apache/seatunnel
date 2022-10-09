@@ -15,21 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.e2e.console;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 
-import org.apache.seatunnel.engine.e2e.SeaTunnelContainer;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.Container;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 
-import java.io.IOException;
+public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
 
-public class FakeSourceToConsoleIT extends SeaTunnelContainer {
+    @Override
+    public String converterName() {
+        return "Oracle";
+    }
 
-    @Test
-    public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelJob("/fakesource_to_console.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+    @Override
+    public SeaTunnelRow toInternal(ResultSet rs, ResultSetMetaData metaData, SeaTunnelRowType typeInfo) throws SQLException {
+        return super.toInternal(rs, metaData, typeInfo);
     }
 }

@@ -65,8 +65,8 @@ public class TaskAcknowledgeOperation extends Operation implements IdentifiedDat
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        taskLocation = in.readObject(TaskLocation.class);
-        barrier = in.readObject(CheckpointBarrier.class);
+        taskLocation = in.readObject();
+        barrier = in.readObject();
         states = in.readObject();
     }
 

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.e2e;
 
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.slf4j.Logger;
@@ -79,10 +81,6 @@ public abstract class SeaTunnelContainer {
         mountMapping.put(PROJECT_ROOT_PATH + "/seatunnel-core/seatunnel-starter/src/main/bin/",
             Paths.get(SEATUNNEL_BIN).toString());
 
-        // copy connectors
-        mountMapping.put(PROJECT_ROOT_PATH +
-            "/seatunnel-connectors-v2-dist/target/lib", Paths.get(SEATUNNEL_CONNECTORS, "seatunnel").toString());
-
         // copy plugin-mapping.properties
         mountMapping.put(PROJECT_ROOT_PATH + "/plugin-mapping.properties", Paths.get(SEATUNNEL_CONNECTORS, PLUGIN_MAPPING_FILE).toString());
 
@@ -91,6 +89,7 @@ public abstract class SeaTunnelContainer {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     public Container.ExecResult executeSeaTunnelJob(String confFile) throws IOException, InterruptedException {
+        ContainerUtil.copyConnectorJarToContainer(SERVER, confFile, "seatunnel-connectors-v2", "connector-", "seatunnel", SEATUNNEL_HOME);
         final String confPath = getResource(confFile);
         if (!new File(confPath).exists()) {
             throw new IllegalArgumentException(confFile + " doesn't exist");

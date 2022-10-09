@@ -15,21 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.e2e.console;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 
-import org.apache.seatunnel.engine.e2e.SeaTunnelContainer;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.Container;
+import com.google.auto.service.AutoService;
 
-import java.io.IOException;
+/**
+ * Factory for {@link OracleDialect}.
+ */
 
-public class FakeSourceToConsoleIT extends SeaTunnelContainer {
+@AutoService(JdbcDialectFactory.class)
+public class OracleDialectFactory implements JdbcDialectFactory {
+    @Override
+    public boolean acceptsURL(String url) {
+        return url.startsWith("jdbc:oracle:thin:");
+    }
 
-    @Test
-    public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelJob("/fakesource_to_console.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+    @Override
+    public JdbcDialect create() {
+        return new OracleDialect();
     }
 }

@@ -80,8 +80,8 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        readerTaskID.readData(in);
-        enumeratorTaskID.readData(in);
+        readerTaskID = in.readObject();
+        enumeratorTaskID = in.readObject();
     }
 
     @Override

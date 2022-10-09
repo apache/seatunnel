@@ -15,21 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.e2e.console;
+package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.engine.e2e.SeaTunnelContainer;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.Container;
+import lombok.Builder;
+import lombok.Data;
 
-import java.io.IOException;
+import java.util.Map;
 
-public class FakeSourceToConsoleIT extends SeaTunnelContainer {
-
-    @Test
-    public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelJob("/fakesource_to_console.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-    }
+@Data
+@Builder
+public class JdbcCase {
+    private String dockerImage;
+    private String networkAliases;
+    private String driverClass;
+    private String host;
+    private String userName;
+    private String password;
+    private int port;
+    private String dataBase;
+    private String sourceTable;
+    private String sinkTable;
+    private String driverJar;
+    private String jdbcUrl;
+    private String ddlSource;
+    private String ddlSink;
+    private String initDataSql;
+    private String configFile;
+    private SeaTunnelRow seaTunnelRow;
+    private Map<String, String> containerEnv;
 }

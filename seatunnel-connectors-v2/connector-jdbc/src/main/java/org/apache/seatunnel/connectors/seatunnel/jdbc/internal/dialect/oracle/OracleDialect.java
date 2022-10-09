@@ -15,21 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.e2e.console;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 
-import org.apache.seatunnel.engine.e2e.SeaTunnelContainer;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.Container;
+public class OracleDialect implements JdbcDialect {
+    @Override
+    public String dialectName() {
+        return "Oracle";
+    }
 
-import java.io.IOException;
+    @Override
+    public JdbcRowConverter getRowConverter() {
+        return new OracleJdbcRowConverter();
+    }
 
-public class FakeSourceToConsoleIT extends SeaTunnelContainer {
-
-    @Test
-    public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelJob("/fakesource_to_console.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+    @Override
+    public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
+        return new OracleTypeMapper();
     }
 }
