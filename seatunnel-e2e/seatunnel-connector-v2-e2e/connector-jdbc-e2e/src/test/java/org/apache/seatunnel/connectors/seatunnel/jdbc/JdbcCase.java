@@ -15,14 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.config;
+package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-public class BaseSourceConfig {
-    public static final String FILE_TYPE = "type";
-    public static final String FILE_PATH = "path";
-    public static final String SCHEMA = "schema";
-    public static final String DELIMITER = "delimiter";
-    public static final String DATE_FORMAT = "date_format";
-    public static final String DATETIME_FORMAT = "datetime_format";
-    public static final String TIME_FORMAT = "time_format";
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+
+import lombok.Builder;
+import lombok.Data;
+
+import java.util.Map;
+
+@Data
+@Builder
+public class JdbcCase {
+    private String dockerImage;
+    private String networkAliases;
+    private String driverClass;
+    private String host;
+    private String userName;
+    private String password;
+    private int port;
+    private String dataBase;
+    private String sourceTable;
+    private String sinkTable;
+    private String driverJar;
+    private String jdbcUrl;
+    private String ddlSource;
+    private String ddlSink;
+    private String initDataSql;
+    private String configFile;
+    private SeaTunnelRow seaTunnelRow;
+    private Map<String, String> containerEnv;
 }

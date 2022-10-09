@@ -26,6 +26,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
@@ -41,6 +43,7 @@ import java.util.List;
 public abstract class AbstractReadStrategy implements ReadStrategy {
     protected HadoopConf hadoopConf;
     protected SeaTunnelRowType seaTunnelRowType;
+    protected Config pluginConfig;
 
     @Override
     public void init(HadoopConf conf) {
@@ -100,4 +103,8 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         return fileNames;
     }
 
+    @Override
+    public void setPluginConfig(Config pluginConfig) {
+        this.pluginConfig = pluginConfig;
+    }
 }

@@ -61,6 +61,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         server.start();
         copySeaTunnelStarter(server);
         // execute extra commands
+        // TODO copy config file
         executeExtraCommands(server);
     }
 

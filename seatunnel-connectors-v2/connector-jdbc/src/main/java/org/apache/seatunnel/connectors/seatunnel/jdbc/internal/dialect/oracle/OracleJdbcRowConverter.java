@@ -15,14 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.config;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 
-public class BaseSourceConfig {
-    public static final String FILE_TYPE = "type";
-    public static final String FILE_PATH = "path";
-    public static final String SCHEMA = "schema";
-    public static final String DELIMITER = "delimiter";
-    public static final String DATE_FORMAT = "date_format";
-    public static final String DATETIME_FORMAT = "datetime_format";
-    public static final String TIME_FORMAT = "time_format";
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
+
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+
+public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
+
+    @Override
+    public String converterName() {
+        return "Oracle";
+    }
+
+    @Override
+    public SeaTunnelRow toInternal(ResultSet rs, ResultSetMetaData metaData, SeaTunnelRowType typeInfo) throws SQLException {
+        return super.toInternal(rs, metaData, typeInfo);
+    }
 }

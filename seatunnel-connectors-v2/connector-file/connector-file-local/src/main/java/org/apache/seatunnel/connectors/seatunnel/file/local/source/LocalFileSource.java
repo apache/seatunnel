@@ -53,6 +53,7 @@ public class LocalFileSource extends BaseFileSource {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
         readStrategy = ReadStrategyFactory.of(pluginConfig.getString(LocalSourceConfig.FILE_TYPE));
+        readStrategy.setPluginConfig(pluginConfig);
         String path = pluginConfig.getString(LocalSourceConfig.FILE_PATH);
         hadoopConf = new LocalConf(CommonConfigurationKeys.FS_DEFAULT_NAME_DEFAULT);
         try {
@@ -62,13 +63,25 @@ public class LocalFileSource extends BaseFileSource {
         }
         // support user-defined schema
         FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(LocalSourceConfig.FILE_TYPE).toUpperCase());
-        // only json type support user-defined schema now
-        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA) && fileFormat.equals(FileFormat.JSON)) {
-            Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA);
-            rowType = SeaTunnelSchema
-                    .buildWithConfig(schemaConfig)
-                    .getSeaTunnelRowType();
-            readStrategy.setSeaTunnelRowTypeInfo(rowType);
+        // only json text csv type support user-defined schema now
+        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA)) {
+            switch (fileFormat) {
+                case CSV:
+                case TEXT:
+                case JSON:
+                    Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA);
+                    rowType = SeaTunnelSchema
+                            .buildWithConfig(schemaConfig)
+                            .getSeaTunnelRowType();
+                    readStrategy.setSeaTunnelRowTypeInfo(rowType);
+                    break;
+                case ORC:
+                case PARQUET:
+                    throw new UnsupportedOperationException("SeaTunnel does not support user-defined schema for [parquet, orc] files");
+                default:
+                    // never got in there
+                    throw new UnsupportedOperationException("SeaTunnel does not supported this file format");
+            }
         } else {
             try {
                 rowType = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filePaths.get(0));
