@@ -89,3 +89,11 @@ sink {
   
 }
 ```
+
+
+###  change log
+####  next version
+ 
+ - Add kafka sink doc 
+ - New feature : Kafka specified partition to send 
+ - New feature : Determine the partition that kafka send based on the message content
