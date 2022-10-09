@@ -59,7 +59,7 @@ public class CoordinatorServiceTest {
 
         // shutdown instance1
         instance1.shutdown();
-        await().atMost(10000, TimeUnit.MILLISECONDS)
+        await().atMost(20000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {
                 try {
                     CoordinatorService coordinatorService = server2.getCoordinatorService();
