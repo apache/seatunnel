@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.hadoop.conf.Configuration;
 
 import java.io.IOException;
@@ -41,4 +43,6 @@ public interface ReadStrategy extends Serializable {
     void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType);
 
     List<String> getFileNamesByPath(HadoopConf hadoopConf, String path) throws IOException;
+
+    void setPluginConfig(Config pluginConfig);
 }
