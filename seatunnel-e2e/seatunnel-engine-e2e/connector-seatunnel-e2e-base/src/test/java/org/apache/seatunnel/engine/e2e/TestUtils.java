@@ -17,71 +17,42 @@
 
 package org.apache.seatunnel.engine.e2e;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.FileVisitOption;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.common.utils.VariablesSubstitute;
 
+import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
+
+import java.io.File;
+import java.nio.file.Paths;
+import java.util.Map;
+
+@Slf4j
 public class TestUtils {
     public static String getResource(String confFile) {
-        return System.getProperty("user.dir") + "/src/test/resources" + confFile;
+        return System.getProperty("user.dir") + File.separator + "src" + File.separator + "test" + File.separator +
+            "resources" + File.separator + confFile;
+    }
+
+    /**
+     * For reduce the config files num, we can define a job config template and then create new job config file base on it.
+     *
+     * @param templateFile   The basic job configuration file, which often contains some content that needs to be replaced
+     *                       at runtime, generates a new final job configuration file for testing after replacement
+     * @param valueMap       replace kv
+     * @param targetFilePath The new config file path
+     */
+    public static void createTestConfigFileFromTemplate(@NonNull String templateFile,
+                                                        @NonNull Map<String, String> valueMap,
+                                                        @NonNull String targetFilePath) {
+        String templateFilePath = getResource(templateFile);
+        String confContent = FileUtils.readFileToStr(Paths.get(templateFilePath));
+        String targetConfContent = VariablesSubstitute.substitute(confContent, valueMap);
+        FileUtils.createNewFile(targetFilePath);
+        FileUtils.writeStringToFile(targetFilePath, targetConfContent);
     }
 
     public static String getClusterName(String testClassName) {
         return System.getProperty("user.name") + "_" + testClassName;
-    }
-
-    @SuppressWarnings("checkstyle:MagicNumber")
-    public static void initPluginDir() throws IOException {
-        // TODO change connector get method
-        // copy connectors to project_root/connectors dir
-        System.setProperty("SEATUNNEL_HOME", System.getProperty("user.dir") +
-            String.format("%s..%s..%s..%s", File.separator, File.separator, File.separator, File.separator));
-        File seatunnelRootDir = new File(System.getProperty("SEATUNNEL_HOME"));
-
-        File connectorDir = new File(seatunnelRootDir +
-            File.separator +
-            "connectors/seatunnel");
-
-        if (connectorDir.exists()) {
-            connectorDir.delete();
-        }
-
-        connectorDir.mkdirs();
-
-        File connectorDistDir = new File(
-            seatunnelRootDir +
-                File.separator +
-                "seatunnel-connectors-v2");
-        try (Stream<Path> paths = Files.walk(connectorDistDir.toPath(), 6, FileVisitOption.FOLLOW_LINKS)) {
-            paths.filter(path -> path.getFileName().toFile().getName().startsWith("connector-") && path.getFileName().toFile().getName().endsWith(".jar") && !path.getFileName().toString().contains("javadoc"))
-                .collect(Collectors.toSet()).forEach(file -> {
-                    Path copied = Paths.get(connectorDir + File.separator + file.toFile().getName());
-                    Path originalPath = file.toAbsolutePath();
-                    try {
-                        Files.copy(originalPath, copied, StandardCopyOption.REPLACE_EXISTING);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
-        }
-
-        Path targetPluginMappingFile = Paths.get(seatunnelRootDir +
-            File.separator +
-            "connectors" +
-            File.separator +
-            "plugin-mapping.properties");
-
-        Path sourcePluginMappingFile = Paths.get(seatunnelRootDir + File.separator + "plugin-mapping.properties");
-        try {
-            Files.copy(sourcePluginMappingFile, targetPluginMappingFile, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
     }
 }

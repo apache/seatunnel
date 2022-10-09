@@ -17,13 +17,11 @@
 
 package org.apache.seatunnel.engine.server.task.operation;
 
-import org.apache.seatunnel.common.utils.RetryUtils;
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
-import com.hazelcast.cluster.Address;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
@@ -31,57 +29,52 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class GetTaskGroupAddressOperation extends Operation implements IdentifiedDataSerializable {
+public class NotifyTaskStatusOperation extends Operation implements IdentifiedDataSerializable {
 
-    private TaskLocation taskLocation;
+    private TaskGroupLocation taskGroupLocation;
+    private TaskExecutionState taskExecutionState;
 
-    private Address response;
-
-    public GetTaskGroupAddressOperation() {
+    public NotifyTaskStatusOperation() {
     }
 
-    public GetTaskGroupAddressOperation(TaskLocation taskLocation) {
-        this.taskLocation = taskLocation;
-    }
-
-    @Override
-    public void run() throws Exception {
-        SeaTunnelServer server = getService();
-        response = RetryUtils.retryWithException(() -> server.getCoordinatorService().getJobMaster(taskLocation.getJobId())
-                .queryTaskGroupAddress(taskLocation.getTaskGroupLocation().getTaskGroupId()),
-            new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-                exception -> exception instanceof Exception, Constant.OPERATION_RETRY_SLEEP));
+    public NotifyTaskStatusOperation(TaskGroupLocation taskGroupLocation, TaskExecutionState taskExecutionState) {
+        super();
+        this.taskGroupLocation = taskGroupLocation;
+        this.taskExecutionState = taskExecutionState;
     }
 
     @Override
-    public Object getResponse() {
-        return response;
-    }
-
-    @Override
-    public String getServiceName() {
-        return SeaTunnelServer.SERVICE_NAME;
-    }
-
-    @Override
-    protected void writeInternal(ObjectDataOutput out) throws IOException {
-        super.writeInternal(out);
-        out.writeObject(taskLocation);
-    }
-
-    @Override
-    protected void readInternal(ObjectDataInput in) throws IOException {
-        super.readInternal(in);
-        taskLocation = in.readObject();
-    }
-
-    @Override
-    public int getFactoryId() {
+    public final int getFactoryId() {
         return TaskDataSerializerHook.FACTORY_ID;
     }
 
     @Override
     public int getClassId() {
-        return TaskDataSerializerHook.GET_TASKGROUP_ADDRESS_TYPE;
+        return TaskDataSerializerHook.NOTIFY_TASK_STATUS_OPERATOR;
+    }
+
+    @Override
+    protected void writeInternal(ObjectDataOutput out) throws IOException {
+        super.writeInternal(out);
+        out.writeObject(taskGroupLocation);
+        out.writeObject(taskExecutionState);
+    }
+
+    @Override
+    protected void readInternal(ObjectDataInput in) throws IOException {
+        super.readInternal(in);
+        taskGroupLocation = in.readObject();
+        taskExecutionState = in.readObject();
+    }
+
+    @Override
+    public void run() throws Exception {
+        SeaTunnelServer server = getService();
+        server.getCoordinatorService().updateTaskExecutionState(taskExecutionState);
+    }
+
+    @Override
+    public Object getResponse() {
+        return super.getResponse();
     }
 }
