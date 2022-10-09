@@ -39,8 +39,10 @@ import java.util.concurrent.TimeUnit;
 public class CoordinatorServiceTest {
     @Test
     public void testMasterNodeActive() {
-        HazelcastInstanceImpl instance1 = TestUtils.createHazelcastInstance("CoordinatorServiceTest_testMasterNodeActive");
-        HazelcastInstanceImpl instance2 = TestUtils.createHazelcastInstance("CoordinatorServiceTest_testMasterNodeActive");
+        HazelcastInstanceImpl instance1 = SeaTunnelServerStarter.createHazelcastInstance(
+            TestUtils.getClusterName("CoordinatorServiceTest_testMasterNodeActive"));
+        HazelcastInstanceImpl instance2 = SeaTunnelServerStarter.createHazelcastInstance(
+            TestUtils.getClusterName("CoordinatorServiceTest_testMasterNodeActive"));
 
         SeaTunnelServer server1 = instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
         SeaTunnelServer server2 = instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
@@ -57,7 +59,7 @@ public class CoordinatorServiceTest {
 
         // shutdown instance1
         instance1.shutdown();
-        await().atMost(10000, TimeUnit.MILLISECONDS)
+        await().atMost(20000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {
                 try {
                     CoordinatorService coordinatorService = server2.getCoordinatorService();
@@ -75,7 +77,8 @@ public class CoordinatorServiceTest {
     @Test
     public void testClearCoordinatorService()
         throws MalformedURLException, NoSuchMethodException, InvocationTargetException, IllegalAccessException {
-        HazelcastInstanceImpl coordinatorServiceTest = TestUtils.createHazelcastInstance("CoordinatorServiceTest_testClearCoordinatorService");
+        HazelcastInstanceImpl coordinatorServiceTest = SeaTunnelServerStarter.createHazelcastInstance(
+            TestUtils.getClusterName("CoordinatorServiceTest_testClearCoordinatorService"));
         SeaTunnelServer server1 = coordinatorServiceTest.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
         CoordinatorService coordinatorService = server1.getCoordinatorService();
         Assertions.assertTrue(coordinatorService.isCoordinatorActive());
@@ -85,7 +88,8 @@ public class CoordinatorServiceTest {
             TestUtils.createTestLogicalPlan("stream_fakesource_to_file.conf", "test_clear_coordinator_service", jobId);
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(jobId,
-            coordinatorServiceTest.getSerializationService().toData(testLogicalDag), testLogicalDag.getJobConfig(), Collections.emptyList());
+            coordinatorServiceTest.getSerializationService().toData(testLogicalDag), testLogicalDag.getJobConfig(),
+            Collections.emptyList());
 
         Data data = coordinatorServiceTest.getSerializationService().toData(jobImmutableInformation);
 
