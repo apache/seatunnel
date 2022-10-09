@@ -60,6 +60,4 @@ if [ -z $SEATUNNEL_CONFIG ]; then
     SEATUNNEL_CONFIG=${CONF_DIR}/seatunnel.yaml
 fi
 
-args="${args} -Dseatunnel.config=${SEATUNNEL_CONFIG} -Dhazelcast.config=${HAZELCAST_CONFIG}"
-
 java -Dseatunnel.config=${SEATUNNEL_CONFIG} -Dhazelcast.config=${HAZELCAST_CONFIG} -cp ${APP_JAR} ${APP_MAIN} ${args}
