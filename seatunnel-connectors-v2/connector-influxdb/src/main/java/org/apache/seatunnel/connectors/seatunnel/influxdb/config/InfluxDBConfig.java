@@ -31,7 +31,6 @@ public class InfluxDBConfig implements Serializable {
     public static final String QUERY_TAG_SQL = "show tag keys from ${measurement}";
 
     private static final String PARSE_TABLE_NAME_PATTERN = "\\s+from\\s+([^\\s]+)?";
-
     public static final String USERNAME = "username";
     public static final String PASSWORD = "password";
     public static final String URL = "url";
