@@ -182,7 +182,6 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
         if (field == null) {
             return null;
         }
-
         switch (dataType.getSqlType()) {
             case ROW:
                 return reconvert((InternalRow) field, (SeaTunnelRowType) dataType);
@@ -200,9 +199,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case DECIMAL:
                 return ((Decimal) field).toJavaBigDecimal();
             case ARRAY:
-                ArrayData arrayData = (ArrayData) field;
-                BasicType<?> elementType = ((ArrayType<?, ?>) dataType).getElementType();
-                return arrayData.toObjectArray(TypeConverterUtils.convert(elementType));
+                return reconvertArray(field, dataType);
             default:
                 return field;
         }
@@ -215,5 +212,32 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 rowType.getFieldType(i));
         }
         return new SeaTunnelRow(fields);
+    }
+
+    private static Object reconvertArray(Object field, SeaTunnelDataType<?> dataType) {
+        BasicType<?> elementType = ((ArrayType<?, ?>) dataType).getElementType();
+        Object[] objectArray = ((ArrayData) field).toObjectArray(TypeConverterUtils.convert(elementType));
+        switch (elementType.getSqlType()) {
+            case STRING:
+                return Arrays.stream(Arrays.stream(objectArray).toArray(UTF8String[]::new))
+                    .map(UTF8String::toString)
+                    .toArray(String[]::new);
+            case BOOLEAN:
+                return Arrays.copyOf(objectArray, objectArray.length, Boolean[].class);
+            case TINYINT:
+                return Arrays.copyOf(objectArray, objectArray.length, Byte[].class);
+            case SMALLINT:
+                return Arrays.copyOf(objectArray, objectArray.length, Short[].class);
+            case INT:
+                return Arrays.copyOf(objectArray, objectArray.length, Integer[].class);
+            case BIGINT:
+                return Arrays.copyOf(objectArray, objectArray.length, Long[].class);
+            case FLOAT:
+                return Arrays.copyOf(objectArray, objectArray.length, Float[].class);
+            case DOUBLE:
+                return Arrays.copyOf(objectArray, objectArray.length, Double[].class);
+            default:
+                return objectArray;
+        }
     }
 }

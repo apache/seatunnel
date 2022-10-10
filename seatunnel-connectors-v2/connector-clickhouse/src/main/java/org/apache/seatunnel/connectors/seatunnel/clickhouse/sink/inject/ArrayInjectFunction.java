@@ -27,7 +27,37 @@ public class ArrayInjectFunction implements ClickhouseFieldInjectFunction {
 
     @Override
     public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
-        statement.setArray(index, (java.sql.Array) value);
+        Object[] elements = null;
+        String sqlType = null;
+        if (String[].class.equals(value.getClass())) {
+            sqlType = "TEXT";
+            elements = (String[]) value;
+        } else if (Boolean[].class.equals(value.getClass())) {
+            sqlType = "BOOLEAN";
+            elements = (Boolean[]) value;
+        } else if (Byte[].class.equals(value.getClass())) {
+            sqlType = "TINYINT";
+            elements = (Byte[]) value;
+        } else if (Short[].class.equals(value.getClass())) {
+            sqlType = "SMALLINT";
+            elements = (Short[]) value;
+        } else if (Integer[].class.equals(value.getClass())) {
+            sqlType = "INTEGER";
+            elements = (Integer[]) value;
+        } else if (Long[].class.equals(value.getClass())) {
+            sqlType = "BIGINT";
+            elements = (Long[]) value;
+        } else if (Float[].class.equals(value.getClass())) {
+            sqlType = "REAL";
+            elements = (Float[]) value;
+        } else if (Double[].class.equals(value.getClass())) {
+            sqlType = "DOUBLE";
+            elements = (Double[]) value;
+        }
+        if (sqlType == null) {
+            throw new IllegalArgumentException("array inject error, not supported data type: " + value.getClass());
+        }
+        statement.setArray(index, statement.getConnection().createArrayOf(sqlType, elements));
     }
 
     @Override
