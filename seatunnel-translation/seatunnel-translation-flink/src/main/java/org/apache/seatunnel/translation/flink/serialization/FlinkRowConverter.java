@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.translation.flink.serialization;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -24,12 +26,15 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.translation.serialization.RowConverter;
 
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.ClassUtils;
 import org.apache.flink.types.Row;
 import org.apache.flink.types.RowKind;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.BiFunction;
 
 public class FlinkRowConverter extends RowConverter<Row> {
@@ -62,8 +67,35 @@ public class FlinkRowConverter extends RowConverter<Row> {
                 return engineRow;
             case MAP:
                 return convertMap((Map<?, ?>) field, (MapType<?, ?>) dataType, FlinkRowConverter::convert);
+            case ARRAY:
+                return convertArray((Object[]) field, (ArrayType<?, ?>) dataType);
             default:
                 return field;
+        }
+    }
+
+    private static Object convertArray(Object[] array, ArrayType<?, ?> arrayType) {
+        BasicType<?> elementType = arrayType.getElementType();
+        if (!ClassUtils.isPrimitiveWrapper(elementType.getTypeClass()) || Objects.isNull(array)) {
+            return array;
+        }
+        Class<?> typeClass = elementType.getTypeClass();
+        if (typeClass == Boolean.class) {
+            return ArrayUtils.toPrimitive((Boolean[]) array);
+        } else if (typeClass == Byte.class) {
+            return ArrayUtils.toPrimitive((Byte[]) array);
+        } else if (typeClass == Long.class) {
+            return ArrayUtils.toPrimitive((Long[]) array);
+        } else if (typeClass == Short.class) {
+            return ArrayUtils.toPrimitive((Short[]) array);
+        } else if (typeClass == Integer.class) {
+            return ArrayUtils.toPrimitive((Integer[]) array);
+        } else if (typeClass == Float.class) {
+            return ArrayUtils.toPrimitive((Float[]) array);
+        } else if (typeClass == Double.class) {
+            return ArrayUtils.toPrimitive((Double[]) array);
+        } else {
+            throw new UnsupportedOperationException(String.format("Element type %s not support in array.", typeClass));
         }
     }
 
