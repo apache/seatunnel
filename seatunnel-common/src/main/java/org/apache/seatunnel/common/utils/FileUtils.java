@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.common.utils;
 
-import org.apache.seatunnel.common.ExceptionUtil;
-
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,7 +38,7 @@ public class FileUtils {
             byte[] bytes = Files.readAllBytes(path);
             return new String(bytes);
         } catch (IOException e) {
-            log.error(ExceptionUtil.getMessage(e));
+            log.error(ExceptionUtils.getMessage(e));
             throw new SeaTunnelException(e);
         }
     }
@@ -52,7 +50,7 @@ public class FileUtils {
             ps = new PrintStream(new FileOutputStream(file));
             ps.println(str);
         } catch (FileNotFoundException e) {
-            log.error(ExceptionUtil.getMessage(e));
+            log.error(ExceptionUtils.getMessage(e));
             throw new SeaTunnelException(e);
         } finally {
             if (ps != null) {
