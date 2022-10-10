@@ -94,7 +94,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     private void batchInsertData() {
         try (Connection connection = DriverManager.getConnection(jdbcUrl, jdbcCase.getUserName(), jdbcCase.getPassword())) {
-            connection.setAutoCommit(false);
+            jdbcConnection.setAutoCommit(false);
             try (PreparedStatement preparedStatement = connection.prepareStatement(jdbcCase.getInitDataSql())) {
 
                 for (int index = 0; index < jdbcCase.getSeaTunnelRow().getFields().length; index++) {
