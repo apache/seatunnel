@@ -38,11 +38,14 @@ import org.testcontainers.lifecycle.Startables;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.sql.Connection;
-import java.sql.DriverManager;
+import java.sql.Driver;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -50,10 +53,8 @@ import java.util.stream.Stream;
 public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResource {
 
     protected static final String HOST = "HOST";
-    protected Connection jdbcConnection;
     protected GenericContainer<?> dbServer;
-    private JdbcCase jdbcCase;
-    private String jdbcUrl;
+    protected JdbcCase jdbcCase;
 
     abstract JdbcCase getJdbcCase();
 
@@ -63,13 +64,18 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     abstract SeaTunnelRow initTestData();
 
+    protected Connection createAndChangeDatabase(Connection connection) {
+        //do nothing
+        return connection;
+    }
+
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory = container -> {
         Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + jdbcCase.getDriverJar());
         Assertions.assertEquals(0, extraCommands.getExitCode());
     };
 
-    private void getContainer() throws SQLException {
+    private void getContainer() throws SQLException, MalformedURLException, ClassNotFoundException, InstantiationException, IllegalAccessException {
         jdbcCase = this.getJdbcCase();
         dbServer = new GenericContainer<>(jdbcCase.getDockerImage())
             .withNetwork(NETWORK)
@@ -79,22 +85,26 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         dbServer.setPortBindings(Lists.newArrayList(
             String.format("%s:%s", jdbcCase.getPort(), jdbcCase.getPort())));
         Startables.deepStart(Stream.of(dbServer)).join();
+        this.initializeJdbcConnection(jdbcCase.getJdbcUrl());
         given().ignoreExceptions()
             .await()
             .atMost(180, TimeUnit.SECONDS)
-            .untilAsserted(this::initializeJdbcConnection);
-        initializeJdbcTable();
+            .untilAsserted(this::initializeJdbcTable);
     }
 
-    protected void initializeJdbcConnection() throws SQLException, ClassNotFoundException, MalformedURLException, InstantiationException, IllegalAccessException {
-        Class.forName(jdbcCase.getDriverClass());
-        jdbcUrl = jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
-        jdbcConnection = DriverManager.getConnection(jdbcUrl, jdbcCase.getUserName(), jdbcCase.getPassword());
+    protected Connection initializeJdbcConnection(String jdbcUrl) throws SQLException, ClassNotFoundException, MalformedURLException, InstantiationException, IllegalAccessException {
+        URLClassLoader urlClassLoader = new URLClassLoader(new URL[]{new URL(jdbcCase.getDriverJar())}, AbstractJdbcIT.class.getClassLoader());
+        Thread.currentThread().setContextClassLoader(urlClassLoader);
+        Driver driver = (Driver) urlClassLoader.loadClass(jdbcCase.getDriverClass()).newInstance();
+        Properties props = new Properties();
+        props.put("user", jdbcCase.getUserName());
+        props.put("password", jdbcCase.getPassword());
+        return driver.connect(jdbcUrl.replace(HOST, dbServer.getHost()), props);
     }
 
     private void batchInsertData() {
-        try (Connection connection = DriverManager.getConnection(jdbcUrl, jdbcCase.getUserName(), jdbcCase.getPassword())) {
-            jdbcConnection.setAutoCommit(false);
+        try (Connection connection = initializeJdbcConnection(jdbcCase.getJdbcUrl())) {
+            connection.setAutoCommit(false);
             try (PreparedStatement preparedStatement = connection.prepareStatement(jdbcCase.getInitDataSql())) {
 
                 for (int index = 0; index < jdbcCase.getSeaTunnelRow().getFields().length; index++) {
@@ -103,20 +113,21 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                 preparedStatement.execute();
             }
             connection.commit();
-        } catch (SQLException exception) {
-            exception.printStackTrace();
+        } catch (Exception exception) {
+            throw new RuntimeException("get gbase8a connection error", exception);
         }
     }
 
-    private void initializeJdbcTable() throws SQLException {
-        try (Connection connection = DriverManager.getConnection(jdbcUrl, jdbcCase.getUserName(), jdbcCase.getPassword())) {
-            Statement statement = connection.createStatement();
+    private void initializeJdbcTable() {
+        try (Connection connection = initializeJdbcConnection(jdbcCase.getJdbcUrl())) {
+            Connection newConnection = createAndChangeDatabase(connection);
+            Statement statement = newConnection.createStatement();
             String createSource = jdbcCase.getDdlSource();
             String createSink = jdbcCase.getDdlSink();
             statement.execute(createSource);
             statement.execute(createSink);
-        } catch (SQLException exception) {
-            exception.printStackTrace();
+        } catch (Exception exception) {
+            throw new RuntimeException("get gbase8a connection error", exception);
         }
         this.batchInsertData();
     }
@@ -129,9 +140,6 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     @Override
     public void tearDown() throws Exception {
-        if (jdbcConnection != null) {
-            jdbcConnection.close();
-        }
         if (dbServer != null) {
             dbServer.close();
         }

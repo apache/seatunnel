@@ -26,6 +26,7 @@ import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -119,35 +120,39 @@ public class JdbcOracledbIT extends AbstractJdbcIT {
         String sourceSql = "select * from " + SOURCE_TABLE;
         String sinkSql = "select * from " + SINK_TABLE;
         List<String> columns = Lists.newArrayList("varchar_10_col", "char_10_col", "clob_col", "number_3_sf_2_dp", "integer_col", "float_col", "real_col", "binary_float_col", "binary_double_col", "date_col", "timestamp_with_3_frac_sec_col", "timestamp_with_local_tz", "raw_col", "blob_col");
-        Statement sourceStatement = jdbcConnection.createStatement();
-        Statement sinkStatement = jdbcConnection.createStatement();
-        ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
-        ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
-        while (sourceResultSet.next()) {
-            if (sinkResultSet.next()) {
-                for (String column : columns) {
-                    Object source = sourceResultSet.getObject(column);
-                    Object sink = sinkResultSet.getObject(column);
-                    if (!Objects.deepEquals(source, sink)) {
+        try (Connection connection = initializeJdbcConnection(jdbcCase.getJdbcUrl())) {
+            Statement sourceStatement = connection.createStatement();
+            Statement sinkStatement = connection.createStatement();
+            ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
+            ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
+            while (sourceResultSet.next()) {
+                if (sinkResultSet.next()) {
+                    for (String column : columns) {
+                        Object source = sourceResultSet.getObject(column);
+                        Object sink = sinkResultSet.getObject(column);
+                        if (!Objects.deepEquals(source, sink)) {
 
-                        InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(column);
-                        InputStream sinkAsciiStream = sinkResultSet.getBinaryStream(column);
-                        String sourceValue = IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
-                        String sinkValue = IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
-                        Assertions.assertEquals(sourceValue, sinkValue);
+                            InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(column);
+                            InputStream sinkAsciiStream = sinkResultSet.getBinaryStream(column);
+                            String sourceValue = IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
+                            String sinkValue = IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
+                            Assertions.assertEquals(sourceValue, sinkValue);
+                        }
+                        Assertions.assertTrue(true);
                     }
-                    Assertions.assertTrue(true);
                 }
             }
+        } catch (Exception e) {
+            throw new RuntimeException("get oracle connection error", e);
         }
         clearSinkTable();
     }
 
     @Override
     void clearSinkTable() {
-        try (Statement statement = jdbcConnection.createStatement()) {
+        try (Statement statement = initializeJdbcConnection(jdbcCase.getJdbcUrl()).createStatement()) {
             statement.execute(String.format("TRUNCATE TABLE %s", SINK_TABLE));
-        } catch (SQLException e) {
+        } catch (Exception e) {
             throw new RuntimeException("test oracle server image error", e);
         }
     }
