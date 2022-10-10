@@ -34,7 +34,7 @@ public class FileUtilsTest {
         writeTestDataToFile(filePath);
 
         Long fileLineNumber = FileUtils.getFileLineNumber(filePath);
-        Assertions.assertEquals(101, fileLineNumber);
+        Assertions.assertEquals(100, fileLineNumber);
     }
 
     @Test
@@ -64,7 +64,7 @@ public class FileUtilsTest {
         writeTestDataToFile(file4);
 
         Long lines = FileUtils.getFileLineNumberFromDir(rootPath);
-        Assertions.assertEquals(101 * 4, lines);
+        Assertions.assertEquals(100 * 4, lines);
     }
 
     public void writeTestDataToFile(@NonNull String filePath) throws IOException {

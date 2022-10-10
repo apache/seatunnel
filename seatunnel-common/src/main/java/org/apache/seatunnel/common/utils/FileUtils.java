@@ -25,12 +25,11 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
-import java.io.LineNumberReader;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 
 @Slf4j
@@ -72,6 +71,7 @@ public class FileUtils {
 
     /**
      * create a new file, delete the old one if it is exists.
+     *
      * @param filePath filePath
      */
     public static void createNewFile(String filePath) {
@@ -92,10 +92,8 @@ public class FileUtils {
      * @return
      */
     public static Long getFileLineNumber(@NonNull String filePath) {
-        try (LineNumberReader lineNumberReader = new LineNumberReader(new FileReader(filePath))) {
-            lineNumberReader.skip(Long.MAX_VALUE);
-            long lineNumber = lineNumberReader.getLineNumber();
-            return lineNumber + 1;
+        try {
+            return Files.lines(Paths.get(filePath)).count();
         } catch (IOException e) {
             throw new SeaTunnelException(String.format("get file[%s] line error", filePath), e);
         }
@@ -103,6 +101,7 @@ public class FileUtils {
 
     /**
      * return the line number of all files in the dirPath
+     *
      * @param dirPath dirPath
      * @return
      */
