@@ -37,6 +37,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -68,7 +69,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         Assertions.assertEquals(0, extraCommands.getExitCode());
     };
 
-    private void getContainer() throws ClassNotFoundException, SQLException {
+    private void getContainer() throws SQLException {
         jdbcCase = this.getJdbcCase();
         dbServer = new GenericContainer<>(jdbcCase.getDockerImage())
             .withNetwork(NETWORK)
@@ -78,7 +79,6 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         dbServer.setPortBindings(Lists.newArrayList(
             String.format("%s:%s", jdbcCase.getPort(), jdbcCase.getPort())));
         Startables.deepStart(Stream.of(dbServer)).join();
-        Class.forName(jdbcCase.getDriverClass());
         given().ignoreExceptions()
             .await()
             .atMost(180, TimeUnit.SECONDS)
@@ -86,7 +86,8 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         initializeJdbcTable();
     }
 
-    protected void initializeJdbcConnection() throws SQLException {
+    protected void initializeJdbcConnection() throws SQLException, ClassNotFoundException, MalformedURLException, InstantiationException, IllegalAccessException {
+        Class.forName(jdbcCase.getDriverClass());
         jdbcUrl = jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
         jdbcConnection = DriverManager.getConnection(jdbcUrl, jdbcCase.getUserName(), jdbcCase.getPassword());
     }

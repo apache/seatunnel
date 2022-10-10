@@ -32,6 +32,7 @@ import java.sql.SQLException;
 @Slf4j
 public class Gbase8aTypeMapper implements JdbcDialectTypeMapper {
 
+    //ref http://www.gbase.cn/down/4419.html
     // ============================data types=====================
     private static final String GBASE8A_UNKNOWN = "UNKNOWN";
 
@@ -39,7 +40,6 @@ public class Gbase8aTypeMapper implements JdbcDialectTypeMapper {
     private static final String GBASE8A_INT = "INT";
     private static final String GBASE8A_TINYINT = "TINYINT";
     private static final String GBASE8A_SMALLINT = "SMALLINT";
-    private static final String GBASE8A_MEDIUMINT = "MEDIUMINT";
     private static final String GBASE8A_BIGINT = "BIGINT";
     private static final String GBASE8A_DECIMAL = "DECIMAL";
     private static final String GBASE8A_FLOAT = "FLOAT";
@@ -58,7 +58,6 @@ public class Gbase8aTypeMapper implements JdbcDialectTypeMapper {
 
     // ------------------------------blob-------------------------
     private static final String GBASE8A_BLOB = "BLOB";
-    private static final String GBASE8A_LONGBLOB = "LONGBLOB";
     private static final String GBASE8A_TEXT = "TEXT";
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -72,7 +71,6 @@ public class Gbase8aTypeMapper implements JdbcDialectTypeMapper {
                 return BasicType.BYTE_TYPE;
             case GBASE8A_SMALLINT:
                 return BasicType.SHORT_TYPE;
-            case GBASE8A_MEDIUMINT:
             case GBASE8A_INT:
                 return BasicType.INT_TYPE;
             case GBASE8A_BIGINT:
@@ -98,7 +96,6 @@ public class Gbase8aTypeMapper implements JdbcDialectTypeMapper {
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case GBASE8A_BLOB:
             case GBASE8A_TEXT:
-            case GBASE8A_LONGBLOB:
                 return PrimitiveByteArrayType.INSTANCE;
             //Doesn't support yet
             case GBASE8A_UNKNOWN:
