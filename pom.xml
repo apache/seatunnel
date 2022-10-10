@@ -131,6 +131,7 @@
         <checker.qual.version>3.10.0</checker.qual.version>
         <awaitility.version>4.2.0</awaitility.version>
         <spotless.version>2.23.0</spotless.version>
+        <spotless.scalafmt.version>3.4.3</spotless.scalafmt.version>
     </properties>
 
     <dependencyManagement>
@@ -645,7 +646,7 @@
                         </eclipse>
                         <removeUnusedImports />
                         <importOrder>
-                            <file>tools/style/eclipse.importorder</file>
+                            <file>tools/style/seatunnel.importorder</file>
                         </importOrder>
                         <replaceRegex>
                             <name>Remove wildcard imports</name>
@@ -659,7 +660,11 @@
                             <include>**/*.sc</include>
                         </includes>
 
-                        <scalafmt />
+                        <scalafmt>
+                            <version>${spotless.scalafmt.version}</version>
+                            <file>tools/style/seatunnel_scalafmt.conf</file>
+                        </scalafmt>
+                        &gt;
                         <!-- has its own section below -->
                     </scala>
                     <pom>

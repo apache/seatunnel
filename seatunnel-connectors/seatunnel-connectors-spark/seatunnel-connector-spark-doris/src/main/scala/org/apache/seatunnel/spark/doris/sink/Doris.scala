@@ -16,12 +16,12 @@
  */
 
 package org.apache.seatunnel.spark.doris.sink
-
-import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
+import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.seatunnel.spark.doris.sink.Config._
+
 import org.apache.spark.sql.{Dataset, Row}
 
 import scala.collection.mutable
@@ -45,31 +45,34 @@ class Doris extends SparkBatchSink with Serializable {
     val sparkSession = env.getSparkSession
     import sparkSession.implicits._
     val fields = data.schema.fields
-    val dataFrame = data.map(row => {
-      val builder = new StringBuilder
-      fields.foreach(f => {
-        var filedValue = row.getAs[Any](f.name)
-        if (filedValue == null) {
-          filedValue = NULL_VALUE
-        }
-        builder.append(filedValue).append(column_separator)
+    val dataFrame = data.map(
+      row => {
+        val builder = new StringBuilder
+        fields.foreach(
+          f => {
+            var filedValue = row.getAs[Any](f.name)
+            if (filedValue == null) {
+              filedValue = NULL_VALUE
+            }
+            builder.append(filedValue).append(column_separator)
+          })
+        builder.substring(0, builder.length - 1)
       })
-      builder.substring(0, builder.length - 1)
-    })
-    dataFrame.foreachPartition { partition =>
-      var count: Int = 0
-      val buffer = new ListBuffer[String]
-      val dorisUtil = new DorisUtil(propertiesMap.toMap, apiUrl, user, password)
-      for (message <- partition) {
-        count += 1
-        buffer += message
-        if (count > batch_size) {
-          dorisUtil.saveMessages(buffer.mkString("\n"))
-          buffer.clear()
-          count = 0
+    dataFrame.foreachPartition {
+      partition =>
+        var count: Int = 0
+        val buffer = new ListBuffer[String]
+        val dorisUtil = new DorisUtil(propertiesMap.toMap, apiUrl, user, password)
+        for (message <- partition) {
+          count += 1
+          buffer += message
+          if (count > batch_size) {
+            dorisUtil.saveMessages(buffer.mkString("\n"))
+            buffer.clear()
+            count = 0
+          }
         }
-      }
-      dorisUtil.saveMessages(buffer.mkString("\n"))
+        dorisUtil.saveMessages(buffer.mkString("\n"))
     }
   }
 
@@ -81,7 +84,8 @@ class Doris extends SparkBatchSink with Serializable {
     apiUrl =
       s"http://${config.getString(HOST)}/api/${config.getString(DATABASE)}/${config.getString(TABLE_NAME)}/_stream_load"
     if (TypesafeConfigUtils.hasSubConfig(config, ARGS_PREFIX)) {
-      val properties = TypesafeConfigUtils.extractSubConfig(config, ARGS_PREFIX, true)
+      val properties =
+        TypesafeConfigUtils.extractSubConfig(config, ARGS_PREFIX, true)
       val iterator = properties.entrySet().iterator()
       while (iterator.hasNext) {
         val map = iterator.next()
@@ -99,7 +103,8 @@ class Doris extends SparkBatchSink with Serializable {
   /**
    * Return the plugin name, this is used in seatunnel conf DSL.
    *
-   * @return plugin name.
+   * @return
+   *   plugin name.
    */
   override def getPluginName: String = "Doris"
 }
