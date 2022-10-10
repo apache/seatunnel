@@ -84,7 +84,11 @@ public abstract class RowConverter<T> {
             case BYTES:
                 return dataType.getTypeClass() == field.getClass();
             case ARRAY:
-                return ClassUtils.wrapperToPrimitive(dataType.getTypeClass().getComponentType()) == field.getClass().getComponentType();
+                Class<?> fieldComponentType = field.getClass().getComponentType();
+                if (ClassUtils.isPrimitiveWrapper(fieldComponentType)) {
+                    fieldComponentType = ClassUtils.wrapperToPrimitive(fieldComponentType);
+                }
+                return ClassUtils.wrapperToPrimitive(dataType.getTypeClass().getComponentType()) == fieldComponentType;
             case MAP:
                 if (!(field instanceof Map)) {
                     return false;
