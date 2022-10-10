@@ -15,14 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.config;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 
-public class BaseSourceConfig {
-    public static final String FILE_TYPE = "type";
-    public static final String FILE_PATH = "path";
-    public static final String SCHEMA = "schema";
-    public static final String DELIMITER = "delimiter";
-    public static final String DATE_FORMAT = "date_format";
-    public static final String DATETIME_FORMAT = "datetime_format";
-    public static final String TIME_FORMAT = "time_format";
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
+
+import com.google.auto.service.AutoService;
+
+/**
+ * Factory for {@link OracleDialect}.
+ */
+
+@AutoService(JdbcDialectFactory.class)
+public class OracleDialectFactory implements JdbcDialectFactory {
+    @Override
+    public boolean acceptsURL(String url) {
+        return url.startsWith("jdbc:oracle:thin:");
+    }
+
+    @Override
+    public JdbcDialect create() {
+        return new OracleDialect();
+    }
 }

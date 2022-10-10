@@ -28,6 +28,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.File;
@@ -51,6 +52,8 @@ public abstract class SeaTunnelContainer {
     private static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
     private static final String SEATUNNEL_BIN = Paths.get(SEATUNNEL_HOME, "bin").toString();
     private static final String SEATUNNEL_LIB = Paths.get(SEATUNNEL_HOME, "lib").toString();
+    private static final String SEATUNNEL_CONFIG = Paths.get(SEATUNNEL_HOME, "config").toString();
+
     private static final String SEATUNNEL_CONNECTORS = Paths.get(SEATUNNEL_HOME, "connectors").toString();
     private static final String CLIENT_SHELL = "seatunnel.sh";
     private static final String SERVER_SHELL = "seatunnel-cluster.sh";
@@ -64,7 +67,7 @@ public abstract class SeaTunnelContainer {
             .withCommand(Paths.get(SEATUNNEL_BIN, SERVER_SHELL).toString())
             .withNetworkAliases("server")
             .withExposedPorts()
-            .withLogConsumer(new Slf4jLogConsumer(LOG))
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger("seatunnel-engine:" + JDK_DOCKER_IMAGE)))
             .waitingFor(Wait.forLogMessage(".*received new worker register.*\\n", 1));
         mountMapping.forEach(SERVER::withFileSystemBind);
         SERVER.start();
@@ -76,6 +79,9 @@ public abstract class SeaTunnelContainer {
         // copy lib
         mountMapping.put(PROJECT_ROOT_PATH + "/seatunnel-core/seatunnel-starter/target/seatunnel-starter.jar",
             Paths.get(SEATUNNEL_LIB, "seatunnel-starter.jar").toString());
+
+        mountMapping.put(PROJECT_ROOT_PATH + "/seatunnel-engine/seatunnel-engine-common/src/main/resources/",
+            SEATUNNEL_CONFIG);
 
         // copy bin
         mountMapping.put(PROJECT_ROOT_PATH + "/seatunnel-core/seatunnel-starter/src/main/bin/",
@@ -113,8 +119,18 @@ public abstract class SeaTunnelContainer {
             }
         });
         Container.ExecResult execResult = SERVER.execInContainer("bash", "-c", String.join(" ", command));
-        LOG.info(execResult.getStdout());
-        LOG.error(execResult.getStderr());
+        if (execResult.getStdout() != null && execResult.getStdout().length() > 0) {
+            LOG.info("\n==================== ExecuteConfigFile: {} STDOUT start ====================\n"
+                    + "{}"
+                    + "\n==================== ExecuteConfigFile: {} STDOUT end   ====================",
+                confFile, execResult.getStdout(), confFile);
+        }
+        if (execResult.getStderr() != null && execResult.getStderr().length() > 0) {
+            LOG.error("\n==================== ExecuteConfigFile: {} STDERR start ====================\n"
+                    + "{}"
+                    + "\n==================== ExecuteConfigFile: {} STDERR end   ====================",
+                confFile, execResult.getStderr(), confFile);
+        }
         return execResult;
     }
 
