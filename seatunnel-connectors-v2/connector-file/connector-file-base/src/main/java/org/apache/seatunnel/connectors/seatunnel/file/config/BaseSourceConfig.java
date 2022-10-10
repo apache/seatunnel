@@ -21,4 +21,8 @@ public class BaseSourceConfig {
     public static final String FILE_TYPE = "type";
     public static final String FILE_PATH = "path";
     public static final String SCHEMA = "schema";
+    public static final String DELIMITER = "delimiter";
+    public static final String DATE_FORMAT = "date_format";
+    public static final String DATETIME_FORMAT = "datetime_format";
+    public static final String TIME_FORMAT = "time_format";
 }

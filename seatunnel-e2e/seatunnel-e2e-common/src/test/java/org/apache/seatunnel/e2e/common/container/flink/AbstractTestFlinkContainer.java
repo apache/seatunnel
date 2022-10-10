@@ -22,12 +22,11 @@ import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import lombok.NoArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -42,8 +41,6 @@ import java.util.stream.Stream;
  */
 @NoArgsConstructor
 public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
-
-    protected static final Logger LOG = LoggerFactory.getLogger(AbstractTestFlinkContainer.class);
 
     protected static final List<String> DEFAULT_FLINK_PROPERTIES = Arrays.asList(
         "jobmanager.rpc.address: jobmanager",
@@ -71,7 +68,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
             .withNetworkAliases("jobmanager")
             .withExposedPorts()
             .withEnv("FLINK_PROPERTIES", properties)
-            .withLogConsumer(new Slf4jLogConsumer(LOG));
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(dockerImage + ":jobmanager")));
 
         taskManager =
             new GenericContainer<>(dockerImage)
@@ -80,7 +77,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                 .withNetworkAliases("taskmanager")
                 .withEnv("FLINK_PROPERTIES", properties)
                 .dependsOn(jobManager)
-                .withLogConsumer(new Slf4jLogConsumer(LOG));
+                .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(dockerImage + ":taskmanager")));
 
         Startables.deepStart(Stream.of(jobManager)).join();
         Startables.deepStart(Stream.of(taskManager)).join();
@@ -108,7 +105,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
         return Collections.emptyList();
     }
 
-    public void executeExtraCommands(ContainerExtendedFactory extendedFactory) {
+    public void executeExtraCommands(ContainerExtendedFactory extendedFactory) throws IOException, InterruptedException {
         extendedFactory.extend(jobManager);
     }
 

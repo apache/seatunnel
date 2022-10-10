@@ -24,7 +24,7 @@ import java.util.Optional;
 public abstract class AbstractSinkWriter<T, StateT> implements SinkWriter<T, Void, StateT> {
 
     @Override
-    public final Optional<Void> prepareCommit() {
+    public Optional<Void> prepareCommit() {
         return Optional.empty();
     }
 

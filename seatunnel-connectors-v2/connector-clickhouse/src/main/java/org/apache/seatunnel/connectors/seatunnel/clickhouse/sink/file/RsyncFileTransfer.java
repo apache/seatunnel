@@ -17,11 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.session.ClientSession;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -30,9 +29,8 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 public class RsyncFileTransfer implements FileTransfer {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(RsyncFileTransfer.class);
 
     private static final int SSH_PORT = 22;
 
@@ -84,7 +82,7 @@ public class RsyncFileTransfer implements FileTransfer {
             rsyncCommand.add(sshParameter);
             rsyncCommand.add(sourcePath);
             rsyncCommand.add(String.format("root@%s:%s", host, targetPath));
-            LOGGER.info("Generate rsync command: {}", String.join(" ", rsyncCommand));
+            log.info("Generate rsync command: {}", String.join(" ", rsyncCommand));
             ProcessBuilder processBuilder = new ProcessBuilder("bash", "-c", String.join(" ", rsyncCommand));
             Process start = processBuilder.start();
             // we just wait for the process to finish
@@ -93,7 +91,7 @@ public class RsyncFileTransfer implements FileTransfer {
                  BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
                 String line;
                 while ((line = bufferedReader.readLine()) != null) {
-                    LOGGER.info(line);
+                    log.info(line);
                 }
             }
             start.waitFor();
@@ -110,7 +108,7 @@ public class RsyncFileTransfer implements FileTransfer {
         command.add("| tail -n 1 | awk '{print $3}' | xargs -t -i chown -R {}:{} " + targetPath);
         try {
             String finalCommand = String.join(" ", command);
-            LOGGER.info("execute remote command: " + finalCommand);
+            log.info("execute remote command: " + finalCommand);
             clientSession.executeRemoteCommand(finalCommand);
         } catch (IOException e) {
             // always return error cause xargs return shell command result

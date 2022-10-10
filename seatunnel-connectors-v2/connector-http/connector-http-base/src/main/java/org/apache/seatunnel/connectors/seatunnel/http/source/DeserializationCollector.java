@@ -22,8 +22,6 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import lombok.AllArgsConstructor;
 
 import java.io.IOException;
@@ -35,25 +33,9 @@ public class DeserializationCollector {
 
     public void collect(byte[] message, Collector<SeaTunnelRow> out) throws IOException {
         if (deserializationSchema instanceof JsonDeserializationSchema) {
-            collectJson(message, (JsonDeserializationSchema) deserializationSchema, out);
+            ((JsonDeserializationSchema) deserializationSchema).collect(message, out);
         } else {
             SeaTunnelRow deserialize = deserializationSchema.deserialize(message);
-            out.collect(deserialize);
-        }
-    }
-
-    private void collectJson(byte[] message,
-                             JsonDeserializationSchema jsonDeserializationSchema,
-                             Collector<SeaTunnelRow> out) throws IOException {
-        JsonNode jsonNode = jsonDeserializationSchema.convertBytes(message);
-        if (jsonNode.isArray()) {
-            ArrayNode arrayNode = (ArrayNode) jsonNode;
-            for (int i = 0; i < arrayNode.size(); i++) {
-                SeaTunnelRow deserialize = jsonDeserializationSchema.convertJsonNode(arrayNode.get(i));
-                out.collect(deserialize);
-            }
-        } else {
-            SeaTunnelRow deserialize = jsonDeserializationSchema.convertJsonNode(jsonNode);
             out.collect(deserialize);
         }
     }
