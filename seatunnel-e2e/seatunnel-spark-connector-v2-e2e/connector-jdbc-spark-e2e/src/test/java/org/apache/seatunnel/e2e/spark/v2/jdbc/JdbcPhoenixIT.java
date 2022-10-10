@@ -29,6 +29,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -65,7 +66,7 @@ public class JdbcPhoenixIT extends SparkContainer {
         phoenixServer = new GenericContainer<>(PHOENIX_DOCKER_IMAGE)
             .withNetwork(NETWORK)
             .withNetworkAliases(PHOENIX_CONTAINER_HOST)
-            .withLogConsumer(new Slf4jLogConsumer(log));
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PHOENIX_DOCKER_IMAGE)));
         phoenixServer.setPortBindings(Lists.newArrayList(
             String.format("%s:%s", PHOENIX_PORT, PHOENIX_CONTAINER_PORT)));
         Startables.deepStart(Stream.of(phoenixServer)).join();

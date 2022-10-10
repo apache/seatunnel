@@ -15,7 +15,7 @@ A flink sink plugin which can assert illegal data by user defined rules
 
 | name                                        | type        | required | default value |
 | ------------------------------------------- | ----------  | -------- | ------------- |
-|rules                                        | ConfigList  | yes      | -             |
+|rules                                        | ConfigMap   | yes      | -             |
 |rules.field_rules                            | string      | yes      | -             |
 |rules.field_rules.field_name                 | string      | yes      | -             |
 |rules.field_rules.field_type                 | string      | no       | -             |
@@ -27,7 +27,7 @@ A flink sink plugin which can assert illegal data by user defined rules
 |rules.row_rules.rule_value                   | string      | no       | -             |
 | common-options                              |             | no       | -             |
 
-### rules [ConfigList]
+### rules [ConfigMap]
 
 Rule definition of user's available data.  Each rule represents one field validation or row num validation.
 

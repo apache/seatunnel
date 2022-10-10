@@ -35,10 +35,12 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
     private final byte[] rowDelimiter;
     private SerializationSchema serializationSchema;
     private final Map<String, FSDataOutputStream> beingWrittenOutputStream;
+    private final Map<String, Boolean> isFirstWrite;
 
     public JsonWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
         super(textFileSinkConfig);
         this.beingWrittenOutputStream = new HashMap<>();
+        this.isFirstWrite = new HashMap<>();
         this.rowDelimiter = textFileSinkConfig.getRowDelimiter().getBytes();
     }
 
@@ -54,8 +56,12 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
         FSDataOutputStream fsDataOutputStream = getOrCreateOutputStream(filePath);
         try {
             byte[] rowBytes = serializationSchema.serialize(seaTunnelRow);
+            if (isFirstWrite.get(filePath)) {
+                isFirstWrite.put(filePath, false);
+            } else {
+                fsDataOutputStream.write(rowDelimiter);
+            }
             fsDataOutputStream.write(rowBytes);
-            fsDataOutputStream.write(rowDelimiter);
         } catch (IOException e) {
             log.error("write data to file {} error", filePath);
             throw new RuntimeException(e);
@@ -88,6 +94,7 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
             try {
                 fsDataOutputStream = FileSystemUtils.getOutputStream(filePath);
                 beingWrittenOutputStream.put(filePath, fsDataOutputStream);
+                isFirstWrite.put(filePath, true);
             } catch (IOException e) {
                 log.error("can not get output file stream");
                 throw new RuntimeException(e);
