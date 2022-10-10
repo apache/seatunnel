@@ -53,11 +53,13 @@ public class TaskReportStatusOperation extends Operation implements IdentifiedDa
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         out.writeObject(location);
+        out.writeObject(status);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         location = in.readObject(TaskLocation.class);
+        status = in.readObject();
     }
 
     @Override

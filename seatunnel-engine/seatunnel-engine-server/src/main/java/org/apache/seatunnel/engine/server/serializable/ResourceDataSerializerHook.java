@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ResetResourc
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.WorkerHeartbeatOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
+import org.apache.seatunnel.engine.server.service.slot.SlotAndWorkerProfile;
 
 import com.hazelcast.internal.serialization.DataSerializerHook;
 import com.hazelcast.internal.serialization.impl.FactoryIdHelper;
@@ -45,9 +46,11 @@ public class ResourceDataSerializerHook implements DataSerializerHook {
 
     public static final int SLOT_PROFILE_TYPE = 6;
 
+    public static final int SLOT_AND_WORKER_PROFILE = 7;
+
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
-            SeaTunnelFactoryIdConstant.SEATUNNEL_RESOURCE_DATA_SERIALIZER_FACTORY,
-            SeaTunnelFactoryIdConstant.SEATUNNEL_RESOURCE_DATA_SERIALIZER_FACTORY_ID
+        SeaTunnelFactoryIdConstant.SEATUNNEL_RESOURCE_DATA_SERIALIZER_FACTORY,
+        SeaTunnelFactoryIdConstant.SEATUNNEL_RESOURCE_DATA_SERIALIZER_FACTORY_ID
     );
 
     @Override
@@ -75,8 +78,10 @@ public class ResourceDataSerializerHook implements DataSerializerHook {
                     return new ResetResourceOperation();
                 case WORKER_PROFILE_TYPE:
                     return new WorkerProfile();
-                case  SLOT_PROFILE_TYPE:
+                case SLOT_PROFILE_TYPE:
                     return new SlotProfile();
+                case SLOT_AND_WORKER_PROFILE:
+                    return new SlotAndWorkerProfile();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

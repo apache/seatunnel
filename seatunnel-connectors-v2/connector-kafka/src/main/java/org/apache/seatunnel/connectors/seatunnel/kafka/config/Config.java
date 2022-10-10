@@ -40,9 +40,8 @@ public class Config {
      */
     public static final String CONSUMER_GROUP = "consumer.group";
 
-
     /**
-     * consumer group of kafka client consume message.
+     * consumer offset will be periodically committed in the background.
      */
     public static final String COMMIT_ON_CHECKPOINT = "commit_on_checkpoint";
 
@@ -50,4 +49,14 @@ public class Config {
      * The prefix of kafka's transactionId, make sure different job use different prefix.
      */
     public static final String TRANSACTION_PREFIX = "transaction_prefix";
+
+    /**
+     * Send information according to the specified partition.
+     */
+    public static final String PARTITION = "partition";
+
+    /**
+     * Determine the partition to send based on the content of the message.
+     */
+    public static final String ASSIGN_PARTITIONS = "assign_partitions";
 }
