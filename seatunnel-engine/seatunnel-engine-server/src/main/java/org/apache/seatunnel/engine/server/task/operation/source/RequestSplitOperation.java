@@ -73,8 +73,8 @@ public class RequestSplitOperation extends Operation implements IdentifiedDataSe
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        taskID.readData(in);
-        enumeratorTaskID.readData(in);
+        taskID = in.readObject();
+        enumeratorTaskID = in.readObject();
     }
 
     @Override

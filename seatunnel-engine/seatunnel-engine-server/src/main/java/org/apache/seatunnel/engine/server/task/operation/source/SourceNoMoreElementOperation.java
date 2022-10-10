@@ -60,15 +60,15 @@ public class SourceNoMoreElementOperation extends Operation implements Identifie
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        currentTaskID.writeData(out);
-        enumeratorTaskID.writeData(out);
+        out.writeObject(currentTaskID);
+        out.writeObject(enumeratorTaskID);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        currentTaskID.readData(in);
-        enumeratorTaskID.readData(in);
+        currentTaskID = in.readObject();
+        enumeratorTaskID = in.readObject();
     }
 
     @Override
