@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
 
@@ -30,6 +33,7 @@ import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.jet.impl.LiveOperationRegistry;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
+import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.LiveOperations;
@@ -170,6 +174,21 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     public TaskExecutionService getTaskExecutionService() {
         return taskExecutionService;
+    }
+
+    /**
+     * return whether task is end
+     * @param taskGroupLocation taskGroupLocation
+     * @return
+     */
+    public boolean taskIsEnded(@NonNull TaskGroupLocation taskGroupLocation) {
+        IMap<Object, Object> runningJobState = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        if (runningJobState == null) {
+            return false;
+        }
+
+        Object taskState = runningJobState.get(taskGroupLocation);
+        return taskState == null ? false : ((ExecutionState) taskState).isEndState();
     }
 
     private void printExecutionInfo() {

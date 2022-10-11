@@ -74,7 +74,7 @@ public final class ConfigProvider {
         YamlClientConfigLocator yamlConfigLocator = new YamlClientConfigLocator();
 
         if (yamlConfigLocator.locateFromSystemProperty()) {
-            // 1. Try loading config if provided in system property and it is an YAML file
+            // 1. Try loading config if provided in system property, and it is an YAML file
             config = new YamlClientConfigBuilder(yamlConfigLocator.getIn()).build();
         } else if (yamlConfigLocator.locateInWorkDirOrOnClasspath()) {
             // 2. Try loading YAML config from the working directory or from the classpath
@@ -95,7 +95,7 @@ public final class ConfigProvider {
         YamlConfigLocator yamlConfigLocator = new YamlConfigLocator();
 
         if (yamlConfigLocator.locateFromSystemProperty()) {
-            // 1. Try loading config if provided in system property and it is an YAML file
+            // 1. Try loading config if provided in system property, and it is an YAML file
             config = new YamlConfigBuilder(yamlConfigLocator.getIn()).setProperties(properties).build();
         } else if (yamlConfigLocator.locateInWorkDirOrOnClasspath()) {
             // 2. Try loading YAML config from the working directory or from the classpath

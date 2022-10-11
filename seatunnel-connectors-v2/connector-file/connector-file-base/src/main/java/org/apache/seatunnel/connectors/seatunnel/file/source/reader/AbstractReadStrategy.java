@@ -18,10 +18,15 @@
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import static org.apache.parquet.avro.AvroReadSupport.READ_INT96_AS_FIXED;
+import static org.apache.parquet.avro.AvroSchemaConverter.ADD_LIST_ELEMENT_RECORDS;
+import static org.apache.parquet.avro.AvroWriteSupport.WRITE_FIXED_AS_INT96;
+import static org.apache.parquet.avro.AvroWriteSupport.WRITE_OLD_LIST_STRUCTURE;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
@@ -41,6 +46,7 @@ import java.util.Map;
 public abstract class AbstractReadStrategy implements ReadStrategy {
     protected HadoopConf hadoopConf;
     protected SeaTunnelRowType seaTunnelRowType;
+    protected Config pluginConfig;
 
     @Override
     public void init(HadoopConf conf) {
@@ -55,7 +61,10 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     @Override
     public Configuration getConfiguration(HadoopConf hadoopConf) {
         Configuration configuration = new Configuration();
-        configuration.set(READ_INT96_AS_FIXED, "true");
+        configuration.setBoolean(READ_INT96_AS_FIXED, true);
+        configuration.setBoolean(WRITE_FIXED_AS_INT96, true);
+        configuration.setBoolean(ADD_LIST_ELEMENT_RECORDS, false);
+        configuration.setBoolean(WRITE_OLD_LIST_STRUCTURE, false);
         if (hadoopConf != null) {
             configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
             configuration.set("fs.hdfs.impl", hadoopConf.getFsHdfsImpl());
@@ -104,5 +113,10 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 .map(split -> split.split("=", -1))
                 .forEach(kv -> partitions.put(kv[0], kv[1]));
         return partitions;
+    }
+    
+    @Override
+    public void setPluginConfig(Config pluginConfig) {
+        this.pluginConfig = pluginConfig;
     }
 }

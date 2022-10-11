@@ -28,7 +28,7 @@ Engine Supported
 | password       | string | no       |               | 
 | max_retry_size | int    | no       | 3             |
 | max_batch_size | int    | no       | 10            |
-
+| common-options |        | no       | -             |
 
 
 ### hosts [array]
@@ -52,6 +52,10 @@ one bulk request max try size
 
 ### max_batch_size [int]
 batch bulk doc max size
+
+### common options
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Examples
 ```bash

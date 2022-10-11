@@ -22,7 +22,6 @@ import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
@@ -64,7 +63,7 @@ public class CheckpointBarrierTriggerOperation extends TaskOperation {
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
         // TODO: support another barrier
-        barrier = in.readObject(CheckpointBarrier.class);
+        barrier = in.readObject();
     }
 
     @Override
@@ -81,6 +80,7 @@ public class CheckpointBarrierTriggerOperation extends TaskOperation {
             }
             return null;
         }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException, Constant.OPERATION_RETRY_SLEEP));
+            exception -> exception instanceof NullPointerException &&
+                !server.taskIsEnded(taskLocation.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
     }
 }

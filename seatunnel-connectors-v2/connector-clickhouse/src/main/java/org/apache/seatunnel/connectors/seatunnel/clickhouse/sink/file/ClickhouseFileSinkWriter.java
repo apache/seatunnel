@@ -30,9 +30,8 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSink
 import com.clickhouse.client.ClickHouseException;
 import com.clickhouse.client.ClickHouseRequest;
 import com.clickhouse.client.ClickHouseResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -55,8 +54,8 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitInfo, ClickhouseSinkState> {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ClickhouseFileSinkWriter.class);
     private static final String CLICKHOUSE_LOCAL_FILE_PREFIX = "/tmp/clickhouse-local/seatunnel-file";
     private static final int UUID_LENGTH = 10;
     private final FileReaderOption readerOption;
@@ -178,7 +177,7 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
                 uuid));
         command.add("--path");
         command.add("\"" + clickhouseLocalFile + "\"");
-        LOGGER.info("Generate clickhouse local file command: {}", String.join(" ", command));
+        log.info("Generate clickhouse local file command: {}", String.join(" ", command));
         ProcessBuilder processBuilder = new ProcessBuilder("bash", "-c", String.join(" ", command));
         Process start = processBuilder.start();
         // we just wait for the process to finish
@@ -187,7 +186,7 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
              BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
             String line;
             while ((line = bufferedReader.readLine()) != null) {
-                LOGGER.info(line);
+                log.info(line);
             }
         }
         start.waitFor();

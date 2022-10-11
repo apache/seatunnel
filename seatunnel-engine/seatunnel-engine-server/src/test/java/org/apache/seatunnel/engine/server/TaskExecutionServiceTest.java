@@ -55,9 +55,9 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     int pipeLineId = 100001;
 
     @BeforeAll
-    public static void before() {
-        AbstractSeaTunnelServerTest.before();
-        FLAKE_ID_GENERATOR = INSTANCE.getFlakeIdGenerator("test");
+    public void before() {
+        super.before();
+        FLAKE_ID_GENERATOR = instance.getFlakeIdGenerator("test");
     }
 
     @Test
@@ -82,7 +82,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     public void testCancel() {
-        TaskExecutionService taskExecutionService = SERVER.getTaskExecutionService();
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         long sleepTime = 300;
 
@@ -100,7 +100,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     public void testFinish() {
-        TaskExecutionService taskExecutionService = SERVER.getTaskExecutionService();
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         long sleepTime = 300;
 
@@ -134,7 +134,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         //Create tasks with critical delays
         List<Task> criticalTask = buildStopTestTask(callTime, count, stopMark, stopTime);
 
-        TaskExecutionService taskExecutionService = SERVER.getTaskExecutionService();
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         CompletableFuture<TaskExecutionState> taskCts = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(new TaskGroupLocation(jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()), "t1", Lists.newArrayList(criticalTask)), new CompletableFuture<>());
 
@@ -154,7 +154,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     public void testThrowException() throws InterruptedException {
-        TaskExecutionService taskExecutionService = SERVER.getTaskExecutionService();
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         AtomicBoolean stopMark = new AtomicBoolean(false);
 
@@ -228,7 +228,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
         LOGGER.info("task size is : " + taskGroup.getTasks().size());
 
-        TaskExecutionService taskExecutionService = SERVER.getTaskExecutionService();
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.deployLocalTask(taskGroup, new CompletableFuture<>());
 

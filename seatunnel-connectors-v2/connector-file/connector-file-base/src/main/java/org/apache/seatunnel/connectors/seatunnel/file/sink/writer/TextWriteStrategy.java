@@ -17,39 +17,67 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
+import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.DateUtils;
+import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
+import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import lombok.NonNull;
 import org.apache.hadoop.fs.FSDataOutputStream;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class TextWriteStrategy extends AbstractWriteStrategy {
     private final Map<String, FSDataOutputStream> beingWrittenOutputStream;
+    private final Map<String, Boolean> isFirstWrite;
     private final String fieldDelimiter;
     private final String rowDelimiter;
+    private final DateUtils.Formatter dateFormat;
+    private final DateTimeUtils.Formatter dateTimeFormat;
+    private final TimeUtils.Formatter timeFormat;
+    private SerializationSchema serializationSchema;
 
     public TextWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
         super(textFileSinkConfig);
         this.beingWrittenOutputStream = new HashMap<>();
+        this.isFirstWrite = new HashMap<>();
         this.fieldDelimiter = textFileSinkConfig.getFieldDelimiter();
         this.rowDelimiter = textFileSinkConfig.getRowDelimiter();
+        this.dateFormat = textFileSinkConfig.getDateFormat();
+        this.dateTimeFormat = textFileSinkConfig.getDatetimeFormat();
+        this.timeFormat = textFileSinkConfig.getTimeFormat();
+    }
+
+    @Override
+    public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
+        super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
+        this.serializationSchema = TextSerializationSchema.builder()
+                .seaTunnelRowType(seaTunnelRowType)
+                .delimiter(fieldDelimiter)
+                .dateFormatter(dateFormat)
+                .dateTimeFormatter(dateTimeFormat)
+                .timeFormatter(timeFormat)
+                .build();
     }
 
     @Override
     public void write(@NonNull SeaTunnelRow seaTunnelRow) {
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         FSDataOutputStream fsDataOutputStream = getOrCreateOutputStream(filePath);
-        String line = transformRowToLine(seaTunnelRow);
         try {
-            fsDataOutputStream.write(line.getBytes());
-            fsDataOutputStream.write(rowDelimiter.getBytes());
+            if (isFirstWrite.get(filePath)) {
+                isFirstWrite.put(filePath, false);
+            } else {
+                fsDataOutputStream.write(rowDelimiter.getBytes());
+            }
+            fsDataOutputStream.write(serializationSchema.serialize(seaTunnelRow));
         } catch (IOException e) {
             log.error("write data to file {} error", filePath);
             throw new RuntimeException(e);
@@ -81,29 +109,12 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
             try {
                 fsDataOutputStream = FileSystemUtils.getOutputStream(filePath);
                 beingWrittenOutputStream.put(filePath, fsDataOutputStream);
+                isFirstWrite.put(filePath, true);
             } catch (IOException e) {
                 log.error("can not get output file stream");
                 throw new RuntimeException(e);
             }
         }
         return fsDataOutputStream;
-    }
-
-    private String transformRowToLine(@NonNull SeaTunnelRow seaTunnelRow) {
-        return Arrays.stream(seaTunnelRow.getFields()).map(v -> {
-            if (v == null) {
-                return "";
-            } else if (v.getClass().isArray()) {
-                if (v instanceof byte[]) {
-                    return Arrays.toString((byte[]) v);
-                } else {
-                    return Arrays.toString((Object[]) v);
-                }
-            } else if (v instanceof SeaTunnelRow) {
-                return "{" + transformRowToLine((SeaTunnelRow) v) + "}";
-            } else {
-                return v.toString();
-            }
-        }).collect(Collectors.joining(fieldDelimiter));
     }
 }

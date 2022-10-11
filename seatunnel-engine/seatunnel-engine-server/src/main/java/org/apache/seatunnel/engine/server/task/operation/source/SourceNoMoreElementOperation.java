@@ -53,21 +53,22 @@ public class SourceNoMoreElementOperation extends Operation implements Identifie
             task.readerFinished(currentTaskID.getTaskID());
             return null;
         }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException, Constant.OPERATION_RETRY_SLEEP));
+            exception -> exception instanceof NullPointerException &&
+                !server.taskIsEnded(enumeratorTaskID.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        currentTaskID.writeData(out);
-        enumeratorTaskID.writeData(out);
+        out.writeObject(currentTaskID);
+        out.writeObject(enumeratorTaskID);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        currentTaskID.readData(in);
-        enumeratorTaskID.readData(in);
+        currentTaskID = in.readObject();
+        enumeratorTaskID = in.readObject();
     }
 
     @Override

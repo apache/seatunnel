@@ -59,11 +59,11 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
         config.setName("test");
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
-            NODE_ENGINE.getSerializationService().toData(testLogicalDag), config, Collections.emptyList());
+            nodeEngine.getSerializationService().toData(testLogicalDag), config, Collections.emptyList());
 
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
-            SERVER.getCoordinatorService().submitJob(jobImmutableInformation.getJobId(),
-                NODE_ENGINE.getSerializationService().toData(jobImmutableInformation));
+            server.getCoordinatorService().submitJob(jobImmutableInformation.getJobId(),
+                nodeEngine.getSerializationService().toData(jobImmutableInformation));
 
         Assertions.assertNotNull(voidPassiveCompletableFuture);
     }
@@ -96,17 +96,17 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
         config.setName("test");
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
-            NODE_ENGINE.getSerializationService().toData(logicalDag), config, Collections.emptyList());
+            nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
 
-        IMap<Object, Object> runningJobState = NODE_ENGINE.getHazelcastInstance().getMap("testRunningJobState");
+        IMap<Object, Object> runningJobState = nodeEngine.getHazelcastInstance().getMap("testRunningJobState");
         IMap<Object, Long[]> runningJobStateTimestamp =
-            NODE_ENGINE.getHazelcastInstance().getMap("testRunningJobStateTimestamp");
+            nodeEngine.getHazelcastInstance().getMap("testRunningJobStateTimestamp");
 
-        PhysicalPlan physicalPlan = PlanUtils.fromLogicalDAG(logicalDag, NODE_ENGINE,
+        PhysicalPlan physicalPlan = PlanUtils.fromLogicalDAG(logicalDag, nodeEngine,
             jobImmutableInformation,
             System.currentTimeMillis(),
             Executors.newCachedThreadPool(),
-            INSTANCE.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
+            instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
             runningJobState,
             runningJobStateTimestamp).f0();
 
