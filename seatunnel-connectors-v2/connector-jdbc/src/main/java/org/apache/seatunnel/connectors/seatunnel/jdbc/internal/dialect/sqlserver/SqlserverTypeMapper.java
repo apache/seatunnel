@@ -111,10 +111,10 @@ public class SqlserverTypeMapper implements JdbcDialectTypeMapper {
                 return LocalTimeType.LOCAL_TIME_TYPE;
             case SQLSERVER_DATETIME:
             case SQLSERVER_DATETIME2:
-            case SQLSERVER_TIMESTAMP:
             case SQLSERVER_SMALLDATETIME:
             case SQLSERVER_DATETIMEOFFSET:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+            case SQLSERVER_TIMESTAMP:
             case SQLSERVER_BINARY:
             case SQLSERVER_VARBINARY:
             case SQLSERVER_IMAGE:
