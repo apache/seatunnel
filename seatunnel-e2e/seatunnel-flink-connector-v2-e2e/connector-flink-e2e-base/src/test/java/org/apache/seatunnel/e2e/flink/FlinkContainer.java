@@ -18,6 +18,7 @@
 package org.apache.seatunnel.e2e.flink;
 
 import org.apache.seatunnel.e2e.common.AbstractFlinkContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
 
 /**
  * This class is the base class of FlinkEnvironment test for new seatunnel connector API.
@@ -27,8 +28,8 @@ import org.apache.seatunnel.e2e.common.AbstractFlinkContainer;
 public abstract class FlinkContainer extends AbstractFlinkContainer {
 
     @Override
-    public String identifier() {
-        return "connector-v2/flink:1.13.6";
+    public TestContainerId identifier() {
+        return TestContainerId.FLINK_1_13;
     }
 
     @Override
