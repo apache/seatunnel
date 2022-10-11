@@ -158,7 +158,6 @@ public class MongodbIT extends FlinkContainer {
             new String[]{
                 "id",
                 "c_map",
-                "c_array",
                 "c_string",
                 "c_boolean",
                 "c_tinyint",
@@ -175,7 +174,6 @@ public class MongodbIT extends FlinkContainer {
             new SeaTunnelDataType[]{
                 BasicType.LONG_TYPE,
                 new MapType(BasicType.STRING_TYPE, BasicType.SHORT_TYPE),
-                ArrayType.BYTE_ARRAY_TYPE,
                 BasicType.STRING_TYPE,
                 BasicType.BOOLEAN_TYPE,
                 BasicType.BYTE_TYPE,
@@ -198,7 +196,6 @@ public class MongodbIT extends FlinkContainer {
                 new Object[]{
                     Long.valueOf(i),
                     Collections.singletonMap("key", Short.parseShort("1")),
-                    new Byte[]{Byte.parseByte("1")},
                     "string",
                     Boolean.FALSE,
                     Byte.parseByte("1"),
