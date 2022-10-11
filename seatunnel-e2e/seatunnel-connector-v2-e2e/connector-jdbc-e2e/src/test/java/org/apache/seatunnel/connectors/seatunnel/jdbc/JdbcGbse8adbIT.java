@@ -28,7 +28,6 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
-import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -64,7 +63,6 @@ public class JdbcGbse8adbIT extends AbstractJdbcIT {
         "  \"double_col\" double(22,0) DEFAULT NULL,\n" +
         "  \"bigint_col\" bigint(20) DEFAULT NULL,\n" +
         "  \"date_col\" date DEFAULT NULL,\n" +
-        "  \"time_col\" time DEFAULT NULL,\n" +
         "  \"timestamp_col\" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n" +
         "  \"datetime_col\" datetime DEFAULT NULL,\n" +
         "  \"blob_col\" blob\n" +
@@ -81,7 +79,6 @@ public class JdbcGbse8adbIT extends AbstractJdbcIT {
         "  \"double_col\" double(22,0) DEFAULT NULL,\n" +
         "  \"bigint_col\" bigint(20) DEFAULT NULL,\n" +
         "  \"date_col\" date DEFAULT NULL,\n" +
-        "  \"time_col\" time DEFAULT NULL,\n" +
         "  \"timestamp_col\" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n" +
         "  \"datetime_col\" datetime DEFAULT NULL,\n" +
         "  \"blob_col\" blob\n" +
@@ -98,12 +95,11 @@ public class JdbcGbse8adbIT extends AbstractJdbcIT {
         "  double_col,\n" +
         "  bigint_col,\n" +
         "  date_col,\n" +
-        "  time_col,\n" +
         "  timestamp_col,\n" +
         "  datetime_col,\n" +
         "  blob_col\n" +
         ")values(\n" +
-        "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?,?\n" +
+        "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?\n" +
         ")";
 
     @Override
@@ -120,7 +116,7 @@ public class JdbcGbse8adbIT extends AbstractJdbcIT {
     void compareResult() {
         String sourceSql = "select * from " + SOURCE_TABLE;
         String sinkSql = "select * from " + SINK_TABLE;
-        List<String> columns = Lists.newArrayList("varchar_10_col", "char_10_col", "text_col", "decimal_col", "float_col", "int_col", "tinyint_col", "smallint_col", "double_col", "bigint_col", "date_col", "time_col", "timestamp_col", "datetime_col", "blob_col");
+        List<String> columns = Lists.newArrayList("varchar_10_col", "char_10_col", "text_col", "decimal_col", "float_col", "int_col", "tinyint_col", "smallint_col", "double_col", "bigint_col", "date_col", "timestamp_col", "datetime_col", "blob_col");
         try (Connection connection = initializeJdbcConnection(String.format(URL, PORT, jdbcCase.getDataBase()))) {
             Statement sourceStatement = connection.createStatement();
             Statement sinkStatement = connection.createStatement();
@@ -162,7 +158,7 @@ public class JdbcGbse8adbIT extends AbstractJdbcIT {
     SeaTunnelRow initTestData() {
         return new SeaTunnelRow(
             new Object[]{"varchar", "char10col1", "text_col".getBytes(StandardCharsets.UTF_8), 122, 122.0, 122, 100, 1212, 122.0,
-                3112121, new java.sql.Date(LocalDate.now().toEpochDay()), new Time(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)), new Timestamp(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)), new Timestamp(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)), "blob".getBytes(StandardCharsets.UTF_8)});
+                3112121, new java.sql.Date(LocalDate.now().toEpochDay()), new Timestamp(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)), new Timestamp(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)), "blob".getBytes(StandardCharsets.UTF_8)});
     }
 
     protected Connection createAndChangeDatabase(Connection connection) {
