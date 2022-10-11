@@ -30,7 +30,7 @@ public class FileUtilsTest {
     @Test
     public void testGetFileLineNumber() throws Exception {
         String filePath = "/tmp/test/file_utils/file1.txt";
-        filePath = filePath.replaceAll("/", File.separator);
+        filePath = filePath.replace("/", File.separator);
         writeTestDataToFile(filePath);
 
         Long fileLineNumber = FileUtils.getFileLineNumber(filePath);
@@ -48,10 +48,10 @@ public class FileUtilsTest {
         String file3 = dirPath2 + "/file3.txt";
         String file4 = dirPath2 + "/file4.txt";
 
-        file1 = file1.replaceAll("/", File.separator);
-        file2 = file2.replaceAll("/", File.separator);
-        file3 = file3.replaceAll("/", File.separator);
-        file4 = file4.replaceAll("/", File.separator);
+        file1 = file1.replace("/", File.separator);
+        file2 = file2.replace("/", File.separator);
+        file3 = file3.replace("/", File.separator);
+        file4 = file4.replace("/", File.separator);
 
         FileUtils.createNewFile(file1);
         FileUtils.createNewFile(file2);
@@ -64,7 +64,7 @@ public class FileUtilsTest {
         writeTestDataToFile(file4);
 
         Long lines = FileUtils.getFileLineNumberFromDir(rootPath);
-        Assertions.assertEquals(100 * 4, lines);
+        Assertions.assertEquals(101 * 4, lines);
     }
 
     public void writeTestDataToFile(@NonNull String filePath) throws IOException {
