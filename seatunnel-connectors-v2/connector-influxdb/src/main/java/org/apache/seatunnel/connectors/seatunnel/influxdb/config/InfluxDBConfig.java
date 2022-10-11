@@ -27,10 +27,7 @@ import java.util.List;
 
 @Data
 public class InfluxDBConfig implements Serializable {
-    public static final String QUERY_FIELD_SQL = "show field keys from ${measurement}";
-    public static final String QUERY_TAG_SQL = "show tag keys from ${measurement}";
 
-    private static final String PARSE_TABLE_NAME_PATTERN = "\\s+from\\s+([^\\s]+)?";
     public static final String USERNAME = "username";
     public static final String PASSWORD = "password";
     public static final String URL = "url";
@@ -40,7 +37,6 @@ public class InfluxDBConfig implements Serializable {
     public static final String SQL = "sql";
     public static final String SQL_WHERE = "where";
 
-    public static final String FIELDS = "fields";
     public static final String DATABASES = "database";
     public static final String SPLIT_COLUMN = "split_column";
     private static final String PARTITION_NUM = "partition_num";
