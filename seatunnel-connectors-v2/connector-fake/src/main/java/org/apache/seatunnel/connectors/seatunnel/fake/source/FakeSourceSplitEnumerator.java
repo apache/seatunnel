@@ -115,7 +115,6 @@ public class FakeSourceSplitEnumerator implements SourceSplitEnumerator<FakeSour
                 // Assign pending splits to reader
                 LOG.info("Assigning splits to readers {}", pendingAssignmentForReader);
                 enumeratorContext.assignSplit(pendingReader, new ArrayList<>(pendingAssignmentForReader));
-                enumeratorContext.signalNoMoreSplits(pendingReader);
             }
         }
     }

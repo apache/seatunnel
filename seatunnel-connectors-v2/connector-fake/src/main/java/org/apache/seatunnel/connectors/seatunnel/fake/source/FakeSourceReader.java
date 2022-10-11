@@ -68,10 +68,6 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
                     log.info("Closed the bounded fake source");
                     context.signalNoMoreElement();
                 }
-            } else if (noMoreSplit) {
-                // signal to the source that we have reached the end of the data.
-                log.info("Closed the bounded fake source");
-                context.signalNoMoreElement();
             } else {
                 Thread.sleep(1000L);
             }
