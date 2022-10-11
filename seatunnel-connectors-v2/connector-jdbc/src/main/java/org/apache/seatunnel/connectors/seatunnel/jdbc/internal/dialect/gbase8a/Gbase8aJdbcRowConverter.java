@@ -19,11 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.gbase8a;
 
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlDateType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 
 import java.math.BigDecimal;
@@ -71,11 +71,11 @@ public class Gbase8aJdbcRowConverter extends AbstractJdbcRowConverter {
                 seatunnelField = rs.getDouble(i);
             } else if (BasicType.STRING_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getString(i);
-            } else if (LocalTimeType.LOCAL_TIME_TYPE.equals(seaTunnelDataType)) {
+            } else if (SqlDateType.SQL_TIME_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getTime(i);
-            } else if (LocalTimeType.LOCAL_DATE_TYPE.equals(seaTunnelDataType)) {
+            } else if (SqlDateType.SQL_DATE_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getDate(i);
-            } else if (LocalTimeType.LOCAL_DATE_TIME_TYPE.equals(seaTunnelDataType)) {
+            } else if (SqlDateType.SQL_DATE_TIME_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getTimestamp(i);
             } else if (PrimitiveByteArrayType.INSTANCE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getBytes(i);
