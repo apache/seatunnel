@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReleaseSlotOperation;
@@ -55,7 +56,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
     private final ExecutionMode mode = ExecutionMode.LOCAL;
 
     public AbstractResourceManager(NodeEngine nodeEngine) {
-        this.registerWorker = nodeEngine.getHazelcastInstance().getMap("ResourceManager_RegisterWorker");
+        this.registerWorker = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RESOURCE_MANAGER_REGISTER_WORKER);
         this.nodeEngine = nodeEngine;
     }
 

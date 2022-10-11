@@ -17,13 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.DateUtils;
+import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
+import org.apache.seatunnel.format.text.TextDeserializationSchema;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -35,8 +41,11 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 
 public class TextReadStrategy extends AbstractReadStrategy {
-
-    private static final String TEXT_FIELD_NAME = "lines";
+    private DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    private String fieldDelimiter = String.valueOf('\001');
+    private DateUtils.Formatter dateFormat = DateUtils.Formatter.YYYY_MM_DD;
+    private DateTimeUtils.Formatter datetimeFormat = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
+    private TimeUtils.Formatter timeFormat = TimeUtils.Formatter.HH_MM_SS;
 
     @Override
     public void read(String path, Collector<SeaTunnelRow> output) throws IOException, FilePluginException {
@@ -44,13 +53,53 @@ public class TextReadStrategy extends AbstractReadStrategy {
         FileSystem fs = FileSystem.get(conf);
         Path filePath = new Path(path);
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(filePath), StandardCharsets.UTF_8))) {
-            reader.lines().forEach(line -> output.collect(new SeaTunnelRow(new String[]{line})));
+            reader.lines().forEach(line -> {
+                try {
+                    deserializationSchema.deserialize(line.getBytes(), output);
+                } catch (IOException e) {
+                    String errorMsg = String.format("Deserialize this data [%s] error, please check the origin data", line);
+                    throw new RuntimeException(errorMsg);
+                }
+            });
         }
     }
 
     @Override
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) {
-        return new SeaTunnelRowType(new String[]{TEXT_FIELD_NAME},
-                new SeaTunnelDataType<?>[]{BasicType.STRING_TYPE});
+        SeaTunnelRowType simpleSeaTunnelType = SeaTunnelSchema.buildSimpleTextSchema();
+        deserializationSchema = TextDeserializationSchema.builder()
+                .seaTunnelRowType(simpleSeaTunnelType)
+                .delimiter(String.valueOf('\002'))
+                .build();
+        return simpleSeaTunnelType;
+    }
+
+    @Override
+    public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
+        super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
+        if (pluginConfig.hasPath(BaseSourceConfig.DELIMITER)) {
+            fieldDelimiter = pluginConfig.getString(BaseSourceConfig.DELIMITER);
+        } else {
+            FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(BaseSourceConfig.FILE_TYPE));
+            if (fileFormat == FileFormat.CSV) {
+                fieldDelimiter = ",";
+            }
+        }
+        if (pluginConfig.hasPath(BaseSourceConfig.DATE_FORMAT)) {
+            dateFormat = DateUtils.Formatter.parse(pluginConfig.getString(BaseSourceConfig.DATE_FORMAT));
+        }
+        if (pluginConfig.hasPath(BaseSourceConfig.DATETIME_FORMAT)) {
+            datetimeFormat = DateTimeUtils.Formatter.parse(pluginConfig.getString(BaseSourceConfig.DATETIME_FORMAT));
+        }
+        if (pluginConfig.hasPath(BaseSourceConfig.TIME_FORMAT)) {
+            timeFormat = TimeUtils.Formatter.parse(pluginConfig.getString(BaseSourceConfig.TIME_FORMAT));
+        }
+        deserializationSchema = TextDeserializationSchema.builder()
+                .seaTunnelRowType(seaTunnelRowType)
+                .delimiter(fieldDelimiter)
+                .dateFormatter(dateFormat)
+                .dateTimeFormatter(datetimeFormat)
+                .timeFormatter(timeFormat)
+                .build();
     }
 }

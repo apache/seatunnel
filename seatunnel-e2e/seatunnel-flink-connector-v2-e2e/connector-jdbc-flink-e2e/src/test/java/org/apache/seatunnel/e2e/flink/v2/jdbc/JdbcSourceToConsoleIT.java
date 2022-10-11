@@ -32,6 +32,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -44,16 +45,17 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class JdbcSourceToConsoleIT extends FlinkContainer {
+    private static final String DOCKER_IMAGE = "postgres:alpine3.16";
     private PostgreSQLContainer<?> psl;
     private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
     public void startPostgreSqlContainer() throws InterruptedException, ClassNotFoundException, SQLException {
-        psl = new PostgreSQLContainer<>(DockerImageName.parse("postgres:alpine3.16"))
+        psl = new PostgreSQLContainer<>(DockerImageName.parse(DOCKER_IMAGE))
             .withNetwork(NETWORK)
             .withNetworkAliases("postgresql")
-            .withLogConsumer(new Slf4jLogConsumer(log));
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
         Startables.deepStart(Stream.of(psl)).join();
         log.info("PostgreSql container started");
         Class.forName(psl.getDriverClassName());
