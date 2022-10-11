@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.gbase8a;
 
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SqlDateType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import lombok.extern.slf4j.Slf4j;
@@ -88,12 +88,12 @@ public class Gbase8aTypeMapper implements JdbcDialectTypeMapper {
             case GBASE8A_VARCHAR:
                 return BasicType.STRING_TYPE;
             case GBASE8A_DATE:
-                return LocalTimeType.LOCAL_DATE_TYPE;
+                return SqlDateType.SQL_DATE_TYPE;
             case GBASE8A_TIME:
-                return LocalTimeType.LOCAL_TIME_TYPE;
+                return SqlDateType.SQL_TIME_TYPE;
             case GBASE8A_TIMESTAMP:
             case GBASE8A_DATETIME:
-                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+                return SqlDateType.SQL_DATE_TIME_TYPE;
             case GBASE8A_BLOB:
             case GBASE8A_TEXT:
                 return PrimitiveByteArrayType.INSTANCE;
