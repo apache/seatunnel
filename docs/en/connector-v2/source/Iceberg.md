@@ -20,8 +20,8 @@ Source connector for Apache Iceberg. It can support batch and stream mode.
     - [x] orc
     - [x] avro
 - [x] iceberg catalog
-    - [x] hadoop(2.7.5)
-    - [x] hive(2.3.9)
+    - [x] hadoop( 2.7.1 , 2.7.5 , 3.1.3)
+    - [x] hive(2.3.9 , 3.1.2)
 
 ##  Options
 
