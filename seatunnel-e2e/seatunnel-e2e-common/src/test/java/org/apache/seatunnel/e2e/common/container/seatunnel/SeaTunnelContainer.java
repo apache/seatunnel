@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.common.container.seatunnel;
 
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
 
 import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
@@ -108,8 +109,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     @Override
-    public String identifier() {
-        return "SeaTunnel";
+    public TestContainerId identifier() {
+        return TestContainerId.SEATUNNEL;
     }
 
     @Override
