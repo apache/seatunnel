@@ -51,7 +51,12 @@ public class JsonReadStrategy extends AbstractReadStrategy {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(filePath), StandardCharsets.UTF_8))) {
             reader.lines().forEach(line -> {
                 try {
-                    deserializationSchema.deserialize(line.getBytes(), output);
+                    SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(line.getBytes());
+                    if (isMergePartition) {
+                        output.collect(mergePartitionFields(path, seaTunnelRow));
+                    } else {
+                        output.collect(seaTunnelRow);
+                    }
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -61,6 +66,6 @@ public class JsonReadStrategy extends AbstractReadStrategy {
 
     @Override
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) throws FilePluginException {
-        return this.seaTunnelRowType;
+        throw new UnsupportedOperationException("User must defined schema for json file type");
     }
 }

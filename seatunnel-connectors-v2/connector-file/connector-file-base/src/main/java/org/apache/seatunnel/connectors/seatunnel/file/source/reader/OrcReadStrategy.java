@@ -67,8 +67,6 @@ import java.util.Map;
 
 @Slf4j
 public class OrcReadStrategy extends AbstractReadStrategy {
-
-    private SeaTunnelRowType seaTunnelRowTypeInfo;
     private static final long MIN_SIZE = 16 * 1024;
 
     @Override
@@ -97,7 +95,12 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                             fields[j] = readColumn(cols[j], children.get(j), num);
                         }
                     }
-                    output.collect(new SeaTunnelRow(fields));
+                    SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+                    if (isMergePartition) {
+                        output.collect(mergePartitionFields(path, seaTunnelRow));
+                    } else {
+                        output.collect(seaTunnelRow);
+                    }
                     num++;
                 }
             }
@@ -106,9 +109,6 @@ public class OrcReadStrategy extends AbstractReadStrategy {
 
     @Override
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) throws FilePluginException {
-        if (null != seaTunnelRowTypeInfo) {
-            return seaTunnelRowTypeInfo;
-        }
         Configuration configuration = getConfiguration(hadoopConf);
         OrcFile.ReaderOptions readerOptions = OrcFile.readerOptions(configuration);
         Path dstDir = new Path(path);
@@ -120,8 +120,9 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 fields[i] = schema.getFieldNames().get(i);
                 types[i] = orcDataType2SeaTunnelDataType(schema.getChildren().get(i));
             }
-            seaTunnelRowTypeInfo = new SeaTunnelRowType(fields, types);
-            return seaTunnelRowTypeInfo;
+            seaTunnelRowType = new SeaTunnelRowType(fields, types);
+            seaTunnelRowTypeWithPartition = mergePartitionTypes(path, seaTunnelRowType);
+            return getActualSeaTunnelRowTypeInfo();
         } catch (IOException e) {
             throw new FilePluginException("Create OrcReader Fail", e);
         }

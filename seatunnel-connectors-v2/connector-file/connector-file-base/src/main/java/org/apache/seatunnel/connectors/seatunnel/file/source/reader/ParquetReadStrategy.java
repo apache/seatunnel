@@ -68,7 +68,6 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class ParquetReadStrategy extends AbstractReadStrategy {
-    private SeaTunnelRowType seaTunnelRowType;
     private static final byte[] PARQUET_MAGIC = new byte[]{(byte) 'P', (byte) 'A', (byte) 'R', (byte) '1'};
     private static final long NANOS_PER_MILLISECOND = 1000000;
     private static final long MILLIS_PER_DAY = TimeUnit.DAYS.toMillis(1L);
@@ -97,7 +96,12 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                     Object data = record.get(i);
                     fields[i] = resolveObject(data, seaTunnelRowType.getFieldType(i));
                 }
-                output.collect(new SeaTunnelRow(fields));
+                SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+                if (isMergePartition) {
+                    output.collect(mergePartitionFields(path, seaTunnelRow));
+                } else {
+                    output.collect(seaTunnelRow);
+                }
             }
         }
     }
@@ -185,9 +189,6 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
 
     @Override
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) throws FilePluginException {
-        if (seaTunnelRowType != null) {
-            return seaTunnelRowType;
-        }
         Path filePath = new Path(path);
         ParquetMetadata metadata;
         try {
@@ -210,7 +211,8 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
             types[i] = fieldType;
         }
         seaTunnelRowType = new SeaTunnelRowType(fields, types);
-        return seaTunnelRowType;
+        seaTunnelRowTypeWithPartition = mergePartitionTypes(path, seaTunnelRowType);
+        return getActualSeaTunnelRowTypeInfo();
     }
 
     private SeaTunnelDataType<?> parquetType2SeaTunnelType(Type type) {

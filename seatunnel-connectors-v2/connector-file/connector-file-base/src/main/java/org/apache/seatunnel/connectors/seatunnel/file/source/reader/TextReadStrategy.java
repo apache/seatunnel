@@ -55,7 +55,12 @@ public class TextReadStrategy extends AbstractReadStrategy {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(filePath), StandardCharsets.UTF_8))) {
             reader.lines().forEach(line -> {
                 try {
-                    deserializationSchema.deserialize(line.getBytes(), output);
+                    SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(line.getBytes());
+                    if (isMergePartition) {
+                        output.collect(mergePartitionFields(path, seaTunnelRow));
+                    } else {
+                        output.collect(seaTunnelRow);
+                    }
                 } catch (IOException e) {
                     String errorMsg = String.format("Deserialize this data [%s] error, please check the origin data", line);
                     throw new RuntimeException(errorMsg);
@@ -67,11 +72,13 @@ public class TextReadStrategy extends AbstractReadStrategy {
     @Override
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) {
         SeaTunnelRowType simpleSeaTunnelType = SeaTunnelSchema.buildSimpleTextSchema();
+        this.seaTunnelRowType = simpleSeaTunnelType;
+        this.seaTunnelRowTypeWithPartition = mergePartitionTypes(fileNames.get(0), simpleSeaTunnelType);
         deserializationSchema = TextDeserializationSchema.builder()
                 .seaTunnelRowType(simpleSeaTunnelType)
                 .delimiter(String.valueOf('\002'))
                 .build();
-        return simpleSeaTunnelType;
+        return getActualSeaTunnelRowTypeInfo();
     }
 
     @Override
@@ -80,7 +87,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
         if (pluginConfig.hasPath(BaseSourceConfig.DELIMITER)) {
             fieldDelimiter = pluginConfig.getString(BaseSourceConfig.DELIMITER);
         } else {
-            FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(BaseSourceConfig.FILE_TYPE));
+            FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(BaseSourceConfig.FILE_TYPE).toUpperCase());
             if (fileFormat == FileFormat.CSV) {
                 fieldDelimiter = ",";
             }
