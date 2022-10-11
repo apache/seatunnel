@@ -36,8 +36,9 @@ public abstract class AbstractSeaTunnelServerTest {
     protected static ILogger LOGGER;
 
     @BeforeAll
-    public void before() {
-        instance = TestUtils.createHazelcastInstance("AbstractSeaTunnelServerTest" + "_" + System.currentTimeMillis());
+    public  void before() {
+        instance = SeaTunnelServerStarter.createHazelcastInstance(
+            TestUtils.getClusterName("AbstractSeaTunnelServerTest_" + System.currentTimeMillis()));
         nodeEngine = instance.node.nodeEngine;
         server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
         LOGGER = nodeEngine.getLogger(AbstractSeaTunnelServerTest.class);

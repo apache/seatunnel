@@ -30,13 +30,23 @@ public class Constant {
      */
     public static final int DEFAULT_SEATUNNEL_MULTICAST_PORT = 53326;
 
-    public static final String SYSPROP_SEATUNNEL_CONFIG = "hazelcast.seatunnel.config";
+    public static final String SYSPROP_SEATUNNEL_CONFIG = "seatunnel.config";
 
     public static final String HAZELCAST_SEATUNNEL_CONF_FILE_PREFIX = "seatunnel";
 
-    public static final String HAZELCAST_SEATUNNEL_DEFAULT_YAML = "seatunnel-default.yaml";
+    public static final String HAZELCAST_SEATUNNEL_DEFAULT_YAML = "seatunnel.yaml";
 
     public static final int OPERATION_RETRY_TIME = 5;
 
     public static final int OPERATION_RETRY_SLEEP = 2000;
+
+    public static final String IMAP_RUNNING_JOB_INFO = "runningJobInfo";
+
+    public static final String IMAP_RUNNING_JOB_STATE = "runningJobState";
+
+    public static final String IMAP_STATE_TIMESTAMPS = "stateTimestamps";
+
+    public static final String IMAP_OWNED_SLOT_PROFILES = "ownedSlotProfilesIMap";
+
+    public static final String IMAP_RESOURCE_MANAGER_REGISTER_WORKER = "ResourceManager_RegisterWorker";
 }
