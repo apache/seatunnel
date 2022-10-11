@@ -72,11 +72,6 @@ public class SeaTunnelHazelcastClient {
         return requestAndDecodeResponse(masterUuid, request, decoder);
     }
 
-    public <S> S requestOnAnyMemberAndDecodeResponse(@NonNull ClientMessage request,
-                                                     @NonNull Function<ClientMessage, Object> decoder) {
-        return requestAndDecodeResponse(null, request, decoder);
-    }
-
     public <S> S requestAndDecodeResponse(@NonNull UUID uuid,
                                           @NonNull ClientMessage request,
                                           @NonNull Function<ClientMessage, Object> decoder) {
@@ -95,11 +90,11 @@ public class SeaTunnelHazelcastClient {
     public <T> PassiveCompletableFuture<T> requestAndGetCompletableFuture(@NonNull UUID uuid,
                                                                           @NonNull ClientMessage request,
                                                                           @NonNull
-                                                                          ClientMessageDecoder clientMessageDecoder) {
+                                                                          ClientMessageDecoder<?> clientMessageDecoder) {
         ClientInvocation invocation = new ClientInvocation(hazelcastClient, request, null, uuid);
         try {
 
-            return new PassiveCompletableFuture<T>(new ClientDelegatingFuture<>(
+            return new PassiveCompletableFuture<>(new ClientDelegatingFuture<>(
                 invocation.invoke(),
                 serializationService,
                 clientMessageDecoder
@@ -111,29 +106,19 @@ public class SeaTunnelHazelcastClient {
 
     public <T> PassiveCompletableFuture<T> requestOnMasterAndGetCompletableFuture(@NonNull ClientMessage request,
                                                                                   @NonNull
-                                                                                  ClientMessageDecoder clientMessageDecoder) {
+                                                                                  ClientMessageDecoder<?> clientMessageDecoder) {
         UUID masterUuid = hazelcastClient.getClientClusterService().getMasterMember().getUuid();
         return requestAndGetCompletableFuture(masterUuid, request, clientMessageDecoder);
-    }
-
-    public <T> PassiveCompletableFuture<T> requestOnAnyMemberAndGetCompletableFuture(@NonNull ClientMessage request,
-                                                                                     @NonNull
-                                                                                     ClientMessageDecoder clientMessageDecoder) {
-        return requestAndGetCompletableFuture(null, request, clientMessageDecoder);
     }
 
     public PassiveCompletableFuture<Void> requestAndGetCompletableFuture(@NonNull UUID uuid,
                                                                          @NonNull ClientMessage request) {
         ClientInvocation invocation = new ClientInvocation(hazelcastClient, request, null, uuid);
         try {
-            return new PassiveCompletableFuture(invocation.invoke().thenApply(r -> null));
+            return new PassiveCompletableFuture<>(invocation.invoke().thenApply(r -> null));
         } catch (Throwable t) {
             throw ExceptionUtil.rethrow(t);
         }
-    }
-
-    public PassiveCompletableFuture<Void> requestOnAnyMemberAndGetCompletableFuture(@NonNull ClientMessage request) {
-        return requestAndGetCompletableFuture(null, request);
     }
 
     public PassiveCompletableFuture<Void> requestOnMasterAndGetCompletableFuture(@NonNull ClientMessage request) {

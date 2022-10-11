@@ -54,13 +54,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class CoordinatorService {
-    private NodeEngineImpl nodeEngine;
+    private final NodeEngineImpl nodeEngine;
     private final ILogger logger;
 
     private volatile ResourceManager resourceManager;
 
     /**
-     * IMap key is jobId and value is a Tuple2
+     * IMap key is jobId and value is a Tuple2.
      * Tuple2 key is JobMaster init timestamp and value is the jobImmutableInformation which is sent by client when submit job
      * <p>
      * This IMap is used to recovery runningJobInfoIMap in JobMaster when a new master node active
@@ -119,7 +119,7 @@ public class CoordinatorService {
         this.executorService = executorService;
 
         ScheduledExecutorService masterActiveListener = Executors.newSingleThreadScheduledExecutor();
-        masterActiveListener.scheduleAtFixedRate(() -> checkNewActiveMaster(), 0, 100, TimeUnit.MILLISECONDS);
+        masterActiveListener.scheduleAtFixedRate(this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
     }
 
     public JobMaster getJobMaster(Long jobId) {
@@ -145,10 +145,9 @@ public class CoordinatorService {
         runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
         ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
 
-        List<CompletableFuture<Void>> collect = runningJobInfoIMap.entrySet().stream().map(entry -> {
-            return CompletableFuture.runAsync(() -> restoreJobFromMasterActiveSwitch(entry.getKey(), entry.getValue()),
-                executorService);
-        }).collect(Collectors.toList());
+        List<CompletableFuture<Void>> collect = runningJobInfoIMap.entrySet().stream()
+            .map(entry -> CompletableFuture.runAsync(() -> restoreJobFromMasterActiveSwitch(entry.getKey(), entry.getValue()),
+            executorService)).collect(Collectors.toList());
 
         try {
             CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
@@ -313,7 +312,7 @@ public class CoordinatorService {
                 runningJobMasterMap.remove(jobId);
             }
         });
-        return new PassiveCompletableFuture(voidCompletableFuture);
+        return new PassiveCompletableFuture<>(voidCompletableFuture);
     }
 
     private void removeJobIMap(JobMaster jobMaster) {
@@ -394,8 +393,6 @@ public class CoordinatorService {
 
     /**
      * return true if this node is a master node and the coordinator service init finished.
-     *
-     * @return
      */
     public boolean isCoordinatorActive() {
         return isActive;

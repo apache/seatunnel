@@ -26,7 +26,6 @@ import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.services.ManagedService;
 import com.hazelcast.internal.services.MembershipAwareService;
 import com.hazelcast.internal.services.MembershipServiceEvent;
@@ -48,11 +47,12 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class SeaTunnelServer implements ManagedService, MembershipAwareService, LiveOperationsTracker {
+
     private static final ILogger LOGGER = Logger.getLogger(SeaTunnelServer.class);
+
     public static final String SERVICE_NAME = "st:impl:seaTunnelServer";
 
     private NodeEngineImpl nodeEngine;
-    private final ILogger logger;
     private final LiveOperationRegistry liveOperationRegistry;
 
     private volatile SlotService slotService;
@@ -63,14 +63,13 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     private final SeaTunnelConfig seaTunnelConfig;
 
-    public SeaTunnelServer(@NonNull Node node, @NonNull SeaTunnelConfig seaTunnelConfig) {
-        this.logger = node.getLogger(getClass());
+    public SeaTunnelServer(@NonNull SeaTunnelConfig seaTunnelConfig) {
         this.liveOperationRegistry = new LiveOperationRegistry();
         this.seaTunnelConfig = seaTunnelConfig;
         this.executorService =
             Executors.newCachedThreadPool(new ThreadFactoryBuilder()
                 .setNameFormat("seatunnel-server-executor-%d").build());
-        logger.info("SeaTunnel server start...");
+        LOGGER.info("SeaTunnel server start...");
     }
 
     /**
@@ -80,7 +79,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         if (slotService == null) {
             synchronized (this) {
                 if (slotService == null) {
-                    SlotService service = new DefaultSlotService(nodeEngine, taskExecutionService, true, 2);
+                    SlotService service = new DefaultSlotService(nodeEngine, taskExecutionService, seaTunnelConfig.getEngineConfig().getSlotServiceConfig());
                     service.init();
                     slotService = service;
                 }
@@ -101,7 +100,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         getSlotService();
         coordinatorService = new CoordinatorService(nodeEngine, executorService);
         ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
-        service.scheduleAtFixedRate(() -> printExecutionInfo(), 0, 60, TimeUnit.SECONDS);
+        service.scheduleAtFixedRate(this::printExecutionInfo, 0, seaTunnelConfig.getEngineConfig().getPrintExecutionInfoInterval(), TimeUnit.SECONDS);
     }
 
     @Override
@@ -133,7 +132,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
                 this.getCoordinatorService().memberRemoved(event);
             }
         } catch (SeaTunnelEngineException e) {
-            logger.severe("Error when handle member removed event", e);
+            LOGGER.severe("Error when handle member removed event", e);
         }
     }
 
@@ -146,7 +145,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
      * Used for debugging on call
      */
     public String printMessage(String message) {
-        this.logger.info(nodeEngine.getThisAddress() + ":" + message);
+        LOGGER.info(nodeEngine.getThisAddress() + ":" + message);
         return message;
     }
 
@@ -159,7 +158,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         int retryCount = 0;
         while (coordinatorService.isMasterNode() && !coordinatorService.isCoordinatorActive() && retryCount < 20) {
             try {
-                logger.warning("Waiting this node become the active master node");
+                LOGGER.warning("Waiting this node become the active master node");
                 Thread.sleep(1000);
                 retryCount++;
             } catch (InterruptedException e) {
@@ -179,16 +178,12 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     /**
      * return whether task is end
      * @param taskGroupLocation taskGroupLocation
-     * @return
      */
     public boolean taskIsEnded(@NonNull TaskGroupLocation taskGroupLocation) {
         IMap<Object, Object> runningJobState = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
-        if (runningJobState == null) {
-            return false;
-        }
 
         Object taskState = runningJobState.get(taskGroupLocation);
-        return taskState == null ? false : ((ExecutionState) taskState).isEndState();
+        return taskState != null && ((ExecutionState) taskState).isEndState();
     }
 
     private void printExecutionInfo() {
@@ -199,24 +194,23 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         int poolSize = threadPoolExecutor.getPoolSize();
         long completedTaskCount = threadPoolExecutor.getCompletedTaskCount();
         long taskCount = threadPoolExecutor.getTaskCount();
-        StringBuffer sbf = new StringBuffer();
-        sbf.append("activeCount=")
-            .append(activeCount)
-            .append("\n")
-            .append("corePoolSize=")
-            .append(corePoolSize)
-            .append("\n")
-            .append("maximumPoolSize=")
-            .append(maximumPoolSize)
-            .append("\n")
-            .append("poolSize=")
-            .append(poolSize)
-            .append("\n")
-            .append("completedTaskCount=")
-            .append(completedTaskCount)
-            .append("\n")
-            .append("taskCount=")
-            .append(taskCount);
-        logger.info(sbf.toString());
+        String sbf = "activeCount=" +
+            activeCount +
+            "\n" +
+            "corePoolSize=" +
+            corePoolSize +
+            "\n" +
+            "maximumPoolSize=" +
+            maximumPoolSize +
+            "\n" +
+            "poolSize=" +
+            poolSize +
+            "\n" +
+            "completedTaskCount=" +
+            completedTaskCount +
+            "\n" +
+            "taskCount=" +
+            taskCount;
+        LOGGER.info(sbf);
     }
 }

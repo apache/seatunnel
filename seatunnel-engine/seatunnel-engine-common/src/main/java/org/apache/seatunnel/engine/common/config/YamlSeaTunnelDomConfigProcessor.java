@@ -19,13 +19,21 @@ package org.apache.seatunnel.engine.common.config;
 
 import static com.hazelcast.internal.config.DomConfigHelper.childElements;
 import static com.hazelcast.internal.config.DomConfigHelper.cleanNodeName;
+import static com.hazelcast.internal.config.DomConfigHelper.getBooleanValue;
 import static com.hazelcast.internal.config.DomConfigHelper.getIntegerValue;
+
+import org.apache.seatunnel.engine.common.config.server.ServerConfigName;
+import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 
 import com.hazelcast.config.InvalidConfigurationException;
 import com.hazelcast.internal.config.AbstractDomConfigProcessor;
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
 import org.w3c.dom.Node;
 
 public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor {
+
+    private static final ILogger LOGGER = Logger.getLogger(YamlSeaTunnelDomConfigProcessor.class);
 
     private final SeaTunnelConfig config;
 
@@ -60,19 +68,43 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         return false;
     }
 
-    @SuppressWarnings("checkstyle:RegexpSinglelineJava")
+    private SlotServiceConfig parseSlotServiceConfig(Node slotServiceNode) {
+        SlotServiceConfig slotServiceConfig = new SlotServiceConfig();
+        for (Node node : childElements(slotServiceNode)) {
+            String name = cleanNodeName(node);
+            switch (name) {
+                case ServerConfigName.DYNAMIC_SLOT:
+                    slotServiceConfig.setDynamicSlot(getBooleanValue(getTextContent(node)));
+                    break;
+                case ServerConfigName.SLOT_NUM:
+                    slotServiceConfig.setSlotNum(getIntegerValue(ServerConfigName.SLOT_NUM, getTextContent(node)));
+                    break;
+                default:
+                    LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+        return slotServiceConfig;
+    }
+
     private void parseEngineConfig(Node engineNode, SeaTunnelConfig config) {
         final EngineConfig engineConfig = config.getEngineConfig();
         for (Node node : childElements(engineNode)) {
             String name = cleanNodeName(node);
             switch (name) {
-                case "backup-count":
+                case ServerConfigName.BACKUP_COUNT:
                     engineConfig.setBackupCount(
-                        getIntegerValue("backup-count", getTextContent(node))
+                        getIntegerValue(ServerConfigName.BACKUP_COUNT, getTextContent(node))
                     );
                     break;
+                case ServerConfigName.PRINT_EXECUTION_INFO_INTERVAL:
+                    engineConfig.setPrintExecutionInfoInterval(getIntegerValue(ServerConfigName.PRINT_EXECUTION_INFO_INTERVAL,
+                        getTextContent(node)));
+                    break;
+                case ServerConfigName.SLOT_SERVICE:
+                    engineConfig.setSlotServiceConfig(parseSlotServiceConfig(node));
+                    break;
                 default:
-                    throw new AssertionError("Unrecognized element: " + name);
+                    LOGGER.warning("Unrecognized element: " + name);
             }
         }
     }

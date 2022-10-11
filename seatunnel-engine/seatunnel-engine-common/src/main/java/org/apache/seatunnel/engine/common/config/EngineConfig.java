@@ -18,19 +18,32 @@
 package org.apache.seatunnel.engine.common.config;
 
 import static com.hazelcast.internal.util.Preconditions.checkBackupCount;
+import static com.hazelcast.internal.util.Preconditions.checkPositive;
+
+import org.apache.seatunnel.engine.common.config.server.ServerConfigName;
+import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 
 import lombok.Data;
 
 @Data
+@SuppressWarnings("checkstyle:MagicNumber")
 public class EngineConfig {
     private int backupCount;
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private int serverExecutorPoolSize = 20;
 
-    public EngineConfig setBackupCount(int newBackupCount) {
+    private int printExecutionInfoInterval = 60;
+
+    private SlotServiceConfig slotServiceConfig = new SlotServiceConfig();
+
+    public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);
         this.backupCount = newBackupCount;
-        return this;
     }
+
+    public void setPrintExecutionInfoInterval(int printExecutionInfoInterval) {
+        checkPositive(printExecutionInfoInterval, ServerConfigName.PRINT_EXECUTION_INFO_INTERVAL + " must be > 0");
+        this.printExecutionInfoInterval = printExecutionInfoInterval;
+    }
+
 }

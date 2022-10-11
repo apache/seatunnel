@@ -15,26 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client.job;
+package org.apache.seatunnel.engine.common.config.server;
 
-import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
-import org.apache.seatunnel.engine.common.Constant;
-import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import static com.hazelcast.internal.util.Preconditions.checkPositive;
 
-import lombok.NonNull;
+import lombok.Data;
 
-public class JobClient {
-    private final SeaTunnelHazelcastClient hazelcastClient;
+@Data
+public class SlotServiceConfig {
 
-    public JobClient(@NonNull SeaTunnelHazelcastClient hazelcastClient) {
-        this.hazelcastClient = hazelcastClient;
-    }
+    private boolean dynamicSlot = true;
 
-    public long getNewJobId() {
-        return hazelcastClient.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
-    }
+    private int slotNum = 2;
 
-    public ClientJobProxy createJobProxy(@NonNull JobImmutableInformation jobImmutableInformation) {
-        return new ClientJobProxy(hazelcastClient, jobImmutableInformation);
+    public void setSlotNum(int slotNum) {
+        checkPositive(slotNum, ServerConfigName.SLOT_NUM + " must be > 0");
+        this.slotNum = slotNum;
     }
 }
