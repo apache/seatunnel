@@ -28,8 +28,11 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -108,7 +111,7 @@ public class JdbcGbse8adbIT extends AbstractJdbcIT {
         Map<String, String> containerEnv = new HashMap<>();
         String jdbcUrl = String.format(URL, PORT, DATABASE);
         return JdbcCase.builder().dockerImage(DOCKER_IMAGE).networkAliases(NETWORK_ALIASES).containerEnv(containerEnv).driverClass(DRIVER_CLASS)
-            .host(HOST).port(PORT).jdbcUrl(jdbcUrl).userName(USERNAME).password(PASSWORD).dataBase(DATABASE)
+            .host(HOST).port(PORT).jdbcTemplate(URL).jdbcUrl(jdbcUrl).userName(USERNAME).password(PASSWORD).dataBase(DATABASE)
             .sourceTable(SOURCE_TABLE).sinkTable(SINK_TABLE).driverJar(DRIVER_JAR)
             .ddlSource(DDL_SOURCE).ddlSink(DDL_SINK).initDataSql(INIT_DATA_SQL).configFile(CONFIG_FILE).seaTunnelRow(initTestData()).build();
     }
@@ -118,7 +121,7 @@ public class JdbcGbse8adbIT extends AbstractJdbcIT {
         String sourceSql = "select * from " + SOURCE_TABLE;
         String sinkSql = "select * from " + SINK_TABLE;
         List<String> columns = Lists.newArrayList("varchar_10_col", "char_10_col", "text_col", "decimal_col", "float_col", "int_col", "tinyint_col", "smallint_col", "double_col", "bigint_col", "date_col", "time_col", "timestamp_col", "datetime_col", "blob_col");
-        try (Connection connection = initializeJdbcConnection(String.format(URL, PORT, "test"))) {
+        try (Connection connection = initializeJdbcConnection(String.format(URL, PORT, jdbcCase.getDataBase()))) {
             Statement sourceStatement = connection.createStatement();
             Statement sinkStatement = connection.createStatement();
             ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
@@ -159,7 +162,7 @@ public class JdbcGbse8adbIT extends AbstractJdbcIT {
     SeaTunnelRow initTestData() {
         return new SeaTunnelRow(
             new Object[]{"varchar", "char10col1", "text_col".getBytes(StandardCharsets.UTF_8), 122, 122.0, 122, 100, 1212, 122.0,
-                3112121, LocalDate.now(), LocalDateTime.now(), LocalDateTime.now(), LocalDateTime.now(), "blob".getBytes(StandardCharsets.UTF_8)});
+                3112121, new java.sql.Date(LocalDate.now().toEpochDay()), new Time(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)), new Timestamp(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)), new Timestamp(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)), "blob".getBytes(StandardCharsets.UTF_8)});
     }
 
     protected Connection createAndChangeDatabase(Connection connection) {

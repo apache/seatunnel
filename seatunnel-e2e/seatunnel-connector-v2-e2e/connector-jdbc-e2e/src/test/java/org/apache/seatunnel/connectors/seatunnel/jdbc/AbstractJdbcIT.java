@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import static org.awaitility.Awaitility.given;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.ExceptionUtil;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -103,7 +104,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     }
 
     private void batchInsertData() {
-        try (Connection connection = initializeJdbcConnection(jdbcCase.getJdbcUrl())) {
+        try (Connection connection = initializeJdbcConnection(String.format(jdbcCase.getJdbcTemplate(), jdbcCase.getPort(), jdbcCase.getDataBase()))) {
             connection.setAutoCommit(false);
             try (PreparedStatement preparedStatement = connection.prepareStatement(jdbcCase.getInitDataSql())) {
 
@@ -114,6 +115,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             }
             connection.commit();
         } catch (Exception exception) {
+            log.error(ExceptionUtil.getMessage(exception));
             throw new RuntimeException("get gbase8a connection error", exception);
         }
     }
@@ -127,6 +129,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             statement.execute(createSource);
             statement.execute(createSink);
         } catch (Exception exception) {
+            log.error(ExceptionUtil.getMessage(exception));
             throw new RuntimeException("get gbase8a connection error", exception);
         }
         this.batchInsertData();
