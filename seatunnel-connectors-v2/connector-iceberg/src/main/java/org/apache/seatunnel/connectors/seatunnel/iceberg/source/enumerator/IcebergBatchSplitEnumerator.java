@@ -41,7 +41,7 @@ public class IcebergBatchSplitEnumerator extends AbstractSplitEnumerator {
                                        @NonNull SourceConfig sourceConfig,
                                        IcebergSplitEnumeratorState restoreState) {
         super(context, sourceConfig, restoreState != null ?
-            restoreState.getPendingSplits() : Collections.EMPTY_MAP);
+            restoreState.getPendingSplits() : Collections.emptyMap());
         this.icebergScanContext = icebergScanContext;
     }
 
