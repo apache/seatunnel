@@ -41,7 +41,11 @@ public class IntInjectFunction implements ClickhouseFieldInjectFunction {
                 || "UInt8".equals(fieldType)
                 || "Int16".equals(fieldType)
                 || "UInt16".equals(fieldType)
-                || "Int32".equals(fieldType);
+                || "Int32".equals(fieldType)
+                || "Int128".equals(fieldType)
+                || "UInt128".equals(fieldType)
+                || "Int256".equals(fieldType)
+                || "UInt256".equals(fieldType);
     }
 
 }
