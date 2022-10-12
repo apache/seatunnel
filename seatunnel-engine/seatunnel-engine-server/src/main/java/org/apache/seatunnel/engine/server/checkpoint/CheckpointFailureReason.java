@@ -15,22 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.common.container;
+package org.apache.seatunnel.engine.server.checkpoint;
 
-import org.apache.seatunnel.e2e.common.TestResource;
+public enum CheckpointFailureReason {
 
-import org.testcontainers.containers.Container;
-import org.testcontainers.containers.Network;
+    TASK_FAILURE("Task has failed."),
+    CHECKPOINT_EXPIRED("Checkpoint expired before completing."),
+    CHECKPOINT_COORDINATOR_COMPLETED("CheckpointCoordinator completed."),
+    CHECKPOINT_COORDINATOR_SHUTDOWN("CheckpointCoordinator shutdown.");
 
-import java.io.IOException;
+    private final String message;
 
-public interface TestContainer extends TestResource {
+    CheckpointFailureReason(String message) {
+        this.message = message;
+    }
 
-    Network NETWORK = Network.newNetwork();
-
-    TestContainerId identifier();
-
-    void executeExtraCommands(ContainerExtendedFactory extendedFactory) throws IOException, InterruptedException;
-
-    Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException;
+    public String message() {
+        return message;
+    }
 }

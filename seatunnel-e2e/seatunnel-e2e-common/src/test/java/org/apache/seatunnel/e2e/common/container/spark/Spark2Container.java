@@ -18,6 +18,7 @@
 package org.apache.seatunnel.e2e.common.container.spark;
 
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
 
 import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
@@ -31,8 +32,8 @@ import lombok.NoArgsConstructor;
 public class Spark2Container extends AbstractTestSparkContainer {
 
     @Override
-    public String identifier() {
-        return "spark:2.4.3";
+    public TestContainerId identifier() {
+        return TestContainerId.SPARK_2_4;
     }
 
     @Override

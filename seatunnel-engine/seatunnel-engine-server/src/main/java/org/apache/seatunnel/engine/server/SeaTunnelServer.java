@@ -58,6 +58,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     private volatile SlotService slotService;
     private TaskExecutionService taskExecutionService;
     private CoordinatorService coordinatorService;
+    private ScheduledExecutorService monitorService;
 
     private final ExecutorService executorService;
 
@@ -99,8 +100,8 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         taskExecutionService.start();
         getSlotService();
         coordinatorService = new CoordinatorService(nodeEngine, executorService);
-        ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
-        service.scheduleAtFixedRate(this::printExecutionInfo, 0, seaTunnelConfig.getEngineConfig().getPrintExecutionInfoInterval(), TimeUnit.SECONDS);
+        monitorService = Executors.newSingleThreadScheduledExecutor();
+        monitorService.scheduleAtFixedRate(this::printExecutionInfo, 0, seaTunnelConfig.getEngineConfig().getPrintExecutionInfoInterval(), TimeUnit.SECONDS);
     }
 
     @Override
@@ -118,6 +119,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         }
         executorService.shutdown();
         taskExecutionService.shutdown();
+        monitorService.shutdown();
     }
 
     @Override

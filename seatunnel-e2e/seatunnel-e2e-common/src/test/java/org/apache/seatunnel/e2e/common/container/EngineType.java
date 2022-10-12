@@ -17,20 +17,19 @@
 
 package org.apache.seatunnel.e2e.common.container;
 
-import org.apache.seatunnel.e2e.common.TestResource;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
-import org.testcontainers.containers.Container;
-import org.testcontainers.containers.Network;
+@Getter
+@AllArgsConstructor
+public enum EngineType {
+    FLINK("Flink"),
+    SPARK("Spark"),
+    SEATUNNEL("SeaTunnel");
+    private final String name;
 
-import java.io.IOException;
-
-public interface TestContainer extends TestResource {
-
-    Network NETWORK = Network.newNetwork();
-
-    TestContainerId identifier();
-
-    void executeExtraCommands(ContainerExtendedFactory extendedFactory) throws IOException, InterruptedException;
-
-    Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException;
+    @Override
+    public String toString() {
+        return name;
+    }
 }

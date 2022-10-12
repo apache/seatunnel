@@ -111,15 +111,15 @@ public class CoordinatorService {
     private volatile boolean isActive = false;
 
     private final ExecutorService executorService;
+    private final ScheduledExecutorService monitorService;
 
     @SuppressWarnings("checkstyle:MagicNumber")
     public CoordinatorService(@NonNull NodeEngineImpl nodeEngine, @NonNull ExecutorService executorService) {
         this.nodeEngine = nodeEngine;
         this.logger = nodeEngine.getLogger(getClass());
         this.executorService = executorService;
-
-        ScheduledExecutorService masterActiveListener = Executors.newSingleThreadScheduledExecutor();
-        masterActiveListener.scheduleAtFixedRate(this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
+        this.monitorService = Executors.newSingleThreadScheduledExecutor();
+        monitorService.scheduleAtFixedRate(this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
     }
 
     public JobMaster getJobMaster(Long jobId) {
@@ -389,6 +389,7 @@ public class CoordinatorService {
         if (resourceManager != null) {
             resourceManager.close();
         }
+        monitorService.shutdown();
     }
 
     /**
