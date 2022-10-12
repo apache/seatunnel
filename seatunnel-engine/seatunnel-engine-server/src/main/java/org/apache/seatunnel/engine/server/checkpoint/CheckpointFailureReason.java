@@ -15,38 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.checkpoint;
+package org.apache.seatunnel.engine.server.checkpoint;
 
-public enum CheckpointType {
+public enum CheckpointFailureReason {
 
-    /**
-     * Automatically triggered by the CheckpointCoordinator.
-     */
-    CHECKPOINT_TYPE(true, "checkpoint"),
+    TASK_FAILURE("Task has failed."),
+    CHECKPOINT_EXPIRED("Checkpoint expired before completing."),
+    CHECKPOINT_COORDINATOR_COMPLETED("CheckpointCoordinator completed."),
+    CHECKPOINT_COORDINATOR_SHUTDOWN("CheckpointCoordinator shutdown.");
 
-    /**
-     * Triggered by the user.
-     */
-    SAVEPOINT_TYPE(false, "savepoint"),
+    private final String message;
 
-    /**
-     * Automatically triggered by the Task.
-     */
-    COMPLETED_POINT_TYPE(true, "completed-point");
-
-    private final boolean auto;
-    private final String name;
-
-    CheckpointType(boolean auto, String name) {
-        this.auto = auto;
-        this.name = name;
+    CheckpointFailureReason(String message) {
+        this.message = message;
     }
 
-    public boolean isAuto() {
-        return auto;
-    }
-
-    public String getName() {
-        return name;
+    public String message() {
+        return message;
     }
 }
