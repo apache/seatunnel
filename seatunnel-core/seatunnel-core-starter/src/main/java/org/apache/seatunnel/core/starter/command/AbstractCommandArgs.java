@@ -84,6 +84,10 @@ public abstract class AbstractCommandArgs implements CommandArgs {
         return jobName;
     }
 
+    public void setJobName(String jobName) {
+        this.jobName = jobName;
+    }
+
     public boolean isHelp() {
         return help;
     }
