@@ -29,9 +29,8 @@ import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
 
+@Slf4j
 public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSplit> {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceReader.class);
 
     private final SourceReader.Context context;
     private final Deque<FakeSourceSplit> splits = new LinkedList<>();
@@ -64,12 +63,15 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
                 for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {
                     output.collect(seaTunnelRow);
                 }
-                if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
+            } else {
+                if (noMoreSplit && Boundedness.BOUNDED.equals(context.getBoundedness())) {
                     // signal to the source that we have reached the end of the data.
-                    LOGGER.info("Closed the bounded fake source");
+                    log.info("Closed the bounded fake source");
                     context.signalNoMoreElement();
                 }
-            } else {
+                if (!noMoreSplit) {
+                    log.info("wait split!");
+                }
                 Thread.sleep(1000L);
             }
 

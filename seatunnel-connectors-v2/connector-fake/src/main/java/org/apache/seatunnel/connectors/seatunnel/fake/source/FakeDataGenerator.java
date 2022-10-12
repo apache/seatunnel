@@ -58,9 +58,9 @@ public class FakeDataGenerator {
         return new SeaTunnelRow(randomRow.toArray());
     }
 
-    public List<SeaTunnelRow> generateFakedRows(int rowNum) {
+    public List<SeaTunnelRow> generateFakedRows() {
         ArrayList<SeaTunnelRow> seaTunnelRows = new ArrayList<>();
-        for (int i = 0; i < rowNum; i++) {
+        for (int i = 0; i < fakeConfig.getRowNum(); i++) {
             seaTunnelRows.add(randomRow());
         }
         return seaTunnelRows;
