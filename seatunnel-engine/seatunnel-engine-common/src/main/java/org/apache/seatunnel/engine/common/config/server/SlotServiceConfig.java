@@ -21,15 +21,17 @@ import static com.hazelcast.internal.util.Preconditions.checkPositive;
 
 import lombok.Data;
 
+import java.io.Serializable;
+
 @Data
-public class SlotServiceConfig {
+public class SlotServiceConfig implements Serializable {
 
-    private boolean dynamicSlot = true;
+    private boolean dynamicSlot = ServerConfigOptions.DYNAMIC_SLOT.defaultValue();
 
-    private int slotNum = 2;
+    private int slotNum = ServerConfigOptions.SLOT_NUM.defaultValue();
 
     public void setSlotNum(int slotNum) {
-        checkPositive(slotNum, ServerConfigName.SLOT_NUM + " must be > 0");
+        checkPositive(slotNum, ServerConfigOptions.SLOT_NUM + " must be > 0");
         this.slotNum = slotNum;
     }
 }

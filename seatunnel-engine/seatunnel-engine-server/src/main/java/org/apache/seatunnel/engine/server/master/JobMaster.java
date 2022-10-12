@@ -19,15 +19,14 @@ package org.apache.seatunnel.engine.server.master;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.loader.SeatunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorConfiguration;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointStorageConfiguration;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
@@ -92,13 +91,15 @@ public class JobMaster extends Thread {
 
     private volatile boolean restore = false;
 
+    private final EngineConfig engineConfig;
+
     public JobMaster(@NonNull Data jobImmutableInformationData,
                      @NonNull NodeEngine nodeEngine,
                      @NonNull ExecutorService executorService,
                      @NonNull ResourceManager resourceManager,
                      @NonNull IMap runningJobStateIMap,
                      @NonNull IMap runningJobStateTimestampsIMap,
-                     @NonNull IMap ownedSlotProfilesIMap) {
+                     @NonNull IMap ownedSlotProfilesIMap, EngineConfig engineConfig) {
         this.jobImmutableInformationData = jobImmutableInformationData;
         this.nodeEngine = nodeEngine;
         this.executorService = executorService;
@@ -108,6 +109,7 @@ public class JobMaster extends Thread {
         this.resourceManager = resourceManager;
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
+        this.engineConfig = engineConfig;
     }
 
     public void init(long initializationTimestamp) throws Exception {
@@ -141,9 +143,7 @@ public class JobMaster extends Thread {
             jobImmutableInformation.getJobId(),
             nodeEngine,
             planTuple.f1(),
-            // TODO: checkpoint config
-            CheckpointCoordinatorConfiguration.builder().build(),
-            CheckpointStorageConfiguration.builder().build());
+            engineConfig.getCheckpointConfig());
     }
 
     public void initStateFuture() {

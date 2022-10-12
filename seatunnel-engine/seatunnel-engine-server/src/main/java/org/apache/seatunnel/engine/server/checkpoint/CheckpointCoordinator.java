@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.common.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.checkpoint.storage.common.Serializer;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
@@ -78,9 +79,6 @@ public class CheckpointCoordinator {
     private final CheckpointManager checkpointManager;
 
     private final CheckpointStorage checkpointStorage;
-
-    private final CheckpointStorageConfiguration storageConfig;
-
     private final CheckpointIDCounter checkpointIdCounter;
 
     private final transient Serializer serializer;
@@ -102,7 +100,7 @@ public class CheckpointCoordinator {
 
     private volatile CompletedCheckpoint latestCompletedCheckpoint;
 
-    private final CheckpointCoordinatorConfiguration coordinatorConfig;
+    private final CheckpointConfig coordinatorConfig;
 
     private int tolerableFailureCheckpoints;
     private final transient ScheduledExecutorService scheduler;
@@ -118,22 +116,20 @@ public class CheckpointCoordinator {
 
     public CheckpointCoordinator(CheckpointManager manager,
                                  CheckpointStorage checkpointStorage,
-                                 CheckpointStorageConfiguration storageConfig,
+                                 CheckpointConfig checkpointConfig,
                                  long jobId,
-                                 CheckpointPlan plan,
-                                 CheckpointCoordinatorConfiguration coordinatorConfig) {
+                                 CheckpointPlan plan) {
 
         this.checkpointManager = manager;
         this.checkpointStorage = checkpointStorage;
-        this.storageConfig = storageConfig;
         this.jobId = jobId;
         this.pipelineId = plan.getPipelineId();
         this.plan = plan;
-        this.coordinatorConfig = coordinatorConfig;
+        this.coordinatorConfig = checkpointConfig;
         this.latestCompletedCheckpoint = plan.getRestoredCheckpoint();
         this.tolerableFailureCheckpoints = coordinatorConfig.getTolerableFailureCheckpoints();
         this.pendingCheckpoints = new ConcurrentHashMap<>();
-        this.completedCheckpoints = new ArrayDeque<>(storageConfig.getMaxRetainedCheckpoints() + 1);
+        this.completedCheckpoints = new ArrayDeque<>(coordinatorConfig.getStorage().getMaxRetainedCheckpoints() + 1);
         this.scheduler = Executors.newScheduledThreadPool(
             1, runnable -> {
                 Thread thread = new Thread(runnable);
@@ -402,7 +398,7 @@ public class CheckpointCoordinator {
                 .pipelineId(pipelineId)
                 .states(states)
                 .build());
-            if (completedCheckpoints.size() > storageConfig.getMaxRetainedCheckpoints()) {
+            if (completedCheckpoints.size() > coordinatorConfig.getStorage().getMaxRetainedCheckpoints()) {
                 CompletedCheckpoint superfluous = completedCheckpoints.removeFirst();
                 checkpointStorage.deleteCheckpoint(
                     String.valueOf(superfluous.getJobId()),

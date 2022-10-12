@@ -15,24 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.checkpoint;
+package org.apache.seatunnel.engine.common.config.server;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
+import lombok.Data;
 
-@Getter
-@EqualsAndHashCode
-@Builder(builderClassName = "Builder")
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
-public class CheckpointStorageConfiguration {
-    private final String storage;
-    private final int maxRetainedCheckpoints;
+@Data
+public class CheckpointStorageConfig {
 
-    public static final class Builder {
-        private String storage = "localfile";
-        private int maxRetainedCheckpoints = 1;
-    }
+    private String storage = ServerConfigOptions.CHECKPOINT_STORAGE_TYPE.defaultValue();
+
+    private int maxRetainedCheckpoints = ServerConfigOptions.CHECKPOINT_STORAGE_MAX_RETAINED.defaultValue();
 }

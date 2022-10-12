@@ -22,7 +22,9 @@ import static com.hazelcast.internal.config.DomConfigHelper.cleanNodeName;
 import static com.hazelcast.internal.config.DomConfigHelper.getBooleanValue;
 import static com.hazelcast.internal.config.DomConfigHelper.getIntegerValue;
 
-import org.apache.seatunnel.engine.common.config.server.ServerConfigName;
+import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
+import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
+import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 
 import com.hazelcast.config.InvalidConfigurationException;
@@ -72,15 +74,12 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         SlotServiceConfig slotServiceConfig = new SlotServiceConfig();
         for (Node node : childElements(slotServiceNode)) {
             String name = cleanNodeName(node);
-            switch (name) {
-                case ServerConfigName.DYNAMIC_SLOT:
-                    slotServiceConfig.setDynamicSlot(getBooleanValue(getTextContent(node)));
-                    break;
-                case ServerConfigName.SLOT_NUM:
-                    slotServiceConfig.setSlotNum(getIntegerValue(ServerConfigName.SLOT_NUM, getTextContent(node)));
-                    break;
-                default:
-                    LOGGER.warning("Unrecognized element: " + name);
+            if (ServerConfigOptions.DYNAMIC_SLOT.key().equals(name)) {
+                slotServiceConfig.setDynamicSlot(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.SLOT_NUM.key().equals(name)) {
+                slotServiceConfig.setSlotNum(getIntegerValue(ServerConfigOptions.SLOT_NUM.key(), getTextContent(node)));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
             }
         }
         return slotServiceConfig;
@@ -90,22 +89,64 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         final EngineConfig engineConfig = config.getEngineConfig();
         for (Node node : childElements(engineNode)) {
             String name = cleanNodeName(node);
-            switch (name) {
-                case ServerConfigName.BACKUP_COUNT:
-                    engineConfig.setBackupCount(
-                        getIntegerValue(ServerConfigName.BACKUP_COUNT, getTextContent(node))
-                    );
-                    break;
-                case ServerConfigName.PRINT_EXECUTION_INFO_INTERVAL:
-                    engineConfig.setPrintExecutionInfoInterval(getIntegerValue(ServerConfigName.PRINT_EXECUTION_INFO_INTERVAL,
-                        getTextContent(node)));
-                    break;
-                case ServerConfigName.SLOT_SERVICE:
-                    engineConfig.setSlotServiceConfig(parseSlotServiceConfig(node));
-                    break;
-                default:
-                    LOGGER.warning("Unrecognized element: " + name);
+            if (ServerConfigOptions.BACKUP_COUNT.key().equals(name)) {
+                engineConfig.setBackupCount(
+                    getIntegerValue(ServerConfigOptions.BACKUP_COUNT.key(), getTextContent(node))
+                );
+            } else if (ServerConfigOptions.PRINT_EXECUTION_INFO_INTERVAL.key().equals(name)) {
+                engineConfig.setPrintExecutionInfoInterval(getIntegerValue(ServerConfigOptions.PRINT_EXECUTION_INFO_INTERVAL.key(),
+                    getTextContent(node)));
+            } else if (ServerConfigOptions.SLOT_SERVICE.key().equals(name)) {
+                engineConfig.setSlotServiceConfig(parseSlotServiceConfig(node));
+            } else if (ServerConfigOptions.CHECKPOINT.key().equals(name)) {
+                engineConfig.setCheckpointConfig(parseCheckpointConfig(node));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
             }
         }
     }
+
+    private CheckpointConfig parseCheckpointConfig(Node checkpointNode) {
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        for (Node node : childElements(checkpointNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.CHECKPOINT_INTERVAL.key().equals(name)) {
+                checkpointConfig.setCheckpointInterval(
+                    getIntegerValue(ServerConfigOptions.CHECKPOINT_INTERVAL.key(), getTextContent(node))
+                );
+            } else if (ServerConfigOptions.CHECKPOINT_TIMEOUT.key().equals(name)) {
+                checkpointConfig.setCheckpointTimeout(getIntegerValue(ServerConfigOptions.CHECKPOINT_TIMEOUT.key(),
+                    getTextContent(node)));
+            } else if (ServerConfigOptions.CHECKPOINT_MAX_CONCURRENT.key().equals(name)) {
+                checkpointConfig.setMaxConcurrentCheckpoints(getIntegerValue(ServerConfigOptions.CHECKPOINT_MAX_CONCURRENT.key(),
+                    getTextContent(node)));
+            } else if (ServerConfigOptions.CHECKPOINT_TOLERABLE_FAILURE.key().equals(name)) {
+                checkpointConfig.setTolerableFailureCheckpoints(getIntegerValue(ServerConfigOptions.CHECKPOINT_TOLERABLE_FAILURE.key(),
+                    getTextContent(node)));
+            } else if (ServerConfigOptions.CHECKPOINT_STORAGE.key().equals(name)) {
+                checkpointConfig.setStorage(parseCheckpointStorageConfig(node));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+
+        return checkpointConfig;
+    }
+
+    private CheckpointStorageConfig parseCheckpointStorageConfig(Node checkpointStorageConfigNode) {
+        CheckpointStorageConfig checkpointStorageConfig = new CheckpointStorageConfig();
+        for (Node node : childElements(checkpointStorageConfigNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.CHECKPOINT_STORAGE_TYPE.key().equals(name)) {
+                checkpointStorageConfig.setStorage(getTextContent(node));
+            } else if (ServerConfigOptions.CHECKPOINT_STORAGE_MAX_RETAINED.key().equals(name)) {
+                checkpointStorageConfig.setMaxRetainedCheckpoints(getIntegerValue(ServerConfigOptions.CHECKPOINT_STORAGE_MAX_RETAINED.key(),
+                    getTextContent(node)));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+        return checkpointStorageConfig;
+    }
+
 }

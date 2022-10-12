@@ -99,7 +99,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         );
         taskExecutionService.start();
         getSlotService();
-        coordinatorService = new CoordinatorService(nodeEngine, executorService);
+        coordinatorService = new CoordinatorService(nodeEngine, executorService, seaTunnelConfig.getEngineConfig());
         monitorService = Executors.newSingleThreadScheduledExecutor();
         monitorService.scheduleAtFixedRate(this::printExecutionInfo, 0, seaTunnelConfig.getEngineConfig().getPrintExecutionInfoInterval(), TimeUnit.SECONDS);
     }

@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
@@ -71,20 +72,18 @@ public class CheckpointManager {
     public CheckpointManager(long jobId,
                              NodeEngine nodeEngine,
                              Map<Integer, CheckpointPlan> checkpointPlanMap,
-                             CheckpointCoordinatorConfiguration coordinatorConfig,
-                             CheckpointStorageConfiguration storageConfig) throws CheckpointStorageException {
+                             CheckpointConfig checkpointConfig) throws CheckpointStorageException {
         this.jobId = jobId;
         this.nodeEngine = nodeEngine;
         this.subtaskWithAddresses = new HashMap<>();
-        this.checkpointStorage = FactoryUtil.discoverFactory(Thread.currentThread().getContextClassLoader(), CheckpointStorageFactory.class, storageConfig.getStorage())
+        this.checkpointStorage = FactoryUtil.discoverFactory(Thread.currentThread().getContextClassLoader(), CheckpointStorageFactory.class, checkpointConfig.getStorage().getStorage())
             .create(new HashMap<>());
         this.coordinatorMap = checkpointPlanMap.values().parallelStream()
             .map(plan -> new CheckpointCoordinator(this,
                 checkpointStorage,
-                storageConfig,
+                checkpointConfig,
                 jobId,
-                plan,
-                coordinatorConfig)
+                plan)
             ).collect(Collectors.toMap(CheckpointCoordinator::getPipelineId, Function.identity()));
     }
 

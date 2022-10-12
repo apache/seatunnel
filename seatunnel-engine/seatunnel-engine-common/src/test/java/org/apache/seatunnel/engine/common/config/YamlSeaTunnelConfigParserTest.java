@@ -42,6 +42,18 @@ public class YamlSeaTunnelConfigParserTest {
 
         Assertions.assertEquals(config.getEngineConfig().getSlotServiceConfig().getSlotNum(), 5);
 
+        Assertions.assertEquals(config.getEngineConfig().getCheckpointConfig().getCheckpointInterval(), 6000);
+
+        Assertions.assertEquals(config.getEngineConfig().getCheckpointConfig().getCheckpointTimeout(), 7000);
+
+        Assertions.assertEquals(config.getEngineConfig().getCheckpointConfig().getMaxConcurrentCheckpoints(), 5);
+
+        Assertions.assertEquals(config.getEngineConfig().getCheckpointConfig().getTolerableFailureCheckpoints(), 2);
+
+        Assertions.assertEquals(config.getEngineConfig().getCheckpointConfig().getStorage().getStorage(), "test");
+
+        Assertions.assertEquals(config.getEngineConfig().getCheckpointConfig().getStorage().getMaxRetainedCheckpoints(), 3);
+
     }
 
 }

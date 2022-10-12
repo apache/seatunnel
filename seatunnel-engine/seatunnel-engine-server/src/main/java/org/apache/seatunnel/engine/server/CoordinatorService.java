@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -113,11 +114,14 @@ public class CoordinatorService {
     private final ExecutorService executorService;
     private final ScheduledExecutorService monitorService;
 
+    private final EngineConfig engineConfig;
+
     @SuppressWarnings("checkstyle:MagicNumber")
-    public CoordinatorService(@NonNull NodeEngineImpl nodeEngine, @NonNull ExecutorService executorService) {
+    public CoordinatorService(@NonNull NodeEngineImpl nodeEngine, @NonNull ExecutorService executorService, EngineConfig engineConfig) {
         this.nodeEngine = nodeEngine;
         this.logger = nodeEngine.getLogger(getClass());
         this.executorService = executorService;
+        this.engineConfig = engineConfig;
         this.monitorService = Executors.newSingleThreadScheduledExecutor();
         monitorService.scheduleAtFixedRate(this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
     }
@@ -172,7 +176,8 @@ public class CoordinatorService {
                 resourceManager,
                 runningJobStateIMap,
                 runningJobStateTimestampsIMap,
-                ownedSlotProfilesIMap);
+                ownedSlotProfilesIMap,
+                engineConfig);
 
         try {
             jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp());
@@ -290,7 +295,7 @@ public class CoordinatorService {
             getResourceManager(),
             runningJobStateIMap,
             runningJobStateTimestampsIMap,
-            ownedSlotProfilesIMap);
+            ownedSlotProfilesIMap, engineConfig);
         executorService.submit(() -> {
             try {
                 runningJobInfoIMap.put(jobId, new RunningJobInfo(System.currentTimeMillis(), jobImmutableInformation));
