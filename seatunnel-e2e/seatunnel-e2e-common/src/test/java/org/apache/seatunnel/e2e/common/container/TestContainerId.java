@@ -15,14 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.config;
+package org.apache.seatunnel.e2e.common.container;
 
-public class BaseSourceConfig {
-    public static final String FILE_TYPE = "type";
-    public static final String FILE_PATH = "path";
-    public static final String SCHEMA = "schema";
-    public static final String DELIMITER = "delimiter";
-    public static final String DATE_FORMAT = "date_format";
-    public static final String DATETIME_FORMAT = "datetime_format";
-    public static final String TIME_FORMAT = "time_format";
+import static org.apache.seatunnel.e2e.common.container.EngineType.FLINK;
+import static org.apache.seatunnel.e2e.common.container.EngineType.SPARK;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+@AllArgsConstructor
+@Getter
+public enum TestContainerId {
+    FLINK_1_13(FLINK, "1.13.6"),
+    SPARK_2_4(SPARK, "2.4.3"),
+    SEATUNNEL(EngineType.SEATUNNEL, "2.2.0");
+
+    private final EngineType engineType;
+    private final String version;
+
+    @Override
+    public String toString() {
+        return engineType.toString() + ":" + version;
+    }
 }
