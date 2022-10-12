@@ -101,7 +101,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 
     @SuppressWarnings("MagicNumber")
     public static final class Builder {
-        private long checkpointInterval = 300000;
+        private long checkpointInterval = 30000;
         private long checkpointTimeout = 300000;
         private int maxConcurrentCheckpoints = 1;
         private int tolerableFailureCheckpoints = 0;

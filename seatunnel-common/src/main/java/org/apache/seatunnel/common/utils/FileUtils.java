@@ -122,6 +122,16 @@ public class FileUtils {
     }
 
     /**
+     * create a dir, if the dir exists, clear the files and sub dirs in the dir.
+     * @param dirPath dirPath
+     */
+    public static void createNewDir(@NonNull String dirPath) {
+        deleteFile(dirPath);
+        File file = new File(dirPath);
+        file.mkdirs();
+    }
+
+    /**
      * clear dir and the sub dir
      *
      * @param filePath filePath

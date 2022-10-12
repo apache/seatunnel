@@ -88,7 +88,7 @@ public class JobMaster extends Thread {
 
     private final IMap<Object, Object> runningJobStateTimestampsIMap;
 
-    private CompletableFuture<Void> scheduleFuture = new CompletableFuture<>();
+    private CompletableFuture<Void> scheduleFuture;
 
     private volatile boolean restore = false;
 
@@ -184,13 +184,17 @@ public class JobMaster extends Thread {
     public void handleCheckpointTimeout(long pipelineId) {
         this.physicalPlan.getPipelineList().forEach(pipeline -> {
             if (pipeline.getPipelineLocation().getPipelineId() == pipelineId) {
-                LOGGER.warning(String.format("%s checkpoint timeout, cancel the pipeline", pipeline.getPipelineFullName()));
+                LOGGER.warning(
+                    String.format("%s checkpoint timeout, cancel the pipeline", pipeline.getPipelineFullName()));
                 pipeline.cancelPipeline();
             }
         });
     }
 
     public PassiveCompletableFuture<Void> reSchedulerPipeline(SubPlan subPlan) {
+        if (jobScheduler == null) {
+            jobScheduler = new PipelineBaseScheduler(physicalPlan, this);
+        }
         return new PassiveCompletableFuture<>(jobScheduler.reSchedulerPipeline(subPlan));
     }
 
@@ -277,6 +281,12 @@ public class JobMaster extends Thread {
     public void setOwnedSlotProfiles(@NonNull PipelineLocation pipelineLocation,
                                      @NonNull Map<TaskGroupLocation, SlotProfile> pipelineOwnedSlotProfiles) {
         ownedSlotProfilesIMap.put(pipelineLocation, pipelineOwnedSlotProfiles);
+    }
+
+    public SlotProfile getOwnedSlotProfiles(@NonNull TaskGroupLocation taskGroupLocation) {
+        return ownedSlotProfilesIMap.get(
+                new PipelineLocation(taskGroupLocation.getJobId(), taskGroupLocation.getPipelineId()))
+            .get(taskGroupLocation);
     }
 
     public CompletableFuture<Void> getScheduleFuture() {

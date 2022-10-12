@@ -101,8 +101,6 @@ public class PhysicalVertex {
 
     private final NodeEngine nodeEngine;
 
-    private Address currentExecutionAddress;
-
     private TaskGroupImmutableInformation taskGroupImmutableInformation;
 
     private JobMaster jobMaster;
@@ -202,7 +200,6 @@ public class PhysicalVertex {
     // This method must not throw an exception
     public void deploy(@NonNull SlotProfile slotProfile) {
         try {
-            currentExecutionAddress = slotProfile.getWorker();
             if (slotProfile.getWorker().equals(nodeEngine.getThisAddress())) {
                 deployOnLocal(slotProfile);
             } else {
@@ -334,7 +331,7 @@ public class PhysicalVertex {
                 i++;
                 nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
                         new CancelTaskOperation(taskGroupLocation),
-                        currentExecutionAddress)
+                        getCurrentExecutionAddress())
                     .invoke().get();
                 return;
             } catch (Exception e) {
@@ -403,7 +400,7 @@ public class PhysicalVertex {
     }
 
     public Address getCurrentExecutionAddress() {
-        return currentExecutionAddress;
+        return jobMaster.getOwnedSlotProfiles(taskGroupLocation).getWorker();
     }
 
     public TaskGroupLocation getTaskGroupLocation() {
