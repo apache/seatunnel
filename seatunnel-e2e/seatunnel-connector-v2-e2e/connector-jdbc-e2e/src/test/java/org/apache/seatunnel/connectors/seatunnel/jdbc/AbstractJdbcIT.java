@@ -86,11 +86,14 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         dbServer.setPortBindings(Lists.newArrayList(
             String.format("%s:%s", jdbcCase.getPort(), jdbcCase.getPort())));
         Startables.deepStart(Stream.of(dbServer)).join();
-        this.initializeJdbcConnection(jdbcCase.getJdbcUrl());
+
         given().ignoreExceptions()
             .await()
             .atMost(180, TimeUnit.SECONDS)
-            .untilAsserted(this::initializeJdbcTable);
+            .untilAsserted(() -> {
+                this.initializeJdbcConnection(jdbcCase.getJdbcUrl());
+            });
+        this.initializeJdbcTable();
     }
 
     protected Connection initializeJdbcConnection(String jdbcUrl) throws SQLException, ClassNotFoundException, MalformedURLException, InstantiationException, IllegalAccessException {
@@ -116,7 +119,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             connection.commit();
         } catch (Exception exception) {
             log.error(ExceptionUtils.getMessage(exception));
-            throw new RuntimeException("get gbase8a connection error", exception);
+            throw new RuntimeException("get connection error", exception);
         }
     }
 
@@ -130,7 +133,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             statement.execute(createSink);
         } catch (Exception exception) {
             log.error(ExceptionUtils.getMessage(exception));
-            throw new RuntimeException("get gbase8a connection error", exception);
+            throw new RuntimeException("get connection error", exception);
         }
         this.batchInsertData();
     }
