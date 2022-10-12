@@ -89,8 +89,6 @@
         <module>seatunnel-formats</module>
         <module>seatunnel-dist</module>
         <module>seatunnel-engine</module>
-        <module>connector-iceberg-flink-hadoop3.x-e2e</module>
-        <module>connector-iceberg-hadoop3-flink-e2e</module>
     </modules>
 
     <profiles>
