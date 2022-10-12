@@ -137,8 +137,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         return partitions;
     }
 
-    protected SeaTunnelRow mergePartitionFields(String path, SeaTunnelRow seaTunnelRow) {
-        Map<String, String> partitionsMap = parsePartitionsByPath(path);
+    protected SeaTunnelRow mergePartitionFields(Map<String, String> partitionsMap, SeaTunnelRow seaTunnelRow) {
         // get all values of partition fields
         Object[] partitions = partitionsMap.values().toArray(new Object[0]);
         // get all values of origin SeaTunnelRow

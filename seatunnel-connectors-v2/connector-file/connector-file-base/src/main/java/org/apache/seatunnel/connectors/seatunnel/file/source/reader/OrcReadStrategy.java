@@ -76,6 +76,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         }
         Configuration configuration = getConfiguration();
         Path filePath = new Path(path);
+        Map<String, String> partitionsMap = parsePartitionsByPath(path);
         OrcFile.ReaderOptions readerOptions = OrcFile.readerOptions(configuration);
         try (Reader reader = OrcFile.createReader(filePath, readerOptions)) {
             TypeDescription schema = reader.getSchema();
@@ -86,7 +87,16 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 int num = 0;
                 for (int i = 0; i < rowBatch.size; i++) {
                     int numCols = rowBatch.numCols;
-                    Object[] fields = new Object[numCols];
+                    Object[] fields;
+                    if (isMergePartition) {
+                        int index = numCols;
+                        fields = new Object[numCols + partitionsMap.size()];
+                        for (String value : partitionsMap.values()) {
+                            fields[index++] = value;
+                        }
+                    } else {
+                        fields = new Object[numCols];
+                    }
                     ColumnVector[] cols = rowBatch.cols;
                     for (int j = 0; j < numCols; j++) {
                         if (cols[j] == null) {
@@ -96,11 +106,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                         }
                     }
                     SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
-                    if (isMergePartition) {
-                        output.collect(mergePartitionFields(path, seaTunnelRow));
-                    } else {
-                        output.collect(seaTunnelRow);
-                    }
+                    output.collect(seaTunnelRow);
                     num++;
                 }
             }

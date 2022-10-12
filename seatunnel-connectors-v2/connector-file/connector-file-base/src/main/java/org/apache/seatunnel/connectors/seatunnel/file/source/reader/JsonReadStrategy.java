@@ -33,6 +33,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 public class JsonReadStrategy extends AbstractReadStrategy {
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
@@ -48,12 +49,13 @@ public class JsonReadStrategy extends AbstractReadStrategy {
         Configuration conf = getConfiguration();
         FileSystem fs = FileSystem.get(conf);
         Path filePath = new Path(path);
+        Map<String, String> partitionsMap = parsePartitionsByPath(path);
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(filePath), StandardCharsets.UTF_8))) {
             reader.lines().forEach(line -> {
                 try {
                     SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(line.getBytes());
                     if (isMergePartition) {
-                        output.collect(mergePartitionFields(path, seaTunnelRow));
+                        output.collect(mergePartitionFields(partitionsMap, seaTunnelRow));
                     } else {
                         output.collect(seaTunnelRow);
                     }
