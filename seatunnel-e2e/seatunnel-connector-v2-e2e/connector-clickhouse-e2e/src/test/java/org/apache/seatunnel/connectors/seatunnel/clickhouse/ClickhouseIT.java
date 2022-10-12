@@ -44,6 +44,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -104,7 +105,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         this.container = new ClickHouseContainer(CLICKHOUSE_DOCKER_IMAGE)
             .withNetwork(NETWORK)
             .withNetworkAliases(HOST)
-            .withLogConsumer(new Slf4jLogConsumer(LOG));
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(CLICKHOUSE_DOCKER_IMAGE)));
         Startables.deepStart(Stream.of(this.container)).join();
         LOG.info("Clickhouse container started");
         Class.forName(DRIVER_CLASS);
