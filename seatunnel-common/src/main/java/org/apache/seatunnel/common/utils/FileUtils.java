@@ -110,7 +110,7 @@ public class FileUtils {
             if (files == null) {
                 return 0L;
             }
-            return Arrays.stream(file.listFiles()).map(currFile -> {
+            return Arrays.stream(files).map(currFile -> {
                 if (currFile.isDirectory()) {
                     return getFileLineNumberFromDir(currFile.getPath());
                 } else {
