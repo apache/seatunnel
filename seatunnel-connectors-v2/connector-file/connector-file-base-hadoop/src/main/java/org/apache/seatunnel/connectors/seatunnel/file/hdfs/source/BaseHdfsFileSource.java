@@ -22,6 +22,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfig;
@@ -41,6 +42,7 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
         readStrategy = ReadStrategyFactory.of(pluginConfig.getString(HdfsSourceConfig.FILE_TYPE));
+        readStrategy.setPluginConfig(pluginConfig);
         String path = pluginConfig.getString(HdfsSourceConfig.FILE_PATH);
         hadoopConf = new HadoopConf(pluginConfig.getString(HdfsSourceConfig.DEFAULT_FS));
         try {
@@ -49,12 +51,26 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Check file path fail.");
         }
         // support user-defined schema
+        FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(HdfsSourceConfig.FILE_TYPE).toUpperCase());
+        // only json text csv type support user-defined schema now
         if (pluginConfig.hasPath(HdfsSourceConfig.SCHEMA)) {
-            Config schemaConfig = pluginConfig.getConfig(HdfsSourceConfig.SCHEMA);
-            rowType = SeaTunnelSchema
-                .buildWithConfig(schemaConfig)
-                .getSeaTunnelRowType();
-            readStrategy.setSeaTunnelRowTypeInfo(rowType);
+            switch (fileFormat) {
+                case CSV:
+                case TEXT:
+                case JSON:
+                    Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA);
+                    rowType = SeaTunnelSchema
+                            .buildWithConfig(schemaConfig)
+                            .getSeaTunnelRowType();
+                    readStrategy.setSeaTunnelRowTypeInfo(rowType);
+                    break;
+                case ORC:
+                case PARQUET:
+                    throw new UnsupportedOperationException("SeaTunnel does not support user-defined schema for [parquet, orc] files");
+                default:
+                    // never got in there
+                    throw new UnsupportedOperationException("SeaTunnel does not supported this file format");
+            }
         } else {
             try {
                 rowType = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filePaths.get(0));

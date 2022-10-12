@@ -31,6 +31,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerLoggerFactory;
 import ru.yandex.clickhouse.BalancedClickhouseDataSource;
 import ru.yandex.clickhouse.ClickHouseConnection;
 import ru.yandex.clickhouse.ClickHouseStatement;
@@ -55,7 +56,7 @@ public class FakeSourceToClickhouseIT extends FlinkContainer {
         clickhouseServer = new GenericContainer<>(CLICKHOUSE_DOCKER_IMAGE)
             .withNetwork(NETWORK)
             .withNetworkAliases("clickhouse")
-            .withLogConsumer(new Slf4jLogConsumer(log));
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(CLICKHOUSE_DOCKER_IMAGE)));
         clickhouseServer.setPortBindings(Lists.newArrayList("8123:8123"));
         Startables.deepStart(Stream.of(clickhouseServer)).join();
         log.info("Clickhouse container started");

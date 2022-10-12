@@ -15,23 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.common;
+package org.apache.seatunnel.e2e.common.container;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
+import static org.apache.seatunnel.e2e.common.container.EngineType.FLINK;
+import static org.apache.seatunnel.e2e.common.container.EngineType.SPARK;
 
-public class ExceptionUtil {
-    public static String getMessage(Throwable e) {
-        try (StringWriter sw = new StringWriter();
-             PrintWriter pw = new PrintWriter(sw)){
-            // Output the error stack information to the printWriter
-            e.printStackTrace(pw);
-            pw.flush();
-            sw.flush();
-            return sw.toString();
-        } catch (Exception e1) {
-            e1.printStackTrace();
-            throw new RuntimeException("Failed to print exception logs", e1);
-        }
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+@AllArgsConstructor
+@Getter
+public enum TestContainerId {
+    FLINK_1_13(FLINK, "1.13.6"),
+    SPARK_2_4(SPARK, "2.4.3"),
+    SEATUNNEL(EngineType.SEATUNNEL, "2.2.0");
+
+    private final EngineType engineType;
+    private final String version;
+
+    @Override
+    public String toString() {
+        return engineType.toString() + ":" + version;
     }
 }
