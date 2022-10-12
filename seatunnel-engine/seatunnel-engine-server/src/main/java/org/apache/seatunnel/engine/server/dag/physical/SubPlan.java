@@ -330,7 +330,9 @@ public class SubPlan {
                 pipelineRestoreNum++;
                 LOGGER.info(String.format("Restore pipeline %s", pipelineFullName));
                 // We must ensure the scheduler complete and then can handle pipeline state change.
-                jobMaster.getScheduleFuture().join();
+                if (jobMaster.getScheduleFuture() != null) {
+                    jobMaster.getScheduleFuture().join();
+                }
 
                 if (reSchedulerPipelineFuture != null) {
                     reSchedulerPipelineFuture.join();

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
@@ -64,6 +65,8 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     private final SeaTunnelConfig seaTunnelConfig;
 
+    private boolean isRunning = true;
+
     public SeaTunnelServer(@NonNull Node node, @NonNull SeaTunnelConfig seaTunnelConfig) {
         this.logger = node.getLogger(getClass());
         this.liveOperationRegistry = new LiveOperationRegistry();
@@ -100,7 +103,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         );
         taskExecutionService.start();
         getSlotService();
-        coordinatorService = new CoordinatorService(nodeEngine, executorService);
+        coordinatorService = new CoordinatorService(nodeEngine, executorService, this);
         monitorService = Executors.newSingleThreadScheduledExecutor();
         monitorService.scheduleAtFixedRate(() -> printExecutionInfo(), 0, 60, TimeUnit.SECONDS);
     }
@@ -112,6 +115,10 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     @Override
     public void shutdown(boolean terminate) {
+        isRunning = false;
+        if (monitorService != null) {
+            monitorService.shutdown();
+        }
         if (slotService != null) {
             slotService.close();
         }
@@ -120,7 +127,6 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         }
         executorService.shutdown();
         taskExecutionService.shutdown();
-        monitorService.shutdown();
     }
 
     @Override
@@ -131,7 +137,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     @Override
     public void memberRemoved(MembershipServiceEvent event) {
         try {
-            if (coordinatorService.isMasterNode()) {
+            if (isMasterNode()) {
                 this.getCoordinatorService().memberRemoved(event);
             }
         } catch (SeaTunnelEngineException e) {
@@ -159,19 +165,24 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     @SuppressWarnings("checkstyle:MagicNumber")
     public CoordinatorService getCoordinatorService() {
         int retryCount = 0;
-        while (coordinatorService.isMasterNode() && !coordinatorService.isCoordinatorActive() && retryCount < 20) {
-            try {
-                logger.warning("Waiting this node become the active master node");
-                Thread.sleep(1000);
-                retryCount++;
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+        if (isMasterNode()) {
+            while (!coordinatorService.isCoordinatorActive() && retryCount < 20000 && isRunning) {
+                try {
+                    logger.warning("This is master node, waiting the coordinator service init finished");
+                    Thread.sleep(1000);
+                    retryCount++;
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
             }
+            if (coordinatorService.isCoordinatorActive()) {
+                return coordinatorService;
+            }
+
+            throw new SeaTunnelEngineException("Can not get coordinator service from an active master node.");
+        } else {
+            throw new SeaTunnelEngineException("Please don't get coordinator service from an inactive master node");
         }
-        if (!coordinatorService.isCoordinatorActive()) {
-            throw new SeaTunnelEngineException("Can not get coordinator service from an inactive master node.");
-        }
-        return coordinatorService;
     }
 
     public TaskExecutionService getTaskExecutionService() {
@@ -180,17 +191,32 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     /**
      * return whether task is end
+     *
      * @param taskGroupLocation taskGroupLocation
      * @return
      */
     public boolean taskIsEnded(@NonNull TaskGroupLocation taskGroupLocation) {
-        IMap<Object, Object> runningJobState = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Object> runningJobState =
+            nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
         if (runningJobState == null) {
             return false;
         }
 
         Object taskState = runningJobState.get(taskGroupLocation);
         return taskState == null ? false : ((ExecutionState) taskState).isEndState();
+    }
+
+    @SuppressWarnings("checkstyle:MagicNumber")
+    public boolean isMasterNode() {
+        // must retry until the cluster have master node
+        try {
+            return RetryUtils.retryWithException(() -> {
+                return nodeEngine.getMasterAddress().equals(nodeEngine.getThisAddress());
+            }, new RetryUtils.RetryMaterial(20, true,
+                exception -> exception instanceof NullPointerException && isRunning, 1000));
+        } catch (Exception e) {
+            throw new SeaTunnelEngineException("cluster have no master node", e);
+        }
     }
 
     private void printExecutionInfo() {

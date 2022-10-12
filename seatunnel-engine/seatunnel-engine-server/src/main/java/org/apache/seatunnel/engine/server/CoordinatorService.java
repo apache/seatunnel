@@ -111,15 +111,24 @@ public class CoordinatorService {
     private volatile boolean isActive = false;
 
     private final ExecutorService executorService;
-    private final ScheduledExecutorService monitorService;
+
+    private final SeaTunnelServer seaTunnelServer;
+
+    private ScheduledExecutorService masterActiveListener;
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    public CoordinatorService(@NonNull NodeEngineImpl nodeEngine, @NonNull ExecutorService executorService) {
+    public CoordinatorService(@NonNull NodeEngineImpl nodeEngine, @NonNull ExecutorService executorService,
+                              @NonNull SeaTunnelServer seaTunnelServer) {
         this.nodeEngine = nodeEngine;
         this.logger = nodeEngine.getLogger(getClass());
         this.executorService = executorService;
-        this.monitorService = Executors.newSingleThreadScheduledExecutor();
-        monitorService.scheduleAtFixedRate(() -> checkNewActiveMaster(), 0, 100, TimeUnit.MILLISECONDS);
+        this.seaTunnelServer = seaTunnelServer;
+        masterActiveListener = Executors.newSingleThreadScheduledExecutor();
+        CompletableFuture future = new CompletableFuture();
+        future.whenComplete((r, t) -> {
+            throw new SeaTunnelEngineException("check new active master thread failed", (Throwable) t);
+        });
+        masterActiveListener.scheduleAtFixedRate(() -> checkNewActiveMaster(future), 0, 100, TimeUnit.MILLISECONDS);
     }
 
     public JobMaster getJobMaster(Long jobId) {
@@ -146,8 +155,11 @@ public class CoordinatorService {
         ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
 
         List<CompletableFuture<Void>> collect = runningJobInfoIMap.entrySet().stream().map(entry -> {
-            return CompletableFuture.runAsync(() -> restoreJobFromMasterActiveSwitch(entry.getKey(), entry.getValue()),
-                executorService);
+            return CompletableFuture.runAsync(() -> {
+                logger.info(String.format("begin restore job (%s) from master active switch", entry.getKey()));
+                restoreJobFromMasterActiveSwitch(entry.getKey(), entry.getValue());
+                logger.info(String.format("restore job (%s) from master active switch", entry.getKey()));
+            }, executorService);
         }).collect(Collectors.toList());
 
         try {
@@ -170,7 +182,7 @@ public class CoordinatorService {
             new JobMaster(runningJobInfo.getJobImmutableInformation(),
                 nodeEngine,
                 executorService,
-                resourceManager,
+                getResourceManager(),
                 runningJobStateIMap,
                 runningJobStateTimestampsIMap,
                 ownedSlotProfilesIMap);
@@ -225,15 +237,20 @@ public class CoordinatorService {
         }
     }
 
-    private void checkNewActiveMaster() {
-        if (!isActive && isMasterNode()) {
-            logger.info("This node become a new active master node, begin init coordinator service");
-            initCoordinatorService();
-            isActive = true;
-        } else if (isActive && !isMasterNode()) {
-            isActive = false;
-            logger.info("This node become leave active master node, begin clear coordinator service");
-            clearCoordinatorService();
+    private void checkNewActiveMaster(@NonNull CompletableFuture future) {
+        try {
+            if (!isActive && this.seaTunnelServer.isMasterNode()) {
+                logger.info("This node become a new active master node, begin init coordinator service");
+                initCoordinatorService();
+                isActive = true;
+            } else if (isActive && !this.seaTunnelServer.isMasterNode()) {
+                isActive = false;
+                logger.info("This node become leave active master node, begin clear coordinator service");
+                clearCoordinatorService();
+            }
+        } catch (Exception e) {
+            logger.severe(ExceptionUtils.getMessage(e));
+            future.completeExceptionally(e);
         }
     }
 
@@ -253,15 +270,6 @@ public class CoordinatorService {
         if (resourceManager != null) {
             resourceManager.close();
         }
-    }
-
-    public boolean isMasterNode() {
-        Address masterAddress = nodeEngine.getMasterAddress();
-        if (masterAddress == null) {
-            return false;
-        }
-
-        return masterAddress.equals(nodeEngine.getThisAddress());
     }
 
     /**
@@ -387,10 +395,12 @@ public class CoordinatorService {
     }
 
     public void shutdown() {
+        if (masterActiveListener != null) {
+            masterActiveListener.shutdown();
+        }
         if (resourceManager != null) {
             resourceManager.close();
         }
-        monitorService.shutdown();
     }
 
     /**
@@ -422,7 +432,7 @@ public class CoordinatorService {
                 TaskGroupLocation taskGroupLocation = physicalVertex.getTaskGroupLocation();
                 physicalVertex.updateTaskExecutionState(
                     new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED,
-                        new SeaTunnelEngineException(
+                        new JobException(
                             String.format("The taskGroup(%s) deployed node(%s) offline", taskGroupLocation,
                                 lostAddress))));
             }

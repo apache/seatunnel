@@ -101,7 +101,8 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 
     @SuppressWarnings("MagicNumber")
     public static final class Builder {
-        private long checkpointInterval = 300000;
+        // TODO 5000 is for test, we can update checkpointInterval to 300000 after we support it read from job config
+        private long checkpointInterval = 5000;
         private long checkpointTimeout = 300000;
         private int maxConcurrentCheckpoints = 1;
         private int tolerableFailureCheckpoints = 0;

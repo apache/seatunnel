@@ -33,6 +33,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class TextWriteStrategy extends AbstractWriteStrategy {
     private final Map<String, FSDataOutputStream> beingWrittenOutputStream;
@@ -46,7 +47,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
 
     public TextWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
         super(textFileSinkConfig);
-        this.beingWrittenOutputStream = new HashMap<>();
+        this.beingWrittenOutputStream = new ConcurrentHashMap<>();
         this.isFirstWrite = new HashMap<>();
         this.fieldDelimiter = textFileSinkConfig.getFieldDelimiter();
         this.rowDelimiter = textFileSinkConfig.getRowDelimiter();
@@ -101,6 +102,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
             }
             needMoveFiles.put(key, getTargetLocation(key));
         });
+        beingWrittenOutputStream.clear();
     }
 
     private FSDataOutputStream getOrCreateOutputStream(@NonNull String filePath) {
