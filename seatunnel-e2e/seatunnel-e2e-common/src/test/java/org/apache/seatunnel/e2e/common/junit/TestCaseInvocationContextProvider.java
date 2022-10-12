@@ -34,13 +34,9 @@ import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContext;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
-import org.junit.platform.commons.util.AnnotationUtils;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -57,16 +53,8 @@ public class TestCaseInvocationContextProvider implements TestTemplateInvocation
     @SuppressWarnings("unchecked")
     @Override
     public Stream<TestTemplateInvocationContext> provideTestTemplateInvocationContexts(ExtensionContext context) {
-        final List<String> disabledContainers = new ArrayList<>();
-        AnnotationUtils.findAnnotation(context.getRequiredTestMethod(), DisabledOnContainer.class)
-            .ifPresent(annotation -> Collections.addAll(disabledContainers, annotation.value()));
-
-        // Filters disabled containers
-        List<TestContainer> testContainers = ((List<TestContainer>) context.getStore(TEST_RESOURCE_NAMESPACE)
-            .get(TEST_CONTAINERS_STORE_KEY))
-            .stream()
-            .filter(container -> !disabledContainers.contains(container.identifier()))
-            .collect(Collectors.toList());
+        List<TestContainer> testContainers = AnnotationUtil.filterDisabledContainers((List<TestContainer>) context.getStore(TEST_RESOURCE_NAMESPACE)
+            .get(TEST_CONTAINERS_STORE_KEY), context.getRequiredTestMethod());
 
         ContainerExtendedFactory containerExtendedFactory = (ContainerExtendedFactory) context.getStore(TEST_RESOURCE_NAMESPACE)
             .get(TEST_EXTENDED_FACTORY_STORE_KEY);

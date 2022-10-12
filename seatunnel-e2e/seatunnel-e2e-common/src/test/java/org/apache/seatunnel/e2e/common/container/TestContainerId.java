@@ -17,20 +17,24 @@
 
 package org.apache.seatunnel.e2e.common.container;
 
-import org.apache.seatunnel.e2e.common.TestResource;
+import static org.apache.seatunnel.e2e.common.container.EngineType.FLINK;
+import static org.apache.seatunnel.e2e.common.container.EngineType.SPARK;
 
-import org.testcontainers.containers.Container;
-import org.testcontainers.containers.Network;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
-import java.io.IOException;
+@AllArgsConstructor
+@Getter
+public enum TestContainerId {
+    FLINK_1_13(FLINK, "1.13.6"),
+    SPARK_2_4(SPARK, "2.4.3"),
+    SEATUNNEL(EngineType.SEATUNNEL, "2.2.0");
 
-public interface TestContainer extends TestResource {
+    private final EngineType engineType;
+    private final String version;
 
-    Network NETWORK = Network.newNetwork();
-
-    TestContainerId identifier();
-
-    void executeExtraCommands(ContainerExtendedFactory extendedFactory) throws IOException, InterruptedException;
-
-    Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException;
+    @Override
+    public String toString() {
+        return engineType.toString() + ":" + version;
+    }
 }
