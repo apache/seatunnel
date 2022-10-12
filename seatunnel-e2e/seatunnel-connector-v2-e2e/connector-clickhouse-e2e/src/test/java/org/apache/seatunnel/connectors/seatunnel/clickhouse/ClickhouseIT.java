@@ -140,7 +140,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private static Config getInitClickhouseConfig() {
         File file = ContainerUtil.getResourcesFile(INIT_CLICKHOUSE_PATH);
         Config config = ConfigFactory.parseFile(file);
-        assert config.hasPath(SOURCE_TABLE) && config.hasPath(SINK_TABLE) && config.hasPath(INSERT_SQL);
+        assert config.hasPath(SOURCE_TABLE) && config.hasPath(SINK_TABLE) && config.hasPath(INSERT_SQL) && config.hasPath(COMPARE_SQL);
         return config;
     }
 
