@@ -26,7 +26,7 @@
     <artifactId>connector-iceberg-hadoop3-flink-e2e</artifactId>
 
     <properties>
-        <flink-shaded-hadoop-3-uber.verison>3.1.1.7.2.9.0-173-9.0</flink-shaded-hadoop-3-uber.verison>
+        <hadoop-client.version>3.3.4</hadoop-client.version>
     </properties>
 
     <dependencies>
@@ -45,9 +45,9 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-shaded-hadoop-3-uber</artifactId>
-            <version>${flink-shaded-hadoop-3-uber.verison}</version>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-client</artifactId>
+            <version>${hadoop-client.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
