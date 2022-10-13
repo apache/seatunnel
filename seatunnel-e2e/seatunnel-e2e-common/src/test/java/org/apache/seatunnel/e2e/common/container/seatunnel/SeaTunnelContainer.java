@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.common.container.seatunnel;
 
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
+
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
@@ -26,9 +28,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Paths;
@@ -42,10 +44,6 @@ public class SeaTunnelContainer extends AbstractTestContainer {
 
     private static final Logger LOG = LoggerFactory.getLogger(SeaTunnelContainer.class);
     private static final String JDK_DOCKER_IMAGE = "openjdk:8";
-    protected static final Network NETWORK = Network.newNetwork();
-
-    private static final String SEATUNNEL_HOME = "/tmp/seatunnel";
-    private static final String SEATUNNEL_BIN = Paths.get(SEATUNNEL_HOME, "bin").toString();
     private static final String CLIENT_SHELL = "seatunnel.sh";
     private static final String SERVER_SHELL = "seatunnel-cluster.sh";
     private GenericContainer<?> server;
@@ -54,13 +52,15 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     public void startUp() throws Exception {
         server = new GenericContainer<>(getDockerImage())
             .withNetwork(NETWORK)
-            .withCommand(Paths.get(SEATUNNEL_BIN, SERVER_SHELL).toString())
+            .withCommand(Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString())
             .withNetworkAliases("server")
             .withExposedPorts()
-            .withLogConsumer(new Slf4jLogConsumer(LOG))
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger("seatunnel-engine:" + JDK_DOCKER_IMAGE)))
             .waitingFor(Wait.forLogMessage(".*received new worker register.*\\n", 1));
+        bindSeaTunnelStarter(server);
+        server.withFileSystemBind(PROJECT_ROOT_PATH + "/seatunnel-engine/seatunnel-engine-common/src/main/resources/",
+            Paths.get(SEATUNNEL_HOME, "config").toString());
         server.start();
-        copySeaTunnelStarter(server);
         // execute extra commands
         // TODO copy config file
         executeExtraCommands(server);
