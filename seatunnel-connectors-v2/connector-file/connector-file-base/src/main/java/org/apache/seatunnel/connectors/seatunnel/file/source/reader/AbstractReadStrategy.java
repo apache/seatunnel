@@ -24,7 +24,6 @@ import static org.apache.parquet.avro.AvroWriteSupport.WRITE_OLD_LIST_STRUCTURE;
 
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
@@ -135,21 +134,6 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 .map(split -> split.split("=", -1))
                 .forEach(kv -> partitions.put(kv[0], kv[1]));
         return partitions;
-    }
-
-    protected SeaTunnelRow mergePartitionFields(Map<String, String> partitionsMap, SeaTunnelRow seaTunnelRow) {
-        // get all values of partition fields
-        Object[] partitions = partitionsMap.values().toArray(new Object[0]);
-        // get all values of origin SeaTunnelRow
-        Object[] fields = seaTunnelRow.getFields();
-        // create a new array to merge partition fields and origin fields
-        Object[] objects = new Object[fields.length + partitions.length];
-        // copy origin values to new array
-        System.arraycopy(fields, 0, objects, 0, fields.length);
-        // copy partitions values to new array
-        System.arraycopy(partitions, 0, objects, fields.length, partitions.length);
-        // return merge row
-        return new SeaTunnelRow(objects);
     }
 
     protected SeaTunnelRowType mergePartitionTypes(String path, SeaTunnelRowType seaTunnelRowType) {
