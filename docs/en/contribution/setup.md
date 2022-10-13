@@ -50,7 +50,7 @@ If you want to build submodules separately,you can use the follow command to com
 ```ssh
 # This is an example of building the redis connector separately
 
- mvn clean package -pl seatunnel-connectors-v2/connector-redis -am -DskipTest
+ mvn clean package -pl seatunnel-connectors-v2/connector-redis -am -DskipTest -T1C
 ```
 
 ### Install JetBrains IDEA Scala Plugin
