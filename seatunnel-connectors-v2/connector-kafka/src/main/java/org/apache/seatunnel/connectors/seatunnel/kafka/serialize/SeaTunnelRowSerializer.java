@@ -30,4 +30,13 @@ public interface SeaTunnelRowSerializer<K, V> {
      * @return kafka record.
      */
     ProducerRecord<K, V> serializeRow(SeaTunnelRow row);
+
+    /**
+     * Use Key serialize the {@link SeaTunnelRow} to a Kafka {@link ProducerRecord}.
+     *
+     * @param key String
+     * @param row seatunnel row
+     * @return kafka record.
+     */
+    ProducerRecord<K, V> serializeRowByKey(String key, SeaTunnelRow row);
 }

@@ -21,6 +21,7 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 | bootstrap.servers  | string                 | yes      | -             |
 | kafka.*            | kafka producer config  | no       | -             |
 | semantic           | string                 | no       | NON           |
+| key                | string                 | no       | -           |
 | partition          | int                    | no       | -             |
 | assign_partitions  | list                   | no       | -             |
 | transaction_prefix | string                 | no       | -             |
@@ -49,6 +50,21 @@ In EXACTLY_ONCE, producer will write all messages in a Kafka transaction that wi
 In AT_LEAST_ONCE, producer will wait for all outstanding messages in the Kafka buffers to be acknowledged by the Kafka producer on a checkpoint.
 
 NON does not provide any guarantees: messages may be lost in case of issues on the Kafka broker and messages may be duplicated.
+
+### key [string]
+
+Determine the partition of the kafka send message based on the key.
+
+For example, if you want to use value of a field from upstream data as key, you can assign it to the field name.
+
+Upstream data is the following:
+
+| name | age  | data          |
+| ---- | ---- | ------------- |
+| Jack | 16   | data-example1 |
+| Mary | 23   | data-example2 |
+
+If name is set as the key, then the hash value of the name column will determine which partition the message is sent to.
 
 ### partition [int]
 
@@ -93,7 +109,9 @@ sink {
 
 ###  change log
 ####  next version
- 
+
  - Add kafka sink doc 
  - New feature : Kafka specified partition to send 
- - New feature : Determine the partition that kafka send based on the message content
+ - New feature : Determine the partition that kafka send messag based on the message content
+ - New feature : Determine the partition of the kafka send message based on the field name
+

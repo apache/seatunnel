@@ -48,4 +48,10 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byt
             return new ProducerRecord<>(topic, null, jsonSerializationSchema.serialize(row));
         }
     }
+
+    @Override
+    public ProducerRecord<byte[], byte[]> serializeRowByKey(String key, SeaTunnelRow row) {
+        return new ProducerRecord<>(topic, key.getBytes(), jsonSerializationSchema.serialize(row));
+    }
+
 }

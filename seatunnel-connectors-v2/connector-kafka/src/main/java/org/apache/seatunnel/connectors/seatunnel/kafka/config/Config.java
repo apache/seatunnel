@@ -59,4 +59,9 @@ public class Config {
      * Determine the partition to send based on the content of the message.
      */
     public static final String ASSIGN_PARTITIONS = "assign_partitions";
+
+    /**
+     * Determine the key of the kafka send partition
+     */
+    public static final String KEY = "key";
 }
