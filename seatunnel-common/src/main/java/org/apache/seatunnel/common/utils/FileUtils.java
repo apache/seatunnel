@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.common.utils;
 
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
@@ -26,6 +27,8 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
 
 @Slf4j
 public class FileUtils {
@@ -36,7 +39,7 @@ public class FileUtils {
             return new String(bytes);
         } catch (IOException e) {
             log.error(ExceptionUtils.getMessage(e));
-            throw new RuntimeException(e);
+            throw new SeaTunnelException(e);
         }
     }
 
@@ -48,7 +51,7 @@ public class FileUtils {
             ps.println(str);
         } catch (FileNotFoundException e) {
             log.error(ExceptionUtils.getMessage(e));
-            throw new RuntimeException(e);
+            throw new SeaTunnelException(e);
         } finally {
             if (ps != null) {
                 ps.close();
@@ -77,6 +80,78 @@ public class FileUtils {
 
         if (!file.getParentFile().exists()) {
             createParentFile(file);
+        }
+    }
+
+    /**
+     * return the line number of file
+     *
+     * @param filePath The file need be read
+     * @return
+     */
+    public static Long getFileLineNumber(@NonNull String filePath) {
+        try {
+            return Files.lines(Paths.get(filePath)).count();
+        } catch (IOException e) {
+            throw new SeaTunnelException(String.format("get file[%s] line error", filePath), e);
+        }
+    }
+
+    /**
+     * return the line number of all files in the dirPath
+     *
+     * @param dirPath dirPath
+     * @return
+     */
+    public static Long getFileLineNumberFromDir(@NonNull String dirPath) {
+        File file = new File(dirPath);
+        if (file.isDirectory()) {
+            File[] files = file.listFiles();
+            if (files == null) {
+                return 0L;
+            }
+            return Arrays.stream(files).map(currFile -> {
+                if (currFile.isDirectory()) {
+                    return getFileLineNumberFromDir(currFile.getPath());
+                } else {
+                    return getFileLineNumber(currFile.getPath());
+                }
+            }).mapToLong(Long::longValue).sum();
+        }
+        return getFileLineNumber(file.getPath());
+    }
+
+    /**
+     * clear dir and the sub dir
+     *
+     * @param filePath filePath
+     * @return
+     */
+    public static void deleteFile(@NonNull String filePath) {
+        File file = new File(filePath);
+        if (file.exists()) {
+            if (file.isDirectory()) {
+                deleteFiles(file);
+            }
+            file.delete();
+        }
+    }
+
+    private static void deleteFiles(@NonNull File file) {
+        try {
+            File[] files = file.listFiles();
+            for (int i = 0; i < files.length; i++) {
+                File thisFile = files[i];
+                if (thisFile.isDirectory()) {
+                    deleteFiles(thisFile);
+                }
+                thisFile.delete();
+            }
+            file.delete();
+
+        } catch (Exception e) {
+            log.error("delete file [" + file.getPath() + "] error");
+            throw new SeaTunnelException(e);
         }
     }
 }

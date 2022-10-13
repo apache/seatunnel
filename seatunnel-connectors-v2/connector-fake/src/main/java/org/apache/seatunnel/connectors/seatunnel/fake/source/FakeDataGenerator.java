@@ -113,7 +113,7 @@ public class FakeDataGenerator {
             case NULL:
                 return null;
             case BYTES:
-                return RandomUtils.nextBytes(fakeConfig.getBytesLength());
+                return RandomStringUtils.randomAlphabetic(fakeConfig.getBytesLength()).getBytes();
             case DATE:
                 return randomLocalDateTime().toLocalDate();
             case TIME:
