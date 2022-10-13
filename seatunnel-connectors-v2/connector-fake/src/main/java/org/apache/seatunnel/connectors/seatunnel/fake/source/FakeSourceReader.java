@@ -72,10 +72,10 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
                 if (!noMoreSplit) {
                     log.info("wait split!");
                 }
-                Thread.sleep(1000L);
             }
 
         }
+        Thread.sleep(1000L);
     }
 
     @Override
