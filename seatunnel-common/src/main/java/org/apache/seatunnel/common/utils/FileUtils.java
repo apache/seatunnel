@@ -105,20 +105,20 @@ public class FileUtils {
      */
     public static Long getFileLineNumberFromDir(@NonNull String dirPath) {
         File file = new File(dirPath);
-        Long value = null;
         if (file.isDirectory()) {
-            value = Arrays.stream(file.listFiles()).map(currFile -> {
+            File[] files = file.listFiles();
+            if (files == null) {
+                return 0L;
+            }
+            return Arrays.stream(files).map(currFile -> {
                 if (currFile.isDirectory()) {
                     return getFileLineNumberFromDir(currFile.getPath());
                 } else {
                     return getFileLineNumber(currFile.getPath());
                 }
             }).mapToLong(Long::longValue).sum();
-        } else {
-            value = getFileLineNumber(file.getPath());
         }
-
-        return value;
+        return getFileLineNumber(file.getPath());
     }
 
     /**
