@@ -32,7 +32,7 @@ public enum CheckpointType {
     /**
      * Automatically triggered by the Task.
      */
-    AUTO_SAVEPOINT_TYPE(true, "auto-savepoint");
+    COMPLETED_POINT_TYPE(true, "completed-point");
 
     private final boolean auto;
     private final String name;
