@@ -69,7 +69,6 @@ public class IcebergSourceIT extends SparkContainer {
         Types.NestedField.optional(5, "f5", Types.FloatType.get()),
         Types.NestedField.optional(6, "f6", Types.DoubleType.get()),
         Types.NestedField.optional(7, "f7", Types.DateType.get()),
-       /* Types.NestedField.optional(8, "f8", Types.TimeType.get()),*/
         Types.NestedField.optional(9, "f9", Types.TimestampType.withZone()),
         Types.NestedField.optional(10, "f10", Types.TimestampType.withoutZone()),
         Types.NestedField.optional(11, "f11", Types.StringType.get()),
