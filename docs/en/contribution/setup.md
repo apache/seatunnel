@@ -35,10 +35,22 @@ Otherwise, your code could not start in JetBrains IntelliJ IDEA correctly.
 ./mvnw install -Dmaven.test.skip
 ```
 
-### Building SeaTunnel from source
+### Building seaTunnel from source
+
 After you install the maven, you can use the follow command to compile and package.
+
 ```
 mvn clean package -pl seatunnel-dist -am -Dmaven.test.skip=true
+```
+
+### Building sub module
+
+If you want to build submodules separately,you can use the follow command to compile and package.
+
+```ssh
+# This is an example of building the redis connector separately
+
+ mvn clean package -pl seatunnel-connectors-v2/connector-redis -am -DskipTest
 ```
 
 ### Install JetBrains IDEA Scala Plugin
