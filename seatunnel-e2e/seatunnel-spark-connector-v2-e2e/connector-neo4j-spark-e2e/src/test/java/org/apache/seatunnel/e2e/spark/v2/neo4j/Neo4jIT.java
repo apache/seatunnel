@@ -75,7 +75,7 @@ public class Neo4jIT extends SparkContainer {
             .withNetwork(NETWORK)
             .withNetworkAliases(CONTAINER_HOST)
             .withEnv("NEO4J_AUTH", CONTAINER_NEO4J_USERNAME + "/" + CONTAINER_NEO4J_PASSWORD)
-            .withLogConsumer(new Slf4jLogConsumer(log));
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(CONTAINER_IMAGE)));
         container.setPortBindings(Lists.newArrayList(String.format("%s:%s", CONTAINER_PORT, CONTAINER_PORT)));
         Startables.deepStart(Stream.of(container)).join();
         log.info("container started");
