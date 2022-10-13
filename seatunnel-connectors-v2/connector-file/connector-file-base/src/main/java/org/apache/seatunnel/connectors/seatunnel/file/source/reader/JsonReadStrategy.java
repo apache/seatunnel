@@ -41,7 +41,11 @@ public class JsonReadStrategy extends AbstractReadStrategy {
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
-        deserializationSchema = new JsonDeserializationSchema(false, false, this.seaTunnelRowType);
+        if (isMergePartition) {
+            deserializationSchema = new JsonDeserializationSchema(false, false, this.seaTunnelRowTypeWithPartition);
+        } else {
+            deserializationSchema = new JsonDeserializationSchema(false, false, this.seaTunnelRowType);
+        }
     }
 
     @Override
@@ -55,10 +59,12 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                 try {
                     SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(line.getBytes());
                     if (isMergePartition) {
-                        output.collect(mergePartitionFields(partitionsMap, seaTunnelRow));
-                    } else {
-                        output.collect(seaTunnelRow);
+                        int index = seaTunnelRowType.getTotalFields();
+                        for (String value : partitionsMap.values()) {
+                            seaTunnelRow.setField(index++, value);
+                        }
                     }
+                    output.collect(seaTunnelRow);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }

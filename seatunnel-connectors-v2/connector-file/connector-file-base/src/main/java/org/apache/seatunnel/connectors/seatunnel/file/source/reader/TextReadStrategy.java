@@ -57,12 +57,12 @@ public class TextReadStrategy extends AbstractReadStrategy {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(filePath), StandardCharsets.UTF_8))) {
             reader.lines().forEach(line -> {
                 try {
-                    SeaTunnelRow seaTunnelRow;
+                    SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(line.getBytes());
                     if (isMergePartition) {
-                        seaTunnelRow = ((TextDeserializationSchema) deserializationSchema)
-                                .deserialize(line.getBytes(), partitionsMap);
-                    } else {
-                        seaTunnelRow = deserializationSchema.deserialize(line.getBytes());
+                        int index = seaTunnelRowType.getTotalFields();
+                        for (String value : partitionsMap.values()) {
+                            seaTunnelRow.setField(index++, value);
+                        }
                     }
                     output.collect(seaTunnelRow);
                 } catch (IOException e) {
@@ -78,10 +78,17 @@ public class TextReadStrategy extends AbstractReadStrategy {
         SeaTunnelRowType simpleSeaTunnelType = SeaTunnelSchema.buildSimpleTextSchema();
         this.seaTunnelRowType = simpleSeaTunnelType;
         this.seaTunnelRowTypeWithPartition = mergePartitionTypes(fileNames.get(0), simpleSeaTunnelType);
-        deserializationSchema = TextDeserializationSchema.builder()
-                .seaTunnelRowType(simpleSeaTunnelType)
-                .delimiter(String.valueOf('\002'))
-                .build();
+        if (isMergePartition) {
+            deserializationSchema = TextDeserializationSchema.builder()
+                    .seaTunnelRowType(this.seaTunnelRowTypeWithPartition)
+                    .delimiter(String.valueOf('\002'))
+                    .build();
+        } else {
+            deserializationSchema = TextDeserializationSchema.builder()
+                    .seaTunnelRowType(this.seaTunnelRowType)
+                    .delimiter(String.valueOf('\002'))
+                    .build();
+        }
         return getActualSeaTunnelRowTypeInfo();
     }
 
@@ -105,12 +112,22 @@ public class TextReadStrategy extends AbstractReadStrategy {
         if (pluginConfig.hasPath(BaseSourceConfig.TIME_FORMAT)) {
             timeFormat = TimeUtils.Formatter.parse(pluginConfig.getString(BaseSourceConfig.TIME_FORMAT));
         }
-        deserializationSchema = TextDeserializationSchema.builder()
-                .seaTunnelRowType(seaTunnelRowType)
-                .delimiter(fieldDelimiter)
-                .dateFormatter(dateFormat)
-                .dateTimeFormatter(datetimeFormat)
-                .timeFormatter(timeFormat)
-                .build();
+        if (isMergePartition) {
+            deserializationSchema = TextDeserializationSchema.builder()
+                    .seaTunnelRowType(this.seaTunnelRowTypeWithPartition)
+                    .delimiter(fieldDelimiter)
+                    .dateFormatter(dateFormat)
+                    .dateTimeFormatter(datetimeFormat)
+                    .timeFormatter(timeFormat)
+                    .build();
+        } else {
+            deserializationSchema = TextDeserializationSchema.builder()
+                    .seaTunnelRowType(this.seaTunnelRowType)
+                    .delimiter(fieldDelimiter)
+                    .dateFormatter(dateFormat)
+                    .dateTimeFormatter(datetimeFormat)
+                    .timeFormatter(timeFormat)
+                    .build();
+        }
     }
 }
