@@ -63,16 +63,19 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
                 for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {
                     output.collect(seaTunnelRow);
                 }
-                if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
+            } else {
+                if (noMoreSplit && Boundedness.BOUNDED.equals(context.getBoundedness())) {
                     // signal to the source that we have reached the end of the data.
                     log.info("Closed the bounded fake source");
                     context.signalNoMoreElement();
                 }
-            } else {
-                Thread.sleep(1000L);
+                if (!noMoreSplit) {
+                    log.info("wait split!");
+                }
             }
 
         }
+        Thread.sleep(1000L);
     }
 
     @Override

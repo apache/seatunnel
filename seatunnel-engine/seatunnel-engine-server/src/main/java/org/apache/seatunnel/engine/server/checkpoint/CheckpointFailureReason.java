@@ -15,36 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.common.config;
+package org.apache.seatunnel.engine.server.checkpoint;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+public enum CheckpointFailureReason {
 
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Optional;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+    TASK_FAILURE("Task has failed."),
+    CHECKPOINT_EXPIRED("Checkpoint expired before completing."),
+    CHECKPOINT_COORDINATOR_COMPLETED("CheckpointCoordinator completed."),
+    CHECKPOINT_COORDINATOR_SHUTDOWN("CheckpointCoordinator shutdown.");
 
-@Getter
-@AllArgsConstructor
-public enum DeployMode {
-    CLIENT("client"),
-    CLUSTER("cluster"),
-    ;
+    private final String message;
 
-    private static final Map<String, DeployMode> NAME_MAP = Arrays.stream(DeployMode.values())
-        .collect(Collectors.toMap(DeployMode::getName, Function.identity()));
-
-    private final String name;
-
-    public static Optional<DeployMode> from(String name) {
-        return Optional.ofNullable(NAME_MAP.get(name.toLowerCase()));
+    CheckpointFailureReason(String message) {
+        this.message = message;
     }
 
-    @Override
-    public String toString() {
-        return getName();
+    public String message() {
+        return message;
     }
-
 }

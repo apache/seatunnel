@@ -15,36 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.common.config;
+package org.apache.seatunnel.e2e.common.container;
+
+import static org.apache.seatunnel.e2e.common.container.EngineType.FLINK;
+import static org.apache.seatunnel.e2e.common.container.EngineType.SPARK;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Optional;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
-@Getter
 @AllArgsConstructor
-public enum DeployMode {
-    CLIENT("client"),
-    CLUSTER("cluster"),
-    ;
+@Getter
+public enum TestContainerId {
+    FLINK_1_13(FLINK, "1.13.6"),
+    SPARK_2_4(SPARK, "2.4.3"),
+    SEATUNNEL(EngineType.SEATUNNEL, "2.2.0");
 
-    private static final Map<String, DeployMode> NAME_MAP = Arrays.stream(DeployMode.values())
-        .collect(Collectors.toMap(DeployMode::getName, Function.identity()));
-
-    private final String name;
-
-    public static Optional<DeployMode> from(String name) {
-        return Optional.ofNullable(NAME_MAP.get(name.toLowerCase()));
-    }
+    private final EngineType engineType;
+    private final String version;
 
     @Override
     public String toString() {
-        return getName();
+        return engineType.toString() + ":" + version;
     }
-
 }

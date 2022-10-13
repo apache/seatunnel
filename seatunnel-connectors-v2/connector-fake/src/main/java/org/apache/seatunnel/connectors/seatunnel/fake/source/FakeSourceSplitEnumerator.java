@@ -18,12 +18,12 @@
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeSourceState;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class FakeSourceSplitEnumerator implements SourceSplitEnumerator<FakeSourceSplit, FakeSourceState> {
+public class FakeSourceSplitEnumerator implements SourceSplitEnumerator<FakeSourceSplit, Serializable> {
 
     private static final Logger LOG = LoggerFactory.getLogger(FakeSourceSplitEnumerator.class);
     private final SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext;
@@ -79,7 +79,7 @@ public class FakeSourceSplitEnumerator implements SourceSplitEnumerator<FakeSour
     }
 
     @Override
-    public FakeSourceState snapshotState(long checkpointId) throws Exception {
+    public Serializable snapshotState(long checkpointId) throws Exception {
         return null;
     }
 
@@ -115,6 +115,7 @@ public class FakeSourceSplitEnumerator implements SourceSplitEnumerator<FakeSour
                 // Assign pending splits to reader
                 LOG.info("Assigning splits to readers {}", pendingAssignmentForReader);
                 enumeratorContext.assignSplit(pendingReader, new ArrayList<>(pendingAssignmentForReader));
+                enumeratorContext.signalNoMoreSplits(pendingReader);
             }
         }
     }

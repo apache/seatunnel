@@ -15,36 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.common.config;
+package org.apache.seatunnel.e2e.common.container;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Optional;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
 @Getter
 @AllArgsConstructor
-public enum DeployMode {
-    CLIENT("client"),
-    CLUSTER("cluster"),
-    ;
-
-    private static final Map<String, DeployMode> NAME_MAP = Arrays.stream(DeployMode.values())
-        .collect(Collectors.toMap(DeployMode::getName, Function.identity()));
-
+public enum EngineType {
+    FLINK("Flink"),
+    SPARK("Spark"),
+    SEATUNNEL("SeaTunnel");
     private final String name;
-
-    public static Optional<DeployMode> from(String name) {
-        return Optional.ofNullable(NAME_MAP.get(name.toLowerCase()));
-    }
 
     @Override
     public String toString() {
-        return getName();
+        return name;
     }
-
 }
