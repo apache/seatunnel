@@ -23,20 +23,20 @@ import java.io.StringWriter;
 /**
  * SeaTunnel global exception, used to tell user more clearly error messages
  */
-public class SeaTunnelException extends RuntimeException {
+public class SeaTunnelRuntimeException extends RuntimeException {
     private final SeaTunnelErrorCode seaTunnelErrorCode;
 
-    public SeaTunnelException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+    public SeaTunnelRuntimeException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
         super(seaTunnelErrorCode.getErrorMessage() + " - " + errorMessage);
         this.seaTunnelErrorCode = seaTunnelErrorCode;
     }
 
-    public SeaTunnelException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+    public SeaTunnelRuntimeException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
         super(seaTunnelErrorCode.getErrorMessage() + " - " + errorMessage, cause);
         this.seaTunnelErrorCode = seaTunnelErrorCode;
     }
 
-    public SeaTunnelException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+    public SeaTunnelRuntimeException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
         super(seaTunnelErrorCode.getErrorMessage() + " - " + getMessageFromThrowable(cause));
         this.seaTunnelErrorCode = seaTunnelErrorCode;
     }
