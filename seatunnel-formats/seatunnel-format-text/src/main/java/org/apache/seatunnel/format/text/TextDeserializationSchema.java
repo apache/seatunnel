@@ -71,6 +71,20 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
         return seaTunnelRowType;
     }
 
+    public SeaTunnelRow deserialize(byte[] message, Map<String, String> partitionsMap) throws IOException {
+        String content = new String(message);
+        Map<Integer, String> splitsMap = splitLineBySeaTunnelRowType(content, seaTunnelRowType);
+        Object[] objects = new Object[splitsMap.size() + partitionsMap.size()];
+        for (int i = 0; i < objects.length; i++) {
+            objects[i] = convert(splitsMap.get(i), seaTunnelRowType.getFieldType(i));
+        }
+        int index = splitsMap.size();
+        for (String value : partitionsMap.values()) {
+            objects[index++] = value;
+        }
+        return new SeaTunnelRow(objects);
+    }
+
     private Map<Integer, String> splitLineBySeaTunnelRowType(String line, SeaTunnelRowType seaTunnelRowType) {
         String[] splits = line.split(delimiter, -1);
         LinkedHashMap<Integer, String> splitsMap = new LinkedHashMap<>();

@@ -57,12 +57,14 @@ public class TextReadStrategy extends AbstractReadStrategy {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(filePath), StandardCharsets.UTF_8))) {
             reader.lines().forEach(line -> {
                 try {
-                    SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(line.getBytes());
+                    SeaTunnelRow seaTunnelRow;
                     if (isMergePartition) {
-                        output.collect(mergePartitionFields(partitionsMap, seaTunnelRow));
+                        seaTunnelRow = ((TextDeserializationSchema) deserializationSchema)
+                                .deserialize(line.getBytes(), partitionsMap);
                     } else {
-                        output.collect(seaTunnelRow);
+                        seaTunnelRow = deserializationSchema.deserialize(line.getBytes());
                     }
+                    output.collect(seaTunnelRow);
                 } catch (IOException e) {
                     String errorMsg = String.format("Deserialize this data [%s] error, please check the origin data", line);
                     throw new RuntimeException(errorMsg);
