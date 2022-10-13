@@ -36,6 +36,8 @@ import org.apache.seatunnel.engine.server.execution.TestTask;
 import com.google.common.collect.Lists;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -61,26 +63,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    public void testAll() throws InterruptedException {
-        LOGGER.info("----------start Cancel test----------");
-        //testCancel();
-
-        LOGGER.info("----------start Finish test----------");
-        //testFinish();
-
-        LOGGER.info("----------start Delay test----------");
-        // This test will error while we have more and more test case.
-        //testDelay();
-        //testDelay();
-
-        LOGGER.info("----------start ThrowException test----------");
-        //testThrowException();
-
-        LOGGER.info("----------start CriticalCallTime test----------");
-        //testCriticalCallTime();
-
-    }
-
+    @Disabled("As we have more and more test cases the test the load of the test container will up, the test case may failed")
     public void testCancel() {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
@@ -99,6 +82,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             .untilAsserted(() -> assertEquals(CANCELED, completableFuture.get().getExecutionState()));
     }
 
+    @Test
+    @Disabled("As we have more and more test cases the test the load of the test container will up, the test case may failed")
     public void testFinish() {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
@@ -122,6 +107,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     /**
      * Test task execution time is the same as the timer timeout
      */
+    @Test
+    @Disabled("As we have more and more test cases the test the load of the test container will up, the test case may failed")
     public void testCriticalCallTime() throws InterruptedException {
         AtomicBoolean stopMark = new AtomicBoolean(false);
         CopyOnWriteArrayList<Long> stopTime = new CopyOnWriteArrayList<>();
@@ -153,6 +140,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
     }
 
+    @Test
+    @Disabled("As we have more and more test cases the test the load of the test container will up, the test case may failed")
     public void testThrowException() throws InterruptedException {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
@@ -203,6 +192,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             .untilAsserted(() -> assertEquals(FINISHED, taskCts.get().getExecutionState()));
     }
 
+    @RepeatedTest(2)
+    @Disabled("As we have more and more test cases the test the load of the test container will up, the test case may failed")
     public void testDelay() throws InterruptedException {
 
         long lowLagSleep = 10;

@@ -107,6 +107,7 @@ In the case of is_exactly_once = "true", Xa transactions are used. This requires
 ## appendix
 
 there are some reference value for params above.
+
 | datasource | driver                                       | url                                                          | xa_data_source_class_name                          | maven                                                        |
 | ---------- | -------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------- | ------------------------------------------------------------ |
 | mysql      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                             | com.mysql.cj.jdbc.MysqlXADataSource                | https://mvnrepository.com/artifact/mysql/mysql-connector-java |
