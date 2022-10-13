@@ -55,7 +55,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
             .withCommand(Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString())
             .withNetworkAliases("server")
             .withExposedPorts()
-            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger("seatunnel-engine:" + LOG)))
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger("seatunnel-engine:" + JDK_DOCKER_IMAGE)))
             .waitingFor(Wait.forLogMessage(".*received new worker register.*\\n", 1));
         bindSeaTunnelStarter(server);
         server.withFileSystemBind(PROJECT_ROOT_PATH + "/seatunnel-engine/seatunnel-engine-common/src/main/resources/",
