@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
@@ -57,6 +58,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     private volatile SlotService slotService;
     private TaskExecutionService taskExecutionService;
     private CoordinatorService coordinatorService;
+    private ScheduledExecutorService monitorService;
 
     private final ExecutorService executorService;
 
@@ -99,8 +101,8 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         taskExecutionService.start();
         getSlotService();
         coordinatorService = new CoordinatorService(nodeEngine, executorService);
-        ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
-        service.scheduleAtFixedRate(() -> printExecutionInfo(), 0, 60, TimeUnit.SECONDS);
+        monitorService = Executors.newSingleThreadScheduledExecutor();
+        monitorService.scheduleAtFixedRate(() -> printExecutionInfo(), 0, 60, TimeUnit.SECONDS);
     }
 
     @Override
@@ -118,6 +120,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         }
         executorService.shutdown();
         taskExecutionService.shutdown();
+        monitorService.shutdown();
     }
 
     @Override
@@ -181,7 +184,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
      * @return
      */
     public boolean taskIsEnded(@NonNull TaskGroupLocation taskGroupLocation) {
-        IMap<Object, Object> runningJobState = nodeEngine.getHazelcastInstance().getMap("runningJobState");
+        IMap<Object, Object> runningJobState = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
         if (runningJobState == null) {
             return false;
         }
