@@ -20,21 +20,21 @@ package org.apache.seatunnel.e2e.common.container.spark;
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 
 public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
 
-    private static final Logger LOG = LoggerFactory.getLogger(AbstractTestSparkContainer.class);
     private static final String DEFAULT_DOCKER_IMAGE = "bitnami/spark:2.4.6";
 
     protected GenericContainer<?> master;
@@ -51,8 +51,11 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
             .withNetworkAliases("spark-master")
             .withExposedPorts()
             .withEnv("SPARK_MODE", "master")
-            .withLogConsumer(new Slf4jLogConsumer(LOG))
-            .withCreateContainerCmdModifier(cmd -> cmd.withUser("root"));
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(getDockerImage())))
+            .withCreateContainerCmdModifier(cmd -> cmd.withUser("root"))
+            .waitingFor(new LogMessageWaitStrategy()
+                .withRegEx(".*Master: Starting Spark master at.*")
+                .withStartupTimeout(Duration.ofMinutes(2)));
         // In most case we can just use standalone mode to execute a spark job, if we want to use cluster mode, we need to
         // start a worker.
         Startables.deepStart(Stream.of(master)).join();

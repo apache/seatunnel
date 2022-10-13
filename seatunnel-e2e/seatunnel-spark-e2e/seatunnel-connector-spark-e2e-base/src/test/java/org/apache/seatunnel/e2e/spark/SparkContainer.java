@@ -18,6 +18,7 @@
 package org.apache.seatunnel.e2e.spark;
 
 import org.apache.seatunnel.e2e.common.AbstractSparkContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
 
 /**
  * This class is the base class of SparkEnvironment test. The before method will create a Spark master, and after method will close the Spark master.
@@ -26,8 +27,8 @@ import org.apache.seatunnel.e2e.common.AbstractSparkContainer;
 public abstract class SparkContainer extends AbstractSparkContainer {
 
     @Override
-    public String identifier() {
-        return "connector-v1/spark:2.4.3";
+    public TestContainerId identifier() {
+        return TestContainerId.SPARK_2_4;
     }
 
     @Override
