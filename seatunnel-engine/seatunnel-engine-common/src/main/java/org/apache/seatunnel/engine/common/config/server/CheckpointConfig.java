@@ -37,22 +37,22 @@ public class CheckpointConfig implements Serializable {
     private CheckpointStorageConfig storage = ServerConfigOptions.CHECKPOINT_STORAGE.defaultValue();
 
     public void setCheckpointInterval(long checkpointInterval) {
-        checkArgument(checkpointInterval > MINIMAL_CHECKPOINT_TIME, "The minimum checkpoint interval is 10 mills.");
+        checkArgument(checkpointInterval >= MINIMAL_CHECKPOINT_TIME, "The minimum checkpoint interval is 10 mills.");
         this.checkpointInterval = checkpointInterval;
     }
 
     public void setCheckpointTimeout(long checkpointTimeout) {
-        checkArgument(checkpointTimeout > MINIMAL_CHECKPOINT_TIME, "The minimum checkpoint timeout is 10 mills.");
+        checkArgument(checkpointTimeout >= MINIMAL_CHECKPOINT_TIME, "The minimum checkpoint timeout is 10 mills.");
         this.checkpointTimeout = checkpointTimeout;
     }
 
     public void setMaxConcurrentCheckpoints(int maxConcurrentCheckpoints) {
-        checkArgument(maxConcurrentCheckpoints > 1, "The minimum number of concurrent checkpoints is 1.");
+        checkArgument(maxConcurrentCheckpoints >= 1, "The minimum number of concurrent checkpoints is 1.");
         this.maxConcurrentCheckpoints = maxConcurrentCheckpoints;
     }
 
     public void setTolerableFailureCheckpoints(int tolerableFailureCheckpoints) {
-        checkArgument(maxConcurrentCheckpoints > 0, "The number of tolerance failed checkpoints must be a natural number.");
+        checkArgument(maxConcurrentCheckpoints >= 0, "The number of tolerance failed checkpoints must be a natural number.");
         this.tolerableFailureCheckpoints = tolerableFailureCheckpoints;
     }
 

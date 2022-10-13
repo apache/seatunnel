@@ -20,6 +20,9 @@ package org.apache.seatunnel.engine.server.master;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
+import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
+import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.loader.SeatunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
@@ -128,6 +131,9 @@ public class JobMaster extends Thread {
         } else {
             logicalDag = nodeEngine.getSerializationService().toObject(jobImmutableInformation.getLogicalDag());
         }
+
+        CheckpointConfig checkpointConfig = mergeEnvAndEngineConfig(engineConfig.getCheckpointConfig(), jobImmutableInformation.getJobConfig().getEnvOptions());
+
         final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple = PlanUtils.fromLogicalDAG(logicalDag,
             nodeEngine,
             jobImmutableInformation,
@@ -143,7 +149,23 @@ public class JobMaster extends Thread {
             jobImmutableInformation.getJobId(),
             nodeEngine,
             planTuple.f1(),
-            engineConfig.getCheckpointConfig());
+            checkpointConfig);
+    }
+
+    // TODO replace it after ReadableConfig Support parse yaml format, then use only one config to read engine and env config.
+    private CheckpointConfig mergeEnvAndEngineConfig(CheckpointConfig engine, Map<String, Object> env) {
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        if (env.containsKey(ServerConfigOptions.CHECKPOINT_INTERVAL.key())) {
+            checkpointConfig.setCheckpointInterval((Integer) env.get(ServerConfigOptions.CHECKPOINT_INTERVAL.key()));
+        }
+        checkpointConfig.setCheckpointTimeout(engine.getCheckpointTimeout());
+        checkpointConfig.setTolerableFailureCheckpoints(engine.getTolerableFailureCheckpoints());
+        checkpointConfig.setMaxConcurrentCheckpoints(engine.getMaxConcurrentCheckpoints());
+        CheckpointStorageConfig storageConfig = new CheckpointStorageConfig();
+        storageConfig.setMaxRetainedCheckpoints(engine.getStorage().getMaxRetainedCheckpoints());
+        storageConfig.setStorage(engine.getStorage().getStorage());
+        checkpointConfig.setStorage(storageConfig);
+        return checkpointConfig;
     }
 
     public void initStateFuture() {
