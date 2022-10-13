@@ -113,9 +113,10 @@ public class JobMaster extends Thread {
     public void init(long initializationTimestamp) throws Exception {
         jobImmutableInformation = nodeEngine.getSerializationService().toObject(
             jobImmutableInformationData);
-        LOGGER.info("Job [" + jobImmutableInformation.getJobId() + "] submit");
-        LOGGER.info(
-            "Job [" + jobImmutableInformation.getJobId() + "] jar urls " + jobImmutableInformation.getPluginJarsUrls());
+        LOGGER.info(String.format("Init JobMaster for Job %s (%s) ", jobImmutableInformation.getJobConfig().getName(),
+            jobImmutableInformation.getJobId()));
+        LOGGER.info(String.format("Job %s (%s) needed jar urls %s", jobImmutableInformation.getJobConfig().getName(),
+            jobImmutableInformation.getJobId(), jobImmutableInformation.getPluginJarsUrls()));
 
         LogicalDag logicalDag;
         if (!CollectionUtils.isEmpty(jobImmutableInformation.getPluginJarsUrls())) {
@@ -192,7 +193,7 @@ public class JobMaster extends Thread {
     }
 
     public PassiveCompletableFuture<Void> reSchedulerPipeline(SubPlan subPlan) {
-        if (scheduleFuture == null) {
+        if (jobScheduler == null) {
             jobScheduler = new PipelineBaseScheduler(physicalPlan, this);
         }
         return new PassiveCompletableFuture<>(jobScheduler.reSchedulerPipeline(subPlan));

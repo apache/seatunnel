@@ -158,7 +158,7 @@ public class CoordinatorService {
             return CompletableFuture.runAsync(() -> {
                 logger.info(String.format("begin restore job (%s) from master active switch", entry.getKey()));
                 restoreJobFromMasterActiveSwitch(entry.getKey(), entry.getValue());
-                logger.info(String.format("restore job (%s) from master active switch", entry.getKey()));
+                logger.info(String.format("restore job (%s) from master active switch finished", entry.getKey()));
             }, executorService);
         }).collect(Collectors.toList());
 
@@ -193,12 +193,18 @@ public class CoordinatorService {
             throw new SeaTunnelEngineException(String.format("Job id %s init JobMaster failed", jobId));
         }
 
+        String jobFullName = jobMaster.getPhysicalPlan().getJobFullName();
         if (jobStatus.isEndState()) {
+            logger.info(String.format(
+                "The restore %s is in an end state %s, store the job info to JobHistory and clear the job running time info",
+                jobFullName, jobStatus));
             removeJobIMap(jobMaster);
             return;
         }
 
         if (jobStatus.ordinal() < JobStatus.RUNNING.ordinal()) {
+            logger.info(
+                String.format("The restore %s is state %s, cancel job and submit it again.", jobFullName, jobStatus));
             jobMaster.cancelJob();
             jobMaster.getJobMasterCompleteFuture().join();
             submitJob(jobId, runningJobInfo.getJobImmutableInformation()).join();
@@ -209,6 +215,7 @@ public class CoordinatorService {
         jobMaster.markRestore();
 
         if (JobStatus.CANCELLING.equals(jobStatus)) {
+            logger.info(String.format("The restore %s is in %s state, cancel the job", jobFullName, jobStatus));
             CompletableFuture.runAsync(() -> {
                 try {
                     jobMaster.cancelJob();
@@ -223,6 +230,7 @@ public class CoordinatorService {
         }
 
         if (JobStatus.RUNNING.equals(jobStatus)) {
+            logger.info(String.format("The restore %s is in %s state, restore pipeline and take over this job running", jobFullName, jobStatus));
             CompletableFuture.runAsync(() -> {
                 try {
                     jobMaster.getPhysicalPlan().getPipelineList().forEach(SubPlan::restorePipelineState);
