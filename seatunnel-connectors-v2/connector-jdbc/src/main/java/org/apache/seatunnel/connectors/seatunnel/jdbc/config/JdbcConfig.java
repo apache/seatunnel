@@ -53,8 +53,6 @@ public class JdbcConfig implements Serializable {
 
     public static final String TRANSACTION_TIMEOUT_SEC = "transaction_timeout_sec";
 
-    public static final String TYPE_AFFINITY = "type_affinity";
-
     //source config
     public static final String PARTITION_COLUMN = "partition_column";
     public static final String PARTITION_UPPER_BOUND = "partition_upper_bound";
@@ -97,9 +95,6 @@ public class JdbcConfig implements Serializable {
             }
         }
 
-        if (config.hasPath(JdbcConfig.TYPE_AFFINITY)) {
-            jdbcOptions.typeAffinity = config.getBoolean(JdbcConfig.TYPE_AFFINITY);
-        }
         return jdbcOptions;
     }
 }

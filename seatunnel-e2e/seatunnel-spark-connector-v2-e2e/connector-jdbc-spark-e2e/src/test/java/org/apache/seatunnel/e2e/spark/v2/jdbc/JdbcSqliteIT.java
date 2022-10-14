@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.e2e.spark.v2.jdbc;
 
+import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.core.starter.config.ConfigBuilder;
 import org.apache.seatunnel.e2e.spark.SparkContainer;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
@@ -29,6 +33,7 @@ import org.testcontainers.images.builder.Transferable;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -41,40 +46,40 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 @Slf4j
 public class JdbcSqliteIT extends SparkContainer {
-    private static final String SQLITE_USER = "";
-    private static final String SQLITE_PASSWORD = "";
-    private static final String SQLITE_DRIVER = "org.sqlite.JDBC";
     private String tmpdir;
+    private Config config;
     private static final List<List<Object>> TEST_DATASET = generateTestDataset();
     private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/org/xerial/sqlite-jdbc/3.39.3.0/sqlite-jdbc-3.39.3.0.jar";
 
     private Connection jdbcConnection;
 
-    private void initTestDb() throws ClassNotFoundException, SQLException {
+    private void initTestDb() throws Exception {
         tmpdir = System.getProperty("java.io.tmpdir");
-        Class.forName(SQLITE_DRIVER);
-        jdbcConnection = DriverManager.getConnection("jdbc:sqlite:" + tmpdir + "test.db", SQLITE_USER, SQLITE_PASSWORD);
+        Class.forName("org.sqlite.JDBC");
+        jdbcConnection = DriverManager.getConnection("jdbc:sqlite:" + tmpdir + "test.db", "", "");
         initializeJdbcTable();
         batchInsertData();
     }
 
-    private void initializeJdbcTable() throws SQLException {
-        try (Statement statement = jdbcConnection.createStatement()) {
-            statement.execute("DROP TABLE IF EXISTS source");
-            statement.execute("DROP TABLE IF EXISTS sink");
-            String createSource = "CREATE TABLE source (\n" +
-                    "age INT NOT NULL,\n" +
-                    "name VARCHAR(255) NOT NULL\n" +
-                    ")";
-            String createSink = "CREATE TABLE sink (\n" +
-                    "age INT NOT NULL,\n" +
-                    "name VARCHAR(255) NOT NULL\n" +
-                    ")";
-            statement.execute(createSource);
-            statement.execute(createSink);
+    private void initializeJdbcTable() throws Exception {
+        URI resource = Objects.requireNonNull(JdbcMysqlIT.class.getResource("/jdbc/init_sql/sqlite_init.conf")).toURI();
+        config = new ConfigBuilder(Paths.get(resource)).getConfig();
+        CheckConfigUtil.checkAllExists(this.config, "source_table", "sink_table", "type_source_table",
+                "type_sink_table", "insert_type_source_table_sql", "check_type_sink_table_sql");
+
+        try {
+            Statement statement = jdbcConnection.createStatement();
+            statement.execute(config.getString("source_table"));
+            statement.execute(config.getString("sink_table"));
+            statement.execute(config.getString("type_source_table"));
+            statement.execute(config.getString("type_sink_table"));
+            statement.execute(config.getString("insert_type_source_table_sql"));
+        } catch (SQLException e) {
+            throw new RuntimeException("Initializing Sqlite table failed!", e);
         }
     }
 
@@ -104,6 +109,26 @@ public class JdbcSqliteIT extends SparkContainer {
             rows.add(Arrays.asList(i, String.format("test_%s", i)));
         }
         return rows;
+    }
+
+    @Test
+    public void testJdbcMysqlSourceAndSinkDataType() throws Exception {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/jdbc/jdbc_sqlite_source_and_sink_datatype.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        master.copyFileFromContainer(Paths.get(SEATUNNEL_HOME, "data", "test.db").toString(), new File(tmpdir + "test.db").toPath().toString());
+        checkSinkDataTypeTable();
+    }
+
+    private void checkSinkDataTypeTable() throws Exception {
+        URI resource = Objects.requireNonNull(JdbcMysqlIT.class.getResource("/jdbc/init_sql/sqlite_init.conf")).toURI();
+        config = new ConfigBuilder(Paths.get(resource)).getConfig();
+        CheckConfigUtil.checkAllExists(this.config, "source_table", "sink_table", "type_source_table",
+                "type_sink_table", "insert_type_source_table_sql", "check_type_sink_table_sql");
+
+        Statement statement = jdbcConnection.createStatement();
+        ResultSet resultSet = statement.executeQuery(config.getString("check_type_sink_table_sql"));
+        resultSet.next();
+        Assertions.assertEquals(resultSet.getInt(1), 2);
     }
 
     @Test
@@ -139,14 +164,18 @@ public class JdbcSqliteIT extends SparkContainer {
         Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
         Assertions.assertEquals(0, extraCommands.getExitCode());
 
+        Container.ExecResult mkdirCommands = container.execInContainer("bash", "-c", "mkdir -p " + SEATUNNEL_HOME + "/data");
+        Assertions.assertEquals(0, mkdirCommands.getExitCode());
+
         try {
             initTestDb();
             // copy db file to container, dist file path in container is /tmp/seatunnel/data/test.db
             Path path = new File(tmpdir + "test.db").toPath();
             byte[] bytes = Files.readAllBytes(path);
             container.copyFileToContainer(Transferable.of(bytes), Paths.get(SEATUNNEL_HOME, "data", "test.db").toString());
-        } catch (ClassNotFoundException | SQLException e) {
+        } catch (Exception e) {
             e.printStackTrace();
+            Files.delete(new File(tmpdir + "test.db").toPath());
         }
     }
 

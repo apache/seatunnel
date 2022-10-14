@@ -35,7 +35,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.Simple
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlite.SqliteDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSourceState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -52,7 +51,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 
 @AutoService(SeaTunnelSource.class)
 public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit, JdbcSourceState> {
@@ -139,31 +137,15 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
         JdbcDialectTypeMapper jdbcDialectTypeMapper = jdbcDialect.getJdbcDialectTypeMapper();
         ArrayList<SeaTunnelDataType<?>> seaTunnelDataTypes = new ArrayList<>();
         ArrayList<String> fieldNames = new ArrayList<>();
-        ResultSet resultSet = null;
         try {
-            ResultSetMetaData resultSetMetaData;
-            if (jdbcSourceOptions.getJdbcConnectionOptions().isTypeAffinity() && jdbcDialect instanceof SqliteDialect) {
-                PreparedStatement ps = conn.prepareStatement("select t.* from (" + jdbcSourceOptions.getJdbcConnectionOptions().getQuery() + ") as t limit 1, 1");
-                resultSet = ps.executeQuery();
-                resultSetMetaData = resultSet.getMetaData();
-            } else {
-                PreparedStatement ps = conn.prepareStatement(jdbcSourceOptions.getJdbcConnectionOptions().getQuery());
-                resultSetMetaData = ps.getMetaData();
-            }
+            PreparedStatement ps = conn.prepareStatement(jdbcSourceOptions.getJdbcConnectionOptions().getQuery());
+            ResultSetMetaData resultSetMetaData = ps.getMetaData();
             for (int i = 1; i <= resultSetMetaData.getColumnCount(); i++) {
                 fieldNames.add(resultSetMetaData.getColumnName(i));
                 seaTunnelDataTypes.add(jdbcDialectTypeMapper.mapping(resultSetMetaData, i));
             }
         } catch (Exception e) {
             LOG.warn("get row type info exception", e);
-        } finally {
-            if (Objects.nonNull(resultSet)) {
-                try {
-                    resultSet.close();
-                } catch (SQLException e) {
-                    LOG.warn("get row type info exception", e);
-                }
-            }
         }
         return new SeaTunnelRowType(fieldNames.toArray(new String[fieldNames.size()]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));
     }

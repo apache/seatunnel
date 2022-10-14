@@ -23,105 +23,154 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.sql.Types;
 
 @Slf4j
 public class SqliteTypeMapper implements JdbcDialectTypeMapper {
 
-    private static final String OBJECT_CLASS = "java.lang.Object";
-    private static final String CHARACTER_CLASS = "java.lang.Character";
-    private static final String STRING_CLASS = "java.lang.String";
-    private static final String INTEGER_CLASS = "java.lang.Integer";
-    private static final String SHORT_CLASS = "java.lang.Short";
-    private static final String LONG_CLASS = "java.lang.Long";
-    private static final String FLOAT_CLASS = "java.lang.Float";
-    private static final String DOUBLE_CLASS = "java.lang.Double";
-    private static final String BOOLEAN_CLASS = "java.lang.Boolean";
-    private static final String BYTE_CLASS = "java.lang.Byte";
+    private static final Logger LOG = LoggerFactory.getLogger(SqliteTypeMapper.class);
 
-    /**
-     * because of sqlite's dynamic data type and affinity, use columnType(java.sql.Types) determine the SeaTunnel Data Types
-     */
-    @SuppressWarnings("checkstyle:MagicNumber")
+    // ============================data types=====================
+
+    private static final String SQLITE_UNKNOWN = "UNKNOWN";
+    private static final String SQLITE_BIT = "BIT";
+    private static final String SQLITE_BOOLEAN = "BOOLEAN";
+
+    // -------------------------integer----------------------------
+    private static final String SQLITE_TINYINT = "TINYINT";
+    private static final String SQLITE_TINYINT_UNSIGNED = "TINYINT UNSIGNED";
+    private static final String SQLITE_SMALLINT = "SMALLINT";
+    private static final String SQLITE_SMALLINT_UNSIGNED = "SMALLINT UNSIGNED";
+    private static final String SQLITE_MEDIUMINT = "MEDIUMINT";
+    private static final String SQLITE_MEDIUMINT_UNSIGNED = "MEDIUMINT UNSIGNED";
+    private static final String SQLITE_INT = "INT";
+    private static final String SQLITE_INT_UNSIGNED = "INT UNSIGNED";
+    private static final String SQLITE_INTEGER = "INTEGER";
+    private static final String SQLITE_INTEGER_UNSIGNED = "INTEGER UNSIGNED";
+    private static final String SQLITE_BIGINT = "BIGINT";
+    private static final String SQLITE_BIGINT_UNSIGNED = "BIGINT UNSIGNED";
+    private static final String SQLITE_DECIMAL = "DECIMAL";
+    private static final String SQLITE_DECIMAL_UNSIGNED = "DECIMAL UNSIGNED";
+    private static final String SQLITE_FLOAT = "FLOAT";
+    private static final String SQLITE_FLOAT_UNSIGNED = "FLOAT UNSIGNED";
+    private static final String SQLITE_DOUBLE = "DOUBLE";
+    private static final String SQLITE_DOUBLE_PRECISION = "DOUBLE PRECISION";
+    private static final String SQLITE_DOUBLE_UNSIGNED = "DOUBLE UNSIGNED";
+    private static final String SQLITE_NUMERIC = "NUMERIC";
+    private static final String SQLITE_REAL = "REAL";
+
+    // -------------------------text----------------------------
+    private static final String SQLITE_CHAR = "CHAR";
+    private static final String SQLITE_CHARACTER = "CHARACTER";
+    private static final String SQLITE_VARYING_CHARACTER = "VARYING_CHARACTER";
+    private static final String SQLITE_NATIVE_CHARACTER = "NATIVE_CHARACTER";
+    private static final String SQLITE_NCHAR = "NCHAR";
+    private static final String SQLITE_VARCHAR = "VARCHAR";
+    private static final String SQLITE_LONGVARCHAR = "LONGVARCHAR";
+    private static final String SQLITE_LONGNVARCHAR = "LONGNVARCHAR";
+    private static final String SQLITE_NVARCHAR = "NVARCHAR";
+    private static final String SQLITE_TINYTEXT = "TINYTEXT";
+    private static final String SQLITE_MEDIUMTEXT = "MEDIUMTEXT";
+    private static final String SQLITE_TEXT = "TEXT";
+    private static final String SQLITE_LONGTEXT = "LONGTEXT";
+    private static final String SQLITE_JSON = "JSON";
+    private static final String SQLITE_CLOB = "CLOB";
+
+    // ------------------------------time(text)-------------------------
+    private static final String SQLITE_DATE = "DATE";
+    private static final String SQLITE_DATETIME = "DATETIME";
+    private static final String SQLITE_TIME = "TIME";
+    private static final String SQLITE_TIMESTAMP = "TIMESTAMP";
+
+    // ------------------------------blob-------------------------
+    private static final String SQLITE_TINYBLOB = "TINYBLOB";
+    private static final String SQLITE_MEDIUMBLOB = "MEDIUMBLOB";
+    private static final String SQLITE_BLOB = "BLOB";
+    private static final String SQLITE_LONGBLOB = "LONGBLOB";
+    private static final String SQLITE_BINARY = "BINARY";
+    private static final String SQLITE_VARBINARY = "VARBINARY";
+    private static final String SQLITE_LONGVARBINARY = "LONGVARBINARY";
+
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
-        int columnType = metadata.getColumnType(colIndex);
-        String columnClassName = metadata.getColumnClassName(colIndex);
-        // sqlite data type is dynamic and type affinity, see https://www.sqlite.org/datatype3.html
-        // 1. if columnClassName is java.lang.Object, this column has no data, use columnType determine the SeaTunnel Data Types
-        // 2. otherwise we just use columnClassName to determine the SeaTunnel Data Types
-        if (columnClassName.equalsIgnoreCase(OBJECT_CLASS)) {   // case 1.
-            switch (columnType) {
-                case Types.CHAR:
-                case Types.NCHAR:
-                case Types.VARCHAR:
-                case Types.NVARCHAR:
-                case Types.LONGVARCHAR:
-                case Types.LONGNVARCHAR:
-                    return BasicType.STRING_TYPE;
-                case Types.INTEGER:
-                    return BasicType.INT_TYPE;
-                case Types.TINYINT:
-                case Types.SMALLINT:
-                    return BasicType.SHORT_TYPE;
-                case Types.BIGINT:
-                case Types.DATE:
-                case Types.TIME:
-                case Types.TIMESTAMP:
-                case Types.TIME_WITH_TIMEZONE:
-                case Types.TIMESTAMP_WITH_TIMEZONE:
-                    return BasicType.LONG_TYPE;
-                case Types.FLOAT:
-                    return BasicType.FLOAT_TYPE;
-                case Types.DOUBLE:
-                case Types.REAL:
-                case Types.NUMERIC:
-                case Types.DECIMAL:
-                    return BasicType.DOUBLE_TYPE;
-                case Types.BOOLEAN:
-                case Types.BIT:
-                    return BasicType.BOOLEAN_TYPE;
-                case Types.BLOB:
-                case Types.BINARY:
-                case Types.VARBINARY:
-                case Types.LONGVARBINARY:
-                    return PrimitiveByteArrayType.INSTANCE;
-                default:
-                    final String jdbcColumnName = metadata.getColumnName(colIndex);
-                    throw new UnsupportedOperationException(
-                            String.format(
-                                    "Doesn't support sql type '%s' on column '%s'  yet.",
-                                    columnType, jdbcColumnName));
-            }
-        } else {    // case 2
-            switch (columnClassName) {
-                case INTEGER_CLASS:
-                    return BasicType.INT_TYPE;
-                case SHORT_CLASS:
-                    return BasicType.SHORT_TYPE;
-                case LONG_CLASS:
-                    return BasicType.LONG_TYPE;
-                case FLOAT_CLASS:
-                    return BasicType.FLOAT_TYPE;
-                case DOUBLE_CLASS:
-                    return BasicType.DOUBLE_TYPE;
-                case STRING_CLASS:
-                case CHARACTER_CLASS:
-                    return BasicType.STRING_TYPE;
-                case BOOLEAN_CLASS:
-                    return BasicType.BOOLEAN_TYPE;
-                case BYTE_CLASS:
-                    return BasicType.BYTE_TYPE;
-                default:
-                    final String jdbcColumnName = metadata.getColumnName(colIndex);
-                    throw new UnsupportedOperationException(
-                            String.format(
-                                    "Doesn't support sql type '%s' on column '%s'  yet.",
-                                    columnType, jdbcColumnName));
-            }
+        String columnTypeName = metadata.getColumnTypeName(colIndex).toUpperCase().trim();
+        switch (columnTypeName) {
+            case SQLITE_BIT:
+            case SQLITE_BOOLEAN:
+                return BasicType.BOOLEAN_TYPE;
+            case SQLITE_TINYINT:
+            case SQLITE_TINYINT_UNSIGNED:
+            case SQLITE_SMALLINT:
+            case SQLITE_SMALLINT_UNSIGNED:
+            case SQLITE_MEDIUMINT:
+            case SQLITE_MEDIUMINT_UNSIGNED:
+            case SQLITE_INT:
+            case SQLITE_INTEGER:
+                return BasicType.INT_TYPE;
+            case SQLITE_INT_UNSIGNED:
+            case SQLITE_INTEGER_UNSIGNED:
+            case SQLITE_BIGINT:
+            case SQLITE_BIGINT_UNSIGNED:
+            case SQLITE_NUMERIC:
+                return BasicType.LONG_TYPE;
+            case SQLITE_DECIMAL:
+            case SQLITE_DECIMAL_UNSIGNED:
+            case SQLITE_DOUBLE:
+            case SQLITE_DOUBLE_PRECISION:
+            case SQLITE_REAL:
+                return BasicType.DOUBLE_TYPE;
+            case SQLITE_FLOAT:
+                return BasicType.FLOAT_TYPE;
+            case SQLITE_FLOAT_UNSIGNED:
+                LOG.warn("{} will probably cause value overflow.", SQLITE_FLOAT_UNSIGNED);
+                return BasicType.FLOAT_TYPE;
+            case SQLITE_DOUBLE_UNSIGNED:
+                LOG.warn("{} will probably cause value overflow.", SQLITE_DOUBLE_UNSIGNED);
+                return BasicType.DOUBLE_TYPE;
+            case SQLITE_CHARACTER:
+            case SQLITE_VARYING_CHARACTER:
+            case SQLITE_NATIVE_CHARACTER:
+            case SQLITE_NVARCHAR:
+            case SQLITE_NCHAR:
+            case SQLITE_LONGNVARCHAR:
+            case SQLITE_LONGVARCHAR:
+            case SQLITE_CLOB:
+            case SQLITE_CHAR:
+            case SQLITE_TINYTEXT:
+            case SQLITE_MEDIUMTEXT:
+            case SQLITE_TEXT:
+            case SQLITE_VARCHAR:
+            case SQLITE_JSON:
+            case SQLITE_LONGTEXT:
+
+            case SQLITE_DATE:
+            case SQLITE_TIME:
+            case SQLITE_DATETIME:
+            case SQLITE_TIMESTAMP:
+                return BasicType.STRING_TYPE;
+
+            case SQLITE_TINYBLOB:
+            case SQLITE_MEDIUMBLOB:
+            case SQLITE_BLOB:
+            case SQLITE_LONGBLOB:
+            case SQLITE_VARBINARY:
+            case SQLITE_BINARY:
+            case SQLITE_LONGVARBINARY:
+                return PrimitiveByteArrayType.INSTANCE;
+
+            //Doesn't support yet
+            case SQLITE_UNKNOWN:
+            default:
+                final String jdbcColumnName = metadata.getColumnName(colIndex);
+                throw new UnsupportedOperationException(
+                        String.format(
+                                "Doesn't support SQLite type '%s' on column '%s'  yet.",
+                                columnTypeName, jdbcColumnName));
         }
     }
+
 }
