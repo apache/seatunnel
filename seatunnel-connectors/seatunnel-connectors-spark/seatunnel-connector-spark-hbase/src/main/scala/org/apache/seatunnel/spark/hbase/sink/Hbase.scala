@@ -122,9 +122,8 @@ class Hbase extends SparkBatchSink with Logging {
               if (value == null) {
                 if (nullable) {
                   familyQualifiersValues += (family, qualifier, null)
-                } else {
-                  break
                 }
+                break
               }
               familyQualifiersValues += (family, qualifier, Bytes.toBytes(value))
             }
