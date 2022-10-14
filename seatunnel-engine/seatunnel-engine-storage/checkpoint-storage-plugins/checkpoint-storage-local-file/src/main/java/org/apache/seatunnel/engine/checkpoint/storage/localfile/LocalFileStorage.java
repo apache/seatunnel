@@ -105,9 +105,14 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
 
     @Override
     public List<PipelineState> getAllCheckpoints(String jobId) throws CheckpointStorageException {
+        File filePath = new File(getStorageParentDirectory() + jobId);
+        if (!filePath.exists()) {
+            return new ArrayList<>();
+        }
+
         Collection<File> fileList;
         try {
-            fileList = FileUtils.listFiles(new File(getStorageParentDirectory() + jobId), FILE_EXTENSIONS, true);
+            fileList = FileUtils.listFiles(filePath, FILE_EXTENSIONS, true);
         } catch (Exception e) {
             throw new CheckpointStorageException("Failed to get all checkpoints for job " + jobId, e);
         }
@@ -214,6 +219,27 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
         } catch (IOException e) {
             log.warn("Failed to delete checkpoint directory " + jobPath, e);
         }
+    }
+
+    @Override
+    public PipelineState getCheckpoint(String jobId, String pipelineId, String checkpointId) throws CheckpointStorageException {
+        Collection<File> fileList = FileUtils.listFiles(new File(getStorageParentDirectory() + jobId), FILE_EXTENSIONS, false);
+        if (fileList.isEmpty()) {
+            throw new CheckpointStorageException("No checkpoint found for job " + jobId);
+        }
+        for (File file : fileList) {
+            String fileName = file.getName();
+            if (pipelineId.equals(getPipelineIdByFileName(fileName)) &&
+                checkpointId.equals(getCheckpointIdByFileName(fileName))) {
+                try {
+                    byte[] data = FileUtils.readFileToByteArray(file);
+                    return deserializeCheckPointData(data);
+                } catch (Exception e) {
+                    log.error("Failed to delete checkpoint {} for job {}, pipeline {}", checkpointId, jobId, pipelineId, e);
+                }
+            }
+        }
+        throw new CheckpointStorageException(String.format("No checkpoint found, job(%s), pipeline(%s), checkpoint(%s)", jobId, pipelineId, checkpointId));
     }
 
     @Override
