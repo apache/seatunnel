@@ -55,6 +55,7 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
     private List<ClickHouseNode> servers;
     private SeaTunnelRowType rowTypeInfo;
     private String sql;
+    private final ThreadLocalRandom threadLocalRandom = ThreadLocalRandom.current();
 
     @Override
     public String getPluginName() {
@@ -71,9 +72,10 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
                 config.getString(USERNAME), config.getString(PASSWORD));
 
         sql = config.getString(SQL);
-        try (ClickHouseClient client = ClickHouseClient.newInstance(servers.get(0).getProtocol());
+        ClickHouseNode currentServer = servers.get(threadLocalRandom.nextInt(servers.size() + 1));
+        try (ClickHouseClient client = ClickHouseClient.newInstance(currentServer.getProtocol());
              ClickHouseResponse response =
-                     client.connect(servers.get(0)).format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
+                     client.connect(currentServer).format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
                              .query(modifySQLToLimit1(config.getString(SQL))).executeAndWait()) {
 
             int columnSize = response.getColumns().size();
