@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.spark.common.source.batch.ParallelBatchPartitionReader;
 import org.apache.seatunnel.translation.spark.common.source.micro.CoordinatedMicroBatchPartitionReader;
 import org.apache.seatunnel.translation.spark.common.source.micro.ParallelMicroBatchPartitionReader;
-import org.apache.seatunnel.translation.spark.source.SeatunnelInputPartitionReader;
+import org.apache.seatunnel.translation.spark.source.SeaTunnelInputPartitionReader;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.reader.InputPartition;
@@ -65,6 +65,6 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
         } else {
             partitionReader = new ParallelMicroBatchPartitionReader(source, parallelism, subtaskId, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser);
         }
-        return new SeatunnelInputPartitionReader(partitionReader);
+        return new SeaTunnelInputPartitionReader(partitionReader);
     }
 }
