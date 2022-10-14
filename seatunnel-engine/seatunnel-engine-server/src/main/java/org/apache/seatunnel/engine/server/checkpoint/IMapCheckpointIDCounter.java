@@ -20,43 +20,47 @@ package org.apache.seatunnel.engine.server.checkpoint;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.job.PipelineState;
 
+import com.hazelcast.map.IMap;
+
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicLong;
 
-public class StandaloneCheckpointIDCounter implements CheckpointIDCounter {
+public class IMapCheckpointIDCounter implements CheckpointIDCounter {
+    private final Integer pipelineId;
+    private final IMap<Integer, Long> checkpointIdMap;
 
-    private final AtomicLong checkpointIdCounter = new AtomicLong(INITIAL_CHECKPOINT_ID);
+    public IMapCheckpointIDCounter(Integer pipelineId,
+                                   IMap<Integer, Long> checkpointIdMap) {
+        this.pipelineId = pipelineId;
+        this.checkpointIdMap = checkpointIdMap;
+    }
 
     @Override
     public void start() throws Exception {
+        checkpointIdMap.putIfAbsent(pipelineId, INITIAL_CHECKPOINT_ID);
     }
 
     @Override
     public CompletableFuture<Void> shutdown(PipelineState pipelineStatus) {
+        if (pipelineStatus.isEndState()) {
+            checkpointIdMap.remove(pipelineId);
+        }
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
     public long getAndIncrement() throws Exception {
-        return checkpointIdCounter.getAndIncrement();
+        Long currentId = checkpointIdMap.get(pipelineId);
+        checkpointIdMap.put(pipelineId, currentId + 1);
+        return currentId;
     }
 
     @Override
     public long get() {
-        return checkpointIdCounter.get();
+        return checkpointIdMap.get(pipelineId);
     }
 
     @Override
-    public void setCount(long newCount) {
-        checkpointIdCounter.set(newCount);
-    }
-
-    /**
-     * Returns the last checkpoint ID (current - 1).
-     *
-     * @return Last checkpoint ID.
-     */
-    public long getLast() {
-        return checkpointIdCounter.get() - 1;
+    public void setCount(long newId) throws Exception {
+        checkpointIdMap.put(pipelineId, newId);
     }
 }
