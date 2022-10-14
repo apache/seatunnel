@@ -74,7 +74,7 @@ public final class ContainerUtil {
         connectorFiles.forEach(jar ->
             container.copyFileToContainer(
                 MountableFile.forHostPath(jar.getAbsolutePath()),
-                Paths.get(Paths.get(seatunnelHome, "connectors").toString(), connectorType, jar.getName()).toString()));
+                Paths.get(seatunnelHome, "connectors", connectorType, jar.getName()).toString()));
     }
 
     public static String copyConfigFileToContainer(GenericContainer<?> container, String confFile) {
@@ -83,30 +83,26 @@ public final class ContainerUtil {
         return targetConfInContainer;
     }
 
-    public static void copySeaTunnelStarter(GenericContainer<?> container,
+    public static void bindSeaTunnelStarter(GenericContainer<?> container,
                                             String startModuleName,
                                             String startModulePath,
-                                            String seatunnelHomeInContainer,
-                                            String startShellName) {
+                                            String seatunnelHomeInContainer) {
         final String startJarName = startModuleName + ".jar";
-        // copy lib
+        // bind lib
         final String startJarPath = startModulePath + File.separator + "target" + File.separator + startJarName;
         checkPathExist(startJarPath);
-        container.copyFileToContainer(
-            MountableFile.forHostPath(startJarPath),
-            Paths.get(Paths.get(seatunnelHomeInContainer, "lib").toString(), startJarName).toString());
+        container.withFileSystemBind(startJarPath,
+            Paths.get(seatunnelHomeInContainer, "lib", startJarName).toString());
 
-        // copy bin
-        final String startBinPath = startModulePath + File.separator + "src/main/bin/" + startShellName;
+        // bind bin
+        final String startBinPath = startModulePath + File.separator + "src/main/bin/";
         checkPathExist(startBinPath);
-        container.copyFileToContainer(
-            MountableFile.forHostPath(startBinPath),
-            Paths.get(Paths.get(seatunnelHomeInContainer, "bin").toString(), startShellName).toString());
+        container.withFileSystemBind(startBinPath,
+            Paths.get(seatunnelHomeInContainer, "bin").toString());
 
-        // copy plugin-mapping.properties
-        container.copyFileToContainer(
-            MountableFile.forHostPath(PROJECT_ROOT_PATH + "/plugin-mapping.properties"),
-            Paths.get(Paths.get(seatunnelHomeInContainer, "connectors").toString(), PLUGIN_MAPPING_FILE).toString());
+        // bind plugin-mapping.properties
+        container.withFileSystemBind(PROJECT_ROOT_PATH + "/plugin-mapping.properties",
+            Paths.get(seatunnelHomeInContainer, "connectors", PLUGIN_MAPPING_FILE).toString());
     }
 
     public static String adaptPathForWin(String path) {

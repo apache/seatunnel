@@ -74,6 +74,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
             .waitingFor(new LogMessageWaitStrategy()
                 .withRegEx(".*Starting the resource manager.*")
                 .withStartupTimeout(Duration.ofMinutes(2)));
+        bindSeaTunnelStarter(jobManager);
 
         taskManager = new GenericContainer<>(dockerImage)
             .withCommand("taskmanager")
@@ -88,7 +89,6 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
 
         Startables.deepStart(Stream.of(jobManager)).join();
         Startables.deepStart(Stream.of(taskManager)).join();
-        copySeaTunnelStarter(jobManager);
         // execute extra commands
         executeExtraCommands(jobManager);
     }
