@@ -63,5 +63,5 @@ public class Config {
     /**
      * Determine the key of the kafka send partition
      */
-    public static final String KEY = "key";
+    public static final String PARTITION_KEY = "partition_key";
 }

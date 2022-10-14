@@ -21,7 +21,7 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 | bootstrap.servers  | string                 | yes      | -             |
 | kafka.*            | kafka producer config  | no       | -             |
 | semantic           | string                 | no       | NON           |
-| key                | string                 | no       | -           |
+| partition_key      | string                 | no       | -           |
 | partition          | int                    | no       | -             |
 | assign_partitions  | list                   | no       | -             |
 | transaction_prefix | string                 | no       | -             |
@@ -51,7 +51,7 @@ In AT_LEAST_ONCE, producer will wait for all outstanding messages in the Kafka b
 
 NON does not provide any guarantees: messages may be lost in case of issues on the Kafka broker and messages may be duplicated.
 
-### key [string]
+### partition_key [string]
 
 Determine the partition of the kafka send message based on the key.
 
@@ -65,6 +65,8 @@ Upstream data is the following:
 | Mary | 23   | data-example2 |
 
 If name is set as the key, then the hash value of the name column will determine which partition the message is sent to.
+
+If the field name does not exist in the upstream data, the configured parameter will be used as the key.
 
 ### partition [int]
 

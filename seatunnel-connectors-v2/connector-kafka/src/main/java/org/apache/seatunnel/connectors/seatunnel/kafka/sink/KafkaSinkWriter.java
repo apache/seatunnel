@@ -18,8 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.ASSIGN_PARTITIONS;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KEY;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PARTITION;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PARTITION_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TRANSACTION_PREFIX;
 
@@ -68,12 +68,18 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     public void write(SeaTunnelRow element) {
         ProducerRecord<byte[], byte[]> producerRecord = null;
         //Determine the partition of the kafka send message based on the field name
-        if (pluginConfig.hasPath(KEY)){
-            String keyField = pluginConfig.getString(KEY);
+        if (pluginConfig.hasPath(PARTITION_KEY)){
+            String keyField = pluginConfig.getString(PARTITION_KEY);
             List<String> fields = Arrays.asList(seaTunnelRowType.getFieldNames());
             String key;
             if (fields.contains(keyField)) {
-                key = element.getField(fields.indexOf(keyField)).toString();
+                Object field = element.getField(fields.indexOf(keyField));
+                //If the field is null, send the message to the same partition
+                if (field == null) {
+                    key = "null";
+                } else {
+                    key = field.toString();
+                }
             } else {
                 key = keyField;
             }
