@@ -207,6 +207,26 @@ public class HdfsStorage extends AbstractCheckpointStorage {
     }
 
     @Override
+    public PipelineState getCheckpoint(String jobId, String pipelineId, String checkpointId) throws CheckpointStorageException {
+        String path = getStorageParentDirectory() + jobId;
+        List<String> fileNames = getFileNames(path);
+        if (fileNames.isEmpty()) {
+            throw new CheckpointStorageException("No checkpoint found for job, job id is: " + jobId);
+        }
+        for (String fileName : fileNames) {
+            if (pipelineId.equals(getPipelineIdByFileName(fileName)) &&
+                checkpointId.equals(getCheckpointIdByFileName(fileName))) {
+                try {
+                    return readPipelineState(fileName, jobId);
+                } catch (Exception e) {
+                    log.error("Failed to get checkpoint {} for job {}, pipeline {}", checkpointId, jobId, pipelineId, e);
+                }
+            }
+        }
+        throw new CheckpointStorageException(String.format("No checkpoint found, job(%s), pipeline(%s), checkpoint(%s)", jobId, pipelineId, checkpointId));
+    }
+
+    @Override
     public void deleteCheckpoint(String jobId, String pipelineId, String checkpointId) throws CheckpointStorageException {
         String path = getStorageParentDirectory() + jobId;
         List<String> fileNames = getFileNames(path);
