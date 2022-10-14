@@ -61,19 +61,14 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     private CoordinatorService coordinatorService;
     private ScheduledExecutorService monitorService;
 
-    private final ExecutorService executorService;
-
     private final SeaTunnelConfig seaTunnelConfig;
 
-    private boolean isRunning = true;
+    private volatile boolean isRunning = true;
 
     public SeaTunnelServer(@NonNull Node node, @NonNull SeaTunnelConfig seaTunnelConfig) {
         this.logger = node.getLogger(getClass());
         this.liveOperationRegistry = new LiveOperationRegistry();
         this.seaTunnelConfig = seaTunnelConfig;
-        this.executorService =
-            Executors.newCachedThreadPool(new ThreadFactoryBuilder()
-                .setNameFormat("seatunnel-server-executor-%d").build());
         logger.info("SeaTunnel server start...");
     }
 
@@ -103,7 +98,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         );
         taskExecutionService.start();
         getSlotService();
-        coordinatorService = new CoordinatorService(nodeEngine, executorService, this);
+        coordinatorService = new CoordinatorService(nodeEngine, this);
         monitorService = Executors.newSingleThreadScheduledExecutor();
         monitorService.scheduleAtFixedRate(() -> printExecutionInfo(), 0, 60, TimeUnit.SECONDS);
     }
@@ -116,8 +111,9 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     @Override
     public void shutdown(boolean terminate) {
         isRunning = false;
+        taskExecutionService.shutdown();
         if (monitorService != null) {
-            monitorService.shutdown();
+            monitorService.shutdownNow();
         }
         if (slotService != null) {
             slotService.close();
@@ -125,8 +121,6 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         if (coordinatorService != null) {
             coordinatorService.shutdown();
         }
-        executorService.shutdown();
-        taskExecutionService.shutdown();
     }
 
     @Override
@@ -221,31 +215,6 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     }
 
     private void printExecutionInfo() {
-        ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
-        int activeCount = threadPoolExecutor.getActiveCount();
-        int corePoolSize = threadPoolExecutor.getCorePoolSize();
-        int maximumPoolSize = threadPoolExecutor.getMaximumPoolSize();
-        int poolSize = threadPoolExecutor.getPoolSize();
-        long completedTaskCount = threadPoolExecutor.getCompletedTaskCount();
-        long taskCount = threadPoolExecutor.getTaskCount();
-        StringBuffer sbf = new StringBuffer();
-        sbf.append("activeCount=")
-            .append(activeCount)
-            .append("\n")
-            .append("corePoolSize=")
-            .append(corePoolSize)
-            .append("\n")
-            .append("maximumPoolSize=")
-            .append(maximumPoolSize)
-            .append("\n")
-            .append("poolSize=")
-            .append(poolSize)
-            .append("\n")
-            .append("completedTaskCount=")
-            .append(completedTaskCount)
-            .append("\n")
-            .append("taskCount=")
-            .append(taskCount);
-        logger.info(sbf.toString());
+        coordinatorService.printExecutionInfo();
     }
 }
