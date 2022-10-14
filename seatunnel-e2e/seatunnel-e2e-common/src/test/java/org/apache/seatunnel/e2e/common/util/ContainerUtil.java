@@ -91,17 +91,16 @@ public final class ContainerUtil {
         // bind lib
         final String startJarPath = startModulePath + File.separator + "target" + File.separator + startJarName;
         checkPathExist(startJarPath);
-        container.withFileSystemBind(startJarPath,
-            Paths.get(seatunnelHomeInContainer, "lib", startJarName).toString());
+        container.withCopyFileToContainer(MountableFile.forHostPath(startJarPath), Paths.get(seatunnelHomeInContainer, "lib", startJarName).toString());
 
         // bind bin
         final String startBinPath = startModulePath + File.separator + "src/main/bin/";
         checkPathExist(startBinPath);
-        container.withFileSystemBind(startBinPath,
+        container.withCopyFileToContainer(MountableFile.forHostPath(startBinPath),
             Paths.get(seatunnelHomeInContainer, "bin").toString());
 
         // bind plugin-mapping.properties
-        container.withFileSystemBind(PROJECT_ROOT_PATH + "/plugin-mapping.properties",
+        container.withCopyFileToContainer(MountableFile.forHostPath(PROJECT_ROOT_PATH + "/plugin-mapping.properties"),
             Paths.get(seatunnelHomeInContainer, "connectors", PLUGIN_MAPPING_FILE).toString());
     }
 
