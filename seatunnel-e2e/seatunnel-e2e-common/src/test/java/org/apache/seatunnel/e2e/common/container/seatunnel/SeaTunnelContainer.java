@@ -21,11 +21,12 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PA
 
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 
+import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -38,11 +39,9 @@ import java.util.Collections;
 import java.util.List;
 
 @NoArgsConstructor
-//@AutoService(TestContainer.class)
-// TODO add AutoService after engine feature is ready
+@Slf4j
+@AutoService(TestContainer.class)
 public class SeaTunnelContainer extends AbstractTestContainer {
-
-    private static final Logger LOG = LoggerFactory.getLogger(SeaTunnelContainer.class);
     private static final String JDK_DOCKER_IMAGE = "openjdk:8";
     private static final String CLIENT_SHELL = "seatunnel.sh";
     private static final String SERVER_SHELL = "seatunnel-cluster.sh";
@@ -62,7 +61,6 @@ public class SeaTunnelContainer extends AbstractTestContainer {
             Paths.get(SEATUNNEL_HOME, "config").toString());
         server.start();
         // execute extra commands
-        // TODO copy config file
         executeExtraCommands(server);
     }
 
