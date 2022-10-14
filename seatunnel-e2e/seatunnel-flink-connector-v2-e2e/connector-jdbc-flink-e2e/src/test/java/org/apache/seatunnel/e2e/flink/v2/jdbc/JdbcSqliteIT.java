@@ -112,7 +112,7 @@ public class JdbcSqliteIT extends FlinkContainer {
     }
 
     @Test
-    public void testJdbcMysqlSourceAndSinkDataType() throws Exception {
+    public void testJdbcSqliteSourceAndSinkDataType() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_sqlite_source_and_sink_datatype.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         jobManager.copyFileFromContainer(Paths.get(SEATUNNEL_HOME, "data", "test.db").toString(), new File(tmpdir + "test.db").toPath().toString());
@@ -151,7 +151,7 @@ public class JdbcSqliteIT extends FlinkContainer {
     }
 
     @AfterEach
-    public void closeGreenplumContainer() throws SQLException, IOException {
+    public void closeResource() throws SQLException, IOException {
         if (jdbcConnection != null) {
             jdbcConnection.close();
         }
