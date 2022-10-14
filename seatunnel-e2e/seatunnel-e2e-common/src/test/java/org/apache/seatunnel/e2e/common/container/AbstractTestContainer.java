@@ -72,12 +72,11 @@ public abstract class AbstractTestContainer implements TestContainer {
         //do nothing
     }
 
-    protected void copySeaTunnelStarter(GenericContainer<?> container) {
-        ContainerUtil.copySeaTunnelStarter(container,
+    protected void bindSeaTunnelStarter(GenericContainer<?> container) {
+        ContainerUtil.bindSeaTunnelStarter(container,
             this.startModuleName,
             this.startModuleFullPath,
-            SEATUNNEL_HOME,
-            getStartShellName());
+            SEATUNNEL_HOME);
     }
 
     protected Container.ExecResult executeJob(GenericContainer<?> container, String confFile) throws IOException, InterruptedException {

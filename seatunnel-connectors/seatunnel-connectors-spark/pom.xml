@@ -76,9 +76,9 @@
                 <scope>${spark.scope}</scope>
             </dependency>
         </dependencies>
-        
+
     </dependencyManagement>
-    
+
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -101,12 +101,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-            </plugin>
-
-            <!-- make sure that flatten runs after maven-shade-plugin -->
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>flatten-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>
