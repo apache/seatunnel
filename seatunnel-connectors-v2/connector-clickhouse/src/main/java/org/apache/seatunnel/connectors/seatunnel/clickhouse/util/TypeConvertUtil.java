@@ -28,6 +28,7 @@ import com.clickhouse.client.ClickHouseColumn;
 import com.clickhouse.client.ClickHouseValue;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.time.LocalDate;
@@ -70,6 +71,8 @@ public class TypeConvertUtil {
         } else if (Inet6Address.class.equals(type)) {
             return BasicType.STRING_TYPE;
         } else if (Object.class.equals(type)) {
+            return BasicType.STRING_TYPE;
+        } else if (BigInteger.class.equals(type)) {
             return BasicType.STRING_TYPE;
         } else {
             // TODO support pojo

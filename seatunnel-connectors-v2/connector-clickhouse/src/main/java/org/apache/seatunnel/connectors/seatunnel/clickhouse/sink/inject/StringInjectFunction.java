@@ -29,6 +29,9 @@ public class StringInjectFunction implements ClickhouseFieldInjectFunction {
 
     @Override
     public boolean isCurrentFieldType(String fieldType) {
-        return "String".equals(fieldType);
+        return "String".equals(fieldType)
+            || "UInt128".equals(fieldType)
+            || "Int256".equals(fieldType)
+            || "UInt256".equals(fieldType);
     }
 }
