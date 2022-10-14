@@ -155,7 +155,7 @@ public class ClusterFaultToleranceIT {
         String testCaseName = "testStreamJobRunOkIn3Node";
         String testClusterName = "ClusterFaultToleranceIT_testStreamJobRunOkIn3Node";
         long testRowNumber = 1000;
-        int testParallelism = 1;
+        int testParallelism = 6;
         HazelcastInstanceImpl node1 =
             SeaTunnelServerStarter.createHazelcastInstance(
                 TestUtils.getClusterName(testClusterName));
@@ -203,6 +203,146 @@ public class ClusterFaultToleranceIT {
             .untilAsserted(() -> Assertions.assertTrue(
                 objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
 
+        Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
+        Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
+
+        node1.shutdown();
+        node2.shutdown();
+        node3.shutdown();
+    }
+
+    @Test
+    @Disabled("Disable because we can not support changeless row number in FakeSource Stream Job")
+    public void testBatchJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
+        String testCaseName = "testBatchJobRestoreIn3NodeWorkerDown";
+        String testClusterName = "ClusterFaultToleranceIT_testBatchJobRestoreIn3NodeWorkerDown";
+        long testRowNumber = 10000;
+        int testParallelism = 6;
+        HazelcastInstanceImpl node1 =
+            SeaTunnelServerStarter.createHazelcastInstance(
+                TestUtils.getClusterName(testClusterName));
+
+        HazelcastInstanceImpl node2 =
+            SeaTunnelServerStarter.createHazelcastInstance(
+                TestUtils.getClusterName(testClusterName));
+
+        HazelcastInstanceImpl node3 =
+            SeaTunnelServerStarter.createHazelcastInstance(
+                TestUtils.getClusterName(testClusterName));
+
+        // waiting all node added to cluster
+        Awaitility.await().atMost(10000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> Assertions.assertEquals(3, node1.getCluster().getMembers().size()));
+
+        // TODO Need FakeSource support parallel first
+        Common.setDeployMode(DeployMode.CLIENT);
+        ImmutablePair<String, String> testResources = createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism);
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName(testCaseName);
+
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(
+            TestUtils.getClusterName(testClusterName));
+        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
+        JobExecutionEnvironment jobExecutionEnv =
+            engineClient.createExecutionContext(testResources.getRight(), jobConfig);
+        ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+
+        CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
+            return clientJobProxy.waitForJobComplete();
+        });
+
+        Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> {
+                // Wait some tasks commit finished
+                log.info("File Lines ==================" + FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+                Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
+                    FileUtils.getFileLineNumberFromDir(testResources.getLeft()) > 1);
+            });
+
+        // shutdown on worker node
+        node2.shutdown();
+
+        Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> Assertions.assertTrue(
+                objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
+
+        Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
+        Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
+
+        node1.shutdown();
+        node3.shutdown();
+    }
+
+    @Test
+    @Disabled("Disable because we can not support changeless row number in FakeSource Stream Job")
+    public void testStreamJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
+        String testCaseName = "testStreamJobRestoreIn3NodeWorkerDown";
+        String testClusterName = "ClusterFaultToleranceIT_testStreamJobRestoreIn3NodeWorkerDown";
+        long testRowNumber = 10000;
+        int testParallelism = 6;
+        HazelcastInstanceImpl node1 =
+            SeaTunnelServerStarter.createHazelcastInstance(
+                TestUtils.getClusterName(testClusterName));
+
+        HazelcastInstanceImpl node2 =
+            SeaTunnelServerStarter.createHazelcastInstance(
+                TestUtils.getClusterName(testClusterName));
+
+        HazelcastInstanceImpl node3 =
+            SeaTunnelServerStarter.createHazelcastInstance(
+                TestUtils.getClusterName(testClusterName));
+
+        // waiting all node added to cluster
+        Awaitility.await().atMost(10000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> Assertions.assertEquals(3, node1.getCluster().getMembers().size()));
+
+        // TODO Need FakeSource support parallel first
+        Common.setDeployMode(DeployMode.CLIENT);
+        ImmutablePair<String, String> testResources = createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism);
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName(testCaseName);
+
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(
+            TestUtils.getClusterName(testClusterName));
+        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
+        JobExecutionEnvironment jobExecutionEnv =
+            engineClient.createExecutionContext(testResources.getRight(), jobConfig);
+        ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+
+        CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
+            return clientJobProxy.waitForJobComplete();
+        });
+
+        Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> {
+                // Wait some tasks commit finished, and we can get rows from the sink target dir
+                log.info("File Lines ==================" + FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+                Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
+                    FileUtils.getFileLineNumberFromDir(testResources.getLeft()) > 1);
+            });
+
+        // shutdown on worker node
+        node2.shutdown();
+
+        Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> {
+                // Wait job write all rows in file
+                log.info("File Lines ==================" + FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+                Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
+                    testRowNumber * testParallelism == FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+            });
+
+        // sleep 10s and expect the job don't write more rows.
+        Thread.sleep(10000);
+        clientJobProxy.cancelJob();
+
+        Awaitility.await().atMost(20000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> Assertions.assertTrue(
+                objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
+
+        // check the final rows
         Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
         Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
 
