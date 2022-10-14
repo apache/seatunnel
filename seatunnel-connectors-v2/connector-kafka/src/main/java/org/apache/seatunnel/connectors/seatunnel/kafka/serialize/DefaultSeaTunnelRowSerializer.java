@@ -51,7 +51,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byt
 
     @Override
     public ProducerRecord<byte[], byte[]> serializeRowByKey(String key, SeaTunnelRow row) {
-        return new ProducerRecord<>(topic, key.getBytes(), jsonSerializationSchema.serialize(row));
+        //if the key is null, kafka will send message to a random partition
+        return new ProducerRecord<>(topic, key == null ? null : key.getBytes(), jsonSerializationSchema.serialize(row));
     }
 
 }

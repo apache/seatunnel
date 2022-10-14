@@ -73,13 +73,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             List<String> fields = Arrays.asList(seaTunnelRowType.getFieldNames());
             String key;
             if (fields.contains(keyField)) {
-                Object field = element.getField(fields.indexOf(keyField));
-                //If the field is null, send the message to the same partition
-                if (field == null) {
-                    key = "null";
-                } else {
-                    key = field.toString();
-                }
+                key = element.getField(fields.indexOf(keyField)).toString();
             } else {
                 key = keyField;
             }
