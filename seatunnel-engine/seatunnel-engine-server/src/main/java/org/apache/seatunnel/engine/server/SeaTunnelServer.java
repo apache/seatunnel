@@ -166,7 +166,8 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     public CoordinatorService getCoordinatorService() {
         int retryCount = 0;
         if (isMasterNode()) {
-            while (!coordinatorService.isCoordinatorActive() && retryCount < 20000 && isRunning) {
+            // TODO the retry count and sleep time need configurable
+            while (!coordinatorService.isCoordinatorActive() && retryCount < 20 && isRunning) {
                 try {
                     logger.warning("This is master node, waiting the coordinator service init finished");
                     Thread.sleep(1000);
