@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
-import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.core.job.PipelineState;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
@@ -32,7 +32,7 @@ public class StandaloneCheckpointIDCounter implements CheckpointIDCounter {
     }
 
     @Override
-    public CompletableFuture<Void> shutdown(JobStatus jobStatus) {
+    public CompletableFuture<Void> shutdown(PipelineState pipelineStatus) {
         return CompletableFuture.completedFuture(null);
     }
 

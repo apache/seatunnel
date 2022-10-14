@@ -20,22 +20,23 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
-import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 
-@AutoService(SeaTunnelSource.class)
-public class FakeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
+import java.io.Serializable;
 
-    private Config pluginConfig;
+@AutoService(SeaTunnelSource.class)
+public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit, Serializable> {
+
     private JobContext jobContext;
     private SeaTunnelSchema schema;
     private FakeConfig fakeConfig;
@@ -51,7 +52,17 @@ public class FakeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     }
 
     @Override
-    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
+    public SourceSplitEnumerator<FakeSourceSplit, Serializable> createEnumerator(SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext) throws Exception {
+        return new FakeSourceSplitEnumerator(enumeratorContext);
+    }
+
+    @Override
+    public SourceSplitEnumerator<FakeSourceSplit, Serializable> restoreEnumerator(SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext, Serializable checkpointState) throws Exception {
+        return new FakeSourceSplitEnumerator(enumeratorContext);
+    }
+
+    @Override
+    public SourceReader<SeaTunnelRow, FakeSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
         return new FakeSourceReader(readerContext, new FakeDataGenerator(schema, fakeConfig));
     }
 
@@ -62,7 +73,6 @@ public class FakeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public void prepare(Config pluginConfig) {
-        this.pluginConfig = pluginConfig;
         assert pluginConfig.hasPath(FakeDataGenerator.SCHEMA);
         this.schema = SeaTunnelSchema.buildWithConfig(pluginConfig.getConfig(FakeDataGenerator.SCHEMA));
         this.fakeConfig = FakeConfig.buildWithConfig(pluginConfig);

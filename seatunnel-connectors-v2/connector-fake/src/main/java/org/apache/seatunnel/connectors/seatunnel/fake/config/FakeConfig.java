@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.fake.source;
+package org.apache.seatunnel.connectors.seatunnel.fake.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -27,11 +27,11 @@ import java.io.Serializable;
 @Builder
 @Getter
 public class FakeConfig implements Serializable {
-    private static final String ROW_NUM = "row.num";
-    private static final String MAP_SIZE = "map.size";
-    private static final String ARRAY_SIZE = "array.size";
-    private static final String BYTES_LENGTH = "bytes.length";
-    private static final String STRING_LENGTH = "string.length";
+    public static final String ROW_NUM = "row.num";
+    public static final String MAP_SIZE = "map.size";
+    public static final String ARRAY_SIZE = "array.size";
+    public static final String BYTES_LENGTH = "bytes.length";
+    public static final String STRING_LENGTH = "string.length";
     private static final int DEFAULT_ROW_NUM = 5;
     private static final int DEFAULT_MAP_SIZE = 5;
     private static final int DEFAULT_ARRAY_SIZE = 5;
