@@ -37,6 +37,7 @@
         <module>connector-mongodb-flink-e2e</module>
         <module>connector-iceberg-flink-e2e</module>
         <module>connector-iceberg-hadoop3-flink-e2e</module>
+        <module>connector-influxdb-flink-e2e</module>
     </modules>
 
     <dependencies>
