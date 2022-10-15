@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.local.source;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -70,10 +71,11 @@ public class LocalFileSource extends BaseFileSource {
                 case TEXT:
                 case JSON:
                     Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA);
-                    rowType = SeaTunnelSchema
+                    SeaTunnelRowType userDefinedSchema = SeaTunnelSchema
                             .buildWithConfig(schemaConfig)
                             .getSeaTunnelRowType();
-                    readStrategy.setSeaTunnelRowTypeInfo(rowType);
+                    readStrategy.setSeaTunnelRowTypeInfo(userDefinedSchema);
+                    rowType = readStrategy.getActualSeaTunnelRowTypeInfo();
                     break;
                 case ORC:
                 case PARQUET:

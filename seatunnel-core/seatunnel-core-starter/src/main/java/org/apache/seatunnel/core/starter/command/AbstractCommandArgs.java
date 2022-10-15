@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.core.starter.command;
 
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.config.EngineType;
 
@@ -40,6 +41,10 @@ public abstract class AbstractCommandArgs implements CommandArgs {
     @Parameter(names = {"-t", "--check"},
             description = "check config")
     private boolean checkConfig = false;
+
+    @Parameter(names = {"-n", "--name"},
+            description = "application name")
+    private String jobName = Constants.LOGO;
 
     @Parameter(names = {"-h", "--help"},
             help = true,
@@ -73,6 +78,14 @@ public abstract class AbstractCommandArgs implements CommandArgs {
 
     public void setCheckConfig(boolean checkConfig) {
         this.checkConfig = checkConfig;
+    }
+
+    public String getJobName() {
+        return jobName;
+    }
+
+    public void setJobName(String jobName) {
+        this.jobName = jobName;
     }
 
     public boolean isHelp() {

@@ -73,6 +73,8 @@ public class FlinkStarter implements Starter {
         if (flinkCommandArgs.isCheckConfig()) {
             command.add("--check");
         }
+        //set job name
+        command.add("-Dpipeline.name=" + flinkCommandArgs.getJobName());
         // set System properties
         flinkCommandArgs.getVariables().stream()
                 .filter(Objects::nonNull)

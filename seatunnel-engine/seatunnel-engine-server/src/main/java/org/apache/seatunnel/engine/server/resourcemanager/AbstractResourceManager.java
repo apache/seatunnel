@@ -19,12 +19,12 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
-import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReleaseSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ResetResourceOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Member;
@@ -32,7 +32,6 @@ import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.spi.impl.NodeEngine;
-import com.hazelcast.spi.impl.operationservice.InvocationBuilder;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
@@ -140,10 +139,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
     }
 
     protected <E> InvocationFuture<E> sendToMember(Operation operation, Address address) {
-        InvocationBuilder invocationBuilder =
-            nodeEngine.getOperationService().createInvocationBuilder(SeaTunnelServer.SERVICE_NAME,
-                operation, address);
-        return invocationBuilder.invoke();
+        return NodeEngineUtil.sendOperationToMemberNode(nodeEngine, operation, address);
     }
 
     @Override
@@ -165,7 +161,11 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Override
     public CompletableFuture<Void> releaseResource(long jobId, SlotProfile profile) {
-        return sendToMember(new ReleaseSlotOperation(jobId, profile), profile.getWorker());
+        if (nodeEngine.getClusterService().getMember(profile.getWorker()) != null) {
+            return sendToMember(new ReleaseSlotOperation(jobId, profile), profile.getWorker());
+        } else {
+            return CompletableFuture.completedFuture(null);
+        }
     }
 
     @Override
