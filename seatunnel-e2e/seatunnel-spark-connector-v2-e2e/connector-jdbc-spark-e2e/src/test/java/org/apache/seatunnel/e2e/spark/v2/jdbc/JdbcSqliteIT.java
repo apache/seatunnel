@@ -58,9 +58,9 @@ public class JdbcSqliteIT extends SparkContainer {
     private Connection jdbcConnection;
 
     private void initTestDb() throws Exception {
-        tmpdir = System.getProperty("java.io.tmpdir");
+        tmpdir = Paths.get(System.getProperty("java.io.tmpdir")).toAbsolutePath().toString();
         Class.forName("org.sqlite.JDBC");
-        jdbcConnection = DriverManager.getConnection("jdbc:sqlite:" + tmpdir + "test.db", "", "");
+        jdbcConnection = DriverManager.getConnection("jdbc:sqlite:" + tmpdir + "/test.db", "", "");
         initializeJdbcTable();
         batchInsertData();
     }
@@ -115,7 +115,7 @@ public class JdbcSqliteIT extends SparkContainer {
     public void testJdbcSqliteSourceAndSinkDataType() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/jdbc/jdbc_sqlite_source_and_sink_datatype.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        master.copyFileFromContainer(Paths.get(SEATUNNEL_HOME, "data", "test.db").toString(), new File(tmpdir + "test.db").toPath().toString());
+        master.copyFileFromContainer(Paths.get(SEATUNNEL_HOME, "data", "test.db").toString(), new File(tmpdir + "/test.db").toPath().toString());
         checkSinkDataTypeTable();
     }
 
@@ -135,7 +135,7 @@ public class JdbcSqliteIT extends SparkContainer {
     public void testJdbcSqliteSourceAndSink() throws IOException, InterruptedException, SQLException {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/jdbc/jdbc_sqlite_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        master.copyFileFromContainer(Paths.get(SEATUNNEL_HOME, "data", "test.db").toString(), new File(tmpdir + "test.db").toPath().toString());
+        master.copyFileFromContainer(Paths.get(SEATUNNEL_HOME, "data", "test.db").toString(), new File(tmpdir + "/test.db").toPath().toString());
         // query result
         String sql = "select age, name from sink order by age asc";
         List<List> result = new ArrayList<>();
@@ -156,7 +156,7 @@ public class JdbcSqliteIT extends SparkContainer {
             jdbcConnection.close();
         }
         // remove the temp test.db file
-        Files.delete(new File(tmpdir + "test.db").toPath());
+        Files.deleteIfExists(new File(tmpdir + "/test.db").toPath());
     }
 
     @Override
@@ -170,12 +170,12 @@ public class JdbcSqliteIT extends SparkContainer {
         try {
             initTestDb();
             // copy db file to container, dist file path in container is /tmp/seatunnel/data/test.db
-            Path path = new File(tmpdir + "test.db").toPath();
+            Path path = new File(tmpdir + "/test.db").toPath();
             byte[] bytes = Files.readAllBytes(path);
             container.copyFileToContainer(Transferable.of(bytes), Paths.get(SEATUNNEL_HOME, "data", "test.db").toString());
         } catch (Exception e) {
-            e.printStackTrace();
-            Files.delete(new File(tmpdir + "test.db").toPath());
+            log.error("init test.db and copy test.db to container error", e);
+            Files.deleteIfExists(new File(tmpdir + "/test.db").toPath());
         }
     }
 
