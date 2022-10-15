@@ -59,12 +59,24 @@ public class FakeSourceToFileIT extends SparkContainer {
     }
 
     /**
-     *  fake source -> local excel file sink
+     * fake source -> local orc file sink -> local orc file source -> console sink
      */
     @Test
-    public void testFakeSourceToLocalFileExcel() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_local_excel.conf");
+    public void testFakeSourceToLocalFileORCAndReadToConsole() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_local_orc.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+        Container.ExecResult execResult2 = executeSeaTunnelSparkJob("/file/local_orc_source_to_console.conf");
+        Assertions.assertEquals(0, execResult2.getExitCode());
     }
 
+    /**
+     * fake source -> local parquet file sink -> local parquet file source -> console sink
+     */
+    @Test
+    public void testFakeSourceToLocalFilePARQUETAndReadToConsole() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_local_parquet.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Container.ExecResult execResult2 = executeSeaTunnelSparkJob("/file/local_parquet_source_to_console.conf");
+        Assertions.assertEquals(0, execResult2.getExitCode());
+    }
 }

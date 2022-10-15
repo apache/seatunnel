@@ -19,29 +19,27 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] parquet
   - [x] orc
   - [x] json
-  - [x] excel 
 
 ## Options
 
 In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
 
 | name                             | type   | required | default value                                           |
-|----------------------------------| ------ | -------- |---------------------------------------------------------|
+|----------------------------------| ------ | -------- |--------------------------------------------------------|
 | fs.defaultFS                     | string | yes      | -                                                       |
 | path                             | string | yes      | -                                                       |
-| file_name_expression             | string | no       | "${transactionId}"                                      |
-| file_format                      | string | no       | "text"                                                  |
-| filename_time_format             | string | no       | "yyyy.MM.dd"                                            |
-| field_delimiter                  | string | no       | '\001'                                                  |
-| row_delimiter                    | string | no       | "\n"                                                    |
-| max_rows_in_memory               | int    | no       | When this parameter is empty, all output data is cached in memory |
+| file_name_expression             | string | no       | "${transactionId}"                      |
+| file_format                      | string | no       | "text"                                                 |
+| filename_time_format             | string | no       | "yyyy.MM.dd"                                           |
+| field_delimiter                  | string | no       | '\001'                                                 |
+| row_delimiter                    | string | no       | "\n"                                                   |
 | partition_by                     | array  | no       | -                                                       |
-| partition_dir_expression         | string | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"              |
+| partition_dir_expression         | string | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"             |
 | is_partition_field_write_in_file | boolean| no       | false                                                   |
 | sink_columns                     | array  | no       | When this parameter is empty, all fields are sink columns |
-| is_enable_transaction            | boolean| no       | true                                                    |
+| is_enable_transaction            | boolean| no       | true                                                   |
 | save_mode                        | string | no       | "error"                                                 |
-
+| common-options                   |        | no       | -                                                       |
 ### fs.defaultFS [string]
 
 The hadoop cluster address that start with `hdfs://`, for example: `hdfs://hadoopcluster`
@@ -61,7 +59,7 @@ Please note that, If `is_enable_transaction` is `true`, we will auto add `${tran
 
 We supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel`
+`text` `csv` `parquet` `orc` `json`
 
 Please note that, The final file name will ends with the file_format's suffix, the suffix of the text file is `txt`.
 
@@ -87,10 +85,6 @@ The separator between columns in a row of data. Only needed by `text` and `csv` 
 ### row_delimiter [string]
 
 The separator between rows in a file. Only needed by `text` and `csv` file format.
-
-### max_rows_in_memory [int]
-
-The maximum number of data items that can be cached in the memory. This parameter takes effect only when File Format is Excel
 
 ### partition_by [array]
 
@@ -128,6 +122,10 @@ Storage mode, currently supports `overwrite`. This means we will delete the old 
 If `is_enable_transaction` is `true`, Basically, we won't encounter the same file name. Because we will add the transaction id to file name.
 
 For the specific meaning of each mode, see [save-modes](https://spark.apache.org/docs/latest/sql-programming-guide.html#save-modes)
+
+### common options
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
 
@@ -183,26 +181,6 @@ HdfsFile {
     is_partition_field_write_in_file=true
     file_name_expression="${transactionId}_${now}"
     file_format="orc"
-    sink_columns=["name","age"]
-    filename_time_format="yyyy.MM.dd"
-    is_enable_transaction=true
-}
-
-```
-
-For excel file format
-
-```bash
-
-HdfsFile {
-    fs.defaultFS="hdfs://hadoopcluster"
-    path="/tmp/hive/warehouse/test2"
-    partition_by=["age"]
-    partition_dir_expression="${k0}=${v0}"
-    is_partition_field_write_in_file=true
-    file_name_expression="${transactionId}_${now}"
-    max_rows_in_memory=1000
-    file_format="excel"
     sink_columns=["name","age"]
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
