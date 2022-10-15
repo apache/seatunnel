@@ -163,7 +163,7 @@ public class DefaultSlotService implements SlotService {
 
     @Override
     public void close() {
-        scheduledExecutorService.shutdown();
+        scheduledExecutorService.shutdownNow();
     }
 
     private SlotProfile selectBestMatchSlot(ResourceProfile profile) {

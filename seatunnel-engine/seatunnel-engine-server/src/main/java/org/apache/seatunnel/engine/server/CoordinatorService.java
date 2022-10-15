@@ -35,6 +35,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.services.MembershipServiceEvent;
@@ -50,6 +51,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -117,18 +119,15 @@ public class CoordinatorService {
     private ScheduledExecutorService masterActiveListener;
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    public CoordinatorService(@NonNull NodeEngineImpl nodeEngine, @NonNull ExecutorService executorService,
-                              @NonNull SeaTunnelServer seaTunnelServer) {
+    public CoordinatorService(@NonNull NodeEngineImpl nodeEngine, @NonNull SeaTunnelServer seaTunnelServer) {
         this.nodeEngine = nodeEngine;
         this.logger = nodeEngine.getLogger(getClass());
-        this.executorService = executorService;
+        this.executorService =
+            Executors.newCachedThreadPool(new ThreadFactoryBuilder()
+                .setNameFormat("seatunnel-coordinator-service-%d").build());
         this.seaTunnelServer = seaTunnelServer;
         masterActiveListener = Executors.newSingleThreadScheduledExecutor();
-        CompletableFuture future = new CompletableFuture();
-        future.whenComplete((r, t) -> {
-            throw new SeaTunnelEngineException("check new active master thread failed", (Throwable) t);
-        });
-        masterActiveListener.scheduleAtFixedRate(() -> checkNewActiveMaster(future), 0, 100, TimeUnit.MILLISECONDS);
+        masterActiveListener.scheduleAtFixedRate(() -> checkNewActiveMaster(), 0, 100, TimeUnit.MILLISECONDS);
     }
 
     public JobMaster getJobMaster(Long jobId) {
@@ -230,7 +229,8 @@ public class CoordinatorService {
         }
 
         if (JobStatus.RUNNING.equals(jobStatus)) {
-            logger.info(String.format("The restore %s is in %s state, restore pipeline and take over this job running", jobFullName, jobStatus));
+            logger.info(String.format("The restore %s is in %s state, restore pipeline and take over this job running",
+                jobFullName, jobStatus));
             CompletableFuture.runAsync(() -> {
                 try {
                     jobMaster.getPhysicalPlan().getPipelineList().forEach(SubPlan::restorePipelineState);
@@ -245,7 +245,7 @@ public class CoordinatorService {
         }
     }
 
-    private void checkNewActiveMaster(@NonNull CompletableFuture future) {
+    private void checkNewActiveMaster() {
         try {
             if (!isActive && this.seaTunnelServer.isMasterNode()) {
                 logger.info("This node become a new active master node, begin init coordinator service");
@@ -257,8 +257,9 @@ public class CoordinatorService {
                 clearCoordinatorService();
             }
         } catch (Exception e) {
+            isActive = false;
             logger.severe(ExceptionUtils.getMessage(e));
-            future.completeExceptionally(e);
+            throw new SeaTunnelEngineException("check new active master error, stop loop");
         }
     }
 
@@ -404,11 +405,9 @@ public class CoordinatorService {
 
     public void shutdown() {
         if (masterActiveListener != null) {
-            masterActiveListener.shutdown();
+            masterActiveListener.shutdownNow();
         }
-        if (resourceManager != null) {
-            resourceManager.close();
-        }
+        clearCoordinatorService();
     }
 
     /**
@@ -436,7 +435,8 @@ public class CoordinatorService {
             ExecutionState executionState = physicalVertex.getExecutionState();
             if (null != deployAddress && deployAddress.equals(lostAddress) &&
                 (executionState.equals(ExecutionState.DEPLOYING) ||
-                    executionState.equals(ExecutionState.RUNNING))) {
+                    executionState.equals(ExecutionState.RUNNING) ||
+                    executionState.equals(ExecutionState.CANCELING))) {
                 TaskGroupLocation taskGroupLocation = physicalVertex.getTaskGroupLocation();
                 physicalVertex.updateTaskExecutionState(
                     new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED,
@@ -450,5 +450,34 @@ public class CoordinatorService {
     public void memberRemoved(MembershipServiceEvent event) {
         this.getResourceManager().memberRemoved(event);
         this.failedTaskOnMemberRemoved(event);
+    }
+
+    public void printExecutionInfo() {
+        ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
+        int activeCount = threadPoolExecutor.getActiveCount();
+        int corePoolSize = threadPoolExecutor.getCorePoolSize();
+        int maximumPoolSize = threadPoolExecutor.getMaximumPoolSize();
+        int poolSize = threadPoolExecutor.getPoolSize();
+        long completedTaskCount = threadPoolExecutor.getCompletedTaskCount();
+        long taskCount = threadPoolExecutor.getTaskCount();
+        StringBuffer sbf = new StringBuffer();
+        sbf.append("activeCount=")
+            .append(activeCount)
+            .append("\n")
+            .append("corePoolSize=")
+            .append(corePoolSize)
+            .append("\n")
+            .append("maximumPoolSize=")
+            .append(maximumPoolSize)
+            .append("\n")
+            .append("poolSize=")
+            .append(poolSize)
+            .append("\n")
+            .append("completedTaskCount=")
+            .append(completedTaskCount)
+            .append("\n")
+            .append("taskCount=")
+            .append(taskCount);
+        logger.info(sbf.toString());
     }
 }

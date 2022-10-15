@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
+
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.loader.SeatunnelChildFirstClassLoader;
@@ -150,14 +152,14 @@ public class JobMaster extends Thread {
     public void initStateFuture() {
         jobMasterCompleteFuture = new CompletableFuture<>();
         PassiveCompletableFuture<JobStatus> jobStatusFuture = physicalPlan.initStateFuture();
-        jobStatusFuture.whenComplete((v, t) -> {
+        jobStatusFuture.whenComplete(withTryCatch(LOGGER, (v, t) -> {
             // We need not handle t, Because we will not return t from physicalPlan
             if (JobStatus.FAILING.equals(v)) {
                 cleanJob();
                 physicalPlan.updateJobState(JobStatus.FAILING, JobStatus.FAILED);
             }
             jobMasterCompleteFuture.complete(physicalPlan.getJobStatus());
-        });
+        }));
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
