@@ -32,11 +32,6 @@ public class ClientCommandArgs extends AbstractCommandArgs {
      * Undefined parameters parsed will be stored here as seatunnel engine command parameters.
      */
     private List<String> seatunnelParams;
-
-    @Parameter(names = {"-n", "--name"},
-        description = "The name of job")
-    private String name = "seatunnel_job";
-
     @Parameter(names = {"-e", "--deploy-mode"},
         description = "SeaTunnel deploy mode",
         converter = ExecutionModeConverter.class)
@@ -68,14 +63,6 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
     public void setExecutionMode(ExecutionMode executionMode) {
         this.executionMode = executionMode;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
     }
 
     @Override
