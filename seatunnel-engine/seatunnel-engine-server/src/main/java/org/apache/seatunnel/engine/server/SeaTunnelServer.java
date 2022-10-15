@@ -108,7 +108,9 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     @Override
     public void shutdown(boolean terminate) {
         isRunning = false;
-        taskExecutionService.shutdown();
+        if (taskExecutionService != null) {
+            taskExecutionService.shutdown();
+        }
         if (monitorService != null) {
             monitorService.shutdownNow();
         }
