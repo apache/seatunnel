@@ -84,7 +84,7 @@ The separator between rows in a file. Only needed by `text` and `csv` file forma
 
 ### max_rows_in_memory [int]
 
-The maximum number of data items that can be cached in the memory. This parameter takes effect only when File Format is Excel
+When File Format is Excel,The maximum number of data items that can be cached in the memory.Note that you need to install fonts when using openjdk.
 
 ### partition_by [array]
 
@@ -195,8 +195,8 @@ LocalFile {
     partition_dir_expression="${k0}=${v0}"
     is_partition_field_write_in_file=true
     file_name_expression="${transactionId}_${now}"
-    max_rows_in_memory=1000
     file_format="excel"
+    max_rows_in_memory=10000
     sink_columns=["name","age"]
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true

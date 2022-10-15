@@ -37,6 +37,10 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Array;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -103,27 +107,36 @@ public class ExcelGenerator {
         } else if (BasicType.INT_TYPE.equals(type)) {
             cell.setCellValue((int) value);
             cell.setCellStyle(wholeNumberCellStyle);
-        } else if (BasicType.LONG_TYPE.equals(type) || type.getSqlType().equals(SqlType.TIMESTAMP)) {
+        } else if (BasicType.LONG_TYPE.equals(type)) {
             cell.setCellValue((long) value);
             cell.setCellStyle(wholeNumberCellStyle);
+        } else if (type.getSqlType().equals(SqlType.TIMESTAMP)) {
+            cell.setCellValue(Timestamp.valueOf((LocalDateTime) value));
+            cell.setCellStyle(stringCellStyle);
         } else if (BasicType.FLOAT_TYPE.equals(type)) {
             cell.setCellValue((float) value);
             cell.setCellStyle(wholeNumberCellStyle);
         } else if (BasicType.DOUBLE_TYPE.equals(type)) {
             cell.setCellValue((double) value);
             cell.setCellStyle(wholeNumberCellStyle);
-        } else if (type.getSqlType().equals(SqlType.BYTES) || type.getSqlType().equals(SqlType.ARRAY)) {
+        } else if (type.getSqlType().equals(SqlType.DECIMAL)) {
+            cell.setCellValue(Double.parseDouble(value.toString()));
+            cell.setCellStyle(wholeNumberCellStyle);
+        } else if (type.getSqlType().equals(SqlType.BYTES)) {
             List<String> arrayData = new ArrayList<>();
             for (int i = 0; i < Array.getLength(value); i++) {
                 arrayData.add(String.valueOf(Array.get(value, i)));
             }
             cell.setCellValue(arrayData.toString());
             cell.setCellStyle(stringCellStyle);
-        } else if (type.getSqlType().equals(SqlType.MAP)) {
+        } else if (type.getSqlType().equals(SqlType.MAP) || type.getSqlType().equals(SqlType.ARRAY) || type.getSqlType().equals(SqlType.ROW)) {
             cell.setCellValue(JsonUtils.toJsonString(value));
             cell.setCellStyle(stringCellStyle);
-        } else if (type.getSqlType().equals(SqlType.DATE) || type.getSqlType().equals(SqlType.TIME)) {
-            cell.setCellValue((String) value);
+        } else if (type.getSqlType().equals(SqlType.DATE)) {
+            cell.setCellValue((LocalDate) value);
+            cell.setCellStyle(stringCellStyle);
+        } else if (type.getSqlType().equals(SqlType.TIME)) {
+            cell.setCellValue(Timestamp.valueOf(((LocalTime) value).atDate(LocalDate.ofEpochDay(0))));
             cell.setCellStyle(stringCellStyle);
         } else {
             String errorMsg = String.format("[%s] type not support ", type.getSqlType());

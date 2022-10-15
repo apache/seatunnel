@@ -19,6 +19,7 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] parquet
   - [x] orc
   - [x] json
+  - [x] excel
 
 ## Options
 
@@ -33,6 +34,7 @@ In order to use this connector, You must ensure your spark/flink cluster already
 | filename_time_format             | string | no       | "yyyy.MM.dd"                                           |
 | field_delimiter                  | string | no       | '\001'                                                 |
 | row_delimiter                    | string | no       | "\n"                                                   |
+| max_rows_in_memory               | int    | no       | When this parameter is empty, all output data is cached in memory |
 | partition_by                     | array  | no       | -                                                       |
 | partition_dir_expression         | string | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"             |
 | is_partition_field_write_in_file | boolean| no       | false                                                   |
@@ -59,7 +61,7 @@ Please note that, If `is_enable_transaction` is `true`, we will auto add `${tran
 
 We supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json`
+`text` `csv` `parquet` `orc` `json` `excel`
 
 Please note that, The final file name will ends with the file_format's suffix, the suffix of the text file is `txt`.
 
@@ -85,6 +87,10 @@ The separator between columns in a row of data. Only needed by `text` and `csv` 
 ### row_delimiter [string]
 
 The separator between rows in a file. Only needed by `text` and `csv` file format.
+
+### max_rows_in_memory [int]
+
+When File Format is Excel,The maximum number of data items that can be cached in the memory.Note that you need to install fonts when using openjdk.
 
 ### partition_by [array]
 
@@ -181,6 +187,26 @@ HdfsFile {
     is_partition_field_write_in_file=true
     file_name_expression="${transactionId}_${now}"
     file_format="orc"
+    sink_columns=["name","age"]
+    filename_time_format="yyyy.MM.dd"
+    is_enable_transaction=true
+}
+
+```
+
+For excel file format
+
+```bash
+
+HdfsFile {
+    fs.defaultFS="hdfs://hadoopcluster"
+    path="/tmp/hive/warehouse/test2"
+    partition_by=["age"]
+    partition_dir_expression="${k0}=${v0}"
+    is_partition_field_write_in_file=true
+    file_name_expression="${transactionId}_${now}"
+    file_format="excel"
+    max_rows_in_memory=10000
     sink_columns=["name","age"]
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
