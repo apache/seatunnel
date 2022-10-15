@@ -28,6 +28,8 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.Elasticsear
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchSinkState;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import com.google.auto.service.AutoService;
 
 import java.util.Collections;
@@ -36,7 +38,7 @@ import java.util.Collections;
 public class ElasticsearchSink implements SeaTunnelSink<SeaTunnelRow, ElasticsearchSinkState, ElasticsearchCommitInfo, ElasticsearchAggregatedCommitInfo> {
 
 
-    private org.apache.seatunnel.shade.com.typesafe.config.Config pluginConfig;
+    private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
 
     @Override
@@ -45,7 +47,7 @@ public class ElasticsearchSink implements SeaTunnelSink<SeaTunnelRow, Elasticsea
     }
 
     @Override
-    public void prepare(org.apache.seatunnel.shade.com.typesafe.config.Config pluginConfig) throws PrepareFailException {
+    public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
         SinkConfig.setValue(pluginConfig);
     }
