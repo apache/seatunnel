@@ -35,17 +35,16 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String NETWORK_ALIASES = "e2e_starRocksdb";
     private static final int SR_PORT = 9030;
-    private static final String URL = "jdbc:mysql://" + HOST + ":" + SR_PORT;
     private static final String USERNAME = "root";
     private static final String PASSWORD = "";
     private static final String DATABASE = "test";
+    private static final String URL = "jdbc:mysql://" + HOST + ":" + SR_PORT + "/" + DATABASE + "?createDatabaseIfNotExist=true";
+
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SINK_TABLE = "e2e_table_sink";
     private static final String SR_DRIVER_JAR = "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
     private static final String COLUMN_STRING = "BIGINT_COL, LARGEINT_COL, SMALLINT_COL, TINYINT_COL, BOOLEAN_COL, DECIMAL_COL, DOUBLE_COL, FLOAT_COL, INT_COL, CHAR_COL, VARCHAR_11_COL, STRING_COL, DATETIME_COL, DATE_COL";
     private static final String CONFIG_FILE = "/jdbc_starrocks_source_to_sink.conf";
-
-    private static final String INIT_DATABASE = "create database test";
 
     private static final String DDL_SOURCE = "create table "  + DATABASE + "." + SOURCE_TABLE + " (\n" +
             "  BIGINT_COL     BIGINT,\n" +
@@ -124,7 +123,7 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
         return JdbcCase.builder().dockerImage(DOCKER_IMAGE).networkAliases(NETWORK_ALIASES).containerEnv(containerEnv).driverClass(DRIVER_CLASS)
                 .host(HOST).port(SR_PORT).jdbcUrl(jdbcUrl).userName(USERNAME).password(PASSWORD).dataBase(DATABASE)
                 .sourceTable(SOURCE_TABLE).sinkTable(SINK_TABLE).driverJar(SR_DRIVER_JAR)
-                .initDatabase(INIT_DATABASE).ddlSource(DDL_SOURCE).ddlSink(DDL_SINK).initDataSql(INIT_DATA_SQL).configFile(CONFIG_FILE).seaTunnelRow(initTestData()).build();
+                .ddlSource(DDL_SOURCE).ddlSink(DDL_SINK).initDataSql(INIT_DATA_SQL).configFile(CONFIG_FILE).seaTunnelRow(initTestData()).build();
     }
 
     @Override

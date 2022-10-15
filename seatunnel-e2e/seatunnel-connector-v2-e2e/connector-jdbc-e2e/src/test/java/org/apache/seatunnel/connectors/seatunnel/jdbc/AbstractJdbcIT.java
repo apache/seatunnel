@@ -28,7 +28,6 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
@@ -111,12 +110,8 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     private void initializeJdbcTable() throws SQLException {
         try (Connection connection = DriverManager.getConnection(jdbcUrl, jdbcCase.getUserName(), jdbcCase.getPassword())) {
             Statement statement = connection.createStatement();
-            String createDatabase = jdbcCase.getInitDatabase();
             String createSource = jdbcCase.getDdlSource();
             String createSink = jdbcCase.getDdlSink();
-            if (!StringUtils.isEmpty(createDatabase)) {
-                statement.execute(createDatabase);
-            }
             statement.execute(createSource);
             statement.execute(createSink);
         } catch (SQLException exception) {
