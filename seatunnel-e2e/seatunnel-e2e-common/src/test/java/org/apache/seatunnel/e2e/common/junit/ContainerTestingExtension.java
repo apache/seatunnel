@@ -57,7 +57,9 @@ public class ContainerTestingExtension implements BeforeAllCallback, AfterAllCal
             TestContainersFactory.class);
 
         checkExactlyOneAnnotatedField(containersFactories, TestContainers.class);
-        List<TestContainer> testContainers = containersFactories.get(0).create();
+
+        List<TestContainer> testContainers = AnnotationUtil.filterDisabledContainers(containersFactories.get(0).create(),
+            context.getRequiredTestInstance().getClass());
         context.getStore(TEST_RESOURCE_NAMESPACE)
             .put(TEST_CONTAINERS_STORE_KEY, testContainers);
     }

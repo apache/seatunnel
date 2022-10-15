@@ -25,19 +25,22 @@ import org.apache.seatunnel.e2e.spark.SparkContainer;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.DockerLoggerFactory;
 
-import java.net.URL;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -49,44 +52,43 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Slf4j
 public class JdbcMysqlIT extends SparkContainer {
-    private static final Logger LOGGER = LoggerFactory.getLogger(JdbcMysqlIT.class);
+    private static final String DOCKER_IMAGE = "bitnami/mysql:8.0.29";
     private MySQLContainer<?> mc;
     private Config config;
+    private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
-    public void startPostgreSqlContainer() throws Exception {
+    public void startMySqlContainer() throws Exception {
         // Non-root users need to grant XA_RECOVER_ADMIN permission on is_exactly_once = "true"
-        mc = new MySQLContainer<>(DockerImageName.parse("mysql:8.0.29"))
+        mc = new MySQLContainer<>(DockerImageName.parse(DOCKER_IMAGE).asCompatibleSubstituteFor("mysql"))
             .withNetwork(NETWORK)
             .withNetworkAliases("mysql")
             .withUsername("root")
-            .withLogConsumer(new Slf4jLogConsumer(LOGGER));
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
         Startables.deepStart(Stream.of(mc)).join();
-        LOGGER.info("Mysql container started");
+        log.info("Mysql container started");
         Class.forName(mc.getDriverClassName());
         given().ignoreExceptions()
             .await()
             .atLeast(100, TimeUnit.MILLISECONDS)
             .pollInterval(500, TimeUnit.MILLISECONDS)
             .atMost(5, TimeUnit.SECONDS)
-            .untilAsserted(() -> initializeJdbcTable());
+            .untilAsserted(this::initializeJdbcTable);
         batchInsertData();
     }
 
-    private void initializeJdbcTable() {
-        URL resource = JdbcMysqlIT.class.getResource("/jdbc/init_sql/mysql_init.conf");
-        if (resource == null) {
-            throw new IllegalArgumentException("can't find find file");
-        }
+    private void initializeJdbcTable() throws URISyntaxException {
 
-        config = new ConfigBuilder(Paths.get(resource.getPath())).getConfig();
-
+        URI resource = Objects.requireNonNull(JdbcMysqlIT.class.getResource("/jdbc/init_sql/mysql_init.conf")).toURI();
+        config = new ConfigBuilder(Paths.get(resource)).getConfig();
         CheckConfigUtil.checkAllExists(this.config, "source_table", "sink_table", "type_source_table",
             "type_sink_table", "insert_type_source_table_sql", "check_type_sink_table_sql");
 
@@ -210,9 +212,15 @@ public class JdbcMysqlIT extends SparkContainer {
     }
 
     @AfterEach
-    public void closePostgreSqlContainer() {
+    public void closeMySqlContainer() {
         if (mc != null) {
             mc.stop();
         }
+    }
+
+    @Override
+    protected void executeExtraCommands(GenericContainer<?> container) throws IOException, InterruptedException {
+        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
+        Assertions.assertEquals(0, extraCommands.getExitCode());
     }
 }

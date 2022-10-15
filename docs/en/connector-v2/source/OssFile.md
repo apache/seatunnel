@@ -29,19 +29,69 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 
 ## Options
 
-| name          | type   | required | default value |
-|---------------|--------|----------|---------------|
-| path          | string | yes      | -             |
-| type          | string | yes      | -             |
-| bucket        | string | yes      | -             |
-| access_key    | string | yes      | -             |
-| access_secret | string | yes      | -             |
-| endpoint      | string | yes      | -             |
-| schema        | config | no       | -             |
+| name                      | type    | required | default value       |
+|---------------------------|---------|----------|---------------------|
+| path                      | string  | yes      | -                   |
+| type                      | string  | yes      | -                   |
+| bucket                    | string  | yes      | -                   |
+| access_key                | string  | yes      | -                   |
+| access_secret             | string  | yes      | -                   |
+| endpoint                  | string  | yes      | -                   |
+| delimiter                 | string  | no       | \001                |
+| parse_partition_from_path | boolean | no       | true                |
+| date_format               | string  | no       | yyyy-MM-dd          |
+| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
+| time_format               | string  | no       | HH:mm:ss            |
+| schema                    | config  | no       | -                   |
+| common-options            |         | no       | -                   |
 
 ### path [string]
 
 The source file path.
+
+### delimiter [string]
+
+Field delimiter, used to tell connector how to slice and dice fields when reading text files
+
+default `\001`, the same as hive's default delimiter
+
+### parse_partition_from_path [boolean]
+
+Control whether parse the partition keys and values from file path
+
+For example if you read a file from path `oss://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26`
+
+Every record data from file will be added these two fields:
+
+| name           | age |
+|----------------|-----|
+| tyrantlucifer  | 26  |
+
+Tips: **Do not define partition fields in schema option**
+
+### date_format [string]
+
+Date type format, used to tell connector how to convert string to date, supported as the following formats:
+
+`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`
+
+default `yyyy-MM-dd`
+
+### datetime_format [string]
+
+Datetime type format, used to tell connector how to convert string to datetime, supported as the following formats:
+
+`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`
+
+default `yyyy-MM-dd HH:mm:ss`
+
+### time_format [string]
+
+Time type format, used to tell connector how to convert string to time, supported as the following formats:
+
+`HH:mm:ss` `HH:mm:ss.SSS`
+
+default `HH:mm:ss`
 
 ### type [string]
 
@@ -92,13 +142,44 @@ connector will generate data as the following:
 
 If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data automatically.
 
-If you assign file type to `text` `csv`, schema option not supported temporarily, but the subsequent features will support.
+If you assign file type to `text` `csv`, you can choose to specify the schema information or not.
 
-Now connector will treat the upstream data as the following:
+For example, upstream data is the following:
 
-| lines                             |
-|-----------------------------------|
-| The content of every line in file |
+```text
+
+tyrantlucifer#26#male
+
+```
+
+If you do not assign data schema connector will treat the upstream data as the following:
+
+| content                |
+|------------------------|
+| tyrantlucifer#26#male  | 
+
+If you assign data schema, you should also assign the option `delimiter` too except CSV file type
+
+you should assign schema and delimiter as the following:
+
+```hocon
+
+delimiter = "#"
+schema {
+    fields {
+        name = string
+        age = int
+        gender = string 
+    }
+}
+
+```
+
+connector will generate data as the following:
+
+| name          | age | gender |
+|---------------|-----|--------|
+| tyrantlucifer | 26  | male   |
 
 ### bucket [string]
 
@@ -118,7 +199,13 @@ The endpoint of oss file system.
 
 ### schema [config]
 
+#### fields [Config]
+
 The schema of upstream data.
+
+### common options 
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
 ## Example
 

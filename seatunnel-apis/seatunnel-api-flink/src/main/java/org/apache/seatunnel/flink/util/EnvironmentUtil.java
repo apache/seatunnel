@@ -21,17 +21,15 @@ import org.apache.seatunnel.common.config.CheckResult;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.time.Time;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 public final class EnvironmentUtil {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(EnvironmentUtil.class);
 
     private EnvironmentUtil() {
     }
@@ -58,11 +56,11 @@ public final class EnvironmentUtil {
                                 Time.of(delayInterval, TimeUnit.MILLISECONDS)));
                         break;
                     default:
-                        LOGGER.warn("set restart.strategy failed, unknown restart.strategy [{}],only support no,fixed-delay,failure-rate", restartStrategy);
+                        log.warn("set restart.strategy failed, unknown restart.strategy [{}],only support no,fixed-delay,failure-rate", restartStrategy);
                 }
             }
         } catch (Exception e) {
-            LOGGER.warn("set restart.strategy in config '{}' exception", config, e);
+            log.warn("set restart.strategy in config '{}' exception", config, e);
         }
     }
 

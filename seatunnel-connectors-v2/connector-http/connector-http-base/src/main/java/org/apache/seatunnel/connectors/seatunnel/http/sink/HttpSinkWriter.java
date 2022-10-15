@@ -26,24 +26,29 @@ import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Objects;
 
+@Slf4j
 public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
-    private static final Logger LOGGER = LoggerFactory.getLogger(HttpSinkWriter.class);
     protected final HttpClientProvider httpClient;
     protected final SeaTunnelRowType seaTunnelRowType;
     protected final HttpParameter httpParameter;
     protected final SerializationSchema serializationSchema;
 
     public HttpSinkWriter(SeaTunnelRowType seaTunnelRowType, HttpParameter httpParameter) {
+        this(seaTunnelRowType, httpParameter, new JsonSerializationSchema(seaTunnelRowType));
+    }
+
+    public HttpSinkWriter(SeaTunnelRowType seaTunnelRowType,
+                          HttpParameter httpParameter,
+                          SerializationSchema serializationSchema) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.httpParameter = httpParameter;
         this.httpClient = new HttpClientProvider(httpParameter);
-        this.serializationSchema = new JsonSerializationSchema(seaTunnelRowType);
+        this.serializationSchema = serializationSchema;
     }
 
     @Override
@@ -56,9 +61,9 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             if (HttpResponse.STATUS_OK == response.getCode()) {
                 return;
             }
-            LOGGER.error("http client execute exception, http response status code:[{}], content:[{}]", response.getCode(), response.getContent());
+            log.error("http client execute exception, http response status code:[{}], content:[{}]", response.getCode(), response.getContent());
         } catch (Exception e) {
-            LOGGER.error(e.getMessage(), e);
+            log.error(e.getMessage(), e);
         }
     }
 

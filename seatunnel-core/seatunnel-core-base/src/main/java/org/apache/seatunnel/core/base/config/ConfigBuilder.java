@@ -24,18 +24,15 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 
 /**
  * Used to build the {@link  Config} from file.
- *
  */
+@Slf4j
 public class ConfigBuilder {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(ConfigBuilder.class);
 
     private final Path configFile;
     private final Config config;
@@ -51,7 +48,7 @@ public class ConfigBuilder {
             throw new ConfigRuntimeException("Please specify config file");
         }
 
-        LOGGER.info("Loading config file: {}", configFile);
+        log.info("Loading config file: {}", configFile);
 
         // variables substitution / variables resolution order:
         // config file --> system environment --> java properties
@@ -62,7 +59,7 @@ public class ConfigBuilder {
                 ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
         ConfigRenderOptions options = ConfigRenderOptions.concise().setFormatted(true);
-        LOGGER.info("parsed config file: {}", config.root().render(options));
+        log.info("parsed config file: {}", config.root().render(options));
         return config;
     }
 

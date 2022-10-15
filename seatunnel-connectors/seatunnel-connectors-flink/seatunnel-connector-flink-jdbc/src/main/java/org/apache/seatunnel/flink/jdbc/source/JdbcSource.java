@@ -49,6 +49,7 @@ import org.apache.seatunnel.flink.jdbc.input.TypeInformationMap;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
@@ -57,8 +58,6 @@ import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.connector.jdbc.split.JdbcNumericBetweenParametersProvider;
 import org.apache.flink.connector.jdbc.split.JdbcParameterValuesProvider;
 import org.apache.flink.types.Row;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -70,11 +69,11 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
+@Slf4j
 @AutoService(BaseFlinkSource.class)
 public class JdbcSource implements FlinkBatchSource {
 
     private static final long serialVersionUID = -3349505356339446415L;
-    private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSource.class);
     private static final int DEFAULT_FETCH_SIZE = 10000;
 
     private Config config;
@@ -205,7 +204,7 @@ public class JdbcSource implements FlinkBatchSource {
                 return getRowInfo(rs.getMetaData(), databaseDialect);
             }
         } catch (SQLException e) {
-            LOGGER.warn("get row type info exception", e);
+            log.warn("get row type info exception", e);
         }
         return new LinkedHashMap<>();
     }
@@ -248,7 +247,7 @@ public class JdbcSource implements FlinkBatchSource {
             return new PostgresTypeInformationMap();
         } else if (StringUtils.containsIgnoreCase(databaseDialect, "oracle")) {
             return new OracleTypeInformationMap();
-        } else if (StringUtils.containsIgnoreCase(databaseDialect, "Hive")){
+        } else if (StringUtils.containsIgnoreCase(databaseDialect, "Hive")) {
             return new HiveTypeInformationMap();
         } else {
             return new DefaultTypeInformationMap();

@@ -55,7 +55,7 @@ class Nulltf extends BaseSparkTransform {
 
             val temp = fieldNameDefault.get(fieldName)
             if (temp.isDefined) {
-              if (temp.get == null) getDefaultValueByDataType(fieldType) else transfromStringToRightType(temp.get, fieldType)
+              if (temp.get == null) getDefaultValueByDataType(fieldType) else transformStringToRightType(temp.get, fieldType)
             } else {
               getDefaultValueByDataType(fieldType)
             }
@@ -92,7 +92,7 @@ class Nulltf extends BaseSparkTransform {
     }
   }
 
-  private def transfromStringToRightType(value: String, dataType: DataType): Any = {
+  private def transformStringToRightType(value: String, dataType: DataType): Any = {
     dataType match {
       case StringType => value
       case ShortType => java.lang.Short.valueOf(value)

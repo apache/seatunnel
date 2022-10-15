@@ -33,8 +33,8 @@
         <module>connector-file-spark-e2e</module>
         <module>connector-iotdb-spark-e2e</module>
         <module>connector-jdbc-spark-e2e</module>
-        <module>connector-redis-spark-e2e</module>
         <module>connector-mongodb-spark-e2e</module>
+        <module>connector-influxdb-spark-e2e</module>
     </modules>
 
     <dependencies>

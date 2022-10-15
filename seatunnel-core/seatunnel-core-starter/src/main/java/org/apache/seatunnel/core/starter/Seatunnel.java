@@ -22,18 +22,17 @@ import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.command.CommandArgs;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+@Slf4j
 public class Seatunnel {
-    private static final Logger LOGGER = LoggerFactory.getLogger(Seatunnel.class);
 
     /**
      * This method is the entrypoint of SeaTunnel.
      *
      * @param command commandArgs
-     * @param <T>         commandType
+     * @param <T>     commandType
      */
     public static <T extends CommandArgs> void run(Command<T> command) throws CommandException {
         try {
@@ -48,26 +47,26 @@ public class Seatunnel {
     }
 
     private static void showConfigError(Throwable throwable) {
-        LOGGER.error(
+        log.error(
             "\n\n===============================================================================\n\n");
         String errorMsg = throwable.getMessage();
-        LOGGER.error("Config Error:\n");
-        LOGGER.error("Reason: {} \n", errorMsg);
-        LOGGER.error(
+        log.error("Config Error:\n");
+        log.error("Reason: {} \n", errorMsg);
+        log.error(
             "\n===============================================================================\n\n\n");
     }
 
     private static void showFatalError(Throwable throwable) {
-        LOGGER.error(
+        log.error(
             "\n\n===============================================================================\n\n");
         String errorMsg = throwable.getMessage();
-        LOGGER.error("Fatal Error, \n");
+        log.error("Fatal Error, \n");
         // FIX
-        LOGGER.error(
+        log.error(
             "Please submit bug report in https://github.com/apache/incubator-seatunnel/issues\n");
-        LOGGER.error("Reason:{} \n", errorMsg);
-        LOGGER.error("Exception StackTrace:{} ", ExceptionUtils.getStackTrace(throwable));
-        LOGGER.error(
+        log.error("Reason:{} \n", errorMsg);
+        log.error("Exception StackTrace:{} ", ExceptionUtils.getStackTrace(throwable));
+        log.error(
             "\n===============================================================================\n\n\n");
     }
 }

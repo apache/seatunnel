@@ -20,24 +20,27 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
-import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
+import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeSourceState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 
-@AutoService(SeaTunnelSource.class)
-public class FakeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
+import java.util.Collections;
 
-    private Config pluginConfig;
+@AutoService(SeaTunnelSource.class)
+public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit, FakeSourceState> {
+
     private JobContext jobContext;
     private SeaTunnelSchema schema;
+    private FakeConfig fakeConfig;
 
     @Override
     public Boundedness getBoundedness() {
@@ -50,8 +53,18 @@ public class FakeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     }
 
     @Override
-    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new FakeSourceReader(readerContext, new FakeRandomData(schema));
+    public SourceSplitEnumerator<FakeSourceSplit, FakeSourceState> createEnumerator(SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext) throws Exception {
+        return new FakeSourceSplitEnumerator(enumeratorContext, fakeConfig, Collections.emptySet());
+    }
+
+    @Override
+    public SourceSplitEnumerator<FakeSourceSplit, FakeSourceState> restoreEnumerator(SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext, FakeSourceState checkpointState) throws Exception {
+        return new FakeSourceSplitEnumerator(enumeratorContext, fakeConfig, checkpointState.getAssignedSplits());
+    }
+
+    @Override
+    public SourceReader<SeaTunnelRow, FakeSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
+        return new FakeSourceReader(readerContext, schema, fakeConfig);
     }
 
     @Override
@@ -61,9 +74,9 @@ public class FakeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public void prepare(Config pluginConfig) {
-        this.pluginConfig = pluginConfig;
-        assert pluginConfig.hasPath(FakeRandomData.SCHEMA);
-        this.schema = SeaTunnelSchema.buildWithConfig(pluginConfig.getConfig(FakeRandomData.SCHEMA));
+        assert pluginConfig.hasPath(FakeDataGenerator.SCHEMA);
+        this.schema = SeaTunnelSchema.buildWithConfig(pluginConfig.getConfig(FakeDataGenerator.SCHEMA));
+        this.fakeConfig = FakeConfig.buildWithConfig(pluginConfig);
     }
 
     @Override

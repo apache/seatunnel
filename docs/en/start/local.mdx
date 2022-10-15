@@ -32,27 +32,27 @@ tar -xzvf "apache-seatunnel-incubating-${version}-bin.tar.gz"
 <!-- TODO: We should add example module as quick start which is no need for install Spark or Flink -->
 
 ## Install connectors plugin
-Since 2.2.0, the binary package does not provide connector dependencies by default, so when using it for the first time, we need to execute the following command to install the connector: (Of course, you can also manually download the connector from [Apache Maven Repository](https://repo. maven.apache.org/maven2/org/apache/seatunnel/ to download, then manually move to the connectors directory).
+Since 2.2.0-beta, the binary package does not provide connector dependencies by default, so when using it for the first time, we need to execute the following command to install the connector: (Of course, you can also manually download the connector from [Apache Maven Repository](https://repo. maven.apache.org/maven2/org/apache/seatunnel/ to download, then manually move to the connectors directory).
 ```bash
 sh bin/install_plugin.sh
-````
-If you need to specify the version of the connector, take 2.2.0 as an example, we need to execute
+```
+If you need to specify the version of the connector, take 2.2.0-beta as an example, we need to execute
 ```bash
-sh bin/install_plugin.sh 2.2.0
-````
+sh bin/install_plugin.sh 2.2.0-beta
+```
 Usually we don't need all the connector plugins, so you can specify the plugins you need by configuring `config/plugin_config`, for example, you only need the `flink-assert` plugin, then you can modify plugin.properties as
-````plugin_config
+```plugin_config
 --flink-connectors--
 seatunnel-connector-flink-assert
 --end--
-```bash
+```
 
 ## Run SeaTunnel Application
 
 **Configure SeaTunnel**: Change the setting in `config/seatunnel-env.sh`, it is base on the path your engine install at [prepare step two](#prepare).
 Change `SPARK_HOME` if you using Spark as your engine, or change `FLINK_HOME` if you're using Flink.
 
-**Run Application with Build-in Configure**: We already providers and out-of-box configuration in directory `config` which
+**Run Application with Build-in Configure**: We already provide an out-of-box configuration in the directory `config` which
 you could find when you extract the tarball. You could start the application by the following commands
 
 <Tabs
@@ -124,7 +124,7 @@ topLevel, 20
 
 ## Explore More Build-in Examples
 
-Our local quick start is using one of the build-in example in directory `config`, and we provider more than one out-of-box
+Our local quick start is using one of the build-in example in directory `config`, and we provide more than one out-of-box
 example you could and feel free to have a try and make your hands dirty. All you have to do is change the started command
 option value in [running application](#run-seaTunnel-application) to the configuration you want to run, we use batch
 template in `config` as examples:
