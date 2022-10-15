@@ -22,17 +22,21 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.source.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.EsTypeMappingSeaTunnelType;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @AutoService(SeaTunnelSource.class)
 public class ElasticsearchSource implements SeaTunnelSource<SeaTunnelRow, ElasticsearchSourceSplit, ElasticsearchSourceState> {
@@ -51,11 +55,26 @@ public class ElasticsearchSource implements SeaTunnelSource<SeaTunnelRow, Elasti
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
         List<String> source = pluginConfig.getStringList(SourceConfig.SOURCE);
-        SeaTunnelDataType[] fieldTypes = new SeaTunnelDataType[source.size()];
-        for (int i = 0; i < source.size(); i++) {
-            fieldTypes[i] = BasicType.STRING_TYPE;
+
+        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA)) {
+            Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA);
+            rowTypeInfo = SeaTunnelSchema.buildWithConfig(schemaConfig).getSeaTunnelRowType();
+        } else {
+            EsRestClient esRestClient = EsRestClient.createInstance(this.pluginConfig);
+            Map<String, String> esFieldType = esRestClient.getFieldTypeMapping(pluginConfig.getString(SourceConfig.INDEX), source);
+            try {
+                esRestClient.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            SeaTunnelDataType[] fieldTypes = new SeaTunnelDataType[source.size()];
+            for (int i = 0; i < source.size(); i++) {
+                String esType = esFieldType.get(source.get(i));
+                SeaTunnelDataType seaTunnelDataType = EsTypeMappingSeaTunnelType.getSeaTunnelDataType(esType);
+                fieldTypes[i] = seaTunnelDataType;
+            }
+            rowTypeInfo = new SeaTunnelRowType(source.toArray(new String[source.size()]), fieldTypes);
         }
-        rowTypeInfo = new SeaTunnelRowType(source.toArray(new String[source.size()]), fieldTypes);
     }
 
     @Override
@@ -70,7 +89,7 @@ public class ElasticsearchSource implements SeaTunnelSource<SeaTunnelRow, Elasti
 
     @Override
     public SourceReader<SeaTunnelRow, ElasticsearchSourceSplit> createReader(SourceReader.Context readerContext) {
-        return new ElasticsearchSourceReader(readerContext, pluginConfig);
+        return new ElasticsearchSourceReader(readerContext, pluginConfig, rowTypeInfo);
     }
 
     @Override

@@ -33,6 +33,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpStatus;
@@ -54,6 +55,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 public class EsRestClient {
 
     private static final int CONNECTION_REQUEST_TIMEOUT = 10 * 1000;
@@ -230,7 +232,8 @@ public class EsRestClient {
             JsonNode hitNode = iter.next();
             doc.put("_index", hitNode.get("_index").textValue());
             doc.put("_id", hitNode.get("_id").textValue());
-            Map<String, Object> source = mapper.convertValue(hitNode.get("_source"), new TypeReference<Map<String, Object>>(){});
+            Map<String, Object> source = mapper.convertValue(hitNode.get("_source"), new TypeReference<Map<String, Object>>() {
+            });
             doc.putAll(source);
             docs.add(doc);
         }
@@ -243,18 +246,64 @@ public class EsRestClient {
         try {
             Response response = restClient.performRequest(request);
             if (response == null) {
-                throw new GetIndexDocsCountException("POST " + endpoint + " response null");
+                throw new GetIndexDocsCountException("GET " + endpoint + " response null");
             }
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
                 String entity = EntityUtils.toString(response.getEntity());
                 List<IndexDocsCount> indexDocsCounts = JsonUtils.toList(entity, IndexDocsCount.class);
                 return indexDocsCounts;
             } else {
-                throw new GetIndexDocsCountException(String.format("POST %s response status code=%d", endpoint, response.getStatusLine().getStatusCode()));
+                throw new GetIndexDocsCountException(String.format("GET %s response status code=%d", endpoint, response.getStatusLine().getStatusCode()));
             }
         } catch (IOException ex) {
             throw new GetIndexDocsCountException(ex);
         }
+    }
+
+    /**
+     * get es field name and type mapping realtion
+     *
+     * @param index index name
+     * @return {key-> field name,value->es type}
+     */
+    public Map<String, String> getFieldTypeMapping(String index, List<String> source) {
+        String endpoint = String.format("%s/_mappings", index);
+        Request request = new Request("GET", endpoint);
+        Map<String, String> mapping = new HashMap<>();
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new GetIndexDocsCountException("GET " + endpoint + " response null");
+            }
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                String entity = EntityUtils.toString(response.getEntity());
+                ObjectNode responseJson = JsonUtils.parseObject(entity);
+                for (Iterator<JsonNode> it = responseJson.elements(); it.hasNext(); ) {
+                    JsonNode indexProperty = it.next();
+                    JsonNode mappingsProperty = indexProperty.get("mappings");
+                    JsonNode properties = mappingsProperty.get("properties");
+                    for (String field : source) {
+                        JsonNode fieldProperty = properties.get(field);
+                        if (fieldProperty == null) {
+                            mapping.put(field, "text");
+                        } else {
+                            String type = fieldProperty.get("type").asText();
+                            if (type != null) {
+                                mapping.put(field, type);
+                            } else {
+                                log.warn(String.format("fail to get elasticsearch field %s mapping type", field));
+                                mapping.put(field, "text");
+                            }
+                        }
+                    }
+                }
+            } else {
+                throw new GetIndexDocsCountException(String.format("GET %s response status code=%d", endpoint, response.getStatusLine().getStatusCode()));
+            }
+        } catch (IOException ex) {
+            throw new GetIndexDocsCountException(ex);
+        }
+        return mapping;
     }
 
 }

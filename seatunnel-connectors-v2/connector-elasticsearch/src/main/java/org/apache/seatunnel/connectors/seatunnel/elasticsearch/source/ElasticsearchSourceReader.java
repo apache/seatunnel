@@ -20,9 +20,13 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.SourceIndexInfo;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.DeaultSeaTunnelRowDeserializer;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.ElasticsearchRecord;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.SeaTunnelRowDeserializer;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -46,14 +50,17 @@ public class ElasticsearchSourceReader implements SourceReader<SeaTunnelRow, Ela
 
     private EsRestClient esRestClient;
 
+    private final SeaTunnelRowDeserializer deserializer;
+
     Deque<ElasticsearchSourceSplit> splits = new LinkedList<>();
     boolean noMoreSplit;
 
     private final long pollNextWaitTime = 1000L;
 
-    public ElasticsearchSourceReader(SourceReader.Context context, Config pluginConfig) {
+    public ElasticsearchSourceReader(SourceReader.Context context, Config pluginConfig, SeaTunnelRowType rowTypeInfo) {
         this.context = context;
         this.pluginConfig = pluginConfig;
+        this.deserializer = new DeaultSeaTunnelRowDeserializer(rowTypeInfo);
     }
 
     @Override
@@ -91,11 +98,7 @@ public class ElasticsearchSourceReader implements SourceReader<SeaTunnelRow, Ela
     private void outputFromScrollResult(ScrollResult scrollResult, List<String> source, Collector<SeaTunnelRow> output) {
         int sourceSize = source.size();
         for (Map<String, Object> doc : scrollResult.getDocs()) {
-            SeaTunnelRow seaTunnelRow = new SeaTunnelRow(sourceSize);
-            for (int i = 0; i < sourceSize; i++) {
-                Object value = doc.get(source.get(i));
-                seaTunnelRow.setField(i, String.valueOf(value));
-            }
+            SeaTunnelRow seaTunnelRow = deserializer.deserialize(new ElasticsearchRecord(doc, source));
             output.collect(seaTunnelRow);
         }
     }
