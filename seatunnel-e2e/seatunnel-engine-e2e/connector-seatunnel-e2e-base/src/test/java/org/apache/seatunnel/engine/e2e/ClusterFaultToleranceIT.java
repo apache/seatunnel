@@ -67,7 +67,7 @@ public class ClusterFaultToleranceIT {
         String testCaseName = "testBatchJobRunOkIn3Node";
         String testClusterName = "ClusterFaultToleranceIT_testBatchJobRunOkIn3Node";
         long testRowNumber = 1000;
-        int testParallelism = 1;
+        int testParallelism = 6;
         HazelcastInstanceImpl node1 =
             SeaTunnelServerStarter.createHazelcastInstance(
                 TestUtils.getClusterName(testClusterName));
@@ -84,7 +84,6 @@ public class ClusterFaultToleranceIT {
         Awaitility.await().atMost(10000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertEquals(3, node1.getCluster().getMembers().size()));
 
-        // TODO Need FakeSource support parallel first
         Common.setDeployMode(DeployMode.CLIENT);
         ImmutablePair<String, String> testResources = createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism);
         JobConfig jobConfig = new JobConfig();
@@ -101,6 +100,18 @@ public class ClusterFaultToleranceIT {
         CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
             return clientJobProxy.waitForJobComplete();
         });
+
+        Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> {
+                // Wait some tasks commit finished
+                log.info("File Lines ==================" + FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+                Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
+                    FileUtils.getFileLineNumberFromDir(testResources.getLeft()) > 1);
+            });
+
+        log.info("Data write detected, shutdown one worker node");
+        // shutdown on worker node
+        node2.shutdown();
 
         Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertTrue(
@@ -172,7 +183,6 @@ public class ClusterFaultToleranceIT {
         Awaitility.await().atMost(10000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertEquals(3, node1.getCluster().getMembers().size()));
 
-        // TODO Need FakeSource support parallel first
         Common.setDeployMode(DeployMode.CLIENT);
         ImmutablePair<String, String> testResources = createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism);
         JobConfig jobConfig = new JobConfig();
@@ -216,7 +226,7 @@ public class ClusterFaultToleranceIT {
     public void testBatchJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testBatchJobRestoreIn3NodeWorkerDown";
         String testClusterName = "ClusterFaultToleranceIT_testBatchJobRestoreIn3NodeWorkerDown";
-        long testRowNumber = 10000;
+        long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 =
             SeaTunnelServerStarter.createHazelcastInstance(
@@ -234,7 +244,6 @@ public class ClusterFaultToleranceIT {
         Awaitility.await().atMost(10000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertEquals(3, node1.getCluster().getMembers().size()));
 
-        // TODO Need FakeSource support parallel first
         Common.setDeployMode(DeployMode.CLIENT);
         ImmutablePair<String, String> testResources = createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism);
         JobConfig jobConfig = new JobConfig();
@@ -279,7 +288,7 @@ public class ClusterFaultToleranceIT {
     public void testStreamJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testStreamJobRestoreIn3NodeWorkerDown";
         String testClusterName = "ClusterFaultToleranceIT_testStreamJobRestoreIn3NodeWorkerDown";
-        long testRowNumber = 10000;
+        long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 =
             SeaTunnelServerStarter.createHazelcastInstance(
@@ -297,7 +306,6 @@ public class ClusterFaultToleranceIT {
         Awaitility.await().atMost(10000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertEquals(3, node1.getCluster().getMembers().size()));
 
-        // TODO Need FakeSource support parallel first
         Common.setDeployMode(DeployMode.CLIENT);
         ImmutablePair<String, String> testResources = createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism);
         JobConfig jobConfig = new JobConfig();
@@ -356,7 +364,7 @@ public class ClusterFaultToleranceIT {
     public void testBatchJobRestoreIn3NodeMasterDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testBatchJobRestoreIn3NodeMasterDown";
         String testClusterName = "ClusterFaultToleranceIT_testBatchJobRestoreIn3NodeMasterDown";
-        long testRowNumber = 10000;
+        long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 =
             SeaTunnelServerStarter.createHazelcastInstance(
@@ -374,7 +382,6 @@ public class ClusterFaultToleranceIT {
         Awaitility.await().atMost(10000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertEquals(3, node1.getCluster().getMembers().size()));
 
-        // TODO Need FakeSource support parallel first
         Common.setDeployMode(DeployMode.CLIENT);
         ImmutablePair<String, String> testResources = createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism);
         JobConfig jobConfig = new JobConfig();
@@ -419,7 +426,7 @@ public class ClusterFaultToleranceIT {
     public void testStreamJobRestoreIn3NodeMasterDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testStreamJobRestoreIn3NodeMasterDown";
         String testClusterName = "ClusterFaultToleranceIT_testStreamJobRestoreIn3NodeMasterDown";
-        long testRowNumber = 10000;
+        long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 =
             SeaTunnelServerStarter.createHazelcastInstance(
@@ -437,7 +444,6 @@ public class ClusterFaultToleranceIT {
         Awaitility.await().atMost(10000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertEquals(3, node1.getCluster().getMembers().size()));
 
-        // TODO Need FakeSource support parallel first
         Common.setDeployMode(DeployMode.CLIENT);
         ImmutablePair<String, String> testResources = createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism);
         JobConfig jobConfig = new JobConfig();

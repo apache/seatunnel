@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.core.job.PipelineState;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
@@ -155,10 +156,12 @@ public class CoordinatorServiceTest {
         // wait job restore
         Thread.sleep(5000);
 
-        // job will recovery running state
+        // pipeline will recovery running state
         await().atMost(200000, TimeUnit.MILLISECONDS)
             .untilAsserted(
-                () -> Assertions.assertEquals(JobStatus.RUNNING, server2.getCoordinatorService().getJobStatus(jobId)));
+                () -> Assertions.assertEquals(PipelineState.RUNNING,
+                    server2.getCoordinatorService().getJobMaster(jobId).getPhysicalPlan().getPipelineList().get(0)
+                        .getPipelineState()));
 
         server2.getCoordinatorService().cancelJob(jobId);
 
