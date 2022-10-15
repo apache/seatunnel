@@ -149,6 +149,9 @@ public class PhysicalPlan {
                         return;
                     }
                     canceledPipelineNum.incrementAndGet();
+                    // notify checkpoint manager
+                    jobMaster.getCheckpointManager()
+                        .listenPipeline(subPlan.getPipelineLocation().getPipelineId(), PipelineState.CANCELED);
                     if (makeJobEndWhenPipelineEnded) {
                         LOGGER.info(
                             String.format("cancel job %s because makeJobEndWhenPipelineEnded is %s", jobFullName,
@@ -163,11 +166,17 @@ public class PhysicalPlan {
                         return;
                     }
                     failedPipelineNum.incrementAndGet();
+                    // notify checkpoint manager
+                    jobMaster.getCheckpointManager()
+                        .listenPipeline(subPlan.getPipelineLocation().getPipelineId(), PipelineState.FAILED);
                     if (makeJobEndWhenPipelineEnded) {
                         cancelJob();
                     }
                     jobMaster.releasePipelineResource(subPlan);
                     LOGGER.severe("Pipeline Failed, Begin to cancel other pipelines in this job.");
+                } else {
+                    jobMaster.getCheckpointManager()
+                        .listenPipeline(subPlan.getPipelineLocation().getPipelineId(), PipelineState.FINISHED);
                 }
 
                 if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
@@ -244,6 +253,9 @@ public class PhysicalPlan {
                 LOGGER.severe(message);
                 throw new IllegalStateException(message);
             }
+
+            // notify checkpoint manager
+            jobMaster.getCheckpointManager().shutdown(endState);
 
             LOGGER.info(String.format("%s end with state %s", getJobFullName(), endState));
             // we must update runningJobStateTimestampsIMap first and then can update runningJobStateIMap

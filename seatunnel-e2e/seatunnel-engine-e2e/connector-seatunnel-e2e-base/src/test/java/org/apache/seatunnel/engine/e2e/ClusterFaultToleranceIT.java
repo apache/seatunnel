@@ -67,7 +67,7 @@ public class ClusterFaultToleranceIT {
         String testCaseName = "testBatchJobRunOkIn3Node";
         String testClusterName = "ClusterFaultToleranceIT_testBatchJobRunOkIn3Node";
         long testRowNumber = 1000;
-        int testParallelism = 6;
+        int testParallelism = 1;
         HazelcastInstanceImpl node1 =
             SeaTunnelServerStarter.createHazelcastInstance(
                 TestUtils.getClusterName(testClusterName));
