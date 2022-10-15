@@ -17,48 +17,25 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import static org.awaitility.Awaitility.given;
-
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.util.JdbcCompareUtil;
-import org.apache.seatunnel.e2e.common.TestResource;
-import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
-import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
-import com.google.common.collect.Lists;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import lombok.extern.slf4j.Slf4j;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.lifecycle.Startables;
 
-import java.io.File;
 import java.io.IOException;
-import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
+import java.util.HashMap;
+import java.util.Map;
 
-@Slf4j
-public class JdbcStarRocksdbIT extends TestSuiteBase implements TestResource {
+public class JdbcStarRocksdbIT extends AbstractJdbcIT {
 
     private static final String DOCKER_IMAGE = "d87904488/starrocks-starter:2.2.1";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
-    private static final String HOST = "e2e_starRocksdb";
+    private static final String NETWORK_ALIASES = "e2e_starRocksdb";
     private static final int SR_PORT = 9030;
-    private static final String URL = "jdbc:mysql://%s:" + SR_PORT;
+    private static final String URL = "jdbc:mysql://" + HOST + ":" + SR_PORT;
     private static final String USERNAME = "root";
     private static final String PASSWORD = "";
     private static final String DATABASE = "test";
@@ -66,62 +43,112 @@ public class JdbcStarRocksdbIT extends TestSuiteBase implements TestResource {
     private static final String SINK_TABLE = "e2e_table_sink";
     private static final String SR_DRIVER_JAR = "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
     private static final String COLUMN_STRING = "BIGINT_COL, LARGEINT_COL, SMALLINT_COL, TINYINT_COL, BOOLEAN_COL, DECIMAL_COL, DOUBLE_COL, FLOAT_COL, INT_COL, CHAR_COL, VARCHAR_11_COL, STRING_COL, DATETIME_COL, DATE_COL";
+    private static final String CONFIG_FILE = "/jdbc_starrocks_source_to_sink.conf";
 
-    private Connection jdbcConnection;
-    private GenericContainer<?> starRocksServer;
+    private static final String INIT_DATABASE = "create database test";
 
-    @TestContainerExtension
-    private final ContainerExtendedFactory extendedFactory = container -> {
-        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + SR_DRIVER_JAR);
-        Assertions.assertEquals(0, extraCommands.getExitCode());
-    };
+    private static final String DDL_SOURCE = "create table "  + DATABASE + "." + SOURCE_TABLE + " (\n" +
+            "  BIGINT_COL     BIGINT,\n" +
+            "  LARGEINT_COL   LARGEINT,\n" +
+            "  SMALLINT_COL   SMALLINT,\n" +
+            "  TINYINT_COL    TINYINT,\n" +
+            "  BOOLEAN_COL    BOOLEAN,\n" +
+            "  DECIMAL_COL    DECIMAL,\n" +
+            "  DOUBLE_COL     DOUBLE,\n" +
+            "  FLOAT_COL      FLOAT,\n" +
+            "  INT_COL        INT,\n" +
+            "  CHAR_COL       CHAR,\n" +
+            "  VARCHAR_11_COL VARCHAR(11),\n" +
+            "  STRING_COL     STRING,\n" +
+            "  DATETIME_COL   DATETIME,\n" +
+            "  DATE_COL       DATE\n" +
+            ")ENGINE=OLAP\n"  +
+            "DUPLICATE KEY(`BIGINT_COL`)\n" +
+            "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 1\n" +
+            "PROPERTIES (\n" +
+            "\"replication_num\" = \"1\",\n" +
+            "\"in_memory\" = \"false\"," +
+            "\"in_memory\" = \"false\"," +
+            "\"storage_format\" = \"DEFAULT\"" +
+            ")";
 
-    @BeforeAll
+
+    private static final String DDL_SINK = "create table "   + DATABASE + "." + SINK_TABLE + " (\n" +
+            "  BIGINT_COL     BIGINT,\n" +
+            "  LARGEINT_COL   LARGEINT,\n" +
+            "  SMALLINT_COL   SMALLINT,\n" +
+            "  TINYINT_COL    TINYINT,\n" +
+            "  BOOLEAN_COL    BOOLEAN,\n" +
+            "  DECIMAL_COL    DECIMAL,\n" +
+            "  DOUBLE_COL     DOUBLE,\n" +
+            "  FLOAT_COL      FLOAT,\n" +
+            "  INT_COL        INT,\n" +
+            "  CHAR_COL       CHAR,\n" +
+            "  VARCHAR_11_COL VARCHAR(11),\n" +
+            "  STRING_COL     STRING,\n" +
+            "  DATETIME_COL   DATETIME,\n" +
+            "  DATE_COL       DATE\n" +
+            ")ENGINE=OLAP\n"  +
+            "DUPLICATE KEY(`BIGINT_COL`)\n" +
+            "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 1\n" +
+            "PROPERTIES (\n" +
+            "\"replication_num\" = \"1\",\n" +
+            "\"in_memory\" = \"false\"," +
+            "\"in_memory\" = \"false\"," +
+            "\"storage_format\" = \"DEFAULT\"" +
+            ")";
+
+    private static final String INIT_DATA_SQL = "insert into "   + DATABASE + "." + SOURCE_TABLE + " (\n" +
+            "  BIGINT_COL,\n" +
+            "  LARGEINT_COL,\n" +
+            "  SMALLINT_COL,\n" +
+            "  TINYINT_COL,\n" +
+            "  BOOLEAN_COL,\n" +
+            "  DECIMAL_COL,\n" +
+            "  DOUBLE_COL,\n" +
+            "  FLOAT_COL,\n" +
+            "  INT_COL,\n" +
+            "  CHAR_COL,\n" +
+            "  VARCHAR_11_COL,\n" +
+            "  STRING_COL,\n" +
+            "  DATETIME_COL,\n" +
+            "  DATE_COL\n" +
+            ")values(\n" +
+            "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?\n" +
+            ")";
+
     @Override
-    public void startUp() throws Exception {
-        starRocksServer = new GenericContainer<>(DOCKER_IMAGE)
-                .withNetwork(NETWORK)
-                .withNetworkAliases(HOST)
-                .withLogConsumer(new Slf4jLogConsumer(log));
-        starRocksServer.setPortBindings(Lists.newArrayList(
-                String.format("%s:%s", SR_PORT, SR_PORT)));
-        Startables.deepStart(Stream.of(starRocksServer)).join();
-        log.info("StarRocks container started");
-        // wait for starrocks fully start
-        Class.forName(DRIVER_CLASS);
-        given().ignoreExceptions()
-                .await()
-                .atMost(180, TimeUnit.SECONDS)
-                .untilAsserted(this::initializeJdbcConnection);
-        initializeJdbcTable();
+    JdbcCase getJdbcCase() {
+        Map<String, String> containerEnv = new HashMap<>();
+        String jdbcUrl = String.format(URL, SR_PORT);
+        return JdbcCase.builder().dockerImage(DOCKER_IMAGE).networkAliases(NETWORK_ALIASES).containerEnv(containerEnv).driverClass(DRIVER_CLASS)
+                .host(HOST).port(SR_PORT).jdbcUrl(jdbcUrl).userName(USERNAME).password(PASSWORD).dataBase(DATABASE)
+                .sourceTable(SOURCE_TABLE).sinkTable(SINK_TABLE).driverJar(SR_DRIVER_JAR)
+                .initDatabase(INIT_DATABASE).ddlSource(DDL_SOURCE).ddlSink(DDL_SINK).initDataSql(INIT_DATA_SQL).configFile(CONFIG_FILE).seaTunnelRow(initTestData()).build();
     }
 
-    @AfterAll
     @Override
-    public void tearDown() throws Exception {
-        if (jdbcConnection != null) {
-            jdbcConnection.close();
-        }
-        if (starRocksServer != null) {
-            starRocksServer.close();
-        }
-    }
-
-    @TestTemplate
-    @DisplayName("JDBC-SR E2E test")
-    public void testJdbcStarRocks(TestContainer container) throws IOException, InterruptedException, SQLException {
+    void compareResult() throws SQLException, IOException {
         assertHasData(SOURCE_TABLE);
-        Container.ExecResult execResult = container.executeJob("/jdbc_starrocks_source_to_sink.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
         assertHasData(SINK_TABLE);
         JdbcCompareUtil.compare(jdbcConnection, String.format("select * from %s.%s limit 1", DATABASE, SOURCE_TABLE),
                 String.format("select * from %s.%s limit 1", DATABASE, SINK_TABLE), COLUMN_STRING);
         clearSinkTable();
     }
 
-    private void initializeJdbcConnection() throws SQLException {
-        jdbcConnection = DriverManager.getConnection(String.format(
-                URL, starRocksServer.getHost()), USERNAME, PASSWORD);
+    @Override
+    void clearSinkTable() {
+        try (Statement statement = jdbcConnection.createStatement()) {
+            statement.execute(String.format("TRUNCATE TABLE %s", DATABASE + "." + SINK_TABLE));
+        } catch (SQLException e) {
+            throw new RuntimeException("test starrocks server image error", e);
+        }
+    }
+
+    @Override
+    SeaTunnelRow initTestData() {
+        return new SeaTunnelRow(
+                new Object[]{1234, 1123456, 12, 1, 0, 2222243.2222243, 2222243.22222, 1.22222, 12, "a", "VARCHAR_COL", "STRING_COL", "2022-08-13 17:35:59", "2022-08-13"});
     }
 
     private void assertHasData(String table) {
@@ -130,36 +157,7 @@ public class JdbcStarRocksdbIT extends TestSuiteBase implements TestResource {
             ResultSet source = statement.executeQuery(sql);
             Assertions.assertTrue(source.next());
         } catch (SQLException e) {
-            throw new RuntimeException("test starRocks image error", e);
-        }
-    }
-
-    private void clearSinkTable() {
-        try (Statement statement = jdbcConnection.createStatement()) {
-            statement.execute(String.format("TRUNCATE TABLE %s.%s", DATABASE, SINK_TABLE));
-        } catch (SQLException e) {
-            throw new RuntimeException("test starRocks image error", e);
-        }
-    }
-
-    private void initializeJdbcTable() {
-        File file = ContainerUtil.getResourcesFile("/init/starrocks_init.conf");
-        Config config = ConfigFactory.parseFile(file);
-        assert config.hasPath("table_source_ddl") && config.hasPath("DML") && config.hasPath("table_sink_ddl");
-        try (Statement statement = jdbcConnection.createStatement()) {
-            // create databases
-            statement.execute("create database test");
-            // create source table
-            String sourceTableDDL = config.getString("table_source_ddl");
-            statement.execute(sourceTableDDL);
-            //init testdata
-            String insertSQL = config.getString("DML");
-            statement.execute(insertSQL);
-            // create sink table
-            String sinkTableDDL = config.getString("table_sink_ddl");
-            statement.execute(sinkTableDDL);
-        } catch (SQLException e) {
-            throw new RuntimeException("Initializing table failed!", e);
+            throw new RuntimeException("test starrocks server image error", e);
         }
     }
 }
