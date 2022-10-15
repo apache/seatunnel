@@ -36,7 +36,7 @@ public abstract class AbstractSeaTunnelServerTest {
     protected static ILogger LOGGER;
 
     @BeforeAll
-    public  void before() {
+    public void before() {
         instance = SeaTunnelServerStarter.createHazelcastInstance(
             TestUtils.getClusterName("AbstractSeaTunnelServerTest_" + System.currentTimeMillis()));
         nodeEngine = instance.node.nodeEngine;
@@ -46,7 +46,12 @@ public abstract class AbstractSeaTunnelServerTest {
 
     @AfterAll
     public void after() {
-        server.shutdown(true);
-        instance.shutdown();
+        if (server != null) {
+            server.shutdown(true);
+        }
+
+        if (instance != null) {
+            instance.shutdown();
+        }
     }
 }
