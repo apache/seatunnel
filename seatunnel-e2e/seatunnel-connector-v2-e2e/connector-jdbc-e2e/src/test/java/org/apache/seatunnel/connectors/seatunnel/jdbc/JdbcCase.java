@@ -39,7 +39,6 @@ public class JdbcCase {
     private String sinkTable;
     private String driverJar;
     private String jdbcUrl;
-    private String initDatabase;
     private String ddlSource;
     private String ddlSink;
     private String initDataSql;
