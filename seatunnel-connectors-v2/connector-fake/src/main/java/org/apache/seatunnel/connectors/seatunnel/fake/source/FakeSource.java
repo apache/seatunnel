@@ -27,15 +27,16 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
+import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeSourceState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 
-import java.io.Serializable;
+import java.util.Collections;
 
 @AutoService(SeaTunnelSource.class)
-public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit, Serializable> {
+public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit, FakeSourceState> {
 
     private JobContext jobContext;
     private SeaTunnelSchema schema;
@@ -52,18 +53,18 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
     }
 
     @Override
-    public SourceSplitEnumerator<FakeSourceSplit, Serializable> createEnumerator(SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext) throws Exception {
-        return new FakeSourceSplitEnumerator(enumeratorContext);
+    public SourceSplitEnumerator<FakeSourceSplit, FakeSourceState> createEnumerator(SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext) throws Exception {
+        return new FakeSourceSplitEnumerator(enumeratorContext, fakeConfig, Collections.emptySet());
     }
 
     @Override
-    public SourceSplitEnumerator<FakeSourceSplit, Serializable> restoreEnumerator(SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext, Serializable checkpointState) throws Exception {
-        return new FakeSourceSplitEnumerator(enumeratorContext);
+    public SourceSplitEnumerator<FakeSourceSplit, FakeSourceState> restoreEnumerator(SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext, FakeSourceState checkpointState) throws Exception {
+        return new FakeSourceSplitEnumerator(enumeratorContext, fakeConfig, checkpointState.getAssignedSplits());
     }
 
     @Override
     public SourceReader<SeaTunnelRow, FakeSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
-        return new FakeSourceReader(readerContext, new FakeDataGenerator(schema, fakeConfig));
+        return new FakeSourceReader(readerContext, schema, fakeConfig);
     }
 
     @Override

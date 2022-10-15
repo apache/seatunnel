@@ -28,6 +28,8 @@ import java.io.Serializable;
 @Getter
 public class FakeConfig implements Serializable {
     public static final String ROW_NUM = "row.num";
+    public static final String SPLIT_NUM = "split.num";
+    public static final String SPLIT_READ_INTERVAL = "split.read-interval";
     public static final String MAP_SIZE = "map.size";
     public static final String ARRAY_SIZE = "array.size";
     public static final String BYTES_LENGTH = "bytes.length";
@@ -39,6 +41,10 @@ public class FakeConfig implements Serializable {
     private static final int DEFAULT_STRING_LENGTH = 5;
     @Builder.Default
     private int rowNum = DEFAULT_ROW_NUM;
+    @Builder.Default
+    private int splitNum = 1;
+    @Builder.Default
+    private int splitReadInterval = 1;
     @Builder.Default
     private int mapSize = DEFAULT_MAP_SIZE;
     @Builder.Default
@@ -52,6 +58,12 @@ public class FakeConfig implements Serializable {
         FakeConfigBuilder builder = FakeConfig.builder();
         if (config.hasPath(ROW_NUM)) {
             builder.rowNum(config.getInt(ROW_NUM));
+        }
+        if (config.hasPath(SPLIT_NUM)) {
+            builder.splitNum(config.getInt(SPLIT_NUM));
+        }
+        if (config.hasPath(SPLIT_READ_INTERVAL)) {
+            builder.splitReadInterval(config.getInt(SPLIT_READ_INTERVAL));
         }
         if (config.hasPath(MAP_SIZE)) {
             builder.mapSize(config.getInt(MAP_SIZE));
