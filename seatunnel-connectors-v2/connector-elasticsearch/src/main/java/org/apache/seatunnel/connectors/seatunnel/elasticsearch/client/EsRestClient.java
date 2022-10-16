@@ -275,33 +275,48 @@ public class EsRestClient {
             if (response == null) {
                 throw new GetIndexDocsCountException("GET " + endpoint + " response null");
             }
-            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-                String entity = EntityUtils.toString(response.getEntity());
-                ObjectNode responseJson = JsonUtils.parseObject(entity);
-                for (Iterator<JsonNode> it = responseJson.elements(); it.hasNext(); ) {
-                    JsonNode indexProperty = it.next();
-                    JsonNode mappingsProperty = indexProperty.get("mappings");
+            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                throw new GetIndexDocsCountException(String.format("GET %s response status code=%d", endpoint, response.getStatusLine().getStatusCode()));
+            }
+            String entity = EntityUtils.toString(response.getEntity());
+            log.info(String.format("GET %s respnse=%s", endpoint, entity));
+            ObjectNode responseJson = JsonUtils.parseObject(entity);
+            for (Iterator<JsonNode> it = responseJson.elements(); it.hasNext(); ) {
+                JsonNode indexProperty = it.next();
+                JsonNode mappingsProperty = indexProperty.get("mappings");
+                if (mappingsProperty.has("mappingsProperty")) {
                     JsonNode properties = mappingsProperty.get("properties");
-                    for (String field : source) {
-                        JsonNode fieldProperty = properties.get(field);
-                        if (fieldProperty == null) {
-                            mapping.put(field, "text");
-                        } else {
-                            if (fieldProperty.has("type")) {
-                                String type = fieldProperty.get("type").asText();
-                                mapping.put(field, type);
-                            } else {
-                                log.warn(String.format("fail to get elasticsearch field %s mapping type", field));
-                                mapping.put(field, "text");
-                            }
-                        }
+                    mapping = getFieldTypeMappingFromProperties(properties, source);
+                } else {
+                    for (Iterator<JsonNode> iter = mappingsProperty.iterator(); iter.hasNext(); ) {
+                        JsonNode typeNode = iter.next();
+                        JsonNode properties = typeNode.get("properties");
+                        mapping.putAll(getFieldTypeMappingFromProperties(properties, source));
                     }
                 }
-            } else {
-                throw new GetIndexDocsCountException(String.format("GET %s response status code=%d", endpoint, response.getStatusLine().getStatusCode()));
+
             }
         } catch (IOException ex) {
             throw new GetIndexDocsCountException(ex);
+        }
+        return mapping;
+    }
+
+    private static Map<String, String> getFieldTypeMappingFromProperties(JsonNode properties, List<String> source) {
+        Map<String, String> mapping = new HashMap<>();
+        for (String field : source) {
+            JsonNode fieldProperty = properties.get(field);
+            if (fieldProperty == null) {
+                mapping.put(field, "text");
+            } else {
+                if (fieldProperty.has("type")) {
+                    String type = fieldProperty.get("type").asText();
+                    mapping.put(field, type);
+                } else {
+                    log.warn(String.format("fail to get elasticsearch field %s mapping type,so give a default type text", field));
+                    mapping.put(field, "text");
+                }
+            }
         }
         return mapping;
     }
