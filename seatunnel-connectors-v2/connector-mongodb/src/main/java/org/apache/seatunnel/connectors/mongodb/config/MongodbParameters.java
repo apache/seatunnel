@@ -15,14 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.data;
+package org.apache.seatunnel.connectors.mongodb.config;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-
-import org.bson.Document;
+import lombok.Data;
 
 import java.io.Serializable;
 
-public interface Serializer extends Serializable {
-    Document serialize(SeaTunnelRow row);
+@Data
+public class MongodbParameters implements Serializable {
+
+    private String uri;
+
+    private String database;
+
+    private String collection;
+
 }

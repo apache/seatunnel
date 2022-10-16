@@ -15,19 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.config;
-
-import lombok.Data;
+package org.apache.seatunnel.connectors.mongodb.config;
 
 import java.io.Serializable;
 
-@Data
-public class MongodbParameters implements Serializable {
+/**
+ * The config of mongodb
+ */
+public class MongodbConfig implements Serializable {
 
-    private String uri;
+    public static final String URI = "uri";
 
-    private String database;
+    public static final String DATABASE = "database";
 
-    private String collection;
+    public static final String COLLECTION = "collection";
+
+    public static final String SCHEMA = "schema";
+
+    public static final String FORMAT = "format";
+
+    public static final String DEFAULT_FORMAT = "json";
 
 }

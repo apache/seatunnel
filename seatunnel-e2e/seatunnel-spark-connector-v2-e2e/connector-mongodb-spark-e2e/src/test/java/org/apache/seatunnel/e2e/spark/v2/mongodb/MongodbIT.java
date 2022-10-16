@@ -29,8 +29,8 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.data.DefaultSerializer;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.data.Serializer;
+import org.apache.seatunnel.connectors.mongodb.data.DefaultSerializer;
+import org.apache.seatunnel.connectors.mongodb.data.Serializer;
 import org.apache.seatunnel.e2e.spark.SparkContainer;
 
 import com.mongodb.client.MongoClient;

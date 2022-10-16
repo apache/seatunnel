@@ -15,25 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.config;
+package org.apache.seatunnel.connectors.mongodb.data;
+
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+
+import org.bson.Document;
 
 import java.io.Serializable;
 
-/**
- * The config of mongodb
- */
-public class MongodbConfig implements Serializable {
-
-    public static final String URI = "uri";
-
-    public static final String DATABASE = "database";
-
-    public static final String COLLECTION = "collection";
-
-    public static final String SCHEMA = "schema";
-
-    public static final String FORMAT = "format";
-
-    public static final String DEFAULT_FORMAT = "json";
-
+public interface Deserializer extends Serializable {
+    SeaTunnelRow deserialize(Document document);
 }
