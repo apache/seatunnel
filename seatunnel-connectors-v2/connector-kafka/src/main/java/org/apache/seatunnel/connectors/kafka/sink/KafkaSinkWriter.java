@@ -18,7 +18,9 @@
 package org.apache.seatunnel.connectors.kafka.sink;
 
 import static org.apache.seatunnel.connectors.kafka.config.Config.ASSIGN_PARTITIONS;
+import static org.apache.seatunnel.connectors.kafka.config.Config.KAFKA_CONFIG_PREFIX;
 import static org.apache.seatunnel.connectors.kafka.config.Config.PARTITION;
+import static org.apache.seatunnel.connectors.kafka.config.Config.TOPIC;
 import static org.apache.seatunnel.connectors.kafka.config.Config.TRANSACTION_PREFIX;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -132,7 +134,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     private Properties getKafkaProperties(Config pluginConfig) {
         Config kafkaConfig = TypesafeConfigUtils.extractSubConfig(pluginConfig,
-                org.apache.seatunnel.connectors.kafka.config.Config.KAFKA_CONFIG_PREFIX, false);
+                KAFKA_CONFIG_PREFIX, false);
         Properties kafkaProperties = new Properties();
         kafkaConfig.entrySet().forEach(entry -> {
             kafkaProperties.put(entry.getKey(), entry.getValue().unwrapped());
@@ -149,10 +151,10 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     // todo: parse the target field from config
     private SeaTunnelRowSerializer<byte[], byte[]> getSerializer(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
         if (pluginConfig.hasPath(PARTITION)){
-            return new DefaultSeaTunnelRowSerializer(pluginConfig.getString(org.apache.seatunnel.connectors.kafka.config.Config.TOPIC), this.partition, seaTunnelRowType);
+            return new DefaultSeaTunnelRowSerializer(pluginConfig.getString(TOPIC), this.partition, seaTunnelRowType);
         }
         else {
-            return new DefaultSeaTunnelRowSerializer(pluginConfig.getString(org.apache.seatunnel.connectors.kafka.config.Config.TOPIC), seaTunnelRowType);
+            return new DefaultSeaTunnelRowSerializer(pluginConfig.getString(TOPIC), seaTunnelRowType);
         }
     }
 
