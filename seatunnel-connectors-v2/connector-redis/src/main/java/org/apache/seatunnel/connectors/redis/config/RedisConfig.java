@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.redis.config;
+package org.apache.seatunnel.connectors.redis.config;
 
 public class RedisConfig {
     public static final String HOST = "host";

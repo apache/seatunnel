@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.redis.source;
+package org.apache.seatunnel.connectors.redis.source;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
@@ -31,8 +31,8 @@ import org.apache.seatunnel.connectors.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.common.source.SingleSplitReaderContext;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.redis.config.RedisConfig;
+import org.apache.seatunnel.connectors.redis.config.RedisParameters;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;

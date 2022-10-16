@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.redis.sink;
+package org.apache.seatunnel.connectors.redis.sink;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.redis.config.RedisDataType;
+import org.apache.seatunnel.connectors.redis.config.RedisParameters;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import redis.clients.jedis.Jedis;

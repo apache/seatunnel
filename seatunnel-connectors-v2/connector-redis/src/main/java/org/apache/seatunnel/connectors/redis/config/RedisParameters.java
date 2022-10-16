@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.redis.config;
+package org.apache.seatunnel.connectors.redis.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 

@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.redis.source;
+package org.apache.seatunnel.connectors.redis.source;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.common.source.SingleSplitReaderContext;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.redis.config.RedisDataType;
+import org.apache.seatunnel.connectors.redis.config.RedisParameters;
 
 import redis.clients.jedis.Jedis;
 
