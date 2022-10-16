@@ -16,9 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog;
-
-import org.apache.seatunnel.connectors.jdbc.catalog.AbstractJdbcCatalog;
+package org.apache.seatunnel.connectors.jdbc.catalog;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
