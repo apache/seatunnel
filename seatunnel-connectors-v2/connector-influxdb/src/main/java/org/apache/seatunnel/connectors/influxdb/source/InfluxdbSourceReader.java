@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
+package org.apache.seatunnel.connectors.influxdb.source;
 
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.influxdb.client.InfluxDBClient;
-import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig;
-import org.apache.seatunnel.connectors.seatunnel.influxdb.converter.InfluxDBRowConverter;
+import org.apache.seatunnel.connectors.influxdb.client.InfluxDBClient;
+import org.apache.seatunnel.connectors.influxdb.config.InfluxDBConfig;
+import org.apache.seatunnel.connectors.influxdb.converter.InfluxDBRowConverter;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;

@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.e2e.flink.v2.influxdb;
 
-import org.apache.seatunnel.connectors.seatunnel.influxdb.client.InfluxDBClient;
-import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig;
+import org.apache.seatunnel.connectors.influxdb.client.InfluxDBClient;
+import org.apache.seatunnel.connectors.influxdb.config.InfluxDBConfig;
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
 import com.google.common.collect.Lists;

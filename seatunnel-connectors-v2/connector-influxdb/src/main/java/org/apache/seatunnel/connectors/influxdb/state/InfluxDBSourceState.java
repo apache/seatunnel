@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.influxdb.state;
+package org.apache.seatunnel.connectors.influxdb.state;
 
-import org.apache.seatunnel.connectors.seatunnel.influxdb.source.InfluxDBSourceSplit;
+import org.apache.seatunnel.connectors.influxdb.source.InfluxDBSourceSplit;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.influxdb.client;
+package org.apache.seatunnel.connectors.influxdb.client;
 
-import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig;
+import org.apache.seatunnel.connectors.influxdb.config.InfluxDBConfig;
 
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.HttpUrl;

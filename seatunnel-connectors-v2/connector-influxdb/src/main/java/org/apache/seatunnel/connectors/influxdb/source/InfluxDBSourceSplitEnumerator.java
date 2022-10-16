@@ -15,13 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
-
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.SQL_WHERE;
+package org.apache.seatunnel.connectors.influxdb.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig;
-import org.apache.seatunnel.connectors.seatunnel.influxdb.state.InfluxDBSourceState;
+import org.apache.seatunnel.connectors.influxdb.config.InfluxDBConfig;
+import org.apache.seatunnel.connectors.influxdb.state.InfluxDBSourceState;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
@@ -119,7 +117,7 @@ public class InfluxDBSourceSplitEnumerator implements SourceSplitEnumerator<Infl
         //calculate numRange base on (lowerBound upperBound partitionNum)
         List<Pair<Long, Long>> rangePairs = genSplitNumRange(config.getLowerBound(), config.getUpperBound(), config.getPartitionNum());
 
-        String[] sqls = sql.split(SQL_WHERE);
+        String[] sqls = sql.split(InfluxDBConfig.SQL_WHERE);
         if (sqls.length > 2) {
             throw new IllegalArgumentException("sql should not contain more than one where");
         }

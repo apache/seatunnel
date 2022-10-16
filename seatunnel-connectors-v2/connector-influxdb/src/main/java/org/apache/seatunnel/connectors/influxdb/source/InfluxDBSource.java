@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
+package org.apache.seatunnel.connectors.influxdb.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.SQL;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.URL;
+import static org.apache.seatunnel.connectors.influxdb.config.InfluxDBConfig.SQL;
+import static org.apache.seatunnel.connectors.influxdb.config.InfluxDBConfig.URL;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -32,9 +32,9 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.common.schema.SeaTunnelSchema;
-import org.apache.seatunnel.connectors.seatunnel.influxdb.client.InfluxDBClient;
-import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig;
-import org.apache.seatunnel.connectors.seatunnel.influxdb.state.InfluxDBSourceState;
+import org.apache.seatunnel.connectors.influxdb.client.InfluxDBClient;
+import org.apache.seatunnel.connectors.influxdb.config.InfluxDBConfig;
+import org.apache.seatunnel.connectors.influxdb.state.InfluxDBSourceState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
+package org.apache.seatunnel.connectors.influxdb.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 
