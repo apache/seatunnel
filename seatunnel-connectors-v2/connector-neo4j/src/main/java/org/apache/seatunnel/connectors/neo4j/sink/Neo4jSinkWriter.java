@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.neo4j.sink;
+package org.apache.seatunnel.connectors.neo4j.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jConfig;
+import org.apache.seatunnel.connectors.neo4j.config.Neo4jConfig;
 
 import lombok.extern.slf4j.Slf4j;
 import org.neo4j.driver.Driver;

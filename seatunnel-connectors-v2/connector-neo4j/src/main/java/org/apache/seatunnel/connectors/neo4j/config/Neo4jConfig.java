@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.neo4j.config;
+package org.apache.seatunnel.connectors.neo4j.config;
 
 import lombok.Getter;
 import lombok.Setter;
