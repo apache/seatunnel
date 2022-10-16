@@ -147,7 +147,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    @DisplayName("JDBC-DM end to end test")
+    @DisplayName("JDBC-Db2 end to end test")
     public void testJdbcSourceAndSink(TestContainer container) throws IOException, InterruptedException, SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException {
         assertHasData(SOURCE_TABLE);
         Container.ExecResult execResult = container.executeJob("/jdbc_db2_source_and_sink.conf");
