@@ -146,7 +146,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
     @DisplayName("JDBC-DM end to end test")
     public void testJdbcSourceAndSink(TestContainer container) throws IOException, InterruptedException, SQLException {
         assertHasData(SOURCE_TABLE);
-        Container.ExecResult execResult = container.executeJob("/jdbc/jdbc_db2_source_and_sink.conf");
+        Container.ExecResult execResult = container.executeJob("/jdbc_db2_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         assertHasData(SINK_TABLE);
     }
