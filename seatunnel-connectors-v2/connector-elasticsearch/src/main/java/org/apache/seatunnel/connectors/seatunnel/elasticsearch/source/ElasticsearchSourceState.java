@@ -17,7 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
-import java.io.Serializable;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
+import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
+
+@AllArgsConstructor
+@Getter
 public class ElasticsearchSourceState implements Serializable {
+    private boolean shouldEnumerate;
+    private Map<Integer, List<ElasticsearchSourceSplit>> pendingSplit;
 }

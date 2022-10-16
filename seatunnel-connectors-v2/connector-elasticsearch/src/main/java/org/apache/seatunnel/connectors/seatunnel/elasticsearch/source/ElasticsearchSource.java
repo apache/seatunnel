@@ -98,8 +98,8 @@ public class ElasticsearchSource implements SeaTunnelSource<SeaTunnelRow, Elasti
     }
 
     @Override
-    public SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState> restoreEnumerator(SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext, ElasticsearchSourceState checkpointState) throws Exception {
-        return new ElasticsearchSourceSplitEnumerator(enumeratorContext, pluginConfig);
+    public SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState> restoreEnumerator(SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext, ElasticsearchSourceState sourceState) {
+        return new ElasticsearchSourceSplitEnumerator(enumeratorContext, sourceState, pluginConfig);
     }
 
 }
