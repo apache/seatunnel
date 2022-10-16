@@ -51,14 +51,12 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.common.schema.SeaTunnelSchema;
-import org.apache.seatunnel.connectors.pulsar.source.enumerator.PulsarSplitEnumerator;
-import org.apache.seatunnel.connectors.pulsar.source.enumerator.PulsarSplitEnumeratorState;
-import org.apache.seatunnel.connectors.pulsar.source.reader.PulsarSourceReader;
-import org.apache.seatunnel.connectors.pulsar.source.split.PulsarPartitionSplit;
 import org.apache.seatunnel.connectors.pulsar.config.PulsarAdminConfig;
 import org.apache.seatunnel.connectors.pulsar.config.PulsarClientConfig;
 import org.apache.seatunnel.connectors.pulsar.config.PulsarConsumerConfig;
 import org.apache.seatunnel.connectors.pulsar.config.SourceProperties;
+import org.apache.seatunnel.connectors.pulsar.source.enumerator.PulsarSplitEnumerator;
+import org.apache.seatunnel.connectors.pulsar.source.enumerator.PulsarSplitEnumeratorState;
 import org.apache.seatunnel.connectors.pulsar.source.enumerator.cursor.start.StartCursor;
 import org.apache.seatunnel.connectors.pulsar.source.enumerator.cursor.start.SubscriptionStartCursor;
 import org.apache.seatunnel.connectors.pulsar.source.enumerator.cursor.stop.NeverStopCursor;
@@ -66,6 +64,8 @@ import org.apache.seatunnel.connectors.pulsar.source.enumerator.cursor.stop.Stop
 import org.apache.seatunnel.connectors.pulsar.source.enumerator.discoverer.PulsarDiscoverer;
 import org.apache.seatunnel.connectors.pulsar.source.enumerator.discoverer.TopicListDiscoverer;
 import org.apache.seatunnel.connectors.pulsar.source.enumerator.discoverer.TopicPatternDiscoverer;
+import org.apache.seatunnel.connectors.pulsar.source.reader.PulsarSourceReader;
+import org.apache.seatunnel.connectors.pulsar.source.split.PulsarPartitionSplit;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;

@@ -18,11 +18,11 @@
 package org.apache.seatunnel.connectors.pulsar.source.reader;
 
 import org.apache.seatunnel.common.Handover;
-import org.apache.seatunnel.connectors.pulsar.source.split.PulsarPartitionSplit;
 import org.apache.seatunnel.connectors.pulsar.config.PulsarConfigUtil;
 import org.apache.seatunnel.connectors.pulsar.config.PulsarConsumerConfig;
 import org.apache.seatunnel.connectors.pulsar.source.enumerator.cursor.start.StartCursor;
 import org.apache.seatunnel.connectors.pulsar.source.enumerator.cursor.stop.StopCursor;
+import org.apache.seatunnel.connectors.pulsar.source.split.PulsarPartitionSplit;
 
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.ConsumerBuilder;

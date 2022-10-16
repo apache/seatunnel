@@ -28,9 +28,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.kudu.config.KuduSourceConfig;
 import org.apache.seatunnel.connectors.kudu.kuduclient.KuduInputFormat;
 import org.apache.seatunnel.connectors.kudu.kuduclient.KuduTypeMapper;
-import org.apache.seatunnel.connectors.kudu.config.KuduSourceConfig;
 import org.apache.seatunnel.connectors.kudu.state.KuduSourceState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
