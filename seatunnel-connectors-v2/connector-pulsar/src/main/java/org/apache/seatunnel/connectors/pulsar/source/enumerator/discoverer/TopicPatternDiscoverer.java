@@ -68,7 +68,7 @@ public class TopicPatternDiscoverer implements PulsarDiscoverer {
                     try {
                         PartitionedTopicMetadata metadata =
                             pulsarAdmin.topics().getPartitionedTopicMetadata(completeTopicName);
-                        return toTopicPartitions(topicName, metadata.partitions);
+                        return PulsarDiscoverer.toTopicPartitions(topicName, metadata.partitions);
                     } catch (PulsarAdminException e) {
                         // This method would cause the failure for subscriber.
                         throw new IllegalStateException(e);
