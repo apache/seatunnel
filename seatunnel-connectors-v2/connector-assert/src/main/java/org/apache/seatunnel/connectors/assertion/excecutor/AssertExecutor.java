@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.assertion.excecutor;
+package org.apache.seatunnel.connectors.assertion.excecutor;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
+import org.apache.seatunnel.connectors.assertion.rule.AssertFieldRule;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;

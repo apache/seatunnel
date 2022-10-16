@@ -20,8 +20,8 @@ package org.apache.seatunnel.flink.assertion.rule;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
-import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertRuleParser;
+import org.apache.seatunnel.connectors.assertion.rule.AssertFieldRule;
+import org.apache.seatunnel.connectors.assertion.rule.AssertRuleParser;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;

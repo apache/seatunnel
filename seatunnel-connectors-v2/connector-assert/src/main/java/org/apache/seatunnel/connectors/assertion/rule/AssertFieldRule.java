@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.assertion.rule;
+package org.apache.seatunnel.connectors.assertion.rule;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 

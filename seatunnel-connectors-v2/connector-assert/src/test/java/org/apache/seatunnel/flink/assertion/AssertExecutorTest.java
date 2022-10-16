@@ -24,8 +24,8 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.assertion.excecutor.AssertExecutor;
-import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
+import org.apache.seatunnel.connectors.assertion.excecutor.AssertExecutor;
+import org.apache.seatunnel.connectors.assertion.rule.AssertFieldRule;
 
 import com.google.common.collect.Lists;
 import org.junit.jupiter.api.Test;
