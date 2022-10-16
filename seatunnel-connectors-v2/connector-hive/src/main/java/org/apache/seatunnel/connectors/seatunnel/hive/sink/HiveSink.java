@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.FIELD_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.FILE_FORMAT;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.FILE_NAME_EXPRESSION;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.IS_PARTITION_FIELD_WRITE_IN_FILE;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.PATH;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.ROW_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.SAVE_MODE;
+import static org.apache.seatunnel.connectors.file.config.Constant.FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.file.config.Constant.FILE_FORMAT;
+import static org.apache.seatunnel.connectors.file.config.Constant.FILE_NAME_EXPRESSION;
+import static org.apache.seatunnel.connectors.file.config.Constant.IS_PARTITION_FIELD_WRITE_IN_FILE;
+import static org.apache.seatunnel.connectors.file.config.Constant.PATH;
+import static org.apache.seatunnel.connectors.file.config.Constant.ROW_DELIMITER;
+import static org.apache.seatunnel.connectors.file.config.Constant.SAVE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.ORC_OUTPUT_FORMAT_CLASSNAME;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.PARQUET_OUTPUT_FORMAT_CLASSNAME;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.TEXT_OUTPUT_FORMAT_CLASSNAME;
@@ -34,10 +34,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.BaseHdfsFileSink;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.config.SaveMode;
+import org.apache.seatunnel.connectors.file.config.FileFormat;
+import org.apache.seatunnel.connectors.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.file.hdfs.sink.BaseHdfsFileSink;
+import org.apache.seatunnel.connectors.file.sink.config.SaveMode;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
 

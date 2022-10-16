@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.writer;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
+import org.apache.seatunnel.connectors.file.source.reader.ParquetReadStrategy;
 
 import org.junit.jupiter.api.Test;
 

@@ -13,4 +13,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-org.apache.seatunnel.connectors.seatunnel.file.ftp.system.SeaTunnelFTPFileSystem
+org.apache.seatunnel.connectors.file.ftp.system.SeaTunnelFTPFileSystem

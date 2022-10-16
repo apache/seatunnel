@@ -27,9 +27,9 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.BaseHdfsFileSource;
+import org.apache.seatunnel.connectors.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.file.config.FileFormat;
+import org.apache.seatunnel.connectors.file.hdfs.source.BaseHdfsFileSource;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
