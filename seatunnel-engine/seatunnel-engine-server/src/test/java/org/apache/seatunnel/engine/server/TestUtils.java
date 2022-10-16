@@ -20,7 +20,7 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
+import org.apache.seatunnel.connectors.console.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
