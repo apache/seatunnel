@@ -1,16 +1,19 @@
-package org.apache.seatunnel.e2e.spark.v2.jdbc;
+package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
 
-import org.apache.seatunnel.e2e.spark.SparkContainer;
+import org.apache.seatunnel.e2e.common.TestResource;
+import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import com.google.common.collect.Lists;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
@@ -30,7 +33,7 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-public class JdbcDb2IT extends SparkContainer {
+public class JdbcDb2IT extends TestSuiteBase implements TestResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(JdbcDb2IT.class);
     /**
@@ -39,7 +42,7 @@ public class JdbcDb2IT extends SparkContainer {
     private static final String IMAGE = "ibmcom/db2:latest";
     private static final String HOST = "spark_e2e_db2";
     private static final int PORT = 50000;
-    private static final int LOCAL_PORT = 50001;
+    private static final int LOCAL_PORT = 50000;
     private static final String USER = "DB2INST1";
     private static final String PASSWORD = "123456";
     private static final String DRIVER = "com.ibm.db2.jcc.DB2Driver";
@@ -48,13 +51,14 @@ public class JdbcDb2IT extends SparkContainer {
     private static final String SOURCE_TABLE = "E2E_TABLE_SOURCE";
     private static final String SINK_TABLE = "E2E_TABLE_SINK";
     private String JDBC_URL;
-    private GenericContainer<?> server;
+    private GenericContainer<?> dbserver;
     private Connection jdbcConnection;
 
-    @BeforeEach
-    public void startDB2Container() throws ClassNotFoundException, SQLException {
-        server = new GenericContainer<>(IMAGE)
-            .withNetwork(NETWORK)
+    @BeforeAll
+    @Override
+    public void startUp() throws Exception {
+        dbserver = new GenericContainer<>(IMAGE)
+            .withNetwork(TestContainer.NETWORK)
             .withNetworkAliases(HOST)
             .withPrivilegedMode(true)
             .withLogConsumer(new Slf4jLogConsumer(LOG))
@@ -62,9 +66,9 @@ public class JdbcDb2IT extends SparkContainer {
             .withEnv("DBNAME", DATABASE)
             .withEnv("LICENSE", "accept")
         ;
-        server.setPortBindings(Lists.newArrayList(String.format("%s:%s", LOCAL_PORT, PORT)));
-        Startables.deepStart(Stream.of(server)).join();
-        JDBC_URL = String.format("jdbc:db2://%s:%s/%s", server.getContainerIpAddress(), LOCAL_PORT, DATABASE);
+        dbserver.setPortBindings(Lists.newArrayList(String.format("%s:%s", LOCAL_PORT, PORT)));
+        Startables.deepStart(Stream.of(dbserver)).join();
+        JDBC_URL = String.format("jdbc:db2://%s:%s/%s", dbserver.getHost(), LOCAL_PORT, DATABASE);
         LOG.info("DB2 container started");
         given().ignoreExceptions()
             .await()
@@ -73,13 +77,13 @@ public class JdbcDb2IT extends SparkContainer {
         initializeJdbcTable();
     }
 
-    @AfterEach
-    public void closeGreenplumContainer() throws SQLException {
+    @Override
+    public void tearDown() throws Exception {
         if (jdbcConnection != null) {
             jdbcConnection.close();
         }
-        if (server != null) {
-            server.close();
+        if (dbserver != null) {
+            dbserver.close();
         }
     }
 
@@ -100,7 +104,7 @@ public class JdbcDb2IT extends SparkContainer {
      * init the table
      */
     private void initializeJdbcTable() {
-        URL resource = JdbcDb2IT.class.getResource("/jdbc/init_sql/db2_init.conf");
+        URL resource = JdbcDb2IT.class.getResource("/jdbc/init/db2_init.conf");
         if (resource == null) {
             throw new IllegalArgumentException("can't find find file");
         }
@@ -138,10 +142,12 @@ public class JdbcDb2IT extends SparkContainer {
         assertHasData(SOURCE_TABLE);
     }
 
-    @Test
-    public void testJdbcSourceAndSink() throws IOException, InterruptedException, SQLException {
+
+    @TestTemplate
+    @DisplayName("JDBC-DM end to end test")
+    public void testJdbcSourceAndSink(TestContainer container) throws IOException, InterruptedException, SQLException {
         assertHasData(SOURCE_TABLE);
-        Container.ExecResult execResult = executeSeaTunnelSparkJob("/jdbc/jdbc_db2_source_and_sink.conf");
+        Container.ExecResult execResult = container.executeJob("/jdbc/jdbc_db2_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         assertHasData(SINK_TABLE);
     }
