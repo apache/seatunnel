@@ -64,11 +64,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class ParquetReadStrategy extends AbstractReadStrategy {
-    private SeaTunnelRowType seaTunnelRowType;
     private static final byte[] PARQUET_MAGIC = new byte[]{(byte) 'P', (byte) 'A', (byte) 'R', (byte) '1'};
     private static final long NANOS_PER_MILLISECOND = 1000000;
     private static final long MILLIS_PER_DAY = TimeUnit.DAYS.toMillis(1L);
@@ -80,6 +80,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
             throw new Exception("please check file type");
         }
         Path filePath = new Path(path);
+        Map<String, String> partitionsMap = parsePartitionsByPath(path);
         HadoopInputFile hadoopInputFile = HadoopInputFile.fromPath(filePath, getConfiguration());
         int fieldsCount = seaTunnelRowType.getTotalFields();
         GenericData dataModel = new GenericData();
@@ -92,12 +93,22 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                 .withDataModel(dataModel)
                 .build()) {
             while ((record = reader.read()) != null) {
-                Object[] fields = new Object[fieldsCount];
+                Object[] fields;
+                if (isMergePartition) {
+                    int index = fieldsCount;
+                    fields = new Object[fieldsCount + partitionsMap.size()];
+                    for (String value : partitionsMap.values()) {
+                        fields[index++] = value;
+                    }
+                } else {
+                    fields = new Object[fieldsCount];
+                }
                 for (int i = 0; i < fieldsCount; i++) {
                     Object data = record.get(i);
                     fields[i] = resolveObject(data, seaTunnelRowType.getFieldType(i));
                 }
-                output.collect(new SeaTunnelRow(fields));
+                SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+                output.collect(seaTunnelRow);
             }
         }
     }
@@ -185,9 +196,6 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
 
     @Override
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) throws FilePluginException {
-        if (seaTunnelRowType != null) {
-            return seaTunnelRowType;
-        }
         Path filePath = new Path(path);
         ParquetMetadata metadata;
         try {
@@ -210,7 +218,8 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
             types[i] = fieldType;
         }
         seaTunnelRowType = new SeaTunnelRowType(fields, types);
-        return seaTunnelRowType;
+        seaTunnelRowTypeWithPartition = mergePartitionTypes(path, seaTunnelRowType);
+        return getActualSeaTunnelRowTypeInfo();
     }
 
     private SeaTunnelDataType<?> parquetType2SeaTunnelType(Type type) {

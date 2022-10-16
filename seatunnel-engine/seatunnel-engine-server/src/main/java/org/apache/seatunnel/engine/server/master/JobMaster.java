@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
+
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.loader.SeatunnelChildFirstClassLoader;
@@ -88,7 +90,7 @@ public class JobMaster extends Thread {
 
     private final IMap<Object, Object> runningJobStateTimestampsIMap;
 
-    private CompletableFuture<Void> scheduleFuture = new CompletableFuture<>();
+    private CompletableFuture<Void> scheduleFuture;
 
     private volatile boolean restore = false;
 
@@ -113,9 +115,10 @@ public class JobMaster extends Thread {
     public void init(long initializationTimestamp) throws Exception {
         jobImmutableInformation = nodeEngine.getSerializationService().toObject(
             jobImmutableInformationData);
-        LOGGER.info("Job [" + jobImmutableInformation.getJobId() + "] submit");
-        LOGGER.info(
-            "Job [" + jobImmutableInformation.getJobId() + "] jar urls " + jobImmutableInformation.getPluginJarsUrls());
+        LOGGER.info(String.format("Init JobMaster for Job %s (%s) ", jobImmutableInformation.getJobConfig().getName(),
+            jobImmutableInformation.getJobId()));
+        LOGGER.info(String.format("Job %s (%s) needed jar urls %s", jobImmutableInformation.getJobConfig().getName(),
+            jobImmutableInformation.getJobId(), jobImmutableInformation.getPluginJarsUrls()));
 
         LogicalDag logicalDag;
         if (!CollectionUtils.isEmpty(jobImmutableInformation.getPluginJarsUrls())) {
@@ -149,14 +152,14 @@ public class JobMaster extends Thread {
     public void initStateFuture() {
         jobMasterCompleteFuture = new CompletableFuture<>();
         PassiveCompletableFuture<JobStatus> jobStatusFuture = physicalPlan.initStateFuture();
-        jobStatusFuture.whenComplete((v, t) -> {
+        jobStatusFuture.whenComplete(withTryCatch(LOGGER, (v, t) -> {
             // We need not handle t, Because we will not return t from physicalPlan
             if (JobStatus.FAILING.equals(v)) {
                 cleanJob();
                 physicalPlan.updateJobState(JobStatus.FAILING, JobStatus.FAILED);
             }
             jobMasterCompleteFuture.complete(physicalPlan.getJobStatus());
-        });
+        }));
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -184,13 +187,17 @@ public class JobMaster extends Thread {
     public void handleCheckpointTimeout(long pipelineId) {
         this.physicalPlan.getPipelineList().forEach(pipeline -> {
             if (pipeline.getPipelineLocation().getPipelineId() == pipelineId) {
-                LOGGER.warning(String.format("%s checkpoint timeout, cancel the pipeline", pipeline.getPipelineFullName()));
+                LOGGER.warning(
+                    String.format("%s checkpoint timeout, cancel the pipeline", pipeline.getPipelineFullName()));
                 pipeline.cancelPipeline();
             }
         });
     }
 
     public PassiveCompletableFuture<Void> reSchedulerPipeline(SubPlan subPlan) {
+        if (jobScheduler == null) {
+            jobScheduler = new PipelineBaseScheduler(physicalPlan, this);
+        }
         return new PassiveCompletableFuture<>(jobScheduler.reSchedulerPipeline(subPlan));
     }
 
@@ -277,6 +284,12 @@ public class JobMaster extends Thread {
     public void setOwnedSlotProfiles(@NonNull PipelineLocation pipelineLocation,
                                      @NonNull Map<TaskGroupLocation, SlotProfile> pipelineOwnedSlotProfiles) {
         ownedSlotProfilesIMap.put(pipelineLocation, pipelineOwnedSlotProfiles);
+    }
+
+    public SlotProfile getOwnedSlotProfiles(@NonNull TaskGroupLocation taskGroupLocation) {
+        return ownedSlotProfilesIMap.get(
+                new PipelineLocation(taskGroupLocation.getJobId(), taskGroupLocation.getPipelineId()))
+            .get(taskGroupLocation);
     }
 
     public CompletableFuture<Void> getScheduleFuture() {
