@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.sentry.sink;
+package org.apache.seatunnel.connectors.sentry.sink;
 
 public class SentryConfig {
 
