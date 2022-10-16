@@ -73,7 +73,8 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
         given().ignoreExceptions()
             .await()
             .atMost(180, TimeUnit.SECONDS)
-            .untilAsserted(this::initializeDbServer);
+            .untilAsserted(this::initializeJdbcConnection);
+        initializeJdbcTable();
     }
 
     @Override
@@ -86,7 +87,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private void initializeDbServer() throws SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException {
+    private void initializeJdbcConnection() throws SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException {
         Properties properties = new Properties();
         properties.setProperty("user", USER);
         properties.setProperty("password", PASSWORD);
@@ -97,7 +98,6 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(resultSet.next());
         resultSet.close();
         statement.close();
-        initializeJdbcTable();
     }
 
     /**
@@ -127,7 +127,11 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private void assertHasData(String table) throws SQLException {
+    private void assertHasData(String table) throws SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException {
+        if(jdbcConnection.isValid(10)){
+            initializeJdbcConnection();
+        }
+
         try (Statement statement = jdbcConnection.createStatement()) {
             String sql = String.format("select * from \"%s\".%s", USER, table);
             ResultSet source = statement.executeQuery(sql);
@@ -138,13 +142,13 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
     }
 
     @Test
-    void pullImageOK() throws SQLException {
+    void pullImageOK() throws SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException {
         assertHasData(SOURCE_TABLE);
     }
 
     @TestTemplate
     @DisplayName("JDBC-DM end to end test")
-    public void testJdbcSourceAndSink(TestContainer container) throws IOException, InterruptedException, SQLException {
+    public void testJdbcSourceAndSink(TestContainer container) throws IOException, InterruptedException, SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException {
         assertHasData(SOURCE_TABLE);
         Container.ExecResult execResult = container.executeJob("/jdbc_db2_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
