@@ -15,17 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.feishu.sink;
+package org.apache.seatunnel.connectors.http.source;
 
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSink;
+import org.apache.seatunnel.api.serialization.DeserializationSchema;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
-import com.google.auto.service.AutoService;
+import lombok.AllArgsConstructor;
 
-@AutoService(SeaTunnelSink.class)
-public class FeishuSink extends HttpSink {
+@AllArgsConstructor
+public class SimpleTextDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
+
+    private SeaTunnelRowType rowType;
+
     @Override
-    public String getPluginName() {
-        return "Feishu";
+    public SeaTunnelRow deserialize(byte[] message) {
+        return new SeaTunnelRow(new Object[]{new String(message)});
+    }
+
+    @Override
+    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
+        return rowType;
     }
 }

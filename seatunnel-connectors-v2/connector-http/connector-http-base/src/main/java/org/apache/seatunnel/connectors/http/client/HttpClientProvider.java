@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.http.client;
+package org.apache.seatunnel.connectors.http.client;
 
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+import org.apache.seatunnel.connectors.http.config.HttpParameter;
 
 import com.github.rholder.retry.Attempt;
 import com.github.rholder.retry.RetryListener;

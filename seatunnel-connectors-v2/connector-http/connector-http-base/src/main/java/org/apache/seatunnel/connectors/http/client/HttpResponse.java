@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.http.client;
+package org.apache.seatunnel.connectors.http.client;
 
 import org.apache.http.HttpStatus;
 

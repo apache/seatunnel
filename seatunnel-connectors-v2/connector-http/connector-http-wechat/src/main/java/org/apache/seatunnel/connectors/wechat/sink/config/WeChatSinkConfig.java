@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.wechat.sink.config;
+package org.apache.seatunnel.connectors.wechat.sink.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 

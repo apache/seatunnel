@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.wechat.sink;
+package org.apache.seatunnel.connectors.wechat.sink;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.wechat.sink.config.WeChatSinkConfig;
+import org.apache.seatunnel.connectors.wechat.sink.config.WeChatSinkConfig;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import lombok.SneakyThrows;

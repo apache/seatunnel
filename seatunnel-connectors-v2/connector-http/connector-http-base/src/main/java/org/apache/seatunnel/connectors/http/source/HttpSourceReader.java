@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.http.source;
+package org.apache.seatunnel.connectors.http.source;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -23,9 +23,9 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.common.source.SingleSplitReaderContext;
-import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
-import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+import org.apache.seatunnel.connectors.http.client.HttpClientProvider;
+import org.apache.seatunnel.connectors.http.client.HttpResponse;
+import org.apache.seatunnel.connectors.http.config.HttpParameter;
 
 import com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;

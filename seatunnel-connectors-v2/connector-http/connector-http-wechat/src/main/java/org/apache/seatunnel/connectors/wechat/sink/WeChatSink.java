@@ -15,27 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.http.source;
+package org.apache.seatunnel.connectors.wechat.sink;
 
-import org.apache.seatunnel.api.serialization.DeserializationSchema;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.http.sink.HttpSink;
+import org.apache.seatunnel.connectors.http.sink.HttpSinkWriter;
+import org.apache.seatunnel.connectors.wechat.sink.config.WeChatSinkConfig;
 
-import lombok.AllArgsConstructor;
+import com.google.auto.service.AutoService;
 
-@AllArgsConstructor
-public class SimpleTextDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
-
-    private SeaTunnelRowType rowType;
+@AutoService(SeaTunnelSink.class)
+public class WeChatSink extends HttpSink {
 
     @Override
-    public SeaTunnelRow deserialize(byte[] message) {
-        return new SeaTunnelRow(new Object[]{new String(message)});
+    public String getPluginName() {
+        return "WeChat";
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return rowType;
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
+        return new HttpSinkWriter(seaTunnelRowType, super.httpParameter,
+            new WeChatBotMessageSerializationSchema(new WeChatSinkConfig(pluginConfig), seaTunnelRowType));
     }
 }

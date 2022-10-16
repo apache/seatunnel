@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.http.sink;
+package org.apache.seatunnel.connectors.http.sink;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
-import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+import org.apache.seatunnel.connectors.http.client.HttpClientProvider;
+import org.apache.seatunnel.connectors.http.client.HttpResponse;
+import org.apache.seatunnel.connectors.http.config.HttpParameter;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import lombok.extern.slf4j.Slf4j;

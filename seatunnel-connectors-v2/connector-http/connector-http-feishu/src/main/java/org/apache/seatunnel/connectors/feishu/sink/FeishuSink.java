@@ -15,29 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.wechat.sink;
+package org.apache.seatunnel.connectors.feishu.sink;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSink;
-import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.wechat.sink.config.WeChatSinkConfig;
+import org.apache.seatunnel.connectors.http.sink.HttpSink;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(SeaTunnelSink.class)
-public class WeChatSink extends HttpSink {
-
+public class FeishuSink extends HttpSink {
     @Override
     public String getPluginName() {
-        return "WeChat";
-    }
-
-    @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
-        return new HttpSinkWriter(seaTunnelRowType, super.httpParameter,
-            new WeChatBotMessageSerializationSchema(new WeChatSinkConfig(pluginConfig), seaTunnelRowType));
+        return "Feishu";
     }
 }
