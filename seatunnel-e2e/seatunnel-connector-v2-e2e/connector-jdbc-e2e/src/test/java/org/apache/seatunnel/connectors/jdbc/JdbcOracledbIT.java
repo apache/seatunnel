@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc;
+package org.apache.seatunnel.connectors.jdbc;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 

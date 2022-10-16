@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa;
+package org.apache.seatunnel.connectors.jdbc.internal.xa;
 
 import static javax.transaction.xa.XAResource.TMSTARTRSCAN;
 

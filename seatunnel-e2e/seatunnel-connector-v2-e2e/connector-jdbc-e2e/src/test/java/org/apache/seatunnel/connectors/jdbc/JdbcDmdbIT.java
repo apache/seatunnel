@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc;
+package org.apache.seatunnel.connectors.jdbc;
 
 import static org.awaitility.Awaitility.given;
 
-import org.apache.seatunnel.connectors.seatunnel.jdbc.util.JdbcCompareUtil;
+import org.apache.seatunnel.connectors.jdbc.util.JdbcCompareUtil;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
