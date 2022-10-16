@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient;
+package org.apache.seatunnel.connectors.kudu.kuduclient;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
+import org.apache.seatunnel.connectors.kudu.config.KuduSinkConfig;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kudu.ColumnSchema;

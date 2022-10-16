@@ -15,18 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kudu.source;
+package org.apache.seatunnel.connectors.kudu.source;
+
+import org.apache.seatunnel.api.source.SourceSplit;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
-import java.io.Serializable;
-
 @Data
 @AllArgsConstructor
-public class PartitionParameter implements Serializable {
+public class KuduSourceSplit implements SourceSplit {
 
-    String partitionColumnName;
-    Long minValue;
-    Long maxValue;
+    private static final long serialVersionUID = -1L;
+
+    Object[] parameterValues;
+    public final Integer splitId;
+
+    @Override
+    public String splitId() {
+        return splitId.toString();
+    }
+
 }

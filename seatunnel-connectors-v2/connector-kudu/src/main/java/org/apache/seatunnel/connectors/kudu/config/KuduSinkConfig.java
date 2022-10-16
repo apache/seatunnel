@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kudu.config;
+package org.apache.seatunnel.connectors.kudu.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 

@@ -15,9 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kudu.state;
+package org.apache.seatunnel.connectors.kudu.config;
 
 import java.io.Serializable;
 
-public class KuduSourceState implements Serializable {
+public class KuduSourceConfig implements Serializable {
+
+    public static final String KUDUMASTER = "kudu_master";
+    public static final String TABLENAME = "kudu_table";
+    public static final String COLUMNSLIST = "columnsList";
+
+
 }

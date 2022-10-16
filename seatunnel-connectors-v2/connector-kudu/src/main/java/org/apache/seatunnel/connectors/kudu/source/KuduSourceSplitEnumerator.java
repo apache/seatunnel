@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kudu.source;
+package org.apache.seatunnel.connectors.kudu.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduSourceState;
+import org.apache.seatunnel.connectors.kudu.state.KuduSourceState;
 
 import java.io.IOException;
 import java.io.Serializable;
