@@ -15,33 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.socket.source;
+package org.apache.seatunnel.connectors.socket.config;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import lombok.Data;
 
 import java.io.Serializable;
-import java.util.Objects;
 
-public class SocketSourceParameter implements Serializable {
-
-    private static final String DEFAULT_HOST = "localhost";
-    private static final int DEFAULT_PORT = 9999;
+@Data
+public class SinkConfig implements Serializable {
+    public static final String HOST = "host";
+    public static final String PORT = "port";
+    private static final String MAX_RETRIES = "max_retries";
+    private static final int DEFAULT_MAX_RETRIES = 3;
     private String host;
-    private Integer port;
+    private int port;
+    private int maxNumRetries = DEFAULT_MAX_RETRIES;
 
-    public String getHost() {
-        return StringUtils.isBlank(host) ? DEFAULT_HOST : host;
-    }
-
-    public void setHost(String host) {
-        this.host = host;
-    }
-
-    public Integer getPort() {
-        return Objects.isNull(port) ? DEFAULT_PORT : port;
-    }
-
-    public void setPort(Integer port) {
-        this.port = port;
+    public SinkConfig(Config config) {
+        this.host = config.getString(HOST);
+        this.port = config.getInt(PORT);
+        if (config.hasPath(MAX_RETRIES)) {
+            this.maxNumRetries = config.getInt(MAX_RETRIES);
+        }
     }
 }
