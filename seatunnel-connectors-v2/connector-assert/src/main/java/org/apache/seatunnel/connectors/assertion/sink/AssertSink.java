@@ -24,8 +24,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.assertion.rule.AssertFieldRule;
 import org.apache.seatunnel.connectors.assertion.rule.AssertRuleParser;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.common.sink.AbstractSimpleSink;
+import org.apache.seatunnel.connectors.common.sink.AbstractSinkWriter;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;

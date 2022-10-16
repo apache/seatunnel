@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.assertion.excecutor.AssertExecutor;
 import org.apache.seatunnel.connectors.assertion.rule.AssertFieldRule;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.common.sink.AbstractSinkWriter;
 
 import java.util.List;
 import java.util.Objects;

@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.iotdb.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.IoTDBRecord;

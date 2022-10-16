@@ -20,8 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.socket.source;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
-import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.common.source.SingleSplitReaderContext;
 
 import lombok.extern.slf4j.Slf4j;
 

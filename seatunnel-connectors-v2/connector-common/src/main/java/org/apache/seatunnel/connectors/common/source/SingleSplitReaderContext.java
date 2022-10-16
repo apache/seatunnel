@@ -15,9 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.common.source;
+package org.apache.seatunnel.connectors.common.source;
 
-import java.io.Serializable;
+import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.SourceReader;
 
-public class SingleSplitEnumeratorState implements Serializable {
+public class SingleSplitReaderContext {
+    private final SourceReader.Context context;
+
+    public SingleSplitReaderContext(SourceReader.Context context) {
+        this.context = context;
+    }
+
+    public Boundedness getBoundedness() {
+        return context.getBoundedness();
+    }
+
+    public void signalNoMoreElement() {
+        context.signalNoMoreElement();
+    }
 }

@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.common.sink.AbstractSinkWriter;
 
 import com.dingtalk.api.DefaultDingTalkClient;
 import com.dingtalk.api.request.OapiRobotSendRequest;

@@ -15,23 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.common.source;
+package org.apache.seatunnel.connectors.common.sink;
 
-import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.sink.SinkWriter;
 
-public class SingleSplit implements SourceSplit {
-    private final byte[] state;
+import java.util.Optional;
 
-    public SingleSplit(byte[] state) {
-        this.state = state;
-    }
+public abstract class AbstractSinkWriter<T, StateT> implements SinkWriter<T, Void, StateT> {
 
-    public byte[] getState() {
-        return state;
+    @Override
+    public Optional<Void> prepareCommit() {
+        return Optional.empty();
     }
 
     @Override
-    public String splitId() {
-        return "single";
+    public final void abortPrepare() {
+        // nothing
     }
 }

@@ -31,7 +31,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;

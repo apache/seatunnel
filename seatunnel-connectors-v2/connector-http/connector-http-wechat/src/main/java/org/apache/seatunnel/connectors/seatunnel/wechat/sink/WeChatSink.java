@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.wechat.sink;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSink;
 import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.wechat.sink.config.WeChatSinkConfig;

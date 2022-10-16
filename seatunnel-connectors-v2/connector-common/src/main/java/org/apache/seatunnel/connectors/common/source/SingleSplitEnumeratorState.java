@@ -15,21 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.common.sink;
+package org.apache.seatunnel.connectors.common.source;
 
-import org.apache.seatunnel.api.sink.SinkWriter;
+import java.io.Serializable;
 
-import java.util.Optional;
-
-public abstract class AbstractSinkWriter<T, StateT> implements SinkWriter<T, Void, StateT> {
-
-    @Override
-    public Optional<Void> prepareCommit() {
-        return Optional.empty();
-    }
-
-    @Override
-    public final void abortPrepare() {
-        // nothing
-    }
+public class SingleSplitEnumeratorState implements Serializable {
 }

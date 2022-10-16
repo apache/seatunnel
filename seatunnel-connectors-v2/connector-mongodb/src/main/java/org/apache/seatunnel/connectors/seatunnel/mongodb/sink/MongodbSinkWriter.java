@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbParameters;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.data.DefaultSerializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.data.Serializer;

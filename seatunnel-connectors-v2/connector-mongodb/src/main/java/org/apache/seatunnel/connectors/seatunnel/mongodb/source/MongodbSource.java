@@ -31,10 +31,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
-import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.common.source.AbstractSingleSplitSource;
+import org.apache.seatunnel.connectors.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbParameters;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;

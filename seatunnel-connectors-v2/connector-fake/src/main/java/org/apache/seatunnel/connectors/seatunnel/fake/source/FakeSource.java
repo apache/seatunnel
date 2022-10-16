@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeSourceState;
 

@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.sentry.sink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.common.sink.AbstractSinkWriter;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
