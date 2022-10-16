@@ -40,7 +40,7 @@ public class Gbase8aJdbcRowConverter extends AbstractJdbcRowConverter {
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public SeaTunnelRow toInternal(ResultSet rs, ResultSetMetaData metaData, SeaTunnelRowType typeInfo) throws SQLException {
-        List<Object> fields = new ArrayList<>(16);
+        List<Object> fields = new ArrayList<>(typeInfo.getFieldTypes().length);
         SeaTunnelDataType<?>[] seaTunnelDataTypes = typeInfo.getFieldTypes();
 
         for (int i = 1; i <= seaTunnelDataTypes.length; i++) {
