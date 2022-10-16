@@ -15,19 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.serialize;
+package org.apache.seatunnel.connectors.kafka.state;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import java.io.Serializable;
 
-import org.apache.kafka.clients.producer.ProducerRecord;
-
-public interface SeaTunnelRowSerializer<K, V> {
-
-    /**
-     * Serialize the {@link SeaTunnelRow} to a Kafka {@link ProducerRecord}.
-     *
-     * @param row seatunnel row
-     * @return kafka record.
-     */
-    ProducerRecord<K, V> serializeRow(SeaTunnelRow row);
+/**
+ * Right now, we don't need aggregated commit in kafka.
+ * Todo: we need to add a default implementation of this state.
+ */
+public class KafkaAggregatedCommitInfo implements Serializable {
 }

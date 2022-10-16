@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.state;
+package org.apache.seatunnel.connectors.kafka.state;
 
-import org.apache.seatunnel.connectors.seatunnel.kafka.source.KafkaSourceSplit;
+import org.apache.seatunnel.connectors.kafka.source.KafkaSourceSplit;
 
 import java.io.Serializable;
 import java.util.Set;

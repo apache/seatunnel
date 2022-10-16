@@ -15,13 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.state;
+package org.apache.seatunnel.connectors.kafka.state;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
 import java.io.Serializable;
+import java.util.Properties;
 
-/**
- * Right now, we don't need aggregated commit in kafka.
- * Todo: we need to add a default implementation of this state.
- */
-public class KafkaAggregatedCommitInfo implements Serializable {
+@Data
+@AllArgsConstructor
+public class KafkaCommitInfo implements Serializable {
+
+    private final String transactionId;
+    private final Properties kafkaProperties;
+    private final long producerId;
+    private final short epoch;
+
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.state;
+package org.apache.seatunnel.connectors.kafka.state;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -25,11 +25,11 @@ import java.util.Properties;
 
 @Data
 @AllArgsConstructor
-public class KafkaCommitInfo implements Serializable {
+public class KafkaSinkState implements Serializable {
 
     private final String transactionId;
+    private final String transactionIdPrefix;
+    private final long checkpointId;
     private final Properties kafkaProperties;
-    private final long producerId;
-    private final short epoch;
 
 }

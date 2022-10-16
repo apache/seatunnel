@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.source;
+package org.apache.seatunnel.connectors.kafka.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.COMMIT_ON_CHECKPOINT;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONSUMER_GROUP;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PATTERN;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
+import static org.apache.seatunnel.connectors.kafka.config.Config.BOOTSTRAP_SERVERS;
+import static org.apache.seatunnel.connectors.kafka.config.Config.COMMIT_ON_CHECKPOINT;
+import static org.apache.seatunnel.connectors.kafka.config.Config.CONSUMER_GROUP;
+import static org.apache.seatunnel.connectors.kafka.config.Config.PATTERN;
+import static org.apache.seatunnel.connectors.kafka.config.Config.TOPIC;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
@@ -38,7 +38,7 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
+import org.apache.seatunnel.connectors.kafka.state.KafkaSourceState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 

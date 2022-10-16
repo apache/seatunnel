@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.source;
+package org.apache.seatunnel.connectors.kafka.source;
 
 import java.io.Serializable;
 import java.util.Properties;

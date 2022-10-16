@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
+package org.apache.seatunnel.connectors.kafka.sink;
 
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;

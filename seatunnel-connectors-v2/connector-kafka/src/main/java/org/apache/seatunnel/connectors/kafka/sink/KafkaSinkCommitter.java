@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
+package org.apache.seatunnel.connectors.kafka.sink;
 
 import org.apache.seatunnel.api.sink.SinkCommitter;
-import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
+import org.apache.seatunnel.connectors.kafka.state.KafkaCommitInfo;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 

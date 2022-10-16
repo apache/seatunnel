@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.config;
+package org.apache.seatunnel.connectors.kafka.config;
 
 public class Config {
     /**

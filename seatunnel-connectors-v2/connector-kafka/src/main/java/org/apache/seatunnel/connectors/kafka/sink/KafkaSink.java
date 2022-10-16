@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
+package org.apache.seatunnel.connectors.kafka.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
+import static org.apache.seatunnel.connectors.kafka.config.Config.BOOTSTRAP_SERVERS;
+import static org.apache.seatunnel.connectors.kafka.config.Config.TOPIC;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
@@ -32,9 +32,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaAggregatedCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
+import org.apache.seatunnel.connectors.kafka.state.KafkaAggregatedCommitInfo;
+import org.apache.seatunnel.connectors.kafka.state.KafkaCommitInfo;
+import org.apache.seatunnel.connectors.kafka.state.KafkaSinkState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 

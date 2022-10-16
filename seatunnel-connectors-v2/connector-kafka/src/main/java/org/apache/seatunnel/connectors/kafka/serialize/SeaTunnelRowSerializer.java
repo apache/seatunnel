@@ -15,21 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.state;
+package org.apache.seatunnel.connectors.kafka.serialize;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-import java.io.Serializable;
-import java.util.Properties;
+import org.apache.kafka.clients.producer.ProducerRecord;
 
-@Data
-@AllArgsConstructor
-public class KafkaSinkState implements Serializable {
+public interface SeaTunnelRowSerializer<K, V> {
 
-    private final String transactionId;
-    private final String transactionIdPrefix;
-    private final long checkpointId;
-    private final Properties kafkaProperties;
-
+    /**
+     * Serialize the {@link SeaTunnelRow} to a Kafka {@link ProducerRecord}.
+     *
+     * @param row seatunnel row
+     * @return kafka record.
+     */
+    ProducerRecord<K, V> serializeRow(SeaTunnelRow row);
 }
