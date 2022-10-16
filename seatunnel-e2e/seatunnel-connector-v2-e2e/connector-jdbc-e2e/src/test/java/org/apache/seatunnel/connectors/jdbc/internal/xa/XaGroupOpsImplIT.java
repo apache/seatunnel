@@ -25,12 +25,6 @@ import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.connectors.jdbc.internal.connection.DataSourceUtils;
 import org.apache.seatunnel.connectors.jdbc.internal.options.JdbcConnectionOptions;
-import org.apache.seatunnel.connectors.jdbc.internal.xa.SemanticXidGenerator;
-import org.apache.seatunnel.connectors.jdbc.internal.xa.XaFacade;
-import org.apache.seatunnel.connectors.jdbc.internal.xa.XaFacadeImplAutoLoad;
-import org.apache.seatunnel.connectors.jdbc.internal.xa.XaGroupOps;
-import org.apache.seatunnel.connectors.jdbc.internal.xa.XaGroupOpsImpl;
-import org.apache.seatunnel.connectors.jdbc.internal.xa.XidImpl;
 
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
