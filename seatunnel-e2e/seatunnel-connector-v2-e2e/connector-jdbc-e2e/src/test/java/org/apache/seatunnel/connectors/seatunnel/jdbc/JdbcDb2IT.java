@@ -50,7 +50,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
     private static final String DATABASE = "testdb";
     private static final String SOURCE_TABLE = "E2E_TABLE_SOURCE";
     private static final String SINK_TABLE = "E2E_TABLE_SINK";
-    private String JDBC_URL;
+    private String jdbcUrl;
     private GenericContainer<?> dbserver;
     private Connection jdbcConnection;
 
@@ -68,7 +68,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
         ;
         dbserver.setPortBindings(Lists.newArrayList(String.format("%s:%s", LOCAL_PORT, PORT)));
         Startables.deepStart(Stream.of(dbserver)).join();
-        JDBC_URL = String.format("jdbc:db2://%s:%s/%s", dbserver.getHost(), LOCAL_PORT, DATABASE);
+        jdbcUrl = String.format("jdbc:db2://%s:%s/%s", dbserver.getHost(), LOCAL_PORT, DATABASE);
         LOG.info("DB2 container started");
         given().ignoreExceptions()
             .await()
@@ -92,7 +92,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
         properties.setProperty("user", USER);
         properties.setProperty("password", PASSWORD);
         Driver driver = (Driver) Class.forName(DRIVER).newInstance();
-        jdbcConnection = driver.connect(JDBC_URL, properties);
+        jdbcConnection = driver.connect(jdbcUrl, properties);
         Statement statement = jdbcConnection.createStatement();
         ResultSet resultSet = statement.executeQuery("select 1 from SYSSTAT.TABLES");
         Assertions.assertTrue(resultSet.next());
@@ -141,7 +141,6 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
     void pullImageOK() throws SQLException {
         assertHasData(SOURCE_TABLE);
     }
-
 
     @TestTemplate
     @DisplayName("JDBC-DM end to end test")
