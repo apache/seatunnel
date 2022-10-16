@@ -28,11 +28,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.jdbc.config.JdbcSinkOptions;
+import org.apache.seatunnel.connectors.jdbc.internal.executor.JdbcStatementBuilder;
 import org.apache.seatunnel.connectors.jdbc.state.JdbcAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.jdbc.state.XidInfo;
 import org.apache.seatunnel.connectors.jdbc.utils.JdbcUtils;
-import org.apache.seatunnel.connectors.jdbc.internal.executor.JdbcStatementBuilder;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 

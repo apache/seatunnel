@@ -20,8 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
-
 import org.apache.seatunnel.connectors.jdbc.internal.xa.SemanticXidGenerator;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

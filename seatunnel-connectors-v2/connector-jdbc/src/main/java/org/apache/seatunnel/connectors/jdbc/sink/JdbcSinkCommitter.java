@@ -18,12 +18,12 @@
 package org.apache.seatunnel.connectors.jdbc.sink;
 
 import org.apache.seatunnel.api.sink.SinkCommitter;
-import org.apache.seatunnel.connectors.jdbc.internal.xa.XaGroupOpsImpl;
-import org.apache.seatunnel.connectors.jdbc.state.XidInfo;
-import org.apache.seatunnel.connectors.jdbc.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.jdbc.internal.options.JdbcConnectionOptions;
 import org.apache.seatunnel.connectors.jdbc.internal.xa.XaFacade;
 import org.apache.seatunnel.connectors.jdbc.internal.xa.XaGroupOps;
+import org.apache.seatunnel.connectors.jdbc.internal.xa.XaGroupOpsImpl;
+import org.apache.seatunnel.connectors.jdbc.state.XidInfo;
+import org.apache.seatunnel.connectors.jdbc.utils.ExceptionUtils;
 
 import java.io.IOException;
 import java.util.List;

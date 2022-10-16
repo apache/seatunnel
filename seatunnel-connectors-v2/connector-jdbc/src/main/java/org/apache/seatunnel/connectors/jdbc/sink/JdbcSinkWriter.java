@@ -21,13 +21,13 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.jdbc.config.JdbcSinkOptions;
 import org.apache.seatunnel.connectors.jdbc.internal.JdbcOutputFormat;
-import org.apache.seatunnel.connectors.jdbc.state.JdbcSinkState;
-import org.apache.seatunnel.connectors.jdbc.state.XidInfo;
 import org.apache.seatunnel.connectors.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.jdbc.internal.executor.JdbcBatchStatementExecutor;
 import org.apache.seatunnel.connectors.jdbc.internal.executor.JdbcStatementBuilder;
 import org.apache.seatunnel.connectors.jdbc.internal.executor.SimpleBatchStatementExecutor;
+import org.apache.seatunnel.connectors.jdbc.state.JdbcSinkState;
+import org.apache.seatunnel.connectors.jdbc.state.XidInfo;
 
 import org.apache.commons.lang3.SerializationUtils;
 
