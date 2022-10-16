@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.fake.config;
+package org.apache.seatunnel.connectors.fake.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 

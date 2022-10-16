@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.fake.source;
+package org.apache.seatunnel.connectors.fake.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
-import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeSourceState;
+import org.apache.seatunnel.connectors.fake.config.FakeConfig;
+import org.apache.seatunnel.connectors.fake.state.FakeSourceState;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

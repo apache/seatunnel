@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.fake.source;
+package org.apache.seatunnel.connectors.fake.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 

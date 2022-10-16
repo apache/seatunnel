@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.fake.state;
+package org.apache.seatunnel.connectors.fake.state;
 
-import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSourceSplit;
+import org.apache.seatunnel.connectors.fake.source.FakeSourceSplit;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
