@@ -287,8 +287,8 @@ public class EsRestClient {
                         if (fieldProperty == null) {
                             mapping.put(field, "text");
                         } else {
-                            String type = fieldProperty.get("type").asText();
-                            if (type != null) {
+                            if (fieldProperty.has("type")) {
+                                String type = fieldProperty.get("type").asText();
                                 mapping.put(field, type);
                             } else {
                                 log.warn(String.format("fail to get elasticsearch field %s mapping type", field));
