@@ -73,8 +73,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
         given().ignoreExceptions()
             .await()
             .atMost(180, TimeUnit.SECONDS)
-            .untilAsserted(this::initializeJdbcConnection);
-        initializeJdbcTable();
+            .untilAsserted(this::initializeDbServer);
     }
 
     @Override
@@ -87,7 +86,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private void initializeJdbcConnection() throws SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException {
+    private void initializeDbServer() throws SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException {
         Properties properties = new Properties();
         properties.setProperty("user", USER);
         properties.setProperty("password", PASSWORD);
@@ -98,6 +97,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(resultSet.next());
         resultSet.close();
         statement.close();
+        initializeJdbcTable();
     }
 
     /**
