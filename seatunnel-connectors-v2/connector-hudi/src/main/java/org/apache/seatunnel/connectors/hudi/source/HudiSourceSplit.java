@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hudi.source;
+package org.apache.seatunnel.connectors.hudi.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 

@@ -15,20 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hudi.config;
+package org.apache.seatunnel.connectors.hudi.source;
 
-public class HudiSourceConfig {
+import java.io.Serializable;
+import java.util.Set;
 
-    public static final String TABLE_PATH = "table.path";
+public class HudiSourceState implements Serializable {
 
-    public static final String TABLE_TYPE = "table.type";
 
-    public static final String CONF_FILES = "conf.files";
+    private Set<HudiSourceSplit> assignedSplit;
 
-    public static final String USE_KERBEROS = "use.kerberos";
+    public HudiSourceState(Set<HudiSourceSplit> assignedSplit) {
+        this.assignedSplit = assignedSplit;
+    }
 
-    public static final String KERBEROS_PRINCIPAL = "kerberos.principal";
-
-    public static final String KERBEROS_PRINCIPAL_FILE = "kerberos.principal.file";
-
+    public Set<HudiSourceSplit> getAssignedSplit() {
+        return assignedSplit;
+    }
 }

@@ -15,21 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hudi.source;
+package org.apache.seatunnel.connectors.hudi.exception;
 
-import java.io.Serializable;
-import java.util.Set;
+public class HudiPluginException extends Exception{
 
-public class HudiSourceState implements Serializable {
-
-
-    private Set<HudiSourceSplit> assignedSplit;
-
-    public HudiSourceState(Set<HudiSourceSplit> assignedSplit) {
-        this.assignedSplit = assignedSplit;
+    public HudiPluginException(String message) {
+        super(message);
     }
 
-    public Set<HudiSourceSplit> getAssignedSplit() {
-        return assignedSplit;
+    public HudiPluginException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

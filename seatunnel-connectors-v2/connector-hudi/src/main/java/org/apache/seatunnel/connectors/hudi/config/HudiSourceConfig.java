@@ -15,15 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hudi.exception;
+package org.apache.seatunnel.connectors.hudi.config;
 
-public class HudiPluginException extends Exception{
+public class HudiSourceConfig {
 
-    public HudiPluginException(String message) {
-        super(message);
-    }
+    public static final String TABLE_PATH = "table.path";
 
-    public HudiPluginException(String message, Throwable cause) {
-        super(message, cause);
-    }
+    public static final String TABLE_TYPE = "table.type";
+
+    public static final String CONF_FILES = "conf.files";
+
+    public static final String USE_KERBEROS = "use.kerberos";
+
+    public static final String KERBEROS_PRINCIPAL = "kerberos.principal";
+
+    public static final String KERBEROS_PRINCIPAL_FILE = "kerberos.principal.file";
+
 }

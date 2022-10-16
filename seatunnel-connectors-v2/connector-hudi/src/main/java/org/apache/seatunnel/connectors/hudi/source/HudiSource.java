@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hudi.source;
+package org.apache.seatunnel.connectors.hudi.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.CONF_FILES;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.KERBEROS_PRINCIPAL;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.KERBEROS_PRINCIPAL_FILE;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.TABLE_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.TABLE_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.USE_KERBEROS;
+import static org.apache.seatunnel.connectors.hudi.config.HudiSourceConfig.CONF_FILES;
+import static org.apache.seatunnel.connectors.hudi.config.HudiSourceConfig.KERBEROS_PRINCIPAL;
+import static org.apache.seatunnel.connectors.hudi.config.HudiSourceConfig.KERBEROS_PRINCIPAL_FILE;
+import static org.apache.seatunnel.connectors.hudi.config.HudiSourceConfig.TABLE_PATH;
+import static org.apache.seatunnel.connectors.hudi.config.HudiSourceConfig.TABLE_TYPE;
+import static org.apache.seatunnel.connectors.hudi.config.HudiSourceConfig.USE_KERBEROS;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -35,8 +35,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiPluginException;
-import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil;
+import org.apache.seatunnel.connectors.hudi.exception.HudiPluginException;
+import org.apache.seatunnel.connectors.hudi.util.HudiUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 

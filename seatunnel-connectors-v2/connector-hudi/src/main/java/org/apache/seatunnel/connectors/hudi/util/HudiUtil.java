@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hudi.util;
+package org.apache.seatunnel.connectors.hudi.util;
 
 import static org.apache.parquet.format.converter.ParquetMetadataConverter.NO_FILTER;
 
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiPluginException;
+import org.apache.seatunnel.connectors.hudi.exception.HudiPluginException;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
