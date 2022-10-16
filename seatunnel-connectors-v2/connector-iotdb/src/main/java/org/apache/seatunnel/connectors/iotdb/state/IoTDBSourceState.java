@@ -15,11 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iotdb.serialize;
+package org.apache.seatunnel.connectors.iotdb.state;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.iotdb.source.IoTDBSourceSplit;
 
-public interface SeaTunnelRowSerializer {
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
-    IoTDBRecord serialize(SeaTunnelRow seaTunnelRow);
+import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
+
+@AllArgsConstructor
+@Getter
+public class IoTDBSourceState implements Serializable {
+
+    private boolean shouldEnumerate;
+    private Map<Integer, List<IoTDBSourceSplit>> pendingSplit;
 }

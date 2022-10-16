@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iotdb.sink;
+package org.apache.seatunnel.connectors.iotdb.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.DefaultSeaTunnelRowSerializer;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.IoTDBRecord;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.SeaTunnelRowSerializer;
+import org.apache.seatunnel.connectors.iotdb.config.SinkConfig;
+import org.apache.seatunnel.connectors.iotdb.serialize.DefaultSeaTunnelRowSerializer;
+import org.apache.seatunnel.connectors.iotdb.serialize.IoTDBRecord;
+import org.apache.seatunnel.connectors.iotdb.serialize.SeaTunnelRowSerializer;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 

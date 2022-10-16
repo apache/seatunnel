@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
+package org.apache.seatunnel.connectors.iotdb.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.NODE_URLS;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.PORT;
+import static org.apache.seatunnel.connectors.iotdb.config.SourceConfig.HOST;
+import static org.apache.seatunnel.connectors.iotdb.config.SourceConfig.NODE_URLS;
+import static org.apache.seatunnel.connectors.iotdb.config.SourceConfig.PORT;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
@@ -34,7 +34,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.common.schema.SeaTunnelSchema;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.state.IoTDBSourceState;
+import org.apache.seatunnel.connectors.iotdb.state.IoTDBSourceState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 

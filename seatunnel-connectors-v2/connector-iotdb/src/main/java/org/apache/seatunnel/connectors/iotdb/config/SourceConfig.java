@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iotdb.config;
+package org.apache.seatunnel.connectors.iotdb.config;
 
 /**
  * SourceConfig is the configuration for the IotDBSource.

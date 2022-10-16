@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
+package org.apache.seatunnel.connectors.iotdb.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.LOWER_BOUND;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.NUM_PARTITIONS;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.SQL;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.UPPER_BOUND;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.DEFAULT_PARTITIONS;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.SQL_ALIGN;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.SQL_WHERE;
+import static org.apache.seatunnel.connectors.iotdb.config.SourceConfig.LOWER_BOUND;
+import static org.apache.seatunnel.connectors.iotdb.config.SourceConfig.NUM_PARTITIONS;
+import static org.apache.seatunnel.connectors.iotdb.config.SourceConfig.SQL;
+import static org.apache.seatunnel.connectors.iotdb.config.SourceConfig.UPPER_BOUND;
+import static org.apache.seatunnel.connectors.iotdb.constant.SourceConstants.DEFAULT_PARTITIONS;
+import static org.apache.seatunnel.connectors.iotdb.constant.SourceConstants.SQL_ALIGN;
+import static org.apache.seatunnel.connectors.iotdb.constant.SourceConstants.SQL_WHERE;
 import static org.apache.iotdb.tsfile.common.constant.QueryConstant.RESERVED_TIME;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.state.IoTDBSourceState;
+import org.apache.seatunnel.connectors.iotdb.state.IoTDBSourceState;
 
 import com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;

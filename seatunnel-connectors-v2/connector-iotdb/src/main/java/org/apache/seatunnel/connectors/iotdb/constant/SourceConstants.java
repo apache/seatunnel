@@ -15,23 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iotdb.serialize;
+package org.apache.seatunnel.connectors.iotdb.constant;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.ToString;
-import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
+public class SourceConstants {
 
-import java.util.List;
+    public static final String FIELDS_K_V_SPLIT = ":";
 
-@Getter
-@ToString
-@AllArgsConstructor
-public class IoTDBRecord {
+    public static final String FIELDS_SPLIT = ",";
 
-    private String device;
-    private Long timestamp;
-    private List<String> measurements;
-    private List<TSDataType> types;
-    private List<Object> values;
+    public static final String NODES_SPLIT = ",";
+
+    public static final String SQL_WHERE = "where";
+
+    public static final String SQL_ALIGN = "align by";
+
+    public static final String DEFAULT_PARTITIONS = "0";
+
 }

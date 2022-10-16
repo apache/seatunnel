@@ -15,35 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
+package org.apache.seatunnel.connectors.iotdb.config;
 
-import org.apache.seatunnel.api.source.SourceSplit;
-
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import lombok.ToString;
 
+import java.util.List;
+
+@Getter
 @ToString
-public class IoTDBSourceSplit implements SourceSplit {
+@AllArgsConstructor
+public class CommonConfig {
 
-    private static final long serialVersionUID = -1L;
+    public static final String NODE_URLS = "node_urls";
+    public static final String USERNAME = "username";
+    public static final String PASSWORD = "password";
 
-    private String splitId;
-
-    /**
-     * final query statement
-     */
-    private String query;
-
-    @Override
-    public String splitId() {
-        return splitId;
-    }
-
-    public String getQuery() {
-        return query;
-    }
-
-    public IoTDBSourceSplit(String splitId, String query) {
-        this.splitId = splitId;
-        this.query = query;
-    }
+    private final List<String> nodeUrls;
+    private final String username;
+    private final String password;
 }

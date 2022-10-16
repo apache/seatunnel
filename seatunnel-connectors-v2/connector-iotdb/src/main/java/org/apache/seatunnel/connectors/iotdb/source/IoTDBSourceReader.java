@@ -15,27 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
+package org.apache.seatunnel.connectors.iotdb.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.ENABLE_CACHE_LEADER;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.FETCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.NODE_URLS;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.PORT;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.THRIFT_DEFAULT_BUFFER_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.THRIFT_MAX_FRAME_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.VERSION;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.NODES_SPLIT;
+import static org.apache.seatunnel.connectors.iotdb.config.SourceConfig.ENABLE_CACHE_LEADER;
+import static org.apache.seatunnel.connectors.iotdb.config.SourceConfig.FETCH_SIZE;
+import static org.apache.seatunnel.connectors.iotdb.config.SourceConfig.HOST;
+import static org.apache.seatunnel.connectors.iotdb.config.SourceConfig.NODE_URLS;
+import static org.apache.seatunnel.connectors.iotdb.config.SourceConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.iotdb.config.SourceConfig.PORT;
+import static org.apache.seatunnel.connectors.iotdb.config.SourceConfig.THRIFT_DEFAULT_BUFFER_SIZE;
+import static org.apache.seatunnel.connectors.iotdb.config.SourceConfig.THRIFT_MAX_FRAME_SIZE;
+import static org.apache.seatunnel.connectors.iotdb.config.SourceConfig.USERNAME;
+import static org.apache.seatunnel.connectors.iotdb.config.SourceConfig.VERSION;
+import static org.apache.seatunnel.connectors.iotdb.constant.SourceConstants.NODES_SPLIT;
 
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.DefaultSeaTunnelRowDeserializer;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.SeaTunnelRowDeserializer;
+import org.apache.seatunnel.connectors.iotdb.serialize.DefaultSeaTunnelRowDeserializer;
+import org.apache.seatunnel.connectors.iotdb.serialize.SeaTunnelRowDeserializer;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.iotdb.rpc.IoTDBConnectionException;

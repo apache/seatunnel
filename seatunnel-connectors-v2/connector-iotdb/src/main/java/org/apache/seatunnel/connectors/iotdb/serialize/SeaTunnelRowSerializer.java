@@ -15,24 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iotdb.config;
+package org.apache.seatunnel.connectors.iotdb.serialize;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.ToString;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-import java.util.List;
+public interface SeaTunnelRowSerializer {
 
-@Getter
-@ToString
-@AllArgsConstructor
-public class CommonConfig {
-
-    public static final String NODE_URLS = "node_urls";
-    public static final String USERNAME = "username";
-    public static final String PASSWORD = "password";
-
-    private final List<String> nodeUrls;
-    private final String username;
-    private final String password;
+    IoTDBRecord serialize(SeaTunnelRow seaTunnelRow);
 }

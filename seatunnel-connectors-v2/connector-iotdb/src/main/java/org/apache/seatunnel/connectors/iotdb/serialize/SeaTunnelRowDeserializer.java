@@ -15,20 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iotdb.constant;
+package org.apache.seatunnel.connectors.iotdb.serialize;
 
-public class SourceConstants {
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-    public static final String FIELDS_K_V_SPLIT = ":";
+import org.apache.iotdb.tsfile.read.common.RowRecord;
 
-    public static final String FIELDS_SPLIT = ",";
+public interface SeaTunnelRowDeserializer {
 
-    public static final String NODES_SPLIT = ",";
-
-    public static final String SQL_WHERE = "where";
-
-    public static final String SQL_ALIGN = "align by";
-
-    public static final String DEFAULT_PARTITIONS = "0";
-
+    SeaTunnelRow deserialize(RowRecord rowRecord);
 }

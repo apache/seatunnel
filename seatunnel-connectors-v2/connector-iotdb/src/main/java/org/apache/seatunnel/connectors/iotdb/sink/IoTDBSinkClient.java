@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iotdb.sink;
+package org.apache.seatunnel.connectors.iotdb.sink;
 
-import org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.IoTDBRecord;
+import org.apache.seatunnel.connectors.iotdb.config.SinkConfig;
+import org.apache.seatunnel.connectors.iotdb.serialize.IoTDBRecord;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.Getter;
