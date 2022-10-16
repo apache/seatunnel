@@ -17,12 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.util;
 
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
 
 import org.apache.poi.ss.usermodel.Cell;
@@ -45,14 +46,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ExcelGenerator {
+    private List<Integer> sinkColumnsIndexInRow;
+    private SeaTunnelRowType seaTunnelRowType;
+    private final DateUtils.Formatter dateFormat;
+    private final DateTimeUtils.Formatter dateTimeFormat;
+    private final TimeUtils.Formatter timeFormat;
+    private final String fieldDelimiter;
     private Workbook wb;
     private CellStyle wholeNumberCellStyle;
     private CellStyle stringCellStyle;
-    private int row = 0;
-    private List<Integer> sinkColumnsIndexInRow;
-    private SeaTunnelRowType seaTunnelRowType;
+    private CellStyle dateCellStyle;
+    private CellStyle dateTimeCellStyle;
+    private CellStyle timeCellStyle;
     private Sheet st;
-
+    private int row = 0;
     public ExcelGenerator(List<Integer> sinkColumnsIndexInRow, SeaTunnelRowType seaTunnelRowType, TextFileSinkConfig textFileSinkConfig) {
         this.sinkColumnsIndexInRow = sinkColumnsIndexInRow;
         this.seaTunnelRowType = seaTunnelRowType;
@@ -67,9 +74,16 @@ public class ExcelGenerator {
             String fieldName = seaTunnelRowType.getFieldName(i);
             row.createCell(i).setCellValue(fieldName);
         }
-
+        this.dateFormat = textFileSinkConfig.getDateFormat();
+        this.dateTimeFormat = textFileSinkConfig.getDatetimeFormat();
+        this.timeFormat = textFileSinkConfig.getTimeFormat();
+        this.fieldDelimiter = textFileSinkConfig.getFieldDelimiter();
         wholeNumberCellStyle = createStyle(wb, "General");
         stringCellStyle = createStyle(wb, "@");
+        dateCellStyle = createStyle(wb, dateFormat.getValue());
+        dateTimeCellStyle = createStyle(wb, dateTimeFormat.getValue());
+        timeCellStyle = createStyle(wb, timeFormat.getValue());
+
         this.row += 1;
     }
 
@@ -79,7 +93,7 @@ public class ExcelGenerator {
         for (Integer i : sinkColumnsIndexInRow) {
             Cell cell = excelRow.createCell(i);
             Object value = seaTunnelRow.getField(i);
-            makeConverter(fieldTypes[i], value, cell);
+            setCellValue(fieldTypes[i], value, cell);
         }
         this.row += 1;
     }
@@ -89,59 +103,142 @@ public class ExcelGenerator {
         wb.close();
     }
 
-    private void makeConverter(SeaTunnelDataType<?> type, Object value, Cell cell) {
+    private void setCellValue(SeaTunnelDataType<?> type, Object value, Cell cell) {
         if (value == null) {
             cell.setBlank();
-        } else if (BasicType.STRING_TYPE.equals(type)) {
-            cell.setCellValue((String) value);
-            cell.setCellStyle(stringCellStyle);
-        } else if (BasicType.BOOLEAN_TYPE.equals(type)) {
-            cell.setCellValue((Boolean) value);
-            cell.setCellStyle(wholeNumberCellStyle);
-        } else if (BasicType.BYTE_TYPE.equals(type)) {
-            cell.setCellValue((byte) value);
-            cell.setCellStyle(wholeNumberCellStyle);
-        } else if (BasicType.SHORT_TYPE.equals(type)) {
-            cell.setCellValue((short) value);
-            cell.setCellStyle(wholeNumberCellStyle);
-        } else if (BasicType.INT_TYPE.equals(type)) {
-            cell.setCellValue((int) value);
-            cell.setCellStyle(wholeNumberCellStyle);
-        } else if (BasicType.LONG_TYPE.equals(type)) {
-            cell.setCellValue((long) value);
-            cell.setCellStyle(wholeNumberCellStyle);
-        } else if (type.getSqlType().equals(SqlType.TIMESTAMP)) {
-            cell.setCellValue(Timestamp.valueOf((LocalDateTime) value));
-            cell.setCellStyle(stringCellStyle);
-        } else if (BasicType.FLOAT_TYPE.equals(type)) {
-            cell.setCellValue((float) value);
-            cell.setCellStyle(wholeNumberCellStyle);
-        } else if (BasicType.DOUBLE_TYPE.equals(type)) {
-            cell.setCellValue((double) value);
-            cell.setCellStyle(wholeNumberCellStyle);
-        } else if (type.getSqlType().equals(SqlType.DECIMAL)) {
-            cell.setCellValue(Double.parseDouble(value.toString()));
-            cell.setCellStyle(wholeNumberCellStyle);
-        } else if (type.getSqlType().equals(SqlType.BYTES)) {
-            List<String> arrayData = new ArrayList<>();
-            for (int i = 0; i < Array.getLength(value); i++) {
-                arrayData.add(String.valueOf(Array.get(value, i)));
-            }
-            cell.setCellValue(arrayData.toString());
-            cell.setCellStyle(stringCellStyle);
-        } else if (type.getSqlType().equals(SqlType.MAP) || type.getSqlType().equals(SqlType.ARRAY) || type.getSqlType().equals(SqlType.ROW)) {
-            cell.setCellValue(JsonUtils.toJsonString(value));
-            cell.setCellStyle(stringCellStyle);
-        } else if (type.getSqlType().equals(SqlType.DATE)) {
-            cell.setCellValue((LocalDate) value);
-            cell.setCellStyle(stringCellStyle);
-        } else if (type.getSqlType().equals(SqlType.TIME)) {
-            cell.setCellValue(Timestamp.valueOf(((LocalTime) value).atDate(LocalDate.ofEpochDay(0))));
-            cell.setCellStyle(stringCellStyle);
         } else {
-            String errorMsg = String.format("[%s] type not support ", type.getSqlType());
-            throw new RuntimeException(errorMsg);
+            switch (type.getSqlType()) {
+                case STRING:
+                    cell.setCellValue((String) value);
+                    cell.setCellStyle(stringCellStyle);
+                    break;
+                case BOOLEAN:
+                    cell.setCellValue((Boolean) value);
+                    cell.setCellStyle(wholeNumberCellStyle);
+                    break;
+                case SMALLINT:
+                    cell.setCellValue((short) value);
+                    cell.setCellStyle(wholeNumberCellStyle);
+                    break;
+                case TINYINT:
+                    cell.setCellValue((byte) value);
+                    cell.setCellStyle(wholeNumberCellStyle);
+                    break;
+                case INT:
+                    cell.setCellValue((int) value);
+                    cell.setCellStyle(wholeNumberCellStyle);
+                    break;
+                case BIGINT:
+                    cell.setCellValue((long) value);
+                    cell.setCellStyle(wholeNumberCellStyle);
+                    break;
+                case FLOAT:
+                    cell.setCellValue((float) value);
+                    cell.setCellStyle(wholeNumberCellStyle);
+                    break;
+                case DOUBLE:
+                    cell.setCellValue((double) value);
+                    cell.setCellStyle(wholeNumberCellStyle);
+                    break;
+                case DECIMAL:
+                    cell.setCellValue(Double.parseDouble(value.toString()));
+                    cell.setCellStyle(wholeNumberCellStyle);
+                    break;
+                case BYTES:
+                    List<String> arrayData = new ArrayList<>();
+                    for (int i = 0; i < Array.getLength(value); i++) {
+                        arrayData.add(String.valueOf(Array.get(value, i)));
+                    }
+                    cell.setCellValue(arrayData.toString());
+                    cell.setCellStyle(stringCellStyle);
+                    break;
+                case MAP:
+                case ARRAY:
+                    cell.setCellValue(JsonUtils.toJsonString(value));
+                    cell.setCellStyle(stringCellStyle);
+                    break;
+                case ROW:
+                    Object[] fields = ((SeaTunnelRow) value).getFields();
+                    String[] strings = new String[fields.length];
+                    for (int i = 0; i < fields.length; i++) {
+                        strings[i] = convert(fields[i], ((SeaTunnelRowType) type).getFieldType(i));
+                    }
+                    cell.setCellValue(String.join(fieldDelimiter, strings));
+                    cell.setCellStyle(stringCellStyle);
+                    break;
+                case DATE:
+                    cell.setCellValue((LocalDate) value);
+                    cell.setCellStyle(dateCellStyle);
+                    break;
+                case TIMESTAMP:
+                case TIME:
+                    setTimestampColumn(value, cell);
+                    break;
+                default:
+                    String errorMsg = String.format("[%s] type not support ", type.getSqlType());
+                    throw new RuntimeException(errorMsg);
+
+            }
         }
+    }
+
+    private String convert(Object field, SeaTunnelDataType<?> fieldType) {
+        if (field == null) {
+            return "";
+        }
+        switch (fieldType.getSqlType()) {
+            case ARRAY:
+            case MAP:
+                return JsonUtils.toJsonString(field);
+            case STRING:
+            case BOOLEAN:
+            case TINYINT:
+            case SMALLINT:
+            case INT:
+            case BIGINT:
+            case FLOAT:
+            case DOUBLE:
+            case DECIMAL:
+                return field.toString();
+            case DATE:
+                return DateUtils.toString((LocalDate) field, dateFormat);
+            case TIME:
+                return TimeUtils.toString((LocalTime) field, timeFormat);
+            case TIMESTAMP:
+                return DateTimeUtils.toString((LocalDateTime) field, dateTimeFormat);
+            case NULL:
+                return "";
+            case BYTES:
+                return new String((byte[]) field);
+            case ROW:
+                Object[] fields = ((SeaTunnelRow) field).getFields();
+                String[] strings = new String[fields.length];
+                for (int i = 0; i < fields.length; i++) {
+                    strings[i] = convert(fields[i], ((SeaTunnelRowType) fieldType).getFieldType(i));
+                }
+                return String.join(fieldDelimiter, strings);
+            default:
+                throw new UnsupportedOperationException("SeaTunnel format text not supported for parsing this type");
+        }
+    }
+
+    private void setTimestampColumn(Object value, Cell cell) {
+        if (value instanceof Timestamp) {
+            cell.setCellValue((Timestamp) value);
+            cell.setCellStyle(dateTimeCellStyle);
+        } else if (value instanceof LocalDate) {
+            cell.setCellValue((LocalDate) value);
+            cell.setCellStyle(dateCellStyle);
+        } else if (value instanceof LocalDateTime) {
+            cell.setCellValue(Timestamp.valueOf((LocalDateTime) value));
+            cell.setCellStyle(dateTimeCellStyle);
+        } else if (value instanceof LocalTime) {
+            cell.setCellValue(Timestamp.valueOf(((LocalTime) value).atDate(LocalDate.ofEpochDay(0))));
+            cell.setCellStyle(timeCellStyle);
+        } else {
+            throw new RuntimeException("Time series type expected for field");
+        }
+
     }
 
     private CellStyle createStyle(Workbook wb, String format) {
