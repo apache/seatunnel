@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
@@ -25,7 +26,6 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.services.ManagedService;
 import com.hazelcast.internal.services.MembershipAwareService;
@@ -41,10 +41,8 @@ import com.hazelcast.spi.impl.operationservice.LiveOperationsTracker;
 import lombok.NonNull;
 
 import java.util.Properties;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class SeaTunnelServer implements ManagedService, MembershipAwareService, LiveOperationsTracker {
@@ -60,17 +58,14 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     private CoordinatorService coordinatorService;
     private ScheduledExecutorService monitorService;
 
-    private final ExecutorService executorService;
-
     private final SeaTunnelConfig seaTunnelConfig;
+
+    private volatile boolean isRunning = true;
 
     public SeaTunnelServer(@NonNull Node node, @NonNull SeaTunnelConfig seaTunnelConfig) {
         this.logger = node.getLogger(getClass());
         this.liveOperationRegistry = new LiveOperationRegistry();
         this.seaTunnelConfig = seaTunnelConfig;
-        this.executorService =
-            Executors.newCachedThreadPool(new ThreadFactoryBuilder()
-                .setNameFormat("seatunnel-server-executor-%d").build());
         logger.info("SeaTunnel server start...");
     }
 
@@ -100,7 +95,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         );
         taskExecutionService.start();
         getSlotService();
-        coordinatorService = new CoordinatorService(nodeEngine, executorService);
+        coordinatorService = new CoordinatorService(nodeEngine, this);
         monitorService = Executors.newSingleThreadScheduledExecutor();
         monitorService.scheduleAtFixedRate(() -> printExecutionInfo(), 0, 60, TimeUnit.SECONDS);
     }
@@ -112,15 +107,19 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     @Override
     public void shutdown(boolean terminate) {
+        isRunning = false;
+        if (taskExecutionService != null) {
+            taskExecutionService.shutdown();
+        }
+        if (monitorService != null) {
+            monitorService.shutdownNow();
+        }
         if (slotService != null) {
             slotService.close();
         }
         if (coordinatorService != null) {
             coordinatorService.shutdown();
         }
-        executorService.shutdown();
-        taskExecutionService.shutdown();
-        monitorService.shutdown();
     }
 
     @Override
@@ -131,7 +130,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     @Override
     public void memberRemoved(MembershipServiceEvent event) {
         try {
-            if (coordinatorService.isMasterNode()) {
+            if (isMasterNode()) {
                 this.getCoordinatorService().memberRemoved(event);
             }
         } catch (SeaTunnelEngineException e) {
@@ -159,19 +158,25 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     @SuppressWarnings("checkstyle:MagicNumber")
     public CoordinatorService getCoordinatorService() {
         int retryCount = 0;
-        while (coordinatorService.isMasterNode() && !coordinatorService.isCoordinatorActive() && retryCount < 20) {
-            try {
-                logger.warning("Waiting this node become the active master node");
-                Thread.sleep(1000);
-                retryCount++;
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+        if (isMasterNode()) {
+            // TODO the retry count and sleep time need configurable
+            while (!coordinatorService.isCoordinatorActive() && retryCount < 20 && isRunning) {
+                try {
+                    logger.warning("This is master node, waiting the coordinator service init finished");
+                    Thread.sleep(1000);
+                    retryCount++;
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
             }
+            if (coordinatorService.isCoordinatorActive()) {
+                return coordinatorService;
+            }
+
+            throw new SeaTunnelEngineException("Can not get coordinator service from an active master node.");
+        } else {
+            throw new SeaTunnelEngineException("Please don't get coordinator service from an inactive master node");
         }
-        if (!coordinatorService.isCoordinatorActive()) {
-            throw new SeaTunnelEngineException("Can not get coordinator service from an inactive master node.");
-        }
-        return coordinatorService;
     }
 
     public TaskExecutionService getTaskExecutionService() {
@@ -180,11 +185,13 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     /**
      * return whether task is end
+     *
      * @param taskGroupLocation taskGroupLocation
      * @return
      */
     public boolean taskIsEnded(@NonNull TaskGroupLocation taskGroupLocation) {
-        IMap<Object, Object> runningJobState = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Object> runningJobState =
+            nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
         if (runningJobState == null) {
             return false;
         }
@@ -193,32 +200,20 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         return taskState == null ? false : ((ExecutionState) taskState).isEndState();
     }
 
+    @SuppressWarnings("checkstyle:MagicNumber")
+    public boolean isMasterNode() {
+        // must retry until the cluster have master node
+        try {
+            return RetryUtils.retryWithException(() -> {
+                return nodeEngine.getMasterAddress().equals(nodeEngine.getThisAddress());
+            }, new RetryUtils.RetryMaterial(20, true,
+                exception -> exception instanceof NullPointerException && isRunning, 1000));
+        } catch (Exception e) {
+            throw new SeaTunnelEngineException("cluster have no master node", e);
+        }
+    }
+
     private void printExecutionInfo() {
-        ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
-        int activeCount = threadPoolExecutor.getActiveCount();
-        int corePoolSize = threadPoolExecutor.getCorePoolSize();
-        int maximumPoolSize = threadPoolExecutor.getMaximumPoolSize();
-        int poolSize = threadPoolExecutor.getPoolSize();
-        long completedTaskCount = threadPoolExecutor.getCompletedTaskCount();
-        long taskCount = threadPoolExecutor.getTaskCount();
-        StringBuffer sbf = new StringBuffer();
-        sbf.append("activeCount=")
-            .append(activeCount)
-            .append("\n")
-            .append("corePoolSize=")
-            .append(corePoolSize)
-            .append("\n")
-            .append("maximumPoolSize=")
-            .append(maximumPoolSize)
-            .append("\n")
-            .append("poolSize=")
-            .append(poolSize)
-            .append("\n")
-            .append("completedTaskCount=")
-            .append(completedTaskCount)
-            .append("\n")
-            .append("taskCount=")
-            .append(taskCount);
-        logger.info(sbf.toString());
+        coordinatorService.printExecutionInfo();
     }
 }
