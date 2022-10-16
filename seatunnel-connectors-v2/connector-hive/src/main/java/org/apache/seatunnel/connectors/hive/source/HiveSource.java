@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hive.source;
+package org.apache.seatunnel.connectors.hive.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.ORC_INPUT_FORMAT_CLASSNAME;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.PARQUET_INPUT_FORMAT_CLASSNAME;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.TEXT_INPUT_FORMAT_CLASSNAME;
+import static org.apache.seatunnel.connectors.hive.config.HiveConfig.ORC_INPUT_FORMAT_CLASSNAME;
+import static org.apache.seatunnel.connectors.hive.config.HiveConfig.PARQUET_INPUT_FORMAT_CLASSNAME;
+import static org.apache.seatunnel.connectors.hive.config.HiveConfig.TEXT_INPUT_FORMAT_CLASSNAME;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
@@ -30,7 +30,7 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.file.config.FileFormat;
 import org.apache.seatunnel.connectors.file.hdfs.source.BaseHdfsFileSource;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
+import org.apache.seatunnel.connectors.hive.config.HiveConfig;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;

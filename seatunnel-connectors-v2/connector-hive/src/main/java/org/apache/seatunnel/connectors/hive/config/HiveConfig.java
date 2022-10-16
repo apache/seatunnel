@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hive.config;
+package org.apache.seatunnel.connectors.hive.config;
 
-import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
+import org.apache.seatunnel.connectors.hive.utils.HiveMetaStoreProxy;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 

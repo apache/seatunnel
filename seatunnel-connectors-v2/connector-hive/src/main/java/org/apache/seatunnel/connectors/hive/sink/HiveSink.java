@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hive.sink;
+package org.apache.seatunnel.connectors.hive.sink;
 
 import static org.apache.seatunnel.connectors.file.config.Constant.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.file.config.Constant.FILE_FORMAT;
@@ -24,9 +24,9 @@ import static org.apache.seatunnel.connectors.file.config.Constant.IS_PARTITION_
 import static org.apache.seatunnel.connectors.file.config.Constant.PATH;
 import static org.apache.seatunnel.connectors.file.config.Constant.ROW_DELIMITER;
 import static org.apache.seatunnel.connectors.file.config.Constant.SAVE_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.ORC_OUTPUT_FORMAT_CLASSNAME;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.PARQUET_OUTPUT_FORMAT_CLASSNAME;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.TEXT_OUTPUT_FORMAT_CLASSNAME;
+import static org.apache.seatunnel.connectors.hive.config.HiveConfig.ORC_OUTPUT_FORMAT_CLASSNAME;
+import static org.apache.seatunnel.connectors.hive.config.HiveConfig.PARQUET_OUTPUT_FORMAT_CLASSNAME;
+import static org.apache.seatunnel.connectors.hive.config.HiveConfig.TEXT_OUTPUT_FORMAT_CLASSNAME;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -38,8 +38,8 @@ import org.apache.seatunnel.connectors.file.config.FileFormat;
 import org.apache.seatunnel.connectors.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.file.hdfs.sink.BaseHdfsFileSink;
 import org.apache.seatunnel.connectors.file.sink.config.SaveMode;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
-import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
+import org.apache.seatunnel.connectors.hive.config.HiveConfig;
+import org.apache.seatunnel.connectors.hive.utils.HiveMetaStoreProxy;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hive.config;
+package org.apache.seatunnel.connectors.hive.config;
 
 public class Constant {
     public static final String HIVE_RESULT_TABLE_NAME = "hive_table_name";
