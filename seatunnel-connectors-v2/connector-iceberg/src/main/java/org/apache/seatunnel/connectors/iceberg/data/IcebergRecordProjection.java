@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iceberg.data;
+package org.apache.seatunnel.connectors.iceberg.data;
 
 import lombok.NonNull;
 import org.apache.iceberg.data.Record;

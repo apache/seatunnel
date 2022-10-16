@@ -15,27 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator;
+package org.apache.seatunnel.connectors.iceberg.data;
 
-import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import org.apache.iceberg.data.Record;
 
-import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
+public interface Deserializer {
 
-@Getter
-@Setter
-@AllArgsConstructor
-@ToString
-public class IcebergSplitEnumeratorState implements Serializable {
-
-    private static final long serialVersionUID = -529307606400995298L;
-
-    private final IcebergEnumeratorPosition lastEnumeratedPosition;
-    private final Map<Integer, List<IcebergFileScanTaskSplit>> pendingSplits;
+    SeaTunnelRow deserialize(Record record);
 }

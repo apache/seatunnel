@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.e2e.flink.v2.iceberg;
 
-import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergCatalogFactory;
+import org.apache.seatunnel.connectors.iceberg.IcebergCatalogFactory;
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
 import lombok.extern.slf4j.Slf4j;

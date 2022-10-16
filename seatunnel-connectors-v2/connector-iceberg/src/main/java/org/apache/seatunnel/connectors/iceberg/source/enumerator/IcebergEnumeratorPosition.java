@@ -15,24 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator;
-
-import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
+package org.apache.seatunnel.connectors.iceberg.source.enumerator;
 
 import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.NonNull;
 import lombok.ToString;
 
-import java.util.List;
+import java.io.Serializable;
 
 @Getter
-@ToString
 @AllArgsConstructor
-public class IcebergEnumerationResult {
-    @NonNull
-    private final List<IcebergFileScanTaskSplit> splits;
-    private final IcebergEnumeratorPosition fromPosition;
-    @NonNull
-    private final IcebergEnumeratorPosition toPosition;
+@EqualsAndHashCode
+@ToString
+public class IcebergEnumeratorPosition implements Serializable {
+
+    private static final long serialVersionUID = 5703291468632501375L;
+
+    public static final IcebergEnumeratorPosition EMPTY = new IcebergEnumeratorPosition(null, null);
+
+    private final Long snapshotId;
+    private final Long snapshotTimestampMs;
 }

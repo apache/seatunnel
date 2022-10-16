@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator;
+package org.apache.seatunnel.connectors.iceberg.source.enumerator;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergScanContext;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergScanSplitPlanner;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
+import org.apache.seatunnel.connectors.iceberg.config.SourceConfig;
+import org.apache.seatunnel.connectors.iceberg.source.enumerator.scan.IcebergScanContext;
+import org.apache.seatunnel.connectors.iceberg.source.enumerator.scan.IcebergScanSplitPlanner;
+import org.apache.seatunnel.connectors.iceberg.source.split.IcebergFileScanTaskSplit;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;

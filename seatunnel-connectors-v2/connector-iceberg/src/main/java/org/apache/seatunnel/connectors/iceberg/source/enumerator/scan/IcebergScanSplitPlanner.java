@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan;
+package org.apache.seatunnel.connectors.iceberg.source.enumerator.scan;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.IcebergEnumerationResult;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.IcebergEnumeratorPosition;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
+import org.apache.seatunnel.connectors.iceberg.source.enumerator.IcebergEnumerationResult;
+import org.apache.seatunnel.connectors.iceberg.source.enumerator.IcebergEnumeratorPosition;
+import org.apache.seatunnel.connectors.iceberg.source.split.IcebergFileScanTaskSplit;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.iceberg.CombinedScanTask;

@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iceberg;
+package org.apache.seatunnel.connectors.iceberg;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
+import org.apache.seatunnel.connectors.iceberg.config.SourceConfig;
 
 import lombok.NonNull;
 import org.apache.iceberg.CachingCatalog;

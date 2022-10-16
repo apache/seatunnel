@@ -17,9 +17,9 @@
  * under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
+package org.apache.seatunnel.connectors.iceberg.config;
 
-import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergStreamScanStrategy;
+import org.apache.seatunnel.connectors.iceberg.source.enumerator.scan.IcebergStreamScanStrategy;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 

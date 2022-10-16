@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iceberg;
+package org.apache.seatunnel.connectors.iceberg;
 
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
+import org.apache.seatunnel.connectors.iceberg.config.CommonConfig;
 
 import lombok.NonNull;
 import org.apache.hadoop.conf.Configuration;

@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iceberg.source.reader;
+package org.apache.seatunnel.connectors.iceberg.source.reader;
 
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.data.DefaultDeserializer;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.data.Deserializer;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
+import org.apache.seatunnel.connectors.iceberg.IcebergTableLoader;
+import org.apache.seatunnel.connectors.iceberg.config.SourceConfig;
+import org.apache.seatunnel.connectors.iceberg.data.DefaultDeserializer;
+import org.apache.seatunnel.connectors.iceberg.data.Deserializer;
+import org.apache.seatunnel.connectors.iceberg.source.split.IcebergFileScanTaskSplit;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;

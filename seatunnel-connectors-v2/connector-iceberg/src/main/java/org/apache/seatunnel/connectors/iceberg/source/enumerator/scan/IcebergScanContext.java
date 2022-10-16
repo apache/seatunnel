@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan;
+package org.apache.seatunnel.connectors.iceberg.source.enumerator.scan;
 
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
+import org.apache.seatunnel.connectors.iceberg.config.SourceConfig;
 
 import lombok.Builder;
 import lombok.Getter;

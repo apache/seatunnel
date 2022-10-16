@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iceberg.source.reader;
+package org.apache.seatunnel.connectors.iceberg.source.reader;
 
-import org.apache.seatunnel.connectors.seatunnel.iceberg.data.IcebergRecordProjection;
+import org.apache.seatunnel.connectors.iceberg.data.IcebergRecordProjection;
 
 import com.google.common.collect.Sets;
 import lombok.Builder;

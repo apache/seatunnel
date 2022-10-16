@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iceberg.source;
+package org.apache.seatunnel.connectors.iceberg.source;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -32,16 +32,16 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.common.schema.SeaTunnelSchema;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.data.IcebergTypeMapper;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.IcebergBatchSplitEnumerator;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.IcebergSplitEnumeratorState;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.IcebergStreamSplitEnumerator;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergScanContext;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.source.reader.IcebergSourceReader;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
+import org.apache.seatunnel.connectors.iceberg.IcebergTableLoader;
+import org.apache.seatunnel.connectors.iceberg.config.CommonConfig;
+import org.apache.seatunnel.connectors.iceberg.config.SourceConfig;
+import org.apache.seatunnel.connectors.iceberg.data.IcebergTypeMapper;
+import org.apache.seatunnel.connectors.iceberg.source.enumerator.IcebergBatchSplitEnumerator;
+import org.apache.seatunnel.connectors.iceberg.source.enumerator.IcebergSplitEnumeratorState;
+import org.apache.seatunnel.connectors.iceberg.source.enumerator.IcebergStreamSplitEnumerator;
+import org.apache.seatunnel.connectors.iceberg.source.enumerator.scan.IcebergScanContext;
+import org.apache.seatunnel.connectors.iceberg.source.reader.IcebergSourceReader;
+import org.apache.seatunnel.connectors.iceberg.source.split.IcebergFileScanTaskSplit;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 

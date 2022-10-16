@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iceberg.source.split;
+package org.apache.seatunnel.connectors.iceberg.source.split;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 

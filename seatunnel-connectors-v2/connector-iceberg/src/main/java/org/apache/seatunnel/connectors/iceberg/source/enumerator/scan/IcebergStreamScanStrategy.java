@@ -15,25 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator;
+package org.apache.seatunnel.connectors.iceberg.source.enumerator.scan;
 
-import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
-
-import java.io.Serializable;
-
-@Getter
-@AllArgsConstructor
-@EqualsAndHashCode
-@ToString
-public class IcebergEnumeratorPosition implements Serializable {
-
-    private static final long serialVersionUID = 5703291468632501375L;
-
-    public static final IcebergEnumeratorPosition EMPTY = new IcebergEnumeratorPosition(null, null);
-
-    private final Long snapshotId;
-    private final Long snapshotTimestampMs;
+public enum IcebergStreamScanStrategy {
+    /**
+     * Do a regular table scan then switch to the incremental mode.
+     */
+    TABLE_SCAN_THEN_INCREMENTAL,
+    /**
+     * Start incremental mode from the latest snapshot inclusive.
+     */
+    FROM_LATEST_SNAPSHOT,
+    /**
+     * Start incremental mode from the earliest snapshot inclusive.
+     */
+    FROM_EARLIEST_SNAPSHOT,
+    /**
+     * Start incremental mode from a snapshot with a specific id inclusive.
+     */
+    FROM_SNAPSHOT_ID,
+    /**
+     * Start incremental mode from a snapshot with a specific timestamp inclusive.
+     */
+    FROM_SNAPSHOT_TIMESTAMP
 }

@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iceberg.source.reader;
+package org.apache.seatunnel.connectors.iceberg.source.reader;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.data.Deserializer;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
+import org.apache.seatunnel.connectors.iceberg.data.Deserializer;
+import org.apache.seatunnel.connectors.iceberg.source.split.IcebergFileScanTaskSplit;
 
 import lombok.AllArgsConstructor;
 import lombok.NonNull;

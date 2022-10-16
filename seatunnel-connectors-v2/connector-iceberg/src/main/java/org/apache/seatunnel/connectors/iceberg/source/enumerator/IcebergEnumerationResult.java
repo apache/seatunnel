@@ -15,27 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan;
+package org.apache.seatunnel.connectors.iceberg.source.enumerator;
 
-public enum IcebergStreamScanStrategy {
-    /**
-     * Do a regular table scan then switch to the incremental mode.
-     */
-    TABLE_SCAN_THEN_INCREMENTAL,
-    /**
-     * Start incremental mode from the latest snapshot inclusive.
-     */
-    FROM_LATEST_SNAPSHOT,
-    /**
-     * Start incremental mode from the earliest snapshot inclusive.
-     */
-    FROM_EARLIEST_SNAPSHOT,
-    /**
-     * Start incremental mode from a snapshot with a specific id inclusive.
-     */
-    FROM_SNAPSHOT_ID,
-    /**
-     * Start incremental mode from a snapshot with a specific timestamp inclusive.
-     */
-    FROM_SNAPSHOT_TIMESTAMP
+import org.apache.seatunnel.connectors.iceberg.source.split.IcebergFileScanTaskSplit;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NonNull;
+import lombok.ToString;
+
+import java.util.List;
+
+@Getter
+@ToString
+@AllArgsConstructor
+public class IcebergEnumerationResult {
+    @NonNull
+    private final List<IcebergFileScanTaskSplit> splits;
+    private final IcebergEnumeratorPosition fromPosition;
+    @NonNull
+    private final IcebergEnumeratorPosition toPosition;
 }
