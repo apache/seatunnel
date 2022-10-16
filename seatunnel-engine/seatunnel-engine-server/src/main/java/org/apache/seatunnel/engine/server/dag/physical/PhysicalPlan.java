@@ -169,20 +169,20 @@ public class PhysicalPlan {
                     jobMaster.releasePipelineResource(subPlan);
                     LOGGER.severe("Pipeline Failed, Begin to cancel other pipelines in this job.");
                 }
+
+                if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
+                    if (failedPipelineNum.get() > 0) {
+                        updateJobState(JobStatus.FAILING);
+                    } else if (canceledPipelineNum.get() > 0) {
+                        turnToEndState(JobStatus.CANCELED);
+                    } else {
+                        turnToEndState(JobStatus.FINISHED);
+                    }
+                    jobEndFuture.complete((JobStatus) runningJobStateIMap.get(jobId));
+                }
             } catch (Throwable e) {
                 // Because only cancelJob or releasePipelineResource can throw exception, so we only output log here
-                LOGGER.severe(ExceptionUtils.getMessage(e));
-            }
-
-            if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
-                if (failedPipelineNum.get() > 0) {
-                    updateJobState(JobStatus.FAILING);
-                } else if (canceledPipelineNum.get() > 0) {
-                    turnToEndState(JobStatus.CANCELED);
-                } else {
-                    turnToEndState(JobStatus.FINISHED);
-                }
-                jobEndFuture.complete((JobStatus) runningJobStateIMap.get(jobId));
+                LOGGER.severe("Never come here ", e);
             }
         });
     }
