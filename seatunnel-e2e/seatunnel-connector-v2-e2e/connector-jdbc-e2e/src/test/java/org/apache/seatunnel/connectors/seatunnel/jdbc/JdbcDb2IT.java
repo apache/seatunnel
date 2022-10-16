@@ -104,7 +104,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
      * init the table
      */
     private void initializeJdbcTable() {
-        URL resource = JdbcDb2IT.class.getResource("/jdbc/init/db2_init.conf");
+        URL resource = JdbcDb2IT.class.getResource("/init/db2_init.conf");
         if (resource == null) {
             throw new IllegalArgumentException("can't find find file");
         }
