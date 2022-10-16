@@ -70,7 +70,9 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     protected Map<String, String> beingWrittenFile;
     private Map<String, List<String>> partitionDirAndValuesMap;
     protected SeaTunnelRowType seaTunnelRowType;
-    protected Long checkpointId = 1L;
+
+    // Checkpoint id from engine is start with 1
+    protected Long checkpointId = 0L;
 
     public AbstractWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
         this.textFileSinkConfig = textFileSinkConfig;

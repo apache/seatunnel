@@ -37,7 +37,6 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
@@ -67,7 +66,7 @@ public class ClusterFaultToleranceIT {
         String testCaseName = "testBatchJobRunOkIn3Node";
         String testClusterName = "ClusterFaultToleranceIT_testBatchJobRunOkIn3Node";
         long testRowNumber = 1000;
-        int testParallelism = 1;
+        int testParallelism = 6;
         HazelcastInstanceImpl node1 =
             SeaTunnelServerStarter.createHazelcastInstance(
                 TestUtils.getClusterName(testClusterName));
@@ -85,7 +84,8 @@ public class ClusterFaultToleranceIT {
             .untilAsserted(() -> Assertions.assertEquals(3, node1.getCluster().getMembers().size()));
 
         Common.setDeployMode(DeployMode.CLIENT);
-        ImmutablePair<String, String> testResources = createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism);
+        ImmutablePair<String, String> testResources =
+            createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism);
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName(testCaseName);
 
@@ -100,18 +100,6 @@ public class ClusterFaultToleranceIT {
         CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
             return clientJobProxy.waitForJobComplete();
         });
-
-        Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
-            .untilAsserted(() -> {
-                // Wait some tasks commit finished
-                log.info("File Lines ==================" + FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
-                Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
-                    FileUtils.getFileLineNumberFromDir(testResources.getLeft()) > 1);
-            });
-
-        log.info("Data write detected, shutdown one worker node");
-        // shutdown on worker node
-        node2.shutdown();
 
         Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertTrue(
@@ -131,8 +119,8 @@ public class ClusterFaultToleranceIT {
      *
      * @param testCaseName testCaseName
      * @param jobMode      jobMode
-     * @param rowNumber row.num per FakeSource parallelism
-     * @param parallelism FakeSource parallelism
+     * @param rowNumber    row.num per FakeSource parallelism
+     * @param parallelism  FakeSource parallelism
      * @return
      */
     private ImmutablePair<String, String> createTestResources(@NonNull String testCaseName, @NonNull JobMode jobMode,
@@ -161,12 +149,11 @@ public class ClusterFaultToleranceIT {
     }
 
     @Test
-    @Disabled("Disable because we can not support changeless row number in FakeSource Stream Job")
     public void testStreamJobRunOkIn3Node() throws ExecutionException, InterruptedException {
         String testCaseName = "testStreamJobRunOkIn3Node";
         String testClusterName = "ClusterFaultToleranceIT_testStreamJobRunOkIn3Node";
         long testRowNumber = 1000;
-        int testParallelism = 6;
+        int testParallelism = 1;
         HazelcastInstanceImpl node1 =
             SeaTunnelServerStarter.createHazelcastInstance(
                 TestUtils.getClusterName(testClusterName));
@@ -184,7 +171,8 @@ public class ClusterFaultToleranceIT {
             .untilAsserted(() -> Assertions.assertEquals(3, node1.getCluster().getMembers().size()));
 
         Common.setDeployMode(DeployMode.CLIENT);
-        ImmutablePair<String, String> testResources = createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism);
+        ImmutablePair<String, String> testResources =
+            createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism);
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName(testCaseName);
 
@@ -202,7 +190,6 @@ public class ClusterFaultToleranceIT {
 
         Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {
-                log.info("File Lines ==================" + FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                 Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
                     testRowNumber * testParallelism == FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
             });
@@ -222,12 +209,11 @@ public class ClusterFaultToleranceIT {
     }
 
     @Test
-    @Disabled("Disable because we can not support changeless row number in FakeSource Stream Job")
     public void testBatchJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testBatchJobRestoreIn3NodeWorkerDown";
         String testClusterName = "ClusterFaultToleranceIT_testBatchJobRestoreIn3NodeWorkerDown";
         long testRowNumber = 1000;
-        int testParallelism = 6;
+        int testParallelism = 1;
         HazelcastInstanceImpl node1 =
             SeaTunnelServerStarter.createHazelcastInstance(
                 TestUtils.getClusterName(testClusterName));
@@ -245,7 +231,8 @@ public class ClusterFaultToleranceIT {
             .untilAsserted(() -> Assertions.assertEquals(3, node1.getCluster().getMembers().size()));
 
         Common.setDeployMode(DeployMode.CLIENT);
-        ImmutablePair<String, String> testResources = createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism);
+        ImmutablePair<String, String> testResources =
+            createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism);
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName(testCaseName);
 
@@ -284,12 +271,11 @@ public class ClusterFaultToleranceIT {
     }
 
     @Test
-    @Disabled("Disable because we can not support changeless row number in FakeSource Stream Job")
     public void testStreamJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testStreamJobRestoreIn3NodeWorkerDown";
         String testClusterName = "ClusterFaultToleranceIT_testStreamJobRestoreIn3NodeWorkerDown";
         long testRowNumber = 1000;
-        int testParallelism = 6;
+        int testParallelism = 1;
         HazelcastInstanceImpl node1 =
             SeaTunnelServerStarter.createHazelcastInstance(
                 TestUtils.getClusterName(testClusterName));
@@ -307,7 +293,8 @@ public class ClusterFaultToleranceIT {
             .untilAsserted(() -> Assertions.assertEquals(3, node1.getCluster().getMembers().size()));
 
         Common.setDeployMode(DeployMode.CLIENT);
-        ImmutablePair<String, String> testResources = createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism);
+        ImmutablePair<String, String> testResources =
+            createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism);
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName(testCaseName);
 
@@ -331,10 +318,11 @@ public class ClusterFaultToleranceIT {
                     FileUtils.getFileLineNumberFromDir(testResources.getLeft()) > 1);
             });
 
+        Thread.sleep(5000);
         // shutdown on worker node
         node2.shutdown();
 
-        Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
+        Awaitility.await().atMost(180000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {
                 // Wait job write all rows in file
                 log.info("File Lines ==================" + FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
@@ -360,7 +348,6 @@ public class ClusterFaultToleranceIT {
     }
 
     @Test
-    @Disabled("Disable because we can not support changeless row number in FakeSource Stream Job")
     public void testBatchJobRestoreIn3NodeMasterDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testBatchJobRestoreIn3NodeMasterDown";
         String testClusterName = "ClusterFaultToleranceIT_testBatchJobRestoreIn3NodeMasterDown";
@@ -383,7 +370,8 @@ public class ClusterFaultToleranceIT {
             .untilAsserted(() -> Assertions.assertEquals(3, node1.getCluster().getMembers().size()));
 
         Common.setDeployMode(DeployMode.CLIENT);
-        ImmutablePair<String, String> testResources = createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism);
+        ImmutablePair<String, String> testResources =
+            createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism);
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName(testCaseName);
 
@@ -422,7 +410,6 @@ public class ClusterFaultToleranceIT {
     }
 
     @Test
-    @Disabled("Disable because we can not support changeless row number in FakeSource Stream Job")
     public void testStreamJobRestoreIn3NodeMasterDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testStreamJobRestoreIn3NodeMasterDown";
         String testClusterName = "ClusterFaultToleranceIT_testStreamJobRestoreIn3NodeMasterDown";
@@ -445,7 +432,8 @@ public class ClusterFaultToleranceIT {
             .untilAsserted(() -> Assertions.assertEquals(3, node1.getCluster().getMembers().size()));
 
         Common.setDeployMode(DeployMode.CLIENT);
-        ImmutablePair<String, String> testResources = createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism);
+        ImmutablePair<String, String> testResources =
+            createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism);
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName(testCaseName);
 

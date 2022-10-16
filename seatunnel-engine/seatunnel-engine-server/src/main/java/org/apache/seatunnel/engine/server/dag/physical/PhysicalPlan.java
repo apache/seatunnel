@@ -149,9 +149,6 @@ public class PhysicalPlan {
                         return;
                     }
                     canceledPipelineNum.incrementAndGet();
-                    // notify checkpoint manager
-                    jobMaster.getCheckpointManager()
-                        .listenPipeline(subPlan.getPipelineLocation().getPipelineId(), PipelineState.CANCELED);
                     if (makeJobEndWhenPipelineEnded) {
                         LOGGER.info(
                             String.format("cancel job %s because makeJobEndWhenPipelineEnded is %s", jobFullName,
@@ -166,18 +163,15 @@ public class PhysicalPlan {
                         return;
                     }
                     failedPipelineNum.incrementAndGet();
-                    // notify checkpoint manager
-                    jobMaster.getCheckpointManager()
-                        .listenPipeline(subPlan.getPipelineLocation().getPipelineId(), PipelineState.FAILED);
                     if (makeJobEndWhenPipelineEnded) {
                         cancelJob();
                     }
                     jobMaster.releasePipelineResource(subPlan);
                     LOGGER.severe("Pipeline Failed, Begin to cancel other pipelines in this job.");
-                } else {
-                    jobMaster.getCheckpointManager()
-                        .listenPipeline(subPlan.getPipelineLocation().getPipelineId(), PipelineState.FINISHED);
                 }
+
+                // notify checkpoint manager when the pipeline will never be restarted again
+                callbackCheckpointManager(subPlan);
 
                 if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
                     if (failedPipelineNum.get() > 0) {
@@ -194,6 +188,30 @@ public class PhysicalPlan {
                 LOGGER.severe("Never come here ", e);
             }
         });
+    }
+
+    private void callbackCheckpointManager(@NonNull SubPlan subPlan) {
+        List<CompletableFuture<Void>> coordinatorFutureList = subPlan.getCoordinatorVertexList().stream().map(task -> {
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                jobMaster.getCheckpointManager().listenTaskGroup(task.getTaskGroupLocation(), task.getExecutionState());
+            });
+            return future;
+        }).collect(Collectors.toList());
+
+        List<CompletableFuture<Void>> taskFutureList = subPlan.getPhysicalVertexList().stream().map(task -> {
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                jobMaster.getCheckpointManager().listenTaskGroup(task.getTaskGroupLocation(), task.getExecutionState());
+            });
+            return future;
+        }).collect(Collectors.toList());
+
+        coordinatorFutureList.addAll(taskFutureList);
+        CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
+            coordinatorFutureList.toArray(new CompletableFuture[0]));
+        voidCompletableFuture.join();
+
+        jobMaster.getCheckpointManager()
+            .listenPipeline(subPlan.getPipelineLocation().getPipelineId(), subPlan.getPipelineState());
     }
 
     private boolean canRestorePipeline(SubPlan subPlan) {

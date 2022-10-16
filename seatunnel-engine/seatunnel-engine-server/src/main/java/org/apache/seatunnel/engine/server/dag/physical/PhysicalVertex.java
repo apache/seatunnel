@@ -242,7 +242,6 @@ public class PhysicalVertex {
 
     private boolean turnToEndState(@NonNull ExecutionState endState) {
         synchronized (this) {
-            jobMaster.getCheckpointManager().listenTaskGroup(taskGroupLocation, endState);
             // consistency check
             ExecutionState currentState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
             if (currentState.isEndState()) {

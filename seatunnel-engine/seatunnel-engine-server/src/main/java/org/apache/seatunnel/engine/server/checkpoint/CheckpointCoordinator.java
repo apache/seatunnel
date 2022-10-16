@@ -182,9 +182,11 @@ public class CheckpointCoordinator {
         List<ActionSubtaskState> states = new ArrayList<>();
         if (latestCompletedCheckpoint != null) {
             final Integer currentParallelism = pipelineTasks.get(taskLocation.getTaskVertexId());
-            final ActionState actionState = latestCompletedCheckpoint.getTaskStates().get(taskLocation.getTaskVertexId());
-            for (int i = taskLocation.getTaskIndex(); i < actionState.getParallelism(); i += currentParallelism) {
-                states.add(actionState.getSubtaskStates()[i]);
+            final ActionState actionState = latestCompletedCheckpoint.getTaskStates().get(taskLocation.getActionId());
+            if (actionState != null) {
+                for (int i = taskLocation.getTaskIndex(); i < actionState.getParallelism(); i += currentParallelism) {
+                    states.add(actionState.getSubtaskStates()[i]);
+                }
             }
         }
         checkpointManager.sendOperationToMemberNode(new NotifyTaskRestoreOperation(taskLocation, states));
