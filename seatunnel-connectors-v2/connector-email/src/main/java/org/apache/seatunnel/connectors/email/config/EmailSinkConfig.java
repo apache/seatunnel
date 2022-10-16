@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.email.config;
+package org.apache.seatunnel.connectors.email.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
