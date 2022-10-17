@@ -21,7 +21,7 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 | bootstrap.servers  | string                 | yes      | -             |
 | kafka.*            | kafka producer config  | no       | -             |
 | semantic           | string                 | no       | NON           |
-| partition_key      | string                 | no       | -           |
+| partition_key      | string                 | no       | -             |
 | partition          | int                    | no       | -             |
 | assign_partitions  | list                   | no       | -             |
 | transaction_prefix | string                 | no       | -             |
