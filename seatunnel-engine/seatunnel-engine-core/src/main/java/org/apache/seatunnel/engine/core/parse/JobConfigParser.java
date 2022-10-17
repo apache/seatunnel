@@ -29,6 +29,7 @@ import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.starter.config.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -116,6 +117,9 @@ public class JobConfigParser {
             jobConfig.getJobContext().setJobMode(envConfigs.getEnum(JobMode.class, "job.mode"));
         } else {
             jobConfig.getJobContext().setJobMode(JobMode.BATCH);
+        }
+        if (envConfigs.hasPath("checkpoint.interval")) {
+            jobConfig.getEnvOptions().put(ServerConfigOptions.CHECKPOINT_INTERVAL.key(), envConfigs.getInt("checkpoint.interval"));
         }
     }
 
