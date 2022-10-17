@@ -15,24 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.config;
+package org.apache.seatunnel.connectors.seatunnel.file.s3.config;
 
-import java.io.Serializable;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 
-public enum FileSystemType implements Serializable {
-    HDFS("HdfsFile"),
-    LOCAL("LocalFile"),
-    OSS("OssFile"),
-    FTP("FtpFile"),
-    S3("S3File");
+public class S3Config extends BaseSourceConfig {
+    public static final String S3_ACCESS_KEY = "access_key";
+    public static final String S3_SECRET_KEY = "secret_key";
+    public static final String S3_BUCKET = "bucket";
 
-    private final String fileSystemPluginName;
-
-    FileSystemType(String fileSystemPluginName) {
-        this.fileSystemPluginName = fileSystemPluginName;
-    }
-
-    public String getFileSystemPluginName() {
-        return fileSystemPluginName;
-    }
 }
