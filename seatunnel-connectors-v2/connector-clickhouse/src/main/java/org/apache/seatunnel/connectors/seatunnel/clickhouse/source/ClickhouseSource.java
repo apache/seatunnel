@@ -48,6 +48,7 @@ import com.clickhouse.client.ClickHouseResponse;
 import com.google.auto.service.AutoService;
 
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 @AutoService(SeaTunnelSource.class)
 public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, ClickhouseSourceSplit, ClickhouseSourceState> {
