@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.engine.common.utils.ConsumerWithException;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
+import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.PartitionTransformAction;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
@@ -75,6 +76,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 public abstract class SeaTunnelTask extends AbstractTask {
@@ -231,21 +233,29 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     @Override
     public Set<URL> getJarsUrl() {
+        return getFlowInfo((action, set) -> set.addAll(action.getJarUrls()));
+    }
+
+    public Set<Long> getActionIds() {
+        return getFlowInfo((action, set) -> set.add(action.getId()));
+    }
+
+    private <T> Set<T> getFlowInfo(BiConsumer<Action, Set<T>> function) {
         List<Flow> now = new ArrayList<>();
         now.add(executionFlow);
-        Set<URL> urls = new HashSet<>();
+        Set<T> result = new HashSet<>();
         while (!now.isEmpty()) {
             final List<Flow> next = new ArrayList<>();
             now.forEach(n -> {
                 if (n instanceof PhysicalExecutionFlow) {
-                    urls.addAll(((PhysicalExecutionFlow) n).getAction().getJarUrls());
+                    function.accept(((PhysicalExecutionFlow) n).getAction(), result);
                 }
                 next.addAll(n.getNext());
             });
             now.clear();
             now.addAll(next);
         }
-        return urls;
+        return result;
     }
 
     @Override
