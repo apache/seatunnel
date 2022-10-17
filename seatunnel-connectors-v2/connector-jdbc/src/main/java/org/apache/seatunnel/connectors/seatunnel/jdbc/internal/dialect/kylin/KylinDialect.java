@@ -17,20 +17,23 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kylin;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
-import com.google.auto.service.AutoService;
-
-@AutoService(JdbcDialectFactory.class)
-public class KylinDialectFactory implements JdbcDialectFactory {
+public class KylinDialect implements JdbcDialect {
     @Override
-    public boolean acceptsURL(String url) {
-        return url.startsWith("jdbc:kylin:");
+    public String dialectName() {
+        return "Kylin";
     }
 
     @Override
-    public JdbcDialect create() {
-        return new KylinDialect();
+    public JdbcRowConverter getRowConverter() {
+        return new KylinJdbcRowConverter();
+    }
+
+    @Override
+    public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
+        return new KylinTypeMapper();
     }
 }

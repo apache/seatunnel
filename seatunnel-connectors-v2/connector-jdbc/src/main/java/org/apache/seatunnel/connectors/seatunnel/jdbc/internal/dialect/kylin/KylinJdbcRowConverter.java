@@ -17,20 +17,22 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kylin;
 
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 
-import com.google.auto.service.AutoService;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 
-@AutoService(JdbcDialectFactory.class)
-public class KylinDialectFactory implements JdbcDialectFactory {
+public class KylinJdbcRowConverter extends AbstractJdbcRowConverter {
     @Override
-    public boolean acceptsURL(String url) {
-        return url.startsWith("jdbc:kylin:");
+    public String converterName() {
+        return "Kylin";
     }
 
     @Override
-    public JdbcDialect create() {
-        return new KylinDialect();
+    public SeaTunnelRow toInternal(ResultSet rs, ResultSetMetaData metaData, SeaTunnelRowType typeInfo) throws SQLException {
+        return super.toInternal(rs, metaData, typeInfo);
     }
 }
