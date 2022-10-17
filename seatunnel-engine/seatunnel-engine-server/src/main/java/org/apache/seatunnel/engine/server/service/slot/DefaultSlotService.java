@@ -95,7 +95,6 @@ public class DefaultSlotService implements SlotService {
                     nodeEngine.getClusterService().getThisAddress());
                 sendToMaster(new WorkerHeartbeatOperation(toWorkerProfile())).join();
             } catch (Exception e) {
-                LOGGER.warning(e);
                 LOGGER.warning("failed send heartbeat to resource manager, will retry later. this address: " +
                     nodeEngine.getClusterService().getThisAddress());
             }
