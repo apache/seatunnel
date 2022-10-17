@@ -36,7 +36,7 @@ done
 PRG_DIR=`dirname "$PRG"`
 APP_DIR=`cd "$PRG_DIR/.." >/dev/null; pwd`
 CONF_DIR=${APP_DIR}/config
-APP_JAR=${APP_DIR}/lib/seatunnel-core-flink.jar
+APP_JAR=${APP_DIR}/starter/seatunnel-core-flink.jar
 ENV_PARAMETERS_MAIN="org.apache.seatunnel.core.flink.FlinkEnvParameterParser"
 APP_MAIN="org.apache.seatunnel.core.flink.FlinkStarter"
 
