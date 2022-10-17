@@ -41,6 +41,8 @@ import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
+import lombok.Getter;
+import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,6 +83,7 @@ public class CheckpointCoordinator {
 
     private final CheckpointStorageConfiguration storageConfig;
 
+    @Getter
     private final CheckpointIDCounter checkpointIdCounter;
 
     private final transient Serializer serializer;
@@ -100,7 +103,7 @@ public class CheckpointCoordinator {
 
     private final ArrayDeque<CompletedCheckpoint> completedCheckpoints;
 
-    private volatile CompletedCheckpoint latestCompletedCheckpoint;
+    private volatile CompletedCheckpoint latestCompletedCheckpoint = null;
 
     private final CheckpointCoordinatorConfiguration coordinatorConfig;
 
@@ -116,13 +119,15 @@ public class CheckpointCoordinator {
     /** Flag marking the coordinator as shut down (not accepting any messages any more). */
     private volatile boolean shutdown;
 
+    @SneakyThrows
     public CheckpointCoordinator(CheckpointManager manager,
                                  CheckpointStorage checkpointStorage,
                                  CheckpointStorageConfiguration storageConfig,
                                  long jobId,
                                  CheckpointPlan plan,
-                                 CheckpointCoordinatorConfiguration coordinatorConfig) {
-
+                                 CheckpointCoordinatorConfiguration coordinatorConfig,
+                                 CheckpointIDCounter checkpointIdCounter,
+                                 PipelineState pipelineState) {
         this.checkpointManager = manager;
         this.checkpointStorage = checkpointStorage;
         this.storageConfig = storageConfig;
@@ -130,7 +135,6 @@ public class CheckpointCoordinator {
         this.pipelineId = plan.getPipelineId();
         this.plan = plan;
         this.coordinatorConfig = coordinatorConfig;
-        this.latestCompletedCheckpoint = plan.getRestoredCheckpoint();
         this.tolerableFailureCheckpoints = coordinatorConfig.getTolerableFailureCheckpoints();
         this.pendingCheckpoints = new ConcurrentHashMap<>();
         this.completedCheckpoints = new ArrayDeque<>(storageConfig.getMaxRetainedCheckpoints() + 1);
@@ -144,8 +148,10 @@ public class CheckpointCoordinator {
         this.serializer = new ProtoStuffSerializer();
         this.pipelineTasks = getPipelineTasks(plan.getPipelineSubtasks());
         this.pipelineTaskStatus = new ConcurrentHashMap<>();
-        // TODO: IDCounter SPI
-        this.checkpointIdCounter = new StandaloneCheckpointIDCounter();
+        this.checkpointIdCounter = checkpointIdCounter;
+        if (pipelineState != null) {
+            this.latestCompletedCheckpoint = serializer.deserialize(pipelineState.getStates(), CompletedCheckpoint.class);
+        }
     }
 
     public int getPipelineId() {

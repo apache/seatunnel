@@ -47,6 +47,7 @@ public class CoordinatorServiceTest {
         SeaTunnelServer server1 = instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
         SeaTunnelServer server2 = instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
 
+        Assertions.assertTrue(server1.isMasterNode());
         CoordinatorService coordinatorService1 = server1.getCoordinatorService();
         Assertions.assertTrue(coordinatorService1.isCoordinatorActive());
 
@@ -62,14 +63,13 @@ public class CoordinatorServiceTest {
         await().atMost(20000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {
                 try {
+                    Assertions.assertTrue(server2.isMasterNode());
                     CoordinatorService coordinatorService = server2.getCoordinatorService();
-                    Assertions.assertTrue(coordinatorService.isMasterNode());
+                    Assertions.assertTrue(coordinatorService.isCoordinatorActive());
                 } catch (SeaTunnelEngineException e) {
                     Assertions.assertTrue(false);
                 }
             });
-        CoordinatorService coordinatorService2 = server2.getCoordinatorService();
-        Assertions.assertTrue(coordinatorService2.isCoordinatorActive());
         instance2.shutdown();
     }
 
@@ -107,10 +107,65 @@ public class CoordinatorServiceTest {
 
         // because runningJobMasterMap is empty and we have no JobHistoryServer, so return finished.
         Assertions.assertTrue(JobStatus.FINISHED.equals(coordinatorService.getJobStatus(jobId)));
+        coordinatorServiceTest.shutdown();
     }
 
     @Test
-    public void testJobRestoreWhenMasterNodeSwitch() {
-        // TODO wait CheckpointManager support restore from master node switch.
+    public void testJobRestoreWhenMasterNodeSwitch() throws InterruptedException {
+        HazelcastInstanceImpl instance1 = SeaTunnelServerStarter.createHazelcastInstance(
+            TestUtils.getClusterName("CoordinatorServiceTest_testJobRestoreWhenMasterNodeSwitch"));
+        HazelcastInstanceImpl instance2 = SeaTunnelServerStarter.createHazelcastInstance(
+            TestUtils.getClusterName("CoordinatorServiceTest_testJobRestoreWhenMasterNodeSwitch"));
+
+        SeaTunnelServer server1 = instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        SeaTunnelServer server2 = instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+
+        CoordinatorService coordinatorService = server1.getCoordinatorService();
+        Assertions.assertTrue(coordinatorService.isCoordinatorActive());
+
+        Long jobId = instance1.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        LogicalDag testLogicalDag =
+            TestUtils.createTestLogicalPlan("stream_fakesource_to_file.conf", "testJobRestoreWhenMasterNodeSwitch",
+                jobId);
+
+        JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(jobId,
+            instance1.getSerializationService().toData(testLogicalDag), testLogicalDag.getJobConfig(),
+            Collections.emptyList());
+
+        Data data = instance1.getSerializationService().toData(jobImmutableInformation);
+
+        coordinatorService.submitJob(jobId, data).join();
+
+        // waiting for job status turn to running
+        await().atMost(20000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> Assertions.assertEquals(JobStatus.RUNNING, coordinatorService.getJobStatus(jobId)));
+
+        // test master node shutdown
+        instance1.shutdown();
+        await().atMost(20000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> {
+                try {
+                    Assertions.assertTrue(server2.isMasterNode());
+                    Assertions.assertTrue(server2.getCoordinatorService().isCoordinatorActive());
+                } catch (SeaTunnelEngineException e) {
+                    Assertions.assertTrue(false);
+                }
+            });
+
+        // wait job restore
+        Thread.sleep(5000);
+
+        // job will recovery running state
+        await().atMost(200000, TimeUnit.MILLISECONDS)
+            .untilAsserted(
+                () -> Assertions.assertEquals(JobStatus.RUNNING, server2.getCoordinatorService().getJobStatus(jobId)));
+
+        server2.getCoordinatorService().cancelJob(jobId);
+
+        // because runningJobMasterMap is empty and we have no JobHistoryServer, so return finished.
+        await().atMost(200000, TimeUnit.MILLISECONDS)
+            .untilAsserted(
+                () -> Assertions.assertEquals(JobStatus.FINISHED, server2.getCoordinatorService().getJobStatus(jobId)));
+        instance2.shutdown();
     }
 }

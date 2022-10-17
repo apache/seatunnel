@@ -34,7 +34,7 @@ public class SparkStarterTest {
         URI uri = ClassLoader.getSystemResource("spark_application.conf").toURI();
         String file = new File(uri).toString();
         Map<String, String> sparkConf = SparkStarter.getSparkConf(file);
-        assertEquals("SeaTunnel", sparkConf.get("spark.app.name"));
+        assertEquals("SeaTunnel", sparkConf.get("job.name"));
         assertEquals("1", sparkConf.get("spark.executor.cores"));
     }
 }
