@@ -67,8 +67,6 @@ import java.util.Map;
 
 @Slf4j
 public class OrcReadStrategy extends AbstractReadStrategy {
-
-    private SeaTunnelRowType seaTunnelRowTypeInfo;
     private static final long MIN_SIZE = 16 * 1024;
 
     @Override
@@ -78,6 +76,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         }
         Configuration configuration = getConfiguration();
         Path filePath = new Path(path);
+        Map<String, String> partitionsMap = parsePartitionsByPath(path);
         OrcFile.ReaderOptions readerOptions = OrcFile.readerOptions(configuration);
         try (Reader reader = OrcFile.createReader(filePath, readerOptions)) {
             TypeDescription schema = reader.getSchema();
@@ -88,7 +87,16 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 int num = 0;
                 for (int i = 0; i < rowBatch.size; i++) {
                     int numCols = rowBatch.numCols;
-                    Object[] fields = new Object[numCols];
+                    Object[] fields;
+                    if (isMergePartition) {
+                        int index = numCols;
+                        fields = new Object[numCols + partitionsMap.size()];
+                        for (String value : partitionsMap.values()) {
+                            fields[index++] = value;
+                        }
+                    } else {
+                        fields = new Object[numCols];
+                    }
                     ColumnVector[] cols = rowBatch.cols;
                     for (int j = 0; j < numCols; j++) {
                         if (cols[j] == null) {
@@ -97,7 +105,8 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                             fields[j] = readColumn(cols[j], children.get(j), num);
                         }
                     }
-                    output.collect(new SeaTunnelRow(fields));
+                    SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+                    output.collect(seaTunnelRow);
                     num++;
                 }
             }
@@ -106,9 +115,6 @@ public class OrcReadStrategy extends AbstractReadStrategy {
 
     @Override
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) throws FilePluginException {
-        if (null != seaTunnelRowTypeInfo) {
-            return seaTunnelRowTypeInfo;
-        }
         Configuration configuration = getConfiguration(hadoopConf);
         OrcFile.ReaderOptions readerOptions = OrcFile.readerOptions(configuration);
         Path dstDir = new Path(path);
@@ -120,8 +126,9 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 fields[i] = schema.getFieldNames().get(i);
                 types[i] = orcDataType2SeaTunnelDataType(schema.getChildren().get(i));
             }
-            seaTunnelRowTypeInfo = new SeaTunnelRowType(fields, types);
-            return seaTunnelRowTypeInfo;
+            seaTunnelRowType = new SeaTunnelRowType(fields, types);
+            seaTunnelRowTypeWithPartition = mergePartitionTypes(path, seaTunnelRowType);
+            return getActualSeaTunnelRowTypeInfo();
         } catch (IOException e) {
             throw new FilePluginException("Create OrcReader Fail", e);
         }

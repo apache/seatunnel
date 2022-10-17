@@ -50,11 +50,6 @@ public class CheckpointPlan {
     private final Set<TaskLocation> startingSubtasks;
 
     /**
-     * Restored completed checkpoint.
-     */
-    private final CompletedCheckpoint restoredCheckpoint;
-
-    /**
      * All actions in this pipeline.
      * <br> key: the action id;
      * <br> value: the parallelism of the action;
@@ -64,7 +59,6 @@ public class CheckpointPlan {
     public static final class Builder {
         private final Set<TaskLocation> pipelineSubtasks = new HashSet<>();
         private final Set<TaskLocation> startingSubtasks = new HashSet<>();
-        private CompletedCheckpoint restoredCheckpoint;
         private final Map<Long, Integer> pipelineActions = new HashMap<>();
 
         private Builder() {

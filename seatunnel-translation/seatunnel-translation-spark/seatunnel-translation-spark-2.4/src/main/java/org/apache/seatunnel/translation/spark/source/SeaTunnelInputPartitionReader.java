@@ -24,11 +24,11 @@ import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
 
 import java.io.IOException;
 
-public class SeatunnelInputPartitionReader implements InputPartitionReader<InternalRow> {
+public class SeaTunnelInputPartitionReader implements InputPartitionReader<InternalRow> {
 
     private final ParallelBatchPartitionReader partitionReader;
 
-    public SeatunnelInputPartitionReader(ParallelBatchPartitionReader partitionReader) {
+    public SeaTunnelInputPartitionReader(ParallelBatchPartitionReader partitionReader) {
         this.partitionReader = partitionReader;
     }
 
