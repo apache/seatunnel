@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.influxdb.client;
 
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig;
 
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.HttpUrl;
@@ -74,5 +75,18 @@ public class InfluxDBClient {
         }
         log.info("connect influxdb successful. sever version :{}.", version);
         return influxDB;
+    }
+
+    public static void setWriteProperty(InfluxDB influxDB, SinkConfig sinkConfig) {
+        String rp = sinkConfig.getRp();
+        if (!StringUtils.isEmpty(rp)) {
+            influxDB.setRetentionPolicy(rp);
+        }
+    }
+
+    public static InfluxDB getWriteClient(SinkConfig sinkConfig) throws ConnectException {
+        InfluxDB influxDB = getInfluxDB(sinkConfig);
+        setWriteProperty(getInfluxDB(sinkConfig), sinkConfig);
+        return  influxDB;
     }
 }
