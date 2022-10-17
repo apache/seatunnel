@@ -129,7 +129,6 @@ public class CheckpointCoordinator {
 
         this.checkpointManager = manager;
         this.checkpointStorage = checkpointStorage;
-        this.storageConfig = storageConfig;
         this.jobId = jobId;
         this.pipelineId = plan.getPipelineId();
         this.plan = plan;
