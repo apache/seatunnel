@@ -72,8 +72,8 @@ public abstract class AbstractTestContainer implements TestContainer {
         //do nothing
     }
 
-    protected void bindSeaTunnelStarter(GenericContainer<?> container) {
-        ContainerUtil.bindSeaTunnelStarter(container,
+    protected void copySeaTunnelStarterToContainer(GenericContainer<?> container) {
+        ContainerUtil.copySeaTunnelStarterToContainer(container,
             this.startModuleName,
             this.startModuleFullPath,
             SEATUNNEL_HOME);

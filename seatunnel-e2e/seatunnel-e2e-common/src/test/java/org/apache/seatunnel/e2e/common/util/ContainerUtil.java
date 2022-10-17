@@ -83,25 +83,26 @@ public final class ContainerUtil {
         return targetConfInContainer;
     }
 
-    public static void bindSeaTunnelStarter(GenericContainer<?> container,
-                                            String startModuleName,
-                                            String startModulePath,
-                                            String seatunnelHomeInContainer) {
+    public static void copySeaTunnelStarterToContainer(GenericContainer<?> container,
+                                                       String startModuleName,
+                                                       String startModulePath,
+                                                       String seatunnelHomeInContainer) {
         final String startJarName = startModuleName + ".jar";
-        // bind lib
+        // copy lib
         final String startJarPath = startModulePath + File.separator + "target" + File.separator + startJarName;
         checkPathExist(startJarPath);
-        container.withFileSystemBind(startJarPath,
+        // don't use container#withFileSystemBind, this isn't supported in Windows.
+        container.withCopyFileToContainer(MountableFile.forHostPath(startJarPath),
             Paths.get(seatunnelHomeInContainer, "lib", startJarName).toString());
 
-        // bind bin
+        // copy bin
         final String startBinPath = startModulePath + File.separator + "src/main/bin/";
         checkPathExist(startBinPath);
-        container.withFileSystemBind(startBinPath,
+        container.withCopyFileToContainer(MountableFile.forHostPath(startBinPath),
             Paths.get(seatunnelHomeInContainer, "bin").toString());
 
-        // bind plugin-mapping.properties
-        container.withFileSystemBind(PROJECT_ROOT_PATH + "/plugin-mapping.properties",
+        // copy plugin-mapping.properties
+        container.withCopyFileToContainer(MountableFile.forHostPath(PROJECT_ROOT_PATH + "/plugin-mapping.properties"),
             Paths.get(seatunnelHomeInContainer, "connectors", PLUGIN_MAPPING_FILE).toString());
     }
 

@@ -54,7 +54,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         Path configFile = FileUtils.getConfigPath(clientCommandArgs);
 
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setName(clientCommandArgs.getName());
+        jobConfig.setName(clientCommandArgs.getJobName());
         HazelcastInstance instance = null;
         ClientJobProxy clientJobProxy = null;
         try {

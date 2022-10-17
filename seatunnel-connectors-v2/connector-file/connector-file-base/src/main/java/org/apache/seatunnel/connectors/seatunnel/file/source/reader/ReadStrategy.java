@@ -45,4 +45,6 @@ public interface ReadStrategy extends Serializable {
     List<String> getFileNamesByPath(HadoopConf hadoopConf, String path) throws IOException;
 
     void setPluginConfig(Config pluginConfig);
+
+    SeaTunnelRowType getActualSeaTunnelRowTypeInfo();
 }

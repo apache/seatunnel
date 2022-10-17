@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.server.service.slot;
 
-import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
@@ -68,7 +67,8 @@ public class DefaultSlotService implements SlotService {
     private final TaskExecutionService taskExecutionService;
     private ConcurrentMap<Integer, SlotContext> contexts;
 
-    public DefaultSlotService(NodeEngineImpl nodeEngine, TaskExecutionService taskExecutionService, boolean dynamicSlot, int slotNumber) {
+    public DefaultSlotService(NodeEngineImpl nodeEngine, TaskExecutionService taskExecutionService, boolean dynamicSlot,
+                              int slotNumber) {
         this.nodeEngine = nodeEngine;
         this.dynamicSlot = dynamicSlot;
         this.taskExecutionService = taskExecutionService;
@@ -92,14 +92,13 @@ public class DefaultSlotService implements SlotService {
         unassignedResource.set(getNodeResource());
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             try {
-                RetryUtils.retryWithException(() -> {
-                    LOGGER.fine("start send heartbeat to resource manager, this address: " + nodeEngine.getClusterService().getThisAddress());
-                    sendToMaster(new WorkerHeartbeatOperation(toWorkerProfile())).join();
-                    return null;
-                }, new RetryUtils.RetryMaterial(HEARTBEAT_RETRY_TIME, true, e -> true, DEFAULT_HEARTBEAT_TIMEOUT));
+                LOGGER.fine("start send heartbeat to resource manager, this address: " +
+                    nodeEngine.getClusterService().getThisAddress());
+                sendToMaster(new WorkerHeartbeatOperation(toWorkerProfile())).join();
             } catch (Exception e) {
-                LOGGER.severe(e);
-                LOGGER.severe("failed send heartbeat to resource manager, will retry later. this address: " + nodeEngine.getClusterService().getThisAddress());
+                LOGGER.warning(e);
+                LOGGER.warning("failed send heartbeat to resource manager, will retry later. this address: " +
+                    nodeEngine.getClusterService().getThisAddress());
             }
         }, 0, DEFAULT_HEARTBEAT_TIMEOUT, TimeUnit.MILLISECONDS);
     }
@@ -127,7 +126,8 @@ public class DefaultSlotService implements SlotService {
             unassignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::subtract);
             unassignedSlots.remove(profile.getSlotID());
             assignedSlots.put(profile.getSlotID(), profile);
-            contexts.computeIfAbsent(profile.getSlotID(), p -> new SlotContext(profile.getSlotID(), taskExecutionService));
+            contexts.computeIfAbsent(profile.getSlotID(),
+                p -> new SlotContext(profile.getSlotID(), taskExecutionService));
         }
         return new SlotAndWorkerProfile(toWorkerProfile(), profile);
     }
@@ -148,7 +148,7 @@ public class DefaultSlotService implements SlotService {
 
         if (assignedSlots.get(profile.getSlotID()).getOwnerJobID() != jobId) {
             throw new WrongTargetSlotException(String.format("The profile %s not belong with job %d",
-                    assignedSlots.get(profile.getSlotID()), jobId));
+                assignedSlots.get(profile.getSlotID()), jobId));
         }
 
         assignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::subtract);
@@ -163,7 +163,9 @@ public class DefaultSlotService implements SlotService {
 
     @Override
     public void close() {
-        scheduledExecutorService.shutdown();
+        if (scheduledExecutorService != null) {
+            scheduledExecutorService.shutdownNow();
+        }
     }
 
     private SlotProfile selectBestMatchSlot(ResourceProfile profile) {
@@ -176,14 +178,17 @@ public class DefaultSlotService implements SlotService {
             }
         } else {
             Optional<SlotProfile> result = unassignedSlots.values().stream()
-                    .filter(slot -> slot.getResourceProfile().enoughThan(profile))
-                    .min((slot1, slot2) -> {
-                        if (slot1.getResourceProfile().getHeapMemory().getBytes() != slot2.getResourceProfile().getHeapMemory().getBytes()) {
-                            return slot1.getResourceProfile().getHeapMemory().getBytes() - slot2.getResourceProfile().getHeapMemory().getBytes() >= 0 ? 1 : -1;
-                        } else {
-                            return slot1.getResourceProfile().getCpu().getCore() - slot2.getResourceProfile().getCpu().getCore();
-                        }
-                    });
+                .filter(slot -> slot.getResourceProfile().enoughThan(profile))
+                .min((slot1, slot2) -> {
+                    if (slot1.getResourceProfile().getHeapMemory().getBytes() !=
+                        slot2.getResourceProfile().getHeapMemory().getBytes()) {
+                        return slot1.getResourceProfile().getHeapMemory().getBytes() -
+                            slot2.getResourceProfile().getHeapMemory().getBytes() >= 0 ? 1 : -1;
+                    } else {
+                        return slot1.getResourceProfile().getCpu().getCore() -
+                            slot2.getResourceProfile().getCpu().getCore();
+                    }
+                });
             return result.orElse(null);
         }
         return null;
@@ -193,7 +198,7 @@ public class DefaultSlotService implements SlotService {
         long maxMemory = Runtime.getRuntime().maxMemory();
         for (int i = 0; i < slotNumber; i++) {
             unassignedSlots.put(i, new SlotProfile(nodeEngine.getThisAddress(), i,
-                    new ResourceProfile(CPU.of(0), Memory.of(maxMemory / slotNumber))));
+                new ResourceProfile(CPU.of(0), Memory.of(maxMemory / slotNumber))));
         }
     }
 
@@ -211,7 +216,8 @@ public class DefaultSlotService implements SlotService {
     }
 
     public <E> InvocationFuture<E> sendToMaster(Operation operation) {
-        InvocationBuilder invocationBuilder = nodeEngine.getOperationService().createInvocationBuilder(SeaTunnelServer.SERVICE_NAME, operation, nodeEngine.getMasterAddress());
+        InvocationBuilder invocationBuilder = nodeEngine.getOperationService()
+            .createInvocationBuilder(SeaTunnelServer.SERVICE_NAME, operation, nodeEngine.getMasterAddress());
         return invocationBuilder.invoke();
     }
 

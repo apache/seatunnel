@@ -74,7 +74,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
             .waitingFor(new LogMessageWaitStrategy()
                 .withRegEx(".*Starting the resource manager.*")
                 .withStartupTimeout(Duration.ofMinutes(2)));
-        bindSeaTunnelStarter(jobManager);
+        copySeaTunnelStarterToContainer(jobManager);
 
         taskManager = new GenericContainer<>(dockerImage)
             .withCommand("taskmanager")

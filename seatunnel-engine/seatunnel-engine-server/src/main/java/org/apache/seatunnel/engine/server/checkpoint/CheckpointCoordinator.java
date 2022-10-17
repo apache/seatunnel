@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.checkpoint;
 
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
 import static org.apache.seatunnel.engine.core.checkpoint.CheckpointType.COMPLETED_POINT_TYPE;
+import static org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan.COORDINATOR_INDEX;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.READY_START;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
@@ -182,10 +183,20 @@ public class CheckpointCoordinator {
         List<ActionSubtaskState> states = new ArrayList<>();
         if (latestCompletedCheckpoint != null) {
             final Integer currentParallelism = pipelineTasks.get(taskLocation.getTaskVertexId());
-            final ActionState actionState = latestCompletedCheckpoint.getTaskStates().get(taskLocation.getTaskVertexId());
-            for (int i = taskLocation.getTaskIndex(); i < actionState.getParallelism(); i += currentParallelism) {
-                states.add(actionState.getSubtaskStates()[i]);
-            }
+            plan.getSubtaskActions().get(taskLocation)
+                .forEach(tuple -> {
+                    ActionState actionState = latestCompletedCheckpoint.getTaskStates().get(tuple.f0());
+                    if (actionState == null) {
+                        return;
+                    }
+                    if (COORDINATOR_INDEX.equals(tuple.f1())) {
+                        states.add(actionState.getCoordinatorState());
+                        return;
+                    }
+                    for (int i = tuple.f1(); i < actionState.getParallelism(); i += currentParallelism) {
+                        states.add(actionState.getSubtaskStates()[i]);
+                    }
+                });
         }
         checkpointManager.sendOperationToMemberNode(new NotifyTaskRestoreOperation(taskLocation, states));
     }
