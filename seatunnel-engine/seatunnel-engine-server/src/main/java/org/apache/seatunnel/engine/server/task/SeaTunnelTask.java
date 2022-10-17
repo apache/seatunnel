@@ -181,7 +181,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
         FlowLifeCycle lifeCycle;
         List<OneInputFlowLifeCycle<Record<?>>> flowLifeCycles = new ArrayList<>();
         if (!flow.getNext().isEmpty()) {
-            for (Flow f : executionFlow.getNext()) {
+            for (Flow f : flow.getNext()) {
                 flowLifeCycles.add((OneInputFlowLifeCycle<Record<?>>) convertFlowToActionLifeCycle(f));
             }
         }
@@ -203,7 +203,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                         new SeaTunnelTransformCollector(flowLifeCycles), completableFuture);
             } else if (f.getAction() instanceof PartitionTransformAction) {
                 // TODO use index and taskID to create ringbuffer list
-                if (executionFlow.getNext().isEmpty()) {
+                if (flow.getNext().isEmpty()) {
                     lifeCycle = new PartitionTransformSinkFlowLifeCycle(this, completableFuture);
                 } else {
                     lifeCycle = new PartitionTransformSourceFlowLifeCycle(this, completableFuture);
