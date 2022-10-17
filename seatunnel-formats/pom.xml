@@ -26,6 +26,10 @@
     <artifactId>seatunnel-formats</artifactId>
     <packaging>pom</packaging>
 
+    <properties>
+        <avro.version>1.11.1</avro.version>
+    </properties>
+
     <modules>
         <module>seatunnel-format-json</module>
         <module>seatunnel-format-text</module>
