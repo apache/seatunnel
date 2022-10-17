@@ -103,8 +103,11 @@ public class ClusterFaultToleranceIT {
         });
 
         Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
-            .untilAsserted(() -> Assertions.assertTrue(
-                objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
+            .untilAsserted(() -> {
+                System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+                Assertions.assertTrue(
+                    objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get()));
+            });
 
         Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
         Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
@@ -172,7 +175,8 @@ public class ClusterFaultToleranceIT {
             .untilAsserted(() -> Assertions.assertEquals(3, node1.getCluster().getMembers().size()));
 
         Common.setDeployMode(DeployMode.CLIENT);
-        ImmutablePair<String, String> testResources = createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism);
+        ImmutablePair<String, String> testResources =
+            createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism);
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName(testCaseName);
 
