@@ -121,21 +121,21 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                 SeaTunnelDataType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
                 switch (elementType.getSqlType()) {
                     case STRING:
-                        return origArray.toArray(new String[0]);
+                        return origArray.toArray(TYPE_ARRAY_STRING);
                     case BOOLEAN:
-                        return origArray.toArray(new Boolean[0]);
+                        return origArray.toArray(TYPE_ARRAY_BOOLEAN);
                     case TINYINT:
-                        return origArray.toArray(new Byte[0]);
+                        return origArray.toArray(TYPE_ARRAY_BYTE);
                     case SMALLINT:
-                        return origArray.toArray(new Short[0]);
+                        return origArray.toArray(TYPE_ARRAY_SHORT);
                     case INT:
-                        return origArray.toArray(new Integer[0]);
+                        return origArray.toArray(TYPE_ARRAY_INTEGER);
                     case BIGINT:
-                        return origArray.toArray(new Long[0]);
+                        return origArray.toArray(TYPE_ARRAY_LONG);
                     case FLOAT:
-                        return origArray.toArray(new Float[0]);
+                        return origArray.toArray(TYPE_ARRAY_FLOAT);
                     case DOUBLE:
-                        return origArray.toArray(new Double[0]);
+                        return origArray.toArray(TYPE_ARRAY_DOUBLE);
                     default:
                         String errorMsg = String.format("SeaTunnel array type not support this type [%s] now", fieldType.getSqlType());
                         throw new UnsupportedOperationException(errorMsg);
