@@ -37,19 +37,19 @@ import java.util.concurrent.ExecutionException;
 
 public class JobExecutionEnvironment {
 
-    private JobConfig jobConfig;
+    private final JobConfig jobConfig;
 
-    private int maxParallelism = 1;
+    private final int maxParallelism = 1;
 
-    private List<Action> actions = new ArrayList<>();
+    private final List<Action> actions = new ArrayList<>();
 
-    private List<URL> jarUrls = new ArrayList<>();
+    private final List<URL> jarUrls = new ArrayList<>();
 
-    private String jobFilePath;
+    private final String jobFilePath;
 
-    private IdGenerator idGenerator;
+    private final IdGenerator idGenerator;
 
-    private SeaTunnelHazelcastClient seaTunnelHazelcastClient;
+    private final SeaTunnelHazelcastClient seaTunnelHazelcastClient;
 
     private final JobClient jobClient;
 
@@ -81,7 +81,7 @@ public class JobExecutionEnvironment {
 
     public ClientJobProxy execute() throws ExecutionException, InterruptedException {
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(
-            Long.valueOf(jobConfig.getJobContext().getJobId()),
+            Long.parseLong(jobConfig.getJobContext().getJobId()),
             seaTunnelHazelcastClient.getSerializationService().toData(getLogicalDag()),
             jobConfig,
             jarUrls);
