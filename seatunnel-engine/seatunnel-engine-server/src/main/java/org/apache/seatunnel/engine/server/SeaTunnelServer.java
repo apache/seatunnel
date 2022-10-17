@@ -26,8 +26,6 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.services.ManagedService;
 import com.hazelcast.internal.services.MembershipAwareService;
 import com.hazelcast.internal.services.MembershipServiceEvent;
@@ -64,7 +62,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     private volatile boolean isRunning = true;
 
-    public SeaTunnelServer(@NonNull Node node, @NonNull SeaTunnelConfig seaTunnelConfig) {
+    public SeaTunnelServer(@NonNull SeaTunnelConfig seaTunnelConfig) {
         this.liveOperationRegistry = new LiveOperationRegistry();
         this.seaTunnelConfig = seaTunnelConfig;
         LOGGER.info("SeaTunnel server start...");
@@ -192,9 +190,6 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     public boolean taskIsEnded(@NonNull TaskGroupLocation taskGroupLocation) {
         IMap<Object, Object> runningJobState =
             nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
-        if (runningJobState == null) {
-            return false;
-        }
 
         Object taskState = runningJobState.get(taskGroupLocation);
         return taskState != null && ((ExecutionState) taskState).isEndState();
