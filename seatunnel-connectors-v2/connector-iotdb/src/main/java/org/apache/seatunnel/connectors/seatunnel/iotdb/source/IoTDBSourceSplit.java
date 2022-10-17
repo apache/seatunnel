@@ -19,6 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 
+import lombok.ToString;
+
+@ToString
 public class IoTDBSourceSplit implements SourceSplit {
 
     private static final long serialVersionUID = -1L;

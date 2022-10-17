@@ -65,9 +65,10 @@ public class SparkTaskExecuteCommand extends BaseTaskExecuteCommand<SparkCommand
             BaseSink<SparkEnvironment>, SparkEnvironment> execution = new ExecutionFactory<>(executionContext).createExecution()) {
             prepare(executionContext.getEnvironment(), sources, transforms, sinks);
             execution.start(sources, transforms, sinks);
-            close(sources, transforms, sinks);
         } catch (Exception e) {
             throw new CommandExecuteException("Execute Spark task error", e);
+        } finally {
+            close(sources, transforms, sinks);
         }
     }
 

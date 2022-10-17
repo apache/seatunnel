@@ -14,8 +14,14 @@ Used to send data to Console. Both support streaming and batch mode.
 
 ##  Options
 
-| name | type   | required | default value |
-| --- |--------|----------|---------------|
+| name            | type  | required | default value |
+| -------------  |--------|----------|---------------|
+| common-options |        | no       | -             |
+
+### common options
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+
 ## Example
 
 simple:

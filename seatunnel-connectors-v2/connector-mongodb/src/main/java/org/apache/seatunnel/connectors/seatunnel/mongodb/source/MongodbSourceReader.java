@@ -31,16 +31,14 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.Projections;
+import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
 import org.bson.conversions.Bson;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
+@Slf4j
 public class MongodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(MongodbSourceReader.class);
 
     private final SingleSplitReaderContext context;
 
@@ -102,7 +100,7 @@ public class MongodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
         } finally {
             if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
                 // signal to the source that we have reached the end of the data.
-                LOGGER.info("Closed the bounded mongodb source");
+                log.info("Closed the bounded mongodb source");
                 context.signalNoMoreElement();
             }
         }

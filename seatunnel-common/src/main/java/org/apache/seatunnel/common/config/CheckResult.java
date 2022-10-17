@@ -28,13 +28,7 @@ public class CheckResult {
 
     private String msg;
 
-    /**
-     * Do not call this constructor directly,
-     * please use {@link #success} or {@link #error(String)} instead,
-     * will be private in the future
-     */
-    @Deprecated
-    public CheckResult(boolean success, String msg) {
+    private CheckResult(boolean success, String msg) {
         this.success = success;
         this.msg = msg;
     }

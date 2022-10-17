@@ -34,4 +34,4 @@ WORKDIR /seatunnel
 COPY target/seatunnel-core-spark.jar /seatunnel/lib/
 COPY src/main/bin /seatunnel/bin/
 
-ENTRYPOINT [ "/seatunnel/bin/start-seatunnel-spark.sh" ]
+ENTRYPOINT [ "/seatunnel/bin/start-seatunnel-spark-connector-v2.sh" ]

@@ -22,16 +22,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
 import lombok.ToString;
-import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
 
-import java.io.Serializable;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.List;
 
 @Setter
@@ -39,6 +35,10 @@ import java.util.List;
 @ToString
 public class SinkConfig extends CommonConfig {
 
+    public static final String KEY_TIMESTAMP = "key_timestamp";
+    public static final String KEY_DEVICE = "key_device";
+    public static final String KEY_MEASUREMENT_FIELDS = "key_measurement_fields";
+    public static final String STORAGE_GROUP = "storage_group";
     public static final String BATCH_SIZE = "batch_size";
     public static final String BATCH_INTERVAL_MS = "batch_interval_ms";
     public static final String MAX_RETRIES = "max_retries";
@@ -49,12 +49,13 @@ public class SinkConfig extends CommonConfig {
     public static final String ZONE_ID = "zone_id";
     public static final String ENABLE_RPC_COMPRESSION = "enable_rpc_compression";
     public static final String CONNECTION_TIMEOUT_IN_MS = "connection_timeout_in_ms";
-    public static final String TIMESERIES_OPTIONS = "timeseries_options";
-    public static final String TIMESERIES_OPTION_PATH = "path";
-    public static final String TIMESERIES_OPTION_DATA_TYPE = "data_type";
 
     private static final int DEFAULT_BATCH_SIZE = 1024;
 
+    private String keyTimestamp;
+    private String keyDevice;
+    private List<String> keyMeasurementFields;
+    private String storageGroup;
     private int batchSize = DEFAULT_BATCH_SIZE;
     private Integer batchIntervalMs;
     private int maxRetries;
@@ -65,7 +66,6 @@ public class SinkConfig extends CommonConfig {
     private ZoneId zoneId;
     private Boolean enableRPCCompression;
     private Integer connectionTimeoutInMs;
-    private List<TimeseriesOption> timeseriesOptions;
 
     public SinkConfig(@NonNull List<String> nodeUrls,
                       @NonNull String username,
@@ -78,6 +78,17 @@ public class SinkConfig extends CommonConfig {
                 pluginConfig.getStringList(NODE_URLS),
                 pluginConfig.getString(USERNAME),
                 pluginConfig.getString(PASSWORD));
+
+        sinkConfig.setKeyDevice(pluginConfig.getString(KEY_DEVICE));
+        if (pluginConfig.hasPath(KEY_TIMESTAMP)) {
+            sinkConfig.setKeyTimestamp(pluginConfig.getString(KEY_TIMESTAMP));
+        }
+        if (pluginConfig.hasPath(KEY_MEASUREMENT_FIELDS)) {
+            sinkConfig.setKeyMeasurementFields(pluginConfig.getStringList(KEY_MEASUREMENT_FIELDS));
+        }
+        if (pluginConfig.hasPath(STORAGE_GROUP)) {
+            sinkConfig.setStorageGroup(pluginConfig.getString(STORAGE_GROUP));
+        }
         if (pluginConfig.hasPath(BATCH_SIZE)) {
             int batchSize = checkIntArgument(pluginConfig.getInt(BATCH_SIZE));
             sinkConfig.setBatchSize(batchSize);
@@ -117,31 +128,11 @@ public class SinkConfig extends CommonConfig {
             checkNotNull(sinkConfig.getEnableRPCCompression());
             sinkConfig.setConnectionTimeoutInMs(connectionTimeoutInMs);
         }
-        if (pluginConfig.hasPath(TIMESERIES_OPTIONS)) {
-            List<? extends Config> timeseriesConfigs = pluginConfig.getConfigList(TIMESERIES_OPTIONS);
-            List<TimeseriesOption> timeseriesOptions = new ArrayList<>(timeseriesConfigs.size());
-            for (Config timeseriesConfig : timeseriesConfigs) {
-                String timeseriesPath = timeseriesConfig.getString(TIMESERIES_OPTION_PATH);
-                String timeseriesDataType = timeseriesConfig.getString(TIMESERIES_OPTION_DATA_TYPE);
-                TimeseriesOption timeseriesOption = new TimeseriesOption(
-                        timeseriesPath, TSDataType.valueOf(timeseriesDataType));
-                timeseriesOptions.add(timeseriesOption);
-            }
-            sinkConfig.setTimeseriesOptions(timeseriesOptions);
-        }
         return sinkConfig;
     }
 
     private static int checkIntArgument(int args) {
         checkArgument(args > 0);
         return args;
-    }
-
-    @Getter
-    @ToString
-    @AllArgsConstructor
-    public static class TimeseriesOption implements Serializable {
-        private String path;
-        private TSDataType dataType = TSDataType.TEXT;
     }
 }

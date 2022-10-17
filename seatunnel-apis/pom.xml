@@ -28,11 +28,9 @@
     <modelVersion>4.0.0</modelVersion>
     <artifactId>seatunnel-apis</artifactId>
     <packaging>pom</packaging>
-
     <modules>
         <module>seatunnel-api-base</module>
         <module>seatunnel-api-flink</module>
         <module>seatunnel-api-spark</module>
     </modules>
-
 </project>

@@ -19,18 +19,16 @@ package org.apache.seatunnel.translation.flink.sink;
 
 import org.apache.seatunnel.api.sink.SinkCommitter;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.connector.sink.Committer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class FlinkCommitter<CommT> implements Committer<CommitWrapper<CommT>> {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkCommitter.class);
 
     private final SinkCommitter<CommT> sinkCommitter;
 
@@ -44,7 +42,7 @@ public class FlinkCommitter<CommT> implements Committer<CommitWrapper<CommT>> {
             .map(CommitWrapper::getCommit)
             .collect(Collectors.toList()));
         if (reCommittable != null && !reCommittable.isEmpty()) {
-            LOGGER.warn("this version not support re-commit when use flink engine");
+            log.warn("this version not support re-commit when use flink engine");
         }
         // TODO re-commit the data
         return new ArrayList<>();

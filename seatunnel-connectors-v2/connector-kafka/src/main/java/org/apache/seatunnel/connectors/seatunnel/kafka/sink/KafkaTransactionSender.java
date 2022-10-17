@@ -23,11 +23,10 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
 import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Optional;
@@ -39,9 +38,8 @@ import java.util.Properties;
  * @param <K> key type.
  * @param <V> value type.
  */
+@Slf4j
 public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(KafkaTransactionSender.class);
 
     private KafkaInternalProducer<K, V> kafkaProducer;
     private String transactionId;
@@ -91,8 +89,8 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
         for (long i = checkpointId; ; i++) {
             String transactionId = generateTransactionId(this.transactionPrefix, i);
             producer.setTransactionalId(transactionId);
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("Abort kafka transaction: {}", transactionId);
+            if (log.isDebugEnabled()) {
+                log.debug("Abort kafka transaction: {}", transactionId);
             }
             producer.flush();
             if (producer.getEpoch() == 0) {

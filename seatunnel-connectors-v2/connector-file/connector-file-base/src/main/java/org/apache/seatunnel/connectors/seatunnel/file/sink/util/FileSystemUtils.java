@@ -18,29 +18,28 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.util;
 
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 public class FileSystemUtils {
-    private static final Logger LOGGER = LoggerFactory.getLogger(FileSystemUtils.class);
 
     public static final int WRITE_BUFFER_SIZE = 2048;
 
     public static Configuration CONF;
 
     public static FileSystem getFileSystem(@NonNull String path) throws IOException {
-        FileSystem fileSystem = FileSystem.get(URI.create(path), CONF);
+        FileSystem fileSystem = FileSystem.get(new File(path).toURI(), CONF);
         fileSystem.setWriteChecksum(false);
         return fileSystem;
     }
@@ -79,22 +78,22 @@ public class FileSystemUtils {
      */
     public static void renameFile(@NonNull String oldName, @NonNull String newName, boolean rmWhenExist) throws IOException {
         FileSystem fileSystem = getFileSystem(newName);
-        LOGGER.info("begin rename file oldName :[" + oldName + "] to newName :[" + newName + "]");
+        log.info("begin rename file oldName :[" + oldName + "] to newName :[" + newName + "]");
 
         Path oldPath = new Path(oldName);
         Path newPath = new Path(newName);
         if (rmWhenExist) {
             if (fileExist(newName) && fileExist(oldName)) {
                 fileSystem.delete(newPath, true);
-                LOGGER.info("Delete already file: {}", newPath);
+                log.info("Delete already file: {}", newPath);
             }
         }
-        if (!fileExist(newName.substring(0, newName.lastIndexOf("/")))) {
-            createDir(newName.substring(0, newName.lastIndexOf("/")));
+        if (!fileExist(newPath.getParent().toString())) {
+            createDir(newPath.getParent().toString());
         }
 
         if (fileSystem.rename(oldPath, newPath)) {
-            LOGGER.info("rename file :[" + oldPath + "] to [" + newPath + "] finish");
+            log.info("rename file :[" + oldPath + "] to [" + newPath + "] finish");
         } else {
             throw new IOException("rename file :[" + oldPath + "] to [" + newPath + "] error");
         }
@@ -119,7 +118,7 @@ public class FileSystemUtils {
      */
     public static List<Path> dirList(@NonNull String filePath) throws FileNotFoundException, IOException {
         FileSystem fileSystem = getFileSystem(filePath);
-        List<Path> pathList = new ArrayList<Path>();
+        List<Path> pathList = new ArrayList<>();
         Path fileName = new Path(filePath);
         FileStatus[] status = fileSystem.listStatus(fileName);
         if (status != null && status.length > 0) {

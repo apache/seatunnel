@@ -54,9 +54,17 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
         List<Dataset<Row>> sources = new ArrayList<>();
         for (int i = 0; i < plugins.size(); i++) {
             SeaTunnelSource<?, ?, ?> source = plugins.get(i);
+            Config pluginConfig = pluginConfigs.get(i);
+            int parallelism;
+            if (pluginConfig.hasPath(Constants.SOURCE_PARALLELISM)) {
+                parallelism = pluginConfig.getInt(Constants.SOURCE_PARALLELISM);
+            } else {
+                parallelism = sparkEnvironment.getSparkConf().getInt(Constants.SOURCE_PARALLELISM, 1);
+            }
             Dataset<Row> dataset = sparkEnvironment.getSparkSession()
                 .read()
                 .format(SeaTunnelSource.class.getSimpleName())
+                .option(Constants.SOURCE_PARALLELISM, parallelism)
                 .option(Constants.SOURCE_SERIALIZATION, SerializationUtils.objectToString(source))
                 .schema((StructType) TypeConverterUtils.convert(source.getProducedType())).load();
             sources.add(dataset);

@@ -22,7 +22,7 @@ Write data to Clickhouse can also be done using JDBC
 ## Options
 
 | name                   | type    | required | default value |
-|------------------------|---------|----------|---------------|
+| ---------------------- | ------- | -------- | ------------- |
 | host                   | string  | yes      | -             |
 | database               | string  | yes      | -             |
 | table                  | string  | yes      | -             |
@@ -36,7 +36,7 @@ Write data to Clickhouse can also be done using JDBC
 | node_pass.node_address | string  | no       | -             |
 | node_pass.username     | string  | no       | "root"        |
 | node_pass.password     | string  | no       | -             |
-| common-options         | string  | no       | -             |
+| common-options         |         | no       | -             |
 
 ### host [string]
 
@@ -94,7 +94,7 @@ The username corresponding to the clickhouse server, default root user.
 
 The password corresponding to the clickhouse server.
 
-### common options [string]
+### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 

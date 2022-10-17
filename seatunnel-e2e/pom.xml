@@ -34,6 +34,7 @@
         <module>seatunnel-flink-sql-e2e</module>
         <module>seatunnel-spark-connector-v2-e2e</module>
         <module>seatunnel-spark-e2e</module>
+        <module>seatunnel-engine-e2e</module>
     </modules>
 
     <properties>

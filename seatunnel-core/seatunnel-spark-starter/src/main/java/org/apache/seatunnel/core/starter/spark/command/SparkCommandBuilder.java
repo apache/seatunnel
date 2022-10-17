@@ -27,18 +27,9 @@ public class SparkCommandBuilder implements CommandBuilder<SparkCommandArgs> {
     @Override
     public Command<SparkCommandArgs> buildCommand(SparkCommandArgs commandArgs) {
         Common.setDeployMode(commandArgs.getDeployMode());
-        return new SeaTunnelApiCommandBuilder().buildCommand(commandArgs);
+        return commandArgs.isCheckConfig() ? new SparkApiConfValidateCommand(commandArgs)
+            : new SparkApiTaskExecuteCommand(commandArgs);
     }
 
-    /**
-     * Used to generate command for seaTunnel API.
-     */
-    private static class SeaTunnelApiCommandBuilder extends SparkCommandBuilder {
-        @Override
-        public Command<SparkCommandArgs> buildCommand(SparkCommandArgs commandArgs) {
-            return commandArgs.isCheckConfig() ? new SparkApiConfValidateCommand(commandArgs)
-                    : new SparkApiTaskExecuteCommand(commandArgs);
-        }
-    }
 }
 

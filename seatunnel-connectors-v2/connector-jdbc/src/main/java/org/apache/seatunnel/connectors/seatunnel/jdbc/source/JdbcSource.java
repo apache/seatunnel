@@ -156,7 +156,7 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
         if (jdbcSourceOptions.getPartitionLowerBound().isPresent() && jdbcSourceOptions.getPartitionUpperBound().isPresent()) {
             max = jdbcSourceOptions.getPartitionUpperBound().get();
             min = jdbcSourceOptions.getPartitionLowerBound().get();
-            return new PartitionParameter(columnName, min, max);
+            return new PartitionParameter(columnName, min, max, jdbcSourceOptions.getPartitionNumber().orElse(null));
         }
         try (ResultSet rs = connection.createStatement().executeQuery(String.format("SELECT MAX(%s),MIN(%s) " +
             "FROM (%s) tt", columnName, columnName, query))) {
@@ -167,7 +167,7 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
                     Long.parseLong(rs.getString(2));
             }
         }
-        return new PartitionParameter(columnName, min, max);
+        return new PartitionParameter(columnName, min, max, jdbcSourceOptions.getPartitionNumber().orElse(null));
     }
 
     private PartitionParameter initPartitionParameterAndExtendSql(Connection connection) throws SQLException {

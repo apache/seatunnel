@@ -45,6 +45,10 @@ public final class JobContext implements Serializable {
         this.jobId = UUID.randomUUID().toString().replace("-", "");
     }
 
+    public JobContext(Long jobId) {
+        this.jobId = jobId + "";
+    }
+
     /**
      * Put table schema.
      *

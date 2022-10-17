@@ -33,6 +33,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
@@ -42,17 +43,15 @@ import org.apache.flink.table.descriptors.Kafka;
 import org.apache.flink.table.descriptors.Rowtime;
 import org.apache.flink.table.descriptors.Schema;
 import org.apache.flink.types.Row;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.Properties;
 
+@Slf4j
 @AutoService(BaseFlinkSource.class)
 public class KafkaTableStream implements FlinkStreamSource {
 
     private static final long serialVersionUID = 5287018194573371428L;
-    private static final Logger LOGGER = LoggerFactory.getLogger(KafkaTableStream.class);
 
     private Config config;
 
@@ -175,7 +174,7 @@ public class KafkaTableStream implements FlinkStreamSource {
         try {
             return SchemaUtil.setFormat(format, config);
         } catch (Exception e) {
-            LOGGER.warn("set format exception", e);
+            log.warn("set format exception", e);
         }
         throw new RuntimeException("format config error");
     }
