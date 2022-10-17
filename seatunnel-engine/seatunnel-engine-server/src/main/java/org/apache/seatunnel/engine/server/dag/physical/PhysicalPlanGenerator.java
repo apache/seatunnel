@@ -220,9 +220,7 @@ public class PhysicalPlanGenerator {
                     long taskTypeId = idGenerator.getNextId();
                     TaskGroupLocation taskGroupLocation =
                         new TaskGroupLocation(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID);
-
-                    // Committer Task have no state
-                    TaskLocation taskLocation = new TaskLocation(taskGroupLocation, taskTypeId, 0, 0);
+                    TaskLocation taskLocation = new TaskLocation(taskGroupLocation, taskTypeId, 0);
                     SinkAggregatedCommitterTask<?, ?> t =
                         new SinkAggregatedCommitterTask(jobImmutableInformation.getJobId(), taskLocation, s,
                             sinkAggregatedCommitter.get());
@@ -265,9 +263,7 @@ public class PhysicalPlanGenerator {
                     long taskGroupID = mixIDPrefixAndIndex(taskGroupIDPrefix, i);
                     TaskGroupLocation taskGroupLocation =
                         new TaskGroupLocation(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID);
-
-                    // PartitionTask have no state
-                    TaskLocation taskLocation = new TaskLocation(taskGroupLocation, taskIDPrefix, i, 0);
+                    TaskLocation taskLocation = new TaskLocation(taskGroupLocation, taskIDPrefix, i);
                     setFlowConfig(flow, i);
                     SeaTunnelTask seaTunnelTask =
                         new TransformSeaTunnelTask(jobImmutableInformation.getJobId(), taskLocation, i, flow);
@@ -304,9 +300,7 @@ public class PhysicalPlanGenerator {
             long taskTypeId = idGenerator.getNextId();
             TaskGroupLocation taskGroupLocation =
                 new TaskGroupLocation(jobImmutableInformation.getJobId(), pipelineIndex, taskGroupID);
-
-            // EnumeratorTask have no state
-            TaskLocation taskLocation = new TaskLocation(taskGroupLocation, taskTypeId, 0, s.getId());
+            TaskLocation taskLocation = new TaskLocation(taskGroupLocation, taskTypeId, 0);
             SourceSplitEnumeratorTask<?> t =
                 new SourceSplitEnumeratorTask<>(jobImmutableInformation.getJobId(), taskLocation, s);
             // checkpoint
@@ -357,7 +351,7 @@ public class PhysicalPlanGenerator {
                             long taskIDPrefix =
                                 flowTaskIDPrefixMap.computeIfAbsent(f.getFlowID(), id -> idGenerator.getNextId());
                             final TaskLocation taskLocation =
-                                new TaskLocation(taskGroupLocation, taskIDPrefix, finalParallelismIndex, flow.getAction().getId());
+                                new TaskLocation(taskGroupLocation, taskIDPrefix, finalParallelismIndex);
                             // checkpoint
                             pipelineTasks.add(taskLocation);
                             if (f instanceof PhysicalExecutionFlow) {

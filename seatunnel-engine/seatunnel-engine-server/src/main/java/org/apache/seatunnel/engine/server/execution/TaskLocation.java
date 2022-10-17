@@ -33,16 +33,14 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
     private TaskGroupLocation taskGroupLocation;
     private long taskID;
     private int index;
-    private long actionId;
 
     public TaskLocation() {
     }
 
-    public TaskLocation(TaskGroupLocation taskGroupLocation, long idPrefix, int index, long actionId) {
+    public TaskLocation(TaskGroupLocation taskGroupLocation, long idPrefix, int index) {
         this.taskGroupLocation = taskGroupLocation;
         this.taskID = mixIDPrefixAndIndex(idPrefix, index);
         this.index = index;
-        this.actionId = actionId;
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -97,16 +95,12 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
     public void writeData(ObjectDataOutput out) throws IOException {
         out.writeObject(taskGroupLocation);
         out.writeLong(taskID);
-        out.writeInt(index);
-        out.writeLong(actionId);
     }
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
         taskGroupLocation = in.readObject();
         taskID = in.readLong();
-        index = in.readInt();
-        actionId = in.readLong();
     }
 
     @Override
@@ -114,8 +108,6 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
         return "TaskLocation{" +
             "taskGroupLocation=" + taskGroupLocation +
             ", taskID=" + taskID +
-            ", index=" + index +
-            ", actionId=" + actionId +
             '}';
     }
 
@@ -128,20 +120,11 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
             return false;
         }
         TaskLocation that = (TaskLocation) o;
-        return new EqualsBuilder()
-            .append(taskID, that.taskID)
-            .append(taskGroupLocation, that.taskGroupLocation)
-            .append(index, that.index)
-            .append(actionId, that.actionId)
-            .isEquals();
+        return new EqualsBuilder().append(taskID, that.taskID).append(taskGroupLocation, that.taskGroupLocation).isEquals();
     }
 
     @Override
     public int hashCode() {
         return new HashCodeBuilder(17, 37).append(taskGroupLocation).append(taskID).toHashCode();
-    }
-
-    public long getActionId() {
-        return actionId;
     }
 }
