@@ -68,14 +68,17 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     private void checkRegisterWorkerStillAlive() {
         if (!registerWorker.isEmpty()) {
-            List<Address> aliveWorker = nodeEngine.getClusterService().getMembers().stream().map(Member::getAddress).collect(Collectors.toList());
-            List<Address> dead = registerWorker.keySet().stream().filter(r -> !aliveWorker.contains(r)).collect(Collectors.toList());
+            List<Address> aliveWorker = nodeEngine.getClusterService().getMembers().stream().map(Member::getAddress)
+                .collect(Collectors.toList());
+            List<Address> dead =
+                registerWorker.keySet().stream().filter(r -> !aliveWorker.contains(r)).collect(Collectors.toList());
             dead.forEach(registerWorker::remove);
         }
     }
 
     @Override
-    public CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile) throws NoEnoughResourceException {
+    public CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile)
+        throws NoEnoughResourceException {
         CompletableFuture<SlotProfile> completableFuture = new CompletableFuture<>();
         applyResources(jobId, Collections.singletonList(resourceProfile)).whenComplete((profile, error) -> {
             if (error != null) {
@@ -110,7 +113,8 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Override
     public CompletableFuture<List<SlotProfile>> applyResources(long jobId,
-                                                               List<ResourceProfile> resourceProfile) throws NoEnoughResourceException {
+                                                               List<ResourceProfile> resourceProfile)
+        throws NoEnoughResourceException {
         waitingWorkerRegister();
         return new ResourceRequestHandler(jobId, resourceProfile, registerWorker, this).request();
     }
@@ -125,7 +129,8 @@ public abstract class AbstractResourceManager implements ResourceManager {
      * @param resourceProfiles the worker should have resource profile list
      */
     protected void findNewWorker(List<ResourceProfile> resourceProfiles) {
-        throw new UnsupportedOperationException("Unsupported operation to find new worker in " + this.getClass().getName());
+        throw new UnsupportedOperationException(
+            "Unsupported operation to find new worker in " + this.getClass().getName());
     }
 
     @Override
@@ -165,7 +170,8 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Override
     public boolean slotActiveCheck(SlotProfile profile) {
-        return registerWorker.values().stream().flatMap(workerProfile -> Arrays.stream(workerProfile.getAssignedSlots()))
+        return registerWorker.values().stream()
+            .flatMap(workerProfile -> Arrays.stream(workerProfile.getAssignedSlots()))
             .anyMatch(s -> s.getSlotID() == profile.getSlotID());
     }
 

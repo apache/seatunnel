@@ -172,7 +172,6 @@ public class PhysicalPlan {
 
                 // notify checkpoint manager when the pipeline will never be restarted again
                 callbackCheckpointManager(subPlan);
-
                 if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
                     if (failedPipelineNum.get() > 0) {
                         updateJobState(JobStatus.FAILING);
