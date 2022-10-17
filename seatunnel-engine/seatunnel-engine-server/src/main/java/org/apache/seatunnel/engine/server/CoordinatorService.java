@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -56,13 +57,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class CoordinatorService {
-    private NodeEngineImpl nodeEngine;
+    private final NodeEngineImpl nodeEngine;
     private final ILogger logger;
 
     private volatile ResourceManager resourceManager;
 
     /**
-     * IMap key is jobId and value is a Tuple2
+     * IMap key is jobId and value is a Tuple2.
      * Tuple2 key is JobMaster init timestamp and value is the jobImmutableInformation which is sent by client when submit job
      * <p>
      * This IMap is used to recovery runningJobInfoIMap in JobMaster when a new master node active
@@ -118,16 +119,19 @@ public class CoordinatorService {
 
     private ScheduledExecutorService masterActiveListener;
 
+    private final EngineConfig engineConfig;
+
     @SuppressWarnings("checkstyle:MagicNumber")
-    public CoordinatorService(@NonNull NodeEngineImpl nodeEngine, @NonNull SeaTunnelServer seaTunnelServer) {
+    public CoordinatorService(@NonNull NodeEngineImpl nodeEngine, @NonNull SeaTunnelServer seaTunnelServer, EngineConfig engineConfig) {
         this.nodeEngine = nodeEngine;
         this.logger = nodeEngine.getLogger(getClass());
         this.executorService =
             Executors.newCachedThreadPool(new ThreadFactoryBuilder()
                 .setNameFormat("seatunnel-coordinator-service-%d").build());
         this.seaTunnelServer = seaTunnelServer;
+        this.engineConfig = engineConfig;
         masterActiveListener = Executors.newSingleThreadScheduledExecutor();
-        masterActiveListener.scheduleAtFixedRate(() -> checkNewActiveMaster(), 0, 100, TimeUnit.MILLISECONDS);
+        masterActiveListener.scheduleAtFixedRate(this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
     }
 
     public JobMaster getJobMaster(Long jobId) {
@@ -184,7 +188,8 @@ public class CoordinatorService {
                 getResourceManager(),
                 runningJobStateIMap,
                 runningJobStateTimestampsIMap,
-                ownedSlotProfilesIMap);
+                ownedSlotProfilesIMap,
+                engineConfig);
 
         try {
             jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp());
@@ -308,7 +313,7 @@ public class CoordinatorService {
             getResourceManager(),
             runningJobStateIMap,
             runningJobStateTimestampsIMap,
-            ownedSlotProfilesIMap);
+            ownedSlotProfilesIMap, engineConfig);
         executorService.submit(() -> {
             try {
                 runningJobInfoIMap.put(jobId, new RunningJobInfo(System.currentTimeMillis(), jobImmutableInformation));
@@ -330,7 +335,7 @@ public class CoordinatorService {
                 runningJobMasterMap.remove(jobId);
             }
         });
-        return new PassiveCompletableFuture(voidCompletableFuture);
+        return new PassiveCompletableFuture<>(voidCompletableFuture);
     }
 
     private void removeJobIMap(JobMaster jobMaster) {
@@ -412,8 +417,6 @@ public class CoordinatorService {
 
     /**
      * return true if this node is a master node and the coordinator service init finished.
-     *
-     * @return
      */
     public boolean isCoordinatorActive() {
         return isActive;

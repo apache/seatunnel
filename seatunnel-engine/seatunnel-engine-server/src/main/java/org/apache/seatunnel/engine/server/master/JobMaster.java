@@ -21,15 +21,17 @@ import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
+import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
+import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.loader.SeatunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorConfiguration;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointStorageConfiguration;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
@@ -94,13 +96,15 @@ public class JobMaster extends Thread {
 
     private volatile boolean restore = false;
 
+    private final EngineConfig engineConfig;
+
     public JobMaster(@NonNull Data jobImmutableInformationData,
                      @NonNull NodeEngine nodeEngine,
                      @NonNull ExecutorService executorService,
                      @NonNull ResourceManager resourceManager,
                      @NonNull IMap runningJobStateIMap,
                      @NonNull IMap runningJobStateTimestampsIMap,
-                     @NonNull IMap ownedSlotProfilesIMap) {
+                     @NonNull IMap ownedSlotProfilesIMap, EngineConfig engineConfig) {
         this.jobImmutableInformationData = jobImmutableInformationData;
         this.nodeEngine = nodeEngine;
         this.executorService = executorService;
@@ -110,6 +114,7 @@ public class JobMaster extends Thread {
         this.resourceManager = resourceManager;
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
+        this.engineConfig = engineConfig;
     }
 
     public void init(long initializationTimestamp) throws Exception {
@@ -129,6 +134,9 @@ public class JobMaster extends Thread {
         } else {
             logicalDag = nodeEngine.getSerializationService().toObject(jobImmutableInformation.getLogicalDag());
         }
+
+        CheckpointConfig checkpointConfig = mergeEnvAndEngineConfig(engineConfig.getCheckpointConfig(), jobImmutableInformation.getJobConfig().getEnvOptions());
+
         final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple = PlanUtils.fromLogicalDAG(logicalDag,
             nodeEngine,
             jobImmutableInformation,
@@ -144,9 +152,23 @@ public class JobMaster extends Thread {
             jobImmutableInformation.getJobId(),
             nodeEngine,
             planTuple.f1(),
-            // TODO: checkpoint config
-            CheckpointCoordinatorConfiguration.builder().build(),
-            CheckpointStorageConfiguration.builder().build());
+            checkpointConfig);
+    }
+
+    // TODO replace it after ReadableConfig Support parse yaml format, then use only one config to read engine and env config.
+    private CheckpointConfig mergeEnvAndEngineConfig(CheckpointConfig engine, Map<String, Object> env) {
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        if (env.containsKey(ServerConfigOptions.CHECKPOINT_INTERVAL.key())) {
+            checkpointConfig.setCheckpointInterval((Integer) env.get(ServerConfigOptions.CHECKPOINT_INTERVAL.key()));
+        }
+        checkpointConfig.setCheckpointTimeout(engine.getCheckpointTimeout());
+        checkpointConfig.setTolerableFailureCheckpoints(engine.getTolerableFailureCheckpoints());
+        checkpointConfig.setMaxConcurrentCheckpoints(engine.getMaxConcurrentCheckpoints());
+        CheckpointStorageConfig storageConfig = new CheckpointStorageConfig();
+        storageConfig.setMaxRetainedCheckpoints(engine.getStorage().getMaxRetainedCheckpoints());
+        storageConfig.setStorage(engine.getStorage().getStorage());
+        checkpointConfig.setStorage(storageConfig);
+        return checkpointConfig;
     }
 
     public void initStateFuture() {

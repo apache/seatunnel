@@ -23,6 +23,8 @@ import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
 import org.apache.seatunnel.engine.checkpoint.storage.common.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
+import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
@@ -45,7 +47,7 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
     public void testHAByIMapCheckpointIDCounter() throws CheckpointStorageException {
         long jobId = (long) (Math.random() * 1000000L);
         CheckpointStorage checkpointStorage = FactoryUtil.discoverFactory(Thread.currentThread().getContextClassLoader(), CheckpointStorageFactory.class,
-                CheckpointStorageConfiguration.builder().build().getStorage())
+                new CheckpointStorageConfig().getStorage())
             .create(new HashMap<>());
         CompletedCheckpoint completedCheckpoint = new CompletedCheckpoint(jobId, 1, 1,
             Instant.now().toEpochMilli(),
@@ -63,8 +65,7 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
             jobId,
             nodeEngine,
             planMap,
-            CheckpointCoordinatorConfiguration.builder().build(),
-            CheckpointStorageConfiguration.builder().build());
+            new CheckpointConfig());
         Assertions.assertTrue(checkpointManager.isCompletedPipeline(1));
         CompletableFuture<Void> future = checkpointManager.listenPipeline(1, org.apache.seatunnel.engine.core.job.PipelineState.FINISHED);
         future.join();

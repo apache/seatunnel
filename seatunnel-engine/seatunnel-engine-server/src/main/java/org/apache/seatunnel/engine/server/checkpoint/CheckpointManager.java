@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
@@ -79,12 +80,11 @@ public class CheckpointManager {
     public CheckpointManager(long jobId,
                              NodeEngine nodeEngine,
                              Map<Integer, CheckpointPlan> checkpointPlanMap,
-                             CheckpointCoordinatorConfiguration coordinatorConfig,
-                             CheckpointStorageConfiguration storageConfig) throws CheckpointStorageException {
+                             CheckpointConfig checkpointConfig) throws CheckpointStorageException {
         this.jobId = jobId;
         this.nodeEngine = nodeEngine;
         this.subtaskWithAddresses = new HashMap<>();
-        this.checkpointStorage = FactoryUtil.discoverFactory(Thread.currentThread().getContextClassLoader(), CheckpointStorageFactory.class, storageConfig.getStorage())
+        this.checkpointStorage = FactoryUtil.discoverFactory(Thread.currentThread().getContextClassLoader(), CheckpointStorageFactory.class, checkpointConfig.getStorage().getStorage())
             .create(new HashMap<>());
         IMap<Integer, Long> checkpointIdMap = nodeEngine.getHazelcastInstance().getMap(String.format("checkpoint-id-%d", jobId));
         this.coordinatorMap = checkpointPlanMap.values().parallelStream()
@@ -99,10 +99,9 @@ public class CheckpointManager {
                     }
                     return new CheckpointCoordinator(this,
                         checkpointStorage,
-                        storageConfig,
+                        checkpointConfig,
                         jobId,
                         plan,
-                        coordinatorConfig,
                         idCounter,
                         pipelineState);
                 } catch (Exception e) {
