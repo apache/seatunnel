@@ -76,7 +76,8 @@ public class FileSystemUtils {
      * @param rmWhenExist if this is true, we will delete the target file when it already exists
      * @throws IOException throw IOException
      */
-    public static void renameFile(@NonNull String oldName, @NonNull String newName, boolean rmWhenExist) throws IOException {
+    public static void renameFile(@NonNull String oldName, @NonNull String newName, boolean rmWhenExist)
+        throws IOException {
         FileSystem fileSystem = getFileSystem(newName);
         log.info("begin rename file oldName :[" + oldName + "] to newName :[" + newName + "]");
 
@@ -90,6 +91,11 @@ public class FileSystemUtils {
         }
         if (!fileExist(newPath.getParent().toString())) {
             createDir(newPath.getParent().toString());
+        }
+
+        if (!fileExist(oldPath.toString())) {
+            log.warn("rename file :[" + oldPath + "] to [" + newPath + "] finish");
+            return;
         }
 
         if (fileSystem.rename(oldPath, newPath)) {
@@ -119,6 +125,9 @@ public class FileSystemUtils {
     public static List<Path> dirList(@NonNull String filePath) throws FileNotFoundException, IOException {
         FileSystem fileSystem = getFileSystem(filePath);
         List<Path> pathList = new ArrayList<>();
+        if (!fileExist(filePath)) {
+            return pathList;
+        }
         Path fileName = new Path(filePath);
         FileStatus[] status = fileSystem.listStatus(fileName);
         if (status != null && status.length > 0) {

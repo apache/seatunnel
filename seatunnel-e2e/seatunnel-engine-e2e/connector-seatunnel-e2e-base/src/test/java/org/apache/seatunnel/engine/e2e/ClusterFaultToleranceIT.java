@@ -209,12 +209,11 @@ public class ClusterFaultToleranceIT {
     }
 
     @Test
-    @Disabled("disable because the checkpoint manager have some bug")
     public void testBatchJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testBatchJobRestoreIn3NodeWorkerDown";
         String testClusterName = "ClusterFaultToleranceIT_testBatchJobRestoreIn3NodeWorkerDown";
         long testRowNumber = 1000;
-        int testParallelism = 6;
+        int testParallelism = 2;
         HazelcastInstanceImpl node1 =
             SeaTunnelServerStarter.createHazelcastInstance(
                 TestUtils.getClusterName(testClusterName));
