@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject;
 
-import org.apache.spark.unsafe.types.UTF8String;
-
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -41,12 +39,7 @@ public class ArrayInjectFunction implements ClickhouseFieldInjectFunction {
             case "Int256":
             case "UInt256":
                 sqlType = "TEXT";
-                if (value instanceof String[]) {
-                    elements = Arrays.copyOf(elements, elements.length, String[].class);
-                } else {
-                    elements = Arrays.stream(Arrays.copyOf(elements, elements.length, UTF8String[].class))
-                        .map(UTF8String::toString).toArray(String[]::new);
-                }
+                elements = Arrays.copyOf(elements, elements.length, String[].class);
                 break;
             case "Int8":
                 sqlType = "TINYINT";

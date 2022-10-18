@@ -199,9 +199,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case DECIMAL:
                 return ((Decimal) field).toJavaBigDecimal();
             case ARRAY:
-                ArrayData arrayData = (ArrayData) field;
-                BasicType<?> elementType = ((ArrayType<?, ?>) dataType).getElementType();
-                return arrayData.toObjectArray(TypeConverterUtils.convert(elementType));
+                return reconvertArray((ArrayData) field, (ArrayType<?, ?>) dataType);
             default:
                 return field;
         }
@@ -214,5 +212,17 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 rowType.getFieldType(i));
         }
         return new SeaTunnelRow(fields);
+    }
+
+    private static Object reconvertArray(ArrayData arrayData, ArrayType<?, ?> arrayType) {
+        if (arrayData == null || arrayData.numElements() == 0) {
+            return Collections.emptyList().toArray();
+        }
+        Object[] newArray = new Object[arrayData.numElements()];
+        Object[] values = arrayData.toObjectArray(TypeConverterUtils.convert(arrayType.getElementType()));
+        for (int i = 0; i < arrayData.numElements(); i++) {
+            newArray[i] = reconvert(values[i], arrayType.getElementType());
+        }
+        return newArray;
     }
 }
