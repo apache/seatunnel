@@ -27,6 +27,8 @@ import lombok.Data;
 public class FakeSourceSplit implements SourceSplit {
     private int splitId;
 
+    private int rowNum;
+
     @Override
     public String splitId() {
         return String.valueOf(splitId);

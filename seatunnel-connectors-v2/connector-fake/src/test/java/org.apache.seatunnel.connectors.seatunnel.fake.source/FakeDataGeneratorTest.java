@@ -47,7 +47,7 @@ public class FakeDataGeneratorTest {
         SeaTunnelRowType seaTunnelRowType = seaTunnelSchema.getSeaTunnelRowType();
         FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
         FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(seaTunnelSchema, fakeConfig);
-        List<SeaTunnelRow> seaTunnelRows = fakeDataGenerator.generateFakedRows();
+        List<SeaTunnelRow> seaTunnelRows = fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
         Assertions.assertNotNull(seaTunnelRows);
         Assertions.assertEquals(seaTunnelRows.size(), 10);
         for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {

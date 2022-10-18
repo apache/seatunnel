@@ -17,13 +17,17 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
+
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.NodeEngine;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 
+@Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractSeaTunnelServerTest {
 
@@ -36,7 +40,7 @@ public abstract class AbstractSeaTunnelServerTest {
     protected static ILogger LOGGER;
 
     @BeforeAll
-    public  void before() {
+    public void before() {
         instance = SeaTunnelServerStarter.createHazelcastInstance(
             TestUtils.getClusterName("AbstractSeaTunnelServerTest_" + System.currentTimeMillis()));
         nodeEngine = instance.node.nodeEngine;
@@ -46,7 +50,16 @@ public abstract class AbstractSeaTunnelServerTest {
 
     @AfterAll
     public void after() {
-        server.shutdown(true);
-        instance.shutdown();
+        try {
+            if (server != null) {
+                server.shutdown(true);
+            }
+
+            if (instance != null) {
+                instance.shutdown();
+            }
+        } catch (Exception e) {
+            log.error(ExceptionUtils.getMessage(e));
+        }
     }
 }

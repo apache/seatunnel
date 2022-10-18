@@ -54,7 +54,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         Path configFile = FileUtils.getConfigPath(clientCommandArgs);
 
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setName(clientCommandArgs.getName());
+        jobConfig.setName(clientCommandArgs.getJobName());
         HazelcastInstance instance = null;
         ClientJobProxy clientJobProxy = null;
         try {
@@ -73,11 +73,11 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         } catch (ExecutionException | InterruptedException e) {
             throw new CommandExecuteException("SeaTunnel job executed failed", e);
         } finally {
-            if (instance != null) {
-                instance.shutdown();
-            }
             if (clientJobProxy != null) {
                 clientJobProxy.close();
+            }
+            if (instance != null) {
+                instance.shutdown();
             }
         }
     }

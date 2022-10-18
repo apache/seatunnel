@@ -25,4 +25,5 @@ public class BaseSourceConfig {
     public static final String DATE_FORMAT = "date_format";
     public static final String DATETIME_FORMAT = "datetime_format";
     public static final String TIME_FORMAT = "time_format";
+    public static final String PARSE_PARTITION_FROM_PATH = "parse_partition_from_path";
 }
