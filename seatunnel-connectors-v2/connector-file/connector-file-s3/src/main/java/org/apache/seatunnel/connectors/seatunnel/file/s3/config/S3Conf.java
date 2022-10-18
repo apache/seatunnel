@@ -24,7 +24,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import java.util.HashMap;
 
 public class S3Conf extends HadoopConf {
-    private final String fsHdfsImpl = "org.apache.hadoop.fs.s3.S3FileSystem";
+    private final String fsHdfsImpl = "org.apache.hadoop.fs.s3native.NativeS3FileSystem";
 
     @Override
     public String getFsHdfsImpl() {
