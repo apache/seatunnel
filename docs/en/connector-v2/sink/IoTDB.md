@@ -202,3 +202,10 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 |2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102|
 +------------------------+------------------------+--------------+-----------+
 ```
+
+## Changelog
+
+| Version    | Date       | Pull Request                                                                                                                                        | Subject                                                                                                                                                                                                             |
+|------------|------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 2.2.0-beta | 2022-09-26 |                                                                                                                                                     | Add IoTDB Sink                                                                                                                                                                                                      |
+| 2.3.0-beta | 2022-10-18 | <br>[2917](https://github.com/apache/incubator-seatunnel/pull/2917) </br><br> [3080](https://github.com/apache/incubator-seatunnel/pull/3080)</br>  | <li>Support align by sql syntax</li><li>Support sql split ignore case</li><li>Support restore split offset to at-least-once</li><li>Support read timestamp from RowRecord</li><li>Fix IoTDB connector sink NPE</li> |

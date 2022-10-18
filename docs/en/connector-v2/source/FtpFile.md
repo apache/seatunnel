@@ -206,3 +206,10 @@ Source plugin common parameters, please refer to [Source Common Options](common-
   }
 
 ```
+
+## Changelog
+
+| Version    | Date       | Pull Request                                                                                                                                                                                                                  | Subject                                                                                                                                                               |
+|------------|------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 2.2.0-beta | 2022-09-26 |                                                                                                                                                                                                                               | Add Ftp File Source                                                                                                                                                   |
+| 2.3.0-beta | 2022-10-18 | <br>[2980](https://github.com/apache/incubator-seatunnel/pull/2980) </br><br> [3085](https://github.com/apache/incubator-seatunnel/pull/3085) </br><br> [2985](https://github.com/apache/incubator-seatunnel/pull/2985)</br>  | <li>Fix the bug of incorrect path in windows environment</li> <li>Support extract partition from SeaTunnelRow fields</li> <li>Support parse field from file path</li> |

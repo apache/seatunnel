@@ -122,3 +122,11 @@ Assert {
   }
 
 ```
+
+## Changelog
+
+| Version    | Date       | Pull Request                                                                                                                                       | Subject                                                                                                                                                                                                                                                  |
+|------------|------------|----------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 2.2.0-beta | 2022-09-26 |                                                                                                                                                    | Assert the data                                                                                                                                                                                                                                          |
+| 2.3.0-beta | 2022-10-18 | <br>[2844](https://github.com/apache/incubator-seatunnel/pull/2844)</br><br> [3031](https://github.com/apache/incubator-seatunnel/pull/3031)</br>  | <br>1.Support check the number of rows:</br> <li> check rows not empty</li> <li>check minimum number of rows</li> <li>check maximum number of rows</li> <br>2.Support direct define of data values(row)</br> <br>3.Support setting parallelism as 1</br> |
+

@@ -210,3 +210,10 @@ Loaded to SeaTunnelRow data format is the following:
 |1664035200001       | root.test_group.device_a   | 36.1        | 100         |
 |1664035200001       | root.test_group.device_b   | 36.2        | 101         |
 |1664035200001       | root.test_group.device_c   | 36.3        | 102         |
+
+## Changelog
+
+| Version    | Date       | Pull Request                                                    | Subject                                                                                                                                                                                                                |
+|------------|------------|-----------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 2.2.0-beta | 2022-09-26 |                                                                 | Add IoTDB Source                                                                                                                                                                                                       |
+| 2.3.0-beta | 2022-10-18 | [2917](https://github.com/apache/incubator-seatunnel/pull/2917) | <li>Support extract timestamp、device、measurement from SeaTunnelRow</li><li>Support TINYINT、SMALLINT</li><li>Support flush cache to database before prepareCommit</li>                                                  |

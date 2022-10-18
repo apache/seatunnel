@@ -49,3 +49,10 @@ Sink plugin common parameters, please refer to [Sink Common Options](common-opti
    }
 
 ```
+
+## Changelog
+
+| Version    | Date       | Pull Request                                                     | Subject                                            |
+|------------|------------|------------------------------------------------------------------|----------------------------------------------------|
+| 2.2.0-beta | 2022-09-26 |                                                                  | Add Kudu Sink                                      |
+| 2.3.0-beta | 2022-10-18 | [2881](https://github.com/apache/incubator-seatunnel/pull/2881)  | <li>Kudu Sink Connector Support to upsert row</li> |

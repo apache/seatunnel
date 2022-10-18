@@ -84,3 +84,10 @@ row=7 : KIGOqnLhqe, 430165110
 row=8 : goMdjHlRpX, 288221239
 row=9 : VBtpiNGArV, 1906991577
 ```
+
+## Changelog
+
+| Version    | Date       | Pull Request                                                    | Subject                                   |
+|------------|------------|-----------------------------------------------------------------|-------------------------------------------|
+| 2.2.0-beta | 2022-09-26 |                                                                 | Add Console Sink                          |
+| 2.3.0-beta | 2020-10-18 | [3000](https://github.com/apache/incubator-seatunnel/pull/3000) | Console sink support print subtask index. |

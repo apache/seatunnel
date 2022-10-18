@@ -96,3 +96,9 @@ nc -l -v 9999
 ```text
 {"name":"jared","age":17}
 ```
+
+## Changelog
+
+| Version    | Date       | Pull Request                 | Subject         |
+|------------|------------|------------------------------|-----------------|
+| 2.2.0-beta | 2022-09-26 |                              | Add Socket Sink |

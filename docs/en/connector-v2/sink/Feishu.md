@@ -4,7 +4,7 @@
 
 ## Description
 
-Used to launch feishu web hooks using data. 
+Used to launch Feishu web hooks using data. 
 
 > For example, if the data from upstream is [`age: 12, name: tyrantlucifer`], the body content is the following: `{"age": 12, "name": "tyrantlucifer"}`
 
@@ -44,4 +44,10 @@ Feishu {
         url = "https://www.feishu.cn/flow/api/trigger-webhook/108bb8f208d9b2378c8c7aedad715c19"
     }
 ```
+
+## Changelog
+
+| Version    | Date       | Pull Request                                                    | Subject         |
+|------------|------------|-----------------------------------------------------------------|-----------------|
+| 2.2.0-beta | 2022-09-26 |                                                                 | Add Feishu Sink |
 

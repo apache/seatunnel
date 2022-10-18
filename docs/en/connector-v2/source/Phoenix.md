@@ -53,3 +53,9 @@ use thin client drive
         query = "select age, name from test.source"
     }
 ```
+
+## Changelog
+
+| Version    | Date       | Pull Request                      | Subject            |
+|------------|------------|-----------------------------------|--------------------|
+| 2.2.0-beta | 2022-09-26 |                                   | Add Phoenix Source |
