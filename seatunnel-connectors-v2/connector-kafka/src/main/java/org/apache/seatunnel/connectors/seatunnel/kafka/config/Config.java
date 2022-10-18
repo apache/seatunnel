@@ -105,4 +105,8 @@ public class Config {
      */
     public static final String  START_MODE_OFFSETS  = "start_mode.offsets";
 
+    /**
+     * Configuration key to define the consumer's partition discovery interval, in milliseconds.
+     */
+    public static final String KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS = "partition-discovery.interval-millis";
 }

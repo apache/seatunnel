@@ -24,6 +24,7 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFA
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PATTERN;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE;
@@ -72,6 +73,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private SeaTunnelRowType typeInfo;
     private JobContext jobContext;
+    private long discoveryIntervalMillis = -1;
 
     @Override
     public Boundedness getBoundedness() {
@@ -140,6 +142,10 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
             }
         }
 
+        if (config.hasPath(KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS)) {
+            this.discoveryIntervalMillis = config.getLong(KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS);
+        }
+
         TypesafeConfigUtils.extractSubConfig(config, "kafka.", false).entrySet().forEach(e -> {
             this.metadata.getProperties().put(e.getKey(), String.valueOf(e.getValue().unwrapped()));
         });
@@ -159,7 +165,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
 
     @Override
     public SourceSplitEnumerator<KafkaSourceSplit, KafkaSourceState> createEnumerator(SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext) throws Exception {
-        return new KafkaSourceSplitEnumerator(this.metadata, enumeratorContext);
+        return new KafkaSourceSplitEnumerator(this.metadata, enumeratorContext, discoveryIntervalMillis);
     }
 
     @Override

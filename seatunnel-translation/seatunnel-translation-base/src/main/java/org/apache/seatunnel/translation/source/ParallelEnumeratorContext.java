@@ -74,4 +74,11 @@ public class ParallelEnumeratorContext<SplitT extends SourceSplit> implements So
         throw new RuntimeException("");
     }
 
+    public ParallelSource<?, SplitT, ?> getParallelSource() {
+        return parallelSource;
+    }
+
+    public Integer getSubtaskId() {
+        return subtaskId;
+    }
 }
