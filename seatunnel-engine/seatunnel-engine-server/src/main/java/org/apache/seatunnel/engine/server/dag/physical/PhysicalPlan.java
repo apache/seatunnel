@@ -170,6 +170,8 @@ public class PhysicalPlan {
                     LOGGER.severe("Pipeline Failed, Begin to cancel other pipelines in this job.");
                 }
 
+                // notify checkpoint manager when the pipeline will never be restarted again
+                callbackCheckpointManager(subPlan);
                 if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
                     if (failedPipelineNum.get() > 0) {
                         updateJobState(JobStatus.FAILING);
@@ -185,6 +187,30 @@ public class PhysicalPlan {
                 LOGGER.severe("Never come here ", e);
             }
         });
+    }
+
+    private void callbackCheckpointManager(@NonNull SubPlan subPlan) {
+        List<CompletableFuture<Void>> coordinatorFutureList = subPlan.getCoordinatorVertexList().stream().map(task -> {
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                jobMaster.getCheckpointManager().listenTaskGroup(task.getTaskGroupLocation(), task.getExecutionState());
+            });
+            return future;
+        }).collect(Collectors.toList());
+
+        List<CompletableFuture<Void>> taskFutureList = subPlan.getPhysicalVertexList().stream().map(task -> {
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                jobMaster.getCheckpointManager().listenTaskGroup(task.getTaskGroupLocation(), task.getExecutionState());
+            });
+            return future;
+        }).collect(Collectors.toList());
+
+        coordinatorFutureList.addAll(taskFutureList);
+        CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
+            coordinatorFutureList.toArray(new CompletableFuture[0]));
+        voidCompletableFuture.join();
+
+        jobMaster.getCheckpointManager()
+            .listenPipeline(subPlan.getPipelineLocation().getPipelineId(), subPlan.getPipelineState());
     }
 
     private boolean canRestorePipeline(SubPlan subPlan) {
@@ -244,6 +270,9 @@ public class PhysicalPlan {
                 LOGGER.severe(message);
                 throw new IllegalStateException(message);
             }
+
+            // notify checkpoint manager
+            jobMaster.getCheckpointManager().shutdown(endState);
 
             LOGGER.info(String.format("%s end with state %s", getJobFullName(), endState));
             // we must update runningJobStateTimestampsIMap first and then can update runningJobStateIMap
