@@ -17,51 +17,81 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject;
 
+import org.apache.spark.unsafe.types.UTF8String;
+
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.regex.Pattern;
 
 public class ArrayInjectFunction implements ClickhouseFieldInjectFunction {
 
     private static final Pattern PATTERN = Pattern.compile("(Array.*)");
+    private String fieldType;
 
     @Override
     public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
-        Object[] elements = null;
-        String sqlType = null;
-        if (String[].class.equals(value.getClass())) {
-            sqlType = "TEXT";
-            elements = (String[]) value;
-        } else if (Boolean[].class.equals(value.getClass())) {
-            sqlType = "BOOLEAN";
-            elements = (Boolean[]) value;
-        } else if (Byte[].class.equals(value.getClass())) {
-            sqlType = "TINYINT";
-            elements = (Byte[]) value;
-        } else if (Short[].class.equals(value.getClass())) {
-            sqlType = "SMALLINT";
-            elements = (Short[]) value;
-        } else if (Integer[].class.equals(value.getClass())) {
-            sqlType = "INTEGER";
-            elements = (Integer[]) value;
-        } else if (Long[].class.equals(value.getClass())) {
-            sqlType = "BIGINT";
-            elements = (Long[]) value;
-        } else if (Float[].class.equals(value.getClass())) {
-            sqlType = "REAL";
-            elements = (Float[]) value;
-        } else if (Double[].class.equals(value.getClass())) {
-            sqlType = "DOUBLE";
-            elements = (Double[]) value;
-        }
-        if (sqlType == null) {
-            throw new IllegalArgumentException("array inject error, not supported data type: " + value.getClass());
+        String sqlType;
+        Object[] elements = (Object[]) value;
+        String type = fieldType.substring(fieldType.indexOf("(") + 1, fieldType.indexOf(")"));
+        switch (type) {
+            case "String":
+            case "Int128":
+            case "UInt128":
+            case "Int256":
+            case "UInt256":
+                sqlType = "TEXT";
+                if (value instanceof String[]) {
+                    elements = Arrays.copyOf(elements, elements.length, String[].class);
+                } else {
+                    elements = Arrays.stream(Arrays.copyOf(elements, elements.length, UTF8String[].class))
+                        .map(UTF8String::toString).toArray(String[]::new);
+                }
+                break;
+            case "Int8":
+                sqlType = "TINYINT";
+                elements = Arrays.copyOf(elements, elements.length, Byte[].class);
+                break;
+            case "UInt8":
+            case "Int16":
+                sqlType = "SMALLINT";
+                elements = Arrays.copyOf(elements, elements.length, Short[].class);
+                break;
+            case "UInt16":
+            case "Int32":
+                sqlType = "INTEGER";
+                elements = Arrays.copyOf(elements, elements.length, Integer[].class);
+                break;
+            case "UInt32":
+            case "Int64":
+            case "UInt64":
+                sqlType = "BIGINT";
+                elements = Arrays.copyOf(elements, elements.length, Long[].class);
+                break;
+            case "Float32":
+                sqlType = "REAL";
+                elements = Arrays.copyOf(elements, elements.length, Float[].class);
+                break;
+            case "Float64":
+                sqlType = "DOUBLE";
+                elements = Arrays.copyOf(elements, elements.length, Double[].class);
+                break;
+            case "Bool":
+                sqlType = "BOOLEAN";
+                elements = Arrays.copyOf(elements, elements.length, Boolean[].class);
+                break;
+            default:
+                throw new IllegalArgumentException("array inject error, not supported data type: " + type);
         }
         statement.setArray(index, statement.getConnection().createArrayOf(sqlType, elements));
     }
 
     @Override
     public boolean isCurrentFieldType(String fieldType) {
-        return PATTERN.matcher(fieldType).matches();
+        if (PATTERN.matcher(fieldType).matches()) {
+            this.fieldType = fieldType;
+            return true;
+        }
+        return false;
     }
 }

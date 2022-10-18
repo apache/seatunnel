@@ -61,6 +61,12 @@
             <artifactId>clickhouse-jdbc</artifactId>
             <version>${clickhouse.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-unsafe_2.11</artifactId>
+            <version>${spark.2.4.0.version}</version>
+            <scope>compile</scope>
+        </dependency>
 
     </dependencies>
 
