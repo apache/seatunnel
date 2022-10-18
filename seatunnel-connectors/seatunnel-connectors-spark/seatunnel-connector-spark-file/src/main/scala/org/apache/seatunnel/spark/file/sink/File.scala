@@ -51,11 +51,10 @@ class File extends SparkBatchSink {
   override def output(ds: Dataset[Row], env: SparkEnvironment): Unit = {
     var mode: String = null
 
-    try {
+    if (config.hasPath(WRITE_MODE)) {
       mode = config.getString(WRITE_MODE)
-    } catch {
-      case _: RuntimeException =>
-        mode = config.getString(SAVE_MODE)
+    } else {
+      mode = config.getString(SAVE_MODE)
     }
 
     val writer = ds.write.mode(mode)

@@ -48,11 +48,10 @@ class Jdbc extends SparkBatchSource {
   def jdbcReader(sparkSession: SparkSession, driver: String): DataFrameReader = {
     var user: String = null
 
-    try {
+    if (config.hasPath(Config.USERNAME)) {
       user = config.getString(Config.USERNAME)
-    } catch {
-      case _: RuntimeException =>
-        user = config.getString(Config.USE)
+    } else {
+      user = config.getString(Config.USE)
     }
 
     val reader = sparkSession.read
