@@ -29,13 +29,12 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.images.builder.Transferable;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -56,6 +55,15 @@ public class JdbcSqliteIT extends FlinkContainer {
     private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/org/xerial/sqlite-jdbc/3.39.3.0/sqlite-jdbc-3.39.3.0.jar";
 
     private Connection jdbcConnection;
+
+    @Test
+    public void testInit() {
+        try {
+            initTestDb();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
     private void initTestDb() throws Exception {
         tmpdir = Paths.get(System.getProperty("java.io.tmpdir")).toString();
@@ -115,7 +123,7 @@ public class JdbcSqliteIT extends FlinkContainer {
     public void testJdbcSqliteSourceAndSinkDataType() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_sqlite_source_and_sink_datatype.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        jobManager.copyFileFromContainer(Paths.get(SEATUNNEL_HOME, "data", "test.db").toString(), new File(tmpdir + "/test.db").toPath().toString());
+        taskManager.copyFileFromContainer(Paths.get("/sqlite/test.db").toString(), new File(tmpdir + "/test.db").toPath().toString());
         checkSinkDataTypeTable();
     }
 
@@ -135,7 +143,7 @@ public class JdbcSqliteIT extends FlinkContainer {
     public void testJdbcSqliteSourceAndSink() throws IOException, InterruptedException, SQLException {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_sqlite_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        jobManager.copyFileFromContainer(Paths.get(SEATUNNEL_HOME, "data", "test.db").toString(), new File(tmpdir + "/test.db").toPath().toString());
+        taskManager.copyFileFromContainer(Paths.get("/sqlite/test.db").toString(), new File(tmpdir + "/test.db").toPath().toString());
         // query result
         String sql = "select age, name from sink order by age asc";
         List<List> result = new ArrayList<>();
@@ -165,15 +173,20 @@ public class JdbcSqliteIT extends FlinkContainer {
         Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
         Assertions.assertEquals(0, extraCommands.getExitCode());
 
-        Container.ExecResult mkdirCommands = container.execInContainer("bash", "-c", "mkdir -p " + SEATUNNEL_HOME + "/data");
-        Assertions.assertEquals(0, mkdirCommands.getExitCode());
-
+        Container.ExecResult mkdirCommands1 = jobManager.execInContainer("bash", "-c", "mkdir -p " + "/sqlite");
+        Assertions.assertEquals(0, mkdirCommands1.getExitCode());
+        Container.ExecResult mkdirCommands2 = taskManager.execInContainer("bash", "-c", "mkdir -p " + "/sqlite");
+        Assertions.assertEquals(0, mkdirCommands2.getExitCode());
+        jobManager.execInContainer("bash", "-c", "chmod 777 -R /sqlite");
+        taskManager.execInContainer("bash", "-c", "chmod 777 -R /sqlite");
         try {
             initTestDb();
             // copy db file to container, dist file path in container is /tmp/seatunnel/data/test.db
-            Path path = new File(tmpdir + "/test.db").toPath();
-            byte[] bytes = Files.readAllBytes(path);
-            container.copyFileToContainer(Transferable.of(bytes), Paths.get(SEATUNNEL_HOME, "data", "test.db").toString());
+            jobManager.copyFileToContainer(MountableFile.forHostPath(tmpdir + "/test.db"), "/sqlite/test.db");
+            taskManager.copyFileToContainer(MountableFile.forHostPath(tmpdir + "/test.db"), "/sqlite/test.db");
+            jobManager.execInContainer("bash", "-c", "chmod 777 /sqlite/test.db");
+            taskManager.execInContainer("bash", "-c", "chmod 777 /sqlite/test.db");
+
         } catch (Exception e) {
             log.error("init test.db and copy test.db to container error", e);
             Files.deleteIfExists(new File(tmpdir + "/test.db").toPath());
