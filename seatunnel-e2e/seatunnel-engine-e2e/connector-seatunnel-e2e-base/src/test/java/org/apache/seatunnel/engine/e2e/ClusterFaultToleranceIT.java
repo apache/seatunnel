@@ -39,6 +39,8 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import java.io.File;
@@ -52,6 +54,7 @@ import java.util.concurrent.TimeUnit;
  * Cluster fault tolerance test. Test the job recovery capability and data consistency assurance capability in case of cluster node failure
  */
 @Slf4j
+@Execution(ExecutionMode.SAME_THREAD)
 public class ClusterFaultToleranceIT {
 
     public static final String DYNAMIC_TEST_CASE_NAME = "dynamic_test_case_name";
@@ -104,6 +107,7 @@ public class ClusterFaultToleranceIT {
 
         Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {
+                Thread.sleep(2000);
                 System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                 Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get()));
@@ -112,6 +116,7 @@ public class ClusterFaultToleranceIT {
         Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
         Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
 
+        engineClient.shutdown();
         node1.shutdown();
         node2.shutdown();
         node3.shutdown();
@@ -194,6 +199,8 @@ public class ClusterFaultToleranceIT {
 
         Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {
+                Thread.sleep(2000);
+                System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                 Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
                     testRowNumber * testParallelism == FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
             });
@@ -207,6 +214,7 @@ public class ClusterFaultToleranceIT {
         Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
         Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
 
+        engineClient.shutdown();
         node1.shutdown();
         node2.shutdown();
         node3.shutdown();
@@ -255,7 +263,8 @@ public class ClusterFaultToleranceIT {
         Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {
                 // Wait some tasks commit finished
-                log.info("File Lines ==================" + FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+                Thread.sleep(2000);
+                System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                 Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
                     FileUtils.getFileLineNumberFromDir(testResources.getLeft()) > 1);
             });
@@ -270,12 +279,12 @@ public class ClusterFaultToleranceIT {
         Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
         Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
 
+        engineClient.shutdown();
         node1.shutdown();
         node3.shutdown();
     }
 
     @Test
-    @Disabled("disable because the checkpoint manager have some bug")
     public void testStreamJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testStreamJobRestoreIn3NodeWorkerDown";
         String testClusterName = "ClusterFaultToleranceIT_testStreamJobRestoreIn3NodeWorkerDown";
@@ -318,7 +327,8 @@ public class ClusterFaultToleranceIT {
         Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {
                 // Wait some tasks commit finished, and we can get rows from the sink target dir
-                log.info("File Lines ==================" + FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+                Thread.sleep(2000);
+                System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                 Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
                     FileUtils.getFileLineNumberFromDir(testResources.getLeft()) > 1);
             });
@@ -330,7 +340,8 @@ public class ClusterFaultToleranceIT {
         Awaitility.await().atMost(180000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {
                 // Wait job write all rows in file
-                log.info("File Lines ==================" + FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+                Thread.sleep(2000);
+                System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                 Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
                     testRowNumber * testParallelism == FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
             });
@@ -347,13 +358,13 @@ public class ClusterFaultToleranceIT {
         Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
         Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
 
+        engineClient.shutdown();
         node1.shutdown();
         node2.shutdown();
         node3.shutdown();
     }
 
     @Test
-    @Disabled("disable because the checkpoint manager have some bug")
     public void testBatchJobRestoreIn3NodeMasterDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testBatchJobRestoreIn3NodeMasterDown";
         String testClusterName = "ClusterFaultToleranceIT_testBatchJobRestoreIn3NodeMasterDown";
@@ -396,7 +407,8 @@ public class ClusterFaultToleranceIT {
         Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {
                 // Wait some tasks commit finished
-                log.info("File Lines ==================" + FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+                Thread.sleep(2000);
+                System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                 Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
                     FileUtils.getFileLineNumberFromDir(testResources.getLeft()) > 1);
             });
@@ -411,12 +423,12 @@ public class ClusterFaultToleranceIT {
         Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
         Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
 
+        engineClient.shutdown();
         node2.shutdown();
         node3.shutdown();
     }
 
     @Test
-    @Disabled("disable because the checkpoint manager have some bug")
     public void testStreamJobRestoreIn3NodeMasterDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testStreamJobRestoreIn3NodeMasterDown";
         String testClusterName = "ClusterFaultToleranceIT_testStreamJobRestoreIn3NodeMasterDown";
@@ -459,7 +471,8 @@ public class ClusterFaultToleranceIT {
         Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {
                 // Wait some tasks commit finished, and we can get rows from the sink target dir
-                log.info("File Lines ==================" + FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+                Thread.sleep(2000);
+                System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                 Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
                     FileUtils.getFileLineNumberFromDir(testResources.getLeft()) > 1);
             });
@@ -470,7 +483,8 @@ public class ClusterFaultToleranceIT {
         Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {
                 // Wait job write all rows in file
-                log.info("File Lines ==================" + FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+                Thread.sleep(2000);
+                System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                 Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
                     testRowNumber * testParallelism == FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
             });
@@ -487,6 +501,7 @@ public class ClusterFaultToleranceIT {
         Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
         Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
 
+        engineClient.shutdown();
         node2.shutdown();
         node3.shutdown();
     }

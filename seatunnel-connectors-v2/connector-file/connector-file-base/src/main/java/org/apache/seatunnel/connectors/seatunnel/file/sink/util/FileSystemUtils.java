@@ -83,6 +83,12 @@ public class FileSystemUtils {
 
         Path oldPath = new Path(oldName);
         Path newPath = new Path(newName);
+
+        if (!fileExist(oldPath.toString())) {
+            log.warn("rename file :[" + oldPath + "] to [" + newPath + "] already finished in the last commit, skip");
+            return;
+        }
+
         if (rmWhenExist) {
             if (fileExist(newName) && fileExist(oldName)) {
                 fileSystem.delete(newPath, true);
@@ -91,11 +97,6 @@ public class FileSystemUtils {
         }
         if (!fileExist(newPath.getParent().toString())) {
             createDir(newPath.getParent().toString());
-        }
-
-        if (!fileExist(oldPath.toString())) {
-            log.warn("rename file :[" + oldPath + "] to [" + newPath + "] finish");
-            return;
         }
 
         if (fileSystem.rename(oldPath, newPath)) {

@@ -326,7 +326,7 @@ public class PhysicalVertex {
     private void noticeTaskExecutionServiceCancel() {
         int i = 0;
         // In order not to generate uncontrolled tasks, We will try again until the taskFuture is completed
-        while (!taskFuture.isDone()) {
+        while (!taskFuture.isDone() && nodeEngine.getClusterService().getMember(getCurrentExecutionAddress()) != null) {
             try {
                 i++;
                 LOGGER.info(String.format("send cancel %s operator to member %s", taskFullName, getCurrentExecutionAddress()));
