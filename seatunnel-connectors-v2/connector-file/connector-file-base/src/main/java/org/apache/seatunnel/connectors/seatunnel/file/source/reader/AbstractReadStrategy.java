@@ -39,6 +39,9 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -47,6 +50,18 @@ import java.util.Map;
 
 @Slf4j
 public abstract class AbstractReadStrategy implements ReadStrategy {
+    protected static final String[] TYPE_ARRAY_STRING = new String[0];
+    protected static final Boolean[] TYPE_ARRAY_BOOLEAN = new Boolean[0];
+    protected static final Byte[] TYPE_ARRAY_BYTE = new Byte[0];
+    protected static final Short[] TYPE_ARRAY_SHORT = new Short[0];
+    protected static final Integer[] TYPE_ARRAY_INTEGER = new Integer[0];
+    protected static final Long[] TYPE_ARRAY_LONG = new Long[0];
+    protected static final Float[] TYPE_ARRAY_FLOAT = new Float[0];
+    protected static final Double[] TYPE_ARRAY_DOUBLE = new Double[0];
+    protected static final BigDecimal[] TYPE_ARRAY_BIG_DECIMAL = new BigDecimal[0];
+    protected static final LocalDate[] TYPE_ARRAY_LOCAL_DATE = new LocalDate[0];
+    protected static final LocalDateTime[] TYPE_ARRAY_LOCAL_DATETIME = new LocalDateTime[0];
+
     protected HadoopConf hadoopConf;
     protected SeaTunnelRowType seaTunnelRowType;
     protected SeaTunnelRowType seaTunnelRowTypeWithPartition;
@@ -142,7 +157,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             return seaTunnelRowType;
         }
         // get all names of partitions fields
-        String[] partitionNames = partitionsMap.keySet().toArray(new String[0]);
+        String[] partitionNames = partitionsMap.keySet().toArray(TYPE_ARRAY_STRING);
         // initialize data type for partition fields
         SeaTunnelDataType<?>[] partitionTypes = new SeaTunnelDataType<?>[partitionNames.length];
         Arrays.fill(partitionTypes, BasicType.STRING_TYPE);
