@@ -68,6 +68,7 @@ public class KylinTypeMapper implements JdbcDialectTypeMapper {
                 return BasicType.BOOLEAN_TYPE;
             case KYLIN_TINYINT:
             case KYLIN_SMALLINT:
+                return BasicType.SHORT_TYPE;
             case KYLIN_INT:
                 return BasicType.INT_TYPE;
             case KYLIN_BIGINT:
