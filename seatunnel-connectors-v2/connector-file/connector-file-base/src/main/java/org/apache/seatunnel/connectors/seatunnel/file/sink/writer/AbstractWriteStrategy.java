@@ -70,7 +70,9 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     protected Map<String, String> beingWrittenFile;
     private Map<String, List<String>> partitionDirAndValuesMap;
     protected SeaTunnelRowType seaTunnelRowType;
-    protected Long checkpointId = 1L;
+
+    // Checkpoint id from engine is start with 1
+    protected Long checkpointId = 0L;
 
     public AbstractWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
         this.textFileSinkConfig = textFileSinkConfig;
@@ -88,7 +90,6 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         this.jobId = jobId;
         this.subTaskIndex = subTaskIndex;
         FileSystemUtils.CONF = getConfiguration(hadoopConf);
-        this.beginTransaction(this.checkpointId);
     }
 
     /**
@@ -233,6 +234,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      * @param checkpointId checkpoint id
      */
     public void beginTransaction(Long checkpointId) {
+        this.checkpointId = checkpointId;
         this.transactionId = "T" + Constant.TRANSACTION_ID_SPLIT + jobId + Constant.TRANSACTION_ID_SPLIT + subTaskIndex + Constant.TRANSACTION_ID_SPLIT + checkpointId;
         this.transactionDirectory = getTransactionDir(this.transactionId);
         this.needMoveFiles = new HashMap<>();
@@ -265,8 +267,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     @Override
     public List<FileSinkState> snapshotState(long checkpointId) {
         ArrayList<FileSinkState> fileState = Lists.newArrayList(new FileSinkState(this.transactionId, this.checkpointId));
-        this.checkpointId = checkpointId;
-        this.beginTransaction(checkpointId);
+        this.beginTransaction(checkpointId + 1);
         return fileState;
     }
 

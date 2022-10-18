@@ -76,12 +76,19 @@ public class FileSystemUtils {
      * @param rmWhenExist if this is true, we will delete the target file when it already exists
      * @throws IOException throw IOException
      */
-    public static void renameFile(@NonNull String oldName, @NonNull String newName, boolean rmWhenExist) throws IOException {
+    public static void renameFile(@NonNull String oldName, @NonNull String newName, boolean rmWhenExist)
+        throws IOException {
         FileSystem fileSystem = getFileSystem(newName);
         log.info("begin rename file oldName :[" + oldName + "] to newName :[" + newName + "]");
 
         Path oldPath = new Path(oldName);
         Path newPath = new Path(newName);
+
+        if (!fileExist(oldPath.toString())) {
+            log.warn("rename file :[" + oldPath + "] to [" + newPath + "] already finished in the last commit, skip");
+            return;
+        }
+
         if (rmWhenExist) {
             if (fileExist(newName) && fileExist(oldName)) {
                 fileSystem.delete(newPath, true);
@@ -119,6 +126,9 @@ public class FileSystemUtils {
     public static List<Path> dirList(@NonNull String filePath) throws FileNotFoundException, IOException {
         FileSystem fileSystem = getFileSystem(filePath);
         List<Path> pathList = new ArrayList<>();
+        if (!fileExist(filePath)) {
+            return pathList;
+        }
         Path fileName = new Path(filePath);
         FileStatus[] status = fileSystem.listStatus(fileName);
         if (status != null && status.length > 0) {
