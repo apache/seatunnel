@@ -19,23 +19,14 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-import org.junit.jupiter.api.Assertions;
-import org.testcontainers.shaded.com.google.common.collect.Lists;
-import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
-
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 public class JdbcGbse8adbIT extends AbstractJdbcIT {
 
@@ -48,26 +39,9 @@ public class JdbcGbse8adbIT extends AbstractJdbcIT {
     private static final String PASSWORD = "root";
     private static final String DATABASE = "gbase";
     private static final String SOURCE_TABLE = "e2e_table_source";
-    private static final String SINK_TABLE = "e2e_table_sink";
     private static final String DRIVER_JAR = "https://www.gbase8.cn/wp-content/uploads/2020/10/gbase-connector-java-8.3.81.53-build55.5.7-bin_min_mix.jar";
-    private static final String CONFIG_FILE = "/jdbc_gbase8a_source_to_sink.conf";
+    private static final String CONFIG_FILE = "/jdbc_gbase8a_source_to_assert.conf";
     private static final String DDL_SOURCE = "CREATE TABLE " + SOURCE_TABLE + "(\n" +
-        "  \"varchar_10_col\" varchar(10) DEFAULT NULL,\n" +
-        "  \"char_10_col\" char(10) DEFAULT NULL,\n" +
-        "  \"text_col\" text,\n" +
-        "  \"decimal_col\" decimal(10,0) DEFAULT NULL,\n" +
-        "  \"float_col\" float(12,0) DEFAULT NULL,\n" +
-        "  \"int_col\" int(11) DEFAULT NULL,\n" +
-        "  \"tinyint_col\" tinyint(4) DEFAULT NULL,\n" +
-        "  \"smallint_col\" smallint(6) DEFAULT NULL,\n" +
-        "  \"double_col\" double(22,0) DEFAULT NULL,\n" +
-        "  \"bigint_col\" bigint(20) DEFAULT NULL,\n" +
-        "  \"date_col\" date DEFAULT NULL,\n" +
-        "  \"timestamp_col\" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n" +
-        "  \"datetime_col\" datetime DEFAULT NULL,\n" +
-        "  \"blob_col\" blob\n" +
-        ")";
-    private static final String DDL_SINK = "CREATE TABLE " + SINK_TABLE + "(\n" +
         "  \"varchar_10_col\" varchar(10) DEFAULT NULL,\n" +
         "  \"char_10_col\" char(10) DEFAULT NULL,\n" +
         "  \"text_col\" text,\n" +
@@ -108,50 +82,18 @@ public class JdbcGbse8adbIT extends AbstractJdbcIT {
         String jdbcUrl = String.format(URL, PORT, DATABASE);
         return JdbcCase.builder().dockerImage(DOCKER_IMAGE).networkAliases(NETWORK_ALIASES).containerEnv(containerEnv).driverClass(DRIVER_CLASS)
             .host(HOST).port(PORT).jdbcTemplate(URL).jdbcUrl(jdbcUrl).userName(USERNAME).password(PASSWORD).dataBase(DATABASE)
-            .sourceTable(SOURCE_TABLE).sinkTable(SINK_TABLE).driverJar(DRIVER_JAR)
-            .ddlSource(DDL_SOURCE).ddlSink(DDL_SINK).initDataSql(INIT_DATA_SQL).configFile(CONFIG_FILE).seaTunnelRow(initTestData()).build();
+            .sourceTable(SOURCE_TABLE).driverJar(DRIVER_JAR)
+            .ddlSource(DDL_SOURCE).initDataSql(INIT_DATA_SQL).configFile(CONFIG_FILE).seaTunnelRow(initTestData()).build();
     }
 
     @Override
     void compareResult() {
-        String sourceSql = "select * from " + SOURCE_TABLE;
-        String sinkSql = "select * from " + SINK_TABLE;
-        List<String> columns = Lists.newArrayList("varchar_10_col", "char_10_col", "text_col", "decimal_col", "float_col", "int_col", "tinyint_col", "smallint_col", "double_col", "bigint_col", "date_col", "timestamp_col", "datetime_col", "blob_col");
-        try (Connection connection = initializeJdbcConnection(String.format(URL, PORT, jdbcCase.getDataBase()))) {
-            Statement sourceStatement = connection.createStatement();
-            Statement sinkStatement = connection.createStatement();
-            ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
-            ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
-            while (sourceResultSet.next()) {
-                if (sinkResultSet.next()) {
-                    for (String column : columns) {
-                        Object source = sourceResultSet.getObject(column);
-                        Object sink = sinkResultSet.getObject(column);
-                        if (!Objects.deepEquals(source, sink)) {
-
-                            InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(column);
-                            InputStream sinkAsciiStream = sinkResultSet.getBinaryStream(column);
-                            String sourceValue = IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
-                            String sinkValue = IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
-                            Assertions.assertEquals(sourceValue, sinkValue);
-                        }
-                        Assertions.assertTrue(true);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("get gbase8a connection error", e);
-        }
-        clearSinkTable();
+        //do nothing
     }
 
     @Override
     void clearSinkTable() {
-        try (Statement statement = initializeJdbcConnection(String.format(URL, PORT, "test")).createStatement()) {
-            statement.execute(String.format("TRUNCATE TABLE %s", SINK_TABLE));
-        } catch (Exception e) {
-            throw new RuntimeException("test gbase8a server image error", e);
-        }
+        //do nothing
     }
 
     @Override

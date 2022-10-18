@@ -29,6 +29,7 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
@@ -130,7 +131,9 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             String createSource = jdbcCase.getDdlSource();
             String createSink = jdbcCase.getDdlSink();
             statement.execute(createSource);
-            statement.execute(createSink);
+            if (StringUtils.isNotEmpty(createSink)) {
+                statement.execute(createSink);
+            }
         } catch (Exception exception) {
             log.error(ExceptionUtils.getMessage(exception));
             throw new RuntimeException("get connection error", exception);
