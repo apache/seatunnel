@@ -18,6 +18,7 @@
 package org.apache.seatunnel.e2e.common.container.flink;
 
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
 
 import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
@@ -32,8 +33,8 @@ import lombok.NoArgsConstructor;
 public class Flink13Container extends AbstractTestFlinkContainer {
 
     @Override
-    public String identifier() {
-        return "flink:1.13.6";
+    public TestContainerId identifier() {
+        return TestContainerId.FLINK_1_13;
     }
 
     @Override

@@ -27,6 +27,7 @@ import org.apache.seatunnel.flink.util.TableUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.ExecutionEnvironment;
@@ -46,8 +47,6 @@ import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.TernaryBoolean;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -55,9 +54,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class FlinkEnvironment implements RuntimeEnv {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkEnvironment.class);
 
     private Config config;
 
@@ -127,7 +125,7 @@ public class FlinkEnvironment implements RuntimeEnv {
 
     @Override
     public void registerPlugin(List<URL> pluginPaths) {
-        pluginPaths.forEach(url -> LOGGER.info("register plugins : {}", url));
+        pluginPaths.forEach(url -> log.info("register plugins : {}", url));
         List<Configuration> configurations = new ArrayList<>();
         try {
             configurations.add((Configuration) Objects.requireNonNull(ReflectionUtils.getDeclaredMethod(StreamExecutionEnvironment.class,
@@ -248,7 +246,7 @@ public class FlinkEnvironment implements RuntimeEnv {
                     environment.setStreamTimeCharacteristic(TimeCharacteristic.ProcessingTime);
                     break;
                 default:
-                    LOGGER.warn(
+                    log.warn(
                         "set time-characteristic failed, unknown time-characteristic [{}],only support event-time,ingestion-time,processing-time",
                         timeType);
                     break;
@@ -272,7 +270,7 @@ public class FlinkEnvironment implements RuntimeEnv {
                         checkpointConfig.setCheckpointingMode(CheckpointingMode.AT_LEAST_ONCE);
                         break;
                     default:
-                        LOGGER.warn(
+                        log.warn(
                             "set checkpoint.mode failed, unknown checkpoint.mode [{}],only support exactly-once,at-least-once",
                             mode);
                         break;

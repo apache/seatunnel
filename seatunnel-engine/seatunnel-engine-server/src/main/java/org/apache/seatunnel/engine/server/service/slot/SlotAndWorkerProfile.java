@@ -19,14 +19,22 @@ package org.apache.seatunnel.engine.server.service.slot;
 
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
+import org.apache.seatunnel.engine.server.serializable.ResourceDataSerializerHook;
 
-import java.io.Serializable;
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 
-public class SlotAndWorkerProfile implements Serializable {
+import java.io.IOException;
 
-    private final WorkerProfile workerProfile;
+public class SlotAndWorkerProfile implements IdentifiedDataSerializable {
 
-    private final SlotProfile slotProfile;
+    private WorkerProfile workerProfile;
+
+    private SlotProfile slotProfile;
+
+    public SlotAndWorkerProfile() {
+    }
 
     public SlotAndWorkerProfile(WorkerProfile workerProfile, SlotProfile slotProfile) {
         this.workerProfile = workerProfile;
@@ -42,5 +50,27 @@ public class SlotAndWorkerProfile implements Serializable {
      */
     public SlotProfile getSlotProfile() {
         return slotProfile;
+    }
+
+    @Override
+    public int getFactoryId() {
+        return ResourceDataSerializerHook.FACTORY_ID;
+    }
+
+    @Override
+    public int getClassId() {
+        return ResourceDataSerializerHook.SLOT_AND_WORKER_PROFILE;
+    }
+
+    @Override
+    public void writeData(ObjectDataOutput out) throws IOException {
+        out.writeObject(workerProfile);
+        out.writeObject(slotProfile);
+    }
+
+    @Override
+    public void readData(ObjectDataInput in) throws IOException {
+        workerProfile = in.readObject();
+        slotProfile = in.readObject();
     }
 }

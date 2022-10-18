@@ -25,21 +25,22 @@ Source connector for Apache Iceberg. It can support batch and stream mode.
 
 ##  Options
 
-| name                              | type     | required | default value           |
-|-----------------------------------|----------|----------|-------------------------|
-| catalog_name                      | string   | yes      | -                       |
-| catalog_type                      | string   | yes      | -                       |
-| uri                               | string   | false    | -                       |
-| warehouse                         | string   | yes      | -                       |
-| namespace                         | string   | yes      | -                       |
-| table                             | string   | yes      | -                       |
-| case_sensitive                    | boolean  | false    | false                   |
-| start_snapshot_timestamp          | long     | false    | -                       |
-| start_snapshot_id                 | long     | false    | -                       |
-| end_snapshot_id                   | long     | false    | -                       |
-| use_snapshot_id                   | long     | false    | -                       |
-| use_snapshot_timestamp            | long     | false    | -                       |
-| stream_scan_strategy              | enum     | false    | FROM_LATEST_SNAPSHOT    |
+| name                     | type    | required | default value        |
+| ------------------------ | ------- | -------- | -------------------- |
+| catalog_name             | string  | yes      | -                    |
+| catalog_type             | string  | yes      | -                    |
+| uri                      | string  | no       | -                    |
+| warehouse                | string  | yes      | -                    |
+| namespace                | string  | yes      | -                    |
+| table                    | string  | yes      | -                    |
+| case_sensitive           | boolean | no       | false                |
+| start_snapshot_timestamp | long    | no       | -                    |
+| start_snapshot_id        | long    | no       | -                    |
+| end_snapshot_id          | long    | no       | -                    |
+| use_snapshot_id          | long    | no       | -                    |
+| use_snapshot_timestamp   | long    | no       | -                    |
+| stream_scan_strategy     | enum    | no       | FROM_LATEST_SNAPSHOT |
+| common-options           |         | no       | -                    |
 
 ### catalog_name [string]
 
@@ -104,6 +105,10 @@ The optional values are:
 - FROM_EARLIEST_SNAPSHOT: Start incremental mode from the earliest snapshot inclusive.
 - FROM_SNAPSHOT_ID: Start incremental mode from a snapshot with a specific id inclusive.
 - FROM_SNAPSHOT_TIMESTAMP: Start incremental mode from a snapshot with a specific timestamp inclusive.
+
+### common options 
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
 ## Example
 

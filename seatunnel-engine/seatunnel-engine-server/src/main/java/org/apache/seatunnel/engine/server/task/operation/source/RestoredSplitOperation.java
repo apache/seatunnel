@@ -34,6 +34,7 @@ import com.hazelcast.nio.ObjectDataOutput;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class RestoredSplitOperation extends TaskOperation {
 
@@ -75,14 +76,19 @@ public class RestoredSplitOperation extends TaskOperation {
 
     @Override
     public void run() throws Exception {
-        TaskExecutionService taskExecutionService = ((SeaTunnelServer) getService()).getTaskExecutionService();
+        SeaTunnelServer server = getService();
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
         ClassLoader classLoader = taskExecutionService.getExecutionContext(taskLocation.getTaskGroupLocation()).getClassLoader();
-        List<SourceSplit> deserialize = Arrays.asList(SerializationUtils.deserialize(splits, classLoader));
+
+        List<SourceSplit> deserialize = Arrays.stream((Object[]) SerializationUtils.deserialize(splits, classLoader))
+            .map(o -> (SourceSplit) o)
+            .collect(Collectors.toList());
         RetryUtils.retryWithException(() -> {
             SourceSplitEnumeratorTask<SourceSplit> task = taskExecutionService.getTask(taskLocation);
             task.addSplitsBack(deserialize, subtaskIndex);
             return null;
         }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException, Constant.OPERATION_RETRY_SLEEP));
+            exception -> exception instanceof NullPointerException &&
+                !server.taskIsEnded(taskLocation.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
     }
 }

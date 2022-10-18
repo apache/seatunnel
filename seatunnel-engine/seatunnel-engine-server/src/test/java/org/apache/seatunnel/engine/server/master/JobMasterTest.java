@@ -36,6 +36,7 @@ import com.hazelcast.map.IMap;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
@@ -47,6 +48,7 @@ import java.util.concurrent.TimeUnit;
  * JobMaster Tester.
  */
 @DisabledOnOs(OS.WINDOWS)
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class JobMasterTest extends AbstractSeaTunnelServerTest {
     private static Long JOB_ID;
 
@@ -91,9 +93,9 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
     private IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap;
 
     @BeforeAll
-    public static void before() {
-        AbstractSeaTunnelServerTest.before();
-        JOB_ID = INSTANCE.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+    public void before() {
+        super.before();
+        JOB_ID = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
     }
 
     @Test
@@ -102,16 +104,16 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
             TestUtils.createTestLogicalPlan("stream_fakesource_to_file.conf", "test_clear_coordinator_service", JOB_ID);
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(JOB_ID,
-            NODE_ENGINE.getSerializationService().toData(testLogicalDag), testLogicalDag.getJobConfig(),
+            nodeEngine.getSerializationService().toData(testLogicalDag), testLogicalDag.getJobConfig(),
             Collections.emptyList());
 
-        Data data = NODE_ENGINE.getSerializationService().toData(jobImmutableInformation);
+        Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
 
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
-            SERVER.getCoordinatorService().submitJob(JOB_ID, data);
+            server.getCoordinatorService().submitJob(JOB_ID, data);
         voidPassiveCompletableFuture.join();
 
-        JobMaster jobMaster = SERVER.getCoordinatorService().getJobMaster(JOB_ID);
+        JobMaster jobMaster = server.getCoordinatorService().getJobMaster(JOB_ID);
 
         // waiting for job status turn to running
         await().atMost(60000, TimeUnit.MILLISECONDS)
@@ -140,10 +142,10 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
     }
 
     private void testIMapRemovedAfterJobComplete(JobMaster jobMaster) {
-        runningJobInfoIMap = NODE_ENGINE.getHazelcastInstance().getMap("runningJobInfo");
-        runningJobStateIMap = NODE_ENGINE.getHazelcastInstance().getMap("runningJobState");
-        runningJobStateTimestampsIMap = NODE_ENGINE.getHazelcastInstance().getMap("stateTimestamps");
-        ownedSlotProfilesIMap = NODE_ENGINE.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
+        runningJobInfoIMap = nodeEngine.getHazelcastInstance().getMap("runningJobInfo");
+        runningJobStateIMap = nodeEngine.getHazelcastInstance().getMap("runningJobState");
+        runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap("stateTimestamps");
+        ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
 
         await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {

@@ -42,8 +42,7 @@ There is a conflict of thrift version between IoTDB and Spark.Therefore, you nee
 | zone_id                       | string            | no       | -                                 |
 | enable_rpc_compression        | boolean           | no       | -                                 |
 | connection_timeout_in_ms      | int               | no       | -                                 |
-| common-options                | string            | no       | -                                 |
-
+| common-options                |                   | no       | -                                 |
 ### node_urls [list]
 
 `IoTDB` cluster address, the format is `["host:port", ...]`
@@ -114,7 +113,7 @@ Enable rpc compression in `IoTDB` client
 
 The maximum time (in ms) to wait when connect `IoTDB`
 
-### common options [string]
+### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 

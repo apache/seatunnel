@@ -25,14 +25,10 @@ import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.platform.commons.support.AnnotationSupport;
-import org.junit.platform.commons.util.AnnotationUtils;
 
 import java.lang.annotation.Annotation;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class ContainerTestingExtension implements BeforeAllCallback, AfterAllCallback {
     public static final ExtensionContext.Namespace TEST_RESOURCE_NAMESPACE =
@@ -62,14 +58,8 @@ public class ContainerTestingExtension implements BeforeAllCallback, AfterAllCal
 
         checkExactlyOneAnnotatedField(containersFactories, TestContainers.class);
 
-        // Filters disabled containers
-        final List<String> disabledContainers = new ArrayList<>();
-        AnnotationUtils.findAnnotation(context.getRequiredTestInstance().getClass(), DisabledOnContainer.class)
-            .ifPresent(annotation -> Collections.addAll(disabledContainers, annotation.value()));
-        List<TestContainer> testContainers = containersFactories.get(0).create()
-            .stream()
-            .filter(container -> !disabledContainers.contains(container.identifier()))
-            .collect(Collectors.toList());
+        List<TestContainer> testContainers = AnnotationUtil.filterDisabledContainers(containersFactories.get(0).create(),
+            context.getRequiredTestInstance().getClass());
         context.getStore(TEST_RESOURCE_NAMESPACE)
             .put(TEST_CONTAINERS_STORE_KEY, testContainers);
     }

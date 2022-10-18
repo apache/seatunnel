@@ -20,8 +20,7 @@ package org.apache.seatunnel.core.starter.config;
 public enum EngineType {
     SPARK("spark"),
     FLINK("flink"),
-    SEATUNNEL("seatunnel"),
-    ;
+    SEATUNNEL("seatunnel");
 
     private final String engine;
 

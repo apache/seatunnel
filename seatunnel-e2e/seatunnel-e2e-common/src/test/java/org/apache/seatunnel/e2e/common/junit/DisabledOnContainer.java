@@ -17,21 +17,27 @@
 
 package org.apache.seatunnel.e2e.common.junit;
 
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
 
 import java.lang.annotation.ElementType;
+import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 @Target({ ElementType.TYPE, ElementType.METHOD })
 @Retention(RetentionPolicy.RUNTIME)
+@Inherited
 public @interface DisabledOnContainer {
 
     /**
      * {@link TestContainer#identifier()}
      */
-    String[] value();
+    TestContainerId[] value();
+
+    EngineType[] type() default {};
 
     /**
      * Custom reason to provide if the test container is disabled.

@@ -22,9 +22,7 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
-import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
@@ -36,9 +34,6 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.parse.JobConfigParser;
 
 import com.google.common.collect.Sets;
-import com.hazelcast.instance.impl.HazelcastInstanceFactory;
-import com.hazelcast.instance.impl.HazelcastInstanceImpl;
-import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import java.net.MalformedURLException;
@@ -80,15 +75,6 @@ public class TestUtils {
 
     public static String getClusterName(String testClassName) {
         return System.getProperty("user.name") + "_" + testClassName;
-    }
-
-    public static HazelcastInstanceImpl createHazelcastInstance(String clusterName) {
-        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        seaTunnelConfig.getHazelcastConfig().setClusterName(TestUtils.getClusterName(clusterName));
-        return ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(
-            seaTunnelConfig.getHazelcastConfig(),
-            HazelcastInstanceFactory.createInstanceName(seaTunnelConfig.getHazelcastConfig()),
-            new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
     }
 
     public static LogicalDag createTestLogicalPlan(String jobConfigFile, String jobName, Long jobId) {

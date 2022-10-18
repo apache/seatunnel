@@ -31,8 +31,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -53,8 +51,6 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
 
     private static final long THREAD_WAIT_TIME = 500L;
     private static final long POLL_TIMEOUT = 10000L;
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(KafkaSourceReader.class);
 
     private final SourceReader.Context context;
     private final ConsumerMetadata metadata;
@@ -171,7 +167,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
 
     @Override
     public void handleNoMoreSplits() {
-        LOGGER.info("receive no more splits message, this reader will not add new split.");
+        log.info("receive no more splits message, this reader will not add new split.");
     }
 
     @Override

@@ -66,36 +66,33 @@ public class WorkerProfile implements IdentifiedDataSerializable {
 
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
-        address.writeData(out);
+        out.writeObject(address);
         out.writeObject(profile);
         out.writeObject(unassignedResource);
         out.writeInt(assignedSlots.length);
         for (SlotProfile assignedSlot : assignedSlots) {
-            assignedSlot.writeData(out);
+            out.writeObject(assignedSlot);
         }
         out.writeInt(unassignedSlots.length);
         for (SlotProfile unassignedSlot : unassignedSlots) {
-            unassignedSlot.writeData(out);
+            out.writeObject(unassignedSlot);
         }
-        out.writeObject(unassignedSlots);
     }
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
-        address.readData(in);
+        address = in.readObject();
         profile = in.readObject();
         unassignedResource = in.readObject();
         int assignedSlotsLength = in.readInt();
         assignedSlots = new SlotProfile[assignedSlotsLength];
         for (int i = 0; i < assignedSlots.length; i++) {
-            assignedSlots[i] = new SlotProfile();
-            assignedSlots[i].readData(in);
+            assignedSlots[i] = in.readObject();
         }
         int unassignedSlotsLength = in.readInt();
         unassignedSlots = new SlotProfile[unassignedSlotsLength];
         for (int i = 0; i < unassignedSlots.length; i++) {
-            unassignedSlots[i] = new SlotProfile();
-            unassignedSlots[i].readData(in);
+            unassignedSlots[i] = in.readObject();
         }
     }
 }

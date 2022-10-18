@@ -19,15 +19,13 @@ package org.apache.seatunnel.e2e.flink.file;
 
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 
+@Slf4j
 public class FakeSourceToFileIT extends FlinkContainer {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceToFileIT.class);
 
     @Test
     public void testFakeSource2FileSink() throws Exception {

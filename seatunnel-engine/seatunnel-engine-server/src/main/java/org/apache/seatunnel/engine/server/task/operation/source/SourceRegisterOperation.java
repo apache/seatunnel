@@ -61,7 +61,8 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
             task.receivedReader(readerTaskID, readerAddress);
             return null;
         }, new RetryUtils.RetryMaterial(RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException, RETRY_TIME_OUT));
+            exception -> exception instanceof NullPointerException &&
+                !server.taskIsEnded(enumeratorTaskID.getTaskGroupLocation()), RETRY_TIME_OUT));
     }
 
     @Override
@@ -72,15 +73,15 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        readerTaskID.writeData(out);
-        enumeratorTaskID.writeData(out);
+        out.writeObject(readerTaskID);
+        out.writeObject(enumeratorTaskID);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        readerTaskID.readData(in);
-        enumeratorTaskID.readData(in);
+        readerTaskID = in.readObject();
+        enumeratorTaskID = in.readObject();
     }
 
     @Override

@@ -29,6 +29,7 @@ import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.starter.config.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -76,17 +77,21 @@ public class JobConfigParser {
 
     private JobConfig jobConfig;
 
+    private Config seaTunnelJobConfig;
+
+    private Config envConfigs;
+
     public JobConfigParser(@NonNull String jobDefineFilePath,
                            @NonNull IdGenerator idGenerator,
                            @NonNull JobConfig jobConfig) {
         this.jobDefineFilePath = jobDefineFilePath;
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
+        this.seaTunnelJobConfig = new ConfigBuilder(Paths.get(jobDefineFilePath)).getConfig();
+        this.envConfigs = seaTunnelJobConfig.getConfig("env");
     }
 
     public ImmutablePair<List<Action>, Set<URL>> parse() {
-        Config seaTunnelJobConfig = new ConfigBuilder(Paths.get(jobDefineFilePath)).getConfig();
-        Config envConfigs = seaTunnelJobConfig.getConfig("env");
         List<? extends Config> sinkConfigs = seaTunnelJobConfig.getConfigList("sink");
         List<? extends Config> transformConfigs = seaTunnelJobConfig.getConfigList("transform");
         List<? extends Config> sourceConfigs = seaTunnelJobConfig.getConfigList("source");
@@ -112,6 +117,9 @@ public class JobConfigParser {
             jobConfig.getJobContext().setJobMode(envConfigs.getEnum(JobMode.class, "job.mode"));
         } else {
             jobConfig.getJobContext().setJobMode(JobMode.BATCH);
+        }
+        if (envConfigs.hasPath("checkpoint.interval")) {
+            jobConfig.getEnvOptions().put(ServerConfigOptions.CHECKPOINT_INTERVAL.key(), envConfigs.getInt("checkpoint.interval"));
         }
     }
 
@@ -322,7 +330,11 @@ public class JobConfigParser {
             int sourceParallelism = sourceConfig.getInt(CollectionConstants.PARALLELISM);
             return Math.max(sourceParallelism, 1);
         }
-        return 1;
+        int executionParallelism = 0;
+        if (envConfigs.hasPath(CollectionConstants.PARALLELISM)) {
+            executionParallelism = envConfigs.getInt(CollectionConstants.PARALLELISM);
+        }
+        return Math.max(executionParallelism, 1);
     }
 
     private SourceAction createSourceAction(long id,

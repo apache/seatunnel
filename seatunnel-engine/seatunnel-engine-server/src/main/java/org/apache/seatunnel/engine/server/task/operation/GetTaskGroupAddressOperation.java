@@ -66,13 +66,13 @@ public class GetTaskGroupAddressOperation extends Operation implements Identifie
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        taskLocation.writeData(out);
+        out.writeObject(taskLocation);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        taskLocation.readData(in);
+        taskLocation = in.readObject();
     }
 
     @Override
@@ -82,6 +82,6 @@ public class GetTaskGroupAddressOperation extends Operation implements Identifie
 
     @Override
     public int getClassId() {
-        return TaskDataSerializerHook.CLOSE_REQUEST_TYPE;
+        return TaskDataSerializerHook.GET_TASKGROUP_ADDRESS_TYPE;
     }
 }

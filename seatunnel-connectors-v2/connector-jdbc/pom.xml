@@ -35,6 +35,7 @@
         <dm-jdbc.version>8.1.2.141</dm-jdbc.version>
         <sqlserver.version>9.2.1.jre8</sqlserver.version>
         <phoenix.version>5.2.5-HBase-2.x</phoenix.version>
+        <oracle.version>12.2.0.1</oracle.version>
     </properties>
 
     <dependencyManagement>
@@ -69,6 +70,13 @@
                 <version>${sqlserver.version}</version>
                 <scope>provided</scope>
             </dependency>
+            <dependency>
+                <groupId>com.oracle.database.jdbc</groupId>
+                <artifactId>ojdbc8</artifactId>
+                <version>${oracle.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
@@ -95,6 +103,10 @@
         <dependency>
             <groupId>com.microsoft.sqlserver</groupId>
             <artifactId>mssql-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ojdbc8</artifactId>
         </dependency>
     </dependencies>
 

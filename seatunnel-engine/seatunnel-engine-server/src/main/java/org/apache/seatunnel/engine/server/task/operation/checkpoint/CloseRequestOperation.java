@@ -50,7 +50,8 @@ public class CloseRequestOperation extends Operation implements IdentifiedDataSe
             task.close();
             return null;
         }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException, Constant.OPERATION_RETRY_SLEEP));
+            exception -> exception instanceof NullPointerException &&
+                !server.taskIsEnded(readerLocation.getTaskGroupLocation()), Constant.OPERATION_RETRY_SLEEP));
     }
 
     @Override
@@ -61,13 +62,13 @@ public class CloseRequestOperation extends Operation implements IdentifiedDataSe
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        readerLocation.writeData(out);
+        out.writeObject(readerLocation);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        readerLocation.readData(in);
+        readerLocation = in.readObject();
     }
 
     @Override

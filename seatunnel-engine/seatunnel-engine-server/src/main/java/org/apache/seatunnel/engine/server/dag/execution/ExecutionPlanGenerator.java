@@ -194,7 +194,7 @@ public class ExecutionPlanGenerator {
                 action.getName(),
                 ((SinkAction<?, ?, ?, ?>) action).getSink(),
                 action.getJarUrls());
-        } else if (action instanceof SourceAction){
+        } else if (action instanceof SourceAction) {
             newAction = new SourceAction<>(id,
                 action.getName(),
                 ((SourceAction<?, ?, ?>) action).getSource(),

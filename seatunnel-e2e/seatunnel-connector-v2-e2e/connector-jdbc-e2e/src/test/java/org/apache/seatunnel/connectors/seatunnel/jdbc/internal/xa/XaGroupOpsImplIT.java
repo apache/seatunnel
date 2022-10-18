@@ -26,17 +26,17 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.DataSourceUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
 
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import javax.sql.XADataSource;
 import javax.transaction.xa.XAException;
@@ -45,10 +45,12 @@ import javax.transaction.xa.Xid;
 
 import java.util.stream.Stream;
 
+@Slf4j
 @Disabled("Temporary fast fix, reason: JdbcDatabaseContainer: ClassNotFoundException: com.mysql.jdbc.Driver")
 class XaGroupOpsImplIT {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(XaGroupOpsImplIT.class);
+    private static final String MYSQL_DOCKER_IMAGE = "mysql:8.0.29";
+
     private MySQLContainer<?> mc;
     private XaGroupOps xaGroupOps;
     private SemanticXidGenerator xidGenerator;
@@ -59,9 +61,9 @@ class XaGroupOpsImplIT {
     @BeforeEach
     void before() throws Exception {
         // Non-root users need to grant XA_RECOVER_ADMIN permission
-        mc = new MySQLContainer<>(DockerImageName.parse("mysql:8.0.29"))
+        mc = new MySQLContainer<>(DockerImageName.parse(MYSQL_DOCKER_IMAGE))
             .withUsername("root")
-            .withLogConsumer(new Slf4jLogConsumer(LOGGER));
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_DOCKER_IMAGE)));
         Startables.deepStart(Stream.of(mc)).join();
 
         jdbcConnectionOptions = JdbcConnectionOptions.builder()

@@ -25,9 +25,9 @@ import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit> implements SourceSplitEnumerator.Context<SplitT> {
 
@@ -47,20 +47,20 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit> impleme
 
     @Override
     public Set<Integer> registeredReaders() {
-        return task.getRegisteredReaders().stream().map(Long::intValue).collect(Collectors.toSet());
+        return new HashSet<>(task.getRegisteredReaders());
     }
 
     @Override
-    public void assignSplit(int subtaskId, List<SplitT> splits) {
-        task.getExecutionContext().sendToMember(new AssignSplitOperation<>(task.getTaskMemberLocation(subtaskId),
-            SerializationUtils.serialize(splits.toArray())), task.getTaskMemberAddr(subtaskId));
+    public void assignSplit(int subtaskIndex, List<SplitT> splits) {
+        task.getExecutionContext().sendToMember(new AssignSplitOperation<>(task.getTaskMemberLocationByIndex(subtaskIndex),
+            SerializationUtils.serialize(splits.toArray())), task.getTaskMemberAddressByIndex(subtaskIndex));
     }
 
     @Override
-    public void signalNoMoreSplits(int subtaskId) {
+    public void signalNoMoreSplits(int subtaskIndex) {
         task.getExecutionContext().sendToMember(
-            new AssignSplitOperation<>(task.getTaskMemberLocation(subtaskId), SerializationUtils.serialize(Collections.emptyList().toArray())),
-            task.getTaskMemberAddr(subtaskId));
+            new AssignSplitOperation<>(task.getTaskMemberLocationByIndex(subtaskIndex), SerializationUtils.serialize(Collections.emptyList().toArray())),
+            task.getTaskMemberAddressByIndex(subtaskIndex));
     }
 
     @Override

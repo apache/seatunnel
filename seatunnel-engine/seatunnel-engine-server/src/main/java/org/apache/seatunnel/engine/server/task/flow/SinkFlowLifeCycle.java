@@ -124,17 +124,17 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     prepareClose = true;
                 }
                 if (barrier.snapshot()) {
-                    if (!writerStateSerializer.isPresent()) {
-                        runningTask.addState(barrier, sinkAction.getId(), Collections.emptyList());
-                    } else {
-                        List<StateT> states = writer.snapshotState(barrier.getId());
-                        runningTask.addState(barrier, sinkAction.getId(), serializeStates(writerStateSerializer.get(), states));
-                    }
                     try {
                         lastCommitInfo = writer.prepareCommit();
                     } catch (Exception e) {
                         writer.abortPrepare();
                         throw e;
+                    }
+                    if (!writerStateSerializer.isPresent()) {
+                        runningTask.addState(barrier, sinkAction.getId(), Collections.emptyList());
+                    } else {
+                        List<StateT> states = writer.snapshotState(barrier.getId());
+                        runningTask.addState(barrier, sinkAction.getId(), serializeStates(writerStateSerializer.get(), states));
                     }
                     if (containAggCommitter) {
                         lastCommitInfo.ifPresent(commitInfoT -> runningTask.getExecutionContext().sendToMember(new SinkPrepareCommitOperation(barrier, committerTaskLocation,

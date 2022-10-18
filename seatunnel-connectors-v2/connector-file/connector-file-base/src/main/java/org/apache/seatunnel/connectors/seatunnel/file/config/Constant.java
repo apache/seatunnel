@@ -22,10 +22,11 @@ public class Constant {
     public static final String NON_PARTITION = "NON_PARTITION";
     public static final String TRANSACTION_ID_SPLIT = "_";
     public static final String TRANSACTION_EXPRESSION = "transactionId";
-
     public static final String SAVE_MODE = "save_mode";
     public static final String COMPRESS_CODEC = "compress_codec";
-
+    public static final String DATE_FORMAT = "date_format";
+    public static final String DATETIME_FORMAT = "datetime_format";
+    public static final String TIME_FORMAT = "time_format";
     public static final String PATH = "path";
     public static final String FIELD_DELIMITER = "field_delimiter";
     public static final String ROW_DELIMITER = "row_delimiter";

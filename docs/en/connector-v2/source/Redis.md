@@ -17,15 +17,16 @@ Used to read data from Redis.
 
 ##  Options
 
-| name      | type   | required | default value |
-|-----------|--------|----------|---------------|
-| host      | string | yes      | -             |
-| port      | int    | yes      | -             |
-| keys      | string | yes      | -             |
-| data_type | string | yes      | -             |
-| auth      | string | No       | -             |
-| schema    | config | No       | -             |
-| format    | string | No       | json          |
+| name           | type   | required | default value |
+|--------------- |--------|----------|---------------|
+| host           | string | yes      | -             |
+| port           | int    | yes      | -             |
+| keys           | string | yes      | -             |
+| data_type      | string | yes      | -             |
+| auth           | string | No       | -             |
+| schema         | config | No       | -             |
+| format         | string | No       | json          |
+| common-options |        | no       | -             |
 
 ### host [string]
 
@@ -125,6 +126,10 @@ connector will generate data as the following:
 #### fields [Config]
 
 the schema fields of upstream data
+
+### common options 
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
 ## Example
 
