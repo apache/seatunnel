@@ -28,7 +28,6 @@
 
     <artifactId>connector-clickhouse</artifactId>
     <properties>
-        <clickhouse.version>0.3.2-patch9</clickhouse.version>
         <sshd.scp.version>2.7.0</sshd.scp.version>
     </properties>
     <dependencies>
@@ -54,12 +53,6 @@
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
             <version>2.11.0</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.clickhouse</groupId>
-            <artifactId>clickhouse-jdbc</artifactId>
-            <version>${clickhouse.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
