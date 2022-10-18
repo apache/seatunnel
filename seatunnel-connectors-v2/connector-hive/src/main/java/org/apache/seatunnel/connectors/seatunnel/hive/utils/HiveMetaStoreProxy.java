@@ -67,12 +67,19 @@ public class HiveMetaStoreProxy {
         }
     }
 
-    public List<FieldSchema> getTableFields(@NonNull String dbName, @NonNull String tableName) {
-        try {
-            return hiveMetaStoreClient.getFields(dbName, tableName);
-        } catch (TException e) {
-            String errorMsg = String.format("Get table [%s.%s] fields information failed", dbName, tableName);
-            throw new RuntimeException(errorMsg, e);
+    public void addPartitions(@NonNull String dbName,
+                              @NonNull String tableName,
+                              List<String> partitions) throws TException {
+        for (String partition : partitions) {
+            hiveMetaStoreClient.appendPartition(dbName, tableName, partition);
+        }
+    }
+
+    public void dropPartitions(@NonNull String dbName,
+                               @NonNull String tableName,
+                               List<String> partitions) throws TException {
+        for (String partition : partitions) {
+            hiveMetaStoreClient.dropPartition(dbName, tableName, partition, false);
         }
     }
 
