@@ -77,6 +77,12 @@
                 <version>${oracle.version}</version>
                 <scope>provided</scope>
             </dependency>
+            <dependency>
+                <groupId>com.ibm.db2.jcc</groupId>
+                <artifactId>db2jcc</artifactId>
+                <version>${db2.version}</version>
+                <scope>provided</scope>
+            </dependency>
 
         </dependencies>
     </dependencyManagement>
@@ -112,7 +118,6 @@
         <dependency>
             <groupId>com.ibm.db2.jcc</groupId>
             <artifactId>db2jcc</artifactId>
-            <version>${db2.version}</version>
         </dependency>
     </dependencies>
 

@@ -40,35 +40,36 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
      * <a href="https://hub.docker.com/r/ibmcom/db2">db2 in dockerhub</a>
      */
     private static final String IMAGE = "ibmcom/db2:latest";
-    private static final String HOST = "spark_e2e_db2";
+    private static final String HOST = "e2e_db2";
     private static final int PORT = 50000;
-    private static final int LOCAL_PORT = 50000;
+    private static final int LOCAL_PORT = 50001;
     private static final String USER = "DB2INST1";
     private static final String PASSWORD = "123456";
     private static final String DRIVER = "com.ibm.db2.jcc.DB2Driver";
 
-    private static final String DATABASE = "testdb";
+    private static final String DATABASE = "E2E";
     private static final String SOURCE_TABLE = "E2E_TABLE_SOURCE";
     private static final String SINK_TABLE = "E2E_TABLE_SINK";
     private String jdbcUrl;
-    private GenericContainer<?> dbserver;
+    private GenericContainer<?> dbServer;
     private Connection jdbcConnection;
 
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        dbserver = new GenericContainer<>(IMAGE)
-            .withNetwork(TestContainer.NETWORK)
+        dbServer = new GenericContainer<>(IMAGE)
+            .withNetwork(NETWORK)
             .withNetworkAliases(HOST)
             .withPrivilegedMode(true)
             .withLogConsumer(new Slf4jLogConsumer(LOG))
             .withEnv("DB2INST1_PASSWORD", PASSWORD)
             .withEnv("DBNAME", DATABASE)
             .withEnv("LICENSE", "accept")
+            .withSharedMemorySize(4 * 1024 * 1024 * 1024L)
         ;
-        dbserver.setPortBindings(Lists.newArrayList(String.format("%s:%s", LOCAL_PORT, PORT)));
-        Startables.deepStart(Stream.of(dbserver)).join();
-        jdbcUrl = String.format("jdbc:db2://%s:%s/%s", dbserver.getHost(), LOCAL_PORT, DATABASE);
+        dbServer.setPortBindings(Lists.newArrayList(String.format("%s:%s", LOCAL_PORT, PORT)));
+        Startables.deepStart(Stream.of(dbServer)).join();
+        jdbcUrl = String.format("jdbc:db2://%s:%s/%s", dbServer.getHost(), LOCAL_PORT, DATABASE);
         LOG.info("DB2 container started");
         given().ignoreExceptions()
             .await()
@@ -82,8 +83,8 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
         if (jdbcConnection != null) {
             jdbcConnection.close();
         }
-        if (dbserver != null) {
-            dbserver.close();
+        if (dbServer != null) {
+            dbServer.close();
         }
     }
 
@@ -127,11 +128,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private void assertHasData(String table) throws SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException {
-        if(jdbcConnection.isValid(10)){
-            initializeJdbcConnection();
-        }
-
+    private void assertHasData(String table) {
         try (Statement statement = jdbcConnection.createStatement()) {
             String sql = String.format("select * from \"%s\".%s", USER, table);
             ResultSet source = statement.executeQuery(sql);
@@ -142,13 +139,13 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
     }
 
     @Test
-    void pullImageOK() throws SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException {
+    void pullImageOK() {
         assertHasData(SOURCE_TABLE);
     }
 
     @TestTemplate
     @DisplayName("JDBC-Db2 end to end test")
-    public void testJdbcSourceAndSink(TestContainer container) throws IOException, InterruptedException, SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException {
+    public void testJdbcSourceAndSink(TestContainer container) throws IOException, InterruptedException {
         assertHasData(SOURCE_TABLE);
         Container.ExecResult execResult = container.executeJob("/jdbc_db2_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());

@@ -76,6 +76,11 @@
             <artifactId>ojdbc8</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.ibm.db2.jcc</groupId>
+            <artifactId>db2jcc</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
 </project>
