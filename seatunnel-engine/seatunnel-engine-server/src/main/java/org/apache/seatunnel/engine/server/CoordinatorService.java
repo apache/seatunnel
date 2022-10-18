@@ -194,7 +194,7 @@ public class CoordinatorService {
         try {
             jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp());
         } catch (Exception e) {
-            throw new SeaTunnelEngineException(String.format("Job id %s init JobMaster failed", jobId));
+            throw new SeaTunnelEngineException(String.format("Job id %s init JobMaster failed", jobId), e);
         }
 
         String jobFullName = jobMaster.getPhysicalPlan().getJobFullName();
@@ -264,7 +264,7 @@ public class CoordinatorService {
         } catch (Exception e) {
             isActive = false;
             logger.severe(ExceptionUtils.getMessage(e));
-            throw new SeaTunnelEngineException("check new active master error, stop loop");
+            throw new SeaTunnelEngineException("check new active master error, stop loop", e);
         }
     }
 
@@ -278,7 +278,7 @@ public class CoordinatorService {
             executorService.awaitTermination(20, TimeUnit.SECONDS);
             runningJobMasterMap = new ConcurrentHashMap<>();
         } catch (InterruptedException e) {
-            throw new SeaTunnelEngineException("wait clean executor service error");
+            throw new SeaTunnelEngineException("wait clean executor service error", e);
         }
 
         if (resourceManager != null) {
