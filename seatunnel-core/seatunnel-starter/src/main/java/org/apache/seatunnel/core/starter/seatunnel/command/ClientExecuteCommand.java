@@ -73,11 +73,11 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         } catch (ExecutionException | InterruptedException e) {
             throw new CommandExecuteException("SeaTunnel job executed failed", e);
         } finally {
-            if (instance != null) {
-                instance.shutdown();
-            }
             if (clientJobProxy != null) {
                 clientJobProxy.close();
+            }
+            if (instance != null) {
+                instance.shutdown();
             }
         }
     }

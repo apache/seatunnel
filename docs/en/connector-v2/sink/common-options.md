@@ -5,6 +5,8 @@
 | name              | type   | required | default value |
 | ----------------- | ------ | -------- | ------------- |
 | source_table_name | string | no       | -             |
+| parallelism       | int    | no       | -             |
+
 
 ### source_table_name [string]
 
@@ -12,11 +14,18 @@ When `source_table_name` is not specified, the current plug-in processes the dat
 
 When `source_table_name` is specified, the current plug-in is processing the data set corresponding to this parameter.
 
+### parallelism [int]
+
+When `parallelism` is not specified, the `parallelism` in env is used by default.
+
+When parallelism is specified, it will override the parallelism in env.
+
 ## Examples
 
 ```bash
 source {
     FakeSourceStream {
+      parallelism = 2
       result_table_name = "fake"
       field_name = "name,age"
     }
@@ -37,6 +46,7 @@ transform {
 
 sink {
     console {
+      parallelism = 3
       source_table_name = "fake_name"
     }
 }
