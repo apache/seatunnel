@@ -114,6 +114,9 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
     }
 
     private Object resolveObject(Object field, SeaTunnelDataType<?> fieldType) {
+        if (field == null) {
+            return null;
+        }
         switch (fieldType.getSqlType()) {
             case ARRAY:
                 ArrayList<Object> origArray = new ArrayList<>();
