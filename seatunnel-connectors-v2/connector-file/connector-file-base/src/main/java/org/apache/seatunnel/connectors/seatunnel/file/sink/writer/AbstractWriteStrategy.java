@@ -35,6 +35,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 
 import com.google.common.collect.Lists;
+import lombok.Getter;
 import lombok.NonNull;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -303,5 +304,9 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         String tmpPath = seaTunnelFilePath.replaceAll(Matcher.quoteReplacement(transactionDirectory),
                 Matcher.quoteReplacement(textFileSinkConfig.getPath()));
         return tmpPath.replaceAll(Constant.NON_PARTITION + Matcher.quoteReplacement(File.separator), "");
+    }
+
+    public long getCheckpointId() {
+        return this.checkpointId;
     }
 }

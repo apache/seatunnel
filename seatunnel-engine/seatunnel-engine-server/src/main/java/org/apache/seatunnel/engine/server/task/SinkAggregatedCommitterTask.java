@@ -95,7 +95,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
     public void init() throws Exception {
         super.init();
         currState = INIT;
-        this.checkpointBarrierCounter = new HashMap<>();
+        this.checkpointBarrierCounter = new ConcurrentHashMap<>();
         this.commitInfoCache = new ConcurrentHashMap<>();
         this.writerAddressMap = new ConcurrentHashMap<>();
         this.checkpointCommitInfoMap = new ConcurrentHashMap<>();
@@ -185,6 +185,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
                 checkpointCommitInfoMap.put(barrier.getId(), Collections.singletonList(aggregatedCommitInfoT));
             }
             List<byte[]> states = serializeStates(aggregatedCommitInfoSerializer, checkpointCommitInfoMap.getOrDefault(barrier.getId(), Collections.emptyList()));
+            System.out.println("-----------------------------------TaskAcknowledgeOperation--------------------" + this.taskLocation);
             this.getExecutionContext().sendToMaster(new TaskAcknowledgeOperation(this.taskLocation, (CheckpointBarrier) barrier,
                 Collections.singletonList(new ActionSubtaskState(sink.getId(), -1, states))));
         }

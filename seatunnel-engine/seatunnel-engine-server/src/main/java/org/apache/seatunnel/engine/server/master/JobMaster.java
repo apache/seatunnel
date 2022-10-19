@@ -152,7 +152,8 @@ public class JobMaster extends Thread {
             jobImmutableInformation.getJobId(),
             nodeEngine,
             planTuple.f1(),
-            checkpointConfig);
+            checkpointConfig,
+            this);
     }
 
     // TODO replace it after ReadableConfig Support parse yaml format, then use only one config to read engine and env config.

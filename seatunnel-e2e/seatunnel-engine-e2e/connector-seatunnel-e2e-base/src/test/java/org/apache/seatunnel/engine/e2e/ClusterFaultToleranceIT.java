@@ -121,6 +121,7 @@ public class ClusterFaultToleranceIT {
             Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
             Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
         } finally {
+            log.info("====================================shutdown cluster " + testClusterName + "=======================================");
             if (engineClient != null) {
                 engineClient.shutdown();
             }
@@ -237,6 +238,7 @@ public class ClusterFaultToleranceIT {
             Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
 
         } finally {
+            log.info("====================================shutdown cluster " + testClusterName + "=======================================");
             if (engineClient != null) {
                 engineClient.shutdown();
             }
@@ -310,6 +312,7 @@ public class ClusterFaultToleranceIT {
                 });
 
             // shutdown on worker node
+            log.info("====================================shutdown node2 " + testClusterName + "=======================================");
             node2.shutdown();
 
             Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
@@ -320,6 +323,7 @@ public class ClusterFaultToleranceIT {
             Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
 
         } finally {
+            log.info("====================================shutdown cluster " + testClusterName + "=======================================");
             if (engineClient != null) {
                 engineClient.shutdown();
             }
@@ -394,6 +398,7 @@ public class ClusterFaultToleranceIT {
 
             Thread.sleep(5000);
             // shutdown on worker node
+            log.info("====================================shutdown node2 " + testClusterName + "=======================================");
             node2.shutdown();
 
             Awaitility.await().atMost(180000, TimeUnit.MILLISECONDS)
@@ -418,6 +423,7 @@ public class ClusterFaultToleranceIT {
             Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
 
         } finally {
+            log.info("====================================shutdown cluster " + testClusterName + "=======================================");
             if (engineClient != null) {
                 engineClient.shutdown();
             }
@@ -491,6 +497,7 @@ public class ClusterFaultToleranceIT {
                 });
 
             // shutdown master node
+            log.info("====================================shutdown node1 " + testClusterName + "=======================================");
             node1.shutdown();
 
             Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
@@ -501,6 +508,7 @@ public class ClusterFaultToleranceIT {
             Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
 
         } finally {
+            log.info("====================================shutdown cluster " + testClusterName + "=======================================");
             if (engineClient != null) {
                 engineClient.shutdown();
             }
@@ -574,6 +582,7 @@ public class ClusterFaultToleranceIT {
                 });
 
             // shutdown master node
+            log.info("====================================shutdown node1 " + testClusterName + "=======================================");
             node1.shutdown();
 
             Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
@@ -598,6 +607,7 @@ public class ClusterFaultToleranceIT {
             Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
 
         } finally {
+            log.info("====================================shutdown cluster " + testClusterName + "=======================================");
             if (engineClient != null) {
                 engineClient.shutdown();
             }

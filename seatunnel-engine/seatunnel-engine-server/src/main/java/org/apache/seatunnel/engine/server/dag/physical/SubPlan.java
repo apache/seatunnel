@@ -21,6 +21,7 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineState;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.master.JobMaster;
@@ -381,6 +382,8 @@ public class SubPlan {
             restorePipeline();
         } else if (PipelineState.CANCELING.equals(getPipelineState())) {
             cancelPipelineTasks();
+        } else if (PipelineState.RUNNING.equals(getPipelineState())) {
+            jobMaster.getCheckpointManager().
         }
     }
 

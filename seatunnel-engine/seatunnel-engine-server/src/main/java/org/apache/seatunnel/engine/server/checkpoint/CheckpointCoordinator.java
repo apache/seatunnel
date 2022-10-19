@@ -261,13 +261,13 @@ public class CheckpointCoordinator {
 
     private void startTriggerPendingCheckpoint(CompletableFuture<PendingCheckpoint> pendingCompletableFuture) {
         pendingCompletableFuture.thenAcceptAsync(pendingCheckpoint -> {
-            LOG.debug("wait checkpoint completed: " + pendingCheckpoint);
+            LOG.info("wait checkpoint completed: " + pendingCheckpoint.getCheckpointId());
             PassiveCompletableFuture<CompletedCheckpoint> completableFuture = pendingCheckpoint.getCompletableFuture();
             completableFuture.thenAcceptAsync(this::completePendingCheckpoint);
 
             if (COMPLETED_POINT_TYPE != pendingCheckpoint.getCheckpointType()) {
                 // Trigger the barrier and wait for all tasks to ACK
-                LOG.debug("trigger checkpoint barrier" + pendingCheckpoint);
+                LOG.info("trigger checkpoint barrier" + pendingCheckpoint);
                 CompletableFuture.supplyAsync(() ->
                         new CheckpointBarrier(pendingCheckpoint.getCheckpointId(),
                             pendingCheckpoint.getCheckpointTimestamp(),
@@ -276,7 +276,7 @@ public class CheckpointCoordinator {
                     .thenApplyAsync(invocationFutures -> CompletableFuture.allOf(invocationFutures).join());
             }
 
-            LOG.debug("Start a scheduled task to prevent checkpoint timeouts");
+            LOG.info("Start a scheduled task to prevent checkpoint timeouts");
             scheduler.schedule(() -> {
                     // If any task is not acked within the checkpoint timeout
                     if (pendingCheckpoints.get(pendingCheckpoint.getCheckpointId()) != null && !pendingCheckpoint.isFullyAcknowledged()) {
@@ -352,6 +352,7 @@ public class CheckpointCoordinator {
     }
 
     public InvocationFuture<?>[] triggerCheckpoint(CheckpointBarrier checkpointBarrier) {
+        System.out.println("--------------------triggerCheckpoint-----11111111-------------");
         // TODO: some tasks have completed and don't need to trigger
         return plan.getStartingSubtasks()
             .stream()
@@ -373,7 +374,7 @@ public class CheckpointCoordinator {
         final long checkpointId = ackOperation.getBarrier().getId();
         final PendingCheckpoint pendingCheckpoint = pendingCheckpoints.get(checkpointId);
         TaskLocation location = ackOperation.getTaskLocation();
-        LOG.debug("task[{}]({}/{}) ack. {}", location.getTaskID(), location.getPipelineId(), location.getJobId(), ackOperation.getBarrier().toString());
+        LOG.info("task[{}]({}/{}) ack. {}", location.getTaskID(), location.getPipelineId(), location.getJobId(), ackOperation.getBarrier().toString());
         if (ackOperation.getBarrier().getCheckpointType() == COMPLETED_POINT_TYPE) {
             synchronized (lock) {
                 if (pendingCheckpoints.get(Barrier.PREPARE_CLOSE_BARRIER_ID) == null) {

@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.job.Job;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishedOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
@@ -38,6 +39,7 @@ import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
@@ -46,11 +48,13 @@ import com.hazelcast.cluster.Address;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -77,15 +81,20 @@ public class CheckpointManager {
 
     private final CheckpointStorage checkpointStorage;
 
+    private final JobMaster jobMaster;
+
     public CheckpointManager(long jobId,
                              NodeEngine nodeEngine,
                              Map<Integer, CheckpointPlan> checkpointPlanMap,
-                             CheckpointConfig checkpointConfig) throws CheckpointStorageException {
+                             CheckpointConfig checkpointConfig,
+                             @NonNull JobMaster jobMaster) throws CheckpointStorageException {
         this.jobId = jobId;
         this.nodeEngine = nodeEngine;
-        this.subtaskWithAddresses = new HashMap<>();
+        this.subtaskWithAddresses = new ConcurrentHashMap<>();
+        this.jobMaster = jobMaster;
+
         this.checkpointStorage = FactoryUtil.discoverFactory(Thread.currentThread().getContextClassLoader(), CheckpointStorageFactory.class, checkpointConfig.getStorage().getStorage())
-            .create(new HashMap<>());
+            .create(new ConcurrentHashMap<>());
         IMap<Integer, Long> checkpointIdMap = nodeEngine.getHazelcastInstance().getMap(String.format("checkpoint-id-%d", jobId));
         this.coordinatorMap = checkpointPlanMap.values().parallelStream()
             .map(plan -> {
@@ -202,6 +211,7 @@ public class CheckpointManager {
      * <br> used for the ack of the checkpoint, including the state snapshot of all {@link Action} within the {@link Task}.
      */
     public void acknowledgeTask(TaskAcknowledgeOperation ackOperation) {
+        System.out.println("-----------------------------acknowledgeTask------------------------");
         CheckpointCoordinator coordinator = getCheckpointCoordinator(ackOperation.getTaskLocation());
         if (coordinator.isCompleted()) {
             log.info("The checkpoint coordinator({}) is completed", ackOperation.getTaskLocation().getPipelineId());
@@ -211,6 +221,6 @@ public class CheckpointManager {
     }
 
     protected InvocationFuture<?> sendOperationToMemberNode(TaskOperation operation) {
-        return NodeEngineUtil.sendOperationToMemberNode(nodeEngine, operation, subtaskWithAddresses.get(operation.getTaskLocation().getTaskID()));
+        return NodeEngineUtil.sendOperationToMemberNode(nodeEngine, operation, jobMaster.queryTaskGroupAddress(operation.getTaskLocation().getTaskGroupLocation().getTaskGroupId()));
     }
 }

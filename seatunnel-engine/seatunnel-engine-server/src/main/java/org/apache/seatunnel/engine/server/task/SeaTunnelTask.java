@@ -76,6 +76,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
@@ -94,9 +95,9 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     protected List<CompletableFuture<Void>> flowFutures;
 
-    protected final Map<Long, List<ActionSubtaskState>> checkpointStates = new HashMap<>();
+    protected final Map<Long, List<ActionSubtaskState>> checkpointStates = new ConcurrentHashMap<>();
 
-    private final Map<Long, Integer> cycleAcks = new HashMap<>();
+    private final Map<Long, Integer> cycleAcks = new ConcurrentHashMap<>();
 
     protected int indexID;
 
