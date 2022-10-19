@@ -55,9 +55,9 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
                         .collect(Collectors.toList());
                 try {
                     hiveMetaStore.addPartitions(dbName, tableName, partitions);
-                    log.info("Msck repair these partitions [{}]", String.join(",", partitions));
+                    log.info("Msck repair these partitions [{}]", partitions);
                 } catch (TException e) {
-                    log.error("Failed to msck these partitions [{}]", String.join(",", partitions));
+                    log.error("Failed to msck these partitions [{}]", partitions);
                     errorCommitInfos.add(aggregatedCommitInfo);
                 }
             }
@@ -77,9 +77,9 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
                     .collect(Collectors.toList());
             try {
                 hiveMetaStore.dropPartitions(dbName, tableName, partitions);
-                log.info("Remove these partitions [{}]", String.join(",", partitions));
+                log.info("Remove these partitions [{}]", partitions);
             } catch (TException e) {
-                log.error("Failed to remove these partitions [{}]", String.join(",", partitions));
+                log.error("Failed to remove these partitions [{}]", partitions);
             }
         }
         hiveMetaStore.close();
