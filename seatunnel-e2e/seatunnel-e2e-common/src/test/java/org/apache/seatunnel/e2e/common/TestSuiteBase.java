@@ -17,9 +17,11 @@
 
 package org.apache.seatunnel.e2e.common;
 
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainersFactory;
 import org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestCaseInvocationContextProvider;
 import org.apache.seatunnel.e2e.common.junit.TestContainers;
 import org.apache.seatunnel.e2e.common.junit.TestLoggerExtension;
@@ -35,6 +37,7 @@ import org.testcontainers.containers.Network;
     TestCaseInvocationContextProvider.class
 })
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@DisabledOnContainer(value = {}, type = EngineType.SEATUNNEL, disabledReason = "TODO: SeaTunnel engine e2e test isn't completed")
 public abstract class TestSuiteBase {
 
     protected static final Network NETWORK = TestContainer.NETWORK;

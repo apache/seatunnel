@@ -20,6 +20,7 @@ package org.apache.seatunnel.e2e.flink.sql;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyConfigFileToContainer;
 
 import org.apache.seatunnel.e2e.common.AbstractFlinkContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
 
 import org.testcontainers.containers.Container;
 
@@ -33,8 +34,8 @@ import java.io.IOException;
 public abstract class FlinkContainer extends AbstractFlinkContainer {
 
     @Override
-    public String identifier() {
-        return "connector-v1/flink-sql:1.13.6";
+    public TestContainerId identifier() {
+        return TestContainerId.FLINK_1_13;
     }
 
     @Override

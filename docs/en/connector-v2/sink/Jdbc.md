@@ -107,6 +107,7 @@ In the case of is_exactly_once = "true", Xa transactions are used. This requires
 ## appendix
 
 there are some reference value for params above.
+
 | datasource | driver                                       | url                                                          | xa_data_source_class_name                          | maven                                                        |
 | ---------- | -------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------- | ------------------------------------------------------------ |
 | mysql      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                             | com.mysql.cj.jdbc.MysqlXADataSource                | https://mvnrepository.com/artifact/mysql/mysql-connector-java |
@@ -115,6 +116,7 @@ there are some reference value for params above.
 | phoenix    | org.apache.phoenix.queryserver.client.Driver | jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF | /                                                  | https://mvnrepository.com/artifact/com.aliyun.phoenix/ali-phoenix-shaded-thin-client |
 | sqlserver  | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:microsoft:sqlserver://localhost:1433                    | com.microsoft.sqlserver.jdbc.SQLServerXADataSource | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc |
 | oracle     | oracle.jdbc.OracleDriver                     | jdbc:oracle:thin:@localhost:1521/xepdb1                      | oracle.jdbc.xa.OracleXADataSource                  | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8 |
+| starrocks  | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                             | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java |
 
 ## Example
 

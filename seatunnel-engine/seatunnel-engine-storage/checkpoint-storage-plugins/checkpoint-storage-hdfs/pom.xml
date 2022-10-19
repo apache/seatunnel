@@ -34,7 +34,7 @@
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-shaded-hadoop-2</artifactId>
             <version>${flink-shaded-hadoop-2.version}</version>
-            <scope>compile</scope>
+            <scope>provided</scope>
             <exclusions>
                 <exclusion>
                     <groupId>org.apache.commons</groupId>

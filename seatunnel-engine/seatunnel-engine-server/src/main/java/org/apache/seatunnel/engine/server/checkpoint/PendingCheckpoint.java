@@ -22,7 +22,8 @@ import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
-import lombok.AllArgsConstructor;
+import com.beust.jcommander.internal.Nullable;
+import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,7 +33,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-@AllArgsConstructor
 public class PendingCheckpoint implements Checkpoint {
     private static final Logger LOG = LoggerFactory.getLogger(PendingCheckpoint.class);
     private final long jobId;
@@ -51,7 +51,29 @@ public class PendingCheckpoint implements Checkpoint {
 
     private final Map<Long, ActionState> actionStates;
 
-    private final CompletableFuture<PendingCheckpoint> completableFuture;
+    private final CompletableFuture<CompletedCheckpoint> completableFuture;
+
+    @Getter
+    private CheckpointException failureCause;
+
+    public PendingCheckpoint(long jobId,
+                             int pipelineId,
+                             long checkpointId,
+                             long triggerTimestamp,
+                             CheckpointType checkpointType,
+                             Set<Long> notYetAcknowledgedTasks,
+                             Map<Long, TaskStatistics> taskStatistics,
+                             Map<Long, ActionState> actionStates) {
+        this.jobId = jobId;
+        this.pipelineId = pipelineId;
+        this.checkpointId = checkpointId;
+        this.triggerTimestamp = triggerTimestamp;
+        this.checkpointType = checkpointType;
+        this.notYetAcknowledgedTasks = notYetAcknowledgedTasks;
+        this.taskStatistics = taskStatistics;
+        this.actionStates = actionStates;
+        this.completableFuture = new CompletableFuture<>();
+    }
 
     @Override
     public long getCheckpointId() {
@@ -86,7 +108,7 @@ public class PendingCheckpoint implements Checkpoint {
         return actionStates;
     }
 
-    public PassiveCompletableFuture<PendingCheckpoint> getCompletableFuture() {
+    public PassiveCompletableFuture<CompletedCheckpoint> getCompletableFuture() {
         return new PassiveCompletableFuture<>(completableFuture);
     }
 
@@ -114,7 +136,7 @@ public class PendingCheckpoint implements Checkpoint {
 
         if (isFullyAcknowledged()) {
             LOG.debug("checkpoint is full ack!");
-            completableFuture.complete(this);
+            completableFuture.complete(toCompletedCheckpoint());
         }
     }
 
@@ -122,7 +144,7 @@ public class PendingCheckpoint implements Checkpoint {
         return notYetAcknowledgedTasks.size() == 0;
     }
 
-    public CompletedCheckpoint toCompletedCheckpoint() {
+    private CompletedCheckpoint toCompletedCheckpoint() {
         return new CompletedCheckpoint(
             jobId,
             pipelineId,
@@ -132,5 +154,11 @@ public class PendingCheckpoint implements Checkpoint {
             System.currentTimeMillis(),
             actionStates,
             taskStatistics);
+    }
+
+    public void abortCheckpoint(CheckpointFailureReason failureReason,
+                                @Nullable Throwable cause) {
+        this.failureCause = new CheckpointException(failureReason, cause);
+        completableFuture.completeExceptionally(failureCause);
     }
 }

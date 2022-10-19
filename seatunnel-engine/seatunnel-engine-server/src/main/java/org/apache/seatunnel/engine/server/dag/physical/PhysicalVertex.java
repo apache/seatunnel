@@ -101,8 +101,6 @@ public class PhysicalVertex {
 
     private final NodeEngine nodeEngine;
 
-    private Address currentExecutionAddress;
-
     private TaskGroupImmutableInformation taskGroupImmutableInformation;
 
     private JobMaster jobMaster;
@@ -150,14 +148,15 @@ public class PhysicalVertex {
         this.nodeEngine = nodeEngine;
         this.taskFullName =
             String.format(
-                "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)]",
+                "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)], taskGroupLocation: [%s]",
                 jobImmutableInformation.getJobConfig().getName(),
                 jobImmutableInformation.getJobId(),
                 pipelineId,
                 totalPipelineNum,
                 taskGroup.getTaskGroupName(),
                 subTaskGroupIndex + 1,
-                parallelism);
+                parallelism,
+                taskGroupLocation);
         this.taskFuture = new CompletableFuture<>();
 
         this.runningJobStateIMap = runningJobStateIMap;
@@ -167,6 +166,9 @@ public class PhysicalVertex {
     public PassiveCompletableFuture<TaskExecutionState> initStateFuture() {
         this.taskFuture = new CompletableFuture<>();
         ExecutionState executionState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
+        if (executionState != null) {
+            LOGGER.info(String.format("The task %s is in state %s when init state future", taskFullName, executionState));
+        }
         // If the task state is CANCELING we need call noticeTaskExecutionServiceCancel().
         if (ExecutionState.CANCELING.equals(executionState)) {
             noticeTaskExecutionServiceCancel();
@@ -202,7 +204,6 @@ public class PhysicalVertex {
     // This method must not throw an exception
     public void deploy(@NonNull SlotProfile slotProfile) {
         try {
-            currentExecutionAddress = slotProfile.getWorker();
             if (slotProfile.getWorker().equals(nodeEngine.getThisAddress())) {
                 deployOnLocal(slotProfile);
             } else {
@@ -257,12 +258,11 @@ public class PhysicalVertex {
                 return false;
             }
 
+            updateStateTimestamps(endState);
+            runningJobStateIMap.set(taskGroupLocation, endState);
             LOGGER.info(String.format("%s turn to end state %s.",
                 taskFullName,
                 endState));
-            updateStateTimestamps(endState);
-
-            runningJobStateIMap.set(taskGroupLocation, endState);
             return true;
         }
     }
@@ -296,14 +296,12 @@ public class PhysicalVertex {
 
             // now do the actual state transition
             if (current.equals(runningJobStateIMap.get(taskGroupLocation))) {
+                updateStateTimestamps(targetState);
+                runningJobStateIMap.set(taskGroupLocation, targetState);
                 LOGGER.info(String.format("%s turn from state %s to %s.",
                     taskFullName,
                     current,
                     targetState));
-
-                updateStateTimestamps(targetState);
-
-                runningJobStateIMap.set(taskGroupLocation, targetState);
                 return true;
             } else {
                 return false;
@@ -332,9 +330,10 @@ public class PhysicalVertex {
         while (!taskFuture.isDone()) {
             try {
                 i++;
+                LOGGER.info(String.format("send cancel %s operator to member %s", taskFullName, getCurrentExecutionAddress()));
                 nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
                         new CancelTaskOperation(taskGroupLocation),
-                        currentExecutionAddress)
+                        getCurrentExecutionAddress())
                     .invoke().get();
                 return;
             } catch (Exception e) {
@@ -403,7 +402,7 @@ public class PhysicalVertex {
     }
 
     public Address getCurrentExecutionAddress() {
-        return currentExecutionAddress;
+        return jobMaster.getOwnedSlotProfiles(taskGroupLocation).getWorker();
     }
 
     public TaskGroupLocation getTaskGroupLocation() {

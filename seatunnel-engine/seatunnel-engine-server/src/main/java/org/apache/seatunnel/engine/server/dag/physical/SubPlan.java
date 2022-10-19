@@ -143,28 +143,34 @@ public class SubPlan {
 
     private void addPhysicalVertexCallBack(PassiveCompletableFuture<TaskExecutionState> future) {
         future.thenAcceptAsync(executionState -> {
-            // We need not handle t, Because we will not return t from PhysicalVertex
-            if (ExecutionState.CANCELED.equals(executionState.getExecutionState())) {
-                canceledTaskNum.incrementAndGet();
-            } else if (ExecutionState.FAILED.equals(executionState.getExecutionState())) {
-                LOGGER.severe(String.format("Task Failed in %s, Begin to cancel other tasks in this pipeline.",
-                    this.getPipelineFullName()));
-                failedTaskNum.incrementAndGet();
-                cancelPipeline();
-            }
-
-            if (finishedTaskNum.incrementAndGet() == (physicalVertexList.size() + coordinatorVertexList.size())) {
-                if (failedTaskNum.get() > 0) {
-                    turnToEndState(PipelineState.FAILED);
-                    LOGGER.info(String.format("%s end with state FAILED", this.pipelineFullName));
-                } else if (canceledTaskNum.get() > 0) {
-                    turnToEndState(PipelineState.CANCELED);
-                    LOGGER.info(String.format("%s end with state CANCELED", this.pipelineFullName));
-                } else {
-                    turnToEndState(PipelineState.FINISHED);
-                    LOGGER.info(String.format("%s end with state FINISHED", this.pipelineFullName));
+            try {
+                // We need not handle t, Because we will not return t from PhysicalVertex
+                if (ExecutionState.CANCELED.equals(executionState.getExecutionState())) {
+                    canceledTaskNum.incrementAndGet();
+                } else if (ExecutionState.FAILED.equals(executionState.getExecutionState())) {
+                    LOGGER.severe(String.format("Task %s Failed in %s, Begin to cancel other tasks in this pipeline.",
+                        executionState.getTaskGroupLocation(),
+                        this.getPipelineFullName()));
+                    failedTaskNum.incrementAndGet();
+                    cancelPipeline();
                 }
-                pipelineFuture.complete((PipelineState) runningJobStateIMap.get(pipelineLocation));
+
+                if (finishedTaskNum.incrementAndGet() == (physicalVertexList.size() + coordinatorVertexList.size())) {
+                    if (failedTaskNum.get() > 0) {
+                        turnToEndState(PipelineState.FAILED);
+                        LOGGER.info(String.format("%s end with state FAILED", this.pipelineFullName));
+                    } else if (canceledTaskNum.get() > 0) {
+                        turnToEndState(PipelineState.CANCELED);
+                        LOGGER.info(String.format("%s end with state CANCELED", this.pipelineFullName));
+                    } else {
+                        turnToEndState(PipelineState.FINISHED);
+                        LOGGER.info(String.format("%s end with state FINISHED", this.pipelineFullName));
+                    }
+                    pipelineFuture.complete((PipelineState) runningJobStateIMap.get(pipelineLocation));
+                }
+            } catch (Throwable e) {
+                LOGGER.severe(String.format("Never come here. handle %s %s error",
+                    executionState.getTaskGroupLocation(), executionState.getExecutionState()), e);
             }
         });
     }
@@ -330,7 +336,9 @@ public class SubPlan {
                 pipelineRestoreNum++;
                 LOGGER.info(String.format("Restore pipeline %s", pipelineFullName));
                 // We must ensure the scheduler complete and then can handle pipeline state change.
-                jobMaster.getScheduleFuture().join();
+                if (jobMaster.getScheduleFuture() != null) {
+                    jobMaster.getScheduleFuture().join();
+                }
 
                 if (reSchedulerPipelineFuture != null) {
                     reSchedulerPipelineFuture.join();

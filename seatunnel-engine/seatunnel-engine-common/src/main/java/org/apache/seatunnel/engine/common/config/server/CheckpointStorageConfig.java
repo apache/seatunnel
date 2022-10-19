@@ -15,23 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.common;
+package org.apache.seatunnel.engine.common.config.server;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
+import lombok.Data;
 
-public class ExceptionUtil {
-    public static String getMessage(Throwable e) {
-        try (StringWriter sw = new StringWriter();
-             PrintWriter pw = new PrintWriter(sw)){
-            // Output the error stack information to the printWriter
-            e.printStackTrace(pw);
-            pw.flush();
-            sw.flush();
-            return sw.toString();
-        } catch (Exception e1) {
-            e1.printStackTrace();
-            throw new RuntimeException("Failed to print exception logs", e1);
-        }
-    }
+@Data
+public class CheckpointStorageConfig {
+
+    private String storage = ServerConfigOptions.CHECKPOINT_STORAGE_TYPE.defaultValue();
+
+    private int maxRetainedCheckpoints = ServerConfigOptions.CHECKPOINT_STORAGE_MAX_RETAINED.defaultValue();
 }

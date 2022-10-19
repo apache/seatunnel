@@ -58,7 +58,6 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.Timestamp;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -67,8 +66,6 @@ import java.util.Map;
 
 @Slf4j
 public class OrcReadStrategy extends AbstractReadStrategy {
-
-    private SeaTunnelRowType seaTunnelRowTypeInfo;
     private static final long MIN_SIZE = 16 * 1024;
 
     @Override
@@ -78,6 +75,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         }
         Configuration configuration = getConfiguration();
         Path filePath = new Path(path);
+        Map<String, String> partitionsMap = parsePartitionsByPath(path);
         OrcFile.ReaderOptions readerOptions = OrcFile.readerOptions(configuration);
         try (Reader reader = OrcFile.createReader(filePath, readerOptions)) {
             TypeDescription schema = reader.getSchema();
@@ -88,7 +86,16 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 int num = 0;
                 for (int i = 0; i < rowBatch.size; i++) {
                     int numCols = rowBatch.numCols;
-                    Object[] fields = new Object[numCols];
+                    Object[] fields;
+                    if (isMergePartition) {
+                        int index = numCols;
+                        fields = new Object[numCols + partitionsMap.size()];
+                        for (String value : partitionsMap.values()) {
+                            fields[index++] = value;
+                        }
+                    } else {
+                        fields = new Object[numCols];
+                    }
                     ColumnVector[] cols = rowBatch.cols;
                     for (int j = 0; j < numCols; j++) {
                         if (cols[j] == null) {
@@ -97,7 +104,8 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                             fields[j] = readColumn(cols[j], children.get(j), num);
                         }
                     }
-                    output.collect(new SeaTunnelRow(fields));
+                    SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+                    output.collect(seaTunnelRow);
                     num++;
                 }
             }
@@ -106,9 +114,6 @@ public class OrcReadStrategy extends AbstractReadStrategy {
 
     @Override
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) throws FilePluginException {
-        if (null != seaTunnelRowTypeInfo) {
-            return seaTunnelRowTypeInfo;
-        }
         Configuration configuration = getConfiguration(hadoopConf);
         OrcFile.ReaderOptions readerOptions = OrcFile.readerOptions(configuration);
         Path dstDir = new Path(path);
@@ -120,8 +125,9 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 fields[i] = schema.getFieldNames().get(i);
                 types[i] = orcDataType2SeaTunnelDataType(schema.getChildren().get(i));
             }
-            seaTunnelRowTypeInfo = new SeaTunnelRowType(fields, types);
-            return seaTunnelRowTypeInfo;
+            seaTunnelRowType = new SeaTunnelRowType(fields, types);
+            seaTunnelRowTypeWithPartition = mergePartitionTypes(path, seaTunnelRowType);
+            return getActualSeaTunnelRowTypeInfo();
         } catch (IOException e) {
             throw new FilePluginException("Create OrcReader Fail", e);
         }
@@ -229,7 +235,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 return new MapType<>(orcDataType2SeaTunnelDataType(keyType), orcDataType2SeaTunnelDataType(valueType));
             case STRUCT:
                 List<TypeDescription> children = typeDescription.getChildren();
-                String[] fieldNames = typeDescription.getFieldNames().toArray(new String[0]);
+                String[] fieldNames = typeDescription.getFieldNames().toArray(TYPE_ARRAY_STRING);
                 SeaTunnelDataType<?>[] fieldTypes = children.stream().map(this::orcDataType2SeaTunnelDataType).toArray(SeaTunnelDataType<?>[]::new);
                 return new SeaTunnelRowType(fieldNames, fieldTypes);
             default:
@@ -526,15 +532,15 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             }
         }
         if (childType.getCategory() == TypeDescription.Category.BOOLEAN) {
-            return longList.toArray(new Boolean[0]);
+            return longList.toArray(TYPE_ARRAY_BOOLEAN);
         } else if (childType.getCategory() == TypeDescription.Category.INT) {
-            return longList.toArray(new Integer[0]);
+            return longList.toArray(TYPE_ARRAY_INTEGER);
         } else if (childType.getCategory() == TypeDescription.Category.BYTE) {
-            return longList.toArray(new Byte[0]);
+            return longList.toArray(TYPE_ARRAY_BYTE);
         } else if (childType.getCategory() == TypeDescription.Category.SHORT) {
-            return longList.toArray(new Short[0]);
+            return longList.toArray(TYPE_ARRAY_SHORT);
         } else {
-            return longList.toArray(new Long[0]);
+            return longList.toArray(TYPE_ARRAY_LONG);
         }
     }
 
@@ -560,9 +566,9 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             }
         }
         if (colType.getCategory() == TypeDescription.Category.FLOAT) {
-            return doubleList.toArray(new Float[0]);
+            return doubleList.toArray(TYPE_ARRAY_FLOAT);
         } else {
-            return doubleList.toArray(new Double[0]);
+            return doubleList.toArray(TYPE_ARRAY_DOUBLE);
         }
     }
 
@@ -592,7 +598,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             }
         }
         if (childType.getCategory() == TypeDescription.Category.STRING) {
-            return bytesValList.toArray(new String[0]);
+            return bytesValList.toArray(TYPE_ARRAY_STRING);
         } else {
             return bytesValList.toArray();
         }
@@ -615,7 +621,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 decimalList.add(null);
             }
         }
-        return decimalList.toArray(new BigDecimal[0]);
+        return decimalList.toArray(TYPE_ARRAY_BIG_DECIMAL);
     }
 
     private Object readTimestampListValues(ListColumnVector listVector, TypeDescription childType, int rowNum) {
@@ -644,9 +650,9 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             }
         }
         if (childType.getCategory() == TypeDescription.Category.DATE) {
-            return timestampList.toArray(new LocalDate[0]);
+            return timestampList.toArray(TYPE_ARRAY_LOCAL_DATE);
         } else {
-            return timestampList.toArray(new LocalDateTime[0]);
+            return timestampList.toArray(TYPE_ARRAY_LOCAL_DATETIME);
         }
     }
 }
