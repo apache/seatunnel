@@ -64,7 +64,6 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
 
     private volatile boolean running = false;
 
-    KafkaSourceReader(ConsumerMetadata metadata, SeaTunnelRowType typeInfo,
     KafkaSourceReader(ConsumerMetadata metadata,
                       DeserializationSchema<SeaTunnelRow> deserializationSchema,
                       SourceReader.Context context) {
