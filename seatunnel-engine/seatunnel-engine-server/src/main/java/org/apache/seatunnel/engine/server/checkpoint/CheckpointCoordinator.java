@@ -282,7 +282,7 @@ public class CheckpointCoordinator {
                     if (pendingCheckpoints.get(pendingCheckpoint.getCheckpointId()) != null && !pendingCheckpoint.isFullyAcknowledged()) {
                         if (tolerableFailureCheckpoints-- <= 0) {
                             cleanPendingCheckpoint(CheckpointFailureReason.CHECKPOINT_EXPIRED);
-                            // TODO: notify job master to restore the pipeline.
+                            checkpointManager.handleCheckpointTimeout(pipelineId);
                         }
                     }
                 }, coordinatorConfig.getCheckpointTimeout(),
