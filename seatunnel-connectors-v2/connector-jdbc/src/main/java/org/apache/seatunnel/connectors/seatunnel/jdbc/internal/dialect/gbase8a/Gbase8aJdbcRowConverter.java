@@ -15,35 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.gbase8a;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 
-import lombok.Builder;
-import lombok.Data;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 
-import java.util.Map;
+public class Gbase8aJdbcRowConverter extends AbstractJdbcRowConverter {
+    @Override
+    public String converterName() {
+        return "Gbase8a";
+    }
 
-@Data
-@Builder
-public class JdbcCase {
-    private String dockerImage;
-    private String networkAliases;
-    private String driverClass;
-    private String host;
-    private String userName;
-    private String password;
-    private int port;
-    private String dataBase;
-    private String sourceTable;
-    private String sinkTable;
-    private String driverJar;
-    private String jdbcTemplate;
-    private String jdbcUrl;
-    private String ddlSource;
-    private String ddlSink;
-    private String initDataSql;
-    private String configFile;
-    private SeaTunnelRow seaTunnelRow;
-    private Map<String, String> containerEnv;
+    @SuppressWarnings("checkstyle:MagicNumber")
+    @Override
+    public SeaTunnelRow toInternal(ResultSet rs, ResultSetMetaData metaData, SeaTunnelRowType typeInfo) throws SQLException {
+        return super.toInternal(rs, metaData, typeInfo);
+    }
+
 }
