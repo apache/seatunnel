@@ -29,7 +29,6 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.job.Job;
 import org.apache.seatunnel.engine.core.job.JobStatus;
-import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishedOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
@@ -44,14 +43,11 @@ import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
-import com.hazelcast.cluster.Address;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
-import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -71,8 +67,6 @@ public class CheckpointManager {
 
     private final NodeEngine nodeEngine;
 
-    private final Map<Long, Address> subtaskWithAddresses;
-
     /**
      * key: the pipeline id of the job;
      * <br> value: the checkpoint coordinator of the pipeline;
@@ -85,14 +79,12 @@ public class CheckpointManager {
 
     public CheckpointManager(long jobId,
                              NodeEngine nodeEngine,
+                             JobMaster jobMaster,
                              Map<Integer, CheckpointPlan> checkpointPlanMap,
-                             CheckpointConfig checkpointConfig,
-                             @NonNull JobMaster jobMaster) throws CheckpointStorageException {
+                             CheckpointConfig checkpointConfig) throws CheckpointStorageException {
         this.jobId = jobId;
         this.nodeEngine = nodeEngine;
-        this.subtaskWithAddresses = new ConcurrentHashMap<>();
         this.jobMaster = jobMaster;
-
         this.checkpointStorage = FactoryUtil.discoverFactory(Thread.currentThread().getContextClassLoader(), CheckpointStorageFactory.class, checkpointConfig.getStorage().getStorage())
             .create(new ConcurrentHashMap<>());
         IMap<Integer, Long> checkpointIdMap = nodeEngine.getHazelcastInstance().getMap(String.format("checkpoint-id-%d", jobId));
@@ -140,6 +132,14 @@ public class CheckpointManager {
         return getCheckpointCoordinator(pipelineId).startSavepoint();
     }
 
+    public void reportedPipelineRunning(int pipelineId) {
+        getCheckpointCoordinator(pipelineId).tryTriggerPendingCheckpoint();
+    }
+
+    protected void handleCheckpointTimeout(int pipelineId) {
+        jobMaster.handleCheckpointTimeout(pipelineId);
+    }
+
     private CheckpointCoordinator getCheckpointCoordinator(TaskLocation taskLocation) {
         return getCheckpointCoordinator(taskLocation.getPipelineId());
     }
@@ -156,9 +156,9 @@ public class CheckpointManager {
      * Called by the {@link Task}.
      * <br> used by Task to report the {@link SeaTunnelTaskState} of the state machine.
      */
-    public void reportedTask(TaskReportStatusOperation reportStatusOperation, Address address) {
+    public void reportedTask(TaskReportStatusOperation reportStatusOperation) {
         // task address may change during restore.
-        subtaskWithAddresses.put(reportStatusOperation.getLocation().getTaskID(), address);
+        log.debug("reported task({}) status{}", reportStatusOperation.getLocation().getTaskID(), reportStatusOperation.getStatus());
         getCheckpointCoordinator(reportStatusOperation.getLocation()).reportedTask(reportStatusOperation);
     }
 
@@ -211,7 +211,6 @@ public class CheckpointManager {
      * <br> used for the ack of the checkpoint, including the state snapshot of all {@link Action} within the {@link Task}.
      */
     public void acknowledgeTask(TaskAcknowledgeOperation ackOperation) {
-        System.out.println("-----------------------------acknowledgeTask------------------------");
         CheckpointCoordinator coordinator = getCheckpointCoordinator(ackOperation.getTaskLocation());
         if (coordinator.isCompleted()) {
             log.info("The checkpoint coordinator({}) is completed", ackOperation.getTaskLocation().getPipelineId());

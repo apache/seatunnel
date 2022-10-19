@@ -68,19 +68,16 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
 
     @Override
     public Optional<FileCommitInfo> prepareCommit() throws IOException {
-        System.out.println("---------------------------prepareCommit-----------------" + writeStrategy.getCheckpointId());
         return writeStrategy.prepareCommit();
     }
 
     @Override
     public void abortPrepare() {
-        System.out.println("---------------------------abortPrepare-----------------" + writeStrategy.getCheckpointId());
         writeStrategy.abortPrepare();
     }
 
     @Override
     public List<FileSinkState> snapshotState(long checkpointId) throws IOException {
-        System.out.println("---------------------------snapshotState-----------------" + checkpointId);
         return writeStrategy.snapshotState(checkpointId);
     }
 

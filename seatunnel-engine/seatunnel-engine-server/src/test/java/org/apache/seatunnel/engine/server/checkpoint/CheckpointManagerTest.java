@@ -64,9 +64,9 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
         CheckpointManager checkpointManager = new CheckpointManager(
             jobId,
             nodeEngine,
+            null,
             planMap,
-            new CheckpointConfig(),
-            null);
+            new CheckpointConfig());
         Assertions.assertTrue(checkpointManager.isCompletedPipeline(1));
         CompletableFuture<Void> future = checkpointManager.listenPipeline(1, org.apache.seatunnel.engine.core.job.PipelineState.FINISHED);
         future.join();
