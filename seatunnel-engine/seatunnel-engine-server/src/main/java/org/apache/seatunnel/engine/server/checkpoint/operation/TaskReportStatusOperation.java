@@ -67,6 +67,6 @@ public class TaskReportStatusOperation extends Operation implements IdentifiedDa
         ((SeaTunnelServer) getService())
             .getCoordinatorService().getJobMaster(location.getJobId())
             .getCheckpointManager()
-            .reportedTask(this, getCallerAddress());
+            .reportedTask(this);
     }
 }
