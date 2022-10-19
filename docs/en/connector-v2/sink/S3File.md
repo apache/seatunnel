@@ -196,3 +196,9 @@ For orc file format
   }
 
 ```
+
+## Changelog
+
+| Version    | Date       | Pull Request                                                    | Subject      |
+|------------|------------|-----------------------------------------------------------------|--------------|
+| 2.2.0-beta | 2022-10-17 | [3119](https://github.com/apache/incubator-seatunnel/pull/3119) | First commit |
