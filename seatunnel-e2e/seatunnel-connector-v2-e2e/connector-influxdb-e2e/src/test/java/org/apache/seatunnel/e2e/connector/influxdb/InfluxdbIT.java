@@ -58,19 +58,16 @@ import scala.Tuple2;
 public class InfluxdbIT extends TestSuiteBase implements TestResource {
     private static final String IMAGE = "influxdb:1.8";
     private static final String HOST = "influxdb-host";
-    private static final int PORT = 8764;
+    private static final int PORT = 8086;
     private static final String INFLUXDB_DATABASE = "test";
     private static final String INFLUXDB_MEASUREMENT = "test";
 
-    private static final String INFLUXDB_HOST = "localhost";
-
-    private static final int INFLUXDB_PORT = 8764;
 
     private static final Tuple2<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET = generateTestDataSet();
 
-    private static final String INFLUXDB_CONNECT_URL = String.format("http://%s:%s", INFLUXDB_HOST, INFLUXDB_PORT);
 
     private GenericContainer<?> influxdbContainer;
+    private String influxDBConnectUrl;
 
     private InfluxDB influxDB;
 
@@ -85,6 +82,7 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
             .waitingFor(new HostPortWaitStrategy()
                 .withStartupTimeout(Duration.ofMinutes(2)));
         Startables.deepStart(Stream.of(influxdbContainer)).join();
+        influxDBConnectUrl = String.format("http://%s:%s", influxdbContainer.getHost(), influxdbContainer.getFirstMappedPort());
         log.info("Influxdb container started");
         this.initializeInfluxDBClient();
         this.initSourceData();
@@ -152,8 +150,8 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
                     Double.parseDouble("1.1"),
                     Long.parseLong("1"),
                     Float.parseFloat("1.1"),
-                    Short.parseShort("1"),
                     Integer.valueOf(i),
+                    Short.parseShort("1"),
                     i % 2 == 0 ? Boolean.TRUE : Boolean.FALSE
                 });
             rows.add(row);
@@ -175,7 +173,7 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
     }
 
     private void initializeInfluxDBClient() throws ConnectException {
-        InfluxDBConfig influxDBConfig = new InfluxDBConfig(INFLUXDB_CONNECT_URL);
+        InfluxDBConfig influxDBConfig = new InfluxDBConfig(influxDBConnectUrl);
         influxDB = InfluxDBClient.getInfluxDB(influxDBConfig);
     }
 }

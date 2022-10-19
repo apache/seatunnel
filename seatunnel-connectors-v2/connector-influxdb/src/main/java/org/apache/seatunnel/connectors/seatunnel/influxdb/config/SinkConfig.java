@@ -35,7 +35,7 @@ public class SinkConfig extends InfluxDBConfig{
 
     private static final String KEY_TIME = "key_time";
     private static final String KEY_TAGS = "key_tags";
-    private static final String KEY_MEASUREMENT = "measurement";
+    public static final String KEY_MEASUREMENT = "measurement";
 
     private static final String BATCH_SIZE = "batch_size";
     private static final String BATCH_INTERVAL_MS = "batch_interval_ms";
@@ -57,6 +57,7 @@ public class SinkConfig extends InfluxDBConfig{
     private int maxRetries;
     private int retryBackoffMultiplierMs;
     private int maxRetryBackoffMs;
+    private TimePrecision precision = TimePrecision.NS;
 
     public static SinkConfig loadConfig(Config config) {
         SinkConfig sinkConfig = new SinkConfig(config);
@@ -84,6 +85,9 @@ public class SinkConfig extends InfluxDBConfig{
         }
         if (config.hasPath(RETENTION_POLICY)) {
             sinkConfig.setRp(config.getString(RETENTION_POLICY));
+        }
+        if (config.hasPath(EPOCH)) {
+            sinkConfig.setPrecision(TimePrecision.getPrecision(config.getString(EPOCH)));
         }
         sinkConfig.setMeasurement(config.getString(KEY_MEASUREMENT));
         return sinkConfig;

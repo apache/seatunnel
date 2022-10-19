@@ -45,7 +45,7 @@ public class InfluxDBConfig implements Serializable {
 
 
     private static final String DEFAULT_FORMAT = "MSGPACK";
-    private static final String EPOCH = "epoch";
+    protected static final String EPOCH = "epoch";
 
     public static final String DEFAULT_PARTITIONS = "0";
     private static final int DEFAULT_QUERY_TIMEOUT_SEC = 3;

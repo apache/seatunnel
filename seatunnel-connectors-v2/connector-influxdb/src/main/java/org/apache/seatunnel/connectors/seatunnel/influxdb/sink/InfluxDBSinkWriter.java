@@ -61,7 +61,7 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                               SeaTunnelRowType seaTunnelRowType) throws ConnectException {
         this.sinkConfig = SinkConfig.loadConfig(pluginConfig);
         this.serializer = new DefaultSerializer(
-                seaTunnelRowType, null, sinkConfig.getKeyTags(), sinkConfig.getKeyTime(), sinkConfig.getMeasurement());
+                seaTunnelRowType, sinkConfig.getPrecision().getTimeUnit(), sinkConfig.getKeyTags(), sinkConfig.getKeyTime(), sinkConfig.getMeasurement());
         connect();
         this.batchList = new ArrayList<>();
     }
@@ -102,7 +102,7 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         connect();
         if (sinkConfig.getBatchIntervalMs() != null) {
             scheduler = Executors.newSingleThreadScheduledExecutor(
-                    new ThreadFactoryBuilder().setNameFormat("IoTDB-sink-output-%s").build());
+                    new ThreadFactoryBuilder().setNameFormat("influxDB-sink-output-%s").build());
             scheduledFuture = scheduler.scheduleAtFixedRate(
                 () -> {
                     try {
@@ -140,7 +140,7 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                 batchPoints.points(batchList);
                 influxDB.write(batchPoints.build());
             } catch (Exception e) {
-                log.error("Writing records to InfluxDB failed, retry times = {}", i, e);
+                log.error("Writing records to influxdb failed, retry times = {}", i, e);
                 if (i >= sinkConfig.getMaxRetries()) {
                     throw new IOException("Writing records to InfluxDB failed.", e);
                 }
