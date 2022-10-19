@@ -381,6 +381,8 @@ public class SubPlan {
             restorePipeline();
         } else if (PipelineState.CANCELING.equals(getPipelineState())) {
             cancelPipelineTasks();
+        } else if (PipelineState.RUNNING.equals(getPipelineState())) {
+            jobMaster.getCheckpointManager().reportedPipelineRunning(this.getPipelineLocation().getPipelineId());
         }
     }
 

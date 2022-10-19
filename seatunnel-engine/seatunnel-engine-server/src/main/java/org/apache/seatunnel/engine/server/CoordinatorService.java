@@ -63,7 +63,7 @@ public class CoordinatorService {
     private volatile ResourceManager resourceManager;
 
     /**
-     * IMap key is jobId and value is a Tuple2.
+     * IMap key is jobId and value is {@link RunningJobInfo}.
      * Tuple2 key is JobMaster init timestamp and value is the jobImmutableInformation which is sent by client when submit job
      * <p>
      * This IMap is used to recovery runningJobInfoIMap in JobMaster when a new master node active
