@@ -29,13 +29,12 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.images.builder.Transferable;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -73,6 +72,10 @@ public class JdbcSqliteIT extends SparkContainer {
 
         try {
             Statement statement = jdbcConnection.createStatement();
+            statement.execute("drop table if exists source");
+            statement.execute("drop table if exists sink");
+            statement.execute("drop table if exists type_source_table");
+            statement.execute("drop table if exists type_sink_table");
             statement.execute(config.getString("source_table"));
             statement.execute(config.getString("sink_table"));
             statement.execute(config.getString("type_source_table"));
@@ -115,7 +118,7 @@ public class JdbcSqliteIT extends SparkContainer {
     public void testJdbcSqliteSourceAndSinkDataType() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/jdbc/jdbc_sqlite_source_and_sink_datatype.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        master.copyFileFromContainer(Paths.get(SEATUNNEL_HOME, "data", "test.db").toString(), new File(tmpdir + "/test.db").toPath().toString());
+        master.copyFileFromContainer(Paths.get("/sqlite/test.db").toString(), new File(tmpdir + "/test.db").toPath().toString());
         checkSinkDataTypeTable();
     }
 
@@ -135,7 +138,7 @@ public class JdbcSqliteIT extends SparkContainer {
     public void testJdbcSqliteSourceAndSink() throws IOException, InterruptedException, SQLException {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/jdbc/jdbc_sqlite_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        master.copyFileFromContainer(Paths.get(SEATUNNEL_HOME, "data", "test.db").toString(), new File(tmpdir + "/test.db").toPath().toString());
+        master.copyFileFromContainer(Paths.get("/sqlite/test.db").toString(), new File(tmpdir + "/test.db").toPath().toString());
         // query result
         String sql = "select age, name from sink order by age asc";
         List<List> result = new ArrayList<>();
@@ -164,15 +167,17 @@ public class JdbcSqliteIT extends SparkContainer {
         Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + THIRD_PARTY_PLUGINS_URL);
         Assertions.assertEquals(0, extraCommands.getExitCode());
 
-        Container.ExecResult mkdirCommands = container.execInContainer("bash", "-c", "mkdir -p " + SEATUNNEL_HOME + "/data");
+        Container.ExecResult mkdirCommands = container.execInContainer("bash", "-c", "mkdir -p " + "/sqlite");
         Assertions.assertEquals(0, mkdirCommands.getExitCode());
+
+        Container.ExecResult chmodCommands = container.execInContainer("bash", "-c", "chmod 777 -R /sqlite");
+        Assertions.assertEquals(0, chmodCommands.getExitCode());
 
         try {
             initTestDb();
             // copy db file to container, dist file path in container is /tmp/seatunnel/data/test.db
-            Path path = new File(tmpdir + "/test.db").toPath();
-            byte[] bytes = Files.readAllBytes(path);
-            container.copyFileToContainer(Transferable.of(bytes), Paths.get(SEATUNNEL_HOME, "data", "test.db").toString());
+            container.copyFileToContainer(MountableFile.forHostPath(tmpdir + "/test.db"), "/sqlite/test.db");
+            container.execInContainer("bash", "-c", "chmod 777 /sqlite/test.db");
         } catch (Exception e) {
             log.error("init test.db and copy test.db to container error", e);
             Files.deleteIfExists(new File(tmpdir + "/test.db").toPath());

@@ -56,15 +56,6 @@ public class JdbcSqliteIT extends FlinkContainer {
 
     private Connection jdbcConnection;
 
-    @Test
-    public void testInit() {
-        try {
-            initTestDb();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
     private void initTestDb() throws Exception {
         tmpdir = Paths.get(System.getProperty("java.io.tmpdir")).toString();
         Class.forName("org.sqlite.JDBC");
@@ -81,6 +72,10 @@ public class JdbcSqliteIT extends FlinkContainer {
 
         try {
             Statement statement = jdbcConnection.createStatement();
+            statement.execute("drop table if exists source");
+            statement.execute("drop table if exists sink");
+            statement.execute("drop table if exists type_source_table");
+            statement.execute("drop table if exists type_sink_table");
             statement.execute(config.getString("source_table"));
             statement.execute(config.getString("sink_table"));
             statement.execute(config.getString("type_source_table"));
@@ -186,7 +181,6 @@ public class JdbcSqliteIT extends FlinkContainer {
             taskManager.copyFileToContainer(MountableFile.forHostPath(tmpdir + "/test.db"), "/sqlite/test.db");
             jobManager.execInContainer("bash", "-c", "chmod 777 /sqlite/test.db");
             taskManager.execInContainer("bash", "-c", "chmod 777 /sqlite/test.db");
-
         } catch (Exception e) {
             log.error("init test.db and copy test.db to container error", e);
             Files.deleteIfExists(new File(tmpdir + "/test.db").toPath());
