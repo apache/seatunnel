@@ -80,9 +80,10 @@ public class FlinkApiTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkComm
                 FlinkEnvironment> execution = new ExecutionFactory<>(executionContext).createExecution()) {
             prepare(executionContext.getEnvironment(), sources, transforms, sinks);
             execution.start(sources, transforms, sinks);
-            close(sources, transforms, sinks);
         } catch (Exception e) {
             throw new CommandExecuteException("Execute Flink task error", e);
+        } finally {
+            close(sources, transforms, sinks);
         }
     }
 

@@ -50,11 +50,11 @@ public class BaseTextFileConfig implements DelimiterConfig, CompressConfig, Seri
             throw new RuntimeException("compress not support now");
         }
 
-        if (config.hasPath(Constant.FIELD_DELIMITER) && !StringUtils.isBlank(config.getString(Constant.FIELD_DELIMITER))) {
+        if (config.hasPath(Constant.FIELD_DELIMITER) && StringUtils.isNotEmpty(config.getString(Constant.FIELD_DELIMITER))) {
             this.fieldDelimiter = config.getString(Constant.FIELD_DELIMITER);
         }
 
-        if (config.hasPath(Constant.ROW_DELIMITER) && !StringUtils.isBlank(config.getString(Constant.ROW_DELIMITER))) {
+        if (config.hasPath(Constant.ROW_DELIMITER) && StringUtils.isNotEmpty(config.getString(Constant.ROW_DELIMITER))) {
             this.rowDelimiter = config.getString(Constant.ROW_DELIMITER);
         }
 

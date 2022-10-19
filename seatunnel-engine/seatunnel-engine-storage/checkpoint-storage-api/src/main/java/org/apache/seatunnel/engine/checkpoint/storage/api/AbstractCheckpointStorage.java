@@ -168,7 +168,7 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
      * @return the checkpoint id of the file.
      */
     public String getCheckpointIdByFileName(String fileName) {
-        return fileName.split(FILE_NAME_SPLIT)[FILE_NAME_CHECKPOINT_ID_INDEX];
+        return fileName.split(FILE_NAME_SPLIT)[FILE_NAME_CHECKPOINT_ID_INDEX].split("\\.")[0];
     }
 
     @Override

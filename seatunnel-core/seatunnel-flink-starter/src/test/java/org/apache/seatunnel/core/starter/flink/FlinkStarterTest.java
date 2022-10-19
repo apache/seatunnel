@@ -24,13 +24,14 @@ public class FlinkStarterTest {
 
     @Test
     public void buildCommands() {
-        String[] args = {"--config", "test.conf", "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2"};
+        String[] args = {"--config", "test.conf", "-m", "yarn-cluster", "-n", "test", "-i", "key1=value1", "-i", "key2=value2"};
         FlinkStarter flinkStarter = new FlinkStarter(args);
         String flinkExecuteCommand = String.join(" ", flinkStarter.buildCommands());
         // since we cannot get the actual jar path, so we just check the command contains the command
         Assertions.assertTrue(flinkExecuteCommand.contains("--config test.conf"));
         Assertions.assertTrue(flinkExecuteCommand.contains("-m yarn-cluster"));
         Assertions.assertTrue(flinkExecuteCommand.contains("-Dkey1=value1"));
+        Assertions.assertTrue(flinkExecuteCommand.contains("-Dpipeline.name=test"));
         Assertions.assertTrue(flinkExecuteCommand.contains("${FLINK_HOME}/bin/flink run"));
 
         String[] args1 = {"--config", "test.conf", "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2", "--run-mode", "run-application"};
