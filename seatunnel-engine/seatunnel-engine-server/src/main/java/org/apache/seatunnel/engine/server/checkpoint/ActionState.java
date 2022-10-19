@@ -18,6 +18,8 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import java.io.Serializable;
+import java.util.Arrays;
+import java.util.List;
 
 public class ActionState implements Serializable {
 
@@ -31,7 +33,7 @@ public class ActionState implements Serializable {
     /**
      * The handles to states created by the parallel actions: action index -> action state.
      */
-    private final ActionSubtaskState[] subtaskStates;
+    private final List<ActionSubtaskState> subtaskStates;
 
     private ActionSubtaskState coordinatorState;
 
@@ -42,7 +44,7 @@ public class ActionState implements Serializable {
 
     public ActionState(String actionId, int parallelism) {
         this.actionId = actionId;
-        this.subtaskStates = new ActionSubtaskState[parallelism];
+        this.subtaskStates = Arrays.asList(new ActionSubtaskState[parallelism]);
         this.parallelism = parallelism;
     }
 
@@ -50,7 +52,7 @@ public class ActionState implements Serializable {
         return actionId;
     }
 
-    public ActionSubtaskState[] getSubtaskStates() {
+    public List<ActionSubtaskState> getSubtaskStates() {
         return subtaskStates;
     }
 
@@ -67,6 +69,6 @@ public class ActionState implements Serializable {
             coordinatorState = state;
             return;
         }
-        subtaskStates[index] = state;
+        subtaskStates.set(index, state);
     }
 }
