@@ -202,11 +202,11 @@ public class TaskExecutionService {
                         taskExecutionContextMap.put(task.getTaskID(), taskExecutionContext);
                     })
                     .collect(partitioningBy(Task::isThreadsShare));
+            executionContexts.put(taskGroup.getTaskGroupLocation(), new TaskGroupContext(taskGroup, classLoader));
+            cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
             submitThreadShareTask(executionTracker, byCooperation.get(true));
             submitBlockingTask(executionTracker, byCooperation.get(false));
             taskGroup.setTasksContext(taskExecutionContextMap);
-            executionContexts.put(taskGroup.getTaskGroupLocation(), new TaskGroupContext(taskGroup, classLoader));
-            cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
         } catch (Throwable t) {
             logger.severe(ExceptionUtils.getMessage(t));
             resultFuture.completeExceptionally(t);
@@ -265,6 +265,9 @@ public class TaskExecutionService {
 
         @Override
         public void run() {
+            ClassLoader classLoader = executionContexts.get(tracker.taskGroupExecutionTracker.taskGroup.getTaskGroupLocation()).getClassLoader();
+            ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
+            Thread.currentThread().setContextClassLoader(classLoader);
             final Task t = tracker.task;
             try {
                 startedLatch.countDown();
@@ -280,6 +283,7 @@ public class TaskExecutionService {
             } finally {
                 tracker.taskGroupExecutionTracker.taskDone();
             }
+            Thread.currentThread().setContextClassLoader(oldClassLoader);
         }
     }
 

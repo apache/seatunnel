@@ -37,6 +37,8 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -94,6 +96,11 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
     @Override
     public T createPluginInstance(PluginIdentifier pluginIdentifier) {
+        return (T) createPluginInstance(pluginIdentifier, Collections.EMPTY_LIST);
+    }
+
+    @Override
+    public T createPluginInstance(PluginIdentifier pluginIdentifier, Collection<URL> pluginJars) {
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         T pluginInstance = loadPluginInstance(pluginIdentifier, classLoader);
         if (pluginInstance != null) {
@@ -106,10 +113,19 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             try {
                 // use current thread classloader to avoid different classloader load same class error.
                 this.addURLToClassLoader.accept(classLoader, pluginJarPath.get());
+                for (URL jar : pluginJars) {
+                    addURLToClassLoader.accept(classLoader, jar);
+                }
             } catch (Exception e) {
                 log.warn("can't load jar use current thread classloader, use URLClassLoader instead now." +
                     " message: " + e.getMessage());
-                classLoader = new URLClassLoader(new URL[]{pluginJarPath.get()}, Thread.currentThread().getContextClassLoader());
+                URL[] urls = new URL[pluginJars.size() + 1];
+                int i = 0;
+                for (URL pluginJar : pluginJars) {
+                    urls[i++] = pluginJar;
+                }
+                urls[i] = pluginJarPath.get();
+                classLoader = new URLClassLoader(urls, Thread.currentThread().getContextClassLoader());
             }
             pluginInstance = loadPluginInstance(pluginIdentifier, classLoader);
             if (pluginInstance != null) {
