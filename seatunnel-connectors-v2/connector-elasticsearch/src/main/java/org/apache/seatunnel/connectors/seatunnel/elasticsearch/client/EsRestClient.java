@@ -332,4 +332,8 @@ public class EsRestClient {
         return mapping;
     }
 
+    // Visible for testing
+    public RestClient getRestClient() {
+        return this.restClient;
+    }
 }

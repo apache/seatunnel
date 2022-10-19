@@ -23,6 +23,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.Data;
 
+import java.util.List;
+
 /**
  * index config by seatunnel
  */
@@ -31,16 +33,24 @@ public class IndexInfo {
 
     private String index;
     private String type;
+    private List<String> ids;
 
     public IndexInfo(Config pluginConfig) {
         index = pluginConfig.getString(SinkConfig.INDEX.key());
         if (pluginConfig.hasPath(SinkConfig.INDEX_TYPE.key())) {
             type = pluginConfig.getString(SinkConfig.INDEX_TYPE.key());
         }
+        if (pluginConfig.hasPath(SinkConfig.INDEX_ID.key())) {
+            ids = pluginConfig.getStringList(SinkConfig.INDEX_ID.key());
+        }
     }
 
     public IndexInfo(String index, String type) {
         this.index = index;
         this.type = type;
+    }
+
+    public List<String> getIds() {
+        return ids;
     }
 }

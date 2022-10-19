@@ -24,6 +24,7 @@ Engine Supported
 | hosts           | array  | yes      | -             |
 | index           | string | yes      | -             |
 | index_type      | string | no       |               |
+| index_id        | string | no       |               |
 | username        | string | no       |               |
 | password        | string | no       |               | 
 | max_retry_count | int    | no       | 3             |
@@ -40,6 +41,9 @@ If not, we will treat it as a normal index.
 
 ### index_type [string]
 `Elasticsearch` index type, it is recommended not to specify in elasticsearch 6 and above
+
+### index_id [array]
+`Elasticsearch` index id, specify the primary/unique keys as index identifier, and will use "+" to concatenate column values if specify multiple keys
 
 ### username [string]
 x-pack username

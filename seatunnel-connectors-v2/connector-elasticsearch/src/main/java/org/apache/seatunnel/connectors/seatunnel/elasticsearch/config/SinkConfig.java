@@ -28,6 +28,10 @@ public class SinkConfig {
     public static final Option<String> INDEX_TYPE = Options.key("index_type").stringType().noDefaultValue()
         .withDescription("Elasticsearch index type, it is recommended not to specify in elasticsearch 6 and above");
 
+    public static final Option<String> INDEX_ID = Options.key("index_id").stringType().noDefaultValue()
+            .withDescription("Elasticsearch index id, specify the primary/unique keys as index identifier, " +
+                    "and will use \"+\" to concatenate column values if specify multiple keys");
+
     @SuppressWarnings("checkstyle:MagicNumber")
     public static final Option<Integer> MAX_BATCH_SIZE = Options.key("max_batch_size").intType().defaultValue(10)
         .withDescription("batch bulk doc max size");
