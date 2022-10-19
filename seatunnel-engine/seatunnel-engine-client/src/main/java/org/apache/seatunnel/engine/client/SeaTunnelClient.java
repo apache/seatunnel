@@ -53,4 +53,8 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
             SeaTunnelPrintMessageCodec::decodeResponse
         );
     }
+
+    public void shutdown() {
+        hazelcastClient.getHazelcastInstance().shutdown();
+    }
 }
