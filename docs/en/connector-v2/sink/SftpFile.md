@@ -156,3 +156,9 @@ SftpFile {
 }
 
 ```
+
+## Changelog
+
+| Version    | Date       | Pull Request                                                    | Subject      |
+|------------|------------|-----------------------------------------------------------------|--------------|
+| 2.2.0-beta | 2022-10-06 | [3006](https://github.com/apache/incubator-seatunnel/pull/3006) | First commit |
