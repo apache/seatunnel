@@ -213,7 +213,4 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
         reader.notifyCheckpointAborted(checkpointId);
     }
 
-    public boolean isRunning() {
-        return running;
-    }
 }
