@@ -64,7 +64,6 @@ public class TypeConverterUtils {
         BRIDGED_TYPES.put(LocalDate.class, BridgedType.of(LocalTimeType.LOCAL_DATE_TYPE, LocalTimeTypeInfo.LOCAL_DATE));
         BRIDGED_TYPES.put(LocalTime.class, BridgedType.of(LocalTimeType.LOCAL_TIME_TYPE, LocalTimeTypeInfo.LOCAL_TIME));
         BRIDGED_TYPES.put(LocalDateTime.class, BridgedType.of(LocalTimeType.LOCAL_DATE_TIME_TYPE, LocalTimeTypeInfo.LOCAL_DATE_TIME));
-
         // basic array types
         BRIDGED_TYPES.put(byte[].class, BridgedType.of(PrimitiveByteArrayType.INSTANCE, PrimitiveArrayTypeInfo.BYTE_PRIMITIVE_ARRAY_TYPE_INFO));
         BRIDGED_TYPES.put(String[].class, BridgedType.of(ArrayType.STRING_ARRAY_TYPE, BasicArrayTypeInfo.STRING_ARRAY_TYPE_INFO));
