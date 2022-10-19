@@ -45,6 +45,8 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Random;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * KafkaSinkWriter is a sink writer that will write {@link SeaTunnelRow} to Kafka.
@@ -162,12 +164,24 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     // todo: parse the target field from config
     private SeaTunnelRowSerializer<byte[], byte[]> getSerializer(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
+        String topic = extractTopic(pluginConfig.getString(TOPIC));
         if (pluginConfig.hasPath(PARTITION)){
-            return new DefaultSeaTunnelRowSerializer(pluginConfig.getString(TOPIC), this.partition, seaTunnelRowType);
+            return new DefaultSeaTunnelRowSerializer(topic, this.partition, seaTunnelRowType);
         }
         else {
-            return new DefaultSeaTunnelRowSerializer(pluginConfig.getString(TOPIC), seaTunnelRowType);
+            return new DefaultSeaTunnelRowSerializer(topic, seaTunnelRowType);
         }
+    }
+
+    private String extractTopic(String topicConfig) {
+        String regex = "\\$\\{field_(.*?)\\}";
+        Pattern pattern = Pattern.compile(regex, Pattern.DOTALL);
+        Matcher matcher = pattern.matcher(topicConfig);
+        String topic = topicConfig;
+        if (matcher.find()) {
+            topic = matcher.group(1);
+        }
+        return topic;
     }
 
     private KafkaSemantics getKafkaSemantics(Config pluginConfig) {

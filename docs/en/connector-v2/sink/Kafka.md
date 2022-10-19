@@ -31,6 +31,12 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 
 Kafka Topic.
 
+Currently two formats are supported：
+
+1. Fill in the name of the topic
+
+2. Use value of a field from upstream data as topic,the format is ${field_topic}, where topic is the name of one of the columns of the upstream data.
+
 ### bootstrap.servers [string]
 
 Kafka Brokers List.
@@ -116,4 +122,4 @@ sink {
  - New feature : Kafka specified partition to send 
  - New feature : Determine the partition that kafka send message based on the message content
  - New feature : Configure which field is used as the key of the kafka message
-
+ - New feature : Support extract topic from SeaTunnelRow fields
