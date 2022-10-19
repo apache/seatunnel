@@ -225,7 +225,7 @@ public class CheckpointCoordinator {
         scheduler.schedule(this::tryTriggerPendingCheckpoint, delayMills, TimeUnit.MILLISECONDS);
     }
 
-    private void tryTriggerPendingCheckpoint() {
+    protected void tryTriggerPendingCheckpoint() {
         synchronized (lock) {
             final long currentTimestamp = Instant.now().toEpochMilli();
             if (currentTimestamp - latestTriggerTimestamp.get() >= coordinatorConfig.getCheckpointInterval() &&
@@ -427,6 +427,7 @@ public class CheckpointCoordinator {
         } catch (IOException | CheckpointStorageException e) {
             sneakyThrow(e);
         }
+        LOG.info("pending checkpoint({}/{}@{}) notify finished!", completedCheckpoint.getCheckpointId(), completedCheckpoint.getPipelineId(), completedCheckpoint.getJobId());
         InvocationFuture<?>[] invocationFutures = notifyCheckpointCompleted(checkpointId);
         CompletableFuture.allOf(invocationFutures).join();
         // TODO: notifyCheckpointCompleted fail
