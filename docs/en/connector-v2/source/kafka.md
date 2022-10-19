@@ -26,6 +26,8 @@ Source connector for Apache Kafka.
 | commit_on_checkpoint | Boolean | no       | true                     |
 | kafka.*              | String  | no       | -                        |
 | common-options       |         | no       | -                        |
+| schema               |         | no       | -                        |
+| format               | String  | no       | json                     |
 
 ### topic [string]
 
@@ -57,6 +59,13 @@ The way to specify parameters is to add the prefix `kafka.` to the original para
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
+### schema
+The structure of the data, including field names and field types.
+
+## format
+Data format. The default format is json. Optional text format. The default field separator is ", ".
+If you customize the delimiter, add the "field_delimiter" option.
+
 ## Example
 
 ###  Simple
@@ -64,12 +73,22 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ```hocon
 source {
 
-    Kafka {
-          topic = "seatunnel"
-          bootstrap.servers = "localhost:9092"
-          consumer.group = "seatunnel_group"
+  Kafka {
+    result_table_name = "kafka_name"
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+      }
     }
-
+    format = text
+    field_delimiter = "#“
+    topic = "topic_1,topic_2,topic_3"
+    bootstrap.server = "localhost:9092"
+    kafka.max.poll.records = 500
+    kafka.client.id = client_1
+  }
+  
 }
 ```
 
