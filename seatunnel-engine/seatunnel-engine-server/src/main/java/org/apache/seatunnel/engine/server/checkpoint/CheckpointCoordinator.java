@@ -192,7 +192,7 @@ public class CheckpointCoordinator {
                         return;
                     }
                     for (int i = tuple.f1(); i < actionState.getParallelism(); i += currentParallelism) {
-                        states.add(actionState.getSubtaskStates()[i]);
+                        states.add(actionState.getSubtaskStates().get(i));
                     }
                 });
         }
