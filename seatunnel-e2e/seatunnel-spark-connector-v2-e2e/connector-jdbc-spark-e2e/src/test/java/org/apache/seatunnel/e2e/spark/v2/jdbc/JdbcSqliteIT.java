@@ -54,24 +54,17 @@ public class JdbcSqliteIT extends SparkContainer {
     private static final List<List<Object>> TEST_DATASET = generateTestDataset();
     private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/org/xerial/sqlite-jdbc/3.39.3.0/sqlite-jdbc-3.39.3.0.jar";
 
-    private Connection jdbcConnection;
-
     private void initTestDb() throws Exception {
-        tmpdir = Paths.get(System.getProperty("java.io.tmpdir")).toAbsolutePath().toString();
-        Class.forName("org.sqlite.JDBC");
-        jdbcConnection = DriverManager.getConnection("jdbc:sqlite:" + tmpdir + "/test.db", "", "");
-        initializeJdbcTable();
-        batchInsertData();
-    }
-
-    private void initializeJdbcTable() throws Exception {
         URI resource = Objects.requireNonNull(JdbcSqliteIT.class.getResource("/jdbc/init_sql/sqlite_init.conf")).toURI();
         config = new ConfigBuilder(Paths.get(resource)).getConfig();
         CheckConfigUtil.checkAllExists(this.config, "source_table", "sink_table", "type_source_table",
                 "type_sink_table", "insert_type_source_table_sql", "check_type_sink_table_sql");
-
+        tmpdir = Paths.get(System.getProperty("java.io.tmpdir")).toString();
+        Connection connection = null;
         try {
-            Statement statement = jdbcConnection.createStatement();
+            Class.forName("org.sqlite.JDBC");
+            connection = DriverManager.getConnection("jdbc:sqlite:" + tmpdir + "/test.db", "", "");
+            Statement statement = connection.createStatement();
             statement.execute("drop table if exists source");
             statement.execute("drop table if exists sink");
             statement.execute("drop table if exists type_source_table");
@@ -81,27 +74,26 @@ public class JdbcSqliteIT extends SparkContainer {
             statement.execute(config.getString("type_source_table"));
             statement.execute(config.getString("type_sink_table"));
             statement.execute(config.getString("insert_type_source_table_sql"));
-        } catch (SQLException e) {
-            throw new RuntimeException("Initializing Sqlite table failed!", e);
-        }
-    }
 
-    private void batchInsertData() throws SQLException {
-        String sql = "insert into source(age, name) values(?, ?)";
-
-        try {
-            jdbcConnection.setAutoCommit(false);
-            try (PreparedStatement preparedStatement = jdbcConnection.prepareStatement(sql)) {
-                for (List row : TEST_DATASET) {
+            String sql = "insert into source(age, name) values(?, ?)";
+            connection.setAutoCommit(false);
+            try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+                for (List<Object> row : TEST_DATASET) {
                     preparedStatement.setInt(1, (Integer) row.get(0));
                     preparedStatement.setString(2, (String) row.get(1));
                     preparedStatement.addBatch();
                 }
                 preparedStatement.executeBatch();
             }
-            jdbcConnection.commit();
-        } catch (SQLException e) {
-            jdbcConnection.rollback();
+            connection.commit();
+        } catch (Exception e) {
+            if (null != connection) {
+                try {
+                    connection.rollback();
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+            }
             throw e;
         }
     }
@@ -128,10 +120,12 @@ public class JdbcSqliteIT extends SparkContainer {
         CheckConfigUtil.checkAllExists(this.config, "source_table", "sink_table", "type_source_table",
                 "type_sink_table", "insert_type_source_table_sql", "check_type_sink_table_sql");
 
-        Statement statement = jdbcConnection.createStatement();
-        ResultSet resultSet = statement.executeQuery(config.getString("check_type_sink_table_sql"));
-        resultSet.next();
-        Assertions.assertEquals(resultSet.getInt(1), 2);
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + tmpdir + "/test.db", "", "")) {
+            Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery(config.getString("check_type_sink_table_sql"));
+            resultSet.next();
+            Assertions.assertEquals(resultSet.getInt(1), 2);
+        }
     }
 
     @Test
@@ -141,23 +135,21 @@ public class JdbcSqliteIT extends SparkContainer {
         master.copyFileFromContainer(Paths.get("/sqlite/test.db").toString(), new File(tmpdir + "/test.db").toPath().toString());
         // query result
         String sql = "select age, name from sink order by age asc";
-        List<List> result = new ArrayList<>();
-        try (Statement statement = jdbcConnection.createStatement()) {
+        List<List<Object>> result = new ArrayList<>();
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + tmpdir + "/test.db", "", "")) {
+            Statement statement = connection.createStatement();
             ResultSet resultSet = statement.executeQuery(sql);
             while (resultSet.next()) {
                 result.add(Arrays.asList(
                         resultSet.getInt(1),
                         resultSet.getString(2)));
             }
+            Assertions.assertIterableEquals(TEST_DATASET, result);
         }
-        Assertions.assertIterableEquals(TEST_DATASET, result);
     }
 
     @AfterEach
     public void closeResource() throws SQLException, IOException {
-        if (jdbcConnection != null) {
-            jdbcConnection.close();
-        }
         // remove the temp test.db file
         Files.deleteIfExists(new File(tmpdir + "/test.db").toPath());
     }
