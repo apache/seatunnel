@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
 import java.net.URL;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -59,6 +60,15 @@ public interface PluginDiscovery<T> {
      * @return plugin instance. If not found, throw IllegalArgumentException.
      */
     T createPluginInstance(PluginIdentifier pluginIdentifier);
+
+    /**
+     * Get plugin instance by plugin identifier.
+     *
+     * @param pluginIdentifier plugin identifier.
+     * @param pluginJars       used to help plugin load
+     * @return plugin instance. If not found, throw IllegalArgumentException.
+     */
+    T createPluginInstance(PluginIdentifier pluginIdentifier, Collection<URL> pluginJars);
 
     /**
      * Get all plugin instances.
