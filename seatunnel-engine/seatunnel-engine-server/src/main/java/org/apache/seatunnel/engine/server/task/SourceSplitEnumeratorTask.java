@@ -180,6 +180,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         taskMemberMapping.put(taskID, memberAdder);
         taskIDToTaskLocationMapping.put(taskID.getTaskID(), taskID);
         taskIndexToTaskLocationMapping.put(taskID.getTaskIndex(), taskID);
+        unfinishedReaders.add(taskID.getTaskID());
     }
 
     public Address getTaskMemberAddress(long taskID) {

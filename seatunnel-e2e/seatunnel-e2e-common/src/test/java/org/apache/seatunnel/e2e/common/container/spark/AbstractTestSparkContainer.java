@@ -56,7 +56,7 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
             .waitingFor(new LogMessageWaitStrategy()
                 .withRegEx(".*Master: Starting Spark master at.*")
                 .withStartupTimeout(Duration.ofMinutes(2)));
-        bindSeaTunnelStarter(master);
+        copySeaTunnelStarterToContainer(master);
 
         // In most case we can just use standalone mode to execute a spark job, if we want to use cluster mode, we need to
         // start a worker.

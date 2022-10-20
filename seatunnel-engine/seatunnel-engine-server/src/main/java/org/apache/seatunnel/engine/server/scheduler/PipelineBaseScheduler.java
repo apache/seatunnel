@@ -19,7 +19,7 @@ package org.apache.seatunnel.engine.server.scheduler;
 
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.core.job.JobStatus;
-import org.apache.seatunnel.engine.core.job.PipelineState;
+import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
@@ -83,8 +83,8 @@ public class PipelineBaseScheduler implements JobScheduler {
     // This method cannot throw an exception
     private CompletableFuture<Void> schedulerPipeline(SubPlan pipeline) {
         try {
-            if (!pipeline.updatePipelineState(PipelineState.CREATED, PipelineState.SCHEDULED)) {
-                handlePipelineStateTurnError(pipeline, PipelineState.SCHEDULED);
+            if (!pipeline.updatePipelineState(PipelineStatus.CREATED, PipelineStatus.SCHEDULED)) {
+                handlePipelineStateTurnError(pipeline, PipelineStatus.SCHEDULED);
                 return null;
             }
 
@@ -199,7 +199,7 @@ public class PipelineBaseScheduler implements JobScheduler {
     }
 
     private void deployPipeline(@NonNull SubPlan pipeline, Map<TaskGroupLocation, SlotProfile> slotProfiles) {
-        if (pipeline.updatePipelineState(PipelineState.SCHEDULED, PipelineState.DEPLOYING)) {
+        if (pipeline.updatePipelineState(PipelineStatus.SCHEDULED, PipelineStatus.DEPLOYING)) {
 
             try {
                 List<CompletableFuture<?>> deployCoordinatorFuture =
@@ -217,7 +217,7 @@ public class PipelineBaseScheduler implements JobScheduler {
                 CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
                     deployCoordinatorFuture.toArray(new CompletableFuture[0]));
                 voidCompletableFuture.get();
-                if (!pipeline.updatePipelineState(PipelineState.DEPLOYING, PipelineState.RUNNING)) {
+                if (!pipeline.updatePipelineState(PipelineStatus.DEPLOYING, PipelineStatus.RUNNING)) {
                     LOGGER.info(
                         String.format("%s turn to state %s, skip the running state.", pipeline.getPipelineFullName(),
                             pipeline.getPipelineState()));
@@ -225,11 +225,11 @@ public class PipelineBaseScheduler implements JobScheduler {
             } catch (Exception e) {
                 makePipelineFailed(pipeline, e);
             }
-        } else if (PipelineState.CANCELING.equals(pipeline.getPipelineState()) ||
-            PipelineState.CANCELED.equals(pipeline.getPipelineState())) {
+        } else if (PipelineStatus.CANCELING.equals(pipeline.getPipelineState()) ||
+            PipelineStatus.CANCELED.equals(pipeline.getPipelineState())) {
             // may be canceled
             LOGGER.info(String.format("%s turn to state %s, skip %s this pipeline.", pipeline.getPipelineFullName(),
-                pipeline.getPipelineState(), PipelineState.DEPLOYING));
+                pipeline.getPipelineState(), PipelineStatus.DEPLOYING));
         } else {
             makePipelineFailed(pipeline, new JobException(
                 String.format("%s turn to a unexpected state: %s, stop scheduler job", pipeline.getPipelineFullName(),
@@ -242,9 +242,9 @@ public class PipelineBaseScheduler implements JobScheduler {
         return schedulerPipeline(subPlan);
     }
 
-    private void handlePipelineStateTurnError(SubPlan pipeline, PipelineState targetState) {
-        if (PipelineState.CANCELING.equals(pipeline.getPipelineState()) ||
-            PipelineState.CANCELED.equals(pipeline.getPipelineState())) {
+    private void handlePipelineStateTurnError(SubPlan pipeline, PipelineStatus targetState) {
+        if (PipelineStatus.CANCELING.equals(pipeline.getPipelineState()) ||
+            PipelineStatus.CANCELED.equals(pipeline.getPipelineState())) {
             // may be canceled
             LOGGER.info(
                 String.format("%s turn to state %s, skip %s this pipeline.", pipeline.getPipelineFullName(),
