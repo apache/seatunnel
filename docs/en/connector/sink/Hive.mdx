@@ -1,0 +1,155 @@
+# Hive
+
+> Hive sink connector
+
+### Description
+
+Write Rows to [Apache Hive](https://hive.apache.org).
+
+:::tip
+
+Engine Supported and plugin name
+
+* [x] Spark: Hive
+* [ ] Flink
+
+:::
+
+### Options
+
+<Tabs
+    groupId="engine-type"
+    defaultValue="spark"
+    values={[
+        {label: 'Spark', value: 'spark'},
+        {label: 'Flink', value: 'flink'},
+    ]}>
+
+<TabItem value="spark">
+
+| name                                           | type          | required | default value |
+|------------------------------------------------|---------------|----------|---------------|
+| [sql](#sql-string)                             | string        | no       | -             |
+| [source_table_name](#source_table_name-string) | string        | no       | -             |
+| [result_table_name](#result_table_name-string) | string        | no       | -             |
+| [sink_columns](#sink_columns-string)           | string        | no       | -             |
+| [save_mode](#save_mode-string)                 | string        | no       | -             |
+| [partition_by](#partition_by-arraystring)      | Array[string] | no       | -             |
+
+##### sql [string]
+Hive sql：the whole insert data sql, such as `insert into/overwrite $table  select * from xxx_table `, If this option exists, other options will be ignored.
+
+##### Source_table_name [string]
+
+Datasource of this plugin.
+
+##### result_table_name [string]
+
+The output hive table name if the `sql` option doesn't specified.
+
+##### save_mode [string]
+
+Same with option `spark.mode` in Spark, combined with `result_table_name` if the `sql` option doesn't specified.
+
+##### sink_columns [string]
+
+Specify the selected fields which write to result_table_name, separated by commas, combined with `result_table_name` if the `sql` option doesn't specified.
+
+##### partition_by [Array[string]]
+
+Hive partition fields, combined with `result_table_name` if the `sql` option doesn't specified.
+
+</TabItem>
+
+<TabItem value="flink">
+
+    | name           | type   | required | default value |
+    |----------------|--------|----------|---------------|
+    | sql        | string | yes      | -             |
+    | catalog_name        | string | yes      | -             |
+    | database        | string | yes      | -             |
+    | hive_site_dir        | string | yes      | -             |
+    | common-options | string | yes      | -             |
+
+    ### sql
+
+    The sql you want executed
+
+    ### catalog_name
+
+    The catalog_name you want to register in flink, this parameter is unique. If catalog_name is duplicated, it will throw the UnsupportedOperationException
+
+    ### database
+
+    Hive database name you want to use
+
+    ### hive_site_dir
+
+    The directory with the `hive-site.xml`
+
+    **Note: The following configuration must be done to use hive source：**
+
+    ```bash
+    # In the flink section in the seatunnel configuration file：
+
+    env {
+    ...
+        execution.planner = blink
+    ...
+}
+
+</TabItem>
+
+### Example
+
+<Tabs
+    groupId="engine-type"
+    defaultValue="spark"
+    values={[
+        {label: 'Spark', value: 'spark'},
+        {label: 'Flink', value: 'flink'},
+    ]}>
+
+<TabItem value="spark">
+
+```conf
+sink {
+  Hive {
+    sql = "insert overwrite table seatunnel.test1 partition(province) select name,age,province from myTable2"
+  }
+}
+```
+
+```conf
+sink {
+  Hive {
+    source_table_name = "myTable2"
+    result_table_name = "seatunnel.test1"
+    save_mode = "overwrite"
+    sink_columns = "name,age,province"
+    partition_by = ["province"]
+  }
+}
+```
+
+</TabItem>
+
+<TabItem value="flink">
+
+```conf
+env {
+    ...
+        execution.planner = blink
+    ...
+}
+
+sink {
+    HiveStream {
+      catalog_name = "catalog2"
+      database = default
+      sql = "insert into seatunnel_orc select * from fake"
+      hive_site_dir = "/tmp/hive/config"
+    }
+}
+```
+</TabItem>

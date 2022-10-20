@@ -1,0 +1,144 @@
+# Hive
+
+> Hive source connector
+
+## Description
+
+Get data from hive
+
+:::tip
+
+Engine Supported and plugin name
+
+* [x] Spark: Hive
+* [x] Flink: HiveStream
+
+:::
+
+## Options
+
+<Tabs
+    groupId="engine-type"
+    defaultValue="spark"
+    values={[
+        {label: 'Spark', value: 'spark'},
+        {label: 'Flink', value: 'flink'},
+    ]}>
+
+<TabItem value="spark">
+
+| name           | type   | required | default value |
+|----------------|--------|----------|---------------|
+| pre_sql        | string | yes      | -             |
+| common-options | string | yes      | -             |
+
+### pre_sql [string]
+
+For preprocessed `sql` , if preprocessing is not required, you can use `select * from hive_db.hive_table` .
+
+### common options [string]
+
+Source plugin common parameters, please refer to [Source Plugin](common-options.mdx) for details
+
+**Note: The following configuration must be done to use hive source：**
+
+```bash
+# In the spark section in the seatunnel configuration file：
+
+env {
+  ...
+  spark.sql.catalogImplementation = "hive"
+  ...
+}
+```
+</TabItem>
+
+<TabItem value="flink">
+
+| name           | type   | required | default value |
+|----------------|--------|----------|---------------|
+| sql        | string | yes      | -             |
+| catalog_name        | string | yes      | -             |
+| database        | string | yes      | -             |
+| hive_site_dir        | string | yes      | -             |
+| common-options | string | yes      | -             |
+
+### sql
+
+The sql you want executed
+
+### catalog_name
+
+The catalog_name you want to register in flink, this parameter is unique. If catalog_name is duplicated, it will throw the UnsupportedOperationException
+
+### database
+
+Hive database name you want to use
+
+### hive_site_dir
+
+The directory with the `hive-site.xml`
+
+**Note: The following configuration must be done to use hive source：**
+
+```bash
+# In the flink section in the seatunnel configuration file：
+
+env {
+...
+    execution.planner = blink
+...
+}
+
+</TabItem>
+
+## Example
+
+<Tabs
+    groupId="engine-type"
+    defaultValue="spark"
+    values={[
+        {label: 'Spark', value: 'spark'},
+        {label: 'Flink', value: 'flink'},
+    ]}>
+
+<TabItem value="spark">
+```bash
+env {
+  ...
+  spark.sql.catalogImplementation = "hive"
+  ...
+}
+
+source {
+  hive {
+    pre_sql = "select * from mydb.mytb"
+    result_table_name = "myTable"
+  }
+}
+
+...
+```
+</TabItem>
+
+<TabItem value="flink">
+    ```bash
+    env {
+    ...
+        execution.planner = blink
+    ...
+    }
+
+    HiveStream {
+        catalog_name = "catalog1"
+        database = default
+        pre_sql = "select * from seatunnel_parquet"
+        hive_site_dir = "/tmp/hive/config"
+        result_table_name = "parquet_table"
+    }
+```
+</TabItem>
+
+## Notes
+
+It must be ensured that the `metastore` of `hive` is in service. Start the command `hive --service metastore` service `default port 9083` `cluster` , `client` , `local`  mode, `hive-site.xml` must be placed in the `$HADOOP_CONF` directory of the task submission node (or placed under `$SPARK_HOME/conf` ), IDE local Debug put it in the `resources` directory
