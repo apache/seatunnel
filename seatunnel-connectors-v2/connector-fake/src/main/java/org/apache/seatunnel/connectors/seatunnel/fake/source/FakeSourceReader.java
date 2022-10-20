@@ -21,9 +21,12 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
@@ -34,12 +37,16 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
 
     private final SourceReader.Context context;
     private final Deque<FakeSourceSplit> splits = new LinkedList<>();
-    private final FakeDataGenerator fakeDataGenerator;
-    boolean noMoreSplit;
 
-    public FakeSourceReader(SourceReader.Context context, FakeDataGenerator fakeDataGenerator) {
+    private final FakeConfig config;
+    private final FakeDataGenerator fakeDataGenerator;
+    private volatile boolean noMoreSplit;
+    private volatile long latestTimestamp = 0;
+
+    public FakeSourceReader(SourceReader.Context context, SeaTunnelSchema schema, FakeConfig fakeConfig) {
         this.context = context;
-        this.fakeDataGenerator = fakeDataGenerator;
+        this.config = fakeConfig;
+        this.fakeDataGenerator = new FakeDataGenerator(schema, fakeConfig);
     }
 
     @Override
@@ -53,27 +60,32 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     }
 
     @Override
-    @SuppressWarnings("magicnumber")
+    @SuppressWarnings("MagicNumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
+        long currentTimestamp = Instant.now().toEpochMilli();
+        if (currentTimestamp <= latestTimestamp + config.getSplitReadInterval()) {
+            return;
+        }
+        latestTimestamp = currentTimestamp;
         synchronized (output.getCheckpointLock()) {
             FakeSourceSplit split = splits.poll();
             if (null != split) {
                 // Generate a random number of rows to emit.
-                List<SeaTunnelRow> seaTunnelRows = fakeDataGenerator.generateFakedRows();
+                List<SeaTunnelRow> seaTunnelRows = fakeDataGenerator.generateFakedRows(split.getRowNum());
                 for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {
                     output.collect(seaTunnelRow);
                 }
+                log.info("{} rows of data have been generated in split({}). Generation time: {}", split.getRowNum(), split.splitId(), latestTimestamp);
             } else {
-                if (noMoreSplit && Boundedness.BOUNDED.equals(context.getBoundedness())) {
-                    // signal to the source that we have reached the end of the data.
-                    log.info("Closed the bounded fake source");
-                    context.signalNoMoreElement();
-                }
                 if (!noMoreSplit) {
                     log.info("wait split!");
                 }
             }
-
+        }
+        if (splits.isEmpty() && noMoreSplit && Boundedness.BOUNDED.equals(context.getBoundedness())) {
+            // signal to the source that we have reached the end of the data.
+            log.info("Closed the bounded fake source");
+            context.signalNoMoreElement();
         }
         Thread.sleep(1000L);
     }

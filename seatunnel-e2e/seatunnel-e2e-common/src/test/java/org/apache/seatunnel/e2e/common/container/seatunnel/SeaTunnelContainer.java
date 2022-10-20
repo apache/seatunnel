@@ -32,6 +32,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
 import java.nio.file.Paths;
@@ -56,8 +57,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
             .withExposedPorts()
             .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger("seatunnel-engine:" + JDK_DOCKER_IMAGE)))
             .waitingFor(Wait.forLogMessage(".*received new worker register.*\\n", 1));
-        bindSeaTunnelStarter(server);
-        server.withFileSystemBind(PROJECT_ROOT_PATH + "/seatunnel-engine/seatunnel-engine-common/src/main/resources/",
+        copySeaTunnelStarterToContainer(server);
+        server.withCopyFileToContainer(MountableFile.forHostPath(PROJECT_ROOT_PATH + "/seatunnel-engine/seatunnel-engine-common/src/main/resources/"),
             Paths.get(SEATUNNEL_HOME, "config").toString());
         server.start();
         // execute extra commands

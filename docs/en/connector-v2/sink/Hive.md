@@ -159,3 +159,10 @@ sink {
   }
 }
 ```
+
+## Changelog
+
+| Version    | Date       | Pull Request                                                    | Subject                                       |
+|------------|------------|-----------------------------------------------------------------|-----------------------------------------------|
+| 2.2.0-beta | 2022-09-26 |                                                                 | Add Hive Sink                                 |
+| 2.3.0-beta | 2022-10-19 | [3133](https://github.com/apache/incubator-seatunnel/pull/3133) | Hive Sink supports automatic partition repair |

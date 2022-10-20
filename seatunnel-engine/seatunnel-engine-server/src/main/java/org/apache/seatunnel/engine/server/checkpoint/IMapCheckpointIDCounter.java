@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
-import org.apache.seatunnel.engine.core.job.PipelineState;
+import org.apache.seatunnel.engine.core.job.PipelineStatus;
 
 import com.hazelcast.map.IMap;
 
@@ -40,7 +40,7 @@ public class IMapCheckpointIDCounter implements CheckpointIDCounter {
     }
 
     @Override
-    public CompletableFuture<Void> shutdown(PipelineState pipelineStatus) {
+    public CompletableFuture<Void> shutdown(PipelineStatus pipelineStatus) {
         if (pipelineStatus.isEndState()) {
             checkpointIdMap.remove(pipelineId);
         }
