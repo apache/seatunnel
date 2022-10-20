@@ -58,7 +58,6 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.Timestamp;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -236,7 +235,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 return new MapType<>(orcDataType2SeaTunnelDataType(keyType), orcDataType2SeaTunnelDataType(valueType));
             case STRUCT:
                 List<TypeDescription> children = typeDescription.getChildren();
-                String[] fieldNames = typeDescription.getFieldNames().toArray(new String[0]);
+                String[] fieldNames = typeDescription.getFieldNames().toArray(TYPE_ARRAY_STRING);
                 SeaTunnelDataType<?>[] fieldTypes = children.stream().map(this::orcDataType2SeaTunnelDataType).toArray(SeaTunnelDataType<?>[]::new);
                 return new SeaTunnelRowType(fieldNames, fieldTypes);
             default:
@@ -533,15 +532,15 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             }
         }
         if (childType.getCategory() == TypeDescription.Category.BOOLEAN) {
-            return longList.toArray(new Boolean[0]);
+            return longList.toArray(TYPE_ARRAY_BOOLEAN);
         } else if (childType.getCategory() == TypeDescription.Category.INT) {
-            return longList.toArray(new Integer[0]);
+            return longList.toArray(TYPE_ARRAY_INTEGER);
         } else if (childType.getCategory() == TypeDescription.Category.BYTE) {
-            return longList.toArray(new Byte[0]);
+            return longList.toArray(TYPE_ARRAY_BYTE);
         } else if (childType.getCategory() == TypeDescription.Category.SHORT) {
-            return longList.toArray(new Short[0]);
+            return longList.toArray(TYPE_ARRAY_SHORT);
         } else {
-            return longList.toArray(new Long[0]);
+            return longList.toArray(TYPE_ARRAY_LONG);
         }
     }
 
@@ -567,9 +566,9 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             }
         }
         if (colType.getCategory() == TypeDescription.Category.FLOAT) {
-            return doubleList.toArray(new Float[0]);
+            return doubleList.toArray(TYPE_ARRAY_FLOAT);
         } else {
-            return doubleList.toArray(new Double[0]);
+            return doubleList.toArray(TYPE_ARRAY_DOUBLE);
         }
     }
 
@@ -599,7 +598,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             }
         }
         if (childType.getCategory() == TypeDescription.Category.STRING) {
-            return bytesValList.toArray(new String[0]);
+            return bytesValList.toArray(TYPE_ARRAY_STRING);
         } else {
             return bytesValList.toArray();
         }
@@ -622,7 +621,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                 decimalList.add(null);
             }
         }
-        return decimalList.toArray(new BigDecimal[0]);
+        return decimalList.toArray(TYPE_ARRAY_BIG_DECIMAL);
     }
 
     private Object readTimestampListValues(ListColumnVector listVector, TypeDescription childType, int rowNum) {
@@ -651,9 +650,9 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             }
         }
         if (childType.getCategory() == TypeDescription.Category.DATE) {
-            return timestampList.toArray(new LocalDate[0]);
+            return timestampList.toArray(TYPE_ARRAY_LOCAL_DATE);
         } else {
-            return timestampList.toArray(new LocalDateTime[0]);
+            return timestampList.toArray(TYPE_ARRAY_LOCAL_DATETIME);
         }
     }
 }
