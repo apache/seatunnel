@@ -151,6 +151,7 @@ public class JobMaster extends Thread {
         this.checkpointManager = new CheckpointManager(
             jobImmutableInformation.getJobId(),
             nodeEngine,
+            this,
             planTuple.f1(),
             checkpointConfig);
     }

@@ -15,17 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.gbase8a;
 
-import org.apache.seatunnel.engine.client.job.JobClient;
-import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
-import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
-public interface SeaTunnelClientInstance {
+import com.google.auto.service.AutoService;
 
-    JobExecutionEnvironment createExecutionContext(String filePath, JobConfig config);
+@AutoService(JdbcDialectFactory.class)
+public class Gbase8aDialectFactory implements JdbcDialectFactory {
+    @Override
+    public boolean acceptsURL(String url) {
+        return url.startsWith("jdbc:gbase:");
+    }
 
-    JobClient createJobClient();
-
-    void close();
+    @Override
+    public JdbcDialect create() {
+        return new Gbase8aDialect();
+    }
 }

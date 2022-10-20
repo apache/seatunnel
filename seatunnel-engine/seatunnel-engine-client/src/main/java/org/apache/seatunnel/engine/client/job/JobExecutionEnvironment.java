@@ -18,8 +18,10 @@
 package org.apache.seatunnel.engine.client.job;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
@@ -27,15 +29,28 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalDagGenerator;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.parse.JobConfigParser;
 
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
+import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.FileVisitOption;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class JobExecutionEnvironment {
+
+    private static final ILogger LOGGER = Logger.getLogger(JobExecutionEnvironment.class);
 
     private final JobConfig jobConfig;
 
@@ -43,7 +58,9 @@ public class JobExecutionEnvironment {
 
     private final List<Action> actions = new ArrayList<>();
 
-    private final List<URL> jarUrls = new ArrayList<>();
+    private final Set<URL> jarUrls = new HashSet<>();
+
+    private final List<URL> commonPluginJars = new ArrayList<>();
 
     private final String jobFilePath;
 
@@ -61,10 +78,35 @@ public class JobExecutionEnvironment {
         this.seaTunnelHazelcastClient = seaTunnelHazelcastClient;
         this.jobClient = new JobClient(seaTunnelHazelcastClient);
         this.jobConfig.setJobContext(new JobContext(jobClient.getNewJobId()));
+        this.commonPluginJars.addAll(searchPluginJars());
+        LOGGER.info("add common jar in plugins :" + commonPluginJars);
+    }
+
+    /**
+     * Search all jars in SEATUNNEL_HOME/plugins
+     */
+    private Set<URL> searchPluginJars() {
+        try {
+            if (Files.exists(Common.pluginRootDir())) {
+                try (Stream<Path> paths = Files.walk(Common.pluginRootDir(), FileVisitOption.FOLLOW_LINKS)) {
+                    return paths.filter(path -> path.toString().endsWith(".jar"))
+                        .map(path -> {
+                            try {
+                                return path.toUri().toURL();
+                            } catch (MalformedURLException e) {
+                                throw new SeaTunnelEngineException(e);
+                            }
+                        }).collect(Collectors.toSet());
+                }
+            }
+        } catch (IOException | SeaTunnelEngineException e) {
+            LOGGER.warning(String.format("Can't search plugin jars in %s.", Common.pluginRootDir()), e);
+        }
+        return Collections.emptySet();
     }
 
     private JobConfigParser getJobConfigParser() {
-        return new JobConfigParser(jobFilePath, idGenerator, jobConfig);
+        return new JobConfigParser(jobFilePath, idGenerator, jobConfig, commonPluginJars);
     }
 
     public void addAction(List<Action> actions) {
@@ -84,7 +126,7 @@ public class JobExecutionEnvironment {
             Long.parseLong(jobConfig.getJobContext().getJobId()),
             seaTunnelHazelcastClient.getSerializationService().toData(getLogicalDag()),
             jobConfig,
-            jarUrls);
+            new ArrayList<>(jarUrls));
 
         return jobClient.createJobProxy(jobImmutableInformation);
     }

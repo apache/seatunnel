@@ -15,17 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.gbase8a;
 
-import org.apache.seatunnel.engine.client.job.JobClient;
-import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
-import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
-public interface SeaTunnelClientInstance {
+public class Gbase8aDialect implements JdbcDialect {
+    @Override
+    public String dialectName() {
+        return "Gbase8a";
+    }
 
-    JobExecutionEnvironment createExecutionContext(String filePath, JobConfig config);
+    @Override
+    public JdbcRowConverter getRowConverter() {
+        return new Gbase8aJdbcRowConverter();
+    }
 
-    JobClient createJobClient();
-
-    void close();
+    @Override
+    public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
+        return new Gbase8aTypeMapper();
+    }
 }
