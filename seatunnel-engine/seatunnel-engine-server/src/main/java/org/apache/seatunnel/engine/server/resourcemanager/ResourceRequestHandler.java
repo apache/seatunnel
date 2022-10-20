@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
+
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.RequestSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
@@ -83,7 +85,7 @@ public class ResourceRequestHandler {
             }
         }
         // all resource preCheck done, also had sent request to worker
-        getAllOfFuture(allRequestFuture).whenComplete((unused, error) -> {
+        getAllOfFuture(allRequestFuture).whenComplete(withTryCatch(LOGGER, (unused, error) -> {
             if (error != null) {
                 completeRequestWithException(error);
             }
@@ -95,7 +97,7 @@ public class ResourceRequestHandler {
                     completeRequestWithException(new NoEnoughResourceException("can't apply resource request: " + resourceProfile.get(findNullIndexInResultSlotProfiles())));
                 }
             }
-        });
+        }));
         return completableFuture;
     }
 
@@ -129,7 +131,7 @@ public class ResourceRequestHandler {
     private CompletableFuture<SlotAndWorkerProfile> singleResourceRequestToMember(int i, ResourceProfile r, WorkerProfile workerProfile) {
         InvocationFuture<SlotAndWorkerProfile> future = resourceManager.sendToMember(new RequestSlotOperation(jobId, r), workerProfile.getAddress());
         return future.whenComplete(
-            (slotAndWorkerProfile, error) -> {
+            withTryCatch(LOGGER, (slotAndWorkerProfile, error) -> {
                 if (error != null) {
                     throw new RuntimeException(error);
                 } else {
@@ -137,7 +139,7 @@ public class ResourceRequestHandler {
                     addSlotToCacheMap(i, slotAndWorkerProfile.getSlotProfile());
                 }
             }
-        );
+        ));
     }
 
     private Optional<WorkerProfile> preCheckWorkerResource(ResourceProfile r) {
@@ -169,7 +171,7 @@ public class ResourceRequestHandler {
             }
         }
         resourceManager.findNewWorker(needApplyResource);
-        resourceManager.applyResources(jobId, needApplyResource).whenComplete((s, e) -> {
+        resourceManager.applyResources(jobId, needApplyResource).whenComplete(withTryCatch(LOGGER, (s, e) -> {
             if (e != null) {
                 completeRequestWithException(e);
                 return;
@@ -177,7 +179,7 @@ public class ResourceRequestHandler {
             for (int i = 0; i < s.size(); i++) {
                 addSlotToCacheMap(needApplyIndex.get(i), s.get(i));
             }
-        });
+        }));
     }
 
     private void releaseAllResourceInternal() {

@@ -32,7 +32,7 @@ public abstract class AbstractAction implements Action {
 
     private int parallelism = 1;
 
-    private Set<URL> jarUrls;
+    private final Set<URL> jarUrls;
 
     protected AbstractAction(long id, @NonNull String name, @NonNull List<Action> upstreams, @NonNull Set<URL> jarUrls) {
         this.id = id;

@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.checkpoint;
 
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
 import static org.apache.seatunnel.engine.core.checkpoint.CheckpointType.COMPLETED_POINT_TYPE;
+import static org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan.COORDINATOR_INDEX;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.READY_START;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
@@ -26,6 +27,7 @@ import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.common.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.checkpoint.storage.common.Serializer;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
@@ -81,8 +83,6 @@ public class CheckpointCoordinator {
 
     private final CheckpointStorage checkpointStorage;
 
-    private final CheckpointStorageConfiguration storageConfig;
-
     @Getter
     private final CheckpointIDCounter checkpointIdCounter;
 
@@ -105,7 +105,7 @@ public class CheckpointCoordinator {
 
     private volatile CompletedCheckpoint latestCompletedCheckpoint = null;
 
-    private final CheckpointCoordinatorConfiguration coordinatorConfig;
+    private final CheckpointConfig coordinatorConfig;
 
     private int tolerableFailureCheckpoints;
     private final transient ScheduledExecutorService scheduler;
@@ -122,22 +122,21 @@ public class CheckpointCoordinator {
     @SneakyThrows
     public CheckpointCoordinator(CheckpointManager manager,
                                  CheckpointStorage checkpointStorage,
-                                 CheckpointStorageConfiguration storageConfig,
+                                 CheckpointConfig checkpointConfig,
                                  long jobId,
                                  CheckpointPlan plan,
-                                 CheckpointCoordinatorConfiguration coordinatorConfig,
                                  CheckpointIDCounter checkpointIdCounter,
                                  PipelineState pipelineState) {
+
         this.checkpointManager = manager;
         this.checkpointStorage = checkpointStorage;
-        this.storageConfig = storageConfig;
         this.jobId = jobId;
         this.pipelineId = plan.getPipelineId();
         this.plan = plan;
-        this.coordinatorConfig = coordinatorConfig;
+        this.coordinatorConfig = checkpointConfig;
         this.tolerableFailureCheckpoints = coordinatorConfig.getTolerableFailureCheckpoints();
         this.pendingCheckpoints = new ConcurrentHashMap<>();
-        this.completedCheckpoints = new ArrayDeque<>(storageConfig.getMaxRetainedCheckpoints() + 1);
+        this.completedCheckpoints = new ArrayDeque<>(coordinatorConfig.getStorage().getMaxRetainedCheckpoints() + 1);
         this.scheduler = Executors.newScheduledThreadPool(
             1, runnable -> {
                 Thread thread = new Thread(runnable);
@@ -182,10 +181,20 @@ public class CheckpointCoordinator {
         List<ActionSubtaskState> states = new ArrayList<>();
         if (latestCompletedCheckpoint != null) {
             final Integer currentParallelism = pipelineTasks.get(taskLocation.getTaskVertexId());
-            final ActionState actionState = latestCompletedCheckpoint.getTaskStates().get(taskLocation.getTaskVertexId());
-            for (int i = taskLocation.getTaskIndex(); i < actionState.getParallelism(); i += currentParallelism) {
-                states.add(actionState.getSubtaskStates()[i]);
-            }
+            plan.getSubtaskActions().get(taskLocation)
+                .forEach(tuple -> {
+                    ActionState actionState = latestCompletedCheckpoint.getTaskStates().get(tuple.f0());
+                    if (actionState == null) {
+                        return;
+                    }
+                    if (COORDINATOR_INDEX.equals(tuple.f1())) {
+                        states.add(actionState.getCoordinatorState());
+                        return;
+                    }
+                    for (int i = tuple.f1(); i < actionState.getParallelism(); i += currentParallelism) {
+                        states.add(actionState.getSubtaskStates().get(i));
+                    }
+                });
         }
         checkpointManager.sendOperationToMemberNode(new NotifyTaskRestoreOperation(taskLocation, states));
     }
@@ -216,7 +225,7 @@ public class CheckpointCoordinator {
         scheduler.schedule(this::tryTriggerPendingCheckpoint, delayMills, TimeUnit.MILLISECONDS);
     }
 
-    private void tryTriggerPendingCheckpoint() {
+    protected void tryTriggerPendingCheckpoint() {
         synchronized (lock) {
             final long currentTimestamp = Instant.now().toEpochMilli();
             if (currentTimestamp - latestTriggerTimestamp.get() >= coordinatorConfig.getCheckpointInterval() &&
@@ -273,7 +282,7 @@ public class CheckpointCoordinator {
                     if (pendingCheckpoints.get(pendingCheckpoint.getCheckpointId()) != null && !pendingCheckpoint.isFullyAcknowledged()) {
                         if (tolerableFailureCheckpoints-- <= 0) {
                             cleanPendingCheckpoint(CheckpointFailureReason.CHECKPOINT_EXPIRED);
-                            // TODO: notify job master to restore the pipeline.
+                            checkpointManager.handleCheckpointTimeout(pipelineId);
                         }
                     }
                 }, coordinatorConfig.getCheckpointTimeout(),
@@ -408,7 +417,7 @@ public class CheckpointCoordinator {
                 .pipelineId(pipelineId)
                 .states(states)
                 .build());
-            if (completedCheckpoints.size() > storageConfig.getMaxRetainedCheckpoints()) {
+            if (completedCheckpoints.size() > coordinatorConfig.getStorage().getMaxRetainedCheckpoints()) {
                 CompletedCheckpoint superfluous = completedCheckpoints.removeFirst();
                 checkpointStorage.deleteCheckpoint(
                     String.valueOf(superfluous.getJobId()),
@@ -418,6 +427,7 @@ public class CheckpointCoordinator {
         } catch (IOException | CheckpointStorageException e) {
             sneakyThrow(e);
         }
+        LOG.info("pending checkpoint({}/{}@{}) notify finished!", completedCheckpoint.getCheckpointId(), completedCheckpoint.getPipelineId(), completedCheckpoint.getJobId());
         InvocationFuture<?>[] invocationFutures = notifyCheckpointCompleted(checkpointId);
         CompletableFuture.allOf(invocationFutures).join();
         // TODO: notifyCheckpointCompleted fail
