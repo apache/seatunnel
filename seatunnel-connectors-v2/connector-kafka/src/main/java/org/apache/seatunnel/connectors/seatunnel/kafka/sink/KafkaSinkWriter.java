@@ -56,10 +56,13 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     private final SinkWriter.Context context;
     private final Config pluginConfig;
     private final Function<SeaTunnelRow, String> partitionExtractor;
+    private final Function<SeaTunnelRow, String> topicExtractor;
 
     private String transactionPrefix;
     private long lastCheckpointId = 0;
     private int partition;
+    private String topic;
+    private boolean isExtractTopic = false;
 
     private final KafkaProduceSender<byte[], byte[]> kafkaProducerSender;
     private final SeaTunnelRowSerializer<byte[], byte[]> seaTunnelRowSerializer;
@@ -70,13 +73,17 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     @Override
     public void write(SeaTunnelRow element) {
         ProducerRecord<byte[], byte[]> producerRecord = null;
+        String topic = this.topic;
+        if (isExtractTopic) {
+            topic = topicExtractor.apply(element);
+        }
         //Determine the partition of the kafka send message based on the field name
-        if (pluginConfig.hasPath(PARTITION_KEY)){
+        if (pluginConfig.hasPath(PARTITION_KEY)) {
             String key = partitionExtractor.apply(element);
-            producerRecord = seaTunnelRowSerializer.serializeRowByKey(key, element);
+            producerRecord = seaTunnelRowSerializer.serializeRowByKey(topic, key, element);
         }
         else {
-            producerRecord = seaTunnelRowSerializer.serializeRow(element);
+            producerRecord = seaTunnelRowSerializer.serializeRow(topic, element);
         }
         kafkaProducerSender.send(producerRecord);
     }
@@ -88,6 +95,8 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             List<KafkaSinkState> kafkaStates) {
         this.context = context;
         this.pluginConfig = pluginConfig;
+        this.topic = extractTopic(pluginConfig.getString(TOPIC));
+        this.topicExtractor = createTopicExtractor(this.topic, seaTunnelRowType);
         this.partitionExtractor = createPartitionExtractor(pluginConfig, seaTunnelRowType);
         if (pluginConfig.hasPath(PARTITION)) {
             this.partition = pluginConfig.getInt(PARTITION);
@@ -164,12 +173,11 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     // todo: parse the target field from config
     private SeaTunnelRowSerializer<byte[], byte[]> getSerializer(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
-        String topic = extractTopic(pluginConfig.getString(TOPIC));
         if (pluginConfig.hasPath(PARTITION)){
-            return new DefaultSeaTunnelRowSerializer(topic, this.partition, seaTunnelRowType);
+            return new DefaultSeaTunnelRowSerializer(this.partition, seaTunnelRowType);
         }
         else {
-            return new DefaultSeaTunnelRowSerializer(topic, seaTunnelRowType);
+            return new DefaultSeaTunnelRowSerializer(seaTunnelRowType);
         }
     }
 
@@ -180,6 +188,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         String topic = topicConfig;
         if (matcher.find()) {
             topic = matcher.group(1);
+            isExtractTopic = true;
         }
         return topic;
     }
@@ -200,6 +209,24 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             this.transactionPrefix = states.get(0).getTransactionIdPrefix();
             this.lastCheckpointId = states.get(0).getCheckpointId();
         }
+    }
+
+    private Function<SeaTunnelRow, String> createTopicExtractor(String topicField, SeaTunnelRowType seaTunnelRowType) {
+        if (!isExtractTopic) {
+            return row -> null;
+        }
+        List<String> fieldNames = Arrays.asList(seaTunnelRowType.getFieldNames());
+        if (!fieldNames.contains(topicField)) {
+            throw new IllegalArgumentException("Field name is not found!");
+        }
+        int topicFieldIndex = seaTunnelRowType.indexOf(topicField);
+        return row -> {
+            Object topicFieldValue = row.getField(topicFieldIndex);
+            if (topicFieldValue == null) {
+                throw new IllegalArgumentException("The column value is empty!");
+            }
+            return topicFieldValue.toString();
+        };
     }
 
     private Function<SeaTunnelRow, String> createPartitionExtractor(Config pluginConfig,

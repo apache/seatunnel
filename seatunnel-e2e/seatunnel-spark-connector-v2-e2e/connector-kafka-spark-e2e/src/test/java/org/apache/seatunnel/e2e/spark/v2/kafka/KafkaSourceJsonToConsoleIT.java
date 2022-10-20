@@ -127,7 +127,7 @@ public class KafkaSourceJsonToConsoleIT extends SparkContainer {
                 }
         );
 
-        DefaultSeaTunnelRowSerializer serializer = new DefaultSeaTunnelRowSerializer("test_topic", seatunnelRowType);
+        DefaultSeaTunnelRowSerializer serializer = new DefaultSeaTunnelRowSerializer(seatunnelRowType);
 
         for (int i = 0; i < 100; i++) {
             SeaTunnelRow row = new SeaTunnelRow(
@@ -148,7 +148,7 @@ public class KafkaSourceJsonToConsoleIT extends SparkContainer {
                             LocalDate.now(),
                             LocalDateTime.now()
                     });
-            ProducerRecord<byte[], byte[]> producerRecord = serializer.serializeRow(row);
+            ProducerRecord<byte[], byte[]> producerRecord = serializer.serializeRow("test_topic",row);
             producer.send(producerRecord);
         }
     }

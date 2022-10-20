@@ -26,21 +26,19 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byte[], byte[]> {
 
     private int partation = -1;
-    private final String topic;
     private final JsonSerializationSchema jsonSerializationSchema;
 
-    public DefaultSeaTunnelRowSerializer(String topic, SeaTunnelRowType seaTunnelRowType) {
-        this.topic = topic;
+    public DefaultSeaTunnelRowSerializer(SeaTunnelRowType seaTunnelRowType) {
         this.jsonSerializationSchema = new JsonSerializationSchema(seaTunnelRowType);
     }
 
-    public DefaultSeaTunnelRowSerializer(String topic, int partation, SeaTunnelRowType seaTunnelRowType) {
-        this(topic, seaTunnelRowType);
+    public DefaultSeaTunnelRowSerializer(int partation, SeaTunnelRowType seaTunnelRowType) {
+        this(seaTunnelRowType);
         this.partation = partation;
     }
 
     @Override
-    public ProducerRecord<byte[], byte[]> serializeRow(SeaTunnelRow row) {
+    public ProducerRecord<byte[], byte[]> serializeRow(String topic, SeaTunnelRow row) {
         if (this.partation != -1) {
             return new ProducerRecord<>(topic, this.partation, null, jsonSerializationSchema.serialize(row));
         }
@@ -50,7 +48,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byt
     }
 
     @Override
-    public ProducerRecord<byte[], byte[]> serializeRowByKey(String key, SeaTunnelRow row) {
+    public ProducerRecord<byte[], byte[]> serializeRowByKey(String topic, String key, SeaTunnelRow row) {
         //if the key is null, kafka will send message to a random partition
         return new ProducerRecord<>(topic, key == null ? null : key.getBytes(), jsonSerializationSchema.serialize(row));
     }

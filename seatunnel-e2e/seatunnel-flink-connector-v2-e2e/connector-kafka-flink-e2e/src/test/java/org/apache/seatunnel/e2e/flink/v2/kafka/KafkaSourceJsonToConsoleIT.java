@@ -57,7 +57,7 @@ import java.util.stream.Stream;
 
 /**
  * This test case is used to verify that the kafka source is able to send data to the console.
- * Make sure the SeaTunnel job can submit successfully on spark engine.
+ * Make sure the SeaTunnel job can submit successfully on flink engine.
  */
 @Slf4j
 public class KafkaSourceJsonToConsoleIT extends FlinkContainer {
@@ -128,7 +128,7 @@ public class KafkaSourceJsonToConsoleIT extends FlinkContainer {
                 }
         );
 
-        DefaultSeaTunnelRowSerializer serializer = new DefaultSeaTunnelRowSerializer("test_topic", seatunnelRowType);
+        DefaultSeaTunnelRowSerializer serializer = new DefaultSeaTunnelRowSerializer(seatunnelRowType);
 
         for (int i = 0; i < 100; i++) {
             SeaTunnelRow row = new SeaTunnelRow(
@@ -149,7 +149,7 @@ public class KafkaSourceJsonToConsoleIT extends FlinkContainer {
                             LocalDate.now(),
                             LocalDateTime.now()
                     });
-            ProducerRecord<byte[], byte[]> producerRecord = serializer.serializeRow(row);
+            ProducerRecord<byte[], byte[]> producerRecord = serializer.serializeRow("test_topic", row);
             producer.send(producerRecord);
         }
     }

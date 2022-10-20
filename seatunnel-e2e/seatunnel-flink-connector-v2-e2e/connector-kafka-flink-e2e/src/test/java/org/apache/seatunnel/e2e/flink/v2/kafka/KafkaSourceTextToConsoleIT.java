@@ -57,7 +57,7 @@ import java.util.stream.Stream;
 
 /**
  * This test case is used to verify that the kafka source is able to send data to the console.
- * Make sure the SeaTunnel job can submit successfully on spark engine.
+ * Make sure the SeaTunnel job can submit successfully on flink engine.
  */
 @Slf4j
 public class KafkaSourceTextToConsoleIT extends FlinkContainer {
