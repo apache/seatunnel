@@ -73,5 +73,4 @@ Http {
 | Version    | Date       | Pull Request                                                    | Subject                                              |
 |------------|------------|-----------------------------------------------------------------|------------------------------------------------------|
 | 2.2.0-beta | 2022-09-26 |                                                                 | Add Http Sink                                        |
-| 2.3.0-beta | 2022-10-18 | [2980](https://github.com/apache/incubator-seatunnel/pull/2980) | Fix the bug of incorrect path in windows environment |
 
