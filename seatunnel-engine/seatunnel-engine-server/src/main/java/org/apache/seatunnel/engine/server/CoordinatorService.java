@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.core.job.RunningJobInfo;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
@@ -74,7 +75,7 @@ public class CoordinatorService {
      * IMap key is one of jobId {@link org.apache.seatunnel.engine.server.dag.physical.PipelineLocation} and
      * {@link org.apache.seatunnel.engine.server.execution.TaskGroupLocation}
      * <p>
-     * The value of IMap is one of {@link JobStatus} {@link org.apache.seatunnel.engine.core.job.PipelineState}
+     * The value of IMap is one of {@link JobStatus} {@link PipelineStatus}
      * {@link org.apache.seatunnel.engine.server.execution.ExecutionState}
      * <p>
      * This IMap is used to recovery runningJobStateIMap in JobMaster when a new master node active
