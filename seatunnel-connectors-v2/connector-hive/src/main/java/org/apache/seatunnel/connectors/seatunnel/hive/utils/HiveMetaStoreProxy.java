@@ -24,7 +24,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import lombok.NonNull;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
-import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
@@ -67,12 +66,19 @@ public class HiveMetaStoreProxy {
         }
     }
 
-    public List<FieldSchema> getTableFields(@NonNull String dbName, @NonNull String tableName) {
-        try {
-            return hiveMetaStoreClient.getFields(dbName, tableName);
-        } catch (TException e) {
-            String errorMsg = String.format("Get table [%s.%s] fields information failed", dbName, tableName);
-            throw new RuntimeException(errorMsg, e);
+    public void addPartitions(@NonNull String dbName,
+                              @NonNull String tableName,
+                              List<String> partitions) throws TException {
+        for (String partition : partitions) {
+            hiveMetaStoreClient.appendPartition(dbName, tableName, partition);
+        }
+    }
+
+    public void dropPartitions(@NonNull String dbName,
+                               @NonNull String tableName,
+                               List<String> partitions) throws TException {
+        for (String partition : partitions) {
+            hiveMetaStoreClient.dropPartition(dbName, tableName, partition, false);
         }
     }
 

@@ -165,3 +165,6 @@ sink {
 ### 2.2.0-beta 2022-09-26
 
 - Add Hive Sink Connector
+
+### 2.3.0-beta 2022-10-20
+- [Improve] Hive Sink supports automatic partition repair ([3133](https://github.com/apache/incubator-seatunnel/pull/3133))
