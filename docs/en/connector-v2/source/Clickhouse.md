@@ -85,6 +85,6 @@ source {
 
 ## Changelog
 
-| Version    | Date       | Pull Request                 | Subject               |
-|------------|------------|------------------------------|-----------------------|
-| 2.2.0-beta | 2022-09-26 |                              | Add Clickhouse Source |
+### 2.2.0-beta 2022-09-26
+
+- Add ClickHouse Source Connector

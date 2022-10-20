@@ -119,6 +119,6 @@ Sink plugin common parameters, please refer to [Sink Common Options](common-opti
 
 ## Changelog
 
-| Version    | Date       | Subject                                                               |
-|------------|------------|-----------------------------------------------------------------------|
-| 2.2.0-beta | 2022-09-26 | Support write data to ClickHouse File and move to ClickHouse data dir |
+### 2.2.0-beta 2022-09-26
+
+- Support write data to ClickHouse File and move to ClickHouse data dir

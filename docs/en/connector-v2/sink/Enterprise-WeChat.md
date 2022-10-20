@@ -63,7 +63,9 @@ WeChat {
 
 ## Changelog
 
-| Version    | Date       | Pull Request                                                    | Subject                                       |
-|------------|------------|-----------------------------------------------------------------|-----------------------------------------------|
-| 2.2.0-beta | 2022-09-26 |                                                                 | Add Enterprise-WeChat Sink                    |
-| 2.3.0-beta | 2022-10-18 | [2856](https://github.com/apache/incubator-seatunnel/pull/2856) | Fix Enterprise-WeChat Sink data serialization |
+### 2.2.0-beta 2022-09-26
+
+- Add Enterprise-WeChat Sink Connector
+
+### 2.3.0-beta 2022-10-20
+- [BugFix] Fix Enterprise-WeChat Sink data serialization ([2856](https://github.com/apache/incubator-seatunnel/pull/2856))

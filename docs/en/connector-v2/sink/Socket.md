@@ -99,6 +99,6 @@ nc -l -v 9999
 
 ## Changelog
 
-| Version    | Date       | Pull Request                 | Subject         |
-|------------|------------|------------------------------|-----------------|
-| 2.2.0-beta | 2022-09-26 |                              | Add Socket Sink |
+### 2.2.0-beta 2022-09-26
+
+- Add Socket Sink Connector

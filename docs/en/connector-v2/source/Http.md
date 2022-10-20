@@ -148,6 +148,6 @@ Http {
 
 ## Changelog
 
-| Version    | Date       | Pull Request                      | Subject         |
-|------------|------------|-----------------------------------|-----------------|
-| 2.2.0-beta | 2022-09-26 |                                   | Add Http Source |
+### 2.2.0-beta 2022-09-26
+
+- Add Http Source Connector

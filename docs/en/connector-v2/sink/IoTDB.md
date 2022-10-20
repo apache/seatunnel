@@ -205,7 +205,14 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 
 ## Changelog
 
-| Version    | Date       | Pull Request                                                                                                                                        | Subject                                                                                                                                                                                                             |
-|------------|------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 2.2.0-beta | 2022-09-26 |                                                                                                                                                     | Add IoTDB Sink                                                                                                                                                                                                      |
-| 2.3.0-beta | 2022-10-18 | <br>[2917](https://github.com/apache/incubator-seatunnel/pull/2917) </br><br> [3080](https://github.com/apache/incubator-seatunnel/pull/3080)</br>  | <li>Support align by sql syntax</li><li>Support sql split ignore case</li><li>Support restore split offset to at-least-once</li><li>Support read timestamp from RowRecord</li><li>Fix IoTDB connector sink NPE</li> |
+### 2.2.0-beta 2022-09-26
+
+- Add IoTDB Sink Connector
+
+### 2.3.0-beta 2022-10-20
+- [Improve] Improve IoTDB Sink Connector ([2917](https://github.com/apache/incubator-seatunnel/pull/2917))
+  - Support align by sql syntax
+  - Support sql split ignore case
+  - Support restore split offset to at-least-once
+  - Support read timestamp from RowRecord
+- [BugFix] Fix IoTDB connector sink NPE ([3080](https://github.com/apache/incubator-seatunnel/pull/3080))

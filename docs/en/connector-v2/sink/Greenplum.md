@@ -37,6 +37,6 @@ Sink plugin common parameters, please refer to [Sink Common Options](common-opti
 
 ## Changelog
 
-| Version    | Date       | Pull Request                                                    | Subject            |
-|------------|------------|-----------------------------------------------------------------|--------------------|
-| 2.2.0-beta | 2022-09-26 |                                                                 | Add Greenplum Sink |
+### 2.2.0-beta 2022-09-26
+
+- Add Greenplum Sink Connector

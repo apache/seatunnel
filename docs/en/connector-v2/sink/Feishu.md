@@ -47,7 +47,6 @@ Feishu {
 
 ## Changelog
 
-| Version    | Date       | Pull Request                                                    | Subject         |
-|------------|------------|-----------------------------------------------------------------|-----------------|
-| 2.2.0-beta | 2022-09-26 |                                                                 | Add Feishu Sink |
+### 2.2.0-beta 2022-09-26
 
+- Add Feishu Sink Connector

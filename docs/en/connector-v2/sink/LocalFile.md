@@ -181,7 +181,11 @@ LocalFile {
 
 ## Changelog
 
-| Version    | Date       | Pull Request                                                                                                                                                                                                                                                                                            | Subject                                                                                                                                                                                                                               |
-|------------|------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 2.2.0-beta | 2022-09-26 |                                                                                                                                                                                                                                                                                                         | Add Local File Sink                                                                                                                                                                                                                   |
-| 2.3.0-beta | 2022-10-18 | <br>[2980](https://github.com/apache/incubator-seatunnel/pull/2980) </br><br> [3117](https://github.com/apache/incubator-seatunnel/pull/3117) </br><br> [3083](https://github.com/apache/incubator-seatunnel/pull/3083) </br><br> [2976](https://github.com/apache/incubator-seatunnel/pull/2976)</br>  | <li>Fix the bug of incorrect path in windows environment</li> <li>Fix filesystem get error</li> <li>Solved the bug of can not parse '\t as delimiter from config file</li> <li>Support user-defined schema for reading text file</li> |
+### 2.2.0-beta 2022-09-26
+
+- Add Local File Sink Connector
+
+### 2.3.0-beta 2022-10-20
+- [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/incubator-seatunnel/pull/2980))
+- [BugFix] Fix filesystem get error ([3117](https://github.com/apache/incubator-seatunnel/pull/3117))
+- [BugFix] Solved the bug of can not parse '\t' as delimiter from config file ([3083](https://github.com/apache/incubator-seatunnel/pull/3083))

@@ -34,8 +34,9 @@ Warn: for license compliance, if you use `GreenplumDriver` the have to provide G
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
+
 ## Changelog
 
-| Version    | Date       | Pull Request                                                    | Subject              |
-|------------|------------|-----------------------------------------------------------------|----------------------|
-| 2.2.0-beta | 2022-09-26 |                                                                 | Add Greenplum Source |
+### 2.2.0-beta 2022-09-26
+
+- Add Greenplum Source Connector

@@ -150,6 +150,5 @@ source {
 
 ## Changelog
 
-| Version    | Date       | Pull Request                        | Subject           |
-|------------|------------|-------------------------------------|-------------------|
-| 2.3.0-beta | 2022-10-18 |                                     | Add Pulsar Source |
+### 2.3.0-beta 2022-10-20
+- Add Pulsar Source Connector
