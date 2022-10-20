@@ -17,11 +17,16 @@
 
 package org.apache.seatunnel.engine.server.task.record;
 
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
+
+import java.time.Instant;
+
 /**
  * barrier flowing in data flow
  */
 public interface Barrier {
-    Long PREPARE_CLOSE_BARRIER_ID = 0L;
+    Long PREPARE_CLOSE_BARRIER_ID = Long.MAX_VALUE;
 
     /**
      * The ID of the barrier.
@@ -38,4 +43,8 @@ public interface Barrier {
      * Barrier indicating that the task should prepare to close.
      */
     boolean prepareClose();
+
+    static CheckpointBarrier completedBarrier() {
+        return new CheckpointBarrier(Barrier.PREPARE_CLOSE_BARRIER_ID, Instant.now().toEpochMilli(), CheckpointType.COMPLETED_POINT_TYPE);
+    }
 }

@@ -32,6 +32,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -45,15 +46,16 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class FakeSourceToJdbcIT extends SparkContainer {
+    private static final String POSTGRES_DOCKER_IMAGE = "postgres:alpine3.16";
     private PostgreSQLContainer<?> psl;
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
     public void startPostgreSqlContainer() throws InterruptedException, ClassNotFoundException, SQLException {
-        psl = new PostgreSQLContainer<>(DockerImageName.parse("postgres:alpine3.16"))
+        psl = new PostgreSQLContainer<>(DockerImageName.parse(POSTGRES_DOCKER_IMAGE))
                 .withNetwork(NETWORK)
                 .withNetworkAliases("postgresql")
-                .withLogConsumer(new Slf4jLogConsumer(log));
+                .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(POSTGRES_DOCKER_IMAGE)));
         Startables.deepStart(Stream.of(psl)).join();
         log.info("PostgreSql container started");
         Class.forName(psl.getDriverClassName());

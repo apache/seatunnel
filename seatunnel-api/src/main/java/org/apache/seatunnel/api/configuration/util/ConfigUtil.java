@@ -64,9 +64,7 @@ public class ConfigUtil {
 
         if (rawValue instanceof List) {
             List<Object> rawList = (List<Object>) rawValue;
-            for (int i = 0; i < rawList.size(); i++) {
-                rawList.set(i, flatteningMap(rawList.get(i), null, null, false));
-            }
+            rawList.replaceAll(value -> flatteningMap(value, null, null, false));
             if (newMap != null) {
                 newMap.put(String.join(".", keys), rawList);
                 return newMap;

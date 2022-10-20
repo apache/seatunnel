@@ -73,8 +73,8 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        readerTaskID.writeData(out);
-        enumeratorTaskID.writeData(out);
+        out.writeObject(readerTaskID);
+        out.writeObject(enumeratorTaskID);
     }
 
     @Override

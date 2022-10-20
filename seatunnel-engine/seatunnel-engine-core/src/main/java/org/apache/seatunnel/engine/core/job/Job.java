@@ -33,5 +33,4 @@ public interface Job {
 
     JobStatus waitForJobComplete();
 
-    void close();
 }

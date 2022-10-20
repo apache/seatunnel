@@ -47,12 +47,6 @@
                     </artifactSet>
                 </configuration>
             </plugin>
-
-            <!-- make sure that flatten runs after maven-shade-plugin -->
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>flatten-maven-plugin</artifactId>
-            </plugin>
         </plugins>
     </build>
     <profiles>

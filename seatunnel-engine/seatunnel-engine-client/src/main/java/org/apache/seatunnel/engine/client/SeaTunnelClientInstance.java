@@ -26,4 +26,6 @@ public interface SeaTunnelClientInstance {
     JobExecutionEnvironment createExecutionContext(String filePath, JobConfig config);
 
     JobClient createJobClient();
+
+    void close();
 }

@@ -27,7 +27,7 @@ import com.hazelcast.logging.ILogger;
 import lombok.NonNull;
 
 public class SeaTunnelClient implements SeaTunnelClientInstance {
-    private SeaTunnelHazelcastClient hazelcastClient;
+    private final SeaTunnelHazelcastClient hazelcastClient;
 
     public SeaTunnelClient(@NonNull ClientConfig clientConfig) {
         this.hazelcastClient = new SeaTunnelHazelcastClient(clientConfig);
@@ -43,6 +43,11 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
         return new JobClient(hazelcastClient);
     }
 
+    @Override
+    public void close() {
+        hazelcastClient.getHazelcastInstance().shutdown();
+    }
+
     public ILogger getLogger() {
         return hazelcastClient.getLogger(getClass());
     }
@@ -50,7 +55,7 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
     public String printMessageToMaster(@NonNull String msg) {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
             SeaTunnelPrintMessageCodec.encodeRequest(msg),
-            response -> SeaTunnelPrintMessageCodec.decodeResponse(response)
+            SeaTunnelPrintMessageCodec::decodeResponse
         );
     }
 }

@@ -28,7 +28,7 @@ public interface TestContainer extends TestResource {
 
     Network NETWORK = Network.newNetwork();
 
-    String identifier();
+    TestContainerId identifier();
 
     void executeExtraCommands(ContainerExtendedFactory extendedFactory) throws IOException, InterruptedException;
 

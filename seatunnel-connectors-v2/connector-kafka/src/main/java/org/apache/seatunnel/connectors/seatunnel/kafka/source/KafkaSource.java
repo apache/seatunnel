@@ -20,17 +20,21 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.COMMIT_ON_CHECKPOINT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONSUMER_GROUP;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PATTERN;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -38,7 +42,10 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
+import org.apache.seatunnel.format.json.JsonDeserializationSchema;
+import org.apache.seatunnel.format.text.TextDeserializationSchema;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -52,6 +59,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
     private static final String DEFAULT_CONSUMER_GROUP = "SeaTunnel-Consumer-Group";
 
     private final ConsumerMetadata metadata = new ConsumerMetadata();
+    private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private SeaTunnelRowType typeInfo;
     private JobContext jobContext;
 
@@ -92,10 +100,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
             this.metadata.getProperties().put(e.getKey(), String.valueOf(e.getValue().unwrapped()));
         });
 
-        // TODO support user custom row type
-        this.typeInfo = new SeaTunnelRowType(new String[]{"topic", "raw_message"},
-                new SeaTunnelDataType[]{BasicType.STRING_TYPE, BasicType.STRING_TYPE});
-
+        setDeserialization(config);
     }
 
     @Override
@@ -105,7 +110,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
 
     @Override
     public SourceReader<SeaTunnelRow, KafkaSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
-        return new KafkaSourceReader(this.metadata, this.typeInfo, readerContext);
+        return new KafkaSourceReader(this.metadata, deserializationSchema, readerContext);
     }
 
     @Override
@@ -121,5 +126,37 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
     @Override
     public void setJobContext(JobContext jobContext) {
         this.jobContext = jobContext;
+    }
+
+    private void setDeserialization(Config config) {
+        if (config.hasPath(SCHEMA)) {
+            Config schema = config.getConfig(SCHEMA);
+            typeInfo = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
+            String format = DEFAULT_FORMAT;
+            if (config.hasPath(FORMAT)) {
+                format = config.getString(FORMAT);
+            }
+            if (DEFAULT_FORMAT.equals(format)) {
+                deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
+            } else if ("text".equals(format)) {
+                String delimiter = DEFAULT_FIELD_DELIMITER;
+                if (config.hasPath(FIELD_DELIMITER)) {
+                    delimiter = config.getString(FIELD_DELIMITER);
+                }
+                deserializationSchema = TextDeserializationSchema.builder()
+                        .seaTunnelRowType(typeInfo)
+                        .delimiter(delimiter)
+                        .build();
+            } else {
+                // TODO: use format SPI
+                throw new UnsupportedOperationException("Unsupported format: " + format);
+            }
+        } else {
+            typeInfo = SeaTunnelSchema.buildSimpleTextSchema();
+            this.deserializationSchema = TextDeserializationSchema.builder()
+                    .seaTunnelRowType(typeInfo)
+                    .delimiter(String.valueOf('\002'))
+                    .build();
+        }
     }
 }

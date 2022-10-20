@@ -15,24 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.checkpoint;
+package org.apache.seatunnel.engine.common.config.server;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
+import static com.hazelcast.internal.util.Preconditions.checkPositive;
 
-@Getter
-@EqualsAndHashCode
-@Builder(builderClassName = "Builder")
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
-public class CheckpointStorageConfiguration {
-    private final String storage;
-    private final int maxRetainedCheckpoints;
+import lombok.Data;
 
-    public static final class Builder {
-        private String storage = "localfile";
-        private int maxRetainedCheckpoints = 1;
+import java.io.Serializable;
+
+@Data
+public class SlotServiceConfig implements Serializable {
+
+    private boolean dynamicSlot = ServerConfigOptions.DYNAMIC_SLOT.defaultValue();
+
+    private int slotNum = ServerConfigOptions.SLOT_NUM.defaultValue();
+
+    public void setSlotNum(int slotNum) {
+        checkPositive(slotNum, ServerConfigOptions.SLOT_NUM + " must be > 0");
+        this.slotNum = slotNum;
     }
 }

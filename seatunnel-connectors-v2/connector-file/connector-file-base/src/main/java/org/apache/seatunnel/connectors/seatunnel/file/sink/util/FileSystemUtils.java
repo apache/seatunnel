@@ -25,9 +25,9 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,7 +39,7 @@ public class FileSystemUtils {
     public static Configuration CONF;
 
     public static FileSystem getFileSystem(@NonNull String path) throws IOException {
-        FileSystem fileSystem = FileSystem.get(new File(path).toURI(), CONF);
+        FileSystem fileSystem = FileSystem.get(URI.create(path.replaceAll("\\\\", "/")), CONF);
         fileSystem.setWriteChecksum(false);
         return fileSystem;
     }

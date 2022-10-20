@@ -38,6 +38,7 @@ public class JdbcCase {
     private String sourceTable;
     private String sinkTable;
     private String driverJar;
+    private String jdbcTemplate;
     private String jdbcUrl;
     private String ddlSource;
     private String ddlSink;

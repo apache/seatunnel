@@ -15,35 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.source;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.gbase8a;
 
-import org.apache.seatunnel.translation.spark.common.source.batch.ParallelBatchPartitionReader;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
-import org.apache.spark.sql.catalyst.InternalRow;
-import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
-
-import java.io.IOException;
-
-public class SeatunnelInputPartitionReader implements InputPartitionReader<InternalRow> {
-
-    private final ParallelBatchPartitionReader partitionReader;
-
-    public SeatunnelInputPartitionReader(ParallelBatchPartitionReader partitionReader) {
-        this.partitionReader = partitionReader;
+public class Gbase8aDialect implements JdbcDialect {
+    @Override
+    public String dialectName() {
+        return "Gbase8a";
     }
 
     @Override
-    public boolean next() throws IOException {
-        return partitionReader.next();
+    public JdbcRowConverter getRowConverter() {
+        return new Gbase8aJdbcRowConverter();
     }
 
     @Override
-    public InternalRow get() {
-        return partitionReader.get();
-    }
-
-    @Override
-    public void close() throws IOException {
-        partitionReader.close();
+    public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
+        return new Gbase8aTypeMapper();
     }
 }
