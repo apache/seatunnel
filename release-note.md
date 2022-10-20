@@ -138,7 +138,7 @@
 - [Improve] [api] [flink] extraction unified method ([2862](https://github.com/apache/incubator-seatunnel/pull/2862))
 - [Feature] [deploy] Add Helm charts ([2903](https://github.com/apache/incubator-seatunnel/pull/2903))
 - [Feature] [seatunnel-text-format] ([2884](https://github.com/apache/incubator-seatunnel/pull/2884))
-- 
+ 
 ### [Bug Fix]
 
 - [BugFix] Fix assert connector name error in config/plugin_config file ([3127](https://github.com/apache/incubator-seatunnel/pull/3127))
