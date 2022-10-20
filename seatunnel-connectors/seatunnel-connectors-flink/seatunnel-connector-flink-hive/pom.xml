@@ -53,6 +53,12 @@
             <artifactId>hive-exec</artifactId>
             <version>2.3.6</version>
             <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <artifactId>orc-core</artifactId>
+                    <groupId>org.apache.orc</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 

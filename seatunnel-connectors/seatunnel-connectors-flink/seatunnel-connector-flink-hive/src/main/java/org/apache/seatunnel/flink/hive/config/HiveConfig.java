@@ -18,9 +18,8 @@
 package org.apache.seatunnel.flink.hive.config;
 
 public class HiveConfig {
-    public static final String PRE_SQL = "pre_sql";
     public static final String SQL = "sql";
     public static final String HIVE_CONF_DIR = "hive_site_dir";
     public static final String DATABASE = "database";
-    public static final String HIVE_CATALOG_NAME = "seatunnel_file_hive";
+    public static final String CATALOG_NAME = "catalog_name";
 }

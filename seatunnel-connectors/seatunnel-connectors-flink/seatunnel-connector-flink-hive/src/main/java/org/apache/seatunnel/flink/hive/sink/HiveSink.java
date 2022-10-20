@@ -15,27 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.flink.hive.source;
+package org.apache.seatunnel.flink.hive.sink;
 
 import static org.apache.seatunnel.flink.hive.config.HiveConfig.SQL;
 
-import org.apache.seatunnel.flink.BaseFlinkSource;
+import org.apache.seatunnel.flink.BaseFlinkSink;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.hive.common.BaseHivePlugin;
-import org.apache.seatunnel.flink.stream.FlinkStreamSource;
+import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 
 import com.google.auto.service.AutoService;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 
-@AutoService(BaseFlinkSource.class)
-public class HiveSource extends BaseHivePlugin implements FlinkStreamSource {
+@AutoService(BaseFlinkSink.class)
+public class HiveSink extends BaseHivePlugin implements FlinkStreamSink {
     @Override
-    public DataStream<Row> getData(FlinkEnvironment env) {
+    public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         StreamTableEnvironment streamTableEnvironment = env.getStreamTableEnvironment();
-        Table table = streamTableEnvironment.sqlQuery(config.getString(SQL));
-        return env.getStreamTableEnvironment().toDataStream(table);
+        streamTableEnvironment.executeSql(config.getString(SQL));
     }
 }
