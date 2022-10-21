@@ -1,10 +1,10 @@
-# FtpFile
+# SftpFile
 
-> Ftp file sink connector
+> Sftp file sink connector
 
 ## Description
 
-Output data to Ftp . 
+Output data to Sftp .
 
 ## Key features
 
@@ -43,19 +43,19 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ### host [string]
 
-The target ftp host is required
+The target sftp host is required
 
 ### port [int]
 
-The target ftp port is required
+The target sftp port is required
 
 ### username [string]
 
-The target ftp username is required
+The target sftp username is required
 
 ### password [string]
 
-The target ftp password is required
+The target sftp password is required
 
 ### path [string]
 
@@ -92,7 +92,7 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 
 ### field_delimiter [string]
 
-The separator between columns in a row of data. Only needed by `text` and `csv` file format.
+The separator between columns in a row of data. Only needed by `text` file format.
 
 ### row_delimiter [string]
 
@@ -137,12 +137,12 @@ For text file format
 
 ```bash
 
-FtpFile {
+SftpFile {
     host = "xxx.xxx.xxx.xxx"
-    port = 21
+    port  =22
     username = "username"
     password = "password"
-    path = "/data/ftp"
+    path = "/data/sftp"
     field_delimiter = "\t"
     row_delimiter = "\n"
     partition_by = ["age"]
@@ -159,11 +159,6 @@ FtpFile {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Ftp File Sink Connector
-
-### 2.3.0-beta 2022-10-20
-- [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/incubator-seatunnel/pull/2980))
-- [BugFix] Fix filesystem get error ([3117](https://github.com/apache/incubator-seatunnel/pull/3117))
-- [BugFix] Solved the bug of can not parse '\t' as delimiter from config file ([3083](https://github.com/apache/incubator-seatunnel/pull/3083))
+| Version    | Date       | Pull Request                                                    | Subject      |
+|------------|------------|-----------------------------------------------------------------|--------------|
+| 2.2.0-beta | 2022-10-06 | [3006](https://github.com/apache/incubator-seatunnel/pull/3006) | First commit |
