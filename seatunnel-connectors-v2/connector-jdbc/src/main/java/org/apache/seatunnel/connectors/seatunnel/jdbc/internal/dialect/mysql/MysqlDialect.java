@@ -17,9 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
+
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.function.Consumer;
 
 public class MysqlDialect implements JdbcDialect {
     @Override
@@ -35,5 +40,17 @@ public class MysqlDialect implements JdbcDialect {
     @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
         return new MySqlTypeMapper();
+    }
+
+    @Override
+    public Consumer<PreparedStatement> customPreparedStatement() {
+        return preparedStatement -> {
+            try {
+                // enable mysql streaming mode
+                preparedStatement.setFetchSize(Integer.MIN_VALUE);
+            } catch (SQLException e) {
+                throw new SeaTunnelException(e);
+            }
+        };
     }
 }

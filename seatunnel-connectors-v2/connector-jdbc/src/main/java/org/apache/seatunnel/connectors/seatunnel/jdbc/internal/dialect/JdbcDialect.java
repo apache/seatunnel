@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 
 import java.io.Serializable;
+import java.sql.PreparedStatement;
+import java.util.function.Consumer;
 
 /**
  * Represents a dialect of SQL implemented by a particular JDBC system. Dialects should be immutable
@@ -45,8 +47,19 @@ public interface JdbcDialect extends Serializable {
 
     /**
      * get jdbc meta-information type to seatunnel data type mapper.
+     *
      * @return a type mapper for the database
      */
     JdbcDialectTypeMapper getJdbcDialectTypeMapper();
+
+    /**
+     * Different dialects optimize their PreparedStatement
+     *
+     * @return The logic about optimize PreparedStatement
+     */
+    default Consumer<PreparedStatement> customPreparedStatement() {
+        return preparedStatement -> {
+        };
+    }
 
 }

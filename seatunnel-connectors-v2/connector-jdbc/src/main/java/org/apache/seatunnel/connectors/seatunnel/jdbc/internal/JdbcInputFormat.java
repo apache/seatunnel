@@ -38,6 +38,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.util.function.Consumer;
 
 /**
  * InputFormat to read data from a database and generate Rows. The InputFormat has to be configured
@@ -63,12 +64,15 @@ public class JdbcInputFormat implements Serializable {
 
     protected boolean hasNext;
 
+    protected Consumer<PreparedStatement> customPreparedStatement;
+
     public JdbcInputFormat(JdbcConnectionProvider connectionProvider,
                            JdbcRowConverter jdbcRowConverter,
                            SeaTunnelRowType typeInfo,
                            String queryTemplate,
                            int fetchSize,
-                           Boolean autoCommit
+                           Boolean autoCommit,
+                           Consumer<PreparedStatement> customPreparedStatement
     ) {
         this.connectionProvider = connectionProvider;
         this.jdbcRowConverter = jdbcRowConverter;
@@ -76,6 +80,7 @@ public class JdbcInputFormat implements Serializable {
         this.queryTemplate = queryTemplate;
         this.fetchSize = fetchSize;
         this.autoCommit = autoCommit;
+        this.customPreparedStatement = customPreparedStatement;
     }
 
     public void openInputFormat() {
@@ -89,10 +94,11 @@ public class JdbcInputFormat implements Serializable {
                 dbConn.setAutoCommit(autoCommit);
             }
 
-            statement = dbConn.prepareStatement(queryTemplate);
+            statement = dbConn.prepareStatement(queryTemplate, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
             if (fetchSize == Integer.MIN_VALUE || fetchSize > 0) {
                 statement.setFetchSize(fetchSize);
             }
+            customPreparedStatement.accept(statement);
         } catch (SQLException se) {
             throw new IllegalArgumentException("open() failed." + se.getMessage(), se);
         } catch (ClassNotFoundException cnfe) {
