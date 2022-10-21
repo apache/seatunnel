@@ -17,7 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
+
+import org.apache.kafka.common.TopicPartition;
+
 import java.io.Serializable;
+import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -31,6 +36,9 @@ public class ConsumerMetadata implements Serializable {
     private Properties properties;
     private String consumerGroup;
     private boolean commitOnCheckpoint = false;
+    private StartMode startMode = StartMode.GROUP_OFFSETS;
+    private Map<TopicPartition, Long> specificStartOffsets;
+    private Long startOffsetsTimestamp;
 
     public boolean isCommitOnCheckpoint() {
         return commitOnCheckpoint;
@@ -78,5 +86,29 @@ public class ConsumerMetadata implements Serializable {
 
     public void setConsumerGroup(String consumerGroup) {
         this.consumerGroup = consumerGroup;
+    }
+
+    public StartMode getStartMode() {
+        return startMode;
+    }
+
+    public void setStartMode(StartMode startMode) {
+        this.startMode = startMode;
+    }
+
+    public Map<TopicPartition, Long> getSpecificStartOffsets() {
+        return specificStartOffsets;
+    }
+
+    public void setSpecificStartOffsets(Map<TopicPartition, Long> specificStartOffsets) {
+        this.specificStartOffsets = specificStartOffsets;
+    }
+
+    public Long getStartOffsetsTimestamp() {
+        return startOffsetsTimestamp;
+    }
+
+    public void setStartOffsetsTimestamp(Long startOffsetsTimestamp) {
+        this.startOffsetsTimestamp = startOffsetsTimestamp;
     }
 }
