@@ -176,7 +176,8 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
             return;
         }
         if (barrier.prepareClose()) {
-            prepareCloseStatus = true;
+            this.prepareCloseStatus = true;
+            this.prepareCloseBarrierId.set(barrier.getId());
         }
         if (barrier.snapshot()) {
             if (commitInfoCache.containsKey(barrier.getId())) {
@@ -222,17 +223,13 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
             checkpointCommitInfoMap.remove(key);
         });
         aggregatedCommitter.commit(aggregatedCommitInfo);
-        if (prepareCloseStatus) {
-            closeCall();
-        }
+        tryClose(checkpointId);
     }
 
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         aggregatedCommitter.abort(checkpointCommitInfoMap.get(checkpointId));
         checkpointCommitInfoMap.remove(checkpointId);
-        if (prepareCloseStatus) {
-            closeCall();
-        }
+        tryClose(checkpointId);
     }
 }

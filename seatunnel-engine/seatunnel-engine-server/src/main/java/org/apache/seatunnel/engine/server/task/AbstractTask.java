@@ -32,6 +32,7 @@ import lombok.NonNull;
 import java.net.URL;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 public abstract class AbstractTask implements Task {
@@ -45,6 +46,8 @@ public abstract class AbstractTask implements Task {
     protected volatile boolean closeCalled;
     protected volatile boolean prepareCloseStatus;
 
+    protected AtomicLong prepareCloseBarrierId;
+
     protected Progress progress;
 
     public AbstractTask(long jobID, TaskLocation taskLocation) {
@@ -55,6 +58,7 @@ public abstract class AbstractTask implements Task {
         this.startCalled = false;
         this.closeCalled = false;
         this.prepareCloseStatus = false;
+        this.prepareCloseBarrierId = new AtomicLong(-1);
     }
 
     public abstract Set<URL> getJarsUrl();
@@ -101,6 +105,12 @@ public abstract class AbstractTask implements Task {
 
     public void startCall() {
         startCalled = true;
+    }
+
+    public void tryClose(long checkpointId) {
+        if (prepareCloseStatus && prepareCloseBarrierId.get() == checkpointId) {
+            closeCall();
+        }
     }
 
     public void closeCall() {
