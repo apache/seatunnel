@@ -14,7 +14,6 @@
 - [Source] [JDBC] [StarRocks] Add StarRocks JDBC Source Connector ([3060](https://github.com/apache/incubator-seatunnel/pull/3060))
 - [Sink] [Kafka] Add Kafka Source Connector ([2953](https://github.com/apache/incubator-seatunnel/pull/2953))
 - [Sink] [S3File] Add S3 File Sink Connector ([3119](https://github.com/apache/incubator-seatunnel/pull/3119))
-- [Sink] [Hive] [Improve] Hive Sink supports automatic partition repair ([3133](https://github.com/apache/incubator-seatunnel/pull/3133))
 
 ### [Improve & Bug Fix]
 
@@ -118,6 +117,9 @@
 
 - [Sink] [Kudu]
   - [Improve] Kudu Sink Connector Support to upsert row ([2881](https://github.com/apache/incubator-seatunnel/pull/2881))
+
+- [Sink] [Hive] 
+  - [Improve] Hive Sink supports automatic partition repair ([3133](https://github.com/apache/incubator-seatunnel/pull/3133))
 
 ## [Connector V1]
 
