@@ -89,11 +89,6 @@ public class ClientJobProxy implements Job {
     }
 
     @Override
-    public void close() {
-        this.seaTunnelHazelcastClient.getHazelcastInstance().shutdown();
-    }
-
-    @Override
     public PassiveCompletableFuture<JobStatus> doWaitForJobComplete() {
         return seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(
             SeaTunnelWaitForJobCompleteCodec.encodeRequest(jobImmutableInformation.getJobId()),

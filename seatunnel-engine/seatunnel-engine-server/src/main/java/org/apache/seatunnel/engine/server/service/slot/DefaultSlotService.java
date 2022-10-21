@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.service.slot;
 
+import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
@@ -60,19 +61,17 @@ public class DefaultSlotService implements SlotService {
 
     private ConcurrentMap<Integer, SlotProfile> unassignedSlots;
     private ScheduledExecutorService scheduledExecutorService;
-    private final boolean dynamicSlot;
-    private final int slotNumber;
+    private final SlotServiceConfig config;
     private volatile boolean initStatus;
     private final IdGenerator idGenerator;
     private final TaskExecutionService taskExecutionService;
     private ConcurrentMap<Integer, SlotContext> contexts;
 
-    public DefaultSlotService(NodeEngineImpl nodeEngine, TaskExecutionService taskExecutionService, boolean dynamicSlot,
-                              int slotNumber) {
+    public DefaultSlotService(NodeEngineImpl nodeEngine, TaskExecutionService taskExecutionService,
+                              SlotServiceConfig config) {
         this.nodeEngine = nodeEngine;
-        this.dynamicSlot = dynamicSlot;
+        this.config = config;
         this.taskExecutionService = taskExecutionService;
-        this.slotNumber = slotNumber;
         this.idGenerator = new IdGenerator();
     }
 
@@ -86,7 +85,7 @@ public class DefaultSlotService implements SlotService {
         assignedResource = new AtomicReference<>(new ResourceProfile());
         scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(r -> new Thread(r,
             String.format("hz.%s.seaTunnel.slotService.thread", nodeEngine.getHazelcastInstance().getName())));
-        if (!dynamicSlot) {
+        if (!config.isDynamicSlot()) {
             initFixedSlots();
         }
         unassignedResource.set(getNodeResource());
@@ -96,7 +95,6 @@ public class DefaultSlotService implements SlotService {
                     nodeEngine.getClusterService().getThisAddress());
                 sendToMaster(new WorkerHeartbeatOperation(toWorkerProfile())).join();
             } catch (Exception e) {
-                LOGGER.warning(e);
                 LOGGER.warning("failed send heartbeat to resource manager, will retry later. this address: " +
                     nodeEngine.getClusterService().getThisAddress());
             }
@@ -154,7 +152,7 @@ public class DefaultSlotService implements SlotService {
         assignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::subtract);
         unassignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::merge);
         profile.unassigned();
-        if (!dynamicSlot) {
+        if (!config.isDynamicSlot()) {
             unassignedSlots.put(profile.getSlotID(), profile);
         }
         assignedSlots.remove(profile.getSlotID());
@@ -169,10 +167,10 @@ public class DefaultSlotService implements SlotService {
     }
 
     private SlotProfile selectBestMatchSlot(ResourceProfile profile) {
-        if (unassignedSlots.isEmpty() && !dynamicSlot) {
+        if (unassignedSlots.isEmpty() && !config.isDynamicSlot()) {
             return null;
         }
-        if (dynamicSlot) {
+        if (config.isDynamicSlot()) {
             if (unassignedResource.get().enoughThan(profile)) {
                 return new SlotProfile(nodeEngine.getThisAddress(), (int) idGenerator.getNextId(), profile);
             }
@@ -196,9 +194,9 @@ public class DefaultSlotService implements SlotService {
 
     private void initFixedSlots() {
         long maxMemory = Runtime.getRuntime().maxMemory();
-        for (int i = 0; i < slotNumber; i++) {
+        for (int i = 0; i < config.getSlotNum(); i++) {
             unassignedSlots.put(i, new SlotProfile(nodeEngine.getThisAddress(), i,
-                new ResourceProfile(CPU.of(0), Memory.of(maxMemory / slotNumber))));
+                    new ResourceProfile(CPU.of(0), Memory.of(maxMemory / config.getSlotNum()))));
         }
     }
 

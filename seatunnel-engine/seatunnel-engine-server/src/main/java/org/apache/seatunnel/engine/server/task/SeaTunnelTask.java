@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.engine.common.utils.ConsumerWithException;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
+import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.PartitionTransformAction;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
@@ -69,12 +70,13 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 public abstract class SeaTunnelTask extends AbstractTask {
@@ -92,9 +94,9 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     protected List<CompletableFuture<Void>> flowFutures;
 
-    protected final Map<Long, List<ActionSubtaskState>> checkpointStates = new HashMap<>();
+    protected final Map<Long, List<ActionSubtaskState>> checkpointStates = new ConcurrentHashMap<>();
 
-    private final Map<Long, Integer> cycleAcks = new HashMap<>();
+    private final Map<Long, Integer> cycleAcks = new ConcurrentHashMap<>();
 
     protected int indexID;
 
@@ -179,7 +181,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
         FlowLifeCycle lifeCycle;
         List<OneInputFlowLifeCycle<Record<?>>> flowLifeCycles = new ArrayList<>();
         if (!flow.getNext().isEmpty()) {
-            for (Flow f : executionFlow.getNext()) {
+            for (Flow f : flow.getNext()) {
                 flowLifeCycles.add((OneInputFlowLifeCycle<Record<?>>) convertFlowToActionLifeCycle(f));
             }
         }
@@ -201,7 +203,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                         new SeaTunnelTransformCollector(flowLifeCycles), completableFuture);
             } else if (f.getAction() instanceof PartitionTransformAction) {
                 // TODO use index and taskID to create ringbuffer list
-                if (executionFlow.getNext().isEmpty()) {
+                if (flow.getNext().isEmpty()) {
                     lifeCycle = new PartitionTransformSinkFlowLifeCycle(this, completableFuture);
                 } else {
                     lifeCycle = new PartitionTransformSourceFlowLifeCycle(this, completableFuture);
@@ -231,21 +233,29 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     @Override
     public Set<URL> getJarsUrl() {
+        return getFlowInfo((action, set) -> set.addAll(action.getJarUrls()));
+    }
+
+    public Set<Long> getActionIds() {
+        return getFlowInfo((action, set) -> set.add(action.getId()));
+    }
+
+    private <T> Set<T> getFlowInfo(BiConsumer<Action, Set<T>> function) {
         List<Flow> now = new ArrayList<>();
         now.add(executionFlow);
-        Set<URL> urls = new HashSet<>();
+        Set<T> result = new HashSet<>();
         while (!now.isEmpty()) {
             final List<Flow> next = new ArrayList<>();
             now.forEach(n -> {
                 if (n instanceof PhysicalExecutionFlow) {
-                    urls.addAll(((PhysicalExecutionFlow) n).getAction().getJarUrls());
+                    function.accept(((PhysicalExecutionFlow) n).getAction(), result);
                 }
                 next.addAll(n.getNext());
             });
             now.clear();
             now.addAll(next);
         }
-        return urls;
+        return result;
     }
 
     @Override
