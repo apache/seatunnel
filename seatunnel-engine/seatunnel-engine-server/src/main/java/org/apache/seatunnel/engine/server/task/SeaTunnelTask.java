@@ -267,7 +267,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
         Integer ackSize = cycleAcks.compute(barrier.getId(), (id, count) -> count == null ? 1 : ++count);
         if (ackSize == allCycles.size()) {
             if (barrier.prepareClose()) {
-                prepareCloseStatus = true;
+                this.prepareCloseStatus = true;
+                this.prepareCloseBarrierId.set(barrier.getId());
             }
             if (barrier.snapshot()) {
                 this.getExecutionContext().sendToMaster(
@@ -284,17 +285,13 @@ public abstract class SeaTunnelTask extends AbstractTask {
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         notifyAllAction(listener -> listener.notifyCheckpointComplete(checkpointId));
-        if (prepareCloseStatus) {
-            closeCall();
-        }
+        tryClose(checkpointId);
     }
 
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         notifyAllAction(listener -> listener.notifyCheckpointAborted(checkpointId));
-        if (prepareCloseStatus) {
-            closeCall();
-        }
+        tryClose(checkpointId);
     }
 
     public void notifyAllAction(ConsumerWithException<InternalCheckpointListener> consumer){

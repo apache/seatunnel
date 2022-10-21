@@ -126,6 +126,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     public void triggerBarrier(Barrier barrier) throws Exception {
         if (barrier.prepareClose()) {
             this.currState = PREPARE_CLOSE;
+            this.prepareCloseBarrierId.set(barrier.getId());
         }
         final long barrierId = barrier.getId();
         Serializable snapshotState = null;
@@ -273,7 +274,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         enumerator.notifyCheckpointComplete(checkpointId);
-        if (prepareCloseStatus) {
+        if (currState == PREPARE_CLOSE && prepareCloseBarrierId.get() == checkpointId) {
             closeCall();
         }
     }
@@ -281,7 +282,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         enumerator.notifyCheckpointAborted(checkpointId);
-        if (prepareCloseStatus) {
+        if (currState == PREPARE_CLOSE && prepareCloseBarrierId.get() == checkpointId) {
             closeCall();
         }
     }
