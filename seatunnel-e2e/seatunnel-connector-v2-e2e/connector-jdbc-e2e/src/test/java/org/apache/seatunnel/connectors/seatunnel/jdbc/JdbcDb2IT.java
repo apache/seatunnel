@@ -20,7 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.util.JdbcCompareUtil;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import com.google.common.collect.Lists;
 import com.typesafe.config.Config;
@@ -58,6 +60,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
     private static final int LOCAL_PORT = 50000;
     private static final String USER = "db2inst1";
     private static final String PASSWORD = "123456";
+    public static final String DB2_DRIVER_JAR = "https://repo1.maven.org/maven2/com/ibm/db2/jcc/db2jcc/db2jcc4/db2jcc-db2jcc4.jar";
 
     private static final String DATABASE = "E2E";
     private static final String SOURCE_TABLE = "E2E_TABLE_SOURCE";
@@ -65,6 +68,12 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
     private String jdbcUrl;
     private Db2Container db2;
     private Connection jdbcConnection;
+
+    @TestContainerExtension
+    private final ContainerExtendedFactory extendedFactory = container -> {
+        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + DB2_DRIVER_JAR);
+        Assertions.assertEquals(0, extraCommands.getExitCode());
+    };
 
     @BeforeAll
     @Override
