@@ -77,7 +77,7 @@ public class TaskExecutionService {
     private final String hzInstanceName;
     private final NodeEngineImpl nodeEngine;
     private final ILogger logger;
-    private volatile boolean isShutdown;
+    private volatile boolean isRunning = true;
     private final LinkedBlockingDeque<TaskTracker> threadShareTaskQueue = new LinkedBlockingDeque<>();
     private final ExecutorService executorService = newCachedThreadPool(new BlockingTaskThreadFactory());
     private final RunBusWorkSupplier runBusWorkSupplier = new RunBusWorkSupplier(executorService, threadShareTaskQueue);
@@ -97,7 +97,7 @@ public class TaskExecutionService {
     }
 
     public void shutdown() {
-        isShutdown = true;
+        isRunning = false;
         executorService.shutdownNow();
     }
 
@@ -202,19 +202,21 @@ public class TaskExecutionService {
                         taskExecutionContextMap.put(task.getTaskID(), taskExecutionContext);
                     })
                     .collect(partitioningBy(Task::isThreadsShare));
+            executionContexts.put(taskGroup.getTaskGroupLocation(), new TaskGroupContext(taskGroup, classLoader));
+            cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
             submitThreadShareTask(executionTracker, byCooperation.get(true));
             submitBlockingTask(executionTracker, byCooperation.get(false));
             taskGroup.setTasksContext(taskExecutionContextMap);
-            executionContexts.put(taskGroup.getTaskGroupLocation(), new TaskGroupContext(taskGroup, classLoader));
-            cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
         } catch (Throwable t) {
             logger.severe(ExceptionUtils.getMessage(t));
             resultFuture.completeExceptionally(t);
         }
-        resultFuture.whenComplete((r, s) -> {
+        resultFuture.whenComplete(withTryCatch(logger, (r, s) -> {
+            logger.info(
+                String.format("Task %s complete with state %s", r.getTaskGroupLocation(), r.getExecutionState()));
             InvocationFuture<Object> invoke = null;
             long sleepTime = 1000;
-            do {
+            while (isRunning && (invoke == null || !invoke.isDone())) {
                 if (null != invoke) {
                     logger.warning(String.format("notify the job of the task(%s) status failed, retry in %s millis",
                         taskGroup.getTaskGroupLocation(), sleepTime));
@@ -230,8 +232,8 @@ public class TaskExecutionService {
                     new NotifyTaskStatusOperation(taskGroup.getTaskGroupLocation(), r),
                     nodeEngine.getMasterAddress()).invoke();
                 invoke.join();
-            } while (!invoke.isDone());
-        });
+            }
+        }));
         return new PassiveCompletableFuture<>(resultFuture);
     }
 
@@ -263,6 +265,9 @@ public class TaskExecutionService {
 
         @Override
         public void run() {
+            ClassLoader classLoader = executionContexts.get(tracker.taskGroupExecutionTracker.taskGroup.getTaskGroupLocation()).getClassLoader();
+            ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
+            Thread.currentThread().setContextClassLoader(classLoader);
             final Task t = tracker.task;
             try {
                 startedLatch.countDown();
@@ -270,7 +275,7 @@ public class TaskExecutionService {
                 ProgressState result;
                 do {
                     result = t.call();
-                } while (!result.isDone() && !isShutdown &&
+                } while (!result.isDone() && isRunning &&
                     !tracker.taskGroupExecutionTracker.executionCompletedExceptionally());
             } catch (Throwable e) {
                 logger.warning("Exception in " + t, e);
@@ -278,6 +283,7 @@ public class TaskExecutionService {
             } finally {
                 tracker.taskGroupExecutionTracker.taskDone();
             }
+            Thread.currentThread().setContextClassLoader(oldClassLoader);
         }
     }
 
@@ -313,7 +319,7 @@ public class TaskExecutionService {
         @SneakyThrows
         @Override
         public void run() {
-            while (keep.get()) {
+            while (keep.get() && isRunning) {
                 TaskTracker taskTracker = null != exclusiveTaskTracker.get() ?
                     exclusiveTaskTracker.get() :
                     taskqueue.takeFirst();
@@ -431,6 +437,7 @@ public class TaskExecutionService {
         }
 
         void taskDone() {
+            logger.info("taskDone: " + taskGroup.getTaskGroupLocation());
             if (completionLatch.decrementAndGet() == 0) {
                 TaskGroupLocation taskGroupLocation = taskGroup.getTaskGroupLocation();
                 executionContexts.remove(taskGroupLocation);

@@ -631,3 +631,86 @@ from the Gradle Wrapper which was written originally by Hans Dockter and Adam Mu
 Copyright 2007 the original author or authors.
 
 ========================================================================
+
+ProtoStuff NOTICE
+
+==============================================================
+ protostuff
+ Copyright 2009 David Yu dyuproject@gmail.com
+==============================================================
+
+protobuf is copyright Google inc unless otherwise noted. 
+It is licensed under the BSD license.
+
+jackson-core-asl is copyright FasterXml unless otherwise noted. 
+It is licensed under the apache 2.0 license.
+
+antlr is copyright Terence Parr unless otherwise noted. 
+It is licensed under the BSD license.
+
+stringtemplate is copyright Terence Parr unless otherwise noted.
+It is licensed under the BSD license.
+
+velocity is licensed under the apache 2.0 license.
+
+B64Code.java is copyright Mort Bay Consulting Pty Ltd unless otherwise noted. 
+It is licensed under the apache 2.0 license.
+
+jarjar is copyright Google inc unless otherwise noted. 
+It is licensed under the apache 2.0 license.
+
+guava is copyright Google inc unless otherwise noted.
+It is licensed under the apache 2.0 license.
+=========================================================================
+
+hazelcast NOTICE
+
+=========================================================================
+The packages:
+
+com.hazelcast.internal.util.collection
+com.hazelcast.internal.util.concurrent
+
+and the classes:
+
+com.hazelcast.internal.util.QuickMath
+com.hazelcast.client.impl.protocol.util.UnsafeBuffer
+com.hazelcast.client.impl.protocol.util.BufferBuilder
+
+contain code originating from the Agrona project
+(https://github.com/real-logic/Agrona).
+
+The class com.hazelcast.internal.util.HashUtil contains code originating
+from the Koloboke project (https://github.com/OpenHFT/Koloboke).
+
+The class classloading.ThreadLocalLeakTestUtils contains code originating
+from the Tomcat project (https://github.com/apache/tomcat).
+
+com.hazelcast.internal.cluster.fd.PhiAccrualFailureDetector contains code originating
+from the Akka project (https://github.com/akka/akka/).
+
+The package com.hazelcast.internal.json contains code originating
+from minimal-json project (https://github.com/ralfstx/minimal-json).
+
+The class com.hazelcast.instance.impl.MobyNames contains code originating
+from The Moby Project (https://github.com/moby/moby).
+
+The class com.hazelcast.internal.util.graph.BronKerboschCliqueFinder contains code
+originating from The JGraphT Project (https://github.com/jgrapht/jgrapht).
+
+The packages:
+com.hazelcast.sql
+com.hazelcast.jet.sql
+
+contain code originating from the Apache Calcite (https://github.com/apache/calcite)
+
+The class com.hazelcast.jet.kafka.impl.ResumeTransactionUtil contains
+code derived from the Apache Flink project.
+
+The class com.hazelcast.internal.util.ConcurrentReferenceHashMap contains code written by Doug Lea
+and updated within the WildFly project (https://github.com/wildfly/wildfly).
+
+The class org.apache.calcite.linq4j.tree.ConstantExpression contains code
+originating from the Calcite project (https://github.com/apache/calcite).
+
+=========================================================================

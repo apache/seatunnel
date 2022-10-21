@@ -21,7 +21,7 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
-import org.apache.seatunnel.engine.core.job.PipelineState;
+import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import com.hazelcast.logging.ILogger;
@@ -140,10 +140,10 @@ public class PhysicalPlan {
     }
 
     public void addPipelineEndCallback(SubPlan subPlan) {
-        PassiveCompletableFuture<PipelineState> future = subPlan.initStateFuture();
+        PassiveCompletableFuture<PipelineStatus> future = subPlan.initStateFuture();
         future.thenAcceptAsync(pipelineState -> {
             try {
-                if (PipelineState.CANCELED.equals(pipelineState)) {
+                if (PipelineStatus.CANCELED.equals(pipelineState)) {
                     if (canRestorePipeline(subPlan)) {
                         subPlan.restorePipeline();
                         return;
@@ -157,7 +157,7 @@ public class PhysicalPlan {
                     }
                     LOGGER.info(String.format("release the pipeline %s resource", subPlan.getPipelineFullName()));
                     jobMaster.releasePipelineResource(subPlan);
-                } else if (PipelineState.FAILED.equals(pipelineState)) {
+                } else if (PipelineStatus.FAILED.equals(pipelineState)) {
                     if (canRestorePipeline(subPlan)) {
                         subPlan.restorePipeline();
                         return;
@@ -169,20 +169,20 @@ public class PhysicalPlan {
                     jobMaster.releasePipelineResource(subPlan);
                     LOGGER.severe("Pipeline Failed, Begin to cancel other pipelines in this job.");
                 }
+
+                if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
+                    if (failedPipelineNum.get() > 0) {
+                        updateJobState(JobStatus.FAILING);
+                    } else if (canceledPipelineNum.get() > 0) {
+                        turnToEndState(JobStatus.CANCELED);
+                    } else {
+                        turnToEndState(JobStatus.FINISHED);
+                    }
+                    jobEndFuture.complete((JobStatus) runningJobStateIMap.get(jobId));
+                }
             } catch (Throwable e) {
                 // Because only cancelJob or releasePipelineResource can throw exception, so we only output log here
-                LOGGER.severe(ExceptionUtils.getMessage(e));
-            }
-
-            if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
-                if (failedPipelineNum.get() > 0) {
-                    updateJobState(JobStatus.FAILING);
-                } else if (canceledPipelineNum.get() > 0) {
-                    turnToEndState(JobStatus.CANCELED);
-                } else {
-                    turnToEndState(JobStatus.FINISHED);
-                }
-                jobEndFuture.complete((JobStatus) runningJobStateIMap.get(jobId));
+                LOGGER.severe("Never come here ", e);
             }
         });
     }

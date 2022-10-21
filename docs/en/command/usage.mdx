@@ -11,6 +11,8 @@ import TabItem from '@theme/TabItem';
     values={[
         {label: 'Spark', value: 'spark'},
         {label: 'Flink', value: 'flink'},
+        {label: 'Spark V2', value: 'spark V2'},
+        {label: 'Flink V2', value: 'flink V2'},
     ]}>
 <TabItem value="spark">
 
@@ -26,6 +28,20 @@ bin/start-seatunnel-flink.sh
 ```
 
 </TabItem>
+<TabItem value="spark V2">
+
+    ```bash
+    bin/start-seatunnel-spark-connector-v2.sh
+    ```
+
+</TabItem>
+<TabItem value="flink V2">
+
+    ```bash
+    bin/start-seatunnel-flink-connector-v2.sh
+    ```
+
+</TabItem>
 </Tabs>
 
 
@@ -37,6 +53,8 @@ bin/start-seatunnel-flink.sh
     values={[
         {label: 'Spark', value: 'spark'},
         {label: 'Flink', value: 'flink'},
+        {label: 'Spark V2', value: 'spark V2'},
+        {label: 'Flink V2', value: 'flink V2'},
     ]}>
 <TabItem value="spark">
 
@@ -53,6 +71,24 @@ bin/start-seatunnel-spark.sh \
 - Use `-e` or `--deploy-mode` to specify the deployment mode
 
 </TabItem>
+<TabItem value="spark V2">
+
+    ```bash
+    bin/start-seatunnel-spark-connector-v2.sh \
+    -c config-path \
+    -m master \
+    -e deploy-mode \
+    -i city=beijing \
+    -n spark-test
+    ```
+
+    - Use `-m` or `--master` to specify the cluster manager
+
+    - Use `-e` or `--deploy-mode` to specify the deployment mode
+
+    - Use `-n` or `--name` to specify the app name
+
+</TabItem>
 <TabItem value="flink">
 
 ```bash
@@ -64,6 +100,22 @@ bin/start-seatunnel-flink.sh \
 ```
 
 - Use `-r` or `--run-mode` to specify the flink job run mode, you can use `run-application` or `run` (default value)
+
+</TabItem>
+<TabItem value="flink V2">
+
+    ```bash
+    bin/start-seatunnel-flink-connector-v2.sh \
+    -c config-path \
+    -i key=value \
+    -r run-application \
+    -n flink-test \
+    [other params]
+    ```
+
+    - Use `-r` or `--run-mode` to specify the flink job run mode, you can use `run-application` or `run` (default value)
+
+    - Use `-n` or `--name` to specify the app name
 
 </TabItem>
 </Tabs>

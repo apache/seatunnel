@@ -33,6 +33,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 public class JsonReadStrategy extends AbstractReadStrategy {
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
@@ -40,7 +41,11 @@ public class JsonReadStrategy extends AbstractReadStrategy {
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
-        deserializationSchema = new JsonDeserializationSchema(false, false, this.seaTunnelRowType);
+        if (isMergePartition) {
+            deserializationSchema = new JsonDeserializationSchema(false, false, this.seaTunnelRowTypeWithPartition);
+        } else {
+            deserializationSchema = new JsonDeserializationSchema(false, false, this.seaTunnelRowType);
+        }
     }
 
     @Override
@@ -48,10 +53,18 @@ public class JsonReadStrategy extends AbstractReadStrategy {
         Configuration conf = getConfiguration();
         FileSystem fs = FileSystem.get(conf);
         Path filePath = new Path(path);
+        Map<String, String> partitionsMap = parsePartitionsByPath(path);
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(filePath), StandardCharsets.UTF_8))) {
             reader.lines().forEach(line -> {
                 try {
-                    deserializationSchema.deserialize(line.getBytes(), output);
+                    SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(line.getBytes());
+                    if (isMergePartition) {
+                        int index = seaTunnelRowType.getTotalFields();
+                        for (String value : partitionsMap.values()) {
+                            seaTunnelRow.setField(index++, value);
+                        }
+                    }
+                    output.collect(seaTunnelRow);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -61,6 +74,6 @@ public class JsonReadStrategy extends AbstractReadStrategy {
 
     @Override
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) throws FilePluginException {
-        return this.seaTunnelRowType;
+        throw new UnsupportedOperationException("User must defined schema for json file type");
     }
 }
