@@ -145,6 +145,4 @@ public abstract class BaseTaskExecuteCommand<T extends AbstractCommandArgs, E ex
             log.info("succeeded to decompress plugins.tar.gz");
         }
     }
-
-
 }
