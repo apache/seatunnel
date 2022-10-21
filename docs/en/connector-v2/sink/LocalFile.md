@@ -178,3 +178,14 @@ LocalFile {
 }
 
 ```
+
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add Local File Sink Connector
+
+### 2.3.0-beta 2022-10-20
+- [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/incubator-seatunnel/pull/2980))
+- [BugFix] Fix filesystem get error ([3117](https://github.com/apache/incubator-seatunnel/pull/3117))
+- [BugFix] Solved the bug of can not parse '\t' as delimiter from config file ([3083](https://github.com/apache/incubator-seatunnel/pull/3083))

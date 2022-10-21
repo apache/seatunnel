@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.job.Job;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
@@ -181,9 +182,9 @@ public class CheckpointManager {
 
     /**
      * Called by the JobMaster.
-     * <br> Listen to the {@link org.apache.seatunnel.engine.core.job.PipelineState} of the {@link Pipeline}, which is used to shut down the running {@link CheckpointIDCounter} at the end of the pipeline.
+     * <br> Listen to the {@link PipelineStatus} of the {@link Pipeline}, which is used to shut down the running {@link CheckpointIDCounter} at the end of the pipeline.
      */
-    public CompletableFuture<Void> listenPipeline(int pipelineId, org.apache.seatunnel.engine.core.job.PipelineState pipelineStatus) {
+    public CompletableFuture<Void> listenPipeline(int pipelineId, PipelineStatus pipelineStatus) {
         return getCheckpointCoordinator(pipelineId).getCheckpointIdCounter().shutdown(pipelineStatus);
     }
 

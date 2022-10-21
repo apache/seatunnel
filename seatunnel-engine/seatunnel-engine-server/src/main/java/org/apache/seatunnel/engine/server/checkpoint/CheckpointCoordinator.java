@@ -267,7 +267,7 @@ public class CheckpointCoordinator {
 
             if (COMPLETED_POINT_TYPE != pendingCheckpoint.getCheckpointType()) {
                 // Trigger the barrier and wait for all tasks to ACK
-                LOG.info("trigger checkpoint barrier" + pendingCheckpoint);
+                LOG.debug("trigger checkpoint barrier {}/{}/{}, {}", pendingCheckpoint.getJobId(), pendingCheckpoint.getPipelineId(), pendingCheckpoint.getCheckpointId(), pendingCheckpoint.getCheckpointType());
                 CompletableFuture.supplyAsync(() ->
                         new CheckpointBarrier(pendingCheckpoint.getCheckpointId(),
                             pendingCheckpoint.getCheckpointTimestamp(),
@@ -400,7 +400,9 @@ public class CheckpointCoordinator {
     }
 
     public void completePendingCheckpoint(CompletedCheckpoint completedCheckpoint) {
-        LOG.info("pending checkpoint({}/{}@{}) completed!", completedCheckpoint.getCheckpointId(), completedCheckpoint.getPipelineId(), completedCheckpoint.getJobId());
+        LOG.debug("pending checkpoint({}/{}@{}) completed! cost: {}, trigger: {}, completed: {}",
+                completedCheckpoint.getCheckpointId(), completedCheckpoint.getPipelineId(), completedCheckpoint.getJobId(),
+                completedCheckpoint.getCompletedTimestamp() - completedCheckpoint.getCheckpointTimestamp(), completedCheckpoint.getCheckpointTimestamp(), completedCheckpoint.getCompletedTimestamp());
         pendingCounter.decrementAndGet();
         final long checkpointId = completedCheckpoint.getCheckpointId();
         pendingCheckpoints.remove(checkpointId);
