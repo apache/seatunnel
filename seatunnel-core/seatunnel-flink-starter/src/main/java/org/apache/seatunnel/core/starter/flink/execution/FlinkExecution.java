@@ -27,10 +27,10 @@ import org.apache.seatunnel.core.starter.flink.config.FlinkEnvironmentFactory;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigUtil;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.types.Row;
 
@@ -106,8 +106,8 @@ public class FlinkExecution implements TaskExecution {
     }
 
     private Config registerPlugin(Config config, List<URL> jars) {
-        config = this.parseConfig(config, "env." + PipelineOptions.JARS.key(), jars);
-        return this.parseConfig(config, "env." + PipelineOptions.CLASSPATHS.key(), jars);
+        config = this.parseConfig(config, ConfigUtil.joinPath("env", "pipeline", "jars"), jars);
+        return this.parseConfig(config, ConfigUtil.joinPath("env", "pipeline", "classpaths"), jars);
     }
 
     private Config parseConfig(Config config, String path, List<URL> jars) {
