@@ -21,6 +21,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.io.Serializable;
+import java.util.Arrays;
+import java.util.List;
 
 public class TaskStatistics implements Serializable {
     /**
@@ -28,7 +30,7 @@ public class TaskStatistics implements Serializable {
      */
     private final Long jobVertexId;
 
-    private final SubtaskStatistics[] subtaskStats;
+    private final List<SubtaskStatistics> subtaskStats;
 
     /**
      * Marks whether a subtask is complete;
@@ -42,7 +44,7 @@ public class TaskStatistics implements Serializable {
     TaskStatistics(Long jobVertexId, int parallelism) {
         this.jobVertexId = checkNotNull(jobVertexId, "JobVertexID");
         checkArgument(parallelism > 0, "the parallelism of task <= 0");
-        this.subtaskStats = new SubtaskStatistics[parallelism];
+        this.subtaskStats = Arrays.asList(new SubtaskStatistics[parallelism]);
         this.subtaskCompleted = new boolean[parallelism];
     }
 
@@ -50,12 +52,12 @@ public class TaskStatistics implements Serializable {
         checkNotNull(subtask, "Subtask stats");
         int subtaskIndex = subtask.getSubtaskIndex();
 
-        if (subtaskIndex < 0 || subtaskIndex >= subtaskStats.length) {
+        if (subtaskIndex < 0 || subtaskIndex >= subtaskStats.size()) {
             return false;
         }
 
-        if (subtaskStats[subtaskIndex] == null) {
-            subtaskStats[subtaskIndex] = subtask;
+        if (subtaskStats.get(subtaskIndex) == null) {
+            subtaskStats.set(subtaskIndex, subtask);
             numAcknowledgedSubtasks++;
             return true;
         } else {
@@ -85,7 +87,7 @@ public class TaskStatistics implements Serializable {
         return jobVertexId;
     }
 
-    public SubtaskStatistics[] getSubtaskStats() {
+    public List<SubtaskStatistics> getSubtaskStats() {
         return subtaskStats;
     }
 
