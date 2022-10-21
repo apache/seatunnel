@@ -24,7 +24,6 @@ import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.core.base.utils.AsciiArtUtils;
 import org.apache.seatunnel.core.base.utils.CompressionUtils;
 
 import lombok.extern.slf4j.Slf4j;
@@ -96,7 +95,8 @@ public abstract class BaseTaskExecuteCommand<T extends AbstractCommandArgs, E ex
     protected void showAsciiLogo() {
         String printAsciiLogo = System.getenv("SEATUNNEL_PRINT_ASCII_LOGO");
         if ("true".equalsIgnoreCase(printAsciiLogo)) {
-            AsciiArtUtils.printAsciiArt(Constants.LOGO);
+            log.info('\n' + Constants.ST_LOGO);
+            log.info(Constants.COPYRIGHT_LINE);
         }
     }
 
@@ -145,5 +145,6 @@ public abstract class BaseTaskExecuteCommand<T extends AbstractCommandArgs, E ex
             log.info("succeeded to decompress plugins.tar.gz");
         }
     }
+
 
 }
