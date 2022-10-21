@@ -167,4 +167,4 @@ jdbc {
 - [Feature] Support SQL Server JDBC Source ([2646](https://github.com/apache/incubator-seatunnel/pull/2646))
 - [Feature] Support Oracle JDBC Source ([2550](https://github.com/apache/incubator-seatunnel/pull/2550))
 - [Feature] Support StarRocks JDBC Source ([3060](https://github.com/apache/incubator-seatunnel/pull/3060))
-- [Feature] Support DB2 JDBC Source ([2410](https://github.com/apache/incubator-seatunnel/pull/2410))
+- [Feature] Support DB2 JDBC Sink ([2410](https://github.com/apache/incubator-seatunnel/pull/2410))
