@@ -20,7 +20,6 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.Db2Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.utility.DockerImageName;
 
 import java.io.File;
 import java.io.IOException;
@@ -58,7 +57,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        db2 = new Db2Container("ibmcom/db2")
+        db2 = new Db2Container(IMAGE)
             .withExposedPorts(LOCAL_PORT)
             .withNetwork(NETWORK)
             .withNetworkAliases(HOST)
