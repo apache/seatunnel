@@ -15,45 +15,47 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.neo4j.sink;
+package org.apache.seatunnel.connectors.seatunnel.neo4j.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_BEARER_TOKEN;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_KERBEROS_TICKET;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_MAX_CONNECTION_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_MAX_TRANSACTION_RETRY_TIME;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_NEO4J_URI;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_QUERY;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_QUERY_PARAM_POSITION;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.KEY_USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.PLUGIN_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig.KEY_BEARER_TOKEN;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig.KEY_DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig.KEY_KERBEROS_TICKET;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig.KEY_MAX_CONNECTION_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig.KEY_MAX_TRANSACTION_RETRY_TIME;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig.KEY_NEO4J_URI;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig.KEY_PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig.KEY_QUERY;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig.KEY_USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig.PLUGIN_NAME;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.DriverBuilder;
-import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 import org.neo4j.driver.AuthTokens;
 
-import java.io.IOException;
 import java.net.URI;
 
-@AutoService(SeaTunnelSink.class)
-public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> {
+@AutoService(SeaTunnelSource.class)
+public class Neo4jSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
+    private final Neo4jSourceConfig neo4jSourceConfig = new Neo4jSourceConfig();
     private SeaTunnelRowType rowType;
-    private final Neo4jSinkConfig neo4JSinkConfig = new Neo4jSinkConfig();
 
     @Override
     public String getPluginName() {
@@ -61,16 +63,31 @@ public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> 
     }
 
     @Override
-    public void prepare(Config config) throws PrepareFailException {
-        neo4JSinkConfig.setDriverBuilder(prepareDriver(config));
+    public void prepare(Config pluginConfig) throws PrepareFailException {
+        neo4jSourceConfig.setDriverBuilder(prepareDriver(pluginConfig));
 
-        final CheckResult queryConfigCheck = CheckConfigUtil.checkAllExists(config, KEY_QUERY, KEY_QUERY_PARAM_POSITION);
-        if (!queryConfigCheck.isSuccess()) {
-            throw new PrepareFailException(PLUGIN_NAME, PluginType.SINK, queryConfigCheck.getMsg());
+        final CheckResult configCheck = CheckConfigUtil.checkAllExists(pluginConfig, KEY_QUERY, SeaTunnelSchema.SCHEMA);
+        if (!configCheck.isSuccess()) {
+            throw new PrepareFailException(Neo4jSourceConfig.PLUGIN_NAME, PluginType.SOURCE, configCheck.getMsg());
         }
-        neo4JSinkConfig.setQuery(config.getString(KEY_QUERY));
-        neo4JSinkConfig.setQueryParamPosition(config.getObject(KEY_QUERY_PARAM_POSITION).unwrapped());
+        neo4jSourceConfig.setQuery(pluginConfig.getString(KEY_QUERY));
 
+        this.rowType = SeaTunnelSchema.buildWithConfig(pluginConfig.getConfig(SeaTunnelSchema.SCHEMA)).getSeaTunnelRowType();
+    }
+
+    @Override
+    public Boundedness getBoundedness() {
+        return Boundedness.BOUNDED;
+    }
+
+    @Override
+    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
+        return this.rowType;
+    }
+
+    @Override
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
+        return new Neo4jSourceReader(readerContext, neo4jSourceConfig, rowType);
     }
 
     private DriverBuilder prepareDriver(Config config) {
@@ -78,7 +95,7 @@ public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> 
         final CheckResult authConfigCheck = CheckConfigUtil.checkAtLeastOneExists(config, KEY_USERNAME, KEY_BEARER_TOKEN, KEY_KERBEROS_TICKET);
         final CheckResult mergedConfigCheck = CheckConfigUtil.mergeCheckResults(uriConfigCheck, authConfigCheck);
         if (!mergedConfigCheck.isSuccess()) {
-            throw new PrepareFailException(PLUGIN_NAME, PluginType.SINK, mergedConfigCheck.getMsg());
+            throw new PrepareFailException(Neo4jSourceConfig.PLUGIN_NAME, PluginType.SOURCE, mergedConfigCheck.getMsg());
         }
 
         final URI uri = URI.create(config.getString(KEY_NEO4J_URI));
@@ -88,7 +105,7 @@ public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> 
         if (config.hasPath(KEY_USERNAME)) {
             final CheckResult pwParamCheck = CheckConfigUtil.checkAllExists(config, KEY_PASSWORD);
             if (!mergedConfigCheck.isSuccess()) {
-                throw new PrepareFailException(PLUGIN_NAME, PluginType.SINK, pwParamCheck.getMsg());
+                throw new PrepareFailException(Neo4jSourceConfig.PLUGIN_NAME, PluginType.SOURCE, pwParamCheck.getMsg());
             }
             final String username = config.getString(KEY_USERNAME);
             final String password = config.getString(KEY_PASSWORD);
@@ -116,20 +133,4 @@ public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> 
 
         return driverBuilder;
     }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.rowType = seaTunnelRowType;
-    }
-
-    @Override
-    public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
-        return this.rowType;
-    }
-
-    @Override
-    public SinkWriter<SeaTunnelRow, Void, Void> createWriter(SinkWriter.Context context) throws IOException {
-        return new Neo4jSinkWriter(neo4JSinkConfig);
-    }
-
 }
