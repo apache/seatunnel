@@ -17,9 +17,10 @@ import org.junit.jupiter.api.TestTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.Db2Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerImageName;
 
 import java.io.File;
 import java.io.IOException;
@@ -39,10 +40,10 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
     /**
      * <a href="https://hub.docker.com/r/ibmcom/db2">db2 in dockerhub</a>
      */
-    private static final String IMAGE = "ibmcom/db2:latest";
+    private static final String IMAGE = "ibmcom/db2:11.5.0.0a";
     private static final String HOST = "e2e_db2";
     private static final int PORT = 50000;
-    private static final int LOCAL_PORT = 50001;
+    private static final int LOCAL_PORT = 50000;
     private static final String USER = "DB2INST1";
     private static final String PASSWORD = "123456";
     private static final String DRIVER = "com.ibm.db2.jcc.DB2Driver";
@@ -51,25 +52,25 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
     private static final String SOURCE_TABLE = "E2E_TABLE_SOURCE";
     private static final String SINK_TABLE = "E2E_TABLE_SINK";
     private String jdbcUrl;
-    private GenericContainer<?> dbServer;
+    private Db2Container db2;
     private Connection jdbcConnection;
 
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        dbServer = new GenericContainer<>(IMAGE)
+        db2 = new Db2Container("ibmcom/db2")
+            .withExposedPorts(LOCAL_PORT)
             .withNetwork(NETWORK)
             .withNetworkAliases(HOST)
             .withPrivilegedMode(true)
+            .withDatabaseName(DATABASE)
+            .withUsername(USER)
+            .withPassword(PASSWORD)
             .withLogConsumer(new Slf4jLogConsumer(LOG))
-            .withEnv("DB2INST1_PASSWORD", PASSWORD)
-            .withEnv("DBNAME", DATABASE)
-            .withEnv("LICENSE", "accept")
-            .withSharedMemorySize(4 * 1024 * 1024 * 1024L)
-        ;
-        dbServer.setPortBindings(Lists.newArrayList(String.format("%s:%s", LOCAL_PORT, PORT)));
-        Startables.deepStart(Stream.of(dbServer)).join();
-        jdbcUrl = String.format("jdbc:db2://%s:%s/%s", dbServer.getHost(), LOCAL_PORT, DATABASE);
+            .acceptLicense();
+        Startables.deepStart(Stream.of(db2)).join();
+        db2.setPortBindings(Lists.newArrayList(String.format("%s:%s", LOCAL_PORT, PORT)));
+        jdbcUrl = String.format("jdbc:db2://%s:%s/%s", db2.getHost(), LOCAL_PORT, DATABASE);
         LOG.info("DB2 container started");
         given().ignoreExceptions()
             .await()
@@ -83,8 +84,8 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
         if (jdbcConnection != null) {
             jdbcConnection.close();
         }
-        if (dbServer != null) {
-            dbServer.close();
+        if (db2 != null) {
+            db2.close();
         }
     }
 
