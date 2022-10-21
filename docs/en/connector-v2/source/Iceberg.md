@@ -160,3 +160,9 @@ source {
   }
 }
 ```
+
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add Iceberg Source Connector

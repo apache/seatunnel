@@ -60,3 +60,12 @@ WeChat {
         mentioned_mobile_list=["13800001111","@all"]
     }
 ```
+
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add Enterprise-WeChat Sink Connector
+
+### 2.3.0-beta 2022-10-20
+- [BugFix] Fix Enterprise-WeChat Sink data serialization ([2856](https://github.com/apache/incubator-seatunnel/pull/2856))

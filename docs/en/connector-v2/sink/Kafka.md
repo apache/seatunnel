@@ -108,12 +108,8 @@ sink {
 }
 ```
 
+## Changelog
 
-###  change log
-####  next version
+### 2.3.0-beta 2022-10-20
 
- - Add kafka sink doc 
- - New feature : Kafka specified partition to send 
- - New feature : Determine the partition that kafka send message based on the message content
- - New feature : Configure which field is used as the key of the kafka message
-
+- Add Kafka Sink Connector
