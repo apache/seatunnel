@@ -1,7 +1,6 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
-
+import org.apache.seatunnel.connectors.seatunnel.jdbc.util.JdbcCompareUtil;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -19,7 +18,6 @@ import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.Db2Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.lifecycle.Startables;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,8 +28,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
 
 public class JdbcDb2IT extends TestSuiteBase implements TestResource {
 
@@ -39,13 +35,12 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
     /**
      * <a href="https://hub.docker.com/r/ibmcom/db2">db2 in dockerhub</a>
      */
-    private static final String IMAGE = "ibmcom/db2:11.5.0.0a";
+    private static final String IMAGE = "ibmcom/db2";
     private static final String HOST = "e2e_db2";
     private static final int PORT = 50000;
     private static final int LOCAL_PORT = 50000;
-    private static final String USER = "DB2INST1";
+    private static final String USER = "db2inst1";
     private static final String PASSWORD = "123456";
-    private static final String DRIVER = "com.ibm.db2.jcc.DB2Driver";
 
     private static final String DATABASE = "E2E";
     private static final String SOURCE_TABLE = "E2E_TABLE_SOURCE";
@@ -58,23 +53,19 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() throws Exception {
         db2 = new Db2Container(IMAGE)
-            .withExposedPorts(LOCAL_PORT)
+            .withExposedPorts(PORT)
             .withNetwork(NETWORK)
             .withNetworkAliases(HOST)
-            .withPrivilegedMode(true)
             .withDatabaseName(DATABASE)
             .withUsername(USER)
             .withPassword(PASSWORD)
             .withLogConsumer(new Slf4jLogConsumer(LOG))
             .acceptLicense();
-        Startables.deepStart(Stream.of(db2)).join();
         db2.setPortBindings(Lists.newArrayList(String.format("%s:%s", LOCAL_PORT, PORT)));
         jdbcUrl = String.format("jdbc:db2://%s:%s/%s", db2.getHost(), LOCAL_PORT, DATABASE);
         LOG.info("DB2 container started");
-        given().ignoreExceptions()
-            .await()
-            .atMost(180, TimeUnit.SECONDS)
-            .untilAsserted(this::initializeJdbcConnection);
+        db2.start();
+        initializeJdbcConnection();
         initializeJdbcTable();
     }
 
@@ -92,7 +83,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
         Properties properties = new Properties();
         properties.setProperty("user", USER);
         properties.setProperty("password", PASSWORD);
-        Driver driver = (Driver) Class.forName(DRIVER).newInstance();
+        Driver driver = (Driver) Class.forName(db2.getDriverClassName()).newInstance();
         jdbcConnection = driver.connect(jdbcUrl, properties);
         Statement statement = jdbcConnection.createStatement();
         ResultSet resultSet = statement.executeQuery("select 1 from SYSSTAT.TABLES");
@@ -145,10 +136,25 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     @DisplayName("JDBC-Db2 end to end test")
-    public void testJdbcSourceAndSink(TestContainer container) throws IOException, InterruptedException {
+    public void testJdbcSourceAndSink(TestContainer container) throws IOException, InterruptedException, SQLException {
         assertHasData(SOURCE_TABLE);
         Container.ExecResult execResult = container.executeJob("/jdbc_db2_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         assertHasData(SINK_TABLE);
+        JdbcCompareUtil.compare(jdbcConnection, String.format("select * from %s.%s", USER, SOURCE_TABLE),
+            String.format("select * from %s.%s", USER, SINK_TABLE),
+            "COL_BOOLEAN, COL_INT, COL_INTEGER, COL_SMALLINT, COL_BIGINT, COL_DECIMAL, COL_DEC," +
+                "COL_NUMERIC, COL_NUMBER, COL_REAL, COL_FLOAT,COL_DOUBLE_PRECISION, COL_DOUBLE, COL_DECFLOAT, COL_CHAR, COL_VARCHAR," +
+                "COL_LONG_VARCHAR, COL_GRAPHIC, COL_VARGRAPHIC, COL_LONG_VARGRAPHIC");
+        clearSinkTable();
+    }
+
+
+    private void clearSinkTable() {
+        try (Statement statement = jdbcConnection.createStatement()) {
+            statement.execute(String.format("TRUNCATE TABLE %s.%s", DATABASE, SINK_TABLE));
+        } catch (SQLException e) {
+            throw new RuntimeException("test dm server image error", e);
+        }
     }
 }
