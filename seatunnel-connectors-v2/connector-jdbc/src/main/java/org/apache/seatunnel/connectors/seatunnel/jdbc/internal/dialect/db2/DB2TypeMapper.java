@@ -138,7 +138,7 @@ public class DB2TypeMapper implements JdbcDialectTypeMapper {
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
                 throw new UnsupportedOperationException(
-                    String.format("Doesn't support DM2 type '%s' on column '%s'  yet.", columnType, jdbcColumnName));
+                    String.format("Doesn't support DB2 type '%s' on column '%s'  yet.", columnType, jdbcColumnName));
         }
     }
 }

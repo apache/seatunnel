@@ -121,7 +121,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
 
     private void assertHasData(String table) {
         try (Statement statement = jdbcConnection.createStatement()) {
-            String sql = String.format("select * from \"%s\".%s", db2.getUsername(), table);
+            String sql = String.format("select * from \"%s\".%s", USER, table);
             ResultSet source = statement.executeQuery(sql);
             Assertions.assertTrue(source.next(), "result is null when sql is " + sql);
         } catch (SQLException e) {
@@ -141,8 +141,8 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult = container.executeJob("/jdbc_db2_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         assertHasData(SINK_TABLE);
-        JdbcCompareUtil.compare(jdbcConnection, String.format("select * from \"%s\".%s", db2.getUsername(), SOURCE_TABLE),
-            String.format("select * from \"%s\".%s", db2.getUsername(), SINK_TABLE),
+        JdbcCompareUtil.compare(jdbcConnection, String.format("select * from \"%s\".%s", USER, SOURCE_TABLE),
+            String.format("select * from \"%s\".%s", USER, SINK_TABLE),
             "COL_BOOLEAN, COL_INT, COL_INTEGER, COL_SMALLINT, COL_BIGINT, COL_DECIMAL, COL_DEC," +
                 "COL_NUMERIC, COL_NUMBER, COL_REAL, COL_FLOAT,COL_DOUBLE_PRECISION, COL_DOUBLE, COL_DECFLOAT, COL_CHAR, COL_VARCHAR," +
                 "COL_LONG_VARCHAR, COL_GRAPHIC, COL_VARGRAPHIC, COL_LONG_VARGRAPHIC");
@@ -152,9 +152,10 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
 
     private void clearSinkTable() {
         try (Statement statement = jdbcConnection.createStatement()) {
-            statement.execute(String.format("TRUNCATE TABLE %s.%s", DATABASE, SINK_TABLE));
+            String truncate = String.format("delete from \"%s\".%s where 1=1;", USER, SINK_TABLE);
+            statement.execute(truncate);
         } catch (SQLException e) {
-            throw new RuntimeException("test dm server image error", e);
+            throw new RuntimeException("test db2 server image error", e);
         }
     }
 }
