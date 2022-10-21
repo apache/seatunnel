@@ -21,7 +21,7 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
-import org.apache.seatunnel.engine.core.job.PipelineState;
+import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import com.hazelcast.logging.ILogger;
@@ -140,10 +140,10 @@ public class PhysicalPlan {
     }
 
     public void addPipelineEndCallback(SubPlan subPlan) {
-        PassiveCompletableFuture<PipelineState> future = subPlan.initStateFuture();
+        PassiveCompletableFuture<PipelineStatus> future = subPlan.initStateFuture();
         future.thenAcceptAsync(pipelineState -> {
             try {
-                if (PipelineState.CANCELED.equals(pipelineState)) {
+                if (PipelineStatus.CANCELED.equals(pipelineState)) {
                     if (canRestorePipeline(subPlan)) {
                         subPlan.restorePipeline();
                         return;
@@ -157,7 +157,7 @@ public class PhysicalPlan {
                     }
                     LOGGER.info(String.format("release the pipeline %s resource", subPlan.getPipelineFullName()));
                     jobMaster.releasePipelineResource(subPlan);
-                } else if (PipelineState.FAILED.equals(pipelineState)) {
+                } else if (PipelineStatus.FAILED.equals(pipelineState)) {
                     if (canRestorePipeline(subPlan)) {
                         subPlan.restorePipeline();
                         return;

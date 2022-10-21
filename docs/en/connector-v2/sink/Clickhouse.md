@@ -117,3 +117,12 @@ sink {
   
 }
 ```
+
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add ClickHouse Sink Connector
+
+### 2.3.0-beta 2022-10-20
+- [Improve] Clickhouse Support Int128,Int256 Type ([3067](https://github.com/apache/incubator-seatunnel/pull/3067))
