@@ -25,17 +25,16 @@ import org.apache.seatunnel.spark.SparkEnvironment;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 public class SparkExecution {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(SparkExecution.class);
     private final SparkEnvironment sparkEnvironment;
     private final PluginExecuteProcessor sourcePluginExecuteProcessor;
     private final PluginExecuteProcessor transformPluginExecuteProcessor;
@@ -56,6 +55,6 @@ public class SparkExecution {
         datasets = transformPluginExecuteProcessor.execute(datasets);
         sinkPluginExecuteProcessor.execute(datasets);
 
-        LOGGER.info("Spark Execution started");
+        log.info("Spark Execution started");
     }
 }

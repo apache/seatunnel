@@ -24,17 +24,15 @@ import org.apache.seatunnel.core.base.utils.FileUtils;
 import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
 import org.apache.seatunnel.core.spark.config.SparkApiConfigChecker;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 
 /**
  * Used to validate the spark task conf is validated.
  */
+@Slf4j
 public class SparkConfValidateCommand implements Command<SparkCommandArgs> {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(SparkConfValidateCommand.class);
 
     private final SparkCommandArgs sparkCommandArgs;
 
@@ -47,6 +45,6 @@ public class SparkConfValidateCommand implements Command<SparkCommandArgs> {
         Path confPath = FileUtils.getConfigPath(sparkCommandArgs);
         ConfigBuilder configBuilder = new ConfigBuilder(confPath);
         new SparkApiConfigChecker().checkConfig(configBuilder.getConfig());
-        LOGGER.info("config OK !");
+        log.info("config OK !");
     }
 }

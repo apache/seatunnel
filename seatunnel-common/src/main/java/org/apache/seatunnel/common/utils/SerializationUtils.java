@@ -76,4 +76,23 @@ public class SerializationUtils {
         }
     }
 
+    public static <T extends Serializable> T deserialize(byte[] bytes, ClassLoader classLoader) {
+        try (ByteArrayInputStream s = new ByteArrayInputStream(bytes);
+             ObjectInputStream in = new ObjectInputStream(s) {
+                 @Override
+                 protected Class<?> resolveClass(ObjectStreamClass desc) throws IOException, ClassNotFoundException {
+                     // make sure use current thread classloader
+                     if (classLoader == null) {
+                         return super.resolveClass(desc);
+                     }
+                     return Class.forName(desc.getName(), false, classLoader);
+                 }
+             }) {
+            @SuppressWarnings("unchecked") final T obj = (T) in.readObject();
+            return obj;
+        } catch (final ClassNotFoundException | IOException ex) {
+            throw new SerializationException(ex);
+        }
+    }
+
 }

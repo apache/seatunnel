@@ -20,6 +20,7 @@ package org.apache.seatunnel.translation.spark.common;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.translation.spark.common.serialization.InternalRowConverter;
 
 import org.apache.spark.sql.catalyst.InternalRow;

@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.core.starter.spark;
 
-import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.Starter;
@@ -73,11 +72,6 @@ public class SparkStarter implements Starter {
     protected SparkCommandArgs commandArgs;
 
     /**
-     * the spark application name
-     */
-    protected String appName;
-
-    /**
      * jars to include on the spark driver and executor classpaths
      */
     protected List<Path> jars = new ArrayList<>();
@@ -129,7 +123,6 @@ public class SparkStarter implements Starter {
         Common.setStarter(true);
         this.jars.addAll(Common.getPluginsJarDependencies());
         this.jars.addAll(getConnectorJarDependencies());
-        this.appName = this.sparkConf.getOrDefault("spark.app.name", Constants.LOGO);
         return buildFinal();
     }
 
@@ -200,7 +193,7 @@ public class SparkStarter implements Starter {
         List<String> commands = new ArrayList<>();
         commands.add("${SPARK_HOME}/bin/spark-submit");
         appendOption(commands, "--class", SeatunnelSpark.class.getName());
-        appendOption(commands, "--name", this.appName);
+        appendOption(commands, "--name", this.commandArgs.getJobName());
         appendOption(commands, "--master", this.commandArgs.getMaster());
         appendOption(commands, "--deploy-mode", this.commandArgs.getDeployMode().getName());
         appendJars(commands, this.jars);

@@ -540,4 +540,8 @@
                       value="PACKAGE_DEF, IMPORT, STATIC_IMPORT, CLASS_DEF, INTERFACE_DEF, ENUM_DEF, STATIC_INIT, INSTANCE_INIT, METHOD_DEF, CTOR_DEF"/>
         </module>
     </module>
+
+    <module name="SuppressionFilter">
+        <property name="file" value="tools/checkstyle/suppressions.xml" />
+    </module>
 </module>

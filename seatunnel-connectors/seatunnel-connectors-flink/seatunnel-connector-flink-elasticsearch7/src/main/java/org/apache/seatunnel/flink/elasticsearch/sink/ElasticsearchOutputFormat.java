@@ -21,6 +21,7 @@ import static org.apache.seatunnel.flink.elasticsearch.config.Config.HOSTS;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkFunction;
@@ -35,16 +36,14 @@ import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.transport.client.PreBuiltTransportClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
 import java.util.List;
 
+@Slf4j
 public class ElasticsearchOutputFormat<T> extends RichOutputFormat<T> {
 
     private static final long serialVersionUID = 2048590860723433896L;
-    private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchOutputFormat.class);
 
     private final Config config;
 
@@ -80,7 +79,7 @@ public class ElasticsearchOutputFormat<T> extends RichOutputFormat<T> {
             try {
                 transportClient.addTransportAddresses(new TransportAddress(InetAddress.getByName(host.split(":")[0]), Integer.parseInt(host.split(":")[1])));
             } catch (Exception e) {
-                LOGGER.warn("Host '{}' parse failed.", host, e);
+                log.warn("Host '{}' parse failed.", host, e);
             }
         }
 

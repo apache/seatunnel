@@ -30,6 +30,7 @@ import java.util.List;
  * @param <ENVIRONMENT> environment type
  */
 public abstract class EnvironmentFactory<ENVIRONMENT extends RuntimeEnv> {
+
     private static final String PLUGIN_NAME_KEY = "plugin_name";
 
     private final Config config;

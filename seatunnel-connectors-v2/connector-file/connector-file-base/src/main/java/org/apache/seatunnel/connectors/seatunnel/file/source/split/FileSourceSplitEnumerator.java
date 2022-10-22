@@ -102,7 +102,7 @@ public class FileSourceSplitEnumerator implements SourceSplitEnumerator<FileSour
     }
 
     private static int getSplitOwner(String tp, int numReaders) {
-        return Math.abs(tp.hashCode()) % numReaders;
+        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
     }
 
     @Override

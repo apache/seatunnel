@@ -17,21 +17,21 @@ Used to read data from Http.
 
 ##  Options
 
-| name                               | type   | required | default value |
-|------------------------------------|--------|----------|---------------|
-| url                                | String | Yes      | -             |
-| schema                             | Config | No       | -             |
-| schema.fields                      | Config | No       | -             |
-| format                             | String | No       | json          |
-| method                             | String | No       | get           |
-| headers                            | Map    | No       | -             |
-| params                             | Map    | No       | -             |
-| body                               | String | No       | -             |
-| poll_interval_ms                   | int    | No       | -             |
-| retry                              | int    | No       | -             |
-| retry_backoff_multiplier_ms        | int    | No       | 100           |
-| retry_backoff_max_ms               | int    | No       | 10000         |
-
+| name                        | type   | required | default value |
+| --------------------------- | ------ | -------- | ------------- |
+| url                         | String | Yes      | -             |
+| schema                      | Config | No       | -             |
+| schema.fields               | Config | No       | -             |
+| format                      | String | No       | json          |
+| method                      | String | No       | get           |
+| headers                     | Map    | No       | -             |
+| params                      | Map    | No       | -             |
+| body                        | String | No       | -             |
+| poll_interval_ms            | int    | No       | -             |
+| retry                       | int    | No       | -             |
+| retry_backoff_multiplier_ms | int    | No       | 100           |
+| retry_backoff_max_ms        | int    | No       | 10000         |
+| common-options              |        | No       | -             |
 ### url [String]
 
 http request url
@@ -124,6 +124,10 @@ connector will generate data as the following:
 
 the schema fields of upstream data
 
+### common options 
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
+
 ## Example
 
 simple:
@@ -142,3 +146,8 @@ Http {
 }
 ```
 
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add Http Source Connector

@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.core.base.utils;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.awt.Font;
 import java.awt.Graphics;
@@ -26,9 +25,8 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 
+@Slf4j
 public final class AsciiArtUtils {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(AsciiArtUtils.class);
 
     private static final int FONT_SIZE = 24;
     private static final int DRAW_X = 6;
@@ -66,7 +64,7 @@ public final class AsciiArtUtils {
             if (sb.toString().trim().isEmpty()) {
                 continue;
             }
-            LOGGER.info(String.valueOf(sb));
+            log.info(String.valueOf(sb));
         }
     }
 }

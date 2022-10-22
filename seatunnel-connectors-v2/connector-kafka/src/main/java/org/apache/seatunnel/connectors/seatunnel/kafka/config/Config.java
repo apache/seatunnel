@@ -40,9 +40,8 @@ public class Config {
      */
     public static final String CONSUMER_GROUP = "consumer.group";
 
-
     /**
-     * consumer group of kafka client consume message.
+     * consumer offset will be periodically committed in the background.
      */
     public static final String COMMIT_ON_CHECKPOINT = "commit_on_checkpoint";
 
@@ -50,4 +49,45 @@ public class Config {
      * The prefix of kafka's transactionId, make sure different job use different prefix.
      */
     public static final String TRANSACTION_PREFIX = "transaction_prefix";
+
+    /**
+     * User-defined schema
+     */
+    public static final String SCHEMA = "schema";
+
+    /**
+     * data format
+     */
+    public static final String FORMAT = "format";
+
+    /**
+     * The default data format is JSON
+     */
+    public static final String DEFAULT_FORMAT = "json";
+
+    /**
+     * field delimiter
+     */
+    public static final String FIELD_DELIMITER = "field_delimiter";
+
+    /**
+     * The default field delimiter is “,”
+     */
+    public static final String DEFAULT_FIELD_DELIMITER = ",";
+
+    /**
+     * Send information according to the specified partition.
+     */
+    public static final String PARTITION = "partition";
+
+    /**
+     * Determine the partition to send based on the content of the message.
+     */
+    public static final String ASSIGN_PARTITIONS = "assign_partitions";
+
+    /**
+     * Determine the key of the kafka send partition
+     */
+    public static final String PARTITION_KEY = "partition_key";
+
 }

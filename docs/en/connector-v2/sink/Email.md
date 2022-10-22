@@ -17,15 +17,15 @@ Send the data as a file to email.
 
 | name                     | type    | required | default value |
 |--------------------------|---------|----------|---------------|
-| email_from_address             | string  | yes      | -             |
-| email_to_address               | string  | yes      | -             |
+| email_from_address       | string  | yes      | -             |
+| email_to_address         | string  | yes      | -             |
 | email_host               | string  | yes      | -             |
-| email_transport_protocol             | string  | yes      | -             |
-| email_smtp_auth               | string  | yes      | -             |
-| email_authorization_code               | string  | yes      | -             |
-| email_message_headline             | string  | yes      | -             |
-| email_message_content               | string  | yes      | -             |
-
+| email_transport_protocol | string  | yes      | -             |
+| email_smtp_auth          | string  | yes      | -             |
+| email_authorization_code | string  | yes      | -             |
+| email_message_headline   | string  | yes      | -             |
+| email_message_content    | string  | yes      | -             |
+| common-options           |         | no       | -             |
 
 ### email_from_address [string]
 
@@ -59,6 +59,10 @@ The subject line of the entire message.
 
 The body of the entire message.
 
+### common options
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
+
 
 ## Example
 
@@ -76,3 +80,9 @@ The body of the entire message.
    }
 
 ```
+
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add Email Sink Connector

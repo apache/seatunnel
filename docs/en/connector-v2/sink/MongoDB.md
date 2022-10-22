@@ -17,11 +17,12 @@ Write data to `MongoDB`
 
 ## Options
 
-| name       | type   | required | default value |
-|------------| ------ |----------| ------------- |
-| uri        | string | yes      | -             |
-| database   | string | yes      | -             |
-| collection | string | yes      | -             |
+| name           | type   | required | default value |
+|--------------- | ------ |----------| ------------- |
+| uri            | string | yes      | -             |
+| database       | string | yes      | -             |
+| collection     | string | yes      | -             |
+| common-options |        | no       | -             |
 
 ### uri [string]
 
@@ -35,6 +36,10 @@ database to write to mongoDB
 
 collection to write to mongoDB
 
+### common options
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+
 ## Example
 
 ```bash
@@ -44,3 +49,9 @@ mongodb {
     collection = "mycollection"
 }
 ```
+
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add MongoDB Sink Connector

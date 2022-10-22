@@ -40,6 +40,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.function.IntFunction;
 
 public class RowToJsonConverters implements Serializable {
 
@@ -50,11 +52,14 @@ public class RowToJsonConverters implements Serializable {
     }
 
     private RowToJsonConverter wrapIntoNullableConverter(RowToJsonConverter converter) {
-        return (mapper, reuse, value) -> {
-            if (value == null) {
-                return mapper.getNodeFactory().nullNode();
+        return new RowToJsonConverter() {
+            @Override
+            public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                if (value == null) {
+                    return mapper.getNodeFactory().nullNode();
+                }
+                return converter.convert(mapper, reuse, value);
             }
-            return converter.convert(mapper, reuse, value);
         };
     }
 
@@ -64,33 +69,103 @@ public class RowToJsonConverters implements Serializable {
             case ROW:
                 return createRowConverter((SeaTunnelRowType) type);
             case NULL:
-                return (mapper, reuse, value) -> null;
+                return new RowToJsonConverter() {
+                    @Override
+                    public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                        return null;
+                    }
+                };
             case BOOLEAN:
-                return (mapper, reuse, value) -> mapper.getNodeFactory().booleanNode((Boolean) value);
+                return new RowToJsonConverter() {
+                    @Override
+                    public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                        return mapper.getNodeFactory().booleanNode((Boolean) value);
+                    }
+                };
             case TINYINT:
-                return (mapper, reuse, value) -> mapper.getNodeFactory().numberNode((byte) value);
+                return new RowToJsonConverter() {
+                    @Override
+                    public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                        return mapper.getNodeFactory().numberNode((byte) value);
+                    }
+                };
             case SMALLINT:
-                return (mapper, reuse, value) -> mapper.getNodeFactory().numberNode((short) value);
+                return new RowToJsonConverter() {
+                    @Override
+                    public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                        return mapper.getNodeFactory().numberNode((short) value);
+                    }
+                };
             case INT:
-                return (mapper, reuse, value) -> mapper.getNodeFactory().numberNode((int) value);
+                return new RowToJsonConverter() {
+                    @Override
+                    public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                        return mapper.getNodeFactory().numberNode((int) value);
+                    }
+                };
             case BIGINT:
-                return (mapper, reuse, value) -> mapper.getNodeFactory().numberNode((long) value);
+                return new RowToJsonConverter() {
+                    @Override
+                    public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                        return mapper.getNodeFactory().numberNode((long) value);
+                    }
+                };
             case FLOAT:
-                return (mapper, reuse, value) -> mapper.getNodeFactory().numberNode((float) value);
+                return new RowToJsonConverter() {
+                    @Override
+                    public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                        return mapper.getNodeFactory().numberNode((float) value);
+                    }
+                };
             case DOUBLE:
-                return (mapper, reuse, value) -> mapper.getNodeFactory().numberNode((double) value);
+                return new RowToJsonConverter() {
+                    @Override
+                    public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                        return mapper.getNodeFactory().numberNode((double) value);
+                    }
+                };
             case DECIMAL:
-                return (mapper, reuse, value) -> mapper.getNodeFactory().numberNode((BigDecimal) value);
+                return new RowToJsonConverter() {
+                    @Override
+                    public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                        return mapper.getNodeFactory().numberNode((BigDecimal) value);
+                    }
+                };
             case BYTES:
-                return (mapper, reuse, value) -> mapper.getNodeFactory().binaryNode((byte[]) value);
+                return new RowToJsonConverter() {
+                    @Override
+                    public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                        return mapper.getNodeFactory().binaryNode((byte[]) value);
+                    }
+                };
             case STRING:
-                return (mapper, reuse, value) -> mapper.getNodeFactory().textNode((String) value);
+                return new RowToJsonConverter() {
+                    @Override
+                    public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                        return mapper.getNodeFactory().textNode((String) value);
+                    }
+                };
             case DATE:
-                return (mapper, reuse, value) -> mapper.getNodeFactory().textNode(ISO_LOCAL_DATE.format((LocalDate) value));
+                return new RowToJsonConverter() {
+                    @Override
+                    public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                        return mapper.getNodeFactory().textNode(ISO_LOCAL_DATE.format((LocalDate) value));
+                    }
+                };
             case TIME:
-                return (mapper, reuse, value) -> mapper.getNodeFactory().textNode(TimeFormat.TIME_FORMAT.format((LocalTime) value));
+                return new RowToJsonConverter() {
+                    @Override
+                    public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                        return mapper.getNodeFactory().textNode(TimeFormat.TIME_FORMAT.format((LocalTime) value));
+                    }
+                };
             case TIMESTAMP:
-                return (mapper, reuse, value) -> mapper.getNodeFactory().textNode(ISO_LOCAL_DATE_TIME.format((LocalDateTime) value));
+                return new RowToJsonConverter() {
+                    @Override
+                    public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                        return mapper.getNodeFactory().textNode(ISO_LOCAL_DATE_TIME.format((LocalDateTime) value));
+                    }
+                };
             case ARRAY:
                 return createArrayConverter((ArrayType) type);
             case MAP:
@@ -104,53 +179,69 @@ public class RowToJsonConverters implements Serializable {
     private RowToJsonConverter createRowConverter(SeaTunnelRowType rowType) {
         final RowToJsonConverter[] fieldConverters =
                 Arrays.stream(rowType.getFieldTypes())
-                        .map(this::createConverter)
-                        .toArray(RowToJsonConverter[]::new);
+                        .map(new Function<SeaTunnelDataType<?>, Object>() {
+                            @Override
+                            public Object apply(SeaTunnelDataType<?> seaTunnelDataType) {
+                                return createConverter(seaTunnelDataType);
+                            }
+                        })
+                        .toArray(new IntFunction<RowToJsonConverter[]>() {
+                            @Override
+                            public RowToJsonConverter[] apply(int value) {
+                                return new RowToJsonConverter[value];
+                            }
+                        });
         final String[] fieldNames = rowType.getFieldNames();
         final int arity = fieldNames.length;
 
-        return (mapper, reuse, value) -> {
-            ObjectNode node;
+        return new RowToJsonConverter() {
+            @Override
+            public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                ObjectNode node;
 
-            // reuse could be a NullNode if last record is null.
-            if (reuse == null || reuse.isNull()) {
-                node = mapper.createObjectNode();
-            } else {
-                node = (ObjectNode) reuse;
-            }
+                // reuse could be a NullNode if last record is null.
+                if (reuse == null || reuse.isNull()) {
+                    node = mapper.createObjectNode();
+                } else {
+                    node = (ObjectNode) reuse;
+                }
 
-            for (int i = 0; i < arity; i++) {
-                String fieldName = fieldNames[i];
-                SeaTunnelRow row = (SeaTunnelRow) value;
-                node.set(fieldName, fieldConverters[i].convert(
+                for (int i = 0; i < arity; i++) {
+                    String fieldName = fieldNames[i];
+                    SeaTunnelRow row = (SeaTunnelRow) value;
+                    node.set(fieldName, fieldConverters[i].convert(
                         mapper, node.get(fieldName), row.getField(i)));
-            }
+                }
 
-            return node;
+                return node;
+            }
         };
     }
 
     private RowToJsonConverter createArrayConverter(ArrayType arrayType) {
         final RowToJsonConverter elementConverter = createConverter(arrayType.getElementType());
-        return (mapper, reuse, value) -> {
-            ArrayNode node;
+        return new RowToJsonConverter() {
+            @Override
+            public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                ArrayNode node;
 
-            // reuse could be a NullNode if last record is null.
-            if (reuse == null || reuse.isNull()) {
-                node = mapper.createArrayNode();
-            } else {
-                node = (ArrayNode) reuse;
-                node.removeAll();
+                // reuse could be a NullNode if last record is null.
+                if (reuse == null || reuse.isNull()) {
+                    node = mapper.createArrayNode();
+                } else {
+                    node = (ArrayNode) reuse;
+                    node.removeAll();
+                }
+
+                Object[] arrayData = (Object[]) value;
+                int numElements = arrayData.length;
+                for (int i = 0; i < numElements; i++) {
+                    Object element = arrayData[i];
+                    node.add(elementConverter.convert(mapper, null, element));
+                }
+
+                return node;
             }
-
-            Object[] arrayData = (Object[]) value;
-            int numElements = arrayData.length;
-            for (int i = 0; i < numElements; i++) {
-                Object element = arrayData[i];
-                node.add(elementConverter.convert(mapper, null, element));
-            }
-
-            return node;
         };
     }
 
@@ -161,24 +252,27 @@ public class RowToJsonConverters implements Serializable {
         }
 
         final RowToJsonConverter valueConverter = createConverter(valueType);
-        return (mapper, reuse, value) -> {
-            ObjectNode node;
+        return new RowToJsonConverter() {
+            @Override
+            public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                ObjectNode node;
 
-            // reuse could be a NullNode if last record is null.
-            if (reuse == null || reuse.isNull()) {
-                node = mapper.createObjectNode();
-            } else {
-                node = (ObjectNode) reuse;
-                node.removeAll();
+                // reuse could be a NullNode if last record is null.
+                if (reuse == null || reuse.isNull()) {
+                    node = mapper.createObjectNode();
+                } else {
+                    node = (ObjectNode) reuse;
+                    node.removeAll();
+                }
+
+                Map<String, ?> mapData = (Map) value;
+                for (Map.Entry<String, ?> entry : mapData.entrySet()) {
+                    String fieldName = entry.getKey();
+                    node.set(fieldName, valueConverter.convert(mapper, node.get(fieldName), entry.getValue()));
+                }
+
+                return node;
             }
-
-            Map<String, ?> mapData = (Map) value;
-            for (Map.Entry<String, ?> entry : mapData.entrySet()) {
-                String fieldName = entry.getKey();
-                node.set(fieldName, valueConverter.convert(mapper, node.get(fieldName), entry.getValue()));
-            }
-
-            return node;
         };
     }
 

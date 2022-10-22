@@ -28,6 +28,7 @@
 
     <modules>
         <module>seatunnel-format-json</module>
+        <module>seatunnel-format-text</module>
     </modules>
 
 </project>

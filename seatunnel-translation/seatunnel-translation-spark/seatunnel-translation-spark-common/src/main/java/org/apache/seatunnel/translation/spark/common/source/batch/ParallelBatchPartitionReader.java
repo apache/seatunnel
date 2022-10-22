@@ -20,15 +20,14 @@ package org.apache.seatunnel.translation.spark.common.source.batch;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.translation.source.BaseSourceFunction;
 import org.apache.seatunnel.translation.source.ParallelSource;
-import org.apache.seatunnel.translation.spark.common.Handover;
 import org.apache.seatunnel.translation.spark.common.InternalRowCollector;
 import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.sql.catalyst.InternalRow;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -36,9 +35,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
+@Slf4j
 public class ParallelBatchPartitionReader {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(ParallelBatchPartitionReader.class);
 
     protected static final Integer INTERVAL = 100;
 
@@ -97,7 +95,7 @@ public class ParallelBatchPartitionReader {
                 internalSource.run(new InternalRowCollector(handover, checkpointLock, source.getProducedType()));
             } catch (Exception e) {
                 handover.reportError(e);
-                LOGGER.error("BatchPartitionReader execute failed.", e);
+                log.error("BatchPartitionReader execute failed.", e);
                 running = false;
             }
         });

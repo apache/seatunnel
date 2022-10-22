@@ -19,24 +19,34 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
-import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
-public class FakeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.LinkedList;
+import java.util.List;
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceReader.class);
+@Slf4j
+public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSplit> {
 
-    private final SingleSplitReaderContext context;
+    private final SourceReader.Context context;
+    private final Deque<FakeSourceSplit> splits = new LinkedList<>();
 
-    private final FakeRandomData fakeRandomData;
+    private final FakeConfig config;
+    private final FakeDataGenerator fakeDataGenerator;
+    private volatile boolean noMoreSplit;
+    private volatile long latestTimestamp = 0;
 
-    public FakeSourceReader(SingleSplitReaderContext context, FakeRandomData randomData) {
+    public FakeSourceReader(SourceReader.Context context, SeaTunnelSchema schema, FakeConfig fakeConfig) {
         this.context = context;
-        this.fakeRandomData = randomData;
+        this.config = fakeConfig;
+        this.fakeDataGenerator = new FakeDataGenerator(schema, fakeConfig);
     }
 
     @Override
@@ -50,18 +60,53 @@ public class FakeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     @Override
-    @SuppressWarnings("magicnumber")
+    @SuppressWarnings("MagicNumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
-        // Generate a random number of rows to emit.
-        for (int i = 0; i < 10; i++) {
-            SeaTunnelRow seaTunnelRow = fakeRandomData.randomRow();
-            output.collect(seaTunnelRow);
+        long currentTimestamp = Instant.now().toEpochMilli();
+        if (currentTimestamp <= latestTimestamp + config.getSplitReadInterval()) {
+            return;
         }
-        if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
+        latestTimestamp = currentTimestamp;
+        synchronized (output.getCheckpointLock()) {
+            FakeSourceSplit split = splits.poll();
+            if (null != split) {
+                // Generate a random number of rows to emit.
+                List<SeaTunnelRow> seaTunnelRows = fakeDataGenerator.generateFakedRows(split.getRowNum());
+                for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {
+                    output.collect(seaTunnelRow);
+                }
+                log.info("{} rows of data have been generated in split({}). Generation time: {}", split.getRowNum(), split.splitId(), latestTimestamp);
+            } else {
+                if (!noMoreSplit) {
+                    log.info("wait split!");
+                }
+            }
+        }
+        if (splits.isEmpty() && noMoreSplit && Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
-            LOGGER.info("Closed the bounded fake source");
+            log.info("Closed the bounded fake source");
             context.signalNoMoreElement();
         }
         Thread.sleep(1000L);
+    }
+
+    @Override
+    public List<FakeSourceSplit> snapshotState(long checkpointId) throws Exception {
+        return new ArrayList<>(splits);
+    }
+
+    @Override
+    public void addSplits(List<FakeSourceSplit> splits) {
+        this.splits.addAll(splits);
+    }
+
+    @Override
+    public void handleNoMoreSplits() {
+        noMoreSplit = true;
+    }
+
+    @Override
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+
     }
 }

@@ -28,19 +28,19 @@ import java.util.List;
 public class AssertFieldRule implements Serializable {
     private String fieldName;
     private SeaTunnelDataType<?> fieldType;
-    private List<AssertValueRule> fieldValueRules;
+    private List<AssertRule> fieldRules;
 
     @Data
-    public static class AssertValueRule implements Serializable {
-        private AssertValueRuleType fieldValueRuleType;
-        private Double fieldValueRuleValue;
+    public static class AssertRule implements Serializable {
+        private AssertRuleType ruleType;
+        private Double ruleValue;
     }
 
     /**
      * Here is all supported value assert rule type,
      * An exception will be thrown if a field value break the rule
      */
-    public enum AssertValueRuleType {
+    public enum AssertRuleType {
         /**
          * value can't be null
          */
@@ -60,6 +60,14 @@ public class AssertFieldRule implements Serializable {
         /**
          * maximum string length of a string data
          */
-        MAX_LENGTH
+        MAX_LENGTH,
+        /**
+         * maximum number of rows
+         */
+        MAX_ROW,
+        /**
+         * minimum number of rows
+         */
+        MIN_ROW
     }
 }
