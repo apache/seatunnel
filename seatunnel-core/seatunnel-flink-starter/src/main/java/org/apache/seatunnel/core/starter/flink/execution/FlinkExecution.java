@@ -36,6 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.types.Row;
 
+import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Path;
@@ -61,7 +62,7 @@ public class FlinkExecution implements TaskExecution {
     public FlinkExecution(Config config) {
         try {
             jarPaths = new ArrayList<>(Collections.singletonList(
-                new URL(Common.appLibDir().resolve(FlinkStarter.APP_JAR_NAME).toString())));
+                new File(Common.appLibDir().resolve(FlinkStarter.APP_JAR_NAME).toString()).toURI().toURL()));
         } catch (MalformedURLException e) {
             throw new SeaTunnelException("load flink starter error.", e);
         }
