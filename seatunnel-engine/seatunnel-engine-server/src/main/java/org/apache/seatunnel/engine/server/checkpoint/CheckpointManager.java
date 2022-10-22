@@ -34,10 +34,7 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOp
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
-import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.Task;
-import org.apache.seatunnel.engine.server.execution.TaskGroup;
-import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
@@ -87,9 +84,12 @@ public class CheckpointManager {
         this.jobId = jobId;
         this.nodeEngine = nodeEngine;
         this.jobMaster = jobMaster;
-        this.checkpointStorage = FactoryUtil.discoverFactory(Thread.currentThread().getContextClassLoader(), CheckpointStorageFactory.class, checkpointConfig.getStorage().getStorage())
-            .create(new ConcurrentHashMap<>());
-        IMap<Integer, Long> checkpointIdMap = nodeEngine.getHazelcastInstance().getMap(String.format("checkpoint-id-%d", jobId));
+        this.checkpointStorage =
+            FactoryUtil.discoverFactory(Thread.currentThread().getContextClassLoader(), CheckpointStorageFactory.class,
+                    checkpointConfig.getStorage().getStorage())
+                .create(new ConcurrentHashMap<>());
+        IMap<Integer, Long> checkpointIdMap =
+            nodeEngine.getHazelcastInstance().getMap(String.format("checkpoint-id-%d", jobId));
         this.coordinatorMap = checkpointPlanMap.values().parallelStream()
             .map(plan -> {
                 IMapCheckpointIDCounter idCounter = new IMapCheckpointIDCounter(plan.getPipelineId(), checkpointIdMap);
@@ -98,7 +98,9 @@ public class CheckpointManager {
                     // TODO: support savepoint
                     PipelineState pipelineState = null;
                     if (idCounter.get() != CheckpointIDCounter.INITIAL_CHECKPOINT_ID) {
-                        pipelineState = checkpointStorage.getCheckpoint(String.valueOf(jobId), String.valueOf(plan.getPipelineId()), String.valueOf(idCounter.get() - 1));
+                        pipelineState =
+                            checkpointStorage.getCheckpoint(String.valueOf(jobId), String.valueOf(plan.getPipelineId()),
+                                String.valueOf(idCounter.get() - 1));
                     }
                     return new CheckpointCoordinator(this,
                         checkpointStorage,
@@ -135,6 +137,7 @@ public class CheckpointManager {
     }
 
     public void reportedPipelineRunning(int pipelineId) {
+        getCheckpointCoordinator(pipelineId).setAllTaskReady(true);
         getCheckpointCoordinator(pipelineId).tryTriggerPendingCheckpoint();
     }
 
@@ -160,25 +163,18 @@ public class CheckpointManager {
      */
     public void reportedTask(TaskReportStatusOperation reportStatusOperation) {
         // task address may change during restore.
-        log.debug("reported task({}) status{}", reportStatusOperation.getLocation().getTaskID(), reportStatusOperation.getStatus());
+        log.debug("reported task({}) status{}", reportStatusOperation.getLocation().getTaskID(),
+            reportStatusOperation.getStatus());
         getCheckpointCoordinator(reportStatusOperation.getLocation()).reportedTask(reportStatusOperation);
     }
 
     /**
      * Called by the JobMaster.
-     * <br> Listen to the {@link ExecutionState} of the {@link TaskGroup}, which is used to cancel the running {@link PendingCheckpoint} when the task group is abnormal.
+     * <br> Listen to the {@link PipelineStatus} of the {@link SubPlan}, which is used to cancel the running {@link PendingCheckpoint} when the SubPlan is abnormal.
      */
-    public void listenTaskGroup(TaskGroupLocation groupLocation, ExecutionState executionState) {
-        if (jobId != groupLocation.getJobId()) {
-            return;
-        }
-        switch (executionState) {
-            case FAILED:
-            case CANCELED:
-                getCheckpointCoordinator(groupLocation.getPipelineId()).cleanPendingCheckpoint(CheckpointFailureReason.TASK_FAILURE);
-                return;
-            default:
-        }
+    public CompletableFuture<Void> listenPipelineRetry(int pipelineId, PipelineStatus pipelineStatus) {
+        getCheckpointCoordinator(pipelineId).cleanPendingCheckpoint(CheckpointFailureReason.PIPELINE_END);
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
@@ -224,7 +220,7 @@ public class CheckpointManager {
     protected InvocationFuture<?> sendOperationToMemberNode(TaskOperation operation) {
         Address address =
             jobMaster.queryTaskGroupAddress(operation.getTaskLocation().getTaskGroupLocation().getTaskGroupId());
-        System.out.println("---------------------------------address----------------------" + address);
-        return NodeEngineUtil.sendOperationToMemberNode(nodeEngine, operation, jobMaster.queryTaskGroupAddress(operation.getTaskLocation().getTaskGroupLocation().getTaskGroupId()));
+        return NodeEngineUtil.sendOperationToMemberNode(nodeEngine, operation,
+            jobMaster.queryTaskGroupAddress(operation.getTaskLocation().getTaskGroupLocation().getTaskGroupId()));
     }
 }

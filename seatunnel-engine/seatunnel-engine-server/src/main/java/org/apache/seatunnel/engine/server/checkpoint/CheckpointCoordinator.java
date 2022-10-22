@@ -22,6 +22,7 @@ import static org.apache.seatunnel.engine.core.checkpoint.CheckpointType.COMPLET
 import static org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan.COORDINATOR_INDEX;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.READY_START;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.common.ProtoStuffSerializer;
@@ -44,6 +45,7 @@ import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -108,7 +110,7 @@ public class CheckpointCoordinator {
     private final CheckpointConfig coordinatorConfig;
 
     private int tolerableFailureCheckpoints;
-    private final transient ScheduledExecutorService scheduler;
+    private transient ScheduledExecutorService scheduler;
 
     private final AtomicLong latestTriggerTimestamp = new AtomicLong(0);
 
@@ -118,6 +120,9 @@ public class CheckpointCoordinator {
 
     /** Flag marking the coordinator as shut down (not accepting any messages any more). */
     private volatile boolean shutdown;
+
+    @Setter
+    private volatile boolean isAllTaskReady = false;
 
     @SneakyThrows
     public CheckpointCoordinator(CheckpointManager manager,
@@ -208,6 +213,7 @@ public class CheckpointCoordinator {
                 return;
             }
         }
+        isAllTaskReady = true;
         InvocationFuture<?>[] futures = notifyTaskStart();
         CompletableFuture.allOf(futures).join();
         scheduleTriggerPendingCheckpoint(coordinatorConfig.getCheckpointInterval());
@@ -229,7 +235,7 @@ public class CheckpointCoordinator {
         synchronized (lock) {
             final long currentTimestamp = Instant.now().toEpochMilli();
             if (currentTimestamp - latestTriggerTimestamp.get() >= coordinatorConfig.getCheckpointInterval() &&
-                pendingCounter.get() < coordinatorConfig.getMaxConcurrentCheckpoints()) {
+                pendingCounter.get() < coordinatorConfig.getMaxConcurrentCheckpoints() && isAllTaskReady) {
                 CompletableFuture<PendingCheckpoint> pendingCheckpoint = createPendingCheckpoint(currentTimestamp, CheckpointType.CHECKPOINT_TYPE);
                 startTriggerPendingCheckpoint(pendingCheckpoint);
                 pendingCounter.incrementAndGet();
@@ -268,12 +274,20 @@ public class CheckpointCoordinator {
             if (COMPLETED_POINT_TYPE != pendingCheckpoint.getCheckpointType()) {
                 // Trigger the barrier and wait for all tasks to ACK
                 LOG.debug("trigger checkpoint barrier {}/{}/{}, {}", pendingCheckpoint.getJobId(), pendingCheckpoint.getPipelineId(), pendingCheckpoint.getCheckpointId(), pendingCheckpoint.getCheckpointType());
-                CompletableFuture.supplyAsync(() ->
+                CompletableFuture<InvocationFuture<?>[]> completableFutureArray = CompletableFuture.supplyAsync(() ->
                         new CheckpointBarrier(pendingCheckpoint.getCheckpointId(),
                             pendingCheckpoint.getCheckpointTimestamp(),
                             pendingCheckpoint.getCheckpointType()))
-                    .thenApplyAsync(this::triggerCheckpoint)
-                    .thenApplyAsync(invocationFutures -> CompletableFuture.allOf(invocationFutures).join());
+                    .thenApplyAsync(this::triggerCheckpoint);
+
+                try {
+                    CompletableFuture.allOf(completableFutureArray).get();
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                } catch (Exception e) {
+                    LOG.error(ExceptionUtils.getMessage(e));
+                    return;
+                }
             }
 
             LOG.info("Start a scheduled task to prevent checkpoint timeouts");
@@ -353,7 +367,6 @@ public class CheckpointCoordinator {
 
     public InvocationFuture<?>[] triggerCheckpoint(CheckpointBarrier checkpointBarrier) {
         // TODO: some tasks have completed and don't need to trigger
-        System.out.println("----------------------------trigger------------------------" + checkpointBarrier.getId());
         return plan.getStartingSubtasks()
             .stream()
             .map(taskLocation -> new CheckpointBarrierTriggerOperation(checkpointBarrier, taskLocation))
@@ -362,12 +375,22 @@ public class CheckpointCoordinator {
     }
 
     protected void cleanPendingCheckpoint(CheckpointFailureReason failureReason) {
-        pendingCheckpoints.values().forEach(pendingCheckpoint ->
-            pendingCheckpoint.abortCheckpoint(failureReason, null)
-        );
-        // TODO: clear related future & scheduler task
-        pendingCheckpoints.clear();
-        scheduler.shutdown();
+        synchronized (lock) {
+            pendingCheckpoints.values().forEach(pendingCheckpoint ->
+                pendingCheckpoint.abortCheckpoint(failureReason, null)
+            );
+            // TODO: clear related future & scheduler task
+            pendingCheckpoints.clear();
+            scheduler.shutdownNow();
+            scheduler = Executors.newScheduledThreadPool(
+                1, runnable -> {
+                    Thread thread = new Thread(runnable);
+                    thread.setDaemon(true);
+                    thread.setName(String.format("checkpoint-coordinator-%s/%s", pipelineId, jobId));
+                    return thread;
+                });
+            isAllTaskReady = false;
+        }
     }
 
     protected void acknowledgeTask(TaskAcknowledgeOperation ackOperation) {
