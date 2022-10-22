@@ -161,6 +161,19 @@ source {
 }
 ```
 
+:::tip
+
+In order to be compatible with different versions of Hadoop and Hive, the scope of hive-exec and flink-shaded-hadoop-2 in the project pom file are provided, so if you use the Flink engine, first you may need to add the following Jar packages to <FLINK_HOME>/lib directory, if you are using the Spark engine and integrated with Hadoop, then you do not need to add the following Jar packages.
+
+:::
+
+```
+flink-shaded-hadoop-x-xxx.jar
+hive-exec-xxx.jar
+libfb303-xxx.jar
+```
+Some versions of the hive-exec package do not have libfb303-xxx.jar, so you also need to manually import the Jar package. 
+
 ## Changelog
 
 ### 2.2.0-beta 2022-09-26
