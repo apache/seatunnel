@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>connector-file</artifactId>
+        <groupId>org.apache.seatunnel</groupId>
+        <version>${revision}</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>connector-file-oss-jindo</artifactId>
+
+    <properties>
+        <jindo-sdk.version>3.7.3</jindo-sdk.version>
+        <hadoop-aliyun.version>2.9.2</hadoop-aliyun.version>
+    </properties>
+
+    <dependencies>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-file-base</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.aliyun.oss</groupId>
+            <artifactId>jindo-sdk</artifactId>
+            <version>${jindo-sdk.version}</version>
+            <scope>system</scope>
+            <systemPath>${basedir}/src/libs/jindofs-sdk-3.7.3.jar</systemPath>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-aliyun</artifactId>
+            <version>${hadoop-aliyun.version}</version>
+        </dependency>
+
+    </dependencies>
+
+</project>
