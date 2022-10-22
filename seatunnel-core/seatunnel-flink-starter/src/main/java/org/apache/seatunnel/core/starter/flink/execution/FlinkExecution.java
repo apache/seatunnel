@@ -20,8 +20,10 @@ package org.apache.seatunnel.core.starter.flink.execution;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.TaskExecution;
+import org.apache.seatunnel.core.starter.flink.FlinkStarter;
 import org.apache.seatunnel.core.starter.flink.config.FlinkCommon;
 import org.apache.seatunnel.core.starter.flink.config.FlinkEnvironmentFactory;
 import org.apache.seatunnel.flink.FlinkEnvironment;
@@ -39,6 +41,7 @@ import java.net.URL;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -56,7 +59,12 @@ public class FlinkExecution implements TaskExecution {
     private final List<URL> jarPaths;
 
     public FlinkExecution(Config config) {
-        jarPaths = new ArrayList<>();
+        try {
+            jarPaths = new ArrayList<>(Collections.singletonList(
+                new URL(Common.appLibDir().resolve(FlinkStarter.APP_JAR_NAME).toString())));
+        } catch (MalformedURLException e) {
+            throw new SeaTunnelException("load flink starter error.", e);
+        }
         registerPlugin();
         JobContext jobContext = new JobContext();
         jobContext.setJobMode(new FlinkEnvironmentFactory(config).getJobMode(config.getConfig("env")));
