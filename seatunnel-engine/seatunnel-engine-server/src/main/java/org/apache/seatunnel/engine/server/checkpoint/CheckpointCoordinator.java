@@ -353,6 +353,7 @@ public class CheckpointCoordinator {
 
     public InvocationFuture<?>[] triggerCheckpoint(CheckpointBarrier checkpointBarrier) {
         // TODO: some tasks have completed and don't need to trigger
+        System.out.println("----------------------------trigger------------------------" + checkpointBarrier.getId());
         return plan.getStartingSubtasks()
             .stream()
             .map(taskLocation -> new CheckpointBarrierTriggerOperation(checkpointBarrier, taskLocation))
