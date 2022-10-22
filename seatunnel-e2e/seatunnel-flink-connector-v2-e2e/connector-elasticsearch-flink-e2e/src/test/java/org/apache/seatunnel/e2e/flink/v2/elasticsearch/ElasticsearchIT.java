@@ -24,8 +24,6 @@ import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
@@ -73,9 +71,7 @@ public class ElasticsearchIT extends FlinkContainer {
         LOGGER.info("Elasticsearch container started");
         esRestClient = EsRestClient.createInstance(Lists.newArrayList(container.getHttpHostAddress()), "", "");
         testDataset = generateTestDataSet();
-        Thread.sleep(5000L);
         createIndexDocs();
-
     }
 
     /**
@@ -129,8 +125,7 @@ public class ElasticsearchIT extends FlinkContainer {
         };
 
         List<String> documents = new ArrayList<>();
-        ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule())
-                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        ObjectMapper objectMapper = new ObjectMapper();
         for (int i = 0; i < 100; i++) {
             Map<String, Object> doc = new HashMap<>();
             Object[] values = new Object[]{
@@ -146,8 +141,8 @@ public class ElasticsearchIT extends FlinkContainer {
                 Double.parseDouble("1.1"),
                 BigDecimal.valueOf(11, 1),
                 "test".getBytes(),
-                LocalDate.now(),
-                LocalDateTime.now()
+                LocalDate.now().toString(),
+                LocalDateTime.now().toString()
             };
             for (int j = 0; j  < fiels.length; j++){
                 doc.put(fiels[j], values[j]);
@@ -157,7 +152,9 @@ public class ElasticsearchIT extends FlinkContainer {
         return documents;
     }
 
-    private List<String> readSinkData() {
+    private List<String> readSinkData() throws InterruptedException {
+        //wait for index refresh
+        Thread.sleep(2000);
         List<String> source = Lists.newArrayList("c_map", "c_array", "c_string", "c_boolean", "c_tinyint", "c_smallint", "c_int", "c_bigint", "c_float", "c_double", "c_decimal", "c_bytes", "c_date", "c_timestamp");
         ScrollResult scrollResult = esRestClient.searchByScroll("st_index2", source, "1m", 1000);
         scrollResult.getDocs().forEach(x -> {
