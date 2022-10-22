@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.ASSIGN_PARTITIONS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PARTITION;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PARTITION_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PRODUCER_CONFIG_PREFIX;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TRANSACTION_PREFIX;
 
@@ -67,7 +68,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     // check config
     @Override
     public void write(SeaTunnelRow element) {
-        ProducerRecord<byte[], byte[]> producerRecord = null;
+        ProducerRecord<byte[], byte[]> producerRecord;
         //Determine the partition of the kafka send message based on the field name
         if (pluginConfig.hasPath(PARTITION_KEY)){
             String key = partitionExtractor.apply(element);
@@ -145,12 +146,9 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     }
 
     private Properties getKafkaProperties(Config pluginConfig) {
-        Config kafkaConfig = TypesafeConfigUtils.extractSubConfig(pluginConfig,
-                org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG_PREFIX, false);
+        Config kafkaConfig = TypesafeConfigUtils.extractSubConfig(pluginConfig, PRODUCER_CONFIG_PREFIX, false);
         Properties kafkaProperties = new Properties();
-        kafkaConfig.entrySet().forEach(entry -> {
-            kafkaProperties.put(entry.getKey(), entry.getValue().unwrapped());
-        });
+        kafkaConfig.entrySet().forEach(entry -> kafkaProperties.put(entry.getKey(), entry.getValue().unwrapped()));
         if (pluginConfig.hasPath(ASSIGN_PARTITIONS)) {
             kafkaProperties.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, "org.apache.seatunnel.connectors.seatunnel.kafka.sink.MessageContentPartitioner");
         }

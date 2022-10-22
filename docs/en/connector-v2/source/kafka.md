@@ -24,7 +24,7 @@ Source connector for Apache Kafka.
 | pattern              | Boolean | no       | false                    |
 | consumer.group       | String  | no       | SeaTunnel-Consumer-Group |
 | commit_on_checkpoint | Boolean | no       | true                     |
-| kafka.*              | String  | no       | -                        |
+| consumer.override.*  | String  | no       | -                        |
 | common-options       |         | no       | -                        |
 | schema               |         | no       | -                        |
 | format               | String  | no       | json                     |
@@ -49,11 +49,11 @@ If `pattern` is set to `true`,the regular expression for a pattern of topic name
 
 If true the consumer's offset will be periodically committed in the background.
 
-### kafka.* [string]
+### consumer.override.* [string]
 
 In addition to the above necessary parameters that must be specified by the `Kafka consumer` client, users can also specify multiple `consumer` client non-mandatory parameters, covering [all consumer parameters specified in the official Kafka document](https://kafka.apache.org/documentation.html#consumerconfigs).
 
-The way to specify parameters is to add the prefix `kafka.` to the original parameter name. For example, the way to specify `auto.offset.reset` is: `kafka.auto.offset.reset = latest` . If these non-essential parameters are not specified, they will use the default values given in the official Kafka documentation.
+The way to specify parameters is to add the prefix `consumer.override.` to the original parameter name. For example, the way to specify `auto.offset.reset` is: `consumer.override.auto.offset.reset = latest` . If these non-essential parameters are not specified, they will use the default values given in the official Kafka documentation.
 
 ### common-options
 
@@ -85,8 +85,8 @@ source {
     field_delimiter = "#“
     topic = "topic_1,topic_2,topic_3"
     bootstrap.server = "localhost:9092"
-    kafka.max.poll.records = 500
-    kafka.client.id = client_1
+    consumer.override.max.poll.records = 500
+    consumer.override.client.id = client_1
   }
   
 }

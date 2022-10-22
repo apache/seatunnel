@@ -15,17 +15,17 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 
 ## Options
 
-| name               | type                   | required | default value |
-| ------------------ | ---------------------- | -------- | ------------- |
-| topic              | string                 | yes      | -             |
-| bootstrap.servers  | string                 | yes      | -             |
-| kafka.*            | kafka producer config  | no       | -             |
-| semantic           | string                 | no       | NON           |
-| partition_key      | string                 | no       | -             |
-| partition          | int                    | no       | -             |
-| assign_partitions  | list                   | no       | -             |
-| transaction_prefix | string                 | no       | -             |
-| common-options     |                        | no       | -             |
+| name                | type                   | required | default value |
+|---------------------| ---------------------- | -------- | ------------- |
+| topic               | string                 | yes      | -             |
+| bootstrap.servers   | string                 | yes      | -             |
+| producer.override.* | kafka producer config  | no       | -             |
+| semantic            | string                 | no       | NON           |
+| partition_key       | string                 | no       | -             |
+| partition           | int                    | no       | -             |
+| assign_partitions   | list                   | no       | -             |
+| transaction_prefix  | string                 | no       | -             |
+| common-options      |                        | no       | -             |
 
 ### topic [string]
 
@@ -35,11 +35,11 @@ Kafka Topic.
 
 Kafka Brokers List.
 
-### kafka.* [kafka producer config]
+### producer.override.* [kafka producer config]
 
 In addition to the above parameters that must be specified by the `Kafka producer` client, the user can also specify multiple non-mandatory parameters for the `producer` client, covering [all the producer parameters specified in the official Kafka document](https://kafka.apache.org/documentation.html#producerconfigs).
 
-The way to specify the parameter is to add the prefix `kafka.` to the original parameter name. For example, the way to specify `request.timeout.ms` is: `kafka.request.timeout.ms = 60000` . If these non-essential parameters are not specified, they will use the default values given in the official Kafka documentation.
+The way to specify the parameter is to add the prefix `producer.override.` to the original parameter name. For example, the way to specify `request.timeout.ms` is: `producer.override.request.timeout.ms = 60000` . If these non-essential parameters are not specified, they will use the default values given in the official Kafka documentation.
 
 ### semantic [string]
 
@@ -101,7 +101,7 @@ sink {
       topic = "seatunnel"
       bootstrap.servers = "localhost:9092"
       partition = 3
-      kafka.request.timeout.ms = 60000
+      producer.override.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
   }
   

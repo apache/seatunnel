@@ -33,7 +33,9 @@ public class Config {
      */
     public static final String BOOTSTRAP_SERVERS = "bootstrap.servers";
 
-    public static final String KAFKA_CONFIG_PREFIX = "kafka.";
+    public static final String PRODUCER_CONFIG_PREFIX = "producer.override.";
+
+    public static final String CONSUMER_CONFIG_PREFIX = "consumer.override.";
 
     /**
      * consumer group of kafka client consume message.
