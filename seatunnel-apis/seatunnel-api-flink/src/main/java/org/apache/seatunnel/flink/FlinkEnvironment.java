@@ -222,9 +222,7 @@ public class FlinkEnvironment implements RuntimeEnv {
     }
 
     private void createExecutionEnvironment() {
-        Configuration configuration = new Configuration();
-        EnvironmentUtil.initConfiguration(config, configuration);
-        batchEnvironment = new ExecutionEnvironment(configuration);
+        batchEnvironment = ExecutionEnvironment.getExecutionEnvironment();
         if (config.hasPath(ConfigKeyName.PARALLELISM)) {
             int parallelism = config.getInt(ConfigKeyName.PARALLELISM);
             batchEnvironment.setParallelism(parallelism);
