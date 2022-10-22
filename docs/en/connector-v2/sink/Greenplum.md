@@ -34,3 +34,9 @@ The URL of the JDBC connection. if you use postgresql driver the value is `jdbc:
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add Greenplum Sink Connector
