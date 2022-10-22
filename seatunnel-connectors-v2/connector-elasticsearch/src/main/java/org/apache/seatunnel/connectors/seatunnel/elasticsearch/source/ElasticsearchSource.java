@@ -34,7 +34,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 
-import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -46,6 +46,8 @@ public class ElasticsearchSource implements SeaTunnelSource<SeaTunnelRow, Elasti
 
     private SeaTunnelRowType rowTypeInfo;
 
+    private List<String> source;
+
     @Override
     public String getPluginName() {
         return "Elasticsearch";
@@ -54,19 +56,15 @@ public class ElasticsearchSource implements SeaTunnelSource<SeaTunnelRow, Elasti
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
-        List<String> source = pluginConfig.getStringList(SourceConfig.SOURCE);
-
         if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA)) {
             Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA);
             rowTypeInfo = SeaTunnelSchema.buildWithConfig(schemaConfig).getSeaTunnelRowType();
+            source = Arrays.asList(rowTypeInfo.getFieldNames());
         } else {
+            source = pluginConfig.getStringList(SourceConfig.SOURCE);
             EsRestClient esRestClient = EsRestClient.createInstance(this.pluginConfig);
             Map<String, String> esFieldType = esRestClient.getFieldTypeMapping(pluginConfig.getString(SourceConfig.INDEX), source);
-            try {
-                esRestClient.close();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+            esRestClient.close();
             SeaTunnelDataType[] fieldTypes = new SeaTunnelDataType[source.size()];
             for (int i = 0; i < source.size(); i++) {
                 String esType = esFieldType.get(source.get(i));
@@ -94,12 +92,12 @@ public class ElasticsearchSource implements SeaTunnelSource<SeaTunnelRow, Elasti
 
     @Override
     public SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState> createEnumerator(SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext) {
-        return new ElasticsearchSourceSplitEnumerator(enumeratorContext, pluginConfig);
+        return new ElasticsearchSourceSplitEnumerator(enumeratorContext, pluginConfig, source);
     }
 
     @Override
     public SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState> restoreEnumerator(SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext, ElasticsearchSourceState sourceState) {
-        return new ElasticsearchSourceSplitEnumerator(enumeratorContext, sourceState, pluginConfig);
+        return new ElasticsearchSourceSplitEnumerator(enumeratorContext, sourceState, pluginConfig, source);
     }
 
 }

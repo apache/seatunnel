@@ -12,7 +12,7 @@ support version >= 2.x and < 8.x.
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
-- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [schema projection](../../concept/connector-v2-features.md)
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
@@ -60,5 +60,30 @@ Elasticsearch {
     hosts = ["localhost:9200"]
     index = "seatunnel-*"
     source = ["_id","name","age"]
+}
+```
+complex
+```hocon
+Elasticsearch {
+    hosts = ["elasticsearch:9200"]
+    index = "st_index"
+    schema = {
+        fields {
+            c_map = "map<string, tinyint>"
+            c_array = "array<tinyint>"
+            c_string = string
+            c_boolean = boolean
+            c_tinyint = tinyint
+            c_smallint = smallint
+            c_int = int
+            c_bigint = bigint
+            c_float = float
+            c_double = double
+            c_decimal = "decimal(2, 1)"
+            c_bytes = bytes
+            c_date = date
+            c_timestamp = timestamp
+        }
+    }
 }
 ```

@@ -52,13 +52,15 @@ public class ElasticsearchSourceSplitEnumerator implements SourceSplitEnumerator
 
     private Map<Integer, List<ElasticsearchSourceSplit>> pendingSplit;
 
+    private List<String> source;
+
     private volatile boolean shouldEnumerate;
 
-    public ElasticsearchSourceSplitEnumerator(SourceSplitEnumerator.Context<ElasticsearchSourceSplit> context, Config pluginConfig) {
-        this(context, null, pluginConfig);
+    public ElasticsearchSourceSplitEnumerator(SourceSplitEnumerator.Context<ElasticsearchSourceSplit> context, Config pluginConfig, List<String> source) {
+        this(context, null, pluginConfig, source);
     }
 
-    public ElasticsearchSourceSplitEnumerator(SourceSplitEnumerator.Context<ElasticsearchSourceSplit> context, ElasticsearchSourceState sourceState, Config pluginConfig) {
+    public ElasticsearchSourceSplitEnumerator(SourceSplitEnumerator.Context<ElasticsearchSourceSplit> context, ElasticsearchSourceState sourceState, Config pluginConfig, List<String> source) {
         this.context = context;
         this.pluginConfig = pluginConfig;
         this.pendingSplit = new HashMap<>();
@@ -67,6 +69,7 @@ public class ElasticsearchSourceSplitEnumerator implements SourceSplitEnumerator
             this.shouldEnumerate = sourceState.isShouldEnumerate();
             this.pendingSplit.putAll(sourceState.getPendingSplit());
         }
+        this.source = source;
     }
 
     @Override
@@ -140,9 +143,8 @@ public class ElasticsearchSourceSplitEnumerator implements SourceSplitEnumerator
         List<IndexDocsCount> indexDocsCounts = esRestClient.getIndexDocsCount(pluginConfig.getString(SourceConfig.INDEX));
         indexDocsCounts = indexDocsCounts.stream().filter(x -> x.getDocsCount() != null && x.getDocsCount() > 0)
                 .sorted(Comparator.comparingLong(IndexDocsCount::getDocsCount)).collect(Collectors.toList());
-        List<String> sources = pluginConfig.getStringList(SourceConfig.SOURCE);
         for (IndexDocsCount indexDocsCount : indexDocsCounts) {
-            splits.add(new ElasticsearchSourceSplit(String.valueOf(indexDocsCount.getIndex().hashCode()), new SourceIndexInfo(indexDocsCount.getIndex(), sources, scrolllTime, scrollSize)));
+            splits.add(new ElasticsearchSourceSplit(String.valueOf(indexDocsCount.getIndex().hashCode()), new SourceIndexInfo(indexDocsCount.getIndex(), source, scrolllTime, scrollSize)));
         }
         return splits;
     }

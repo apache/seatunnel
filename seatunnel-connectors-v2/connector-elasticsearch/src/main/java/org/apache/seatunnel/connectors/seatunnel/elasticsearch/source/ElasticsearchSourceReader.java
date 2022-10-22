@@ -96,7 +96,6 @@ public class ElasticsearchSourceReader implements SourceReader<SeaTunnelRow, Ela
     }
 
     private void outputFromScrollResult(ScrollResult scrollResult, List<String> source, Collector<SeaTunnelRow> output) {
-        int sourceSize = source.size();
         for (Map<String, Object> doc : scrollResult.getDocs()) {
             SeaTunnelRow seaTunnelRow = deserializer.deserialize(new ElasticsearchRecord(doc, source));
             output.collect(seaTunnelRow);

@@ -29,10 +29,10 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ScrollR
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHost;
@@ -148,8 +148,12 @@ public class EsRestClient {
         }
     }
 
-    public void close() throws IOException {
-        restClient.close();
+    public void close()  {
+        try {
+            restClient.close();
+        } catch (IOException e) {
+            log.warn("close elasticsearch connection error", e);
+        }
     }
 
     /**
@@ -232,9 +236,16 @@ public class EsRestClient {
             JsonNode hitNode = iter.next();
             doc.put("_index", hitNode.get("_index").textValue());
             doc.put("_id", hitNode.get("_id").textValue());
-            Map<String, Object> source = mapper.convertValue(hitNode.get("_source"), new TypeReference<Map<String, Object>>() {
-            });
-            doc.putAll(source);
+            JsonNode source = hitNode.get("_source");
+            for (Iterator<Map.Entry<String, JsonNode>> iterator = source.fields(); iterator.hasNext(); ) {
+                Map.Entry<String, JsonNode> entry = iterator.next();
+                String fieldName = entry.getKey();
+                if (entry.getValue() instanceof TextNode){
+                    doc.put(fieldName, entry.getValue().textValue());
+                } else {
+                    doc.put(fieldName, entry.getValue());
+                }
+            }
             docs.add(doc);
         }
         return scrollResult;

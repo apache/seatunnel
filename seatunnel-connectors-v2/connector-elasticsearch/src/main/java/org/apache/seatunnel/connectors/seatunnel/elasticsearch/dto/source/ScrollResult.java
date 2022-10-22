@@ -17,27 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source;
 
+import lombok.Data;
+
 import java.util.List;
 import java.util.Map;
 
+@Data
 public class ScrollResult {
 
     private String scrollId;
     private List<Map<String, Object>> docs;
-
-    public String getScrollId() {
-        return scrollId;
-    }
-
-    public void setScrollId(String scrollId) {
-        this.scrollId = scrollId;
-    }
-
-    public List<Map<String, Object>> getDocs() {
-        return docs;
-    }
-
-    public void setDocs(List<Map<String, Object>> docs) {
-        this.docs = docs;
-    }
 }
