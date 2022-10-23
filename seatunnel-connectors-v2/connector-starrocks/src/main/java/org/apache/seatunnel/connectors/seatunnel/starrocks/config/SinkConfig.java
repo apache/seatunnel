@@ -17,16 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 
+import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
-import org.apache.seatunnel.common.config.TypesafeConfigUtils;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 
 @Setter
 @Getter
@@ -39,11 +40,12 @@ public class SinkConfig {
     public static final String LABEL_PREFIX = "labelPrefix";
     public static final String DATABASE = "database";
     public static final String TABLE = "table";
-    public static final String STARROCKS_CONFIG_PREFIX = "starrocks.";
+    public static final String STARROCKS_SINK_CONFIG_PREFIX = "sink.properties.";
     private static final String LOAD_FORMAT = "format";
-    private static final String DEFAULT_LOAD_FORMAT = "JSON";
+    private static final StreamLoadFormat DEFAULT_LOAD_FORMAT = StreamLoadFormat.CSV;
     private static final String COLUMN_SEPARATOR = "column_separator";
-    public static final String BATCH_SIZE = "batch_size";
+    public static final String BATCH_MAX_SIZE = "batch_max_rows";
+    public static final String BATCH_MAX_BYTES = "batch_max_bytes";
     public static final String BATCH_INTERVAL_MS = "batch_interval_ms";
     public static final String MAX_RETRIES = "max_retries";
     public static final String RETRY_BACKOFF_MULTIPLIER_MS = "retry_backoff_multiplier_ms";
@@ -51,21 +53,28 @@ public class SinkConfig {
 
     public enum StreamLoadFormat {
         CSV, JSON;
+        public static StreamLoadFormat parse(String format) {
+            if (StreamLoadFormat.JSON.name().equals(format)) {
+                return JSON;
+            }
+            return CSV;
+        }
     }
 
-    private  List<String> nodeUrls;
-    private  String username;
-    private  String password;
-    private  String database;
-    private  String table;
-    private  String labelPrefix;
-    private  String columnSeparator;
+    private List<String> nodeUrls;
+    private String username;
+    private String password;
+    private String database;
+    private String table;
+    private String labelPrefix;
+    private String columnSeparator;
+    private StreamLoadFormat loadFormat = DEFAULT_LOAD_FORMAT;
+    private static final int DEFAULT_BATCH_MAX_SIZE = 1024;
+    private static final long DEFAULT_BATCH_BYTES = 5 * 1024 * 1024;
 
-    private  String format = DEFAULT_LOAD_FORMAT;
-    private static final int DEFAULT_BATCH_SIZE = 1024;
+    private int batchMaxSize = DEFAULT_BATCH_MAX_SIZE;
+    private long batchMaxBytes = DEFAULT_BATCH_BYTES;
 
-
-    private int batchSize = DEFAULT_BATCH_SIZE;
     private Integer batchIntervalMs;
     private int maxRetries;
     private int retryBackoffMultiplierMs;
@@ -73,30 +82,29 @@ public class SinkConfig {
 
     private final Map<String, Object> streamLoadProps = new HashMap<>();
 
-
     public static SinkConfig loadConfig(Config pluginConfig) {
-       SinkConfig sinkConfig = new SinkConfig();
-       sinkConfig.setNodeUrls(pluginConfig.getStringList(NODE_URLS));
-       sinkConfig.setDatabase(pluginConfig.getString(DATABASE));
-       sinkConfig.setTable(pluginConfig.getString(TABLE));
+        SinkConfig sinkConfig = new SinkConfig();
+        sinkConfig.setNodeUrls(pluginConfig.getStringList(NODE_URLS));
+        sinkConfig.setDatabase(pluginConfig.getString(DATABASE));
+        sinkConfig.setTable(pluginConfig.getString(TABLE));
 
-       if (pluginConfig.hasPath(USERNAME)) {
+        if (pluginConfig.hasPath(USERNAME)) {
             sinkConfig.setUsername(pluginConfig.getString(USERNAME));
-       }
-       if (pluginConfig.hasPath(PASSWORD)) {
-           sinkConfig.setPassword(pluginConfig.getString(PASSWORD));
-       }
-       if (pluginConfig.hasPath(LABEL_PREFIX)) {
+        }
+        if (pluginConfig.hasPath(PASSWORD)) {
+            sinkConfig.setPassword(pluginConfig.getString(PASSWORD));
+        }
+        if (pluginConfig.hasPath(LABEL_PREFIX)) {
             sinkConfig.setLabelPrefix(pluginConfig.getString(LABEL_PREFIX));
-       }
-       if (pluginConfig.hasPath(LOAD_FORMAT)) {
-            sinkConfig.setFormat(pluginConfig.getString(LOAD_FORMAT));
-       }
+        }
         if (pluginConfig.hasPath(COLUMN_SEPARATOR)) {
             sinkConfig.setColumnSeparator(pluginConfig.getString(COLUMN_SEPARATOR));
         }
-        if (pluginConfig.hasPath(BATCH_SIZE)) {
-            sinkConfig.setBatchSize(pluginConfig.getInt(BATCH_SIZE));
+        if (pluginConfig.hasPath(BATCH_MAX_SIZE)) {
+            sinkConfig.setBatchMaxSize(pluginConfig.getInt(BATCH_MAX_SIZE));
+        }
+        if (pluginConfig.hasPath(BATCH_MAX_BYTES)) {
+            sinkConfig.setBatchMaxBytes(pluginConfig.getLong(BATCH_MAX_BYTES));
         }
         if (pluginConfig.hasPath(BATCH_INTERVAL_MS)) {
             sinkConfig.setBatchIntervalMs(pluginConfig.getInt(BATCH_INTERVAL_MS));
@@ -111,17 +119,21 @@ public class SinkConfig {
             sinkConfig.setMaxRetryBackoffMs(pluginConfig.getInt(MAX_RETRY_BACKOFF_MS));
         }
         parseSinkStreamLoadProperties(pluginConfig, sinkConfig);
-       return sinkConfig;
+        if (sinkConfig.streamLoadProps.containsKey(COLUMN_SEPARATOR)) {
+            sinkConfig.setColumnSeparator((String) sinkConfig.streamLoadProps.get(COLUMN_SEPARATOR));
+        }
+        if (sinkConfig.streamLoadProps.containsKey(LOAD_FORMAT)) {
+            sinkConfig.setLoadFormat(StreamLoadFormat.parse((String) sinkConfig.streamLoadProps.get(LOAD_FORMAT)));
+        }
+        return sinkConfig;
     }
 
     private static void parseSinkStreamLoadProperties(Config pluginConfig, SinkConfig sinkConfig) {
         Config starRocksConfig = TypesafeConfigUtils.extractSubConfig(pluginConfig,
-                STARROCKS_CONFIG_PREFIX, false);
+                STARROCKS_SINK_CONFIG_PREFIX, false);
         starRocksConfig.entrySet().forEach(entry -> {
-            sinkConfig.streamLoadProps.put(entry.getKey(), entry.getValue().unwrapped());
+            final String configKey = entry.getKey().toLowerCase();
+            sinkConfig.streamLoadProps.put(configKey, entry.getValue().unwrapped());
         });
     }
-
-
-
 }

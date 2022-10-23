@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
-import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
@@ -27,7 +25,11 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksCsvSerializer;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksISerializer;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksJsonSerializer;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -59,18 +61,20 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
     @Override
     public Optional<Void> prepareCommit() {
         // Flush to storage before snapshot state is performed
+        manager.flush();
         return super.prepareCommit();
     }
 
     @Override
     public void close() throws IOException {
+        manager.close();
     }
 
     public static StarRocksISerializer createSerializer(SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) {
-        if (SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getFormat())) {
+        if (SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
             return new StarRocksCsvSerializer(sinkConfig.getColumnSeparator(), seaTunnelRowType);
         }
-        if (SinkConfig.StreamLoadFormat.JSON.equals(sinkConfig.getFormat())) {
+        if (SinkConfig.StreamLoadFormat.JSON.equals(sinkConfig.getLoadFormat())) {
             return new StarRocksJsonSerializer(seaTunnelRowType);
         }
         throw new RuntimeException("Failed to create row serializer, unsupported `format` from stream load properties.");

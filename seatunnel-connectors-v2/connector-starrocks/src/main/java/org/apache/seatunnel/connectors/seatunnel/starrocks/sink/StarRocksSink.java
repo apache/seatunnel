@@ -17,16 +17,25 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
-import com.google.auto.service.AutoService;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.NODE_URLS;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.TABLE;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import com.google.auto.service.AutoService;
 
 @AutoService(SeaTunnelSink.class)
 public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
@@ -42,6 +51,10 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, NODE_URLS, DATABASE, TABLE);
+        if (!result.isSuccess()) {
+            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
+        }
     }
 
     @Override

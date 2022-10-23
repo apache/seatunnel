@@ -1,8 +1,29 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksDelimiterParser;
+
 import org.apache.commons.codec.binary.Base64;
 import org.apache.http.HttpEntity;
+import org.apache.http.HttpStatus;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -13,8 +34,6 @@ import org.apache.http.impl.client.DefaultRedirectStrategy;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksDelimiterParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,10 +48,11 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-
 public class StarRocksStreamLoadVisitor {
 
     private static final Logger LOG = LoggerFactory.getLogger(StarRocksStreamLoadVisitor.class);
+    private static final int CONNECT_TIMEOUT = 1000000;
+    private static final int MAX_SLEEP_TIME = 5;
 
     private final SinkConfig sinkConfig;
     private long pos;
@@ -44,10 +64,7 @@ public class StarRocksStreamLoadVisitor {
     private static final String RESULT_LABEL_ABORTED = "ABORTED";
     private static final String RESULT_LABEL_UNKNOWN = "UNKNOWN";
 
-    private final ObjectMapper mapper = new ObjectMapper();
-
     private List<String> fieldNames;
-
 
     public StarRocksStreamLoadVisitor(SinkConfig sinkConfig, List<String> fieldNames) {
         this.sinkConfig = sinkConfig;
@@ -60,12 +77,12 @@ public class StarRocksStreamLoadVisitor {
             throw new IOException("None of the host in `load_url` could be connected.");
         }
         String loadUrl = new StringBuilder(host)
-            .append("/api/")
-            .append(sinkConfig.getDatabase())
-            .append("/")
-            .append(sinkConfig.getTable())
-            .append("/_stream_load")
-            .toString();
+                .append("/api/")
+                .append(sinkConfig.getDatabase())
+                .append("/")
+                .append(sinkConfig.getTable())
+                .append("/_stream_load")
+                .toString();
         if (LOG.isDebugEnabled()) {
             LOG.debug(String.format("Start to join batch data: rows[%d] bytes[%d] label[%s].", flushData.getRows().size(), flushData.getBytes(), flushData.getLabel()));
         }
@@ -76,7 +93,7 @@ public class StarRocksStreamLoadVisitor {
             throw new IOException("Unable to flush data to StarRocks: unknown result status. " + loadResult);
         }
         if (LOG.isDebugEnabled()) {
-            LOG.debug(new StringBuilder("StreamLoad response:\n").append(mapper.writeValueAsString(loadResult)).toString());
+            LOG.debug(new StringBuilder("StreamLoad response:\n").append(JsonUtils.toJsonString(loadResult)).toString());
         }
         if (RESULT_FAILED.equals(loadResult.get(keyStatus))) {
             StringBuilder errorBuilder = new StringBuilder("Failed to flush data to StarRocks.\n");
@@ -93,12 +110,12 @@ public class StarRocksStreamLoadVisitor {
                     LOG.warn("Get Error URL failed. {} ", loadResult.get("ErrorURL"), e);
                 }
             } else {
-                errorBuilder.append(mapper.writeValueAsString(loadResult));
+                errorBuilder.append(JsonUtils.toJsonString(loadResult));
                 errorBuilder.append('\n');
             }
             throw new IOException(errorBuilder.toString());
         } else if (RESULT_LABEL_EXISTED.equals(loadResult.get(keyStatus))) {
-            LOG.debug(new StringBuilder("StreamLoad response:\n").append(mapper.writeValueAsString(loadResult)).toString());
+            LOG.debug(new StringBuilder("StreamLoad response:\n").append(JsonUtils.toJsonString(loadResult)).toString());
             // has to block-checking the state to get the final result
             checkLabelState(host, flushData.getLabel());
         }
@@ -117,10 +134,10 @@ public class StarRocksStreamLoadVisitor {
     }
 
     private boolean tryHttpConnection(String host) {
-        try {  
+        try {
             URL url = new URL(host);
-            HttpURLConnection co =  (HttpURLConnection) url.openConnection();
-            co.setConnectTimeout(1000);
+            HttpURLConnection co = (HttpURLConnection) url.openConnection();
+            co.setConnectTimeout(CONNECT_TIMEOUT);
             co.connect();
             co.disconnect();
             return true;
@@ -131,9 +148,9 @@ public class StarRocksStreamLoadVisitor {
     }
 
     private byte[] joinRows(List<byte[]> rows, int totalBytes) {
-        if (SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getFormat())) {
-            Map<String, Object> props = (sinkConfig.getStreamLoadProps() == null ? new HashMap<>() : sinkConfig.getStreamLoadProps());
-            byte[] lineDelimiter = StarRocksDelimiterParser.parse((String)props.get("row_delimiter"), "\n").getBytes(StandardCharsets.UTF_8);
+        if (SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
+            Map<String, Object> props = sinkConfig.getStreamLoadProps();
+            byte[] lineDelimiter = StarRocksDelimiterParser.parse((String) props.get("row_delimiter"), "\n").getBytes(StandardCharsets.UTF_8);
             ByteBuffer bos = ByteBuffer.allocate(totalBytes + rows.size() * lineDelimiter.length);
             for (byte[] row : rows) {
                 bos.put(row);
@@ -141,8 +158,8 @@ public class StarRocksStreamLoadVisitor {
             }
             return bos.array();
         }
-       
-        if (SinkConfig.StreamLoadFormat.JSON.equals(sinkConfig.getFormat())) {
+
+        if (SinkConfig.StreamLoadFormat.JSON.equals(sinkConfig.getLoadFormat())) {
             ByteBuffer bos = ByteBuffer.allocate(totalBytes + (rows.isEmpty() ? 2 : rows.size() + 1));
             bos.put("[".getBytes(StandardCharsets.UTF_8));
             byte[] jsonDelimiter = ",".getBytes(StandardCharsets.UTF_8);
@@ -163,9 +180,9 @@ public class StarRocksStreamLoadVisitor {
     @SuppressWarnings("unchecked")
     private void checkLabelState(String host, String label) throws IOException {
         int idx = 0;
-        while(true) {
+        while (true) {
             try {
-                TimeUnit.SECONDS.sleep(Math.min(++idx, 5));
+                TimeUnit.SECONDS.sleep(Math.min(++idx, MAX_SLEEP_TIME));
             } catch (InterruptedException ex) {
                 break;
             }
@@ -173,7 +190,6 @@ public class StarRocksStreamLoadVisitor {
                 HttpGet httpGet = new HttpGet(new StringBuilder(host).append("/api/").append(sinkConfig.getDatabase()).append("/get_load_state?label=").append(label).toString());
                 httpGet.setHeader("Authorization", getBasicAuthHeader(sinkConfig.getUsername(), sinkConfig.getPassword()));
                 httpGet.setHeader("Connection", "close");
-
                 try (CloseableHttpResponse resp = httpclient.execute(httpGet)) {
                     HttpEntity respEntity = getHttpEntity(resp);
                     if (respEntity == null) {
@@ -181,14 +197,14 @@ public class StarRocksStreamLoadVisitor {
                                 "could not get the final state of label[%s].\n", label), null);
                     }
 
-                    Map<String, Object> result = mapper.readValue(EntityUtils.toString(respEntity), Map.class);
-                    String labelState = (String)result.get("state");
+                    Map<String, Object> result = JsonUtils.parseObject(EntityUtils.toString(respEntity), Map.class);
+                    String labelState = (String) result.get("state");
                     if (null == labelState) {
                         throw new IOException(String.format("Failed to flush data to StarRocks, Error " +
                                 "could not get the final state of label[%s]. response[%s]\n", label, EntityUtils.toString(respEntity)), null);
                     }
                     LOG.info(String.format("Checking label[%s] state[%s]\n", label, labelState));
-                    switch(labelState) {
+                    switch (labelState) {
                         case LAEBL_STATE_VISIBLE:
                         case LAEBL_STATE_COMMITTED:
                             return;
@@ -200,7 +216,7 @@ public class StarRocksStreamLoadVisitor {
                         case RESULT_LABEL_UNKNOWN:
                         default:
                             throw new StarRocksStreamLoadFailedException(String.format("Failed to flush data to StarRocks, Error " +
-                                "label[%s] state[%s]\n", label, labelState), null);
+                                    "label[%s] state[%s]\n", label, labelState), null);
                     }
                 }
             }
@@ -211,15 +227,15 @@ public class StarRocksStreamLoadVisitor {
     private Map<String, Object> doHttpPut(String loadUrl, String label, byte[] data) throws IOException {
         LOG.info(String.format("Executing stream load to: '%s', size: '%s'", loadUrl, data.length));
         final HttpClientBuilder httpClientBuilder = HttpClients.custom()
-            .setRedirectStrategy(new DefaultRedirectStrategy() {
-                @Override
-                protected boolean isRedirectable(String method) {
-                    return true;
-                }
-            });
+                .setRedirectStrategy(new DefaultRedirectStrategy() {
+                    @Override
+                    protected boolean isRedirectable(String method) {
+                        return true;
+                    }
+                });
         try (CloseableHttpClient httpclient = httpClientBuilder.build()) {
             HttpPut httpPut = new HttpPut(loadUrl);
-            if (null != fieldNames && !fieldNames.isEmpty() && SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getFormat())) {
+            if (null != fieldNames && !fieldNames.isEmpty() && SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
                 httpPut.setHeader("columns", String.join(",", fieldNames.stream().map(f -> String.format("`%s`", f)).collect(Collectors.toList())));
             }
             if (null != sinkConfig.getStreamLoadProps()) {
@@ -227,6 +243,7 @@ public class StarRocksStreamLoadVisitor {
                     httpPut.setHeader(entry.getKey(), String.valueOf(entry.getValue()));
                 }
             }
+            httpPut.setHeader("strip_outer_array", "true");
             httpPut.setHeader("Expect", "100-continue");
             httpPut.setHeader("label", label);
             httpPut.setHeader("Content-Type", "application/x-www-form-urlencoded");
@@ -235,7 +252,7 @@ public class StarRocksStreamLoadVisitor {
             httpPut.setConfig(RequestConfig.custom().setRedirectsEnabled(true).build());
             try (CloseableHttpResponse resp = httpclient.execute(httpPut)) {
                 int code = resp.getStatusLine().getStatusCode();
-                if (200 != code) {
+                if (HttpStatus.SC_OK != code) {
                     String errorText;
                     try {
                         HttpEntity respEntity = resp.getEntity();
@@ -254,7 +271,7 @@ public class StarRocksStreamLoadVisitor {
                     LOG.warn("Request failed with empty response.");
                     return null;
                 }
-                return mapper.readValue(EntityUtils.toString(respEntity), Map.class);
+                return JsonUtils.parseObject(EntityUtils.toString(respEntity), Map.class);
             }
         }
     }
@@ -267,7 +284,7 @@ public class StarRocksStreamLoadVisitor {
 
     private HttpEntity getHttpEntity(CloseableHttpResponse resp) {
         int code = resp.getStatusLine().getStatusCode();
-        if (200 != code) {
+        if (HttpStatus.SC_OK != code) {
             LOG.warn("Request failed with code:{}", code);
             return null;
         }
@@ -278,7 +295,7 @@ public class StarRocksStreamLoadVisitor {
         }
         return respEntity;
     }
-	
+
     private String doHttpGet(String getUrl) throws IOException {
         LOG.info("Executing GET from {}.", getUrl);
         try (CloseableHttpClient httpclient = buildHttpClient()) {
@@ -294,15 +311,14 @@ public class StarRocksStreamLoadVisitor {
         }
     }
 
-    private CloseableHttpClient buildHttpClient(){
+    private CloseableHttpClient buildHttpClient() {
         final HttpClientBuilder httpClientBuilder = HttpClients.custom()
-            .setRedirectStrategy(new DefaultRedirectStrategy() {
-                @Override
-                protected boolean isRedirectable(String method) {
-                    return true;
-                }
-            });
+                .setRedirectStrategy(new DefaultRedirectStrategy() {
+                    @Override
+                    protected boolean isRedirectable(String method) {
+                        return true;
+                    }
+                });
         return httpClientBuilder.build();
     }
-
 }

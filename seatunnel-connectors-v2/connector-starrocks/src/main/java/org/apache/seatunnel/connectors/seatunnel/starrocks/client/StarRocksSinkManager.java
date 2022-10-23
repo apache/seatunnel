@@ -17,14 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
-import com.google.common.base.Strings;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 
+import com.google.common.base.Strings;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -37,13 +37,15 @@ import java.util.concurrent.TimeUnit;
 public class StarRocksSinkManager {
 
     private final SinkConfig sinkConfig;
-    private final List<String> batchList;
+    private final List<byte[]> batchList;
 
     private StarRocksStreamLoadVisitor starrocksStreamLoadVisitor;
     private ScheduledExecutorService scheduler;
     private ScheduledFuture<?> scheduledFuture;
     private volatile boolean initialize;
     private volatile Exception flushException;
+    private int batchRowCount = 0;
+    private long batchBytesSize = 0;
 
     public StarRocksSinkManager(SinkConfig sinkConfig, List<String> fileNames) {
         this.sinkConfig = sinkConfig;
@@ -58,7 +60,7 @@ public class StarRocksSinkManager {
 
         if (sinkConfig.getBatchIntervalMs() != null) {
             scheduler = Executors.newSingleThreadScheduledExecutor(
-                    new ThreadFactoryBuilder().setNameFormat("IoTDB-sink-output-%s").build());
+                    new ThreadFactoryBuilder().setNameFormat("StarRocks-sink-output-%s").build());
             scheduledFuture = scheduler.scheduleAtFixedRate(
                 () -> {
                     try {
@@ -77,10 +79,11 @@ public class StarRocksSinkManager {
     public synchronized void write(String record) throws IOException {
         tryInit();
         checkFlushException();
-
-        batchList.add(record);
-        if (sinkConfig.getBatchSize() > 0
-                && batchList.size() >= sinkConfig.getBatchSize()) {
+        byte[] bts = record.getBytes(StandardCharsets.UTF_8);
+        batchList.add(bts);
+        batchRowCount++;
+        batchBytesSize += bts.length;
+        if (batchRowCount >= sinkConfig.getBatchMaxSize() || batchBytesSize >= sinkConfig.getBatchMaxBytes()) {
             flush();
         }
     }
@@ -94,19 +97,28 @@ public class StarRocksSinkManager {
         flush();
     }
 
-    synchronized void flush() throws IOException {
+    public synchronized void flush() throws IOException {
         checkFlushException();
         if (batchList.isEmpty()) {
             return;
         }
-
+        StarRocksFlushTuple tuple = null;
         for (int i = 0; i <= sinkConfig.getMaxRetries(); i++) {
             try {
-                starrocksStreamLoadVisitor.doStreamLoad(null);
-            } catch (IoTDBConnectionException | StatementExecutionException e) {
-                log.error("Writing records to IoTDB failed, retry times = {}", i, e);
+                String label = createBatchLabel();
+                tuple = new StarRocksFlushTuple(label, batchBytesSize, new ArrayList<>(batchList));
+                starrocksStreamLoadVisitor.doStreamLoad(tuple);
+            } catch (Exception e) {
+
+                log.error("Writing records to StarRocks failed, retry times = {}", i, e);
                 if (i >= sinkConfig.getMaxRetries()) {
-                    throw new IOException("Writing records to IoTDB failed.", e);
+                    throw new IOException("Writing records to StarRocks failed.", e);
+                }
+
+                if (e instanceof StarRocksStreamLoadFailedException && ((StarRocksStreamLoadFailedException) e).needReCreateLabel()) {
+                    String newLabel = createBatchLabel();
+                    log.warn(String.format("Batch label changed from [%s] to [%s]", tuple.getLabel(), newLabel));
+                    tuple.setLabel(newLabel);
                 }
 
                 try {
@@ -120,13 +132,14 @@ public class StarRocksSinkManager {
                 }
             }
         }
-
         batchList.clear();
+        batchRowCount = 0;
+        batchBytesSize = 0;
     }
 
     private void checkFlushException() {
         if (flushException != null) {
-            throw new RuntimeException("Writing records to IoTDB failed.", flushException);
+            throw new RuntimeException("Writing records to StarRocks failed.", flushException);
         }
     }
 
