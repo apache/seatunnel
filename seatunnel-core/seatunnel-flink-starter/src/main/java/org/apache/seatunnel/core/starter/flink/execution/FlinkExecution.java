@@ -122,13 +122,12 @@ public class FlinkExecution implements TaskExecution {
     private Config parseConfig(Config config, String path, List<URL> jars) {
 
         if (config.hasPath(path)) {
-            List<URL> paths = Arrays.stream(config.getString(path).split(";")).map(s -> {
+            List<URL> paths = Arrays.stream(config.getString(path).split(";")).map(uri -> {
                 try {
-                    return new URL(s);
+                    return new URL(uri);
                 } catch (MalformedURLException e) {
-                    e.printStackTrace();
+                    throw new RuntimeException("the uri of jar illegal:" + uri, e);
                 }
-                return null;
             }).collect(Collectors.toList());
             paths.addAll(jars);
 
