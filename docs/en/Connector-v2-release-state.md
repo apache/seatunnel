@@ -9,8 +9,8 @@ SeaTunnel uses a grading system for connectors to help you understand what to ex
 
 ## Connector V2 Health
 
-| Connector Name                                    | Type   | Status | Support Version |
-|---------------------------------------------------|--------|--------|-----------------|
+| Connector Name                                              | Type   | Status | Support Version |
+| ----------------------------------------------------------- | ------ | ------ | --------------- |
 | [Asset](connector-v2/sink/Assert.md)                        | Sink   | Beta   | 2.2.0-beta      |
 | [ClickHouse](connector-v2/source/Clickhouse.md)             | Source | Beta   | 2.2.0-beta      |
 | [ClickHouse](connector-v2/sink/Clickhouse.md)               | Sink   | Beta   | 2.2.0-beta      |
@@ -44,6 +44,7 @@ SeaTunnel uses a grading system for connectors to help you understand what to ex
 | [LocalFile](connector-v2/source/LocalFile.md)               | Source | Beta   | 2.2.0-beta      |
 | [MongoDB](connector-v2/source/MongoDB.md)                   | Source | Beta   | 2.2.0-beta      |
 | [MongoDB](connector-v2/sink/MongoDB.md)                     | Sink   | Beta   | 2.2.0-beta      |
+| [MyHours](connector-v2/source/MyHours.md)                   | Source | Alpha  | 2.2.0-beta      |
 | [Neo4j](connector-v2/sink/Neo4j.md)                         | Sink   | Alpha  | 2.2.0-beta      |
 | [OssFile](connector-v2/sink/OssFile.md)                     | Sink   | Alpha  | 2.2.0-beta      |
 | [OssFile](connector-v2/source/OssFile.md)                   | Source | Beta   | 2.2.0-beta      |
