@@ -133,11 +133,11 @@ public class FlinkExecution implements TaskExecution {
             paths.addAll(jars);
 
             config = config.withValue(path,
-                ConfigValueFactory.fromAnyRef(paths.stream().map(URL::toString).collect(Collectors.joining(";"))));
+                ConfigValueFactory.fromAnyRef(paths.stream().map(URL::toString).distinct().collect(Collectors.joining(";"))));
 
         } else {
             config = config.withValue(path,
-                ConfigValueFactory.fromAnyRef(jars.stream().map(URL::toString).collect(Collectors.joining(";"))));
+                ConfigValueFactory.fromAnyRef(jars.stream().map(URL::toString).distinct().collect(Collectors.joining(";"))));
         }
         return config;
     }
