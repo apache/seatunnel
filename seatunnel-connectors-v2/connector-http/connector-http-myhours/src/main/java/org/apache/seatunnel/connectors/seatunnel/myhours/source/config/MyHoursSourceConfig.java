@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.myhours.source.config;
 
-import lombok.Data;
-
-@Data
 public class MyHoursSourceConfig {
     public static final String POST = "POST";
     public static final String EMAIL = "email";

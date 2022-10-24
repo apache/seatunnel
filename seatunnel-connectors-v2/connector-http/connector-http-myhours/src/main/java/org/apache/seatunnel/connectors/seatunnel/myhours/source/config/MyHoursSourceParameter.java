@@ -17,22 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.myhours.source.config;
 
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.Data;
 
 import java.util.HashMap;
 import java.util.Map;
 
-@Data
-@SuppressWarnings("MagicNumber")
 public class MyHoursSourceParameter extends HttpParameter {
-
     public void buildWithConfig(Config pluginConfig, String accessToken) {
         // set url
         if (pluginConfig.hasPath(MyHoursSourceConfig.PROJECTS)) {
@@ -84,8 +80,7 @@ public class MyHoursSourceParameter extends HttpParameter {
         bodyParams.put(MyHoursSourceConfig.EMAIL, email);
         bodyParams.put(MyHoursSourceConfig.PASSWORD, password);
         bodyParams.put(MyHoursSourceConfig.CLIENTID, MyHoursSourceConfig.API);
-        ObjectMapper om = new ObjectMapper();
-        String body = om.writeValueAsString(bodyParams);
+        String body = JsonUtils.toJsonString(bodyParams);
         this.setBody(body);
         // set retry
         if (pluginConfig.hasPath(HttpConfig.RETRY)) {

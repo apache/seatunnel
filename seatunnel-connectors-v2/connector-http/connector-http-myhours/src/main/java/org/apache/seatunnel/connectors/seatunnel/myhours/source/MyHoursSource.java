@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
@@ -34,7 +35,6 @@ import org.apache.seatunnel.connectors.seatunnel.myhours.source.config.MyHoursSo
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
@@ -74,7 +74,7 @@ public class MyHoursSource extends HttpSource {
         return new HttpSourceReader(this.myHoursSourceParameter, readerContext, this.deserializationSchema);
     }
 
-    private String getAccessToken(Config pluginConfig) throws IOException {
+    private String getAccessToken(Config pluginConfig) throws IOException, RuntimeException {
         MyHoursSourceParameter myHoursLoginParameter = new MyHoursSourceParameter();
         myHoursLoginParameter.buildWithLoginConfig(pluginConfig);
         HttpClientProvider loginHttpClient = new HttpClientProvider(myHoursLoginParameter);
@@ -83,20 +83,20 @@ public class MyHoursSource extends HttpSource {
             if (HttpResponse.STATUS_OK == response.getCode()) {
                 String content = response.getContent();
                 if (!Strings.isNullOrEmpty(content)) {
-                    ObjectMapper om = new ObjectMapper();
-                    Map<String, String> contentMap = om.readValue(content, Map.class);
+                    Map<String, String> contentMap = JsonUtils.toMap(content);
                     return contentMap.get(MyHoursSourceConfig.ACCESSTOKEN);
                 }
             }
-            log.error("login http client execute exception, http response status code:[{}], content:[{}]", response.getCode(), response.getContent());
+            throw new RuntimeException(String.format("login http client execute exception, http response status code:[%d], content:[%s]",
+                response.getCode(),
+                response.getContent()));
         } catch (Exception e) {
-            log.error(e.getMessage(), e);
+            throw new RuntimeException("login http client execute exception");
         } finally {
             if (Objects.nonNull(loginHttpClient)) {
                 loginHttpClient.close();
             }
         }
-        return "";
     }
 
 }
