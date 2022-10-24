@@ -17,32 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.List;
 
+@AllArgsConstructor
+@Getter
+@Setter
 public class StarRocksFlushTuple {
     private String label;
     private Long bytes;
     private List<byte[]> rows;
-
-    public StarRocksFlushTuple(String label, Long bytes, List<byte[]> rows) {
-        this.label = label;
-        this.bytes = bytes;
-        this.rows = rows;
-    }
-
-    public String getLabel() {
-        return label;
-    }
-
-    public void setLabel(String label) {
-        this.label = label;
-    }
-
-    public Long getBytes() {
-        return bytes;
-    }
-
-    public List<byte[]> getRows() {
-        return rows;
-    }
 }
