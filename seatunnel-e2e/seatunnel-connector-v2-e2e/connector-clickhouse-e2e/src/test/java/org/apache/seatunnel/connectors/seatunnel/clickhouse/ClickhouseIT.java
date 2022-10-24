@@ -120,7 +120,6 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
 
     private void initializeClickhouseTable() {
         try {
-            this.connection.setAutoCommit(false);
             Statement statement = this.connection.createStatement();
             statement.execute(CONFIG.getString(SOURCE_TABLE));
             statement.execute(CONFIG.getString(SINK_TABLE));
