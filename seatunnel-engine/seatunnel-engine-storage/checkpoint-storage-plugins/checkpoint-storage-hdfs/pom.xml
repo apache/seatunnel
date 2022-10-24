@@ -22,7 +22,7 @@
     <parent>
         <artifactId>checkpoint-storage-plugins</artifactId>
         <groupId>org.apache.seatunnel</groupId>
-        <version>2.3.0-beta</version>
+        <version>2.3.1-beta-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -45,9 +45,4 @@
             <artifactId>commons-lang3</artifactId>
         </dependency>
     </dependencies>
-
-
-  <scm>
-    <tag>2.3.0-beta</tag>
-  </scm>
 </project>
