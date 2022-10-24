@@ -7,7 +7,7 @@
 Output data to oss file system.
 
 > Tips: We made some trade-offs in order to support more file types, so we used the HDFS protocol for internal access to OSS and this connector need some hadoop dependencies.
-> It's only support hadoop version **2.9.X+**.
+> It only supports hadoop version **2.9.X+**.
 
 ## Key features
 
@@ -25,25 +25,24 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-| name                             | type   | required | default value               |
-|----------------------------------| ------ |---------|-----------------------------|
-| path                             | string | yes     | -                           |
-| bucket                           | string | yes     | -                           |
-| access_key                       | string | yes     | -                           |
-| access_secret                    | string | yes     | -                           |
-| endpoint                         | string | yes     | -                           |
-| file_name_expression             | string | no      | "${transactionId}"          |
-| file_format                      | string | no      | "text"                      |
-| filename_time_format             | string | no      | "yyyy.MM.dd"                |
-| field_delimiter                  | string | no      | '\001'                      |
-| row_delimiter                    | string | no      | "\n"                        |
-| partition_by                     | array  | no      | -                          |
-| partition_dir_expression         | string | no      | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" |
-| is_partition_field_write_in_file | boolean| no      | false                      |
-| sink_columns                     | array  | no      | When this parameter is empty, all fields are sink columns |
-| is_enable_transaction            | boolean| no      | true                        |
-| save_mode                        | string | no      | "error"                    |
-| common-options                   |        | no       | -                          |
+| name                             | type    | required | default value                                             |
+|----------------------------------|---------|----------|-----------------------------------------------------------|
+| path                             | string  | yes      | -                                                         |
+| bucket                           | string  | yes      | -                                                         |
+| access_key                       | string  | yes      | -                                                         |
+| access_secret                    | string  | yes      | -                                                         |
+| endpoint                         | string  | yes      | -                                                         |
+| file_name_expression             | string  | no       | "${transactionId}"                                        |
+| file_format                      | string  | no       | "text"                                                    |
+| filename_time_format             | string  | no       | "yyyy.MM.dd"                                              |
+| field_delimiter                  | string  | no       | '\001'                                                    |
+| row_delimiter                    | string  | no       | "\n"                                                      |
+| partition_by                     | array   | no       | -                                                         |
+| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"                |
+| is_partition_field_write_in_file | boolean | no       | false                                                     |
+| sink_columns                     | array   | no       | When this parameter is empty, all fields are sink columns |
+| is_enable_transaction            | boolean | no       | true                                                      |
+| common-options                   |         | no       | -                                                         |
 
 ### path [string]
 
@@ -132,14 +131,6 @@ Please note that, If `is_enable_transaction` is `true`, we will auto add `${tran
 
 Only support `true` now.
 
-### save_mode [string]
-
-Storage mode, currently supports `overwrite`. This means we will delete the old file when a new file have a same name with it.
-
-If `is_enable_transaction` is `true`, Basically, we won't encounter the same file name. Because we will add the transaction id to file name.
-
-For the specific meaning of each mode, see [save-modes](https://spark.apache.org/docs/latest/sql-programming-guide.html#save-modes).
-
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
@@ -156,17 +147,16 @@ For text file format
     access_key = "xxxxxxxxxxx"
     access_secret = "xxxxxxxxxxx"
     endpoint = "oss-cn-beijing.aliyuncs.com"
-    field_delimiter="\t"
-    row_delimiter="\n"
-    partition_by=["age"]
-    partition_dir_expression="${k0}=${v0}"
-    is_partition_field_write_in_file=true
-    file_name_expression="${transactionId}_${now}"
-    file_format="text"
-    sink_columns=["name","age"]
-    filename_time_format="yyyy.MM.dd"
-    is_enable_transaction=true
-    save_mode="error"
+    field_delimiter = "\t"
+    row_delimiter = "\n"
+    partition_by = ["age"]
+    partition_dir_expression = "${k0}=${v0}"
+    is_partition_field_write_in_file = true
+    file_name_expression = "${transactionId}_${now}"
+    file_format = "text"
+    sink_columns = ["name","age"]
+    filename_time_format = "yyyy.MM.dd"
+    is_enable_transaction = true
   }
 
 ```
@@ -176,22 +166,21 @@ For parquet file format
 ```hocon
 
   OssFile {
-    path="/seatunnel/sink"
+    path = "/seatunnel/sink"
     bucket = "oss://tyrantlucifer-image-bed"
     access_key = "xxxxxxxxxxx"
     access_secret = "xxxxxxxxxxxxxxxxx"
     endpoint = "oss-cn-beijing.aliyuncs.com"
-    field_delimiter="\t"
-    row_delimiter="\n"
-    partition_by=["age"]
-    partition_dir_expression="${k0}=${v0}"
-    is_partition_field_write_in_file=true
-    file_name_expression="${transactionId}_${now}"
-    file_format="parquet"
-    sink_columns=["name","age"]
-    filename_time_format="yyyy.MM.dd"
-    is_enable_transaction=true
-    save_mode="error"
+    field_delimiter = "\t"
+    row_delimiter = "\n"
+    partition_by = ["age"]
+    partition_dir_expression = "${k0}=${v0}"
+    is_partition_field_write_in_file = true
+    file_name_expression = "${transactionId}_${now}"
+    file_format = "parquet"
+    sink_columns = ["name","age"]
+    filename_time_format = "yyyy.MM.dd"
+    is_enable_transaction = true
   }
 
 ```
@@ -206,17 +195,27 @@ For orc file format
     access_key = "xxxxxxxxxxx"
     access_secret = "xxxxxxxxxxx"
     endpoint = "oss-cn-beijing.aliyuncs.com"
-    field_delimiter="\t"
-    row_delimiter="\n"
-    partition_by=["age"]
-    partition_dir_expression="${k0}=${v0}"
-    is_partition_field_write_in_file=true
-    file_name_expression="${transactionId}_${now}"
-    file_format="orc"
-    sink_columns=["name","age"]
-    filename_time_format="yyyy.MM.dd"
-    is_enable_transaction=true
-    save_mode="error"
+    field_delimiter = "\t"
+    row_delimiter = "\n"
+    partition_by = ["age"]
+    partition_dir_expression = "${k0}=${v0}"
+    is_partition_field_write_in_file = true
+    file_name_expression = "${transactionId}_${now}"
+    file_format = "orc"
+    sink_columns = ["name","age"]
+    filename_time_format = "yyyy.MM.dd"
+    is_enable_transaction = true
   }
 
 ```
+
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add OSS Sink Connector
+
+### 2.3.0-beta 2022-10-20
+- [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/incubator-seatunnel/pull/2980))
+- [BugFix] Fix filesystem get error ([3117](https://github.com/apache/incubator-seatunnel/pull/3117))
+- [BugFix] Solved the bug of can not parse '\t' as delimiter from config file ([3083](https://github.com/apache/incubator-seatunnel/pull/3083))

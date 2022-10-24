@@ -48,3 +48,9 @@ use thin client drive
         query = "upsert into test.sink(age, name) values(?, ?)"
     }
 ```
+
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add Phoenix Sink Connector

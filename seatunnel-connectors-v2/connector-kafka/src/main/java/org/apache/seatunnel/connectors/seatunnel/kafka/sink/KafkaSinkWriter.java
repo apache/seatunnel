@@ -190,6 +190,9 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     private Function<SeaTunnelRow, String> createPartitionExtractor(Config pluginConfig,
                                                                     SeaTunnelRowType seaTunnelRowType) {
+        if (!pluginConfig.hasPath(PARTITION_KEY)){
+            return row -> null;
+        }
         String partitionKey = pluginConfig.getString(PARTITION_KEY);
         List<String> fieldNames = Arrays.asList(seaTunnelRowType.getFieldNames());
         if (!fieldNames.contains(partitionKey)) {

@@ -61,6 +61,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -202,11 +203,11 @@ public class TaskExecutionService {
                         taskExecutionContextMap.put(task.getTaskID(), taskExecutionContext);
                     })
                     .collect(partitioningBy(Task::isThreadsShare));
+            executionContexts.put(taskGroup.getTaskGroupLocation(), new TaskGroupContext(taskGroup, classLoader));
+            cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
             submitThreadShareTask(executionTracker, byCooperation.get(true));
             submitBlockingTask(executionTracker, byCooperation.get(false));
             taskGroup.setTasksContext(taskExecutionContextMap);
-            executionContexts.put(taskGroup.getTaskGroupLocation(), new TaskGroupContext(taskGroup, classLoader));
-            cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
         } catch (Throwable t) {
             logger.severe(ExceptionUtils.getMessage(t));
             resultFuture.completeExceptionally(t);
@@ -214,24 +215,30 @@ public class TaskExecutionService {
         resultFuture.whenComplete(withTryCatch(logger, (r, s) -> {
             logger.info(
                 String.format("Task %s complete with state %s", r.getTaskGroupLocation(), r.getExecutionState()));
-            InvocationFuture<Object> invoke = null;
             long sleepTime = 1000;
-            while (isRunning && (invoke == null || !invoke.isDone())) {
-                if (null != invoke) {
+            boolean notifyStateSuccess = false;
+            while (isRunning && !notifyStateSuccess) {
+                InvocationFuture<Object> invoke = nodeEngine.getOperationService().createInvocationBuilder(
+                    SeaTunnelServer.SERVICE_NAME,
+                    new NotifyTaskStatusOperation(taskGroup.getTaskGroupLocation(), r),
+                    nodeEngine.getMasterAddress()).invoke();
+                try {
+                    invoke.get();
+                    notifyStateSuccess = true;
+                } catch (InterruptedException e) {
+                    logger.severe(e);
+                    Thread.interrupted();
+                } catch (ExecutionException e) {
+                    logger.warning(ExceptionUtils.getMessage(e));
                     logger.warning(String.format("notify the job of the task(%s) status failed, retry in %s millis",
                         taskGroup.getTaskGroupLocation(), sleepTime));
                     try {
-                        Thread.sleep(sleepTime += 1000);
-                    } catch (InterruptedException e) {
+                        Thread.sleep(sleepTime);
+                    } catch (InterruptedException ex) {
                         logger.severe(e);
                         Thread.interrupted();
                     }
                 }
-                invoke = nodeEngine.getOperationService().createInvocationBuilder(
-                    SeaTunnelServer.SERVICE_NAME,
-                    new NotifyTaskStatusOperation(taskGroup.getTaskGroupLocation(), r),
-                    nodeEngine.getMasterAddress()).invoke();
-                invoke.join();
             }
         }));
         return new PassiveCompletableFuture<>(resultFuture);
@@ -265,6 +272,9 @@ public class TaskExecutionService {
 
         @Override
         public void run() {
+            ClassLoader classLoader = executionContexts.get(tracker.taskGroupExecutionTracker.taskGroup.getTaskGroupLocation()).getClassLoader();
+            ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
+            Thread.currentThread().setContextClassLoader(classLoader);
             final Task t = tracker.task;
             try {
                 startedLatch.countDown();
@@ -280,6 +290,7 @@ public class TaskExecutionService {
             } finally {
                 tracker.taskGroupExecutionTracker.taskDone();
             }
+            Thread.currentThread().setContextClassLoader(oldClassLoader);
         }
     }
 

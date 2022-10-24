@@ -17,12 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.sink;
 
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.HOSTS;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.INDEX;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchCommitInfo;
@@ -47,6 +53,10 @@ public class ElasticsearchSink implements SeaTunnelSink<SeaTunnelRow, Elasticsea
     @Override
     public void prepare(org.apache.seatunnel.shade.com.typesafe.config.Config pluginConfig) throws
         PrepareFailException {
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HOSTS, INDEX);
+        if (!result.isSuccess()) {
+            throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
+        }
         this.pluginConfig = pluginConfig;
         SinkConfig.setValue(pluginConfig);
     }

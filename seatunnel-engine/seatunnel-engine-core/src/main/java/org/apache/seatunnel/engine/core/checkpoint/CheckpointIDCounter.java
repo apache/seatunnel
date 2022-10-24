@@ -18,7 +18,7 @@
 
 package org.apache.seatunnel.engine.core.checkpoint;
 
-import org.apache.seatunnel.engine.core.job.PipelineState;
+import org.apache.seatunnel.engine.core.job.PipelineStatus;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -38,7 +38,7 @@ public interface CheckpointIDCounter {
      *
      * @return The {@code CompletableFuture} holding the result of the shutdown operation.
      */
-    CompletableFuture<Void> shutdown(PipelineState jobStatus);
+    CompletableFuture<Void> shutdown(PipelineStatus jobStatus);
 
     /**
      * Atomically increments the current checkpoint ID.

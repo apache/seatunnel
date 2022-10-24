@@ -70,12 +70,12 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
@@ -94,9 +94,9 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     protected List<CompletableFuture<Void>> flowFutures;
 
-    protected final Map<Long, List<ActionSubtaskState>> checkpointStates = new HashMap<>();
+    protected final Map<Long, List<ActionSubtaskState>> checkpointStates = new ConcurrentHashMap<>();
 
-    private final Map<Long, Integer> cycleAcks = new HashMap<>();
+    private final Map<Long, Integer> cycleAcks = new ConcurrentHashMap<>();
 
     protected int indexID;
 
@@ -267,7 +267,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
         Integer ackSize = cycleAcks.compute(barrier.getId(), (id, count) -> count == null ? 1 : ++count);
         if (ackSize == allCycles.size()) {
             if (barrier.prepareClose()) {
-                prepareCloseStatus = true;
+                this.prepareCloseStatus = true;
+                this.prepareCloseBarrierId.set(barrier.getId());
             }
             if (barrier.snapshot()) {
                 this.getExecutionContext().sendToMaster(
@@ -284,17 +285,13 @@ public abstract class SeaTunnelTask extends AbstractTask {
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         notifyAllAction(listener -> listener.notifyCheckpointComplete(checkpointId));
-        if (prepareCloseStatus) {
-            closeCall();
-        }
+        tryClose(checkpointId);
     }
 
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         notifyAllAction(listener -> listener.notifyCheckpointAborted(checkpointId));
-        if (prepareCloseStatus) {
-            closeCall();
-        }
+        tryClose(checkpointId);
     }
 
     public void notifyAllAction(ConsumerWithException<InternalCheckpointListener> consumer){
