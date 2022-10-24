@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 
 import com.hazelcast.map.IMap;
@@ -68,10 +69,9 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
             planMap,
             new CheckpointConfig());
         Assertions.assertTrue(checkpointManager.isCompletedPipeline(1));
-        CompletableFuture<Void> future = checkpointManager.listenPipeline(1, org.apache.seatunnel.engine.core.job.PipelineState.FINISHED);
-        future.join();
+        checkpointManager.listenPipeline(1, PipelineStatus.FINISHED);
         Assertions.assertNull(checkpointIdMap.get(1));
-        future = checkpointManager.shutdown(JobStatus.FINISHED);
+        CompletableFuture<Void> future = checkpointManager.shutdown(JobStatus.FINISHED);
         future.join();
         Assertions.assertTrue(checkpointStorage.getAllCheckpoints(jobId + "").isEmpty());
     }

@@ -45,7 +45,7 @@ package org.apache.seatunnel.engine.core.job;
  * <p>The states {@code FINISHED}, {@code CANCELED}, and {@code FAILED} are considered terminal
  * states.
  */
-public enum PipelineState {
+public enum PipelineStatus {
     CREATED,
 
     SCHEDULED,

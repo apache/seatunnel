@@ -82,3 +82,15 @@ source {
   
 }
 ```
+
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add ClickHouse Source Connector
+
+### 2.3.0-beta 2022-10-20
+
+- [Improve] Clickhouse Source random use host when config multi-host ([3108](https://github.com/apache/incubator-seatunnel/pull/3108))
+
+

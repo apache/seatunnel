@@ -26,7 +26,7 @@ import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
-import org.apache.seatunnel.engine.core.job.PipelineState;
+import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionEdge;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlan;
@@ -146,7 +146,7 @@ public class PhysicalPlanGenerator {
     public Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> generate() {
 
         // TODO Determine which tasks do not need to be restored according to state
-        CopyOnWriteArrayList<PassiveCompletableFuture<PipelineState>> waitForCompleteBySubPlanList =
+        CopyOnWriteArrayList<PassiveCompletableFuture<PipelineStatus>> waitForCompleteBySubPlanList =
             new CopyOnWriteArrayList<>();
 
         Map<Integer, CheckpointPlan> checkpointPlans = new HashMap<>();
@@ -171,7 +171,7 @@ public class PhysicalPlanGenerator {
             physicalVertexList.addAll(
                 getPartitionTask(edges, pipelineId, totalPipelineNum));
 
-            CompletableFuture<PipelineState> pipelineFuture = new CompletableFuture<>();
+            CompletableFuture<PipelineStatus> pipelineFuture = new CompletableFuture<>();
             waitForCompleteBySubPlanList.add(new PassiveCompletableFuture<>(pipelineFuture));
 
             checkpointPlans.put(pipelineId,

@@ -83,6 +83,7 @@ public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<File
      */
     @Override
     public void abort(List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws Exception {
+        log.info("rollback aggregate commit");
         if (aggregatedCommitInfos == null || aggregatedCommitInfos.size() == 0) {
             return;
         }
