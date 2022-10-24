@@ -29,6 +29,7 @@ import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.starter.config.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -49,6 +50,7 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -80,14 +82,24 @@ public class JobConfigParser {
 
     private Config envConfigs;
 
+    private List<URL> commonPluginJars;
+
     public JobConfigParser(@NonNull String jobDefineFilePath,
                            @NonNull IdGenerator idGenerator,
                            @NonNull JobConfig jobConfig) {
+        this(jobDefineFilePath, idGenerator, jobConfig, Collections.emptyList());
+    }
+
+    public JobConfigParser(@NonNull String jobDefineFilePath,
+                           @NonNull IdGenerator idGenerator,
+                           @NonNull JobConfig jobConfig,
+                           @NonNull List<URL> commonPluginJars) {
         this.jobDefineFilePath = jobDefineFilePath;
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
         this.seaTunnelJobConfig = new ConfigBuilder(Paths.get(jobDefineFilePath)).getConfig();
         this.envConfigs = seaTunnelJobConfig.getConfig("env");
+        this.commonPluginJars = commonPluginJars;
     }
 
     public ImmutablePair<List<Action>, Set<URL>> parse() {
@@ -108,7 +120,15 @@ public class JobConfigParser {
         } else {
             complexAnalyze(sourceConfigs, transformConfigs, sinkConfigs);
         }
+        actions.forEach(this::addCommonPluginJarsToAction);
         return new ImmutablePair<>(actions, jarUrlsSet);
+    }
+
+    private void addCommonPluginJarsToAction(Action action) {
+        action.getJarUrls().addAll(commonPluginJars);
+        if (!action.getUpstream().isEmpty()) {
+            action.getUpstream().forEach(this::addCommonPluginJarsToAction);
+        }
     }
 
     private void jobConfigAnalyze(@NonNull Config envConfigs) {
@@ -116,6 +136,9 @@ public class JobConfigParser {
             jobConfig.getJobContext().setJobMode(envConfigs.getEnum(JobMode.class, "job.mode"));
         } else {
             jobConfig.getJobContext().setJobMode(JobMode.BATCH);
+        }
+        if (envConfigs.hasPath("checkpoint.interval")) {
+            jobConfig.getEnvOptions().put(ServerConfigOptions.CHECKPOINT_INTERVAL.key(), envConfigs.getInt("checkpoint.interval"));
         }
     }
 
@@ -134,7 +157,7 @@ public class JobConfigParser {
         for (Config config : sinkConfigs) {
             ImmutablePair<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>, Set<URL>>
                 sinkListImmutablePair =
-                ConnectorInstanceLoader.loadSinkInstance(config, jobConfig.getJobContext());
+                ConnectorInstanceLoader.loadSinkInstance(config, jobConfig.getJobContext(), commonPluginJars);
 
             SinkAction sinkAction =
                 createSinkAction(idGenerator.getNextId(), sinkListImmutablePair.getLeft().getPluginName(),
@@ -174,7 +197,7 @@ public class JobConfigParser {
         AtomicInteger totalParallelism = new AtomicInteger();
         for (Config sourceConfig : sourceConfigList) {
             ImmutablePair<SeaTunnelSource, Set<URL>> seaTunnelSourceListImmutablePair =
-                ConnectorInstanceLoader.loadSourceInstance(sourceConfig, jobConfig.getJobContext());
+                ConnectorInstanceLoader.loadSourceInstance(sourceConfig, jobConfig.getJobContext(), commonPluginJars);
             dataType = seaTunnelSourceListImmutablePair.getLeft().getProducedType();
             SourceAction sourceAction = createSourceAction(
                 idGenerator.getNextId(),
@@ -201,7 +224,7 @@ public class JobConfigParser {
             SeaTunnelDataType<?> dataTypeResult = null;
             for (Config config : transformConfigList) {
                 ImmutablePair<SeaTunnelTransform<?>, Set<URL>> transformListImmutablePair =
-                    ConnectorInstanceLoader.loadTransformInstance(config, jobConfig.getJobContext());
+                    ConnectorInstanceLoader.loadTransformInstance(config, jobConfig.getJobContext(), commonPluginJars);
                 TransformAction transformAction = createTransformAction(
                     idGenerator.getNextId(),
                     transformListImmutablePair.getLeft().getPluginName(),
@@ -265,7 +288,7 @@ public class JobConfigParser {
                                List<? extends Config> transformConfigs,
                                List<? extends Config> sinkConfigs) {
         ImmutablePair<SeaTunnelSource, Set<URL>> pair =
-            ConnectorInstanceLoader.loadSourceInstance(sourceConfigs.get(0), jobConfig.getJobContext());
+            ConnectorInstanceLoader.loadSourceInstance(sourceConfigs.get(0), jobConfig.getJobContext(), commonPluginJars);
         SourceAction sourceAction =
             createSourceAction(idGenerator.getNextId(), pair.getLeft().getPluginName(), pair.getLeft(),
                 pair.getRight());
@@ -276,7 +299,7 @@ public class JobConfigParser {
 
         if (!CollectionUtils.isEmpty(transformConfigs)) {
             ImmutablePair<SeaTunnelTransform<?>, Set<URL>> transformListImmutablePair =
-                ConnectorInstanceLoader.loadTransformInstance(transformConfigs.get(0), jobConfig.getJobContext());
+                ConnectorInstanceLoader.loadTransformInstance(transformConfigs.get(0), jobConfig.getJobContext(), commonPluginJars);
             transformListImmutablePair.getLeft().setTypeInfo(dataType);
 
             dataType = transformListImmutablePair.getLeft().getProducedType();
@@ -295,7 +318,7 @@ public class JobConfigParser {
 
         ImmutablePair<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>, Set<URL>>
             sinkListImmutablePair =
-            ConnectorInstanceLoader.loadSinkInstance(sinkConfigs.get(0), jobConfig.getJobContext());
+            ConnectorInstanceLoader.loadSinkInstance(sinkConfigs.get(0), jobConfig.getJobContext(), commonPluginJars);
         SinkAction sinkAction = createSinkAction(
             idGenerator.getNextId(),
             sinkListImmutablePair.getLeft().getPluginName(),
