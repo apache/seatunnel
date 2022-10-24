@@ -69,10 +69,9 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
             planMap,
             new CheckpointConfig());
         Assertions.assertTrue(checkpointManager.isCompletedPipeline(1));
-        CompletableFuture<Void> future = checkpointManager.listenPipeline(1, PipelineStatus.FINISHED);
-        future.join();
+        checkpointManager.listenPipeline(1, PipelineStatus.FINISHED);
         Assertions.assertNull(checkpointIdMap.get(1));
-        future = checkpointManager.shutdown(JobStatus.FINISHED);
+        CompletableFuture<Void> future = checkpointManager.shutdown(JobStatus.FINISHED);
         future.join();
         Assertions.assertTrue(checkpointStorage.getAllCheckpoints(jobId + "").isEmpty());
     }

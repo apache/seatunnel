@@ -203,6 +203,9 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
                 return nodeEngine.getMasterAddress().equals(nodeEngine.getThisAddress());
             }, new RetryUtils.RetryMaterial(20, true,
                 exception -> exception instanceof NullPointerException && isRunning, 1000));
+        } catch (InterruptedException e) {
+            LOGGER.info("master node check interrupted");
+            return false;
         } catch (Exception e) {
             throw new SeaTunnelEngineException("cluster have no master node", e);
         }
