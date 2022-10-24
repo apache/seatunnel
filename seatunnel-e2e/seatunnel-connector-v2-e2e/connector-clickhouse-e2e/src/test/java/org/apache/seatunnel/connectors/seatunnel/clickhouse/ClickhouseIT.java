@@ -295,7 +295,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                     i,
                     "string",
                     new Integer[]{Integer.parseInt("1")},
-                    new Double[]{Double.parseDouble("1")},
+                    new Double[]{Double.parseDouble("1.1")},
                     new String[]{"1"}
                 });
             rows.add(row);
