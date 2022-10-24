@@ -22,24 +22,10 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksDelimiterParser;
 
 import org.apache.commons.codec.binary.Base64;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpStatus;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.entity.ByteArrayEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.DefaultRedirectStrategy;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -51,7 +37,8 @@ import java.util.stream.Collectors;
 public class StarRocksStreamLoadVisitor {
 
     private static final Logger LOG = LoggerFactory.getLogger(StarRocksStreamLoadVisitor.class);
-    private static final int CONNECT_TIMEOUT = 1000000;
+
+    private final HttpHelper httpHelper = new HttpHelper();
     private static final int MAX_SLEEP_TIME = 5;
 
     private final SinkConfig sinkConfig;
@@ -86,7 +73,7 @@ public class StarRocksStreamLoadVisitor {
         if (LOG.isDebugEnabled()) {
             LOG.debug(String.format("Start to join batch data: rows[%d] bytes[%d] label[%s].", flushData.getRows().size(), flushData.getBytes(), flushData.getLabel()));
         }
-        Map<String, Object> loadResult = doHttpPut(loadUrl, flushData.getLabel(), joinRows(flushData.getRows(), flushData.getBytes().intValue()));
+        Map<String, Object> loadResult = httpHelper.doHttpPut(loadUrl, joinRows(flushData.getRows(), flushData.getBytes().intValue()), getStreamLoadHttpHeader(flushData.getLabel()));
         final String keyStatus = "Status";
         if (null == loadResult || !loadResult.containsKey(keyStatus)) {
             LOG.error("unknown result status. {}", loadResult);
@@ -104,7 +91,7 @@ public class StarRocksStreamLoadVisitor {
             if (loadResult.containsKey("ErrorURL")) {
                 LOG.error("StreamLoad response: {}", loadResult);
                 try {
-                    errorBuilder.append(doHttpGet(loadResult.get("ErrorURL").toString()));
+                    errorBuilder.append(httpHelper.doHttpGet(loadResult.get("ErrorURL").toString()));
                     errorBuilder.append('\n');
                 } catch (IOException e) {
                     LOG.warn("Get Error URL failed. {} ", loadResult.get("ErrorURL"), e);
@@ -126,25 +113,11 @@ public class StarRocksStreamLoadVisitor {
         long tmp = pos + hostList.size();
         for (; pos < tmp; pos++) {
             String host = new StringBuilder("http://").append(hostList.get((int) (pos % hostList.size()))).toString();
-            if (tryHttpConnection(host)) {
+            if (httpHelper.tryHttpConnection(host)) {
                 return host;
             }
         }
         return null;
-    }
-
-    private boolean tryHttpConnection(String host) {
-        try {
-            URL url = new URL(host);
-            HttpURLConnection co = (HttpURLConnection) url.openConnection();
-            co.setConnectTimeout(CONNECT_TIMEOUT);
-            co.connect();
-            co.disconnect();
-            return true;
-        } catch (Exception e1) {
-            LOG.warn("Failed to connect to address:{}", host, e1);
-            return false;
-        }
     }
 
     private byte[] joinRows(List<byte[]> rows, int totalBytes) {
@@ -186,92 +159,35 @@ public class StarRocksStreamLoadVisitor {
             } catch (InterruptedException ex) {
                 break;
             }
-            try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
-                HttpGet httpGet = new HttpGet(new StringBuilder(host).append("/api/").append(sinkConfig.getDatabase()).append("/get_load_state?label=").append(label).toString());
-                httpGet.setHeader("Authorization", getBasicAuthHeader(sinkConfig.getUsername(), sinkConfig.getPassword()));
-                httpGet.setHeader("Connection", "close");
-                try (CloseableHttpResponse resp = httpclient.execute(httpGet)) {
-                    HttpEntity respEntity = getHttpEntity(resp);
-                    if (respEntity == null) {
-                        throw new IOException(String.format("Failed to flush data to StarRocks, Error " +
-                                "could not get the final state of label[%s].\n", label), null);
-                    }
-
-                    Map<String, Object> result = JsonUtils.parseObject(EntityUtils.toString(respEntity), Map.class);
-                    String labelState = (String) result.get("state");
-                    if (null == labelState) {
-                        throw new IOException(String.format("Failed to flush data to StarRocks, Error " +
-                                "could not get the final state of label[%s]. response[%s]\n", label, EntityUtils.toString(respEntity)), null);
-                    }
-                    LOG.info(String.format("Checking label[%s] state[%s]\n", label, labelState));
-                    switch (labelState) {
-                        case LAEBL_STATE_VISIBLE:
-                        case LAEBL_STATE_COMMITTED:
-                            return;
-                        case RESULT_LABEL_PREPARE:
-                            continue;
-                        case RESULT_LABEL_ABORTED:
-                            throw new StarRocksStreamLoadFailedException(String.format("Failed to flush data to StarRocks, Error " +
-                                    "label[%s] state[%s]\n", label, labelState), null, true);
-                        case RESULT_LABEL_UNKNOWN:
-                        default:
-                            throw new StarRocksStreamLoadFailedException(String.format("Failed to flush data to StarRocks, Error " +
-                                    "label[%s] state[%s]\n", label, labelState), null);
-                    }
+            try {
+                String queryLoadStateUrl = new StringBuilder(host).append("/api/").append(sinkConfig.getDatabase()).append("/get_load_state?label=").append(label).toString();
+                Map<String, Object> result = httpHelper.doHttpGet(queryLoadStateUrl, getLoadStateHttpHeader(label));
+                if (result == null) {
+                    throw new IOException(String.format("Failed to flush data to StarRocks, Error " +
+                            "could not get the final state of label[%s].\n", label), null);
                 }
-            }
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> doHttpPut(String loadUrl, String label, byte[] data) throws IOException {
-        LOG.info(String.format("Executing stream load to: '%s', size: '%s'", loadUrl, data.length));
-        final HttpClientBuilder httpClientBuilder = HttpClients.custom()
-                .setRedirectStrategy(new DefaultRedirectStrategy() {
-                    @Override
-                    protected boolean isRedirectable(String method) {
-                        return true;
-                    }
-                });
-        try (CloseableHttpClient httpclient = httpClientBuilder.build()) {
-            HttpPut httpPut = new HttpPut(loadUrl);
-            if (null != fieldNames && !fieldNames.isEmpty() && SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
-                httpPut.setHeader("columns", String.join(",", fieldNames.stream().map(f -> String.format("`%s`", f)).collect(Collectors.toList())));
-            }
-            if (null != sinkConfig.getStreamLoadProps()) {
-                for (Map.Entry<String, Object> entry : sinkConfig.getStreamLoadProps().entrySet()) {
-                    httpPut.setHeader(entry.getKey(), String.valueOf(entry.getValue()));
+                String labelState = (String) result.get("state");
+                if (null == labelState) {
+                    throw new IOException(String.format("Failed to flush data to StarRocks, Error " +
+                            "could not get the final state of label[%s]. response[%s]\n", label, JsonUtils.toJsonString(result)), null);
                 }
-            }
-            httpPut.setHeader("strip_outer_array", "true");
-            httpPut.setHeader("Expect", "100-continue");
-            httpPut.setHeader("label", label);
-            httpPut.setHeader("Content-Type", "application/x-www-form-urlencoded");
-            httpPut.setHeader("Authorization", getBasicAuthHeader(sinkConfig.getUsername(), sinkConfig.getPassword()));
-            httpPut.setEntity(new ByteArrayEntity(data));
-            httpPut.setConfig(RequestConfig.custom().setRedirectsEnabled(true).build());
-            try (CloseableHttpResponse resp = httpclient.execute(httpPut)) {
-                int code = resp.getStatusLine().getStatusCode();
-                if (HttpStatus.SC_OK != code) {
-                    String errorText;
-                    try {
-                        HttpEntity respEntity = resp.getEntity();
-                        errorText = EntityUtils.toString(respEntity);
-                    } catch (Exception err) {
-                        errorText = "find errorText failed: " + err.getMessage();
-                    }
-                    LOG.warn("Request failed with code:{}, err:{}", code, errorText);
-                    Map<String, Object> errorMap = new HashMap<>();
-                    errorMap.put("Status", "Fail");
-                    errorMap.put("Message", errorText);
-                    return errorMap;
+                LOG.info(String.format("Checking label[%s] state[%s]\n", label, labelState));
+                switch (labelState) {
+                    case LAEBL_STATE_VISIBLE:
+                    case LAEBL_STATE_COMMITTED:
+                        return;
+                    case RESULT_LABEL_PREPARE:
+                        continue;
+                    case RESULT_LABEL_ABORTED:
+                        throw new StarRocksStreamLoadFailedException(String.format("Failed to flush data to StarRocks, Error " +
+                                "label[%s] state[%s]\n", label, labelState), null, true);
+                    case RESULT_LABEL_UNKNOWN:
+                    default:
+                        throw new StarRocksStreamLoadFailedException(String.format("Failed to flush data to StarRocks, Error " +
+                                "label[%s] state[%s]\n", label, labelState), null);
                 }
-                HttpEntity respEntity = resp.getEntity();
-                if (null == respEntity) {
-                    LOG.warn("Request failed with empty response.");
-                    return null;
-                }
-                return JsonUtils.parseObject(EntityUtils.toString(respEntity), Map.class);
+            } catch (IOException e) {
+                throw new IOException(e);
             }
         }
     }
@@ -282,43 +198,28 @@ public class StarRocksStreamLoadVisitor {
         return new StringBuilder("Basic ").append(new String(encodedAuth)).toString();
     }
 
-    private HttpEntity getHttpEntity(CloseableHttpResponse resp) {
-        int code = resp.getStatusLine().getStatusCode();
-        if (HttpStatus.SC_OK != code) {
-            LOG.warn("Request failed with code:{}", code);
-            return null;
+    private Map<String, String> getStreamLoadHttpHeader(String label) {
+        Map<String, String> headerMap = new HashMap<>();
+        if (null != fieldNames && !fieldNames.isEmpty() && SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
+            headerMap.put("columns", String.join(",", fieldNames.stream().map(f -> String.format("`%s`", f)).collect(Collectors.toList())));
         }
-        HttpEntity respEntity = resp.getEntity();
-        if (null == respEntity) {
-            LOG.warn("Request failed with empty response.");
-            return null;
-        }
-        return respEntity;
-    }
-
-    private String doHttpGet(String getUrl) throws IOException {
-        LOG.info("Executing GET from {}.", getUrl);
-        try (CloseableHttpClient httpclient = buildHttpClient()) {
-            HttpGet httpGet = new HttpGet(getUrl);
-            try (CloseableHttpResponse resp = httpclient.execute(httpGet)) {
-                HttpEntity respEntity = resp.getEntity();
-                if (null == respEntity) {
-                    LOG.warn("Request failed with empty response.");
-                    return null;
-                }
-                return EntityUtils.toString(respEntity);
+        if (null != sinkConfig.getStreamLoadProps()) {
+            for (Map.Entry<String, Object> entry : sinkConfig.getStreamLoadProps().entrySet()) {
+                headerMap.put(entry.getKey(), String.valueOf(entry.getValue()));
             }
         }
+        headerMap.put("strip_outer_array", "true");
+        headerMap.put("Expect", "100-continue");
+        headerMap.put("label", label);
+        headerMap.put("Content-Type", "application/x-www-form-urlencoded");
+        headerMap.put("Authorization", getBasicAuthHeader(sinkConfig.getUsername(), sinkConfig.getPassword()));
+        return headerMap;
     }
 
-    private CloseableHttpClient buildHttpClient() {
-        final HttpClientBuilder httpClientBuilder = HttpClients.custom()
-                .setRedirectStrategy(new DefaultRedirectStrategy() {
-                    @Override
-                    protected boolean isRedirectable(String method) {
-                        return true;
-                    }
-                });
-        return httpClientBuilder.build();
+    private Map<String, String> getLoadStateHttpHeader(String label) {
+        Map<String, String> headerMap = new HashMap<>();
+        headerMap.put("Authorization", getBasicAuthHeader(sinkConfig.getUsername(), sinkConfig.getPassword()));
+        headerMap.put("Connection", "close");
+        return headerMap;
     }
 }

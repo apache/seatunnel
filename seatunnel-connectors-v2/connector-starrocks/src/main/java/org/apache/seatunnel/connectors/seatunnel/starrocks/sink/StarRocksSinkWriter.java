@@ -67,7 +67,14 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
 
     @Override
     public void close() throws IOException {
-        manager.close();
+        try {
+            if (manager != null) {
+                manager.close();
+            }
+        } catch (IOException e) {
+            log.error("Close starRocks manager failed.", e);
+            throw new IOException("Close starRocks manager failed.", e);
+        }
     }
 
     public static StarRocksISerializer createSerializer(SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) {

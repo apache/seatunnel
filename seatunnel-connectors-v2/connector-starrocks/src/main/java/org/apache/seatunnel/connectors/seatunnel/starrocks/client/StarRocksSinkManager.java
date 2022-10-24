@@ -47,9 +47,12 @@ public class StarRocksSinkManager {
     private int batchRowCount = 0;
     private long batchBytesSize = 0;
 
+    private Integer batchIntervalMs;
+
     public StarRocksSinkManager(SinkConfig sinkConfig, List<String> fileNames) {
         this.sinkConfig = sinkConfig;
         this.batchList = new ArrayList<>();
+        this.batchIntervalMs = sinkConfig.getBatchIntervalMs();
         starrocksStreamLoadVisitor = new StarRocksStreamLoadVisitor(sinkConfig, fileNames);
     }
 
@@ -57,8 +60,9 @@ public class StarRocksSinkManager {
         if (initialize) {
             return;
         }
+        initialize = true;
 
-        if (sinkConfig.getBatchIntervalMs() != null) {
+        if (batchIntervalMs != null) {
             scheduler = Executors.newSingleThreadScheduledExecutor(
                     new ThreadFactoryBuilder().setNameFormat("StarRocks-sink-output-%s").build());
             scheduledFuture = scheduler.scheduleAtFixedRate(
@@ -69,11 +73,10 @@ public class StarRocksSinkManager {
                         flushException = e;
                     }
                 },
-                    sinkConfig.getBatchIntervalMs(),
-                    sinkConfig.getBatchIntervalMs(),
+                    batchIntervalMs,
+                    batchIntervalMs,
                     TimeUnit.MILLISECONDS);
         }
-        initialize = true;
     }
 
     public synchronized void write(String record) throws IOException {

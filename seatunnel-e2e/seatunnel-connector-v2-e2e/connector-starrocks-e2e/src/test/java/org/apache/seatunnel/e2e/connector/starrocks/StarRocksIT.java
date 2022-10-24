@@ -101,7 +101,6 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             "\"storage_format\" = \"DEFAULT\"" +
             ")";
 
-
     private static final String DDL_SINK = "create table " + DATABASE + "." + SINK_TABLE + " (\n" +
             "  BIGINT_COL     BIGINT,\n" +
             "  LARGEINT_COL   LARGEINT,\n" +
@@ -145,6 +144,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             ")values(\n" +
             "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?\n" +
             ")";
+
     private Connection jdbcConnection;
     private GenericContainer<?> starRocksServer;
     private static final List<SeaTunnelRow> TEST_DATASET = generateTestDataSet();
@@ -217,6 +217,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode());
         try  {
             assertHasData(SINK_TABLE);
+
             String sourceSql = String.format("select * from %s.%s", DATABASE, SOURCE_TABLE);
             String sinkSql = String.format("select * from %s.%s", DATABASE, SINK_TABLE);
             List<String> columnList = Arrays.stream(COLUMN_STRING.split(",")).map(x -> x.trim()).collect(Collectors.toList());
@@ -237,7 +238,6 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                             String sinkValue = IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
                             Assertions.assertEquals(sourceValue, sinkValue);
                         }
-                        Assertions.assertTrue(true);
                     }
                 }
             }

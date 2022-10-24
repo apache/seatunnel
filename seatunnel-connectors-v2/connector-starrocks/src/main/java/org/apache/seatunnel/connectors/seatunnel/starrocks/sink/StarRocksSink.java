@@ -19,7 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.NODE_URLS;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.USERNAME;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -51,7 +53,7 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, NODE_URLS, DATABASE, TABLE);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, NODE_URLS, DATABASE, TABLE, USERNAME, PASSWORD);
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }

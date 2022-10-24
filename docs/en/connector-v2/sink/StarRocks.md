@@ -51,6 +51,7 @@ The name of StarRocks table
 ### labelPrefix [string]
 
 the prefix of  StarRocks stream load label
+
 ### batch_max_rows [string]
 
 For batch writing, when the number of buffers reaches the number of `batch_max_rows` or the byte size of `batch_max_bytes` or the time reaches `batch_interval_ms`, the data will be flushed into the StarRocks
@@ -76,13 +77,14 @@ Using as a multiplier for generating the next delay for backoff
 The amount of time to wait before attempting to retry a request to `StarRocks`
 
 ### sink.properties.*  [starrocks stream load config]
+
 the parameter of the stream load `data_desc`
 The way to specify the parameter is to add the prefix `sink.properties.` to the original stream load parameter name. 
 For example, the way to specify `strip_outer_array` is: `sink.properties.strip_outer_array`.
 
 #### Supported import data formats
-The supported formats include CSV and JSON. Default value: CSV
 
+The supported formats include CSV and JSON. Default value: CSV
 
 ## Example
 Use JSON format to import data
