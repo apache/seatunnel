@@ -35,7 +35,7 @@ public class ServerConfigOptions {
 
     public static final Option<Integer> CHECKPOINT_INTERVAL = Options.key("interval").intType().defaultValue(300000).withDescription("The interval (in milliseconds) between two consecutive checkpoints.");
 
-    public static final Option<Integer> CHECKPOINT_TIMEOUT = Options.key("timeout").intType().defaultValue(300000).withDescription("The timeout (in milliseconds) for a checkpoint.");
+    public static final Option<Integer> CHECKPOINT_TIMEOUT = Options.key("timeout").intType().defaultValue(30000).withDescription("The timeout (in milliseconds) for a checkpoint.");
 
     public static final Option<Integer> CHECKPOINT_MAX_CONCURRENT = Options.key("max-concurrent").intType().defaultValue(1).withDescription("The maximum number of concurrent checkpoints.");
 
