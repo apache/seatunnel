@@ -11,18 +11,16 @@ Write data to InfluxDB.
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [ ] [schema projection](../../concept/connector-v2-features.md)
 
-
 ## Options
 
 | name                        | type     | required | default value               |
 |-----------------------------|----------|----------|-----------------------------|
 | url                         | string   | yes      | -                           |
-| fields                      | config   | yes      | -                           |
 | database                    | string   | yes      |                             |
 | measurement                 | string   | yes      |                             |
 | username                    | string   | no       | -                           |
 | password                    | string   | no       | -                           |
-| keyTime                     | string   | yes      | processing                  |
+| keyTime                     | string   | yes      | processing time             |
 | keyTags                     | array    | no       | exclude `field` & `keyTime` |
 | batch_size                  | int      | no       | 1024                        |
 | batch_interval_ms           | int      | no       | -                           |
@@ -36,39 +34,21 @@ the url to connect to influxDB e.g.
 http://influxdb-host:8086
 ```
 
-### sql [string]
-The query sql used to search data
-
-```
-select name,age from test
-```
-
-### fields [string]
-
-the fields of the InfluxDB when you select
-
-the field type is SeaTunnel field type `org.apache.seatunnel.api.table.type.SqlType`
-
-e.g.
-
-```
-fields{
-    name=STRING
-    age=INT
-    }
-```
-
 ### database [string]
 
-The `influxDB` database
+The name of `influxDB` database
+
+### measurement [string]
+
+The name of `influxDB` measurement
 
 ### username [string]
 
-the username of the influxDB when you select
+`influxDB` user username
 
 ### password [string]
 
-the password of the influxDB when you select
+`influxDB` user password
 
 ### keyTime [string]
 
