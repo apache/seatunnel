@@ -150,7 +150,7 @@ public class JdbcSqliteIT extends SparkContainer {
 
     @AfterEach
     public void closeResource() throws SQLException, IOException {
-        // remove the temp test.db file
+        // remove the temp test.db
         Files.deleteIfExists(new File(tmpdir + "/test.db").toPath());
     }
 
