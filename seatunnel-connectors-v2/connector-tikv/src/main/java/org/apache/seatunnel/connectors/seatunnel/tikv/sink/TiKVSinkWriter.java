@@ -26,7 +26,6 @@ import org.apache.seatunnel.connectors.seatunnel.tikv.config.TiKVParameters;
 
 import org.tikv.raw.RawKVClient;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
@@ -47,22 +46,20 @@ public class TiKVSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         RawKVClient client = clientSession.session.createRawClient();
         TiKVDataType tikvDataType = tikvParameters.getTikvDataType();
 
-        // todo 需要兼容序列化不同类型的数据 只是key类型
         String data = seaTunnelRow.getField(0).toString();
-        tikvDataType.set(client, tikvParameters.getKeyField(), data);
-
-        String keyField = tikvParameters.getKeyField();
+        String keyword = tikvParameters.getKeyword();
         List<String> fields = Arrays.asList(seaTunnelRowType.getFieldNames());
         String key;
-        if (fields.contains(keyField)) {
-            key = seaTunnelRow.getField(fields.indexOf(keyField)).toString();
+        if (fields.contains(keyword)) {
+            key = seaTunnelRow.getField(fields.indexOf(keyword)).toString();
         } else {
-            key = keyField;
+            key = keyword;
         }
+        tikvDataType.set(client, key, data);
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         try {
             clientSession.close();
         } catch (Exception e) {

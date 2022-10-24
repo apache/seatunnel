@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.tikv.source;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
-import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -31,7 +30,6 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
-import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitEnumeratorState;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.tikv.config.TiKVConfig;
 import org.apache.seatunnel.connectors.seatunnel.tikv.config.TiKVParameters;
@@ -67,7 +65,8 @@ public class TiKVSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
-        // init tikv configuration
+        // init TiKV configuration
+        this.tikvParameters.setPluginType(PluginType.SOURCE);
         this.tikvParameters.initConfig(config);
 
         // init seaTunnelRowType
@@ -98,11 +97,6 @@ public class TiKVSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
         return new TiKVSourceReader(tikvParameters, readerContext, deserializationSchema);
-    }
-
-    @Override
-    public Serializer<SingleSplitEnumeratorState> getEnumeratorStateSerializer() {
-        return super.getEnumeratorStateSerializer();
     }
 
 }

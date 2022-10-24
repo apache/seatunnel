@@ -27,6 +27,8 @@ public class ClientSession implements AutoCloseable {
     public ClientSession(TiKVParameters config) {
         // reference tiBigdata project
         TiConfiguration tiConfiguration = TiConfiguration.createDefault(config.getPdAddresses());
+        // To use this API, please enable `tikv.enable_atomic_for_cas`.
+        tiConfiguration.setEnableAtomicForCAS(true);
         this.session = TiSession.create(tiConfiguration);
     }
 

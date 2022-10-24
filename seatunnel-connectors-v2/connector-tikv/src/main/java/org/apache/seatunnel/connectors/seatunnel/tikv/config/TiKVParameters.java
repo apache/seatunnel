@@ -17,11 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tikv.config;
 
+import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.common.constants.PluginType;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import lombok.Builder;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Data
 public class TiKVParameters implements Serializable {
@@ -38,12 +46,13 @@ public class TiKVParameters implements Serializable {
      */
     public String pdAddresses;
 
-    private String startKey;
+    public PluginType pluginType;
 
-    private String endKey;
-    private String keyField;
+    private String keyword;
 
-    private String keysPattern;
+    private Set<String> keywords;
+
+    private List<Range> rangeList;
 
     private Integer limit;
 
@@ -56,23 +65,54 @@ public class TiKVParameters implements Serializable {
     public void initConfig(Config config) {
         // set host
         this.host = config.getString(TiKVConfig.HOST);
+
         // set port
         this.pdPort = config.getInt(TiKVConfig.PD_PORT);
+
+        // default: KEY DATA_TYPE
+        this.tikvDataType = TiKVDataType.getDataType(config.getString(TiKVConfig.DATA_TYPE));
+
         // set key
-        if (config.hasPath(TiKVConfig.KEY)) {
-            this.keyField = config.getString(TiKVConfig.KEY);
-        }
-        // set keysPattern
-        if (config.hasPath(TiKVConfig.KEY_PATTERN)) {
-            this.keysPattern = config.getString(TiKVConfig.KEY_PATTERN);
-        }
-        // default 10000
-        if (config.hasPath(TiKVConfig.LIMIT)) {
-            this.limit = TiKVConfig.LIMIT_DEFAULT;
+        if (config.hasPath(TiKVConfig.KEYWORD)) {
+            this.keyword = config.getString(TiKVConfig.KEYWORD);
         }
 
-        // default KEY
-        this.tikvDataType = TiKVDataType.getDataType(config.getString(TiKVConfig.DATA_TYPE));
+        if (config.hasPath(TiKVConfig.KEYWORDS)) {
+            this.keywords = Arrays.stream(config.getString(TiKVConfig.KEYWORDS).split(",")).collect(Collectors.toSet());
+        }
+
+        // default 10000
+        this.limit = config.hasPath(TiKVConfig.LIMIT) ? config.getInt(TiKVConfig.LIMIT) : TiKVConfig.LIMIT_DEFAULT;
+
+        if (TiKVDataType.isRangDataType(this.tikvDataType) && config.hasPath(TiKVConfig.RANGES)) {
+            try {
+                this.rangeList = Arrays.stream(config.getString(TiKVConfig.RANGES).split(";"))
+                    .map(e -> {
+                        String[] split = e.split(",");
+                        if (split.length > 1) {
+                            return Range.builder()
+                                .startKey(split[0])
+                                .endKey(split[1])
+                                .build();
+                        } else {
+                            return Range.builder()
+                                .startKey(split[0])
+                                .build();
+                        }
+                    })
+                    .collect(Collectors.toList());
+            } catch (Exception e) {
+                throw new PrepareFailException(TiKVConfig.NAME, this.getPluginType(), String.format(TiKVConfig.CHECK_ERROR_FORMAT, TiKVConfig.RANGES));
+            }
+        }
+    }
+
+    @Data
+    @Builder
+    public static class Range {
+        private String startKey;
+
+        private String endKey;
     }
 
 }

@@ -30,6 +30,7 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.tikv.config.TiKVConfig;
+import org.apache.seatunnel.connectors.seatunnel.tikv.config.TiKVDataType;
 import org.apache.seatunnel.connectors.seatunnel.tikv.config.TiKVParameters;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -42,7 +43,7 @@ import java.util.Optional;
 @AutoService(SeaTunnelSink.class)
 public class TiKVSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
-    private final TiKVParameters tiKVParameters = new TiKVParameters();
+    private final TiKVParameters tikvParameters = new TiKVParameters();
     private SeaTunnelRowType seaTunnelRowType;
     private Config config;
 
@@ -58,7 +59,11 @@ public class TiKVSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
         }
-        this.tiKVParameters.initConfig(config);
+        this.tikvParameters.setPluginType(PluginType.SINK);
+        this.tikvParameters.initConfig(config);
+        if (!TiKVDataType.KEY.equals(this.tikvParameters.getTikvDataType())){
+            throw new PrepareFailException(getPluginName(), PluginType.SINK, TiKVConfig.SINK_ERROR_INFO);
+        }
     }
 
     @Override
@@ -78,7 +83,7 @@ public class TiKVSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
-        return new TiKVSinkWriter(seaTunnelRowType, tiKVParameters);
+        return new TiKVSinkWriter(seaTunnelRowType, tikvParameters);
 
     }
 }

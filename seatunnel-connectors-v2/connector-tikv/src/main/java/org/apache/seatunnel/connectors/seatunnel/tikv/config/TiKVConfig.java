@@ -29,14 +29,23 @@ public class TiKVConfig implements Serializable {
 
     public static final String DATA_TYPE = "data_type";
 
-    public static final String KEY = "key";
+    public static final String KEYWORD = "keyword";
 
-    public static final String KEY_PATTERN = "keys";
+    /**
+     * keywords are xxx,xxx,xxx
+     */
+    public static final String KEYWORDS = "keywords";
+
+    public static final String RANGES = "ranges";
 
     public static final String LIMIT = "limit";
 
     public static final String FORMAT = "format";
 
     public static final Integer LIMIT_DEFAULT = 10_000;
+
+    public static final String CHECK_ERROR_FORMAT = "please check the input field format is [%s]";
+
+    public static final String SINK_ERROR_INFO = "TiKV sink data only data type is : key";
 
 }
