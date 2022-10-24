@@ -48,7 +48,6 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
@@ -327,10 +326,10 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                     Object source = sourceResultSet.getObject(column);
                     Object sink = sinkResultSet.getObject(column);
                     if (!Objects.deepEquals(source, sink)) {
-                        InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(column);
-                        InputStream sinkAsciiStream = sinkResultSet.getBinaryStream(column);
-                        String sourceValue = IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
-                        String sinkValue = IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
+                        byte[] sourceAsciiStream = sourceResultSet.getBytes(column);
+                        byte[] sinkAsciiStream = sinkResultSet.getBytes(column);
+                        String sourceValue = IOUtils.toString(sourceAsciiStream, String.valueOf(StandardCharsets.UTF_8));
+                        String sinkValue = IOUtils.toString(sinkAsciiStream, String.valueOf(StandardCharsets.UTF_8));
                         Assertions.assertEquals(sourceValue, sinkValue);
                     }
                     Assertions.assertTrue(true);
