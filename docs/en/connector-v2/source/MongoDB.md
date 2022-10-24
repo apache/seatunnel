@@ -76,3 +76,9 @@ mongodb {
     result_table_name = "mongodb_result_table"
 }
 ```
+
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add MongoDB Source Connector

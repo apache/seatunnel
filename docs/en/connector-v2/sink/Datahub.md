@@ -1,10 +1,10 @@
-# Datahub
+# DataHub
 
-> Datahub sink connector
+> DataHub sink connector
 
 ## Description
 
-A sink plugin which use send message to datahub
+A sink plugin which use send message to DataHub
 
 ## Key features
 
@@ -26,23 +26,23 @@ A sink plugin which use send message to datahub
 
 ### url [string]
 
-your datahub endpoint start with http （string）
+your DataHub endpoint start with http （string）
 
 ### accessId [string]
 
-your datahub accessId which cloud be access from Alibaba Cloud  (string)
+your DataHub accessId which cloud be access from Alibaba Cloud  (string)
 
 ### accessKey[string]
 
-your datahub accessKey which cloud be access from Alibaba Cloud  (string)
+your DataHub accessKey which cloud be access from Alibaba Cloud  (string)
 
 ### project [string]
 
-your datahub project which is created in Alibaba Cloud  (string)
+your DataHub project which is created in Alibaba Cloud  (string)
 
 ### topic [string]
 
-your datahub topic  (string)
+your DataHub topic  (string)
 
 ### timeout [int]
 
@@ -71,3 +71,9 @@ sink {
  }
 }
 ```
+
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add DataHub Sink Connector

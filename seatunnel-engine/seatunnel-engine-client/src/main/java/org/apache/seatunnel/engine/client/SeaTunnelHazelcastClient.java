@@ -125,4 +125,10 @@ public class SeaTunnelHazelcastClient {
         UUID masterUuid = hazelcastClient.getClientClusterService().getMasterMember().getUuid();
         return requestAndGetCompletableFuture(masterUuid, request);
     }
+
+    public void shutdown() {
+        if (hazelcastClient != null) {
+            hazelcastClient.shutdown();
+        }
+    }
 }
