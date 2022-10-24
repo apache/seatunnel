@@ -180,7 +180,6 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private void batchInsertData() {
         String sql = CONFIG.getString(INSERT_SQL);
         try {
-            this.connection.setAutoCommit(false);
             PreparedStatement preparedStatement = this.connection.prepareStatement(sql);
             for (SeaTunnelRow row : TEST_DATASET._2()) {
                 preparedStatement.setLong(1, (Long) row.getField(0));
