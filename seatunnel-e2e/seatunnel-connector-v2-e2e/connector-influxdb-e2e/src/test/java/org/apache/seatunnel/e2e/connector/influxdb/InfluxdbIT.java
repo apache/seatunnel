@@ -43,15 +43,19 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.ConnectException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -173,21 +177,23 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
     public void testInfluxdb(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/influxdb-to-influxdb.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        String sourceSql = String.format("select * from %s", INFLUXDB_SOURCE_MEASUREMENT);
-        String sinkSql = String.format("select * from %s", INFLUXDB_SINK_MEASUREMENT);
+        String sourceSql = String.format("select * from %s order by time", INFLUXDB_SOURCE_MEASUREMENT);
+        String sinkSql = String.format("select * from %s order by time", INFLUXDB_SINK_MEASUREMENT);
         QueryResult sourceQueryResult = influxDB.query(new Query(sourceSql, INFLUXDB_DATABASE));
         QueryResult sinkQueryResult = influxDB.query(new Query(sinkSql, INFLUXDB_DATABASE));
+        //assert data count
         Assertions.assertEquals(sourceQueryResult.getResults().size(), sinkQueryResult.getResults().size());
-        for (QueryResult.Result result : sourceQueryResult.getResults()) {
-            List<QueryResult.Series> serieList = result.getSeries();
-            if (CollectionUtils.isNotEmpty(serieList)) {
-                for (QueryResult.Series series : serieList) {
-                    for (List<Object> values : series.getValues()) {
-
-                    }
+        //assert data values
+        List<List<Object>> sourceValues= sourceQueryResult.getResults().get(0).getSeries().get(0).getValues();
+        List<List<Object>> sinkValues = sourceQueryResult.getResults().get(0).getSeries().get(0).getValues();
+        for(Object sourceVal : sourceValues.get(0)) {
+            for(Object sinkVal : sinkValues.get(0)) {
+                if (!Objects.deepEquals(sourceVal, sinkVal)) {
+                    Assertions.assertEquals(sourceVal, sourceVal);
                 }
             }
         }
+
 
     }
 

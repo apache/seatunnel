@@ -104,8 +104,9 @@ public class DefaultSerializer implements Serializer {
 
     private BiConsumer<SeaTunnelRow, Point.Builder> createTimestampExtractor(SeaTunnelRowType seaTunnelRowType,
                                                                   String timeKey) {
+        //not config timeKey, use processing time
         if (Strings.isNullOrEmpty(timeKey)) {
-            return (row, builder) -> System.currentTimeMillis();
+            return (row, builder) -> builder.time(System.currentTimeMillis(), precision);
         }
 
         int timeFieldIndex = seaTunnelRowType.indexOf(timeKey);
@@ -136,6 +137,11 @@ public class DefaultSerializer implements Serializer {
 
     private BiConsumer<SeaTunnelRow, Point.Builder> createTagExtractor(SeaTunnelRowType seaTunnelRowType,
                                                             List<String> tagKeys) {
+        //not config tagKeys
+        if (CollectionUtils.isEmpty(tagKeys)) {
+            return (row, builder) -> {};
+        }
+
         return (row, builder) -> {
             for (int i = 0; i < tagKeys.size(); i++) {
                 String tagKey = tagKeys.get(i);

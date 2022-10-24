@@ -46,6 +46,7 @@ public class SinkConfig extends InfluxDBConfig{
     private static final String RETENTION_POLICY = "rp";
     private static final int DEFAULT_BATCH_SIZE = 1024;
     private static final int DEFAULT_WRITE_TIMEOUT = 5;
+    private static final TimePrecision DEFAULT_TIME_PRECISION = TimePrecision.NS;
 
     private String rp;
     private String measurement;
@@ -57,7 +58,7 @@ public class SinkConfig extends InfluxDBConfig{
     private int maxRetries;
     private int retryBackoffMultiplierMs;
     private int maxRetryBackoffMs;
-    private TimePrecision precision = TimePrecision.NS;
+    private TimePrecision precision = DEFAULT_TIME_PRECISION;
 
     public static SinkConfig loadConfig(Config config) {
         SinkConfig sinkConfig = new SinkConfig(config);

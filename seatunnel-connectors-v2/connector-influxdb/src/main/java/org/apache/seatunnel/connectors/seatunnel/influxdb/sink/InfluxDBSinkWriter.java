@@ -56,14 +56,17 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private ScheduledFuture<?> scheduledFuture;
     private volatile boolean initialize;
     private volatile Exception flushException;
+    private final Integer batchIntervalMs;
 
     public InfluxDBSinkWriter(Config pluginConfig,
                               SeaTunnelRowType seaTunnelRowType) throws ConnectException {
         this.sinkConfig = SinkConfig.loadConfig(pluginConfig);
+        this.batchIntervalMs = sinkConfig.getBatchIntervalMs();
         this.serializer = new DefaultSerializer(
                 seaTunnelRowType, sinkConfig.getPrecision().getTimeUnit(), sinkConfig.getKeyTags(), sinkConfig.getKeyTime(), sinkConfig.getMeasurement());
-        connect();
         this.batchList = new ArrayList<>();
+
+        connect();
     }
 
     @Override
@@ -99,8 +102,9 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         if (initialize) {
             return;
         }
+        initialize = true;
         connect();
-        if (sinkConfig.getBatchIntervalMs() != null) {
+        if (batchIntervalMs != null) {
             scheduler = Executors.newSingleThreadScheduledExecutor(
                     new ThreadFactoryBuilder().setNameFormat("influxDB-sink-output-%s").build());
             scheduledFuture = scheduler.scheduleAtFixedRate(
@@ -111,11 +115,10 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                         flushException = e;
                     }
                 },
-                    sinkConfig.getBatchIntervalMs(),
-                    sinkConfig.getBatchIntervalMs(),
+                    batchIntervalMs,
+                    batchIntervalMs,
                     TimeUnit.MILLISECONDS);
         }
-        initialize = true;
     }
 
     public synchronized void write(Point record) throws IOException {

@@ -13,20 +13,20 @@ Write data to InfluxDB.
 
 ## Options
 
-| name                        | type     | required | default value               |
-|-----------------------------|----------|----------|-----------------------------|
-| url                         | string   | yes      | -                           |
-| database                    | string   | yes      |                             |
-| measurement                 | string   | yes      |                             |
-| username                    | string   | no       | -                           |
-| password                    | string   | no       | -                           |
-| keyTime                     | string   | yes      | processing time             |
-| keyTags                     | array    | no       | exclude `field` & `keyTime` |
-| batch_size                  | int      | no       | 1024                        |
-| batch_interval_ms           | int      | no       | -                           |
-| max_retries                 | int      | no       | -                           |
-| retry_backoff_multiplier_ms | int      | no       | -                           |
-| connect_timeout_ms          | long     | no       | 15000                       |
+| name                        | type     | required | default value                 |
+|-----------------------------|----------|----------|-------------------------------|
+| url                         | string   | yes      | -                             |
+| database                    | string   | yes      |                               |
+| measurement                 | string   | yes      |                               |
+| username                    | string   | no       | -                             |
+| password                    | string   | no       | -                             |
+| key_time                    | string   | yes      | processing time               |
+| key_tags                    | array    | no       | exclude `field` & `key_time`  |
+| batch_size                  | int      | no       | 1024                          |
+| batch_interval_ms           | int      | no       | -                             |
+| max_retries                 | int      | no       | -                             |
+| retry_backoff_multiplier_ms | int      | no       | -                             |
+| connect_timeout_ms          | long     | no       | 15000                         |
 
 ### url
 the url to connect to influxDB e.g.
@@ -50,11 +50,11 @@ The name of `influxDB` measurement
 
 `influxDB` user password
 
-### keyTime [string]
+### key_time [string]
 
-Specify field-name of the `influxDB` timestamp in SeaTunnelRow. If not specified, use processing-time as timestamp
+Specify field-name of the `influxDB` measurement timestamp in SeaTunnelRow. If not specified, use processing-time as timestamp
 
-### keyTags [array]
+### key_tags [array]
 
 Specify field-name of the `influxDB` measurement tags in SeaTunnelRow.
 If not specified, include all fields with `influxDB` measurement field
@@ -89,6 +89,8 @@ sink {
         url = "http://influxdb-host:8086"
         database = "test"
         measurement = "sink"
+        key_time = "time"
+        key_tags = ["label"]
         batch_size = 1
     }
 }
