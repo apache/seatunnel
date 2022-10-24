@@ -43,11 +43,14 @@ import org.testcontainers.containers.ClickHouseContainer;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.Date;
@@ -318,53 +321,19 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
         ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
         Assertions.assertEquals(sourceResultSet.getMetaData().getColumnCount(), sinkResultSet.getMetaData().getColumnCount());
-        SeaTunnelDataType<?>[] fieldTypes = TEST_DATASET._1().getFieldTypes();
         while (sourceResultSet.next()) {
             if (sinkResultSet.next()) {
-                for (int i = 0; i < columnList.size(); i++) {
-                    String column = columnList.get(i);
-                    SeaTunnelDataType<?> dataType = fieldTypes[i];
-                    switch (dataType.getSqlType()) {
-                        case STRING:
-                            Assertions.assertEquals(sourceResultSet.getString(column), sinkResultSet.getString(column));
-                            break;
-                        case TINYINT:
-                            Assertions.assertEquals(sourceResultSet.getByte(column), sinkResultSet.getByte(column));
-                            break;
-                        case SMALLINT:
-                            Assertions.assertEquals(sourceResultSet.getShort(column), sinkResultSet.getShort(column));
-                            break;
-                        case INT:
-                            Assertions.assertEquals(sourceResultSet.getInt(column), sinkResultSet.getInt(column));
-                            break;
-                        case BIGINT:
-                            Assertions.assertEquals(sourceResultSet.getLong(column), sinkResultSet.getLong(column));
-                            break;
-                        case BOOLEAN:
-                            Assertions.assertEquals(sourceResultSet.getBoolean(column), sinkResultSet.getBoolean(column));
-                            break;
-                        case FLOAT:
-                            Assertions.assertEquals(sourceResultSet.getFloat(column), sinkResultSet.getFloat(column));
-                            break;
-                        case DOUBLE:
-                            Assertions.assertEquals(sourceResultSet.getDouble(column), sinkResultSet.getDouble(column));
-                            break;
-                        case DECIMAL:
-                            Assertions.assertEquals(sourceResultSet.getBigDecimal(column), sinkResultSet.getBigDecimal(column));
-                            break;
-                        case DATE:
-                            Assertions.assertEquals(sourceResultSet.getDate(column), sinkResultSet.getDate(column));
-                            break;
-                        case TIME:
-                            Assertions.assertEquals(sourceResultSet.getTime(column), sinkResultSet.getTime(column));
-                            break;
-                        case TIMESTAMP:
-                            Assertions.assertEquals(sourceResultSet.getTimestamp(column), sinkResultSet.getTimestamp(column));
-                            break;
-                        default:
-                            Assertions.assertTrue(Objects.deepEquals(sourceResultSet.getObject(column), sinkResultSet.getObject(column)));
-
+                for (String column : columnList) {
+                    Object source = sourceResultSet.getObject(column);
+                    Object sink = sinkResultSet.getObject(column);
+                    if (!Objects.deepEquals(source, sink)) {
+                        InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(column);
+                        InputStream sinkAsciiStream = sinkResultSet.getBinaryStream(column);
+                        String sourceValue = IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
+                        String sinkValue = IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
+                        Assertions.assertEquals(sourceValue, sinkValue);
                     }
+                    Assertions.assertTrue(true);
                 }
             }
         }
