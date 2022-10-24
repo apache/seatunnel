@@ -28,7 +28,6 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections4.CollectionUtils;
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.BatchPoints;
 import org.influxdb.dto.Point;
@@ -43,14 +42,11 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.ConnectException;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Date;
@@ -184,17 +180,15 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
         //assert data count
         Assertions.assertEquals(sourceQueryResult.getResults().size(), sinkQueryResult.getResults().size());
         //assert data values
-        List<List<Object>> sourceValues= sourceQueryResult.getResults().get(0).getSeries().get(0).getValues();
+        List<List<Object>> sourceValues = sourceQueryResult.getResults().get(0).getSeries().get(0).getValues();
         List<List<Object>> sinkValues = sourceQueryResult.getResults().get(0).getSeries().get(0).getValues();
-        for(Object sourceVal : sourceValues.get(0)) {
-            for(Object sinkVal : sinkValues.get(0)) {
+        for (Object sourceVal : sourceValues.get(0)) {
+            for (Object sinkVal : sinkValues.get(0)) {
                 if (!Objects.deepEquals(sourceVal, sinkVal)) {
                     Assertions.assertEquals(sourceVal, sourceVal);
                 }
             }
         }
-
-
     }
 
     private void initializeInfluxDBClient() throws ConnectException {
