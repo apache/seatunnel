@@ -32,6 +32,8 @@ import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -43,11 +45,14 @@ import org.testcontainers.containers.ClickHouseContainer;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.Date;
@@ -320,23 +325,38 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(sourceResultSet.getMetaData().getColumnCount(), sinkResultSet.getMetaData().getColumnCount());
         while (sourceResultSet.next()) {
             if (sinkResultSet.next()) {
-                for (String column : columnList) {
-                    Object source = sourceResultSet.getObject(column);
-                    Object sink = sinkResultSet.getObject(column);
-                    Assertions.assertTrue(Objects.deepEquals(source, sink));
-                    // if (!Objects.deepEquals(source, sink)) {
-                    //     InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(column);
-                    //     InputStream sinkAsciiStream = sinkResultSet.getBinaryStream(column);
-                    //     String sourceValue = IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
-                    //     String sinkValue = IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
-                    //     Assertions.assertEquals(sourceValue, sinkValue);
-                    // }
-                    Assertions.assertTrue(true);
+                // compare by name
+                if (CollectionUtils.isNotEmpty(columnList)) {
+                    for (String column : columnList) {
+                        int sourceCnt = sourceResultSet.findColumn(column);
+                        int sinkCnt = sinkResultSet.findColumn(column);
+                        Assertions.assertTrue(compareColumn(sourceResultSet, sinkResultSet, sourceCnt, sinkCnt));
+                    }
+                } else {
+                    // compare all column
+                    for (int i = 1; i <= sourceResultSet.getMetaData().getColumnCount(); i++) {
+                        Assertions.assertTrue(compareColumn(sourceResultSet, sinkResultSet, i, i));
+                    }
                 }
+                continue;
             }
+            Assertions.fail("the row of source != sink");
         }
         String columns = String.join(",", generateTestDataSet()._1().getFieldNames());
         Assertions.assertTrue(compare(String.format(CONFIG.getString(COMPARE_SQL), columns, columns)));
+    }
+
+    private static boolean compareColumn(ResultSet source, ResultSet sink, int sourceCnt, int sinkCnt) throws SQLException, IOException {
+        Object sourceObject = source.getObject(sourceCnt);
+        Object sinkObject = sink.getObject(sinkCnt);
+        if (Objects.deepEquals(sourceObject, sinkObject)) {
+            return true;
+        }
+        InputStream sourceAsciiStream = source.getBinaryStream(sourceCnt);
+        InputStream sinkAsciiStream = sink.getBinaryStream(sinkCnt);
+        String sourceValue = IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
+        String sinkValue = IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
+        return StringUtils.equals(sourceValue, sinkValue);
     }
 
     private Boolean compare(String sql) {
