@@ -179,8 +179,9 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
 
     private void batchInsertData() {
         String sql = CONFIG.getString(INSERT_SQL);
+        PreparedStatement preparedStatement = null;
         try {
-            PreparedStatement preparedStatement = this.connection.prepareStatement(sql);
+            preparedStatement = this.connection.prepareStatement(sql);
             for (SeaTunnelRow row : TEST_DATASET._2()) {
                 preparedStatement.setLong(1, (Long) row.getField(0));
                 preparedStatement.setObject(2, row.getField(1));
@@ -209,9 +210,17 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                 preparedStatement.addBatch();
             }
             preparedStatement.executeBatch();
-            this.connection.commit();
+            preparedStatement.clearBatch();
         } catch (SQLException e) {
             throw new RuntimeException("Batch insert data failed!", e);
+        } finally {
+            if (preparedStatement != null) {
+                try {
+                    preparedStatement.close();
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            }
         }
     }
 
