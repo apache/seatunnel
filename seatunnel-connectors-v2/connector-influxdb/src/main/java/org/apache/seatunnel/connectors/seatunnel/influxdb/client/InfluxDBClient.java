@@ -86,6 +86,7 @@ public class InfluxDBClient {
 
     public static InfluxDB getWriteClient(SinkConfig sinkConfig) throws ConnectException {
         InfluxDB influxDB = getInfluxDB(sinkConfig);
+        influxDB.setDatabase(sinkConfig.getDatabase());
         setWriteProperty(getInfluxDB(sinkConfig), sinkConfig);
         return  influxDB;
     }

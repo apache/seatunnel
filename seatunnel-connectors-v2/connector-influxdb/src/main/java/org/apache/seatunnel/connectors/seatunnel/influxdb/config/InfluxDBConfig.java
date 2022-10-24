@@ -23,7 +23,6 @@ import com.google.common.annotations.VisibleForTesting;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.util.List;
 
 @Data
 public class InfluxDBConfig implements Serializable {
@@ -33,34 +32,16 @@ public class InfluxDBConfig implements Serializable {
     public static final String URL = "url";
     private static final String CONNECT_TIMEOUT_MS = "connect_timeout_ms";
     private static final String QUERY_TIMEOUT_SEC = "query_timeout_sec";
-
-    public static final String SQL = "sql";
-    public static final String SQL_WHERE = "where";
-
     public static final String DATABASES = "database";
-    public static final String SPLIT_COLUMN = "split_column";
-    private static final String PARTITION_NUM = "partition_num";
-    private static final String UPPER_BOUND = "upper_bound";
-    private static final String LOWER_BOUND = "lower_bound";
-
-
     private static final String DEFAULT_FORMAT = "MSGPACK";
     protected static final String EPOCH = "epoch";
-
-    public static final String DEFAULT_PARTITIONS = "0";
     private static final int DEFAULT_QUERY_TIMEOUT_SEC = 3;
     private static final long DEFAULT_CONNECT_TIMEOUT_MS = 15000;
-
     private static final String DEFAULT_EPOCH = "n";
 
     private String url;
     private String username;
     private String password;
-    private String sql;
-    private int partitionNum = 0;
-    private String splitKey;
-    private long lowerBound;
-    private long upperBound;
     private String database;
 
     private String format = DEFAULT_FORMAT;
@@ -69,29 +50,14 @@ public class InfluxDBConfig implements Serializable {
 
     private String epoch = DEFAULT_EPOCH;
 
-    List<Integer> columnsIndex;
-
     public InfluxDBConfig(Config config) {
         this.url = config.getString(URL);
-        this.sql = config.getString(SQL);
 
         if (config.hasPath(USERNAME)) {
             this.username = config.getString(USERNAME);
         }
         if (config.hasPath(PASSWORD)) {
             this.password = config.getString(PASSWORD);
-        }
-        if (config.hasPath(PARTITION_NUM)) {
-            this.partitionNum = config.getInt(PARTITION_NUM);
-        }
-        if (config.hasPath(UPPER_BOUND)) {
-            this.upperBound = config.getInt(UPPER_BOUND);
-        }
-        if (config.hasPath(LOWER_BOUND)) {
-            this.lowerBound = config.getInt(LOWER_BOUND);
-        }
-        if (config.hasPath(SPLIT_COLUMN)) {
-            this.splitKey = config.getString(SPLIT_COLUMN);
         }
         if (config.hasPath(DATABASES)) {
             this.database = config.getString(DATABASES);

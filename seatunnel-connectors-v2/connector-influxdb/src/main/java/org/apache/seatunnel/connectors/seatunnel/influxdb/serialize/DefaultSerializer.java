@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import com.google.common.base.Strings;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.influxdb.dto.Point;
 
 import java.time.LocalDateTime;
@@ -147,8 +149,8 @@ public class DefaultSerializer implements Serializer {
                                             String timestampKey,
                                             List<String> tagKeys) {
         return Stream.of(seaTunnelRowType.getFieldNames())
-                    .filter(name -> !tagKeys.contains(name))
-                    .filter(name -> !name.equals(timestampKey))
+                    .filter(name -> CollectionUtils.isEmpty(tagKeys) || !tagKeys.contains(name))
+                    .filter(name -> StringUtils.isEmpty(timestampKey) || !name.equals(timestampKey))
                     .collect(Collectors.toList());
     }
 }

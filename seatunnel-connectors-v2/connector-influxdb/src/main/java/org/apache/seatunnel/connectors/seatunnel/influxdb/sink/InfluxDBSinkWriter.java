@@ -134,7 +134,7 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         if (batchList.isEmpty()) {
             return;
         }
-        BatchPoints.Builder batchPoints = BatchPoints.builder();
+        BatchPoints.Builder batchPoints = BatchPoints.database(sinkConfig.getDatabase());
         for (int i = 0; i <= sinkConfig.getMaxRetries(); i++) {
             try {
                 batchPoints.points(batchList);

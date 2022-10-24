@@ -21,6 +21,7 @@ import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDB
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig.KEY_MEASUREMENT;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -33,8 +34,11 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import com.google.auto.service.AutoService;
+
 import java.io.IOException;
 
+@AutoService(SeaTunnelSink.class)
 public class InfluxDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     private Config pluginConfig;

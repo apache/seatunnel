@@ -28,9 +28,12 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.BatchPoints;
 import org.influxdb.dto.Point;
+import org.influxdb.dto.Query;
+import org.influxdb.dto.QueryResult;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -60,11 +63,11 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
     private static final String HOST = "influxdb-host";
     private static final int PORT = 8086;
     private static final String INFLUXDB_DATABASE = "test";
-    private static final String INFLUXDB_MEASUREMENT = "test";
+    private static final String INFLUXDB_SOURCE_MEASUREMENT = "source";
+    private static final String INFLUXDB_SINK_MEASUREMENT = "sink";
 
 
     private static final Tuple2<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET = generateTestDataSet();
-
 
     private GenericContainer<?> influxdbContainer;
     private String influxDBConnectUrl;
@@ -98,7 +101,7 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
 
         for (int i = 0; i < rows.size(); i++) {
             SeaTunnelRow row = rows.get(i);
-            Point point = Point.measurement(INFLUXDB_MEASUREMENT)
+            Point point = Point.measurement(INFLUXDB_SOURCE_MEASUREMENT)
                     .time((Long) row.getField(0), TimeUnit.NANOSECONDS)
                     .tag(rowType.getFieldName(1), (String) row.getField(1))
                     .addField(rowType.getFieldName(2), (String) row.getField(2))
@@ -167,9 +170,25 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testRedis(TestContainer container) throws IOException, InterruptedException {
+    public void testInfluxdb(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/influxdb-to-influxdb.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+        String sourceSql = String.format("select * from %s", INFLUXDB_SOURCE_MEASUREMENT);
+        String sinkSql = String.format("select * from %s", INFLUXDB_SINK_MEASUREMENT);
+        QueryResult sourceQueryResult = influxDB.query(new Query(sourceSql, INFLUXDB_DATABASE));
+        QueryResult sinkQueryResult = influxDB.query(new Query(sinkSql, INFLUXDB_DATABASE));
+        Assertions.assertEquals(sourceQueryResult.getResults().size(), sinkQueryResult.getResults().size());
+        for (QueryResult.Result result : sourceQueryResult.getResults()) {
+            List<QueryResult.Series> serieList = result.getSeries();
+            if (CollectionUtils.isNotEmpty(serieList)) {
+                for (QueryResult.Series series : serieList) {
+                    for (List<Object> values : series.getValues()) {
+
+                    }
+                }
+            }
+        }
+
     }
 
     private void initializeInfluxDBClient() throws ConnectException {
