@@ -58,6 +58,10 @@
                     <artifactId>orc-core</artifactId>
                     <groupId>org.apache.orc</groupId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.pentaho</groupId>
+                    <artifactId>pentaho-aggdesigner-algorithm</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
     </dependencies>
