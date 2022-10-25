@@ -21,10 +21,12 @@ Used to read data from My Hours.
 | --------------------------- | ------ | -------- | ------------- |
 | email                       | String | Yes      | -             |
 | password                    | String | Yes      | -             |
-| projects                    | String | No       | -             |
-| users                       | String | No       | -             |
+| method                      | String | No       | get           |
 | schema.fields               | Config | No       | -             |
 | format                      | String | No       | json          |
+| params                      | Map    | No       | -             |
+| body                        | String | No       | -             |
+| poll_interval_ms            | int    | No       | -             |
 | retry                       | int    | No       | -             |
 | retry_backoff_multiplier_ms | int    | No       | 100           |
 | retry_backoff_max_ms        | int    | No       | 10000         |
@@ -38,25 +40,21 @@ email for login
 
 password for login
 
-### projects [String]
+### method [String]
 
-Get the information on your Projects
+http request method, only supports GET, POST method
 
-Projects can be configured as `all` or `active`
+### params [Map]
 
-If `all` is configured, all projects will be queried
+http params
 
-If configured as `active`, only the currently incomplete projects will be displayed
+### body [String]
 
-### users [String]
+http body
 
-Get the users information on your account
+### poll_interval_ms [int]
 
-Users can be configured as `member`  or `client`
-
-If `all` is configured, list all team members in the account
-
-If configured as `active`, list all clients in the account
+request http api interval(millis) in stream mode
 
 ### retry [int]
 
@@ -138,16 +136,7 @@ simple:
 MyHours{
     email = "seatunnel@test.com"
     password = "seatunnel"
-    projects = "active"
-    schema {
-       fields {
-           clientId = string
-           clientName = string
-           name = string
-           archived = boolean
-           id = int
-       }
-    }
+	url = "https://api2.myhours.com/api/Projects/getAll"
 }
 ```
 
