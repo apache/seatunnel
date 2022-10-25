@@ -13,15 +13,17 @@ Used to write data to Redis.
 
 ##  Options
 
-| name          | type   | required | default value |
-|-------------- |--------|----------|---------------|
-| host          | string | yes      | -             |
-| port          | int    | yes      | -             |
-| key           | string | yes      | -             |
-| data_type     | string | yes      | -             |
-| auth          | string | no       | -             |
-| format        | string | no       | json          |
-| common-options|        | no       | -             |
+| name           | type   | required | default value |
+|----------------|--------|----------|---------------|
+| host           | string | yes      | -             |
+| port           | int    | yes      | -             |
+| key            | string | yes      | -             |
+| data_type      | string | yes      | -             |
+| user           | string | yes      | -             |
+| auth           | string | no       | -             |
+| mode           | string | no       | -             |
+| format         | string | no       | json          |
+| common-options |        | no       | -             |
 
 ### host [string]
 
@@ -75,9 +77,17 @@ Redis data types, support `key` `hash` `list` `set` `zset`
 - zset
 > Each data from upstream will be added to the configured zset key with a weight of 1. So the order of data in zset is based on the order of data consumption.
 
+### user [String]
+
+redis authentication user, you need it when you connect to an encrypted cluster
+
 ### auth [String]
 
 Redis authentication password, you need it when you connect to an encrypted cluster
+
+### mode [String]
+
+redis mode, `single` or `cluster`, default is `single`
 
 ### format [String]
 
@@ -121,3 +131,7 @@ simple:
 ### 2.2.0-beta 2022-09-26
 
 - Add Redis Sink Connector
+
+### 2.3.0-beta 2022-10-25
+
+- Support redis cluster mode connection and user authentication

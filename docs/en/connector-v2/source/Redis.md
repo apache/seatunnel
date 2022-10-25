@@ -18,12 +18,14 @@ Used to read data from Redis.
 ##  Options
 
 | name           | type   | required | default value |
-|--------------- |--------|----------|---------------|
+|----------------|--------|----------|---------------|
 | host           | string | yes      | -             |
 | port           | int    | yes      | -             |
 | keys           | string | yes      | -             |
 | data_type      | string | yes      | -             |
+| user           | string | No       | -             |
 | auth           | string | No       | -             |
+| mode           | string | No       | -             |
 | schema         | config | No       | -             |
 | format         | string | No       | json          |
 | common-options |        | no       | -             |
@@ -67,11 +69,19 @@ redis data types, support `key` `hash` `list` `set` `zset`
 > Each element in the sorted set will be sent downstream as a single row of data
 > For example, the value of sorted set is `[tyrantlucier, CalvinKirs]`, the data received downstream are `tyrantlucifer` and `CalvinKirs` and only two message will be received.
 
-### auth [string]
+### user [String]
+
+redis authentication user, you need it when you connect to an encrypted cluster
+
+### auth [String]
 
 redis authentication password, you need it when you connect to an encrypted cluster
 
-### format [string]
+### mode [String]
+
+redis mode, `single` or `cluster`, default is `single`
+
+### format [String]
 
 the format of upstream data, now only support `json` `text`, default `json`.
 
@@ -166,3 +176,7 @@ simple:
 ### 2.2.0-beta 2022-09-26
 
 - Add Redis Source Connector
+
+### 2.3.0-beta 2022-10-25
+
+- Support redis cluster mode connection and user authentication
