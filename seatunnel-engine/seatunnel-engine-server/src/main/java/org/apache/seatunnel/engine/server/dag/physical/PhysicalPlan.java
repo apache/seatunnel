@@ -143,6 +143,9 @@ public class PhysicalPlan {
         PassiveCompletableFuture<PipelineStatus> future = subPlan.initStateFuture();
         future.thenAcceptAsync(pipelineState -> {
             try {
+                // Notify checkpoint manager when the pipeline end, Whether the pipeline will be restarted or not
+                jobMaster.getCheckpointManager()
+                    .listenPipelineRetry(subPlan.getPipelineLocation().getPipelineId(), subPlan.getPipelineState()).join();
                 if (PipelineStatus.CANCELED.equals(pipelineState)) {
                     if (canRestorePipeline(subPlan)) {
                         subPlan.restorePipeline();
@@ -170,6 +173,8 @@ public class PhysicalPlan {
                     LOGGER.severe("Pipeline Failed, Begin to cancel other pipelines in this job.");
                 }
 
+                notifyCheckpointManagerPipelineEnd(subPlan);
+
                 if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
                     if (failedPipelineNum.get() > 0) {
                         updateJobState(JobStatus.FAILING);
@@ -185,6 +190,15 @@ public class PhysicalPlan {
                 LOGGER.severe("Never come here ", e);
             }
         });
+    }
+
+    /**
+     * only call when the pipeline will never restart
+     * @param subPlan subPlan
+     */
+    private void notifyCheckpointManagerPipelineEnd(@NonNull SubPlan subPlan) {
+        jobMaster.getCheckpointManager()
+            .listenPipeline(subPlan.getPipelineLocation().getPipelineId(), subPlan.getPipelineState()).join();
     }
 
     private boolean canRestorePipeline(SubPlan subPlan) {
@@ -244,6 +258,9 @@ public class PhysicalPlan {
                 LOGGER.severe(message);
                 throw new IllegalStateException(message);
             }
+
+            // notify checkpoint manager
+            jobMaster.getCheckpointManager().shutdown(endState);
 
             LOGGER.info(String.format("%s end with state %s", getJobFullName(), endState));
             // we must update runningJobStateTimestampsIMap first and then can update runningJobStateIMap
