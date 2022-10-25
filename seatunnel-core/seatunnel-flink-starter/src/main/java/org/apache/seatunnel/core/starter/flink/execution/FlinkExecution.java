@@ -44,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -66,15 +67,15 @@ public class FlinkExecution implements TaskExecution {
         } catch (MalformedURLException e) {
             throw new SeaTunnelException("load flink starter error.", e);
         }
-        registerPlugin();
+        injectJarsToConfig();
         JobContext jobContext = new JobContext();
-        jobContext.setJobMode(new FlinkEnvironmentFactory(config).getJobMode(config.getConfig("env")));
+        jobContext.setJobMode(FlinkEnvironmentFactory.getJobMode(config));
 
         this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(jarPaths, config.getConfigList(Constants.SOURCE), jobContext);
         this.transformPluginExecuteProcessor = new TransformExecuteProcessor(jarPaths, config.getConfigList(Constants.TRANSFORM), jobContext);
         this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(jarPaths, config.getConfigList(Constants.SINK), jobContext);
 
-        this.flinkEnvironment = new FlinkEnvironmentFactory(this.registerPlugin(config, jarPaths)).getEnvironment();
+        this.flinkEnvironment = new FlinkEnvironmentFactory(this.injectJarsToConfig(config, jarPaths)).getEnvironment();
 
         this.sourcePluginExecuteProcessor.setFlinkEnvironment(flinkEnvironment);
         this.transformPluginExecuteProcessor.setFlinkEnvironment(flinkEnvironment);
@@ -97,7 +98,7 @@ public class FlinkExecution implements TaskExecution {
         }
     }
 
-    private void registerPlugin() {
+    private void injectJarsToConfig() {
         List<URL> pluginsJarDependencies = Common.getPluginsJarDependencies().stream()
             .map(Path::toUri)
             .map(uri -> {
@@ -114,21 +115,21 @@ public class FlinkExecution implements TaskExecution {
         jarPaths.addAll(pluginsJarDependencies);
     }
 
-    private Config registerPlugin(Config config, List<URL> jars) {
-        config = this.parseConfig(config, ConfigUtil.joinPath("env", "pipeline", "jars"), jars);
-        return this.parseConfig(config, ConfigUtil.joinPath("env", "pipeline", "classpaths"), jars);
+    private Config injectJarsToConfig(Config config, List<URL> jars) {
+        config = this.injectJarsToEnvConfig(config, ConfigUtil.joinPath("env", "pipeline", "jars"), jars);
+        return this.injectJarsToEnvConfig(config, ConfigUtil.joinPath("env", "pipeline", "classpaths"), jars);
     }
 
-    private Config parseConfig(Config config, String path, List<URL> jars) {
+    private Config injectJarsToEnvConfig(Config config, String path, List<URL> jars) {
 
         if (config.hasPath(path)) {
-            List<URL> paths = Arrays.stream(config.getString(path).split(";")).map(uri -> {
+            Set<URL> paths = Arrays.stream(config.getString(path).split(";")).map(uri -> {
                 try {
                     return new URL(uri);
                 } catch (MalformedURLException e) {
                     throw new RuntimeException("the uri of jar illegal:" + uri, e);
                 }
-            }).collect(Collectors.toList());
+            }).collect(Collectors.toSet());
             paths.addAll(jars);
 
             config = config.withValue(path,

@@ -44,7 +44,7 @@ public abstract class EnvironmentFactory<ENVIRONMENT extends RuntimeEnv> {
         Config envConfig = config.getConfig("env");
         ENVIRONMENT env = newEnvironment();
         env.setConfig(envConfig)
-            .setJobMode(getJobMode(envConfig)).prepare();
+            .setJobMode(getJobMode(config)).prepare();
         return env;
     }
 
@@ -66,8 +66,9 @@ public abstract class EnvironmentFactory<ENVIRONMENT extends RuntimeEnv> {
         return false;
     }
 
-    public JobMode getJobMode(Config envConfig) {
+    public static JobMode getJobMode(Config config) {
         JobMode jobMode;
+        Config envConfig = config.getConfig("env");
         if (envConfig.hasPath("job.mode")) {
             jobMode = envConfig.getEnum(JobMode.class, "job.mode");
         } else {
