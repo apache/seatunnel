@@ -54,7 +54,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.Date;
-import java.sql.DriverManager;
+import java.sql.Driver;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -67,6 +67,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -108,7 +109,6 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(CLICKHOUSE_DOCKER_IMAGE)));
         Startables.deepStart(Stream.of(this.container)).join();
         LOG.info("Clickhouse container started");
-        Class.forName(DRIVER_CLASS);
         Awaitility.given()
             .ignoreExceptions()
             .await()
@@ -128,12 +128,11 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private void initConnection() throws SQLException {
-        this.connection = DriverManager.getConnection(
-            this.container.getJdbcUrl(),
-            this.container.getUsername(),
-            this.container.getPassword()
-        );
+    private void initConnection() throws SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException {
+        final Properties info = new Properties();
+        info.put("user", this.container.getUsername());
+        info.put("password", this.container.getPassword());
+        this.connection = ((Driver) Class.forName(DRIVER_CLASS).newInstance()).connect(this.container.getJdbcUrl(), info);
     }
 
     private static Config getInitClickhouseConfig() {
