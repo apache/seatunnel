@@ -21,7 +21,10 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
+import redis.clients.jedis.ConnectionPoolConfig;
+import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisCluster;
 
 import java.io.Serializable;
 
@@ -30,9 +33,11 @@ public class RedisParameters implements Serializable {
     private String host;
     private int port;
     private String auth = "";
+    private String user = "";
     private String keysPattern;
     private String keyField;
     private RedisDataType redisDataType;
+    private RedisConfig.RedisMode mode;
 
     public void buildWithConfig(Config config) {
         // set host
@@ -42,6 +47,16 @@ public class RedisParameters implements Serializable {
         // set auth
         if (config.hasPath(RedisConfig.AUTH)) {
             this.auth = config.getString(RedisConfig.AUTH);
+        }
+        // set user
+        if (config.hasPath(RedisConfig.USER)) {
+            this.user = config.getString(RedisConfig.USER);
+        }
+        // set mode
+        if (config.hasPath(RedisConfig.MODE)) {
+            this.mode = RedisConfig.RedisMode.valueOf(config.getString(RedisConfig.MODE));
+        } else {
+            this.mode = RedisConfig.RedisMode.SINGLE;
         }
         // set key
         if (config.hasPath(RedisConfig.KEY)) {
@@ -61,10 +76,31 @@ public class RedisParameters implements Serializable {
     }
 
     public Jedis buildJedis() {
-        Jedis jedis = new Jedis(host, port);
-        if (StringUtils.isNotBlank(auth)) {
-            jedis.auth(auth);
+        switch (mode) {
+            case SINGLE:
+                Jedis jedis = new Jedis(host, port);
+                if (StringUtils.isNotBlank(auth)) {
+                    jedis.auth(auth);
+                }
+                if (StringUtils.isNotBlank(user)) {
+                    jedis.aclSetUser(user);
+                }
+                return jedis;
+            case CLUSTER:
+                HostAndPort node = new HostAndPort(host, port);
+                ConnectionPoolConfig connectionPoolConfig = new ConnectionPoolConfig();
+                JedisCluster jedisCluster;
+                if (StringUtils.isNotBlank(auth)) {
+                    jedisCluster = new JedisCluster(node, JedisCluster.DEFAULT_TIMEOUT,
+                            JedisCluster.DEFAULT_TIMEOUT, JedisCluster.DEFAULT_MAX_ATTEMPTS,
+                            auth, connectionPoolConfig);
+                } else {
+                    jedisCluster = new JedisCluster(node);
+                }
+                return new JedisWrapper(jedisCluster);
+            default:
+                // do nothing
+                throw new IllegalArgumentException("Not support this redis mode");
         }
-        return jedis;
     }
 }
