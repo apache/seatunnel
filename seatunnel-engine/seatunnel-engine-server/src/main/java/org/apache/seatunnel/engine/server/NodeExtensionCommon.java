@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server;
 
 import static com.hazelcast.cluster.ClusterState.PASSIVE;
 
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.engine.common.Constant;
 
 import com.hazelcast.cluster.ClusterState;
@@ -30,17 +31,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 class NodeExtensionCommon {
-    private static final String ST_LOGO  =
-            "                                                         \n" +
-            " _____               _____                             _ \n" +
-            "/  ___|             |_   _|                           | |\n" +
-            "\\ `--.   ___   __ _   | |   _   _  _ __   _ __    ___ | |\n" +
-            " `--. \\ / _ \\ / _` |  | |  | | | || '_ \\ | '_ \\  / _ \\| |\n" +
-            "/\\__/ /|  __/| (_| |  | |  | |_| || | | || | | ||  __/| |\n" +
-            "\\____/  \\___| \\__,_|  \\_/   \\__,_||_| |_||_| |_| \\___||_|\n" +
-            "                                                         \n";
-    private static final String COPYRIGHT_LINE = "Copyright © 2021-2022 The Apache Software Foundation. Apache SeaTunnel, SeaTunnel, and its feather logo are trademarks of The Apache Software Foundation.";
-
     private final Node node;
     private final ILogger logger;
     private final SeaTunnelServer server;
@@ -72,8 +62,8 @@ class NodeExtensionCommon {
         log.info(imdgVersionMessage());
         log.info(clusterNameMessage());
         log.fine(serializationVersionMessage());
-        log.info('\n' + ST_LOGO);
-        log.info(COPYRIGHT_LINE);
+        log.info('\n' + Constants.ST_LOGO);
+        log.info(Constants.COPYRIGHT_LINE);
     }
 
     private String imdgVersionMessage() {
