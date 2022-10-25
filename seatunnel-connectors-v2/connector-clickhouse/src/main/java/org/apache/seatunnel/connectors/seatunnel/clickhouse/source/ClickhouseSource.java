@@ -48,6 +48,7 @@ import com.clickhouse.client.ClickHouseResponse;
 import com.google.auto.service.AutoService;
 
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 @AutoService(SeaTunnelSource.class)
 public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, ClickhouseSourceSplit, ClickhouseSourceState> {
@@ -71,9 +72,10 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
                 config.getString(USERNAME), config.getString(PASSWORD));
 
         sql = config.getString(SQL);
-        try (ClickHouseClient client = ClickHouseClient.newInstance(servers.get(0).getProtocol());
+        ClickHouseNode currentServer = servers.get(ThreadLocalRandom.current().nextInt(servers.size()));
+        try (ClickHouseClient client = ClickHouseClient.newInstance(currentServer.getProtocol());
              ClickHouseResponse response =
-                     client.connect(servers.get(0)).format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
+                     client.connect(currentServer).format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
                              .query(modifySQLToLimit1(config.getString(SQL))).executeAndWait()) {
 
             int columnSize = response.getColumns().size();

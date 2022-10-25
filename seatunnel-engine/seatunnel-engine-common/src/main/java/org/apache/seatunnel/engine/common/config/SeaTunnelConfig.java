@@ -49,7 +49,7 @@ public class SeaTunnelConfig {
     }
 
     /**
-     * Returns the absolute path for seatunnel.home based from the system property
+     * Returns the absolute path for `seatunnel.home` based from the system property
      * {@link SeaTunnelProperties#SEATUNNEL_HOME}
      */
     private static String seatunnelHome() {

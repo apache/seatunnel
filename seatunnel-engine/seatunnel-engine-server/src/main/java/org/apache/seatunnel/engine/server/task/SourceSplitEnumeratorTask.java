@@ -32,11 +32,11 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
-import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointBarrierTriggerOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.context.SeaTunnelSplitEnumeratorContext;
+import org.apache.seatunnel.engine.server.task.operation.checkpoint.BarrierFlowOperation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
@@ -126,6 +126,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     public void triggerBarrier(Barrier barrier) throws Exception {
         if (barrier.prepareClose()) {
             this.currState = PREPARE_CLOSE;
+            this.prepareCloseBarrierId.set(barrier.getId());
         }
         final long barrierId = barrier.getId();
         Serializable snapshotState = null;
@@ -133,7 +134,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             if (barrier.snapshot()) {
                 snapshotState = enumerator.snapshotState(barrierId);
             }
-            sendToAllReader(location -> new CheckpointBarrierTriggerOperation(barrier, location));
+            sendToAllReader(location -> new BarrierFlowOperation(barrier, location));
         }
         if (barrier.snapshot()) {
             byte[] serialize = enumeratorStateSerializer.serialize(snapshotState);
@@ -180,6 +181,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         taskMemberMapping.put(taskID, memberAdder);
         taskIDToTaskLocationMapping.put(taskID.getTaskID(), taskID);
         taskIndexToTaskLocationMapping.put(taskID.getTaskIndex(), taskID);
+        unfinishedReaders.add(taskID.getTaskID());
     }
 
     public Address getTaskMemberAddress(long taskID) {
@@ -272,7 +274,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         enumerator.notifyCheckpointComplete(checkpointId);
-        if (prepareCloseStatus) {
+        if (currState == PREPARE_CLOSE && prepareCloseBarrierId.get() == checkpointId) {
             closeCall();
         }
     }
@@ -280,7 +282,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         enumerator.notifyCheckpointAborted(checkpointId);
-        if (prepareCloseStatus) {
+        if (currState == PREPARE_CLOSE && prepareCloseBarrierId.get() == checkpointId) {
             closeCall();
         }
     }
