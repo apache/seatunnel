@@ -21,12 +21,6 @@ public class MyHoursSourceConfig {
     public static final String POST = "POST";
     public static final String EMAIL = "email";
     public static final String PASSWORD = "password";
-    public static final String USERS = "users";
-    public static final String PROJECTS = "projects";
-    public static final String ALL = "all";
-    public static final String ACTIVE = "active";
-    public static final String MEMBER = "member";
-    public static final String CLIENT = "client";
     public static final String GRANTTYPE = "grantType";
     public static final String CLIENTID = "clientId";
     public static final String API = "api";
@@ -34,8 +28,4 @@ public class MyHoursSourceConfig {
     public static final String ACCESSTOKEN = "accessToken";
     public static final String ACCESSTOKEN_PREFIX = "Bearer";
     public static final String AUTHORIZATION_URL = "https://api2.myhours.com/api/tokens/login";
-    public static final String ALL_PROJECTS_URL = "https://api2.myhours.com/api/Projects/getAll";
-    public static final String ACTIVE_PROJECTS_URL = "https://api2.myhours.com/api/Projects";
-    public static final String ALL_MEMBERS_URL = "https://api2.myhours.com/api/Users/getAll";
-    public static final String ALL_CLIENTS_URL = "https://api2.myhours.com/api/Clients";
 }

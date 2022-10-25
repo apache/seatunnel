@@ -27,35 +27,35 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class MyHoursSourceParameter extends HttpParameter {
     public void buildWithConfig(Config pluginConfig, String accessToken) {
         // set url
-        if (pluginConfig.hasPath(MyHoursSourceConfig.PROJECTS)) {
-            String projects = pluginConfig.getString(MyHoursSourceConfig.PROJECTS);
-            if (projects.equals(MyHoursSourceConfig.ALL)) {
-                this.setUrl(MyHoursSourceConfig.ALL_PROJECTS_URL);
-            }
-            else {
-                this.setUrl(MyHoursSourceConfig.ACTIVE_PROJECTS_URL);
-            }
-        }
-        else {
-            String users = pluginConfig.getString(MyHoursSourceConfig.USERS);
-            if (users.equals(MyHoursSourceConfig.MEMBER)) {
-                this.setUrl(MyHoursSourceConfig.ALL_MEMBERS_URL);
-            }
-            else {
-                this.setUrl(MyHoursSourceConfig.ALL_CLIENTS_URL);
-            }
-        }
+        this.setUrl(pluginConfig.getString(HttpConfig.URL));
         // set method
-        this.setMethod(HttpConfig.METHOD_DEFAULT_VALUE);
+        if (pluginConfig.hasPath(HttpConfig.METHOD)) {
+            this.setMethod(pluginConfig.getString(HttpConfig.METHOD));
+        } else {
+            this.setMethod(HttpConfig.METHOD_DEFAULT_VALUE);
+        }
         // set headers
         this.headers = new HashMap<>();
         this.headers.put(MyHoursSourceConfig.AUTHORIZATION, MyHoursSourceConfig.ACCESSTOKEN_PREFIX + " " + accessToken);
         this.setHeaders(headers);
-        // set retry
+        // set params
+        if (pluginConfig.hasPath(HttpConfig.PARAMS)) {
+            this.setParams(pluginConfig.getConfig(HttpConfig.PARAMS).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue().unwrapped()), (v1, v2) -> v2)));
+        }
+        // set body
+        if (pluginConfig.hasPath(HttpConfig.BODY)) {
+            this.setBody(pluginConfig.getString(HttpConfig.BODY));
+        }
+        //set poll_interval_ms
+        if (pluginConfig.hasPath(HttpConfig.POLL_INTERVAL_MILLS)) {
+            this.setPollIntervalMillis(pluginConfig.getInt(HttpConfig.POLL_INTERVAL_MILLS));
+        }
+        //set retry
         if (pluginConfig.hasPath(HttpConfig.RETRY)) {
             this.setRetry(pluginConfig.getInt(HttpConfig.RETRY));
             if (pluginConfig.hasPath(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS)) {
