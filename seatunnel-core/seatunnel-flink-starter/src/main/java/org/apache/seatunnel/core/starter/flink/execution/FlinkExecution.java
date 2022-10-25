@@ -67,7 +67,7 @@ public class FlinkExecution implements TaskExecution {
         } catch (MalformedURLException e) {
             throw new SeaTunnelException("load flink starter error.", e);
         }
-        injectJarsToConfig();
+        registerPlugin();
         JobContext jobContext = new JobContext();
         jobContext.setJobMode(FlinkEnvironmentFactory.getJobMode(config));
 
@@ -75,7 +75,7 @@ public class FlinkExecution implements TaskExecution {
         this.transformPluginExecuteProcessor = new TransformExecuteProcessor(jarPaths, config.getConfigList(Constants.TRANSFORM), jobContext);
         this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(jarPaths, config.getConfigList(Constants.SINK), jobContext);
 
-        this.flinkEnvironment = new FlinkEnvironmentFactory(this.injectJarsToConfig(config, jarPaths)).getEnvironment();
+        this.flinkEnvironment = new FlinkEnvironmentFactory(this.registerPlugin(config, jarPaths)).getEnvironment();
 
         this.sourcePluginExecuteProcessor.setFlinkEnvironment(flinkEnvironment);
         this.transformPluginExecuteProcessor.setFlinkEnvironment(flinkEnvironment);
@@ -98,7 +98,7 @@ public class FlinkExecution implements TaskExecution {
         }
     }
 
-    private void injectJarsToConfig() {
+    private void registerPlugin() {
         List<URL> pluginsJarDependencies = Common.getPluginsJarDependencies().stream()
             .map(Path::toUri)
             .map(uri -> {
@@ -115,12 +115,12 @@ public class FlinkExecution implements TaskExecution {
         jarPaths.addAll(pluginsJarDependencies);
     }
 
-    private Config injectJarsToConfig(Config config, List<URL> jars) {
-        config = this.injectJarsToEnvConfig(config, ConfigUtil.joinPath("env", "pipeline", "jars"), jars);
-        return this.injectJarsToEnvConfig(config, ConfigUtil.joinPath("env", "pipeline", "classpaths"), jars);
+    private Config registerPlugin(Config config, List<URL> jars) {
+        config = this.injectJarsToConfig(config, ConfigUtil.joinPath("env", "pipeline", "jars"), jars);
+        return this.injectJarsToConfig(config, ConfigUtil.joinPath("env", "pipeline", "classpaths"), jars);
     }
 
-    private Config injectJarsToEnvConfig(Config config, String path, List<URL> jars) {
+    private Config injectJarsToConfig(Config config, String path, List<URL> jars) {
 
         if (config.hasPath(path)) {
             Set<URL> paths = Arrays.stream(config.getString(path).split(";")).map(uri -> {
