@@ -36,7 +36,6 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,7 +74,6 @@ import java.util.stream.Stream;
 
 import scala.Tuple2;
 
-@Disabled("Temporary fast fix, reason1: Transactions are not supported. reason2: Invalid boolean value, should be true or false controlled by setting bool_true_representation and bool_false_representation")
 public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private static final Logger LOG = LoggerFactory.getLogger(ClickhouseIT.class);
     private static final String CLICKHOUSE_DOCKER_IMAGE = "yandex/clickhouse-server:latest";
