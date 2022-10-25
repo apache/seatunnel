@@ -20,8 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 
 import java.io.Serializable;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.util.function.Consumer;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 
 /**
  * Represents a dialect of SQL implemented by a particular JDBC system. Dialects should be immutable
@@ -57,9 +59,12 @@ public interface JdbcDialect extends Serializable {
      *
      * @return The logic about optimize PreparedStatement
      */
-    default Consumer<PreparedStatement> customPreparedStatement() {
-        return preparedStatement -> {
-        };
+    default PreparedStatement creatPreparedStatement(Connection connection, String queryTemplate, int fetchSize) throws SQLException {
+        PreparedStatement statement = connection.prepareStatement(queryTemplate, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+        if (fetchSize == Integer.MIN_VALUE || fetchSize > 0) {
+            statement.setFetchSize(fetchSize);
+        }
+        return statement;
     }
 
 }

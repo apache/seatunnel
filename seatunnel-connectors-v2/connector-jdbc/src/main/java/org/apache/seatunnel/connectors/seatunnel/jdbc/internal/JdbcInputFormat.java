@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
 
 import org.slf4j.Logger;
@@ -38,7 +39,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
-import java.util.function.Consumer;
 
 /**
  * InputFormat to read data from a database and generate Rows. The InputFormat has to be configured
@@ -48,7 +48,7 @@ import java.util.function.Consumer;
 
 public class JdbcInputFormat implements Serializable {
 
-    protected static final long serialVersionUID = 2L;
+    private static final long serialVersionUID = 2L;
     protected static final Logger LOG = LoggerFactory.getLogger(JdbcInputFormat.class);
 
     protected JdbcConnectionProvider connectionProvider;
@@ -64,23 +64,22 @@ public class JdbcInputFormat implements Serializable {
 
     protected boolean hasNext;
 
-    protected Consumer<PreparedStatement> customPreparedStatement;
+    protected JdbcDialect jdbcDialect;
 
     public JdbcInputFormat(JdbcConnectionProvider connectionProvider,
-                           JdbcRowConverter jdbcRowConverter,
+                           JdbcDialect jdbcDialect,
                            SeaTunnelRowType typeInfo,
                            String queryTemplate,
                            int fetchSize,
-                           Boolean autoCommit,
-                           Consumer<PreparedStatement> customPreparedStatement
+                           Boolean autoCommit
     ) {
         this.connectionProvider = connectionProvider;
-        this.jdbcRowConverter = jdbcRowConverter;
+        this.jdbcRowConverter = jdbcDialect.getRowConverter();
         this.typeInfo = typeInfo;
         this.queryTemplate = queryTemplate;
         this.fetchSize = fetchSize;
         this.autoCommit = autoCommit;
-        this.customPreparedStatement = customPreparedStatement;
+        this.jdbcDialect = jdbcDialect;
     }
 
     public void openInputFormat() {
@@ -94,11 +93,7 @@ public class JdbcInputFormat implements Serializable {
                 dbConn.setAutoCommit(autoCommit);
             }
 
-            statement = dbConn.prepareStatement(queryTemplate, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-            if (fetchSize == Integer.MIN_VALUE || fetchSize > 0) {
-                statement.setFetchSize(fetchSize);
-            }
-            customPreparedStatement.accept(statement);
+            statement = jdbcDialect.creatPreparedStatement(dbConn, queryTemplate, fetchSize);
         } catch (SQLException se) {
             throw new IllegalArgumentException("open() failed." + se.getMessage(), se);
         } catch (ClassNotFoundException cnfe) {

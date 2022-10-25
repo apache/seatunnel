@@ -86,12 +86,11 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
 
         inputFormat = new JdbcInputFormat(
             jdbcConnectionProvider,
-            jdbcDialect.getRowConverter(),
+            jdbcDialect,
             typeInfo,
             query,
             0,
-            true,
-            jdbcDialect.customPreparedStatement()
+            true
         );
     }
 
@@ -148,7 +147,7 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
         } catch (Exception e) {
             LOG.warn("get row type info exception", e);
         }
-        return new SeaTunnelRowType(fieldNames.toArray(new String[fieldNames.size()]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));
+        return new SeaTunnelRowType(fieldNames.toArray(new String[0]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[0]));
     }
 
     private PartitionParameter initPartitionParameter(String columnName, Connection connection) throws SQLException {
