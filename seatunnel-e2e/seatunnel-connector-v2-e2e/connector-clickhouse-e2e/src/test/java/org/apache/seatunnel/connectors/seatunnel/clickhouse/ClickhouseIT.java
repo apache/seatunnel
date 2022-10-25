@@ -181,6 +181,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         String sql = CONFIG.getString(INSERT_SQL);
         PreparedStatement preparedStatement = null;
         try {
+            this.connection.setAutoCommit(true);
             preparedStatement = this.connection.prepareStatement(sql);
             for (SeaTunnelRow row : TEST_DATASET._2()) {
                 preparedStatement.setLong(1, (Long) row.getField(0));
@@ -218,7 +219,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                 try {
                     preparedStatement.close();
                 } catch (SQLException e) {
-                    throw new RuntimeException(e);
+                    throw new RuntimeException("PreparedStatement close failed!", e);
                 }
             }
         }
