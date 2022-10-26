@@ -72,4 +72,6 @@ public interface WriteStrategy extends Transaction, Serializable {
      * when a transaction is triggered, release resources
      */
     void finishAndCloseFile();
+
+    long getCheckpointId();
 }
