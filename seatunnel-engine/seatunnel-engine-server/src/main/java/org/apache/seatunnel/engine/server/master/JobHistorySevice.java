@@ -96,24 +96,27 @@ public class JobHistorySevice {
     }
 
     // Get detailed status of a single job
-    public String getJobStatus(Long jobId) {
+    public JobStateMapper getJobStatus(Long jobId) {
+        return runningJobMasterMap.containsKey(jobId) ? toJobStateMapper(runningJobMasterMap.get(jobId)) :
+            finishedJobStateImap.getOrDefault(jobId, null);
+    }
+
+    // Get detailed status of a single job as json
+    public String getJobStatusAsString(Long jobId) {
         ObjectMapper objectMapper = new ObjectMapper();
-        JobStateMapper jobStateMapper;
-        if (runningJobMasterMap.containsKey(jobId)) {
-            jobStateMapper = toJobStateMapper(runningJobMasterMap.get(jobId));
-        } else if (finishedJobStateImap.containsKey(jobId)) {
-            jobStateMapper = finishedJobStateImap.get(jobId);
+        JobStateMapper jobStatus = getJobStatus(jobId);
+        if (null != jobStatus) {
+            try {
+                return objectMapper.writeValueAsString(jobStatus);
+            } catch (JsonProcessingException e) {
+                logger.severe("serialize jobStateMapper err", e);
+                ObjectNode objectNode = objectMapper.createObjectNode();
+                objectNode.put("err", "serialize jobStateMapper err");
+                return objectNode.toString();
+            }
         } else {
             ObjectNode objectNode = objectMapper.createObjectNode();
             objectNode.put("err", String.format("jobId : %s not found", jobId));
-            return objectNode.toString();
-        }
-        try {
-            return objectMapper.writeValueAsString(jobStateMapper);
-        } catch (JsonProcessingException e) {
-            logger.severe("serialize jobStateMapper err", e);
-            ObjectNode objectNode = objectMapper.createObjectNode();
-            objectNode.put("err", "serialize jobStateMapper err");
             return objectNode.toString();
         }
     }
@@ -152,14 +155,14 @@ public class JobHistorySevice {
 
     @AllArgsConstructor
     @Data
-    private static final class JobStatusMapper {
+    public static final class JobStatusMapper {
         Long jobId;
         JobStatus jobStatus;
     }
 
     @AllArgsConstructor
     @Data
-    private static final class JobStateMapper {
+    public static final class JobStateMapper {
         Long jobId;
         JobStatus jobStatus;
         Map<PipelineLocation, PipelineStateMapper> pipelineStateMapperMap;
@@ -167,7 +170,7 @@ public class JobHistorySevice {
 
     @AllArgsConstructor
     @Data
-    private static final class PipelineStateMapper {
+    public static final class PipelineStateMapper {
         PipelineStatus pipelineStatus;
         Map<TaskGroupLocation, ExecutionState> executionStateMap;
     }

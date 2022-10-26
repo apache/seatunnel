@@ -68,7 +68,7 @@ public class GetJobStateOperation extends Operation implements IdentifiedDataSer
     public void run() {
         SeaTunnelServer service = getService();
         CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
-            return service.getCoordinatorService().jobHistorySevice.getJobStatus(jobId);
+            return service.getCoordinatorService().jobHistorySevice.getJobStatusAsString(jobId);
         });
 
         try {

@@ -378,8 +378,9 @@ public class CoordinatorService {
         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
         if (runningJobMaster == null) {
             // TODO Get Job Status from JobHistoryStorage
+            JobStatus jobStatus = jobHistorySevice.getJobStatus(jobId).getJobStatus();
             CompletableFuture<JobStatus> future = new CompletableFuture<>();
-            future.complete(JobStatus.FINISHED);
+            future.complete(jobStatus);
             return new PassiveCompletableFuture<>(future);
         } else {
             return runningJobMaster.getJobMasterCompleteFuture();
@@ -404,7 +405,7 @@ public class CoordinatorService {
         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
         if (runningJobMaster == null) {
             // TODO Get Job Status from JobHistoryStorage
-            return JobStatus.FINISHED;
+            return jobHistorySevice.getJobStatus(jobId).getJobStatus();
         }
         return runningJobMaster.getJobStatus();
     }
