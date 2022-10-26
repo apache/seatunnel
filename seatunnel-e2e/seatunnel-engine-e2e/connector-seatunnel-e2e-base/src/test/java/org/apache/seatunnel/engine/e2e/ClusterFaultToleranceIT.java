@@ -215,7 +215,7 @@ public class ClusterFaultToleranceIT {
                 return clientJobProxy.waitForJobComplete();
             });
 
-            Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(10, TimeUnit.MINUTES)
                 .untilAsserted(() -> {
                     Thread.sleep(2000);
                     System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
@@ -392,7 +392,7 @@ public class ClusterFaultToleranceIT {
             // shutdown on worker node
             node2.shutdown();
 
-            Awaitility.await().atMost(5, TimeUnit.MINUTES)
+            Awaitility.await().atMost(10, TimeUnit.MINUTES)
                 .untilAsserted(() -> {
                     // Wait job write all rows in file
                     Thread.sleep(2000);
