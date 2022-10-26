@@ -107,7 +107,7 @@ public class ClusterFaultToleranceIT {
                 return clientJobProxy.waitForJobComplete();
             });
 
-            Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
                     Thread.sleep(2000);
                     System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
@@ -379,7 +379,7 @@ public class ClusterFaultToleranceIT {
                 return clientJobProxy.waitForJobComplete();
             });
 
-            Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
                     // Wait some tasks commit finished, and we can get rows from the sink target dir
                     Thread.sleep(2000);
@@ -489,7 +489,7 @@ public class ClusterFaultToleranceIT {
             // shutdown master node
             node1.shutdown();
 
-            Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
 
