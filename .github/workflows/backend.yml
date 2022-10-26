@@ -79,62 +79,6 @@ jobs:
           [[ ${{ needs.code-style.result }} == 'success' ]] || exit 1;
           [[ ${{ needs.dead-link.result }} == 'success' ]] || exit 1;
 
-  build:
-    if: github.repository == 'apache/incubator-seatunnel'
-    name: Build
-    needs: [ sanity-check ]
-    strategy:
-      matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest', 'windows-latest' ]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 80
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
-      - uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: ${{ matrix.java }}
-          cache: 'maven'
-      - name: Build distribution tar
-        run: >-
-          ./mvnw -B install scalastyle:check
-          -D"maven.test.skip"=true
-          -D"checkstyle.skip"=true
-          -D"license.skipAddThirdParty"=true
-          -D"http.keepAlive"=false
-          -D"maven.wagon.http.pool"=false
-          -D"maven.wagon.http.retryHandler.count"=3
-          -D"maven.wagon.httpconnectionManager.ttlSeconds"=120
-
-  dependency-license:
-    if: github.repository == 'apache/incubator-seatunnel'
-    name: Dependency licenses
-    needs: [ sanity-check ]
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
-      - uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '8'
-          cache: 'maven'
-      - name: Install
-        run: >-
-          ./mvnw -B -q install -DskipTests
-          -D"maven.test.skip"=true
-          -D"maven.javadoc.skip"=true
-          -D"scalastyle.skip"=true
-          -D"checkstyle.skip"=true
-          -D"license.skipAddThirdParty"
-      - name: Check Dependencies Licenses
-        run: tools/dependencies/checkLicense.sh
-
   changes:
     runs-on: ubuntu-latest
     # To prevent error when there's no base branch
@@ -142,6 +86,7 @@ jobs:
     timeout-minutes: 10
     outputs:
       api: ${{ steps.filter.outputs.api }}
+      engine: ${{ steps.filter.outputs.engine }}
       ut-modules: ${{ steps.ut-modules.outputs.modules }}
       it-modules: ${{ steps.it-modules.outputs.modules }}
     steps:
@@ -265,6 +210,32 @@ jobs:
           modules=${modules: 1}
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT
+
+  dependency-license:
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    name: Dependency licenses
+    needs: [ changes, sanity-check ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '8'
+          cache: 'maven'
+      - name: Install
+        run: >-
+          ./mvnw -B -q install -DskipTests
+          -D"maven.test.skip"=true
+          -D"maven.javadoc.skip"=true
+          -D"scalastyle.skip"=true
+          -D"checkstyle.skip"=true
+          -D"license.skipAddThirdParty"
+      - name: Check Dependencies Licenses
+        run: tools/dependencies/checkLicense.sh
 
   unit-test:
     needs: [ changes, sanity-check ]
