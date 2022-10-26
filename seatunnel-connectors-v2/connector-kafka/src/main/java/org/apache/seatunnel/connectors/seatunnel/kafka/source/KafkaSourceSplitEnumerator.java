@@ -94,7 +94,7 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
                 topicPartitionOffsets = listConsumerGroupOffsets(topicPartitions);
                 break;
             case LATEST:
-                topicPartitionOffsets = listOffsets(topicPartitions, OffsetSpec.earliest());
+                topicPartitionOffsets = listOffsets(topicPartitions, OffsetSpec.latest());
                 break;
             case TIMESTAMP:
                 topicPartitionOffsets = listOffsets(topicPartitions, OffsetSpec.forTimestamp(metadata.getStartOffsetsTimestamp()));
@@ -130,7 +130,7 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
     private Map<TopicPartition, ? extends KafkaSourceSplit> convertToNextSplit(List<KafkaSourceSplit> splits) {
         try {
             Map<TopicPartition, Long> listOffsets =
-                listOffsets(splits.stream().map(KafkaSourceSplit::getTopicPartition).collect(Collectors.toList()), OffsetSpec.earliest());
+                listOffsets(splits.stream().map(KafkaSourceSplit::getTopicPartition).collect(Collectors.toList()), OffsetSpec.latest());
             splits.forEach(split -> {
                 split.setStartOffset(split.getEndOffset() + 1);
                 split.setEndOffset(listOffsets.get(split.getTopicPartition()));
