@@ -24,10 +24,14 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.seatunnel.google.sheets.config.SheetsConfig;
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.config.SheetsParameters;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
@@ -51,6 +55,10 @@ public class SheetsSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
+        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, SheetsConfig.SERVICE_ACCOUNT_KEY, SheetsConfig.SHEET_ID, SheetsConfig.SHEET_NAME, SheetsConfig.RANGE, SheetsConfig.HEADERS, SeaTunnelSchema.SCHEMA);
+        if (!checkResult.isSuccess()) {
+            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, checkResult.getMsg());
+        }
         this.sheetsParameters = new SheetsParameters().buildWithConfig(pluginConfig);
         if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA)) {
             Config schema = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA);
