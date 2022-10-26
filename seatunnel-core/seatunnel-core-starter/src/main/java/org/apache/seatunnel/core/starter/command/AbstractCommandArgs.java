@@ -29,8 +29,7 @@ import java.util.List;
 public abstract class AbstractCommandArgs implements CommandArgs {
 
     @Parameter(names = {"-c", "--config"},
-        description = "Config file",
-        required = true)
+        description = "Config file")
     private String configFile;
 
     @Parameter(names = {"-i", "--variable"},

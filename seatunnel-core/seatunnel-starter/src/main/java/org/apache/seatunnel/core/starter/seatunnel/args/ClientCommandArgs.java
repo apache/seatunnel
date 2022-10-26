@@ -41,6 +41,14 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         description = "The name of cluster")
     private String clusterName = "seatunnel_default_cluster";
 
+    @Parameter(names = {"-j", "--job-state"},
+        description = "The id of jobId")
+    private String jobId;
+
+    @Parameter(names = {"-l", "--list"},
+        description = "list job status")
+    private boolean listJob = false;
+
     public String getClusterName() {
         return clusterName;
     }
@@ -63,6 +71,14 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
     public void setExecutionMode(ExecutionMode executionMode) {
         this.executionMode = executionMode;
+    }
+
+    public String getJobId() {
+        return jobId;
+    }
+
+    public boolean isListJob(){
+        return listJob;
     }
 
     @Override

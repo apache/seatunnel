@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.master.JobHistorySevice;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
@@ -62,6 +63,8 @@ public class CoordinatorService {
     private final ILogger logger;
 
     private volatile ResourceManager resourceManager;
+
+    public JobHistorySevice jobHistorySevice;
 
     /**
      * IMap key is jobId and value is {@link RunningJobInfo}.
@@ -133,6 +136,13 @@ public class CoordinatorService {
         this.engineConfig = engineConfig;
         masterActiveListener = Executors.newSingleThreadScheduledExecutor();
         masterActiveListener.scheduleAtFixedRate(this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
+
+        jobHistorySevice = new JobHistorySevice(
+            nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE),
+            logger,
+            runningJobMasterMap,
+            nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE)
+        );
     }
 
     public JobMaster getJobMaster(Long jobId) {
@@ -243,6 +253,7 @@ public class CoordinatorService {
                     jobMaster.run();
                 } finally {
                     // storage job state info to HistoryStorage
+                    jobHistorySevice.storeFinishedJobState(jobMaster);
                     removeJobIMap(jobMaster);
                     runningJobMasterMap.remove(jobId);
                 }
@@ -332,6 +343,7 @@ public class CoordinatorService {
                 jobMaster.run();
             } finally {
                 // storage job state info to HistoryStorage
+                jobHistorySevice.storeFinishedJobState(jobMaster);
                 removeJobIMap(jobMaster);
                 runningJobMasterMap.remove(jobId);
             }
