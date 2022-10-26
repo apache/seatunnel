@@ -296,7 +296,7 @@ public class ClusterFaultToleranceIT {
                 return clientJobProxy.waitForJobComplete();
             });
 
-            Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
                     // Wait some tasks commit finished
                     Thread.sleep(2000);
@@ -560,7 +560,7 @@ public class ClusterFaultToleranceIT {
                 return clientJobProxy.waitForJobComplete();
             });
 
-            Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
                     // Wait some tasks commit finished, and we can get rows from the sink target dir
                     Thread.sleep(2000);
