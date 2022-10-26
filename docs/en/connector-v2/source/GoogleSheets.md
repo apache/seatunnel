@@ -14,8 +14,7 @@ Used to read data from GoogleSheets.
 | sheet_id            | string       | yes      | -             |
 | sheet_name          | string       | yes      | -             |
 | headers             | List<String> | yes      | -             |
-| schema              | config       | No       | -             |
-
+| schema              | config       | yes      | -             |
 
 ### service_account_key [string]
 
