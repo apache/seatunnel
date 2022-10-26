@@ -19,7 +19,7 @@ Used to write data to Redis.
 | port           | int    | yes      | -             |
 | key            | string | yes      | -             |
 | data_type      | string | yes      | -             |
-| user           | string | yes      | -             |
+| user           | string | no       | -             |
 | auth           | string | no       | -             |
 | mode           | string | no       | -             |
 | format         | string | no       | json          |
