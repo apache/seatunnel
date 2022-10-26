@@ -144,7 +144,6 @@ public class ClusterFaultToleranceIT {
      * @param jobMode      jobMode
      * @param rowNumber    row.num per FakeSource parallelism
      * @param parallelism  FakeSource parallelism
-     * @return
      */
     private ImmutablePair<String, String> createTestResources(@NonNull String testCaseName, @NonNull JobMode jobMode,
                                                               long rowNumber, int parallelism) {
@@ -393,7 +392,7 @@ public class ClusterFaultToleranceIT {
             // shutdown on worker node
             node2.shutdown();
 
-            Awaitility.await().atMost(180000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(5, TimeUnit.MINUTES)
                 .untilAsserted(() -> {
                     // Wait job write all rows in file
                     Thread.sleep(2000);
