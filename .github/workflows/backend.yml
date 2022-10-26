@@ -142,12 +142,6 @@ jobs:
     timeout-minutes: 10
     outputs:
       api: ${{ steps.filter.outputs.api }}
-      engine: ${{ steps.filter.outputs.engine }}
-      engine-e2e: ${{ steps.filter.outputs.engine-e2e }}
-      cv2: ${{ steps.filter.outputs.cv2 }}
-      cv2-flink-e2e: ${{ steps.filter.outputs.cv2-flink-e2e }}
-      cv2-spark-e2e: ${{ steps.filter.outputs.cv2-spark-e2e }}
-      cv2-e2e: ${{ steps.filter.outputs.cv2-e2e }}
       ut-modules: ${{ steps.ut-modules.outputs.modules }}
       it-modules: ${{ steps.it-modules.outputs.modules }}
     steps:
