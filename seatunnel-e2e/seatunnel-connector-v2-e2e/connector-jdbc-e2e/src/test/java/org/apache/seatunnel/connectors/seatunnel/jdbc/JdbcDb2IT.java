@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.Db2Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -85,7 +86,7 @@ public class JdbcDb2IT extends TestSuiteBase implements TestResource {
             .withDatabaseName(DATABASE)
             .withUsername(USER)
             .withPassword(PASSWORD)
-            .withLogConsumer(new Slf4jLogConsumer(LOG))
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
             .acceptLicense();
         db2.setPortBindings(Lists.newArrayList(String.format("%s:%s", LOCAL_PORT, PORT)));
         jdbcUrl = String.format("jdbc:db2://%s:%s/%s", db2.getHost(), LOCAL_PORT, DATABASE);
