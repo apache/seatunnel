@@ -37,7 +37,7 @@
         <module>connector-neo4j-spark-e2e</module>
         <module>connector-kafka-spark-e2e</module>
         <module>connector-influxdb-spark-e2e</module>
-<!--        <module>connector-iceberg-spark-e2e</module>-->
+        <module>connector-iceberg-spark-e2e</module>
     </modules>
 
     <dependencies>
