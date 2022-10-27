@@ -79,62 +79,6 @@ jobs:
           [[ ${{ needs.code-style.result }} == 'success' ]] || exit 1;
           [[ ${{ needs.dead-link.result }} == 'success' ]] || exit 1;
 
-  build:
-    if: github.repository == 'apache/incubator-seatunnel'
-    name: Build
-    needs: [ sanity-check ]
-    strategy:
-      matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest', 'windows-latest' ]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 80
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
-      - uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: ${{ matrix.java }}
-          cache: 'maven'
-      - name: Build distribution tar
-        run: >-
-          ./mvnw -B install scalastyle:check
-          -D"maven.test.skip"=true
-          -D"checkstyle.skip"=true
-          -D"license.skipAddThirdParty"=true
-          -D"http.keepAlive"=false
-          -D"maven.wagon.http.pool"=false
-          -D"maven.wagon.http.retryHandler.count"=3
-          -D"maven.wagon.httpconnectionManager.ttlSeconds"=120
-
-  dependency-license:
-    if: github.repository == 'apache/incubator-seatunnel'
-    name: Dependency licenses
-    needs: [ sanity-check ]
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
-      - uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '8'
-          cache: 'maven'
-      - name: Install
-        run: >-
-          ./mvnw -B -q install -DskipTests
-          -D"maven.test.skip"=true
-          -D"maven.javadoc.skip"=true
-          -D"scalastyle.skip"=true
-          -D"checkstyle.skip"=true
-          -D"license.skipAddThirdParty"
-      - name: Check Dependencies Licenses
-        run: tools/dependencies/checkLicense.sh
-
   changes:
     runs-on: ubuntu-latest
     # To prevent error when there's no base branch
@@ -142,6 +86,7 @@ jobs:
     timeout-minutes: 10
     outputs:
       api: ${{ steps.filter.outputs.api }}
+      engine: ${{ steps.filter.outputs.engine }}
       ut-modules: ${{ steps.ut-modules.outputs.modules }}
       it-modules: ${{ steps.it-modules.outputs.modules }}
     steps:
@@ -170,29 +115,29 @@ jobs:
             cv2-e2e:
               - "seatunnel-e2e/seatunnel-connector-v2-e2e/**"
             api:
-              - "seatunnel-api"
-              - "seatunnel-apis"
-              - "seatunnel-common"
-              - "seatunnel-config"
-              - "seatunnel-connectors"
-              - "seatunnel-core"
-              - "seatunnel-dist"
-              - "seatunnel-e2e/seatunnel-e2e-common"
-              - "seatunnel-formats"
-              - "seatunnel-plugin-discovery"
-              - "seatunnel-transforms"
-              - "seatunnel-translation"
-              - "seatunnel-e2e/seatunnel-flink-e2e"
-              - "seatunnel-e2e/seatunnel-spark-e2e"
-              - "seatunnel-connectors"
+              - "seatunnel-api/**"
+              - "seatunnel-apis/**"
+              - "seatunnel-common/**"
+              - "seatunnel-config/**"
+              - "seatunnel-connectors/**"
+              - "seatunnel-core/**"
+              - "seatunnel-dist/**"
+              - "seatunnel-e2e/seatunnel-e2e-common/**"
+              - "seatunnel-formats/**"
+              - "seatunnel-plugin-discovery/**"
+              - "seatunnel-transforms/**"
+              - "seatunnel-translation/**"
+              - "seatunnel-e2e/seatunnel-flink-e2e/**"
+              - "seatunnel-e2e/seatunnel-spark-e2e/**"
+              - "seatunnel-connectors/**"
               - "plugin-mapping.properties"
               - "**/tools/**"
               - "pom.xml"
               - "**/workflows/**"
             engine:
-              - "seatunnel-engine"
+              - "seatunnel-engine/**"
             engine-e2e:
-              - "seatunnel-e2e/seatunnel-engine-e2e"
+              - "seatunnel-e2e/seatunnel-engine-e2e/**"
 
       - name: Check Connector V2 Update
         id: cv2-modules
@@ -266,6 +211,32 @@ jobs:
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT
 
+  dependency-license:
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    name: Dependency licenses
+    needs: [ changes, sanity-check ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '8'
+          cache: 'maven'
+      - name: Install
+        run: >-
+          ./mvnw -B -q install -DskipTests
+          -D"maven.test.skip"=true
+          -D"maven.javadoc.skip"=true
+          -D"scalastyle.skip"=true
+          -D"checkstyle.skip"=true
+          -D"license.skipAddThirdParty"
+      - name: Check Dependencies Licenses
+        run: tools/dependencies/checkLicense.sh
+
   unit-test:
     needs: [ changes, sanity-check ]
     runs-on: ${{ matrix.os }}
@@ -290,7 +261,7 @@ jobs:
           MAVEN_OPTS: -Xmx2048m
 
       - name: run updated modules unit test
-        if: needs.changes.outputs.api == 'false'
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != ''
         run: |
           ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.ut-modules}} -am -amd -Pno_dist
         env:
