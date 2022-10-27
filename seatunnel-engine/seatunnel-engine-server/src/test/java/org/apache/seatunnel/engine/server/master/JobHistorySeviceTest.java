@@ -55,13 +55,13 @@ class JobHistorySeviceTest extends AbstractSeaTunnelServerTest {
         // waiting for JOB_1 status turn to FINISHED
         await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertTrue(
-                server.getCoordinatorService().jobHistorySevice.listAllJob().contains(String.format("{\"jobId\":%s,\"jobStatus\":\"RUNNING\"}", JOB_1))));
+                server.getCoordinatorService().jobHistorySevice.listAllJob().contains(String.format("{\"jobId\":%s,\"jobStatus\":\"FINISHED\"}", JOB_1))));
 
         startJob(JOB_2, "fake_to_console.conf");
         // waiting for JOB_2 status turn to FINISHED and JOB_2 status turn to RUNNING
         await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertTrue(
-                server.getCoordinatorService().jobHistorySevice.listAllJob().contains(String.format("{\"jobId\":%s,\"jobStatus\":\"RUNNING\"}", JOB_1))
+                server.getCoordinatorService().jobHistorySevice.listAllJob().contains(String.format("{\"jobId\":%s,\"jobStatus\":\"FINISHED\"}", JOB_1))
                 &&
                     server.getCoordinatorService().jobHistorySevice.listAllJob().contains(String.format("{\"jobId\":%s,\"jobStatus\":\"RUNNING\"}", JOB_2))
             ));

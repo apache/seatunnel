@@ -34,6 +34,7 @@ import com.hazelcast.map.IMap;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -155,14 +156,14 @@ public class JobHistorySevice {
 
     @AllArgsConstructor
     @Data
-    public static final class JobStatusMapper {
+    public static final class JobStatusMapper implements Serializable {
         Long jobId;
         JobStatus jobStatus;
     }
 
     @AllArgsConstructor
     @Data
-    public static final class JobStateMapper {
+    public static final class JobStateMapper implements Serializable{
         Long jobId;
         JobStatus jobStatus;
         Map<PipelineLocation, PipelineStateMapper> pipelineStateMapperMap;
@@ -170,7 +171,7 @@ public class JobHistorySevice {
 
     @AllArgsConstructor
     @Data
-    public static final class PipelineStateMapper {
+    public static final class PipelineStateMapper implements Serializable{
         PipelineStatus pipelineStatus;
         Map<TaskGroupLocation, ExecutionState> executionStateMap;
     }
