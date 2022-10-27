@@ -239,6 +239,7 @@ jobs:
 
   unit-test:
     needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true' || (needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != '')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
