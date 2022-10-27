@@ -23,7 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsOptions;
+import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.TopicPartition;
@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -70,66 +71,32 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
         this(metadata, context);
     }
 
+    KafkaSourceSplitEnumerator(ConsumerMetadata metadata, Context<KafkaSourceSplit> context,
+                               long discoveryIntervalMillis) {
+        this(metadata, context);
+        this.discoveryIntervalMillis = discoveryIntervalMillis;
+    }
+
     @Override
     public void open() {
         this.adminClient = initAdminClient(this.metadata.getProperties());
-        ParallelSource parallelSource = context.getParallelSource();
         if (discoveryIntervalMillis > 0) {
-            Thread discoveryThread = new Thread(() -> {
-                while (parallelSource.isRunning()) {
+            this.executor = Executors.newScheduledThreadPool(1);
+            this.scheduledFuture = executor.scheduleWithFixedDelay(
+                () -> {
                     try {
-                        run();
+                        discoverySplits();
                     } catch (Exception e) {
-                        try {
-                            parallelSource.close();
-                        } catch (IOException ex) {
-                            throw new RuntimeException(ex);
-                        }
-                        throw new RuntimeException("Kafka Partition Discovery Task Failed ID" + context.getSubtaskId(), e);
+                        log.error("Dynamic discovery failure:", e);
                     }
-                    try {
-                        Thread.sleep(discoveryIntervalMillis);
-                    } catch (InterruptedException e) {
-                        break;
-                    }
-                }
-            }, "Kafka Partition Discovery Task ID " + context.getSubtaskId());
-            discoveryThread.start();
+                }, discoveryIntervalMillis, discoveryIntervalMillis, TimeUnit.MILLISECONDS
+            );
         }
     }
 
     @Override
     public void run() throws ExecutionException, InterruptedException {
         discoverySplits();
-    }
-
-    private void setPartitionStartOffset() throws ExecutionException, InterruptedException {
-        Collection<TopicPartition> topicPartitions = pendingSplit.keySet();
-        Map<TopicPartition, Long> topicPartitionOffsets = null;
-        switch (metadata.getStartMode()) {
-            case EARLIEST:
-                topicPartitionOffsets = listOffsets(topicPartitions, OffsetSpec.earliest());
-                break;
-            case GROUP_OFFSETS:
-                topicPartitionOffsets = listConsumerGroupOffsets(topicPartitions);
-                break;
-            case LATEST:
-                topicPartitionOffsets = listOffsets(topicPartitions, OffsetSpec.latest());
-                break;
-            case TIMESTAMP:
-                topicPartitionOffsets = listOffsets(topicPartitions, OffsetSpec.forTimestamp(metadata.getStartOffsetsTimestamp()));
-                break;
-            case SPECIFIC_OFFSETS:
-                topicPartitionOffsets = metadata.getSpecificStartOffsets();
-                break;
-            default:
-                break;
-        }
-        topicPartitionOffsets.entrySet().forEach(entry -> {
-            if (pendingSplit.containsKey(entry.getKey())) {
-                pendingSplit.get(entry.getKey()).setStartOffset(entry.getValue());
-            }
-        });
     }
 
     @Override
@@ -148,20 +115,20 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
     @Override
     public void addSplitsBack(List<KafkaSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
-            pendingSplit.putAll(convertToNextSplit(splits));
+            pendingSplit.addAll(convertToNextSplit(splits));
             assignSplit();
         }
     }
 
-    private Map<TopicPartition, ? extends KafkaSourceSplit> convertToNextSplit(List<KafkaSourceSplit> splits) {
+    private Collection<? extends KafkaSourceSplit> convertToNextSplit(List<KafkaSourceSplit> splits) {
         try {
-            Map<TopicPartition, Long> listOffsets =
-                listOffsets(splits.stream().map(KafkaSourceSplit::getTopicPartition).collect(Collectors.toList()), OffsetSpec.latest());
+            Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> listOffsets =
+                getKafkaPartitionLatestOffset(splits.stream().map(KafkaSourceSplit::getTopicPartition).collect(Collectors.toList()));
             splits.forEach(split -> {
                 split.setStartOffset(split.getEndOffset() + 1);
-                split.setEndOffset(listOffsets.get(split.getTopicPartition()));
+                split.setEndOffset(listOffsets.get(split.getTopicPartition()).offset());
             });
-            return splits.stream().collect(Collectors.toMap(split -> split.getTopicPartition(), split -> split));
+            return splits;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -186,7 +153,7 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
 
     @Override
     public KafkaSourceState snapshotState(long checkpointId) throws Exception {
-        return new KafkaSourceState(assignedSplit.values().stream().collect(Collectors.toSet()));
+        return new KafkaSourceState(assignedSplit);
     }
 
     @Override
@@ -215,12 +182,16 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
         Collection<TopicPartition> partitions =
             adminClient.describeTopics(topics).all().get().values().stream().flatMap(t -> t.partitions().stream()
                 .map(p -> new TopicPartition(t.name(), p.partition()))).collect(Collectors.toSet());
-        Map<TopicPartition, Long> latestOffsets = listOffsets(partitions, OffsetSpec.latest());
-        return partitions.stream().map(partition -> {
-            KafkaSourceSplit split = new KafkaSourceSplit(partition);
-            split.setEndOffset(latestOffsets.get(split.getTopicPartition()));
+        return getKafkaPartitionLatestOffset(partitions).entrySet().stream().map(partition -> {
+            KafkaSourceSplit split = new KafkaSourceSplit(partition.getKey());
+            split.setEndOffset(partition.getValue().offset());
             return split;
         }).collect(Collectors.toSet());
+    }
+
+    private Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> getKafkaPartitionLatestOffset(Collection<TopicPartition> partitions) throws InterruptedException, ExecutionException {
+        return adminClient.listOffsets(partitions.stream().collect(Collectors.toMap(p -> p, p -> OffsetSpec.latest())))
+            .all().get();
     }
 
     private void assignSplit() {
@@ -229,16 +200,16 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
             readySplit.computeIfAbsent(taskID, id -> new ArrayList<>());
         }
 
-        pendingSplit.entrySet().forEach(s -> {
-            if (!assignedSplit.containsKey(s.getKey())) {
-                readySplit.get(getSplitOwner(s.getKey(), context.currentParallelism()))
-                    .add(s.getValue());
+        pendingSplit.forEach(s -> {
+            if (!assignedSplit.contains(s)) {
+                readySplit.get(getSplitOwner(s.getTopicPartition(), context.currentParallelism()))
+                    .add(s);
             }
         });
 
         readySplit.forEach(context::assignSplit);
 
-        assignedSplit.putAll(pendingSplit);
+        assignedSplit.addAll(pendingSplit);
         pendingSplit.clear();
     }
 
@@ -246,44 +217,6 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
     private static int getSplitOwner(TopicPartition tp, int numReaders) {
         int startIndex = ((tp.topic().hashCode() * 31) & 0x7FFFFFFF) % numReaders;
         return (startIndex + tp.partition()) % numReaders;
-    }
-
-    private Map<TopicPartition, Long> listOffsets(Collection<TopicPartition> partitions, OffsetSpec offsetSpec) throws ExecutionException, InterruptedException {
-        Map<TopicPartition, OffsetSpec> topicPartitionOffsets = partitions.stream().collect(Collectors.toMap(partition -> partition, __ -> offsetSpec));
-
-        return adminClient.listOffsets(topicPartitionOffsets).all()
-            .thenApply(
-                result -> {
-                    Map<TopicPartition, Long>
-                        offsets = new HashMap<>();
-                    result.forEach(
-                        (tp, offsetsResultInfo) -> {
-                            if (offsetsResultInfo != null) {
-                                offsets.put(tp, offsetsResultInfo.offset());
-                            }
-                        });
-                    return offsets;
-                })
-            .get();
-    }
-
-    public Map<TopicPartition, Long> listConsumerGroupOffsets(Collection<TopicPartition> partitions) throws ExecutionException, InterruptedException {
-        ListConsumerGroupOffsetsOptions options = new ListConsumerGroupOffsetsOptions().topicPartitions(new ArrayList<>(partitions));
-        return adminClient
-            .listConsumerGroupOffsets(metadata.getConsumerGroup(), options)
-            .partitionsToOffsetAndMetadata()
-            .thenApply(
-                result -> {
-                    Map<TopicPartition, Long> offsets = new HashMap<>();
-                    result.forEach(
-                        (tp, oam) -> {
-                            if (oam != null) {
-                                offsets.put(tp, oam.offset());
-                            }
-                        });
-                    return offsets;
-                })
-            .get();
     }
 
     private synchronized void discoverySplits() throws ExecutionException, InterruptedException {
