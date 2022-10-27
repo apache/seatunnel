@@ -47,6 +47,5 @@ public class Constant {
     public static final String IMAP_STATE_TIMESTAMPS = "stateTimestamps";
 
     public static final String IMAP_OWNED_SLOT_PROFILES = "ownedSlotProfilesIMap";
-
     public static final String IMAP_RESOURCE_MANAGER_REGISTER_WORKER = "ResourceManager_RegisterWorker";
 }
