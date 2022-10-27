@@ -13,7 +13,7 @@ Used to read data from GoogleSheets.
 | service_account_key | string       | yes      | -             |
 | sheet_id            | string       | yes      | -             |
 | sheet_name          | string       | yes      | -             |
-| headers             | List<String> | yes      | -             |
+| headers             | array        | yes      | -             |
 | schema              | config       | yes      | -             |
 
 ### service_account_key [string]
@@ -28,13 +28,13 @@ sheet id in a Google Sheets URL
 
 the name of the sheet you want to import
 
-### headers [string]
+### headers [array]
 
 as column name
 
-### schema [Config]
+### schema [config]
 
-#### fields [Config]
+#### fields [config]
 
 the schema fields of upstream data
 
