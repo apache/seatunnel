@@ -33,7 +33,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class IcebergCatalogFactory implements Serializable {
-
     private static final long serialVersionUID = -6003040601422350869L;
 
     private final String catalogName;
