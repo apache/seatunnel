@@ -43,7 +43,6 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class LocalFileStorage extends AbstractCheckpointStorage {
-
     private static final String[] FILE_EXTENSIONS = new String[]{FILE_FORMAT};
 
     private static final String DEFAULT_WINDOWS_OS_NAME_SPACE = "C:\\ProgramData\\seatunnel\\checkpoint\\";

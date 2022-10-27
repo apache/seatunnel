@@ -29,7 +29,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class JdbcGbse8adbIT extends AbstractJdbcIT {
-
     private static final String DOCKER_IMAGE = "shihd/gbase8a:1.0";
     private static final String NETWORK_ALIASES = "e2e_gbase8aDb";
     private static final String DRIVER_CLASS = "com.gbase.jdbc.Driver";

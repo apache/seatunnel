@@ -52,7 +52,6 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 public class ClusterFaultToleranceIT {
-
     public static final String DYNAMIC_TEST_CASE_NAME = "dynamic_test_case_name";
 
     public static final String DYNAMIC_JOB_MODE = "dynamic_job_mode";
