@@ -19,18 +19,17 @@ package org.apache.seatunnel.connectors.seatunnel.iotdb.state;
 
 import org.apache.seatunnel.connectors.seatunnel.iotdb.source.IoTDBSourceSplit;
 
-import java.io.Serializable;
-import java.util.Set;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
+import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
+
+@AllArgsConstructor
+@Getter
 public class IoTDBSourceState implements Serializable {
 
-    private Set<IoTDBSourceSplit> assignedSplit;
-
-    public IoTDBSourceState(Set<IoTDBSourceSplit> assignedSplit) {
-        this.assignedSplit = assignedSplit;
-    }
-
-    public Set<IoTDBSourceSplit> getAssignedSplit() {
-        return assignedSplit;
-    }
+    private boolean shouldEnumerate;
+    private Map<Integer, List<IoTDBSourceSplit>> pendingSplit;
 }

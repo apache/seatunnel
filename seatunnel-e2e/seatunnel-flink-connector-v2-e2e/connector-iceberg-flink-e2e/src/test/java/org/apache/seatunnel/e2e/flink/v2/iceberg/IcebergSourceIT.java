@@ -103,7 +103,7 @@ public class IcebergSourceIT extends FlinkContainer {
     @Test
     public void testIcebergSource() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/iceberg/iceberg_source.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
     private void initializeIcebergTable() {

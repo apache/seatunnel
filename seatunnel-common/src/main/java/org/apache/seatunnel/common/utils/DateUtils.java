@@ -52,5 +52,16 @@ public class DateUtils {
         public String getValue() {
             return value;
         }
+
+        public static Formatter parse(String format) {
+            Formatter[] formatters = Formatter.values();
+            for (Formatter formatter : formatters) {
+                if (formatter.getValue().equals(format)) {
+                    return formatter;
+                }
+            }
+            String errorMsg = String.format("Illegal format [%s]", format);
+            throw new IllegalArgumentException(errorMsg);
+        }
     }
 }

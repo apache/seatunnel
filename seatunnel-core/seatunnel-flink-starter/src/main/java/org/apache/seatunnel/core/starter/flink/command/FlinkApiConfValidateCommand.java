@@ -24,17 +24,15 @@ import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.flink.config.FlinkApiConfigChecker;
 import org.apache.seatunnel.core.starter.utils.FileUtils;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 
 /**
  * Use to validate the configuration of the SeaTunnel API.
  */
+@Slf4j
 public class FlinkApiConfValidateCommand implements Command<FlinkCommandArgs> {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkApiConfValidateCommand.class);
 
     private final FlinkCommandArgs flinkCommandArgs;
 
@@ -48,6 +46,6 @@ public class FlinkApiConfValidateCommand implements Command<FlinkCommandArgs> {
         // todo: validate the config by new api
         ConfigBuilder configBuilder = new ConfigBuilder(configPath);
         new FlinkApiConfigChecker().checkConfig(configBuilder.getConfig());
-        LOGGER.info("config OK !");
+        log.info("config OK !");
     }
 }

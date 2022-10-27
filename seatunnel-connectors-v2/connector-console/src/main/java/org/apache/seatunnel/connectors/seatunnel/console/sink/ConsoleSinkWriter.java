@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -34,9 +35,11 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final SeaTunnelRowType seaTunnelRowType;
     public static final AtomicLong CNT = new AtomicLong(0);
+    public SinkWriter.Context context;
 
-    public ConsoleSinkWriter(SeaTunnelRowType seaTunnelRowType) {
+    public ConsoleSinkWriter(SeaTunnelRowType seaTunnelRowType, SinkWriter.Context context) {
         this.seaTunnelRowType = seaTunnelRowType;
+        this.context = context;
         System.out.printf("fields : %s%n", StringUtils.join(seaTunnelRowType.getFieldNames(), ", "));
         System.out.printf("types : %s%n", StringUtils.join(seaTunnelRowType.getFieldTypes(), ", "));
     }
@@ -50,7 +53,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         for (int i = 0; i < fieldTypes.length; i++) {
             arr[i] = fieldToString(fieldTypes[i], fields[i]);
         }
-        System.out.format("row=%s : %s%n", CNT.incrementAndGet(), StringUtils.join(arr, ", "));
+        System.out.format("subtaskIndex=%s: row=%s : %s%n", context.getIndexOfSubtask(), CNT.incrementAndGet(), StringUtils.join(arr, ", "));
     }
 
     @Override

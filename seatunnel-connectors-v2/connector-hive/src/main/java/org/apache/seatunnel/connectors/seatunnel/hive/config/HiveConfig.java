@@ -42,6 +42,7 @@ public class HiveConfig {
         }
         HiveMetaStoreProxy hiveMetaStoreProxy = HiveMetaStoreProxy.getInstance(config);
         Table tableInformation = hiveMetaStoreProxy.getTable(splits[0], splits[1]);
+        hiveMetaStoreProxy.close();
         return Pair.of(splits, tableInformation);
     }
 }

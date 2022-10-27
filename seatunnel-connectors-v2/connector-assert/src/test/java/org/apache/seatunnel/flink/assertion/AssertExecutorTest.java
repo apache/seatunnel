@@ -67,21 +67,21 @@ public class AssertExecutorTest {
         rule.setFieldName("age");
         rule.setFieldType(BasicType.INT_TYPE);
 
-        List<AssertFieldRule.AssertValueRule> valueRules = Lists.newArrayList();
+        List<AssertFieldRule.AssertRule> valueRules = Lists.newArrayList();
 
-        AssertFieldRule.AssertValueRule valueRule = new AssertFieldRule.AssertValueRule();
-        valueRule.setFieldValueRuleType(AssertFieldRule.AssertValueRuleType.NOT_NULL);
-        AssertFieldRule.AssertValueRule valueRule1 = new AssertFieldRule.AssertValueRule();
-        valueRule1.setFieldValueRuleType(AssertFieldRule.AssertValueRuleType.MIN);
-        valueRule1.setFieldValueRuleValue(13.0);
-        AssertFieldRule.AssertValueRule valueRule2 = new AssertFieldRule.AssertValueRule();
-        valueRule2.setFieldValueRuleType(AssertFieldRule.AssertValueRuleType.MAX);
-        valueRule2.setFieldValueRuleValue(25.0);
+        AssertFieldRule.AssertRule valueRule = new AssertFieldRule.AssertRule();
+        valueRule.setRuleType(AssertFieldRule.AssertRuleType.NOT_NULL);
+        AssertFieldRule.AssertRule valueRule1 = new AssertFieldRule.AssertRule();
+        valueRule1.setRuleType(AssertFieldRule.AssertRuleType.MIN);
+        valueRule1.setRuleValue(13.0);
+        AssertFieldRule.AssertRule valueRule2 = new AssertFieldRule.AssertRule();
+        valueRule2.setRuleType(AssertFieldRule.AssertRuleType.MAX);
+        valueRule2.setRuleValue(25.0);
 
         valueRules.add(valueRule);
         valueRules.add(valueRule1);
         valueRules.add(valueRule2);
-        rule.setFieldValueRules(valueRules);
+        rule.setFieldRules(valueRules);
         return rule;
     }
 
@@ -90,21 +90,21 @@ public class AssertExecutorTest {
         rule.setFieldName("name");
         rule.setFieldType(BasicType.STRING_TYPE);
 
-        List<AssertFieldRule.AssertValueRule> valueRules = Lists.newArrayList();
+        List<AssertFieldRule.AssertRule> valueRules = Lists.newArrayList();
 
-        AssertFieldRule.AssertValueRule valueRule = new AssertFieldRule.AssertValueRule();
-        valueRule.setFieldValueRuleType(AssertFieldRule.AssertValueRuleType.NOT_NULL);
-        AssertFieldRule.AssertValueRule valueRule1 = new AssertFieldRule.AssertValueRule();
-        valueRule1.setFieldValueRuleType(AssertFieldRule.AssertValueRuleType.MIN_LENGTH);
-        valueRule1.setFieldValueRuleValue(3.0);
-        AssertFieldRule.AssertValueRule valueRule2 = new AssertFieldRule.AssertValueRule();
-        valueRule2.setFieldValueRuleType(AssertFieldRule.AssertValueRuleType.MAX_LENGTH);
-        valueRule2.setFieldValueRuleValue(5.0);
+        AssertFieldRule.AssertRule valueRule = new AssertFieldRule.AssertRule();
+        valueRule.setRuleType(AssertFieldRule.AssertRuleType.NOT_NULL);
+        AssertFieldRule.AssertRule valueRule1 = new AssertFieldRule.AssertRule();
+        valueRule1.setRuleType(AssertFieldRule.AssertRuleType.MIN_LENGTH);
+        valueRule1.setRuleValue(3.0);
+        AssertFieldRule.AssertRule valueRule2 = new AssertFieldRule.AssertRule();
+        valueRule2.setRuleType(AssertFieldRule.AssertRuleType.MAX_LENGTH);
+        valueRule2.setRuleValue(5.0);
 
         valueRules.add(valueRule);
         valueRules.add(valueRule1);
         valueRules.add(valueRule2);
-        rule.setFieldValueRules(valueRules);
+        rule.setFieldRules(valueRules);
         return rule;
     }
 }

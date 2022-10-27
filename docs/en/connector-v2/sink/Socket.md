@@ -14,11 +14,12 @@ Used to send data to Socket Server. Both support streaming and batch mode.
 
 ##  Options
 
-| name | type   | required | default value |
-| --- |--------|----------|---------------|
-| host | String | Yes       | -             |
-| port | Integer | yes      | -             |
-| max_retries | Integer | No       | 3             |
+| name           | type   | required | default value |
+| -------------- |--------|----------|---------------|
+| host           | String | Yes      | -             |
+| port           | Integer| yes      | -             |
+| max_retries    | Integer| No       | 3             |
+| common-options |        | no       | -             |
 
 ### host [string]
 socket server host
@@ -30,6 +31,10 @@ socket server port
 ### max_retries [integer]
 
 The number of retries to send record failed
+
+### common options
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
 
@@ -91,3 +96,9 @@ nc -l -v 9999
 ```text
 {"name":"jared","age":17}
 ```
+
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add Socket Sink Connector

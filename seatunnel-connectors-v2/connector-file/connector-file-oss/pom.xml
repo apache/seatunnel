@@ -40,11 +40,21 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-shaded-hadoop-2</artifactId>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <artifactId>avro</artifactId>
+                    <groupId>org.apache.avro</groupId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-aliyun</artifactId>
             <version>${hadoop-aliyun.version}</version>
         </dependency>
-
     </dependencies>
 
 </project>

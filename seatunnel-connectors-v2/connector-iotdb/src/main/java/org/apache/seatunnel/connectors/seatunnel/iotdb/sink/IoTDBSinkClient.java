@@ -124,14 +124,16 @@ public class IoTDBSinkClient {
         flush();
 
         try {
-            session.close();
+            if (session != null) {
+                session.close();
+            }
         } catch (IoTDBConnectionException e) {
             log.error("Close IoTDB client failed.", e);
             throw new IOException("Close IoTDB client failed.", e);
         }
     }
 
-    private synchronized void flush() throws IOException {
+    synchronized void flush() throws IOException {
         checkFlushException();
         if (batchList.isEmpty()) {
             return;

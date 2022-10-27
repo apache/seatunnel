@@ -17,9 +17,10 @@ Write data to Kudu.
 
 | name                     | type    | required | default value |
 |--------------------------|---------|----------|---------------|
-| kudu_master             | string  | yes      | -             |
+| kudu_master              | string  | yes      | -             |
 | kudu_table               | string  | yes      | -             |
-| save_mode               | string  | yes      | -             |
+| save_mode                | string  | yes      | -             |
+| common-options           |         | no       | -             |
 
 ### kudu_master [string]
 
@@ -33,6 +34,10 @@ Write data to Kudu.
 
 Storage mode, we need support `overwrite` and `append`. `append` is now supported.
 
+### common options
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
+
 ## Example
 
 ```bash
@@ -44,3 +49,12 @@ Storage mode, we need support `overwrite` and `append`. `append` is now supporte
    }
 
 ```
+
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add Kudu Sink Connector
+
+### 2.3.0-beta 2022-10-20
+- [Improve] Kudu Sink Connector Support to upsert row ([2881](https://github.com/apache/incubator-seatunnel/pull/2881))

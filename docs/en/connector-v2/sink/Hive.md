@@ -26,12 +26,13 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 | name                  | type   | required                                    | default value                                                 |
 |-----------------------| ------ |---------------------------------------------| ------------------------------------------------------------- |
-| table_name            | string | yes                                         | -                                                             |
-| metastore_uri         | string | yes                                         | -                                                             |
+| table_name            | string | yes                                         | -                                                              |
+| metastore_uri         | string | yes                                         | -                                                              |
 | partition_by          | array  | required if hive sink table have partitions | -                                                             |
 | sink_columns          | array  | no                                          | When this parameter is empty, all fields are sink columns     |
 | is_enable_transaction | boolean| no                                          | true                                                          |
 | save_mode             | string | no                                          | "append"                                                      |
+| common-options        |        | no                                  | -      |
 
 ### table_name [string]
 
@@ -61,6 +62,10 @@ Only support `true` now.
 Storage mode, we need support `overwrite` and `append`. `append` is now supported.
 
 Streaming Job not support `overwrite`.
+
+### common options
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
 
@@ -154,3 +159,12 @@ sink {
   }
 }
 ```
+
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add Hive Sink Connector
+
+### 2.3.0-beta 2022-10-20
+- [Improve] Hive Sink supports automatic partition repair ([3133](https://github.com/apache/incubator-seatunnel/pull/3133))

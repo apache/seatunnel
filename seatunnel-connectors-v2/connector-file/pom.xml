@@ -40,6 +40,8 @@
         <module>connector-file-oss</module>
         <module>connector-file-ftp</module>
         <module>connector-file-base-hadoop</module>
+        <module>connector-file-sftp</module>
+        <module>connector-file-s3</module>
     </modules>
 
     <build>
@@ -78,11 +80,6 @@
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>
-            <!-- make sure that flatten runs after maven-shade-plugin -->
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>flatten-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>

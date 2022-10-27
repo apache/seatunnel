@@ -29,4 +29,5 @@ public class PartitionParameter implements Serializable {
     String partitionColumnName;
     Long minValue;
     Long maxValue;
+    Integer partitionNumber;
 }

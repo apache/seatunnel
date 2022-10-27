@@ -25,10 +25,9 @@ import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -38,6 +37,8 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,9 +47,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
+@Slf4j
 public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractPluginDiscovery.class);
     private final Path pluginDir;
 
     /**
@@ -69,12 +70,12 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     public AbstractPluginDiscovery(String pluginSubDir, BiConsumer<ClassLoader, URL> addURLToClassloader) {
         this.pluginDir = Common.connectorJarDir(pluginSubDir);
         this.addURLToClassLoader = addURLToClassloader;
-        LOGGER.info("Load {} Plugin from {}", getPluginBaseClass().getSimpleName(), pluginDir);
+        log.info("Load {} Plugin from {}", getPluginBaseClass().getSimpleName(), pluginDir);
     }
 
     public AbstractPluginDiscovery(String pluginSubDir) {
         this.pluginDir = Common.connectorJarDir(pluginSubDir);
-        LOGGER.info("Load {} Plugin from {}", getPluginBaseClass().getSimpleName(), pluginDir);
+        log.info("Load {} Plugin from {}", getPluginBaseClass().getSimpleName(), pluginDir);
     }
 
     @Override
@@ -95,10 +96,15 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
     @Override
     public T createPluginInstance(PluginIdentifier pluginIdentifier) {
+        return (T) createPluginInstance(pluginIdentifier, Collections.EMPTY_LIST);
+    }
+
+    @Override
+    public T createPluginInstance(PluginIdentifier pluginIdentifier, Collection<URL> pluginJars) {
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         T pluginInstance = loadPluginInstance(pluginIdentifier, classLoader);
         if (pluginInstance != null) {
-            LOGGER.info("Load plugin: {} from classpath", pluginIdentifier);
+            log.info("Load plugin: {} from classpath", pluginIdentifier);
             return pluginInstance;
         }
         Optional<URL> pluginJarPath = getPluginJarPath(pluginIdentifier);
@@ -107,14 +113,23 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             try {
                 // use current thread classloader to avoid different classloader load same class error.
                 this.addURLToClassLoader.accept(classLoader, pluginJarPath.get());
+                for (URL jar : pluginJars) {
+                    addURLToClassLoader.accept(classLoader, jar);
+                }
             } catch (Exception e) {
-                LOGGER.warn("can't load jar use current thread classloader, use URLClassLoader instead now." +
+                log.warn("can't load jar use current thread classloader, use URLClassLoader instead now." +
                     " message: " + e.getMessage());
-                classLoader = new URLClassLoader(new URL[]{pluginJarPath.get()}, Thread.currentThread().getContextClassLoader());
+                URL[] urls = new URL[pluginJars.size() + 1];
+                int i = 0;
+                for (URL pluginJar : pluginJars) {
+                    urls[i++] = pluginJar;
+                }
+                urls[i] = pluginJarPath.get();
+                classLoader = new URLClassLoader(urls, Thread.currentThread().getContextClassLoader());
             }
             pluginInstance = loadPluginInstance(pluginIdentifier, classLoader);
             if (pluginInstance != null) {
-                LOGGER.info("Load plugin: {} from path: {} use classloader: {}",
+                log.info("Load plugin: {} from path: {} use classloader: {}",
                     pluginIdentifier, pluginJarPath.get(), classLoader.getClass().getName());
                 return pluginInstance;
             }
@@ -201,10 +216,10 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         }
         try {
             URL pluginJarPath = targetPluginFiles[0].toURI().toURL();
-            LOGGER.info("Discovery plugin jar: {} at: {}", pluginIdentifier.getPluginName(), pluginJarPath);
+            log.info("Discovery plugin jar: {} at: {}", pluginIdentifier.getPluginName(), pluginJarPath);
             return Optional.of(pluginJarPath);
         } catch (MalformedURLException e) {
-            LOGGER.warn("Cannot get plugin URL: " + targetPluginFiles[0], e);
+            log.warn("Cannot get plugin URL: " + targetPluginFiles[0], e);
             return Optional.empty();
         }
     }

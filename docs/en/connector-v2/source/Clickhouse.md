@@ -27,13 +27,14 @@ Reading data from Clickhouse can also be done using JDBC
 ## Options
 
 | name           | type   | required | default value |
-|----------------|--------|----------|---------------|
+| -------------- | ------ | -------- | ------------- |
 | host           | string | yes      | -             |
 | database       | string | yes      | -             |
 | sql            | string | yes      | -             |
 | username       | string | yes      | -             |
 | password       | string | yes      | -             |
-| common-options | string | yes      | -             |
+| schema         | config | No       | -             |
+| common-options |        | no       | -             |
 
 ### host [string]
 
@@ -55,7 +56,13 @@ The query sql used to search data though Clickhouse server
 
 `ClickHouse` user password
 
-### common options [string]
+### schema [Config]
+
+#### fields [Config]
+
+the schema fields of upstream data
+
+### common options 
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
@@ -75,3 +82,15 @@ source {
   
 }
 ```
+
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add ClickHouse Source Connector
+
+### 2.3.0-beta 2022-10-20
+
+- [Improve] Clickhouse Source random use host when config multi-host ([3108](https://github.com/apache/incubator-seatunnel/pull/3108))
+
+

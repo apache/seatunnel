@@ -60,7 +60,7 @@ public final class ContainerUtil {
                                                    String connectorPrefix,
                                                    String connectorType,
                                                    String seatunnelHome) {
-        Config jobConfig = getConfig(getConfigFile(confFile));
+        Config jobConfig = getConfig(getResourcesFile(confFile));
         Config connectorsMapping = getConfig(new File(PROJECT_ROOT_PATH + File.separator + PLUGIN_MAPPING_FILE));
         if (!connectorsMapping.hasPath(connectorType) || connectorsMapping.getConfig(connectorType).isEmpty()) {
             return;
@@ -74,39 +74,36 @@ public final class ContainerUtil {
         connectorFiles.forEach(jar ->
             container.copyFileToContainer(
                 MountableFile.forHostPath(jar.getAbsolutePath()),
-                Paths.get(Paths.get(seatunnelHome, "connectors").toString(), connectorType, jar.getName()).toString()));
+                Paths.get(seatunnelHome, "connectors", connectorType, jar.getName()).toString()));
     }
 
     public static String copyConfigFileToContainer(GenericContainer<?> container, String confFile) {
         final String targetConfInContainer = Paths.get("/tmp", confFile).toString();
-        container.copyFileToContainer(MountableFile.forHostPath(getConfigFile(confFile).getAbsolutePath()), targetConfInContainer);
+        container.copyFileToContainer(MountableFile.forHostPath(getResourcesFile(confFile).getAbsolutePath()), targetConfInContainer);
         return targetConfInContainer;
     }
 
-    public static void copySeaTunnelStarter(GenericContainer<?> container,
-                                            String startModuleName,
-                                            String startModulePath,
-                                            String seatunnelHomeInContainer,
-                                            String startShellName) {
+    public static void copySeaTunnelStarterToContainer(GenericContainer<?> container,
+                                                       String startModuleName,
+                                                       String startModulePath,
+                                                       String seatunnelHomeInContainer) {
         final String startJarName = startModuleName + ".jar";
         // copy lib
         final String startJarPath = startModulePath + File.separator + "target" + File.separator + startJarName;
         checkPathExist(startJarPath);
-        container.copyFileToContainer(
-            MountableFile.forHostPath(startJarPath),
-            Paths.get(Paths.get(seatunnelHomeInContainer, "lib").toString(), startJarName).toString());
+        // don't use container#withFileSystemBind, this isn't supported in Windows.
+        container.withCopyFileToContainer(MountableFile.forHostPath(startJarPath),
+            Paths.get(seatunnelHomeInContainer, "lib", startJarName).toString());
 
         // copy bin
-        final String startBinPath = startModulePath + File.separator + "src/main/bin/" + startShellName;
+        final String startBinPath = startModulePath + File.separator + "src/main/bin/";
         checkPathExist(startBinPath);
-        container.copyFileToContainer(
-            MountableFile.forHostPath(startBinPath),
-            Paths.get(Paths.get(seatunnelHomeInContainer, "bin").toString(), startShellName).toString());
+        container.withCopyFileToContainer(MountableFile.forHostPath(startBinPath),
+            Paths.get(seatunnelHomeInContainer, "bin").toString());
 
         // copy plugin-mapping.properties
-        container.copyFileToContainer(
-            MountableFile.forHostPath(PROJECT_ROOT_PATH + "/plugin-mapping.properties"),
-            Paths.get(Paths.get(seatunnelHomeInContainer, "connectors").toString(), PLUGIN_MAPPING_FILE).toString());
+        container.withCopyFileToContainer(MountableFile.forHostPath(PROJECT_ROOT_PATH + "/plugin-mapping.properties"),
+            Paths.get(seatunnelHomeInContainer, "connectors", PLUGIN_MAPPING_FILE).toString());
     }
 
     public static String adaptPathForWin(String path) {
@@ -158,7 +155,7 @@ public final class ContainerUtil {
         return Paths.get(System.getProperty("user.dir"));
     }
 
-    private static File getConfigFile(String confFile) {
+    public static File getResourcesFile(String confFile) {
         File file = new File(getCurrentModulePath() + "/src/test/resources" + confFile);
         if (file.exists()) {
             return file;
