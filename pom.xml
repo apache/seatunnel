@@ -87,7 +87,6 @@
         <module>seatunnel-translation</module>
         <module>seatunnel-plugin-discovery</module>
         <module>seatunnel-formats</module>
-        <module>seatunnel-dist</module>
         <module>seatunnel-engine</module>
     </modules>
 
@@ -104,6 +103,7 @@
             <modules>
                 <module>seatunnel-examples</module>
                 <module>seatunnel-e2e</module>
+                <module>seatunnel-dist</module>
             </modules>
         </profile>
         <profile>
@@ -112,6 +112,18 @@
                 <property>
                     <name>release</name>
                     <value>true</value>
+                </property>
+            </activation>
+            <modules>
+                <module>seatunnel-dist</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>no_dist</id>
+            <activation>
+                <property>
+                    <name>release</name>
+                    <value>false</value>
                 </property>
             </activation>
         </profile>
