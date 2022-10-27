@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   license-header:
-    if: github.repository == 'apache/incubator-seatunnel'
+    if: github.repository == 'EricJoy2048/incubator-seatunnel'
     name: License header
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -42,7 +42,7 @@ jobs:
         uses: apache/skywalking-eyes@985866ce7e324454f61e22eb2db2e998db09d6f3
 
   code-style:
-    if: github.repository == 'apache/incubator-seatunnel'
+    if: github.repository == 'EricJoy2048/incubator-seatunnel'
     name: Code style
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -54,7 +54,7 @@ jobs:
         run: ./mvnw --batch-mode --quiet --no-snapshot-updates clean checkstyle:check
 
   dead-link:
-    if: github.repository == 'apache/incubator-seatunnel'
+    if: github.repository == 'EricJoy2048/incubator-seatunnel'
     name: Dead links
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -67,7 +67,7 @@ jobs:
           done
 
   sanity-check:
-    if: github.repository == 'apache/incubator-seatunnel'
+    if: github.repository == 'EricJoy2048/incubator-seatunnel'
     name: Sanity check results
     needs: [ license-header, code-style, dead-link ]
     runs-on: ubuntu-latest
@@ -82,7 +82,7 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     # To prevent error when there's no base branch
-    if: github.repository == 'apache/incubator-seatunnel'
+    if: github.repository == 'EricJoy2048/incubator-seatunnel'
     timeout-minutes: 10
     outputs:
       api: ${{ steps.filter.outputs.api }}
@@ -156,7 +156,7 @@ jobs:
           modules=`python tools/update_modules_check/update_modules_check.py cv2-flink-e2e $update_files`
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT
-          
+
       - name: Check Spark Connector V2 E2E Update
         id: cv2-spark-e2e-modules
         if: ${{ steps.filter.outputs.cv2-spark-e2e == 'true' }}
@@ -165,7 +165,7 @@ jobs:
           modules=`python tools/update_modules_check/update_modules_check.py cv2-spark-e2e $update_files`
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT
-          
+
       - name: Check Connector V2 E2E Update
         id: cv2-e2e-modules
         if: ${{ steps.filter.outputs.cv2-e2e == 'true' }}
@@ -183,7 +183,7 @@ jobs:
           modules=`python tools/update_modules_check/update_modules_check.py engine $update_files`
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT
-          
+
       - name: Check Engine E2E Update
         id: engine-e2e-modules
         if: ${{ steps.filter.outputs.engine-e2e == 'true' }}
@@ -200,6 +200,9 @@ jobs:
           modules='${{ steps.engine-modules.outputs.modules }}${{ steps.cv2-modules.outputs.modules }}'
           modules=${modules: 1}
           echo $modules
+          includes=`python tools/update_modules_check/update_modules_check.py tree $modules`
+          ./mvnw -Pno_dist -D"e2e.dependency.skip"=false  dependency:tree $includes -DoutputType=text -DoutputFile=/tmp/tree_out.txt
+          modules=`python tools/update_modules_check/update_modules_check.py final /tmp/tree_out.txt`
           echo "modules=$modules" >> $GITHUB_OUTPUT
 
       - name: Make integration test modules
@@ -209,6 +212,9 @@ jobs:
           modules='${{ steps.cv2-e2e-modules.outputs.modules }}${{ steps.cv2-flink-e2e-modules.outputs.modules }}${{ steps.cv2-spark-e2e-modules.outputs.modules }}${{ steps.engine-e2e-modules.outputs.modules }}${{ steps.engine-modules.outputs.modules }}${{ steps.cv2-modules.outputs.modules }}'
           modules=${modules: 1}
           echo $modules
+          includes=`python tools/update_modules_check/update_modules_check.py tree $modules`
+          ./mvnw -Pno_dist -D"e2e.dependency.skip"=false  dependency:tree $includes -DoutputType=text -DoutputFile=/tmp/tree_out.txt
+          modules=`python tools/update_modules_check/update_modules_check.py final /tmp/tree_out.txt`
           echo "modules=$modules" >> $GITHUB_OUTPUT
 
   dependency-license:
@@ -239,6 +245,7 @@ jobs:
 
   unit-test:
     needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true' || (needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != '')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -261,7 +268,7 @@ jobs:
           MAVEN_OPTS: -Xmx2048m
 
       - name: run updated modules unit test
-        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != ""
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != ''
         run: |
           ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.ut-modules}} -am -amd -Pno_dist
         env:
