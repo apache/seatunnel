@@ -21,8 +21,7 @@ def get_cv2_modules(files):
     get_modules(files, 1, "connector-", "seatunnel-connectors-v2")
 
 def get_cv2_flink_e2e_modules(files):
-    flink_e2e_modules = get_modules(files, 2, "connector-", "seatunnel-e2e/seatunnel-flink-connector-v2-e2e")
-    flink_e2e_modules = flink_e2e_modules + ","
+    get_modules(files, 2, "connector-", "seatunnel-e2e/seatunnel-flink-connector-v2-e2e")
 
 def get_cv2_spark_e2e_modules(files):
     get_modules(files, 2, "connector-", "seatunnel-e2e/seatunnel-spark-connector-v2-e2e")
@@ -52,7 +51,7 @@ def get_modules(files, index, start_pre, root_module):
     else:
         output_module = root_module
 
-    return output_module
+    print(output_module)
 
 def main(argv):
     if argv[1] == "cv2":
