@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config;
 
+import org.apache.seatunnel.connectors.seatunnel.common.config.CommonConfig;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.AllArgsConstructor;
@@ -38,6 +40,8 @@ public class AmazondynamodbSourceOptions implements Serializable {
 
     private String query;
 
+    private Config schema;
+
     public AmazondynamodbSourceOptions(Config config) {
         if (config.hasPath(AmazondynamodbConfig.URL)) {
             this.url = config.getString(AmazondynamodbConfig.URL);
@@ -53,6 +57,9 @@ public class AmazondynamodbSourceOptions implements Serializable {
         }
         if (config.hasPath(AmazondynamodbConfig.QUERY)) {
             this.query = config.getString(AmazondynamodbConfig.QUERY);
+        }
+        if (config.hasPath(CommonConfig.SCHEMA)) {
+            this.schema = config.getConfig(CommonConfig.SCHEMA);
         }
     }
 }

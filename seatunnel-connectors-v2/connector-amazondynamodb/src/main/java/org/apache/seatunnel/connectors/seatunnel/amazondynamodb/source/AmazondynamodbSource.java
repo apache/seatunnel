@@ -24,31 +24,23 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazondynamodbSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.state.AmazonDynamodbSourceState;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.core.protocol.MarshallingType;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.DynamoDbResponseMetadata;
-import software.amazon.awssdk.services.dynamodb.model.ExecuteStatementRequest;
-import software.amazon.awssdk.services.dynamodb.model.ExecuteStatementResponse;
-
-import java.net.URI;
 
 @Slf4j
 @AutoService(SeaTunnelSource.class)
 public class AmazondynamodbSource implements SeaTunnelSource<SeaTunnelRow, AmazondynamodbSourceSplit, AmazonDynamodbSourceState> {
 
-    private DynamoDbClient dynamoDbClient;
-
     private AmazondynamodbSourceOptions amazondynamodbSourceOptions;
+
+    private SeaTunnelRowType typeInfo;
 
     @Override
     public String getPluginName() {
@@ -58,13 +50,7 @@ public class AmazondynamodbSource implements SeaTunnelSource<SeaTunnelRow, Amazo
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         amazondynamodbSourceOptions = new AmazondynamodbSourceOptions(pluginConfig);
-        dynamoDbClient = DynamoDbClient.builder()
-            .endpointOverride(URI.create(amazondynamodbSourceOptions.getUrl()))
-            // The region is meaningless for local DynamoDb but required for client builder validation
-            .region(Region.of(amazondynamodbSourceOptions.getRegion()))
-            .credentialsProvider(StaticCredentialsProvider.create(
-                AwsBasicCredentials.create(amazondynamodbSourceOptions.getAccessKeyId(), amazondynamodbSourceOptions.getSecretAccessKey())))
-            .build();
+
     }
 
     @Override
@@ -74,14 +60,14 @@ public class AmazondynamodbSource implements SeaTunnelSource<SeaTunnelRow, Amazo
 
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        ExecuteStatementResponse executeStatementResponse = dynamoDbClient.executeStatement(ExecuteStatementRequest.builder().statement(amazondynamodbSourceOptions.getQuery()).build());
-
-        return null;
+        Config schema = amazondynamodbSourceOptions.getSchema();
+        typeInfo = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
+        return this.typeInfo;
     }
 
     @Override
     public SourceReader<SeaTunnelRow, AmazondynamodbSourceSplit> createReader(SourceReader.Context readerContext) {
-        return new AmazondynamodbSourceReader(dynamoDbClient, readerContext, amazondynamodbSourceOptions);
+        return new AmazondynamodbSourceReader(readerContext, amazondynamodbSourceOptions);
     }
 
     @Override

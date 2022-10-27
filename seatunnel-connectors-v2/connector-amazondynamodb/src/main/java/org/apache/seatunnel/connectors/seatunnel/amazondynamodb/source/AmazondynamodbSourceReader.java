@@ -19,31 +19,57 @@ package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.source;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazondynamodbSourceOptions;
 
+import lombok.extern.slf4j.Slf4j;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.ExecuteStatementRequest;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 
 import java.io.IOException;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
+@Slf4j
 public class AmazondynamodbSourceReader implements SourceReader<SeaTunnelRow, AmazondynamodbSourceSplit> {
 
-    DynamoDbClient dynamoDbClient;
-    SourceReader.Context context;
-    ExecuteStatementRequest executeStatement;
-    AmazondynamodbSourceOptions amazondynamodbSourceOptions;
+    protected DynamoDbClient dynamoDbClient;
+    protected SourceReader.Context context;
+    protected AmazondynamodbSourceOptions amazondynamodbSourceOptions;
+    protected Deque<AmazondynamodbSourceSplit> splits = new LinkedList<>();
+    protected boolean noMoreSplit;
+    protected SeaTunnelRowType typeInfo;
 
-    public AmazondynamodbSourceReader(DynamoDbClient dynamoDbClient, SourceReader.Context context, AmazondynamodbSourceOptions amazondynamodbSourceOptions) {
-        this.dynamoDbClient = dynamoDbClient;
+    public AmazondynamodbSourceReader(SourceReader.Context context,
+                                      AmazondynamodbSourceOptions amazondynamodbSourceOptions,
+                                      SeaTunnelRowType typeInfo) {
         this.context = context;
         this.amazondynamodbSourceOptions = amazondynamodbSourceOptions;
+        this.typeInfo = typeInfo;
     }
 
     @Override
     public void open() throws Exception {
-        executeStatement = ExecuteStatementRequest.builder().statement(amazondynamodbSourceOptions.getQuery()).build();
+        dynamoDbClient = DynamoDbClient.builder()
+            .endpointOverride(URI.create(amazondynamodbSourceOptions.getUrl()))
+            // The region is meaningless for local DynamoDb but required for client builder validation
+            .region(Region.of(amazondynamodbSourceOptions.getRegion()))
+            .credentialsProvider(StaticCredentialsProvider.create(
+                AwsBasicCredentials.create(amazondynamodbSourceOptions.getAccessKeyId(), amazondynamodbSourceOptions.getSecretAccessKey())))
+            .build();
     }
 
     @Override
@@ -52,7 +78,25 @@ public class AmazondynamodbSourceReader implements SourceReader<SeaTunnelRow, Am
     }
 
     @Override
+    @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+        synchronized (output.getCheckpointLock()) {
+            AmazondynamodbSourceSplit split = splits.poll();
+            if (null != split) {
+                QueryResponse query = dynamoDbClient.query(QueryRequest.builder().build());
+                if (query.hasItems()) {
+                    query.items().forEach(item -> {
+                        output.collect(converterToRow(item, typeInfo));
+                    });
+                }
+            } else if (noMoreSplit) {
+                // signal to the source that we have reached the end of the data.
+                log.info("Closed the bounded amazondynamodb source");
+                context.signalNoMoreElement();
+            } else {
+                Thread.sleep(1000L);
+            }
+        }
     }
 
     @Override
@@ -62,16 +106,40 @@ public class AmazondynamodbSourceReader implements SourceReader<SeaTunnelRow, Am
 
     @Override
     public void addSplits(List<AmazondynamodbSourceSplit> splits) {
-
+        this.splits.addAll(splits);
     }
 
     @Override
     public void handleNoMoreSplits() {
-
+        noMoreSplit = true;
     }
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
 
+    }
+
+    private SeaTunnelRow converterToRow(Map<String, AttributeValue> item, SeaTunnelRowType typeInfo) {
+        List<Object> fields = new ArrayList<>();
+        SeaTunnelDataType<?>[] seaTunnelDataTypes = typeInfo.getFieldTypes();
+        String[] fieldNames = typeInfo.getFieldNames();
+        for (int i = 1; i <= seaTunnelDataTypes.length; i++) {
+            Object seatunnelField;
+            SeaTunnelDataType<?> seaTunnelDataType = seaTunnelDataTypes[i - 1];
+            AttributeValue attributeValue = item.get(fieldNames[i]);
+            if (attributeValue.nul()) {
+                seatunnelField = null;
+            } else if (BasicType.BOOLEAN_TYPE.equals(seaTunnelDataType)) {
+                seatunnelField = attributeValue.bool();
+            } else if (BasicType.BYTE_TYPE.equals(seaTunnelDataType)) {
+                seatunnelField = attributeValue.s().getBytes(StandardCharsets.UTF_8);
+            } else {
+                throw new IllegalStateException("Unexpected value: " + seaTunnelDataType);
+            }
+
+            fields.add(seatunnelField);
+        }
+
+        return new SeaTunnelRow(fields.toArray());
     }
 }

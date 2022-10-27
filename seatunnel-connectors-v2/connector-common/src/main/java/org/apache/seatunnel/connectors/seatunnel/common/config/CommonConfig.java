@@ -15,14 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config;
+package org.apache.seatunnel.connectors.seatunnel.common.config;
 
-import java.io.Serializable;
-
-public class AmazondynamodbConfig implements Serializable {
-    public static final String URL = "url";
-    public static final String REGION = "region";
-    public static final String ACCESS_KEY_ID = "accessKeyId";
-    public static final String SECRET_ACCESS_KEY = "secretAccessKey";
-    public static final String QUERY = "query";
+public class CommonConfig {
+    public static final String SCHEMA = "schema";
 }
