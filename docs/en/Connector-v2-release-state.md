@@ -22,13 +22,13 @@ SeaTunnel uses a grading system for connectors to help you understand what to ex
 | [Email](connector-v2/sink/Email.md)                         | Sink   | Alpha  | 2.2.0-beta      |
 | [Enterprise WeChat](connector-v2/sink/Enterprise-WeChat.md) | Sink   | Alpha  | 2.2.0-beta      |
 | [FeiShu](connector-v2/sink/Feishu.md)                       | Sink   | Alpha  | 2.2.0-beta      |
-| [Fake](connector-v2/source/FakeSource.md)                   | Source | Alpha  | 2.2.0-beta      |
+| [Fake](connector-v2/source/FakeSource.md)                   | Source | Beta   | 2.2.0-beta      |
 | [FtpFile](connector-v2/sink/FtpFile.md)                     | Sink   | Alpha  | 2.2.0-beta      |
 | [Greenplum](connector-v2/sink/Greenplum.md)                 | Sink   | Alpha  | 2.2.0-beta      |
 | [Greenplum](connector-v2/source/Greenplum.md)               | Source | Alpha  | 2.2.0-beta      |
 | [HdfsFile](connector-v2/sink/HdfsFile.md)                   | Sink   | Beta   | 2.2.0-beta      |
 | [HdfsFile](connector-v2/source/HdfsFile.md)                 | Source | Beta   | 2.2.0-beta      |
-| [Hive](connector-v2/sink/Hive.md)                           | Sink   | Alpha  | 2.2.0-beta      |
+| [Hive](connector-v2/sink/Hive.md)                           | Sink   | Beta   | 2.2.0-beta      |
 | [Hive](connector-v2/source/Hive.md)                         | Source | Beta   | 2.2.0-beta      |
 | [Http](connector-v2/sink/Http.md)                           | Sink   | Beta   | 2.2.0-beta      |
 | [Http](connector-v2/source/Http.md)                         | Source | Beta   | 2.2.0-beta      |
