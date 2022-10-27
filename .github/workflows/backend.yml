@@ -261,7 +261,7 @@ jobs:
           MAVEN_OPTS: -Xmx2048m
 
       - name: run updated modules unit test
-        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != ""
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != ''
         run: |
           ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.ut-modules}} -am -amd -Pno_dist
         env:
