@@ -9,8 +9,8 @@ SeaTunnel uses a grading system for connectors to help you understand what to ex
 
 ## Connector V2 Health
 
-| Connector Name                                    | Type   | Status | Support Version |
-|---------------------------------------------------|--------|--------|-----------------|
+| Connector Name                                              | Type   | Status | Support Version |
+|-------------------------------------------------------------|--------|--------|-----------------|
 | [Asset](connector-v2/sink/Assert.md)                        | Sink   | Beta   | 2.2.0-beta      |
 | [ClickHouse](connector-v2/source/Clickhouse.md)             | Source | Beta   | 2.2.0-beta      |
 | [ClickHouse](connector-v2/sink/Clickhouse.md)               | Sink   | Beta   | 2.2.0-beta      |
@@ -55,3 +55,8 @@ SeaTunnel uses a grading system for connectors to help you understand what to ex
 | [Sentry](connector-v2/sink/Sentry.md)                       | Sink   | Alpha  | 2.2.0-beta      |
 | [Socket](connector-v2/sink/Socket.md)                       | Sink   | Alpha  | 2.2.0-beta      |
 | [Socket](connector-v2/source/Socket.md)                     | Source | Alpha  | 2.2.0-beta      |
+| [Kafka](connector-v2/source/kafka.md)                       | Source | Alpha  | 2.3.0-beta      |
+| [Kafka](connector-v2/sink/Kafka.md)                         | Sink   | Alpha  | 2.3.0-beta      |
+| [Pulsar](connector-v2/source/pulsar.md)                     | Source | Alpha  | 2.3.0-beta      |
+| [S3File](connector-v2/source/S3File.md)                     | Source | Alpha  | 2.3.0-beta      |
+| [S3File](connector-v2/sink/S3File.md)                       | Sink   | Alpha  | 2.3.0-beta      |
