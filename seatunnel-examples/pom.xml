@@ -45,12 +45,6 @@
             </modules>
         </profile>
         <profile>
-            <id>engine-all</id>
-            <modules>
-                <module>seatunnel-engine-examples</module>
-            </modules>
-        </profile>
-        <profile>
             <id>release</id>
         </profile>
     </profiles>
