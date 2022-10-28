@@ -14,7 +14,7 @@ development at the current stage, and reduces the difficulty of merging.
 
 -  ../`seatunnel-connectors-v2`                                        connector-v2 code implementation
 -  ../`seatunnel-translation`                                          translation layer for the connector-v2
--  ../seatunnel-e2e/`seatunnel-flink-connector-v2-e2e`                 testcase running on flink
+-  ../seatunnel-e2e/`seatunnel-flink-connector-v2-e2e`                 end to end testcase running on flink
 -  ../seatunnel-e2e/`seatunnel-spark-connector-v2-e2e`                 testcase running on spark
 -  ../seatunnel-examples/`seatunnel-flink-connector-v2-example`        flink local running instance
 -  ../seatunnel-examples/`seatunnel-spark-connector-v2-example`        seatunnel connector-v2 example use spark local running instance
