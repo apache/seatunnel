@@ -57,6 +57,5 @@ SeaTunnel uses a grading system for connectors to help you understand what to ex
 | [Socket](connector-v2/source/Socket.md)                     | Source | Alpha  | 2.2.0-beta      |
 | [Kafka](connector-v2/source/kafka.md)                       | Source | Alpha  | 2.3.0-beta      |
 | [Kafka](connector-v2/sink/Kafka.md)                         | Sink   | Alpha  | 2.3.0-beta      |
-| [Pulsar](connector-v2/source/pulsar.md)                     | Source | Alpha  | 2.3.0-beta      |
 | [S3File](connector-v2/source/S3File.md)                     | Source | Alpha  | 2.3.0-beta      |
 | [S3File](connector-v2/sink/S3File.md)                       | Sink   | Alpha  | 2.3.0-beta      |
