@@ -170,9 +170,15 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Override
     public boolean slotActiveCheck(SlotProfile profile) {
-        return registerWorker.values().stream()
+        boolean active = registerWorker.values().stream()
             .flatMap(workerProfile -> Arrays.stream(workerProfile.getAssignedSlots()))
             .anyMatch(s -> s.getSlotID() == profile.getSlotID());
+        if (!active) {
+            LOGGER.info("received slot active check failed profile: " + profile);
+        } else {
+            LOGGER.fine("received slot active check success. profile: " + profile);
+        }
+        return active;
     }
 
     @Override
