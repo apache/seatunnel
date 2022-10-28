@@ -131,7 +131,6 @@ jobs:
               - "seatunnel-e2e/seatunnel-spark-e2e/**"
               - "seatunnel-connectors/**"
               - "plugin-mapping.properties"
-              - "**/tools/**"
               - "pom.xml"
             engine:
               - "seatunnel-engine/**"
