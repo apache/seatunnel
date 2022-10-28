@@ -70,7 +70,7 @@ def get_final_modules(file):
         if line.startswith("org.apache.seatunnel"):
             con = line.split(":")
             if con[2] == "jar":
-                output = output + "," + con[1]
+                output = output + "," + ":" + con[1]
     output = output[1:len(output)]
     print(output)
 
