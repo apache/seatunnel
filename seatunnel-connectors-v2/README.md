@@ -10,6 +10,15 @@ this [issue](https://github.com/apache/incubator-seatunnel/issues/1608) for deta
 In order to separate from the old code, we have defined new modules for execution flow. This facilitates parallel
 development at the current stage, and reduces the difficulty of merging.
 
+### engineering structure
+
+-  ../`seatunnel-connectors-v2`                                        connector code implementation
+-  ../`seatunnel-translation`                                          translation layer for the new connector 
+-  ../seatunnel-e2e/`seatunnel-flink-connector-v2-e2e`                 testcase running on flink
+-  ../seatunnel-e2e/`seatunnel-spark-connector-v2-e2e`                 testcase running on spark
+-  ../seatunnel-examples/`seatunnel-flink-connector-v2-example`        flink local running instance
+-  ../seatunnel-examples/`seatunnel-spark-connector-v2-example`        spark local running instance
+
 ### **Example**
 
 We have prepared two new version of the locally executable example program in `seatunnel-examples`,one
@@ -22,13 +31,27 @@ configuration files used in example are saved in the "resources/examples" folder
 own connectors, you need to follow the steps below.
 
 1. Add the groupId, artifactId and version of the connector to be tested to
-   seatunnel-examples/seatunnel-flink-connector-v2-example/pom.xml(or add it to
-   seatunnel-examples/seatunnel-spark-connector-v2-example/pom.xml when you want to runs it in Spark engine) as a
+   `seatunnel-examples/seatunnel-flink-connector-v2-example/pom.xml`(or add it to
+   `seatunnel-examples/seatunnel-spark-connector-v2-example/pom.xml` when you want to runs it in Spark engine) as a
    dependency.
 2. Find the dependency in your connector pom file which scope is test or provided and then add them to
    seatunnel-examples/seatunnel-flink-connector-v2-example/pom.xml(or add it to
    seatunnel-examples/seatunnel-spark-connector-v2-example/pom.xml) file and modify the scope to compile.
-3. Refer to the SeaTunnelApiExample class to develop your sample code.
+3. Add the task configuration file under resources/examples.
+4. Configure the file in the `SeaTunnelApiExample` main method.
+5. Just run the main method.
+
+### **Create the format of the connector**
+
+1.Create a new module under the `seatunnel-connectors-v2` directory and name it connector - {connector name}.
+
+2.The pom file can refer to the pom file of the existing connector, and add the current sub model to the pom file of the parent model
+
+3.Create two packages corresponding to source and sink
+
+​    package org.apache.seatunnel.connectors.seatunnel.{connector name}}.source
+
+​    package org.apache.seatunnel.connectors.seatunnel.{connector name}}.sink
 
 ### **Startup Class**
 
