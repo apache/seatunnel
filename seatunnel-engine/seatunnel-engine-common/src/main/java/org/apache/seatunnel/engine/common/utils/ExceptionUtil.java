@@ -33,7 +33,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
 public final class ExceptionUtil {
-
     private static final List<ImmutableTriple<Integer, Class<? extends Throwable>, ClientExceptionFactory.ExceptionFactory>> EXCEPTIONS = Arrays.asList(
         new ImmutableTriple<>(ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START, SeaTunnelEngineException.class, SeaTunnelEngineException::new),
         new ImmutableTriple<>(ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START + 1, JobNotFoundException.class, JobNotFoundException::new),
