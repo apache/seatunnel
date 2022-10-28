@@ -301,3 +301,4 @@ jobs:
           ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.it-modules}} -am -amd -Pno_dist
         env:
           MAVEN_OPTS: -Xmx2048m
+
