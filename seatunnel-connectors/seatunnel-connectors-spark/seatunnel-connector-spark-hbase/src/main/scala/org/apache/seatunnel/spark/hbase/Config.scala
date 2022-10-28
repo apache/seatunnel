@@ -42,4 +42,9 @@ object Config extends Serializable {
    */
   val HBASE_ZOOKEEPER_QUORUM = "hbase.zookeeper.quorum"
 
+  /**
+   * nullable
+   */
+  val NULLABLE = "nullable"
+
 }

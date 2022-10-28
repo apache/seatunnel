@@ -30,7 +30,7 @@ import org.apache.hadoop.hbase.util.Bytes
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
-import org.apache.seatunnel.spark.hbase.Config.{CATALOG, HBASE_ZOOKEEPER_QUORUM, SAVE_MODE, STAGING_DIR}
+import org.apache.seatunnel.spark.hbase.Config.{CATALOG, HBASE_ZOOKEEPER_QUORUM, NULLABLE, SAVE_MODE, STAGING_DIR}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.internal.Logging
@@ -52,7 +52,8 @@ class Hbase extends SparkBatchSink with Logging {
   override def prepare(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        SAVE_MODE -> HbaseSaveMode.Append.toString.toLowerCase))
+        SAVE_MODE -> HbaseSaveMode.Append.toString.toLowerCase,
+        NULLABLE -> false))
 
     config = config.withFallback(defaultConfig)
     hbaseConf = HBaseConfiguration.create(env.getSparkSession.sessionState.newHadoopConf())
@@ -73,6 +74,7 @@ class Hbase extends SparkBatchSink with Logging {
     val colNames = df.columns
     val catalog = config.getString(CATALOG)
     val stagingDir = config.getString(STAGING_DIR) + "/" + System.currentTimeMillis().toString
+    val nullable = config.getBoolean(NULLABLE)
 
     // convert all columns type to string
     for (colName <- colNames) {
@@ -118,6 +120,9 @@ class Hbase extends SparkBatchSink with Logging {
               val qualifier = c._2
               val value = r.getAs[String](c._3)
               if (value == null) {
+                if (nullable) {
+                  familyQualifiersValues += (family, qualifier, null)
+                }
                 break
               }
               familyQualifiersValues += (family, qualifier, Bytes.toBytes(value))

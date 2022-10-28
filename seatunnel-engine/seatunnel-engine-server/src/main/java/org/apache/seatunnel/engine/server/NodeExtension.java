@@ -31,7 +31,7 @@ public class NodeExtension extends DefaultNodeExtension {
 
     public NodeExtension(@NonNull Node node, @NonNull SeaTunnelConfig seaTunnelConfig) {
         super(node);
-        extCommon = new NodeExtensionCommon(node, new SeaTunnelServer(node, seaTunnelConfig));
+        extCommon = new NodeExtensionCommon(node, new SeaTunnelServer(seaTunnelConfig));
     }
 
     @Override

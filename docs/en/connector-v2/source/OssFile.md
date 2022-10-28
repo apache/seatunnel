@@ -29,20 +29,21 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 
 ## Options
 
-| name            | type   | required | default value       |
-|-----------------|--------|----------|---------------------|
-| path            | string | yes      | -                   |
-| type            | string | yes      | -                   |
-| bucket          | string | yes      | -                   |
-| access_key      | string | yes      | -                   |
-| access_secret   | string | yes      | -                   |
-| endpoint        | string | yes      | -                   |
-| delimiter       | string | no       | \001                |
-| date_format     | string | no       | yyyy-MM-dd          |
-| datetime_format | string | no       | yyyy-MM-dd HH:mm:ss |
-| time_format     | string | no       | HH:mm:ss            |
-| schema          | config | no       | -                   |
-| common-options  |        | no       | -                   |
+| name                      | type    | required | default value       |
+|---------------------------|---------|----------|---------------------|
+| path                      | string  | yes      | -                   |
+| type                      | string  | yes      | -                   |
+| bucket                    | string  | yes      | -                   |
+| access_key                | string  | yes      | -                   |
+| access_secret             | string  | yes      | -                   |
+| endpoint                  | string  | yes      | -                   |
+| delimiter                 | string  | no       | \001                |
+| parse_partition_from_path | boolean | no       | true                |
+| date_format               | string  | no       | yyyy-MM-dd          |
+| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
+| time_format               | string  | no       | HH:mm:ss            |
+| schema                    | config  | no       | -                   |
+| common-options            |         | no       | -                   |
 
 ### path [string]
 
@@ -53,6 +54,20 @@ The source file path.
 Field delimiter, used to tell connector how to slice and dice fields when reading text files
 
 default `\001`, the same as hive's default delimiter
+
+### parse_partition_from_path [boolean]
+
+Control whether parse the partition keys and values from file path
+
+For example if you read a file from path `oss://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26`
+
+Every record data from file will be added these two fields:
+
+| name           | age |
+|----------------|-----|
+| tyrantlucifer  | 26  |
+
+Tips: **Do not define partition fields in schema option**
 
 ### date_format [string]
 
@@ -225,3 +240,15 @@ Source plugin common parameters, please refer to [Source Common Options](common-
   }
 
 ```
+
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add OSS File Source Connector
+
+### 2.3.0-beta 2022-10-20
+
+- [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/incubator-seatunnel/pull/2980))
+- [Improve] Support extract partition from SeaTunnelRow fields ([3085](https://github.com/apache/incubator-seatunnel/pull/3085))
+- [Improve] Support parse field from file path ([2985](https://github.com/apache/incubator-seatunnel/pull/2985))

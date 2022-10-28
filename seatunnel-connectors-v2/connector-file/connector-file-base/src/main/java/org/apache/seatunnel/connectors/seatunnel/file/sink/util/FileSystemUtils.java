@@ -25,9 +25,9 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,7 +39,7 @@ public class FileSystemUtils {
     public static Configuration CONF;
 
     public static FileSystem getFileSystem(@NonNull String path) throws IOException {
-        FileSystem fileSystem = FileSystem.get(new File(path).toURI(), CONF);
+        FileSystem fileSystem = FileSystem.get(URI.create(path.replaceAll("\\\\", "/")), CONF);
         fileSystem.setWriteChecksum(false);
         return fileSystem;
     }
@@ -76,12 +76,19 @@ public class FileSystemUtils {
      * @param rmWhenExist if this is true, we will delete the target file when it already exists
      * @throws IOException throw IOException
      */
-    public static void renameFile(@NonNull String oldName, @NonNull String newName, boolean rmWhenExist) throws IOException {
+    public static void renameFile(@NonNull String oldName, @NonNull String newName, boolean rmWhenExist)
+        throws IOException {
         FileSystem fileSystem = getFileSystem(newName);
         log.info("begin rename file oldName :[" + oldName + "] to newName :[" + newName + "]");
 
         Path oldPath = new Path(oldName);
         Path newPath = new Path(newName);
+
+        if (!fileExist(oldPath.toString())) {
+            log.warn("rename file :[" + oldPath + "] to [" + newPath + "] already finished in the last commit, skip");
+            return;
+        }
+
         if (rmWhenExist) {
             if (fileExist(newName) && fileExist(oldName)) {
                 fileSystem.delete(newPath, true);
@@ -119,6 +126,9 @@ public class FileSystemUtils {
     public static List<Path> dirList(@NonNull String filePath) throws FileNotFoundException, IOException {
         FileSystem fileSystem = getFileSystem(filePath);
         List<Path> pathList = new ArrayList<>();
+        if (!fileExist(filePath)) {
+            return pathList;
+        }
         Path fileName = new Path(filePath);
         FileStatus[] status = fileSystem.listStatus(fileName);
         if (status != null && status.length > 0) {

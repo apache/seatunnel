@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -125,7 +126,7 @@ public class PendingCheckpoint implements Checkpoint {
             if (actionState == null) {
                 return;
             }
-            stateSize += state.getState().stream().map(s -> s.length).count();
+            stateSize += state.getState().stream().filter(Objects::nonNull).map(s -> s.length).count();
             actionState.reportState(state.getIndex(), state);
         }
         statistics.reportSubtaskStatistics(new SubtaskStatistics(
