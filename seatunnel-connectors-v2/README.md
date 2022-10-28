@@ -17,7 +17,7 @@ development at the current stage, and reduces the difficulty of merging.
 -  ../seatunnel-e2e/`seatunnel-flink-connector-v2-e2e`                 testcase running on flink
 -  ../seatunnel-e2e/`seatunnel-spark-connector-v2-e2e`                 testcase running on spark
 -  ../seatunnel-examples/`seatunnel-flink-connector-v2-example`        flink local running instance
--  ../seatunnel-examples/`seatunnel-spark-connector-v2-example`        spark local running instance
+-  ../seatunnel-examples/`seatunnel-spark-connector-v2-example`        seatunnel connector-v2 example use spark local running instance
 
 ### **Example**
 
