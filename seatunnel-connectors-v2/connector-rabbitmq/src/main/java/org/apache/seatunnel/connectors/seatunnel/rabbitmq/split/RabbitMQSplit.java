@@ -23,10 +23,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.connectors.seatunnel.pulsar.source.split.PulsarPartitionSplit;
 
 import java.util.List;
-import java.util.Set;
 
 @Getter
 @Setter

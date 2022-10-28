@@ -1,13 +1,13 @@
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
+import com.google.common.base.Preconditions;
 import com.rabbitmq.client.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.common.Handover;
-import org.apache.seatunnel.connectors.seatunnel.pulsar.source.split.PulsarPartitionSplit;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitMQSplit;
+        import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitMQSplit;
 
 import java.io.IOException;
 import java.util.*;
@@ -92,11 +92,11 @@ public class RabbitMQSourceReader implements SourceReader {
         int size = pendingSplit.size();
         Map<String, List<Long>> cursors =
                 pendingCursorsToCommit.computeIfAbsent(checkpointId, id -> new HashMap<>(size));
-        // Put the cursors of the active splits.
+        // Put currentCheckPoint deliveryTags.
         for (RabbitMQSplit split : pendingSplit) {
-            List<Long> latestConsumedId = split.getDeliveryTags();
-            if (latestConsumedId != null) {
-                cursors.put(split.splitId(), latestConsumedId);
+            List<Long> currentCheckPointDeliveryTags = split.getDeliveryTags();
+            if (currentCheckPointDeliveryTags != null) {
+                cursors.put(split.splitId(), currentCheckPointDeliveryTags);
             }
         }
         return pendingSplit;
@@ -140,35 +140,6 @@ public class RabbitMQSourceReader implements SourceReader {
 //            }
         });
 
-    }
-
-    public boolean setMessageIdentifiers(String correlationId, long deliveryTag) {
-        if (customIdentifiersSet) {
-            throw new IllegalStateException(
-                    "You can set only a single set of identifiers for a block of messages.");
-        }
-
-        this.customIdentifiersSet = true;
-        if (!autoAck) {
-            if (usesCorrelationId) {
-                Preconditions.checkNotNull(
-                        correlationId,
-                        "RabbitMQ source was instantiated with usesCorrelationId set to "
-                                + "true yet we couldn't extract the correlation id from it!");
-                if (!addId(correlationId)) {
-                    // we have already processed this message
-                    try {
-                        channel.basicReject(deliveryTag, false);
-                    } catch (IOException e) {
-                        throw new RuntimeException(
-                                "Message could not be acknowledged with basicReject.", e);
-                    }
-                    return false;
-                }
-            }
-            sessionIds.add(deliveryTag);
-        }
-        return true;
     }
 
     protected void acknowledgeSessionIDs(List<Long> sessionIds) {
