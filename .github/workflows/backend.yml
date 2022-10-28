@@ -197,10 +197,10 @@ jobs:
         run: |
           modules='${{ steps.engine-modules.outputs.modules }}${{ steps.cv2-modules.outputs.modules }}'
           modules=${modules: 1}
-          echo $modules
           includes=`python tools/update_modules_check/update_modules_check.py tree $modules`
           ./mvnw -Pno_dist -D"e2e.dependency.skip"=false  dependency:tree $includes -DoutputType=text -DoutputFile=/tmp/tree_out.txt
           modules=`python tools/update_modules_check/update_modules_check.py final /tmp/tree_out.txt`
+          echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT
 
       - name: Make integration test modules
@@ -209,10 +209,10 @@ jobs:
         run: |
           modules='${{ steps.cv2-e2e-modules.outputs.modules }}${{ steps.cv2-flink-e2e-modules.outputs.modules }}${{ steps.cv2-spark-e2e-modules.outputs.modules }}${{ steps.engine-e2e-modules.outputs.modules }}${{ steps.engine-modules.outputs.modules }}${{ steps.cv2-modules.outputs.modules }}'
           modules=${modules: 1}
-          echo $modules
           includes=`python tools/update_modules_check/update_modules_check.py tree $modules`
           ./mvnw -Pno_dist -D"e2e.dependency.skip"=false  dependency:tree $includes -DoutputType=text -DoutputFile=/tmp/tree_out.txt
           modules=`python tools/update_modules_check/update_modules_check.py final /tmp/tree_out.txt`
+          echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT
 
   dependency-license:
