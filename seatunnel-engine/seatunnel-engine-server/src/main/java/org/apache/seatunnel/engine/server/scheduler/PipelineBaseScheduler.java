@@ -34,6 +34,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashMap;
 import java.util.List;
@@ -42,7 +43,6 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-
 public class PipelineBaseScheduler implements JobScheduler {
     private static final ILogger LOGGER = Logger.getLogger(PipelineBaseScheduler.class);
     private final PhysicalPlan physicalPlan;
@@ -90,6 +90,8 @@ public class PipelineBaseScheduler implements JobScheduler {
 
             Map<TaskGroupLocation, SlotProfile> slotProfiles =
                 getOrApplyResourceForPipeline(pipeline, jobMaster.getOwnedSlotProfiles(pipeline.getPipelineLocation()));
+
+            LOGGER.finest(slotProfiles.toString());
 
             // To ensure release pipeline resource after new master node active, we need store slotProfiles first and then deploy tasks.
             jobMaster.setOwnedSlotProfiles(pipeline.getPipelineLocation(), slotProfiles);
