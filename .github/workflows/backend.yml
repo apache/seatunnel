@@ -193,7 +193,7 @@ jobs:
 
       - name: Make unit test modules
         id: ut-modules
-        if: ${{ steps.filter.outputs.api == 'false' }}
+        if: ${{ steps.filter.outputs.api == 'false' }} && (${{ steps.engine-modules.outputs.modules != '' }} || ${{ steps.cv2-modules.outputs.modules != '' }})
         run: |
           modules='${{ steps.engine-modules.outputs.modules }}${{ steps.cv2-modules.outputs.modules }}'
           modules=${modules: 1}
