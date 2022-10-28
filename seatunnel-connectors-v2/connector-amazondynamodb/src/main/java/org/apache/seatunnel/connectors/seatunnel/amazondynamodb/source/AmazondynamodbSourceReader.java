@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.source;
 
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -29,6 +28,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazondynamodbSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -36,8 +37,8 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.BatchGetItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.BatchGetItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -47,23 +48,19 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
 @Slf4j
-public class AmazondynamodbSourceReader implements SourceReader<SeaTunnelRow, AmazondynamodbSourceSplit> {
+public class AmazondynamodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     protected DynamoDbClient dynamoDbClient;
-    protected SourceReader.Context context;
+    protected SingleSplitReaderContext context;
     protected AmazondynamodbSourceOptions amazondynamodbSourceOptions;
-    protected Deque<AmazondynamodbSourceSplit> splits = new LinkedList<>();
-    protected boolean noMoreSplit;
     protected SeaTunnelRowType typeInfo;
 
-    public AmazondynamodbSourceReader(SourceReader.Context context,
+    public AmazondynamodbSourceReader(SingleSplitReaderContext context,
                                       AmazondynamodbSourceOptions amazondynamodbSourceOptions,
                                       SeaTunnelRowType typeInfo) {
         this.context = context;
@@ -90,46 +87,15 @@ public class AmazondynamodbSourceReader implements SourceReader<SeaTunnelRow, Am
     @Override
     @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        synchronized (output.getCheckpointLock()) {
-            AmazondynamodbSourceSplit split = splits.poll();
-            if (null != split) {
-                BatchGetItemResponse batchGetItemResponse = dynamoDbClient
-                    .batchGetItem(BatchGetItemRequest.builder().build());
-                if (batchGetItemResponse.hasResponses()) {
-                    batchGetItemResponse.responses().forEach((s, maps) -> {
-                        maps.forEach(item -> {
-                            output.collect(converterToRow(item, typeInfo));
-                        });
-                    });
-                }
-            } else if (noMoreSplit) {
-                // signal to the source that we have reached the end of the data.
-                log.info("Closed the bounded amazondynamodb source");
-                context.signalNoMoreElement();
-            } else {
-                Thread.sleep(1000L);
-            }
+        ScanResponse scan = dynamoDbClient.scan(ScanRequest.builder()
+            .tableName(amazondynamodbSourceOptions.getTable())
+            .build());
+        if (scan.hasItems()) {
+            scan.items().forEach(item -> {
+                output.collect(converterToRow(item, typeInfo));
+            });
         }
-    }
-
-    @Override
-    public List<AmazondynamodbSourceSplit> snapshotState(long checkpointId) throws Exception {
-        return new ArrayList<>(splits);
-    }
-
-    @Override
-    public void addSplits(List<AmazondynamodbSourceSplit> splits) {
-        this.splits.addAll(splits);
-    }
-
-    @Override
-    public void handleNoMoreSplits() {
-        noMoreSplit = true;
-    }
-
-    @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-
+        context.signalNoMoreElement();
     }
 
     private SeaTunnelRow converterToRow(Map<String, AttributeValue> item, SeaTunnelRowType typeInfo) {

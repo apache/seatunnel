@@ -20,14 +20,14 @@ package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.source;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceReader;
-import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazondynamodbSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.state.AmazonDynamodbSourceState;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -36,7 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @AutoService(SeaTunnelSource.class)
-public class AmazondynamodbSource implements SeaTunnelSource<SeaTunnelRow, AmazondynamodbSourceSplit, AmazonDynamodbSourceState> {
+public class AmazondynamodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     private AmazondynamodbSourceOptions amazondynamodbSourceOptions;
 
@@ -65,17 +65,7 @@ public class AmazondynamodbSource implements SeaTunnelSource<SeaTunnelRow, Amazo
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, AmazondynamodbSourceSplit> createReader(SourceReader.Context readerContext) {
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
         return new AmazondynamodbSourceReader(readerContext, amazondynamodbSourceOptions, typeInfo);
-    }
-
-    @Override
-    public SourceSplitEnumerator<AmazondynamodbSourceSplit, AmazonDynamodbSourceState> createEnumerator(SourceSplitEnumerator.Context<AmazondynamodbSourceSplit> enumeratorContext) throws Exception {
-        return new AmazondynamodbSourceSplitEnumerator(enumeratorContext);
-    }
-
-    @Override
-    public SourceSplitEnumerator<AmazondynamodbSourceSplit, AmazonDynamodbSourceState> restoreEnumerator(SourceSplitEnumerator.Context<AmazondynamodbSourceSplit> enumeratorContext, AmazonDynamodbSourceState checkpointState) throws Exception {
-        return new AmazondynamodbSourceSplitEnumerator(enumeratorContext);
     }
 }
