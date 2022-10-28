@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.spark;
 
-import org.apache.seatunnel.apis.BaseSource;
+import org.apache.seatunnel.apis.base.api.BaseSource;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;

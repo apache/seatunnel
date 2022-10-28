@@ -31,4 +31,6 @@ class Hive extends SparkBatchSource {
   override def getData(env: SparkEnvironment): Dataset[Row] = {
     env.getSparkSession.sql(config.getString("pre_sql"))
   }
+
+  override def getPluginName: String = "Hive"
 }

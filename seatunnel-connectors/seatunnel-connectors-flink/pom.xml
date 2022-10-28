@@ -23,17 +23,21 @@
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-connectors</artifactId>
-        <version>2.0.5-SNAPSHOT</version>
+        <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-connectors-flink</artifactId>
     <packaging>pom</packaging>
+    <properties>
+        <flink.scope>provided</flink.scope>
+    </properties>
 
     <modules>
         <module>seatunnel-connector-flink-console</module>
         <module>seatunnel-connector-flink-druid</module>
-        <module>seatunnel-connector-flink-elasticsearch</module>
+        <module>seatunnel-connector-flink-elasticsearch6</module>
+        <module>seatunnel-connector-flink-elasticsearch7</module>
         <module>seatunnel-connector-flink-file</module>
         <module>seatunnel-connector-flink-jdbc</module>
         <module>seatunnel-connector-flink-kafka</module>
@@ -41,6 +45,70 @@
         <module>seatunnel-connector-flink-socket</module>
         <module>seatunnel-connector-flink-doris</module>
         <module>seatunnel-connector-flink-influxdb</module>
+        <module>seatunnel-connector-flink-clickhouse</module>
+        <module>seatunnel-connector-flink-http</module>
+        <module>seatunnel-connector-flink-assert</module>
     </modules>
 
+    <dependencyManagement>
+        <dependencies>
+            <!--seatunnel dependency-->
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-api-flink</artifactId>
+                <version>${project.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!--flink dependency version-->
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-java</artifactId>
+                <version>${flink.1.13.6.version}</version>
+                <scope>${flink.scope}</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
+                <version>${flink.1.13.6.version}</version>
+                <scope>${flink.scope}</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
+                <version>${flink.1.13.6.version}</version>
+                <scope>${flink.scope}</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-table-common</artifactId>
+                <version>${flink.1.13.6.version}</version>
+                <scope>${flink.scope}</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-api-flink</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-java</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>

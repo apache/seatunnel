@@ -17,17 +17,18 @@
 
 package org.apache.seatunnel.spark;
 
-import static org.apache.seatunnel.plugin.Plugin.RESULT_TABLE_NAME;
-import static org.apache.seatunnel.plugin.Plugin.SOURCE_TABLE_NAME;
+import static org.apache.seatunnel.apis.base.plugin.Plugin.RESULT_TABLE_NAME;
+import static org.apache.seatunnel.apis.base.plugin.Plugin.SOURCE_TABLE_NAME;
 
+import org.apache.seatunnel.apis.base.env.RuntimeEnv;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.env.RuntimeEnv;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.SparkConf;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -35,9 +36,15 @@ import org.apache.spark.sql.SparkSession;
 import org.apache.spark.streaming.Seconds;
 import org.apache.spark.streaming.StreamingContext;
 
+import java.net.URL;
+import java.util.List;
+
+@Slf4j
 public class SparkEnvironment implements RuntimeEnv {
 
     private static final long DEFAULT_SPARK_STREAMING_DURATION = 5;
+
+    private SparkConf sparkConf;
 
     private SparkSession sparkSession;
 
@@ -82,8 +89,16 @@ public class SparkEnvironment implements RuntimeEnv {
     }
 
     @Override
+    public void registerPlugin(List<URL> pluginPaths) {
+        log.info("register plugins :" + pluginPaths);
+        // TODO we use --jar parameter to support submit multi-jar in spark cluster at now. Refactor it to
+        //  support submit multi-jar in code or remove this logic.
+        // this.sparkSession.conf().set("spark.jars",pluginPaths.stream().map(URL::getPath).collect(Collectors.joining(",")));
+    }
+
+    @Override
     public SparkEnvironment prepare() {
-        SparkConf sparkConf = createSparkConf();
+        sparkConf = createSparkConf();
         SparkSession.Builder builder = SparkSession.builder().config(sparkConf);
         if (enableHive) {
             builder.enableHiveSupport();
@@ -101,9 +116,16 @@ public class SparkEnvironment implements RuntimeEnv {
         return this.streamingContext;
     }
 
+    public SparkConf getSparkConf() {
+        return this.sparkConf;
+    }
+
     private SparkConf createSparkConf() {
         SparkConf sparkConf = new SparkConf();
         this.config.entrySet().forEach(entry -> sparkConf.set(entry.getKey(), String.valueOf(entry.getValue().unwrapped())));
+        if (config.hasPath("job.name")) {
+            sparkConf.setAppName(config.getString("job.name"));
+        }
         return sparkConf;
     }
 
@@ -152,7 +174,7 @@ public class SparkEnvironment implements RuntimeEnv {
         }
     }
 
-    public  static <T extends Object> T sinkProcess(SparkEnvironment environment, BaseSparkSink<T> sink, Dataset<Row> ds) {
+    public static <T extends Object> T sinkProcess(SparkEnvironment environment, BaseSparkSink<T> sink, Dataset<Row> ds) {
         Dataset<Row> fromDs;
         Config config = sink.getConfig();
         if (config.hasPath(SOURCE_TABLE_NAME)) {

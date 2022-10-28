@@ -69,4 +69,6 @@ class File extends SparkBatchSink {
       case ORC => writer.orc(path)
     }
   }
+
+  override def getPluginName: String = "File"
 }

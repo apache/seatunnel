@@ -26,6 +26,7 @@ import org.apache.poi.ss.util.{AreaReference, CellReference}
 import org.apache.poi.xssf.usermodel.{XSSFTable, XSSFWorkbook}
 import Utils.MapIncluding
 
+import scala.collection.mutable
 import scala.util.matching.Regex
 
 trait DataLocator {
@@ -138,6 +139,7 @@ trait AreaDataLocator extends DataLocator {
       case l: Long => WriteCell(l)
       case b: BigDecimal => WriteCell(b)
       case b: java.math.BigDecimal => WriteCell(BigDecimal(b))
+      case arr: mutable.WrappedArray.ofRef[_] => WriteCell(arr.mkString(","))
       case null => WriteCell.Empty
     }
 }

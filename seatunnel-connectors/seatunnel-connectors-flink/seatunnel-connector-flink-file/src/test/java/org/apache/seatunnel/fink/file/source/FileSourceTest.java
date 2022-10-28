@@ -27,8 +27,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.types.Row;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 
@@ -41,23 +41,27 @@ public class FileSourceTest {
     // *****************************************************************************
 
     @Test
-    public void getJsonDate() {
+    public void getJsonDate() throws Exception {
         String configFile = "flink.streaming.json.conf";
         FlinkEnvironment flinkEnvironment = createFlinkStreamEnvironment(configFile);
 
-        FileSource fileSource = createFileSource(configFile, flinkEnvironment);
-        DataSet<Row> data = fileSource.getData(flinkEnvironment);
-        Assert.assertNotNull(data);
+        try (FileSource fileSource = createFileSource(configFile, flinkEnvironment)) {
+            fileSource.prepare(flinkEnvironment);
+            DataSet<Row> data = fileSource.getData(flinkEnvironment);
+            Assertions.assertNotNull(data);
+        }
     }
 
     @Test
-    public void getTextData() {
+    public void getTextData() throws Exception {
         String configFile = "flink.streaming.text.conf";
         FlinkEnvironment flinkEnvironment = createFlinkStreamEnvironment(configFile);
 
-        FileSource fileSource = createFileSource(configFile, flinkEnvironment);
-        DataSet<Row> data = fileSource.getData(flinkEnvironment);
-        Assert.assertNotNull(data);
+        try (FileSource fileSource = createFileSource(configFile, flinkEnvironment)) {
+            fileSource.prepare(flinkEnvironment);
+            DataSet<Row> data = fileSource.getData(flinkEnvironment);
+            Assertions.assertNotNull(data);
+        }
     }
 
     private FlinkEnvironment createFlinkStreamEnvironment(String configFile) {

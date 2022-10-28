@@ -1,5 +1,7 @@
 # Hbase
 
+> Hbase sink connector
+
 ## Description
 
 Use [hbase-connectors](https://github.com/apache/hbase-connectors/tree/master/spark) to output data to `Hbase` , `Hbase (>=2.1.0)` and `Spark (>=2.0.0)` version compatibility depends on `hbase-connectors` . The `hbase-connectors` in the official Apache Hbase documentation is also one of the [Apache Hbase Repos](https://hbase.apache.org/book.html#repos).
@@ -16,11 +18,12 @@ Engine Supported and plugin name
 ## Options
 
 | name                   | type   | required | default value |
-| ---------------------- | ------ | -------- | ------------- |
+|------------------------|--------| -------- |---------------|
 | hbase.zookeeper.quorum | string | yes      |               |
 | catalog                | string | yes      |               |
 | staging_dir            | string | yes      |               |
 | save_mode              | string | no       | append        |
+| nullable               | bool   | no       | false         |
 | hbase.*                | string | no       |               |
 
 ### hbase.zookeeper.quorum [string]
@@ -40,6 +43,10 @@ A path on `HDFS` that will generate data that needs to be loaded into `hbase` . 
 Two write modes are supported, `overwrite` and `append` . `overwrite` means that if there is data in the `hbase table` , `truncate` will be performed and then the data will be loaded.
 
 `append` means that the original data of the `hbase table` will not be cleared, and the load operation will be performed directly.
+
+### nullable [bool]
+
+Whether the null value is written to hbase
 
 ### hbase.* [string]
 

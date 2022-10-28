@@ -17,30 +17,34 @@
 
 package org.apache.seatunnel.common.config;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
+import java.util.Arrays;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+@Getter
+@AllArgsConstructor
 public enum DeployMode {
     CLIENT("client"),
     CLUSTER("cluster"),
     ;
 
     private static final Map<String, DeployMode> NAME_MAP = Arrays.stream(DeployMode.values())
-        .collect(HashMap::new, (map, deployMode) -> map.put(deployMode.getName(), deployMode), Map::putAll);
+        .collect(Collectors.toMap(DeployMode::getName, Function.identity()));
 
     private final String name;
 
-    DeployMode(String name) {
-        this.name = name;
+    public static Optional<DeployMode> from(String name) {
+        return Optional.ofNullable(NAME_MAP.get(name.toLowerCase()));
     }
 
-    public String getName() {
-        return name;
-    }
-
-    public static DeployMode from(String name) {
-        return NAME_MAP.get(name);
+    @Override
+    public String toString() {
+        return getName();
     }
 
 }

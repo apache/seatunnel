@@ -1,6 +1,6 @@
 # Common Options
 
-## Sink Plugin common parameters
+> Common parameters of sink connectors
 
 | name              | type   | required | default value |
 | ----------------- | ------ | -------- | ------------- |

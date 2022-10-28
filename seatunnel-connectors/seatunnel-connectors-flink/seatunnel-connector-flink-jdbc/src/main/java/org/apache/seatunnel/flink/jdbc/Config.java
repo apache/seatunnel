@@ -91,4 +91,18 @@ public final class Config {
      */
     public static final String PARTITION_LOWER_BOUND = "partition_lower_bound";
 
+    /**
+     * Jdbc pre sql for sink
+     */
+    public static final String SINK_PRE_SQL = "pre_sql";
+
+    /**
+     * Jdbc post sql for sink
+     */
+    public static final String SINK_POST_SQL = "post_sql";
+
+    /**
+     * Jdbc ignore post sql exceptions for sink
+     */
+    public static final String SINK_IGNORE_POST_SQL_EXCEPTIONS = "ignore_post_sql_exceptions";
 }

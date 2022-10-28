@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.common.utils;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-import java.time.ZonedDateTime;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 
@@ -30,10 +30,10 @@ public class VariablesSubstituteTest {
     public void testSubstitute() {
         String timeFormat = "yyyyMMddHHmmss";
         DateTimeFormatter df = DateTimeFormatter.ofPattern(timeFormat);
-        String formattedDate = df.format(ZonedDateTime.now());
         String path = "data_${now}_${uuid}.parquet";
         String newPath = VariablesSubstitute.substitute(path, timeFormat);
-        Assert.assertTrue(newPath.contains(formattedDate));
+        String now = newPath.substring(5, 19);
+        LocalDateTime.parse(now, df);
 
         String text = "${var1} is a distributed, high-performance data integration platform for " +
                 "the synchronization and ${var2} of massive data (offline & real-time).";
@@ -42,6 +42,6 @@ public class VariablesSubstituteTest {
         valuesMap.put("var1", "SeaTunnel");
         valuesMap.put("var2", "transformation");
         String newText = VariablesSubstitute.substitute(text, valuesMap);
-        Assert.assertTrue(newText.contains("SeaTunnel") && newText.contains("transformation"));
+        Assertions.assertTrue(newText.contains("SeaTunnel") && newText.contains("transformation"));
     }
 }

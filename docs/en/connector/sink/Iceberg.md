@@ -1,5 +1,7 @@
 # Iceberg
 
+> Iceberg sink connector
+
 ## Description
 
 Write data to Iceberg.

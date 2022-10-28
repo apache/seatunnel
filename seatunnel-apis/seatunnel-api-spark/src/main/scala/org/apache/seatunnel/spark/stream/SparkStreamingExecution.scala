@@ -16,8 +16,8 @@
  */
 package org.apache.seatunnel.spark.stream
 
-import org.apache.seatunnel.env.Execution
-import org.apache.seatunnel.plugin.Plugin
+import org.apache.seatunnel.apis.base.env.Execution
+import org.apache.seatunnel.apis.base.plugin.Plugin
 import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
 import org.apache.seatunnel.spark.{BaseSparkSink, BaseSparkSource, BaseSparkTransform, SparkEnvironment}
 import org.apache.spark.sql.{Dataset, Row}
@@ -48,9 +48,12 @@ class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
             dataset)
         }
         var ds = dataset
-        for (tf <- transforms) {
-          ds = SparkEnvironment.transformProcess(sparkEnvironment, tf, ds)
-          SparkEnvironment.registerTransformTempView(tf, ds)
+
+        if (ds.take(1).length > 0) {
+          for (tf <- transforms) {
+            ds = SparkEnvironment.transformProcess(sparkEnvironment, tf, ds)
+            SparkEnvironment.registerTransformTempView(tf, ds)
+          }
         }
 
         source.beforeOutput()

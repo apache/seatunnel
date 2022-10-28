@@ -1,5 +1,7 @@
 # Druid
 
+> Druid source connector
+
 ## Description
 
 Read data from Apache Druid.

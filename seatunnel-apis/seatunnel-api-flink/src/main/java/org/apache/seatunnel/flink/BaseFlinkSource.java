@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.flink;
 
-import org.apache.seatunnel.apis.BaseSource;
+import org.apache.seatunnel.apis.base.api.BaseSource;
 
 /**
  * a base interface indicates a source plugin running on Flink.

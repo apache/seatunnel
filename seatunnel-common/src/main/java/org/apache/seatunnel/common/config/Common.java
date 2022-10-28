@@ -17,13 +17,20 @@
 
 package org.apache.seatunnel.common.config;
 
+import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
+
+import org.apache.commons.lang3.StringUtils;
+
+import java.io.File;
+import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class Common {
 
@@ -31,28 +38,29 @@ public class Common {
         throw new IllegalStateException("Utility class");
     }
 
-    private static final List<String> ALLOWED_MODES = Arrays.stream(DeployMode.values())
-        .map(DeployMode::getName).collect(Collectors.toList());
+    /**
+     * Used to set the size when create a new collection(just to pass the checkstyle).
+     */
+    public static final int COLLECTION_SIZE = 16;
 
-    private static Optional<String> MODE = Optional.empty();
+    private static final int PLUGIN_LIB_DIR_DEPTH = 3;
 
-    public static boolean isModeAllowed(String mode) {
-        return ALLOWED_MODES.contains(mode.toLowerCase());
-    }
+    private static DeployMode MODE;
+
+    private static boolean STARTER = false;
 
     /**
      * Set mode. return false in case of failure
      */
-    public static Boolean setDeployMode(String m) {
-        if (isModeAllowed(m)) {
-            MODE = Optional.of(m);
-            return true;
-        } else {
-            return false;
-        }
+    public static void setDeployMode(DeployMode mode) {
+        MODE = mode;
     }
 
-    public static Optional<String> getDeployMode() {
+    public static void setStarter(boolean inStarter) {
+        STARTER = inStarter;
+    }
+
+    public static DeployMode getDeployMode() {
         return MODE;
     }
 
@@ -64,17 +72,18 @@ public class Common {
      * When running seatunnel in --master yarn or --master mesos, you can put plugins related files in plugins dir.
      */
     public static Path appRootDir() {
-        if (MODE.equals(Optional.of(DeployMode.CLIENT.getName()))) {
+        if (DeployMode.CLIENT == MODE || STARTER) {
             try {
                 String path = Common.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
+                path = new File(path).getPath();
                 return Paths.get(path).getParent().getParent();
             } catch (URISyntaxException e) {
                 throw new RuntimeException(e);
             }
-        } else if (MODE.equals(Optional.of(DeployMode.CLUSTER.getName()))) {
+        } else if (DeployMode.CLUSTER == MODE) {
             return Paths.get("");
         } else {
-            throw new IllegalStateException("MODE not support : " + MODE.orElse("null"));
+            throw new IllegalStateException("deploy mode not support : " + MODE);
         }
     }
 
@@ -87,6 +96,37 @@ public class Common {
      */
     public static Path pluginRootDir() {
         return Paths.get(appRootDir().toString(), "plugins");
+    }
+
+    /**
+     * Plugin Root Dir
+     */
+    public static Path connectorRootDir(String engine) {
+        return Paths.get(appRootDir().toString(), "connectors", engine.toLowerCase());
+    }
+
+    /**
+     * Plugin Connector Jar Dir
+     */
+    public static Path connectorJarDir(String engine) {
+        String seatunnelHome = System.getProperty("SEATUNNEL_HOME");
+        if (StringUtils.isBlank(seatunnelHome)) {
+            return Paths.get(appRootDir().toString(), "connectors", engine.toLowerCase());
+        } else {
+            return Paths.get(seatunnelHome, "connectors", engine.toLowerCase());
+        }
+    }
+
+    /**
+     * Plugin Connector Dir
+     */
+    public static Path connectorDir() {
+        String seatunnelHome = System.getProperty("SEATUNNEL_HOME");
+        if (StringUtils.isBlank(seatunnelHome)) {
+            return Paths.get(appRootDir().toString(), "connectors");
+        } else {
+            return Paths.get(seatunnelHome, "connectors");
+        }
     }
 
     public static Path pluginTarball() {
@@ -112,6 +152,25 @@ public class Common {
      */
     public static Path pluginLibDir(String pluginName) {
         return Paths.get(pluginDir(pluginName).toString(), "lib");
+    }
+
+    /**
+     * return plugin's dependent jars, which located in 'plugins/${pluginName}/lib/*'.
+     */
+    public static List<Path> getPluginsJarDependencies() {
+        Path pluginRootDir = Common.pluginRootDir();
+        if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
+            return Collections.emptyList();
+        }
+        try (Stream<Path> stream = Files.walk(pluginRootDir, PLUGIN_LIB_DIR_DEPTH, FOLLOW_LINKS)) {
+            return stream
+                .filter(it -> pluginRootDir.relativize(it).getNameCount() == PLUGIN_LIB_DIR_DEPTH)
+                .filter(it -> it.getParent().endsWith("lib"))
+                .filter(it -> it.getFileName().toString().endsWith(".jar"))
+                .collect(Collectors.toList());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
 }

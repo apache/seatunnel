@@ -60,6 +60,8 @@ class FakeStream extends SparkStreamingSource[String] {
       CheckResult.error("please make sure [content] is of type string array")
     }
   }
+
+  override def getPluginName: String = "FakeStream"
 }
 
 private class FakeReceiver(config: Config)

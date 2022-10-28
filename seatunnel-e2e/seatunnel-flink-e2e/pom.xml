@@ -19,23 +19,28 @@
     <parent>
         <artifactId>seatunnel-e2e</artifactId>
         <groupId>org.apache.seatunnel</groupId>
-        <version>2.0.5-SNAPSHOT</version>
+        <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-flink-e2e</artifactId>
-    <packaging>jar</packaging>
+    <packaging>pom</packaging>
+
+    <modules>
+        <module>seatunnel-connector-flink-e2e-base</module>
+        <module>seatunnel-connector-flink-clickhouse-e2e</module>
+        <module>seatunnel-connector-flink-file-e2e</module>
+        <module>seatunnel-connector-flink-http-e2e</module>
+        <module>seatunnel-connector-flink-fake-e2e</module>
+        <module>seatunnel-connector-flink-assert-e2e</module>
+    </modules>
 
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-core-flink</artifactId>
             <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

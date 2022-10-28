@@ -38,6 +38,9 @@ public class RespContent implements Serializable {
      */
     @JsonProperty("Label")
     private String label;
+
+    @JsonProperty("TwoPhaseCommit")
+    private String twoPhaseCommit;
     /**
      * Import complete status.
      * "Success": Indicates that the import was successful.
@@ -138,6 +141,14 @@ public class RespContent implements Serializable {
 
     public void setLabel(String label) {
         this.label = label;
+    }
+
+    public String getTwoPhaseCommit() {
+        return twoPhaseCommit;
+    }
+
+    public void setTwoPhaseCommit(String twoPhaseCommit) {
+        this.twoPhaseCommit = twoPhaseCommit;
     }
 
     public String getStatus() {
@@ -265,6 +276,7 @@ public class RespContent implements Serializable {
         return "RespContent{" +
                 "txnId=" + txnId +
                 ", label='" + label + '\'' +
+                ", twoPhaseCommit='" + twoPhaseCommit + '\'' +
                 ", status='" + status + '\'' +
                 ", existingJobStatus='" + existingJobStatus + '\'' +
                 ", message='" + message + '\'' +

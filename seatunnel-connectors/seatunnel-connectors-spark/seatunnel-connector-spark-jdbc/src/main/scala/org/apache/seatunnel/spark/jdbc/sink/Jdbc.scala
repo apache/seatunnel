@@ -40,6 +40,7 @@ class Jdbc extends SparkBatchSink {
           "password" -> config.getString("password"),
           "dbtable" -> config.getString("dbTable"),
           "useSsl" -> config.getString("useSsl"),
+          "isolationLevel" -> config.getString("isolationLevel"),
           "customUpdateStmt" -> config.getString(
             "customUpdateStmt"
           ), // Custom mysql duplicate key update statement when saveMode is update
@@ -65,8 +66,11 @@ class Jdbc extends SparkBatchSink {
         "saveMode" -> "error",
         "useSsl" -> "false",
         "showSql" -> "true",
+        "isolationLevel" -> "READ_UNCOMMITTED",
         "customUpdateStmt" -> "",
         "duplicateIncs" -> ""))
     config = config.withFallback(defaultConfig)
   }
+
+  override def getPluginName: String = "Jdbc"
 }

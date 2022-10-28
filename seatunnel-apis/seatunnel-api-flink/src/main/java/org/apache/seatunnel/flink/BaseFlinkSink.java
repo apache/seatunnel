@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.flink;
 
-import org.apache.seatunnel.apis.BaseSink;
+import org.apache.seatunnel.apis.base.api.BaseSink;
 
 /**
  * a base interface indicates a sink plugin running on Flink.

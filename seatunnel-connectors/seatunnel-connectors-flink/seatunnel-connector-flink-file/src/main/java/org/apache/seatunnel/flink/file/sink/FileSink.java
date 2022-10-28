@@ -21,6 +21,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.utils.VariablesSubstitute;
+import org.apache.seatunnel.flink.BaseFlinkSink;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.enums.FormatType;
@@ -28,6 +29,8 @@ import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.common.io.FileOutputFormat;
 import org.apache.flink.api.common.serialization.SimpleStringEncoder;
 import org.apache.flink.api.java.DataSet;
@@ -37,19 +40,16 @@ import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig;
 import org.apache.flink.streaming.api.functions.sink.filesystem.StreamingFileSink;
 import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.DefaultRollingPolicy;
 import org.apache.flink.types.Row;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
+@AutoService(BaseFlinkSink.class)
 public class FileSink implements FlinkStreamSink, FlinkBatchSink {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(FileSink.class);
 
     private static final long serialVersionUID = -1648045076508797396L;
 
@@ -78,27 +78,27 @@ public class FileSink implements FlinkStreamSink, FlinkBatchSink {
     private Path filePath;
 
     @Override
-    public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
+    public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         final DefaultRollingPolicy<Row, String> rollingPolicy = DefaultRollingPolicy.builder()
-            .withMaxPartSize(MB * TypesafeConfigUtils.getConfig(config, MAX_PART_SIZE, DEFAULT_MAX_PART_SIZE))
-            .withRolloverInterval(
-                TimeUnit.MINUTES.toMillis(TypesafeConfigUtils.getConfig(config, ROLLOVER_INTERVAL, DEFAULT_ROLLOVER_INTERVAL)))
-            .build();
+                .withMaxPartSize(MB * TypesafeConfigUtils.getConfig(config, MAX_PART_SIZE, DEFAULT_MAX_PART_SIZE))
+                .withRolloverInterval(
+                        TimeUnit.MINUTES.toMillis(TypesafeConfigUtils.getConfig(config, ROLLOVER_INTERVAL, DEFAULT_ROLLOVER_INTERVAL)))
+                .build();
         OutputFileConfig outputFileConfig = OutputFileConfig.builder()
-            .withPartPrefix(TypesafeConfigUtils.getConfig(config, PART_PREFIX, DEFAULT_PART_PREFIX))
-            .withPartSuffix(TypesafeConfigUtils.getConfig(config, PART_SUFFIX, DEFAULT_PART_SUFFIX))
-            .build();
+                .withPartPrefix(TypesafeConfigUtils.getConfig(config, PART_PREFIX, DEFAULT_PART_PREFIX))
+                .withPartSuffix(TypesafeConfigUtils.getConfig(config, PART_SUFFIX, DEFAULT_PART_SUFFIX))
+                .build();
 
         final StreamingFileSink<Row> sink = StreamingFileSink
-            .forRowFormat(filePath, new SimpleStringEncoder<Row>())
-            .withRollingPolicy(rollingPolicy)
-            .withOutputFileConfig(outputFileConfig)
-            .build();
-        return dataStream.addSink(sink);
+                .forRowFormat(filePath, new SimpleStringEncoder<Row>())
+                .withRollingPolicy(rollingPolicy)
+                .withOutputFileConfig(outputFileConfig)
+                .build();
+        dataStream.addSink(sink);
     }
 
     @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
+    public void outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
         FormatType format = FormatType.from(config.getString(FORMAT).trim().toLowerCase());
         switch (format) {
             case JSON:
@@ -112,7 +112,7 @@ public class FileSink implements FlinkStreamSink, FlinkBatchSink {
                 outputFormat = new TextOutputFormat<>(filePath);
                 break;
             default:
-                LOGGER.warn(" unknown file_format [{}],only support json,csv,text", format);
+                log.warn(" unknown file_format [{}],only support json,csv,text", format);
                 break;
 
         }
@@ -124,9 +124,8 @@ public class FileSink implements FlinkStreamSink, FlinkBatchSink {
         DataSink<Row> dataSink = dataSet.output(outputFormat);
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
-            return dataSink.setParallelism(parallelism);
+            dataSink.setParallelism(parallelism);
         }
-        return dataSink;
     }
 
     @Override
@@ -156,5 +155,10 @@ public class FileSink implements FlinkStreamSink, FlinkBatchSink {
         if (outputFormat != null) {
             outputFormat.close();
         }
+    }
+
+    @Override
+    public String getPluginName() {
+        return "FileSink";
     }
 }

@@ -24,6 +24,7 @@ on:
     paths-ignore:
       - 'docs/**'
       - '**/*.md'
+      - 'seatunnel-ui/**'
 
 env:
   HUB: ghcr.io/${{ github.repository }}

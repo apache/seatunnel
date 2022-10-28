@@ -1,5 +1,7 @@
 # Hive
 
+> Hive sink connector
+
 ### Description
 
 Write Rows to [Apache Hive](https://hive.apache.org).

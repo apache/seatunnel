@@ -16,84 +16,50 @@
 # limitations under the License.
 #
 
-# copy command line arguments
+set -eu
+# resolve links - $0 may be a softlink
+PRG="$0"
 
-function usage() {
-  echo "Usage: start-seatunnel-sql.sh [options]"
-  echo "  options:"
-  echo "    --config, -c FILE_PATH        Config file"
-  echo "    --variable, -i PROP=VALUE     Variable substitution, such as -i city=beijing, or -i date=20190318"
-  echo "    --check, -t                   Check config"
-  echo "    --help, -h                    Show this help message"
-}
-
-if [[ "$@" = *--help ]] || [[ "$@" = *-h ]] || [[ $# -le 1 ]]; then
-  usage
-  exit 0
-fi
-
-is_exist() {
-    if [ -z $1 ]; then
-      usage
-      exit -1
-    fi
-}
-
-PARAMS=""
-while (( "$#" )); do
-  case "$1" in
-    -c|--config)
-      CONFIG_FILE=$2
-      is_exist ${CONFIG_FILE}
-      shift 2
-      ;;
-
-    -i|--variable)
-      variable=$2
-      is_exist ${variable}
-      java_property_value="-D${variable}"
-      variables_substitution="${java_property_value} ${variables_substitution}"
-      shift 2
-      ;;
-
-    *) # preserve positional arguments
-      PARAMS="$PARAMS $1"
-      shift
-      ;;
-
-  esac
+while [ -h "$PRG" ] ; do
+  # shellcheck disable=SC2006
+  ls=`ls -ld "$PRG"`
+  # shellcheck disable=SC2006
+  link=`expr "$ls" : '.*-> \(.*\)$'`
+  if expr "$link" : '/.*' > /dev/null; then
+    PRG="$link"
+  else
+    # shellcheck disable=SC2006
+    PRG=`dirname "$PRG"`/"$link"
+  fi
 done
 
-if [ -z ${CONFIG_FILE} ]; then
-  echo "Error: The following option is required: [-c | --config]"
-  usage
-  exit -1
-elif [ ! -f ${CONFIG_FILE} ];then
-  echo "Error: Config file ${CONFIG_FILE} does not exists! Please check it."
-  exit -1
+PRG_DIR=`dirname "$PRG"`
+APP_DIR=`cd "$PRG_DIR/.." >/dev/null; pwd`
+CONF_DIR=${APP_DIR}/config
+APP_JAR=${APP_DIR}/lib/seatunnel-core-flink-sql.jar
+APP_MAIN="org.apache.seatunnel.core.sql.FlinkSqlStarter"
+
+if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
+    . "${CONF_DIR}/seatunnel-env.sh"
 fi
 
-# set positional arguments in their proper place
-eval set -- "$PARAMS"
+if [ $# == 0 ]
+then
+    args="-h"
+else
+    args=$@
+fi
 
-BIN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-APP_DIR=$(dirname ${BIN_DIR})
-CONF_DIR=${APP_DIR}/config
-PLUGINS_DIR=${APP_DIR}/lib
-DEFAULT_CONFIG=${CONF_DIR}/application.conf
-CONFIG_FILE=${CONFIG_FILE:-$DEFAULT_CONFIG}
 
-assemblyJarName=$(find ${PLUGINS_DIR} -name seatunnel-core-flink-sql*.jar)
-
-source ${CONF_DIR}/seatunnel-env.sh
-
-string_trim() {
-    echo $1 | awk '{$1=$1;print}'
-}
-
-export JVM_ARGS=$(string_trim "${variables_substitution}")
-
-exec ${FLINK_HOME}/bin/flink run \
-    ${PARAMS} \
-    -c org.apache.seatunnel.core.sql.SeatunnelSql \
-    ${assemblyJarName} --config ${CONFIG_FILE}
+CMD=$(java -cp ${APP_JAR} ${APP_MAIN} ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
+if [ ${EXIT_CODE} -eq 234 ]; then
+    # print usage
+    echo "${CMD}"
+    exit 0
+elif [ ${EXIT_CODE} -eq 0 ]; then
+    echo "Execute SeaTunnel Flink SQL Job: ${CMD}"
+    eval ${CMD}
+else
+    echo "${CMD}"
+    exit ${EXIT_CODE}
+fi

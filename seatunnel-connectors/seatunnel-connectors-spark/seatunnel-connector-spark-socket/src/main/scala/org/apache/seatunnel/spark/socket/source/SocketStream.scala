@@ -19,6 +19,7 @@ package org.apache.seatunnel.spark.socket.source
 import scala.collection.JavaConversions._
 
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
+import org.apache.seatunnel.spark.socket.Config.{HOST, DEFAULT_HOST, PORT, DEFAULT_PORT}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.stream.SparkStreamingSource
 import org.apache.spark.rdd.RDD
@@ -31,13 +32,13 @@ class SocketStream extends SparkStreamingSource[String] {
   override def prepare(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "host" -> "localhost",
-        "port" -> 9999))
+        HOST -> DEFAULT_HOST,
+        PORT -> DEFAULT_PORT))
     config = config.withFallback(defaultConfig)
   }
 
   override def getData(env: SparkEnvironment): DStream[String] = {
-    env.getStreamingContext.socketTextStream(config.getString("host"), config.getInt("port"))
+    env.getStreamingContext.socketTextStream(config.getString(HOST), config.getInt(PORT))
   }
 
   override def rdd2dataset(sparkSession: SparkSession, rdd: RDD[String]): Dataset[Row] = {
@@ -49,4 +50,5 @@ class SocketStream extends SparkStreamingSource[String] {
     sparkSession.createDataFrame(rowsRDD, schema)
   }
 
+  override def getPluginName: String = "SocketStream"
 }

@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.flink.transform;
 
+import org.apache.seatunnel.apis.base.plugin.Plugin;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchTransform;
 import org.apache.seatunnel.flink.stream.FlinkStreamTransform;
-import org.apache.seatunnel.plugin.Plugin;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 

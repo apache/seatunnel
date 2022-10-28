@@ -18,7 +18,9 @@
 package org.apache.seatunnel.config.utils;
 
 import java.io.File;
+import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Paths;
 
 public final class FileUtils {
 
@@ -26,17 +28,12 @@ public final class FileUtils {
     }
 
     // get file from classpath, resources folder
-    public static File getFileFromResources(String fileName) {
-
-        ClassLoader classLoader = FileUtils.class.getClassLoader();
-
-        URL resource = classLoader.getResource(fileName);
+    public static File getFileFromResources(String fileName) throws URISyntaxException {
+        URL resource = FileUtils.class.getResource(fileName);
         if (resource == null) {
             throw new IllegalArgumentException("file is not found!");
-        } else {
-            return new File(resource.getFile());
         }
-
+        return Paths.get(resource.toURI()).toFile();
     }
 
 }

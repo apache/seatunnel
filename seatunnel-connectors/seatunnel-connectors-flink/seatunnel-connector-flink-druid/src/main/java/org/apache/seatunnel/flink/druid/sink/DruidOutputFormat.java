@@ -20,12 +20,14 @@ package org.apache.seatunnel.flink.druid.sink;
 import static org.apache.flink.api.java.io.CsvInputFormat.DEFAULT_FIELD_DELIMITER;
 import static org.apache.flink.api.java.io.CsvInputFormat.DEFAULT_LINE_DELIMITER;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
+import org.apache.seatunnel.common.utils.JsonUtils;
+
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.druid.data.input.MaxSizeSplitHintSpec;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.DimensionsSpec;
@@ -43,8 +45,6 @@ import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.types.Row;
 import org.joda.time.DateTime;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -56,9 +56,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 
+@Slf4j
 public class DruidOutputFormat extends RichOutputFormat<Row> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(DruidOutputFormat.class);
     private static final long serialVersionUID = -7410857670269773005L;
 
     private static final String DEFAULT_TIMESTAMP_COLUMN = "timestamp";
@@ -122,14 +122,15 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
         mapper.configure(SerializationFeature.INDENT_OUTPUT, false);
         mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         String taskJSON = mapper.writeValueAsString(indexTask);
-        JSONObject jsonObject = JSON.parseObject(taskJSON);
+        ObjectNode jsonObject = JsonUtils.parseObject(taskJSON);
         jsonObject.remove("id");
         jsonObject.remove("groupId");
         jsonObject.remove("resource");
-        JSONObject spec = jsonObject.getJSONObject("spec");
+
+        ObjectNode spec = (ObjectNode) jsonObject.get("spec");
         spec.remove("tuningConfig");
         jsonObject.put("spec", spec);
-        taskJSON = jsonObject.toJSONString();
+        taskJSON = jsonObject.toString();
 
         URL url = new URL(this.coordinatorURL + "druid/indexer/v1/task");
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
@@ -147,7 +148,7 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
             while ((responseLine = br.readLine()) != null) {
                 response.append(responseLine.trim());
             }
-            LOGGER.info("Druid write task has been sent, and the response is {}", response.toString());
+            log.info("Druid write task has been sent, and the response is {}", response.toString());
         }
     }
 

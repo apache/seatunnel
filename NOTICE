@@ -3,3 +3,103 @@ Copyright 2021-2022 The Apache Software Foundation
 
 This product includes software developed at
 The Apache Software Foundation (http://www.apache.org/).
+
+
+// ------------------------------------------------------------------
+// NOTICE file corresponding to the section 4d of The Apache License,
+// Version 2.0, in this case for Apache Flink
+// ------------------------------------------------------------------
+
+Apache Flink
+Copyright 2006-2022 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+
+Flink : Connectors : JDBC
+Copyright 2014-2022 The Apache Software Foundation
+
+
+
+// ------------------------------------------------------------------
+// NOTICE file corresponding to the section 4d of The Apache License,
+// Version 2.0, in this case for Apache Iceberg
+// ------------------------------------------------------------------
+
+Apache Iceberg
+Copyright 2017-2022 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+
+Iceberg : Flink
+Copyright 2017-2022 The Apache Software Foundation
+
+// ------------------------------------------------------------------
+// NOTICE file corresponding to the section 4d of The Apache License,
+// Version 2.0, in this case for Apache Iceberg
+// ------------------------------------------------------------------
+-----------------------------------------------------------------------
+This product contains code form the Apache Maven Wrapper Project:
+-----------------------------------------------------------------------
+
+Apache Maven Wrapper
+Copyright 2013-2022 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+The original idea and initial implementation of the maven-wrapper module is derived 
+from the Gradle Wrapper which was written originally by Hans Dockter and Adam Murdoch.
+Copyright 2007 the original author or authors.
+-----------------------------------------------------------------------
+This product contains code form the Hazelcast Project:
+
+The packages:
+
+com.hazelcast.internal.util.collection
+com.hazelcast.internal.util.concurrent
+
+and the classes:
+
+com.hazelcast.internal.util.QuickMath
+com.hazelcast.client.impl.protocol.util.UnsafeBuffer
+com.hazelcast.client.impl.protocol.util.BufferBuilder
+
+contain code originating from the Agrona project
+(https://github.com/real-logic/Agrona).
+
+The class com.hazelcast.internal.util.HashUtil contains code originating
+from the Koloboke project (https://github.com/OpenHFT/Koloboke).
+
+The class classloading.ThreadLocalLeakTestUtils contains code originating
+from the Tomcat project (https://github.com/apache/tomcat).
+
+com.hazelcast.internal.cluster.fd.PhiAccrualFailureDetector contains code originating
+from the Akka project (https://github.com/akka/akka/).
+
+The package com.hazelcast.internal.json contains code originating
+from minimal-json project (https://github.com/ralfstx/minimal-json).
+
+The class com.hazelcast.instance.impl.MobyNames contains code originating
+from The Moby Project (https://github.com/moby/moby).
+
+The class com.hazelcast.internal.util.graph.BronKerboschCliqueFinder contains code
+originating from The JGraphT Project (https://github.com/jgrapht/jgrapht).
+
+The packages:
+com.hazelcast.sql
+com.hazelcast.jet.sql
+
+contain code originating from the Apache Calcite (https://github.com/apache/calcite)
+
+The class com.hazelcast.jet.kafka.impl.ResumeTransactionUtil contains
+code derived from the Apache Flink project.
+
+The class com.hazelcast.internal.util.ConcurrentReferenceHashMap contains code written by Doug Lea
+and updated within the WildFly project (https://github.com/wildfly/wildfly).
+
+The class org.apache.calcite.linq4j.tree.ConstantExpression contains code
+originating from the Calcite project (https://github.com/apache/calcite).

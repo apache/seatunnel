@@ -17,27 +17,25 @@
 
 package org.apache.seatunnel.flink.batch;
 
-import org.apache.seatunnel.env.Execution;
+import org.apache.seatunnel.apis.base.env.Execution;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.util.TableUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
 import org.apache.flink.types.Row;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBatchTransform, FlinkBatchSink, FlinkEnvironment> {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkBatchExecution.class);
 
     private Config config;
 
@@ -48,7 +46,6 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
     }
 
     @Override
-
     public void start(List<FlinkBatchSource> sources, List<FlinkBatchTransform> transforms, List<FlinkBatchSink> sinks) throws Exception {
         List<DataSet<Row>> data = new ArrayList<>();
 
@@ -72,13 +69,15 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
             sink.outputBatch(flinkEnvironment, dataSet);
         }
 
-        try {
-            LOGGER.info("Flink Execution Plan:{}", flinkEnvironment.getBatchEnvironment().getExecutionPlan());
-            JobExecutionResult execute = flinkEnvironment.getBatchEnvironment().execute(flinkEnvironment.getJobName());
-            LOGGER.info(execute.toString());
-        } catch (Exception e) {
-            LOGGER.warn("Flink with job name [{}] execute failed", flinkEnvironment.getJobName());
-            throw e;
+        if (whetherExecute(sinks)) {
+            try {
+                log.info("Flink Execution Plan:{}", flinkEnvironment.getBatchEnvironment().getExecutionPlan());
+                JobExecutionResult execute = flinkEnvironment.getBatchEnvironment().execute(flinkEnvironment.getJobName());
+                log.info(execute.toString());
+            } catch (Exception e) {
+                log.warn("Flink with job name [{}] execute failed", flinkEnvironment.getJobName());
+                throw e;
+            }
         }
     }
 
@@ -116,4 +115,7 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
         return config;
     }
 
+    private boolean whetherExecute(List<FlinkBatchSink> sinks) {
+        return sinks.stream().noneMatch(s -> "ConsoleSink".equals(s.getPluginName()) || "AssertSink".equals(s.getPluginName()));
+    }
 }

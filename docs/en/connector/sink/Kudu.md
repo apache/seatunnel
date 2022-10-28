@@ -1,5 +1,7 @@
 # Kudu
 
+> Kudu sink connector
+
 ## Description
 
 Write data to Kudu.

@@ -1,5 +1,7 @@
 # Clickhouse
 
+> Clickhouse sink connector
+
 ## Description
 
 Use [Clickhouse-jdbc](https://github.com/ClickHouse/clickhouse-jdbc) to correspond the data source according to the field name and write it into ClickHouse. The corresponding data table needs to be created in advance before use
@@ -9,7 +11,7 @@ Use [Clickhouse-jdbc](https://github.com/ClickHouse/clickhouse-jdbc) to correspo
 Engine Supported and plugin name
 
 * [x] Spark: Clickhouse
-* [ ] Flink
+* [x] Flink: Clickhouse
 
 :::
 
@@ -34,7 +36,7 @@ Engine Supported and plugin name
 
 ### bulk_size [number]
 
-The number of data written through [Clickhouse-jdbc](https://github.com/ClickHouse/clickhouse-jdbc) each time, the `default is 20000` .
+The number of rows written through [Clickhouse-jdbc](https://github.com/ClickHouse/clickhouse-jdbc) each time, the `default is 20000` .
 
 ### database [string]
 

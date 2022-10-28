@@ -23,7 +23,7 @@
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-core</artifactId>
-        <version>2.0.5-SNAPSHOT</version>
+        <version>${revision}</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -44,55 +44,32 @@
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-java</artifactId>
+            <version>${flink.1.13.6.version}</version>
+            <scope>${flink.scope}</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
+            <version>${flink.1.13.6.version}</version>
+            <scope>${flink.scope}</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
+            <version>${flink.1.13.6.version}</version>
+            <scope>${flink.scope}</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-api-flink</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connector-flink-kafka</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connector-flink-console</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connector-flink-jdbc</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connector-flink-fake</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connector-flink-socket</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connector-flink-file</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connector-flink-elasticsearch</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connector-flink-doris</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -120,6 +97,11 @@
             <version>${project.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-transform-flink-udf</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -154,7 +136,7 @@
                                         <argument>--build-arg</argument>
                                         <argument>SCALA_VERSION=${scala.binary.version}</argument>
                                         <argument>--build-arg</argument>
-                                        <argument>FLINK_VERSION=${flink.version}</argument>
+                                        <argument>FLINK_VERSION=${flink.1.13.6.version}</argument>
                                         <argument>-t</argument>
                                         <argument>${docker.hub}/${docker.repo}:${docker.tag}</argument>
                                         <argument>-t</argument>
@@ -183,7 +165,7 @@
                                         <argument>--build-arg</argument>
                                         <argument>SCALA_VERSION=${scala.binary.version}</argument>
                                         <argument>--build-arg</argument>
-                                        <argument>FLINK_VERSION=${flink.version}</argument>
+                                        <argument>FLINK_VERSION=${flink.1.13.6.version}</argument>
                                         <argument>--push</argument>
                                         <argument>-t</argument>
                                         <argument>${docker.hub}/${docker.repo}:${docker.tag}</argument>

@@ -1,0 +1,270 @@
+---
+sidebar_position: 4
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Set Up with Kubernetes
+
+This section provides a quick guide to using SeaTunnel with Kubernetes.
+
+## Prerequisites
+
+We assume that you have a local installations of the following:
+
+- [docker](https://docs.docker.com/)
+- [kubernetes](https://kubernetes.io/)
+- [helm](https://helm.sh/docs/intro/quickstart/)
+
+So that the `kubectl` and `helm` commands are available on your local system.
+
+For kubernetes [minikube](https://minikube.sigs.k8s.io/docs/start/) is our choice, at the time of writing this we are using version v1.23.3. You can start a cluster with the following command:
+
+```bash
+minikube start --kubernetes-version=v1.23.3
+```
+
+## Installation
+
+### SeaTunnel docker image
+
+To run the image with SeaTunnel, first create a `Dockerfile`:
+
+<Tabs
+  groupId="engine-type"
+  defaultValue="flink"
+  values={[
+    {label: 'Flink', value: 'flink'},
+  ]}>
+<TabItem value="flink">
+
+```Dockerfile
+FROM flink:1.13
+
+ENV SEATUNNEL_VERSION="2.1.2"
+ENV SEATUNNEL_HOME = "/opt/seatunnel"
+
+RUN mkdir -p $SEATUNNEL_HOME
+
+RUN wget https://archive.apache.org/dist/incubator/seatunnel/${SEATUNNEL_VERSION}/apache-seatunnel-incubating-${SEATUNNEL_VERSION}-bin.tar.gz
+RUN tar -xzvf apache-seatunnel-incubating-${SEATUNNEL_VERSION}-bin.tar.gz
+
+RUN cp -r apache-seatunnel-incubating-${SEATUNNEL_VERSION}/* $SEATUNNEL_HOME/
+RUN rm -rf apache-seatunnel-incubating-${SEATUNNEL_VERSION}*
+RUN rm -rf $SEATUNNEL_HOME/connectors/spark
+```
+
+Then run the following commands to build the image:
+```bash
+docker build -t seatunnel:2.1.2-flink-1.13 -f Dockerfile .
+```
+Image `seatunnel:2.1.2-flink-1.13` need to be present in the host (minikube) so that the deployment can take place.
+
+Load image to minikube via:
+```bash
+minikube image load seatunnel:2.1.2-flink-1.13
+```
+
+</TabItem>
+</Tabs>
+
+### Deploying the operator
+
+<Tabs
+  groupId="engine-type"
+  defaultValue="flink"
+  values={[
+    {label: 'Flink', value: 'flink'},
+  ]}>
+<TabItem value="flink">
+
+The steps below provide a quick walk-through on setting up the Flink Kubernetes Operator.
+
+Install the certificate manager on your Kubernetes cluster to enable adding the webhook component (only needed once per Kubernetes cluster):
+
+```bash
+kubectl create -f https://github.com/jetstack/cert-manager/releases/download/v1.7.1/cert-manager.yaml
+```
+Now you can deploy the latest stable Flink Kubernetes Operator version using the included Helm chart:
+
+```bash
+
+helm repo add flink-operator-repo https://downloads.apache.org/flink/flink-kubernetes-operator-0.1.0/
+
+helm install flink-kubernetes-operator flink-operator-repo/flink-kubernetes-operator
+```
+
+You may verify your installation via `kubectl`:
+
+```bash
+kubectl get pods
+NAME                                                   READY   STATUS    RESTARTS      AGE
+flink-kubernetes-operator-5f466b8549-mgchb             1/1     Running   3 (23h ago)   16d
+
+```
+
+</TabItem>
+</Tabs>
+
+## Run SeaTunnel Application
+
+**Run Application:**: SeaTunnel already providers out-of-the-box [configurations](https://github.com/apache/incubator-seatunnel/tree/dev/config).
+
+<Tabs
+  groupId="engine-type"
+  defaultValue="flink"
+  values={[
+    {label: 'Flink', value: 'flink'},
+  ]}>
+<TabItem value="flink">
+
+In this guide we are going to use [flink.streaming.conf](https://github.com/apache/incubator-seatunnel/blob/dev/config/flink.streaming.conf.template):
+
+ ```conf
+env {
+  execution.parallelism = 1
+}
+
+source {
+    FakeSourceStream {
+      result_table_name = "fake"
+      field_name = "name,age"
+    }
+}
+
+transform {
+    sql {
+      sql = "select name,age from fake"
+    }
+}
+
+sink {
+  ConsoleSink {}
+}
+ ```
+
+This configuration need to be present when we are going to deploy the application (SeaTunnel) to Flink cluster (on Kubernetes), we also need to configure a Pod to Use a PersistentVolume for Storage.
+- Create `/mnt/data` on your Node. Open a shell to the single Node in your cluster. How you open a shell depends on how you set up your cluster. For example, in our case weare using Minikube, you can open a shell to your Node by entering `minikube ssh`.
+In your shell on that Node, create a /mnt/data directory:
+```bash
+minikube ssh
+
+# This assumes that your Node uses "sudo" to run commands
+# as the superuser
+sudo mkdir /mnt/data
+```
+- Copy application (SeaTunnel) configuration files to your Node.
+```bash
+minikube cp flink.streaming.conf /mnt/data/flink.streaming.conf
+```
+
+Once the Flink Kubernetes Operator is running as seen in the previous steps you are ready to submit a Flink (SeaTunnel) job:
+- Create `seatunnel-flink.yaml` FlinkDeployment manifest:
+```yaml
+apiVersion: flink.apache.org/v1alpha1
+kind: FlinkDeployment
+metadata:
+  namespace: default
+  name: seatunnel-flink-streaming-example
+spec:
+  image: seatunnel:2.1.2-flink-1.13
+  flinkVersion: v1_14
+  flinkConfiguration:
+    taskmanager.numberOfTaskSlots: "2"
+  serviceAccount: flink
+  jobManager:
+    replicas: 1
+    resource:
+      memory: "2048m"
+      cpu: 1
+  taskManager:
+    resource:
+      memory: "2048m"
+      cpu: 2
+  podTemplate:
+    spec:
+      containers:
+        - name: flink-main-container
+          volumeMounts:
+            - mountPath: /data
+              name: config-volume
+      volumes:
+        - name: config-volume
+          hostPath:
+            path: "/mnt/data"
+            type: Directory
+
+  job:
+    jarURI: local:///opt/seatunnel/lib/seatunnel-core-flink.jar
+    entryClass: org.apache.seatunnel.core.flink.SeatunnelFlink
+    args: ["--config", "/data/flink.streaming.conf"]
+    parallelism: 2
+    upgradeMode: stateless
+
+```
+- Run the example application:
+```bash
+kubectl apply -f seatunnel-flink.yaml
+```
+</TabItem>
+</Tabs>
+
+**See The Output**
+
+<Tabs
+  groupId="engine-type"
+  defaultValue="flink"
+  values={[
+    {label: 'Flink', value: 'flink'},
+  ]}>
+<TabItem value="flink">
+
+You may follow the logs of your job, after a successful startup (which can take on the order of a minute in a fresh environment, seconds afterwards) you can:
+
+```bash
+kubectl logs -f deploy/seatunnel-flink-streaming-example
+```
+
+To expose the Flink Dashboard you may add a port-forward rule:
+```bash
+kubectl port-forward svc/seatunnel-flink-streaming-example-rest 8081
+```
+Now the Flink Dashboard is accessible at [localhost:8081](http://localhost:8081).
+
+Or launch `minikube dashboard` for a web-based Kubernetes user interface.
+
+The content printed in the TaskManager Stdout log:
+```bash
+kubectl logs \
+-l 'app in (seatunnel-flink-streaming-example), component in (taskmanager)' \
+--tail=-1 \
+-f
+```
+looks like the below (your content may be different since we use `FakeSourceStream` to automatically generate random stream data):
+
+```shell
++I[Kid Xiong, 1650316786086]
++I[Ricky Huo, 1650316787089]
++I[Ricky Huo, 1650316788089]
++I[Ricky Huo, 1650316789090]
++I[Kid Xiong, 1650316790090]
++I[Kid Xiong, 1650316791091]
++I[Kid Xiong, 1650316792092]
+```
+
+To stop your job and delete your FlinkDeployment you can simply:
+
+```bash
+kubectl delete -f seatunnel-flink.yaml
+```
+</TabItem>
+</Tabs>
+
+
+Happy SeaTunneling!
+
+## What's More
+
+For now, you are already taking a quick look at SeaTunnel, you could see [connector](/category/connector) to find all source and sink SeaTunnel supported.
+Or see [deployment](../deployment.mdx) if you want to submit your application in another kind of your engine cluster.

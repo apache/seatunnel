@@ -17,10 +17,9 @@
 
 package org.apache.seatunnel.flink.doris.sink;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpResponseStatus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
@@ -43,9 +42,9 @@ import java.util.UUID;
 /**
  * doris streamLoad
  */
+@Slf4j
 public class DorisStreamLoad implements Serializable {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(DorisStreamLoad.class);
     private static final long serialVersionUID = -595233501819950489L;
     private static final List<String> DORIS_SUCCESS_STATUS = Arrays.asList("Success", "Publish Timeout");
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -84,7 +83,7 @@ public class DorisStreamLoad implements Serializable {
 
     public void load(String value) {
         LoadResponse loadResponse = loadBatch(value);
-        LOGGER.info("Streamload Response:{}", loadResponse);
+        log.info("Streamload Response:{}", loadResponse);
         if (loadResponse.status != HttpResponseStatus.OK.code()) {
             throw new RuntimeException("stream load error: " + loadResponse.respContent);
         } else {
@@ -140,7 +139,7 @@ public class DorisStreamLoad implements Serializable {
             return new LoadResponse(status, respMsg, response.toString());
         } catch (Exception e) {
             String err = "failed to stream load data with label:" + label;
-            LOGGER.warn(err, e);
+            log.warn(err, e);
             throw new RuntimeException("stream load error: " + err);
         } finally {
             if (feConn != null) {

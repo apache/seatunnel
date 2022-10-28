@@ -1,0 +1,193 @@
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one or more
+    contributor license agreements.  See the NOTICE file distributed with
+    this work for additional information regarding copyright ownership.
+    The ASF licenses this file to You under the Apache License, Version 2.0
+    (the "License"); you may not use this file except in compliance with
+    the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.1.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.1.0 http://maven.apache.org/xsd/assembly-2.1.0.xsd">
+    <id>bin</id>
+    <formats>
+        <format>tar.gz</format>
+    </formats>
+    <includeBaseDirectory>true</includeBaseDirectory>
+    <fileSets>
+        <fileSet>
+            <directory>../</directory>
+
+            <excludes>
+                <exclude>**/target/**</exclude>
+                <exclude>**/.classpath</exclude>
+                <exclude>**/.project</exclude>
+                <exclude>**/.settings/**</exclude>
+                <exclude>lib/**</exclude>
+            </excludes>
+
+            <includes>
+                <include>README.md</include>
+                <include>bin/**</include>
+                <include>config/**</include>
+                <include>plugins/**</include>
+            </includes>
+        </fileSet>
+
+        <!-- ============ Starter Bin ============  -->
+        <fileSet>
+            <directory>../seatunnel-core/seatunnel-core-flink/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-core/seatunnel-core-flink-sql/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-core/seatunnel-core-spark/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-core/seatunnel-flink-starter/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-core/seatunnel-spark-starter/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-core/seatunnel-starter/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+
+        <fileSet>
+            <directory>${project.build.directory}/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <includes>
+                <include>*</include>
+            </includes>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <!--Engine Config File-->
+        <fileSet>
+            <directory>../seatunnel-engine/seatunnel-engine-common/src/main/resources</directory>
+            <includes>
+                <include>*.yaml</include>
+            </includes>
+            <outputDirectory>/config</outputDirectory>
+            <fileMode>0644</fileMode>
+        </fileSet>
+        <!--Licenses And NOTICE-->
+        <fileSet>
+            <directory>release-docs</directory>
+            <outputDirectory>.</outputDirectory>
+        </fileSet>
+        <!-- DISCLAIMER -->
+        <fileSet>
+            <directory>${basedir}/.././</directory>
+            <includes>
+                <include>DISCLAIMER</include>
+            </includes>
+            <outputDirectory>.</outputDirectory>
+        </fileSet>
+    </fileSets>
+
+    <files>
+        <file>
+            <source>../plugin-mapping.properties</source>
+            <outputDirectory>/connectors</outputDirectory>
+        </file>
+    </files>
+    <dependencySets>
+        <!-- ============ Starter Jars ============  -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <includes>
+                <!-- Flink V2 starter -->
+                <include>org.apache.seatunnel:seatunnel-flink-starter:jar</include>
+                <!-- Spark V2 starter -->
+                <include>org.apache.seatunnel:seatunnel-spark-starter:jar</include>
+                <!-- Flink starter -->
+                <include>org.apache.seatunnel:seatunnel-core-flink:jar</include>
+                <!-- Flink SQL starter -->
+                <include>org.apache.seatunnel:seatunnel-core-flink-sql:jar</include>
+                <!-- Spark starter -->
+                <include>org.apache.seatunnel:seatunnel-core-spark:jar</include>
+                <!-- SeaTunnel Engine starter -->
+                <include>org.apache.seatunnel:seatunnel-starter:jar</include>
+            </includes>
+            <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
+            <outputDirectory>/lib</outputDirectory>
+            <scope>provided</scope>
+        </dependencySet>
+
+        <!-- ============ Connectors Jars ============  -->
+        <!-- SeaTunnel connectors -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <includes>
+                <include>org.apache.seatunnel:connector-*:jar</include>
+            </includes>
+            <excludes>
+                <exclude>org.apache.seatunnel:connector-common</exclude>
+                <!-- Don't exclude connector-http-base, because it contains SPI files -->
+                <exclude>org.apache.seatunnel:connector-file-base</exclude>
+            </excludes>
+            <outputDirectory>/connectors/seatunnel</outputDirectory>
+            <scope>provided</scope>
+        </dependencySet>
+        <!-- Flink connectors -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <includes>
+                <include>org.apache.seatunnel:seatunnel-connector-flink-*:jar</include>
+            </includes>
+            <outputDirectory>/connectors/flink</outputDirectory>
+            <scope>provided</scope>
+        </dependencySet>
+        <!-- Flink SQL connectors -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <includes>
+                <include>org.apache.seatunnel:flink-sql-connector-*:jar</include>
+            </includes>
+            <outputDirectory>/connectors/flink-sql</outputDirectory>
+            <scope>provided</scope>
+        </dependencySet>
+        <!-- Spark connectors -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <includes>
+                <include>org.apache.seatunnel:seatunnel-connector-spark-*:jar</include>
+            </includes>
+            <outputDirectory>/connectors/spark</outputDirectory>
+            <scope>provided</scope>
+        </dependencySet>
+    </dependencySets>
+</assembly>

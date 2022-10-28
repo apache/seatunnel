@@ -19,17 +19,20 @@ package org.apache.seatunnel.flink.influxdb.sink;
 
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.flink.BaseFlinkSink;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import com.google.auto.service.AutoService;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.operators.DataSink;
 import org.apache.flink.types.Row;
 
 import java.util.List;
 
+@AutoService(BaseFlinkSink.class)
 public class InfluxDbSink implements FlinkBatchSink {
 
     private static final long serialVersionUID = 7358988750295693096L;
@@ -52,13 +55,12 @@ public class InfluxDbSink implements FlinkBatchSink {
     private List<String> fields;
 
     @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
+    public void outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
         DataSink<Row> dataSink = dataSet.output(new InfluxDbOutputFormat(serverURL, username, password, database, measurement, tags, fields));
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
-            return dataSink.setParallelism(parallelism);
+            dataSink.setParallelism(parallelism);
         }
-        return dataSink;
     }
 
     @Override
@@ -85,5 +87,10 @@ public class InfluxDbSink implements FlinkBatchSink {
         this.measurement = config.getString(MEASUREMENT);
         this.tags = config.getStringList(TAGS);
         this.fields = config.getStringList(FIELDS);
+    }
+
+    @Override
+    public String getPluginName() {
+        return "InfluxDbSink";
     }
 }

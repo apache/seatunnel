@@ -23,20 +23,26 @@ import org.apache.seatunnel.core.sql.job.JobInfo;
 import org.apache.commons.io.FileUtils;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Paths;
 
 public class LocalSqlExample {
 
-    public static final String TEST_RESOURCE_DIR = "/seatunnel-examples/seatunnel-flink-sql-examples/src/main/resources/examples/";
-
-    public static void main(String[] args) throws IOException {
-        String configFile = getTestConfigFile("flink.sql.conf.template");
+    public static void main(String[] args) throws IOException, URISyntaxException {
+        String configFile = getTestConfigFile("/examples/flink.sql.conf.template");
         String jobContent = FileUtils.readFileToString(new File(configFile), StandardCharsets.UTF_8);
         Executor.runJob(new JobInfo(jobContent));
     }
 
-    public static String getTestConfigFile(String configFile) {
-        return System.getProperty("user.dir") + TEST_RESOURCE_DIR + configFile;
+    public static String getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {
+        URL resource = LocalSqlExample.class.getResource(configFile);
+        if (resource == null) {
+            throw new FileNotFoundException("Could not find config: " + configFile);
+        }
+        return Paths.get(resource.toURI()).toString();
     }
 }

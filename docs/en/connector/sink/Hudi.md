@@ -1,5 +1,7 @@
 # Hudi
 
+> Hudi sink connector
+
 ## Description
 
 Write Rows to a Hudi.

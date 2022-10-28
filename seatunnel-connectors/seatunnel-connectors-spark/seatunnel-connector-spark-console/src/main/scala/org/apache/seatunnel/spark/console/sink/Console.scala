@@ -68,4 +68,6 @@ class Console extends SparkBatchSink {
       ))
     config = config.withFallback(defaultConfig)
   }
+
+  override def getPluginName: String = "Console"
 }

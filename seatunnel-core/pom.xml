@@ -23,7 +23,7 @@
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel</artifactId>
-        <version>2.0.5-SNAPSHOT</version>
+        <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -35,5 +35,29 @@
         <module>seatunnel-core-flink</module>
         <module>seatunnel-core-spark</module>
         <module>seatunnel-core-flink-sql</module>
+        <module>seatunnel-core-starter</module>
+        <module>seatunnel-flink-starter</module>
+        <module>seatunnel-spark-starter</module>
+        <module>seatunnel-starter</module>
     </modules>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <configuration>
+                    <shadedArtifactAttached>false</shadedArtifactAttached>
+                    <createDependencyReducedPom>true</createDependencyReducedPom>
+                    <!-- Make sure the transitive dependencies are written to the generated pom under <dependencies> -->
+                    <promoteTransitiveDependencies>true</promoteTransitiveDependencies>
+                    <artifactSet>
+                        <excludes>
+                            <exclude>ch.qos.logback:*</exclude>
+                        </excludes>
+                    </artifactSet>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
