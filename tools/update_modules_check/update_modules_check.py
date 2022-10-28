@@ -30,7 +30,8 @@ def get_cv2_e2e_modules(files):
     get_modules(files, 2, "connector-", "seatunnel-connector-v2-e2e")
 
 def get_engine_modules(files):
-    get_modules(files, 1, "seatunnel-", "seatunnel-engine")
+    # We don't run all connector e2e when engine module update
+    print(",connector-seatunnel-e2e-base,connector-console-seatunnel-e2e")
 
 def get_engine_e2e_modules(files):
     get_modules(files, 2, "connector-", "seatunnel-engine-e2e")
@@ -70,7 +71,7 @@ def get_final_modules(file):
         if line.startswith("org.apache.seatunnel"):
             con = line.split(":")
             if con[2] == "jar":
-                output = output + "," + con[1]
+                output = output + "," + ":" + con[1]
     output = output[1:len(output)]
     print(output)
 
