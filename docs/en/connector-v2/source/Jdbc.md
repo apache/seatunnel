@@ -90,16 +90,17 @@ in parallel according to the concurrency of tasks.
 
 there are some reference value for params above.
 
-| datasource | driver                                       | url                                                          | maven                                                        |
-| ---------- | -------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| mysql      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                             | https://mvnrepository.com/artifact/mysql/mysql-connector-java |
-| postgresql | org.postgresql.Driver                        | jdbc:postgresql://localhost:5432/postgres                    | https://mvnrepository.com/artifact/org.postgresql/postgresql |
-| dm         | dm.jdbc.driver.DmDriver                      | jdbc:dm://localhost:5236                                     | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18 |
-| phoenix    | org.apache.phoenix.queryserver.client.Driver | jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF | https://mvnrepository.com/artifact/com.aliyun.phoenix/ali-phoenix-shaded-thin-client |
-| sqlserver  | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:microsoft:sqlserver://localhost:1433                    | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc |
-| oracle     | oracle.jdbc.OracleDriver                     | jdbc:oracle:thin:@localhost:1521/xepdb1                      | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8 |
-| gbase8a    | com.gbase.jdbc.Driver                        | jdbc:gbase://e2e_gbase8aDb:5258/test                         | https://www.gbase8.cn/wp-content/uploads/2020/10/gbase-connector-java-8.3.81.53-build55.5.7-bin_min_mix.jar |
-| starrocks  | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                             | https://mvnrepository.com/artifact/mysql/mysql-connector-java |
+| datasource | driver                                       | url                                                                | maven                                                                                                       |
+|------------|----------------------------------------------|--------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
+| mysql      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
+| postgresql | org.postgresql.Driver                        | jdbc:postgresql://localhost:5432/postgres                          | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                |
+| dm         | dm.jdbc.driver.DmDriver                      | jdbc:dm://localhost:5236                                           | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18                                                |
+| phoenix    | org.apache.phoenix.queryserver.client.Driver | jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF | https://mvnrepository.com/artifact/com.aliyun.phoenix/ali-phoenix-shaded-thin-client                        |
+| sqlserver  | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:microsoft:sqlserver://localhost:1433                          | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc                                       |
+| oracle     | oracle.jdbc.OracleDriver                     | jdbc:oracle:thin:@localhost:1521/xepdb1                            | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8                                          |
+| gbase8a    | com.gbase.jdbc.Driver                        | jdbc:gbase://e2e_gbase8aDb:5258/test                               | https://www.gbase8.cn/wp-content/uploads/2020/10/gbase-connector-java-8.3.81.53-build55.5.7-bin_min_mix.jar |
+| starrocks  | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
+| db2        | com.ibm.db2.jcc.DB2Driver                    | jdbc:db2://localhost:50000/testdb                                  | https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc/db2jcc4                                           |
 
 ## Example
 
@@ -143,3 +144,4 @@ parallel:
 - [Feature] Support Oracle JDBC Source ([2550](https://github.com/apache/incubator-seatunnel/pull/2550))
 - [Feature] Support StarRocks JDBC Source ([3060](https://github.com/apache/incubator-seatunnel/pull/3060))
 - [Feature] Support GBase8a JDBC Source ([3026](https://github.com/apache/incubator-seatunnel/pull/3026))
+- [Feature] Support DB2 JDBC Source ([2410](https://github.com/apache/incubator-seatunnel/pull/2410))
