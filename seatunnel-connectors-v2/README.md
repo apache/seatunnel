@@ -12,7 +12,7 @@ development at the current stage, and reduces the difficulty of merging.
 
 ### engineering structure
 
--  ../`seatunnel-connectors-v2`                                        connector code implementation
+-  ../`seatunnel-connectors-v2`                                        connector-v2 code implementation
 -  ../`seatunnel-translation`                                          translation layer for the new connector 
 -  ../seatunnel-e2e/`seatunnel-flink-connector-v2-e2e`                 testcase running on flink
 -  ../seatunnel-e2e/`seatunnel-spark-connector-v2-e2e`                 testcase running on spark
