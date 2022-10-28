@@ -132,6 +132,8 @@ jobs:
               - "seatunnel-connectors/**"
               - "plugin-mapping.properties"
               - "pom.xml"
+              - "**/workflows/**"
+              - "**/tools/**"
             engine:
               - "seatunnel-engine/**"
             engine-e2e:
