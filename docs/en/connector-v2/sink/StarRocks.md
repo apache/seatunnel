@@ -120,3 +120,9 @@ sink {
     }
 }
 ```
+
+## Changelog
+
+### next version
+
+- Add StarRocks Sink Connector
