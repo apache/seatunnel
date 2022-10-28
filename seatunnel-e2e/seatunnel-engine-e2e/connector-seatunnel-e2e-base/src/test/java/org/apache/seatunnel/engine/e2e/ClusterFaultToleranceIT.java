@@ -144,6 +144,7 @@ public class ClusterFaultToleranceIT {
      * @param jobMode      jobMode
      * @param rowNumber    row.num per FakeSource parallelism
      * @param parallelism  FakeSource parallelism
+     * @return
      */
     private ImmutablePair<String, String> createTestResources(@NonNull String testCaseName, @NonNull JobMode jobMode,
                                                               long rowNumber, int parallelism) {
@@ -215,7 +216,7 @@ public class ClusterFaultToleranceIT {
                 return clientJobProxy.waitForJobComplete();
             });
 
-            Awaitility.await().atMost(10, TimeUnit.MINUTES)
+            Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
                     Thread.sleep(2000);
                     System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
@@ -392,7 +393,7 @@ public class ClusterFaultToleranceIT {
             // shutdown on worker node
             node2.shutdown();
 
-            Awaitility.await().atMost(10, TimeUnit.MINUTES)
+            Awaitility.await().atMost(180000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
                     // Wait job write all rows in file
                     Thread.sleep(2000);
