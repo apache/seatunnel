@@ -41,7 +41,7 @@ own connectors, you need to follow the steps below.
 4. Configure the file in the `SeaTunnelApiExample` main method.
 5. Just run the main method.
 
-### **Create the format of the connector**
+### **Create new seatunnel v2 connector**
 
 1.Create a new module under the `seatunnel-connectors-v2` directory and name it connector - {connector name}.
 
