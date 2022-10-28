@@ -19,7 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.source;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -31,14 +36,19 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
-import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
+import software.amazon.awssdk.services.dynamodb.model.BatchGetItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.BatchGetItemResponse;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -83,10 +93,13 @@ public class AmazondynamodbSourceReader implements SourceReader<SeaTunnelRow, Am
         synchronized (output.getCheckpointLock()) {
             AmazondynamodbSourceSplit split = splits.poll();
             if (null != split) {
-                QueryResponse query = dynamoDbClient.query(QueryRequest.builder().build());
-                if (query.hasItems()) {
-                    query.items().forEach(item -> {
-                        output.collect(converterToRow(item, typeInfo));
+                BatchGetItemResponse batchGetItemResponse = dynamoDbClient
+                    .batchGetItem(BatchGetItemRequest.builder().build());
+                if (batchGetItemResponse.hasResponses()) {
+                    batchGetItemResponse.responses().forEach((s, maps) -> {
+                        maps.forEach(item -> {
+                            output.collect(converterToRow(item, typeInfo));
+                        });
                     });
                 }
             } else if (noMoreSplit) {
@@ -101,7 +114,7 @@ public class AmazondynamodbSourceReader implements SourceReader<SeaTunnelRow, Am
 
     @Override
     public List<AmazondynamodbSourceSplit> snapshotState(long checkpointId) throws Exception {
-        return null;
+        return new ArrayList<>(splits);
     }
 
     @Override
@@ -120,26 +133,76 @@ public class AmazondynamodbSourceReader implements SourceReader<SeaTunnelRow, Am
     }
 
     private SeaTunnelRow converterToRow(Map<String, AttributeValue> item, SeaTunnelRowType typeInfo) {
-        List<Object> fields = new ArrayList<>();
         SeaTunnelDataType<?>[] seaTunnelDataTypes = typeInfo.getFieldTypes();
+        return new SeaTunnelRow(convertRow(seaTunnelDataTypes, item).toArray());
+    }
+
+    private List<Object> convertRow(SeaTunnelDataType<?>[] seaTunnelDataTypes, Map<String, AttributeValue> item) {
+        List<Object> fields = new ArrayList<>();
         String[] fieldNames = typeInfo.getFieldNames();
         for (int i = 1; i <= seaTunnelDataTypes.length; i++) {
-            Object seatunnelField;
             SeaTunnelDataType<?> seaTunnelDataType = seaTunnelDataTypes[i - 1];
             AttributeValue attributeValue = item.get(fieldNames[i]);
-            if (attributeValue.nul()) {
-                seatunnelField = null;
-            } else if (BasicType.BOOLEAN_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = attributeValue.bool();
-            } else if (BasicType.BYTE_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = attributeValue.s().getBytes(StandardCharsets.UTF_8);
-            } else {
-                throw new IllegalStateException("Unexpected value: " + seaTunnelDataType);
-            }
-
-            fields.add(seatunnelField);
+            fields.add(convert(seaTunnelDataType, attributeValue));
         }
+        return fields;
+    }
 
-        return new SeaTunnelRow(fields.toArray());
+    private Object convert(SeaTunnelDataType<?> seaTunnelDataType, AttributeValue attributeValue) {
+        if (attributeValue.nul()) {
+            return null;
+        } else if (BasicType.BOOLEAN_TYPE.equals(seaTunnelDataType)) {
+            return attributeValue.bool();
+        } else if (BasicType.BYTE_TYPE.equals(seaTunnelDataType)) {
+            return attributeValue.s().getBytes(StandardCharsets.UTF_8)[0];
+        } else if (BasicType.SHORT_TYPE.equals(seaTunnelDataType)) {
+            return Short.parseShort(attributeValue.n());
+        } else if (BasicType.INT_TYPE.equals(seaTunnelDataType)) {
+            return Integer.parseInt(attributeValue.n());
+        } else if (BasicType.LONG_TYPE.equals(seaTunnelDataType)) {
+            return Long.parseLong(attributeValue.n());
+        } else if (seaTunnelDataType instanceof DecimalType) {
+            return new BigDecimal(attributeValue.n());
+        } else if (BasicType.FLOAT_TYPE.equals(seaTunnelDataType)) {
+            return Float.parseFloat(attributeValue.n());
+        } else if (BasicType.DOUBLE_TYPE.equals(seaTunnelDataType)) {
+            return Double.parseDouble(attributeValue.n());
+        } else if (BasicType.STRING_TYPE.equals(seaTunnelDataType)) {
+            return attributeValue.s();
+        } else if (LocalTimeType.LOCAL_TIME_TYPE.equals(seaTunnelDataType)) {
+            return LocalTime.parse(attributeValue.s());
+        } else if (LocalTimeType.LOCAL_DATE_TYPE.equals(seaTunnelDataType)) {
+            return LocalDate.parse(attributeValue.s());
+        } else if (LocalTimeType.LOCAL_DATE_TIME_TYPE.equals(seaTunnelDataType)) {
+            return LocalDateTime.parse(attributeValue.s());
+        } else if (PrimitiveByteArrayType.INSTANCE.equals(seaTunnelDataType)) {
+            return attributeValue.b().asByteArray();
+        } else if (seaTunnelDataType instanceof MapType) {
+            Map<String, Object> seatunnelMap = new HashMap<>();
+            attributeValue.m().forEach((s, attributeValueInfo) -> {
+                seatunnelMap.put(s, convert(((MapType) seaTunnelDataType).getValueType(), attributeValueInfo));
+            });
+            return seatunnelMap;
+        } else if (seaTunnelDataType instanceof ArrayType) {
+            List<Object> seatunnelList = new ArrayList<>(attributeValue.l().size());
+            if (attributeValue.hasL()) {
+                attributeValue.l().forEach(l -> {
+                    seatunnelList.add(convert(((ArrayType<?, ?>) seaTunnelDataType).getElementType(), l));
+                });
+            } else if (attributeValue.hasSs()) {
+                seatunnelList.addAll(attributeValue.ss());
+            } else if (attributeValue.hasNs()) {
+                attributeValue.ns().forEach(s -> {
+                    seatunnelList.addAll(attributeValue.ns());
+                });
+            } else if (attributeValue.hasBs()) {
+                attributeValue.bs().forEach(s -> {
+                    seatunnelList.add(s.asByteArray());
+                });
+            }
+            return seatunnelList;
+        } else {
+            throw new IllegalStateException("Unexpected value: " + seaTunnelDataType);
+        }
     }
 }

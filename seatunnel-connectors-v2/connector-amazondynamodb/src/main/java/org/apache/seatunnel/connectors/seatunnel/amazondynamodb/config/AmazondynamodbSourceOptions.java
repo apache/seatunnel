@@ -38,7 +38,7 @@ public class AmazondynamodbSourceOptions implements Serializable {
 
     private String secretAccessKey;
 
-    private String query;
+    private String table;
 
     private Config schema;
 
@@ -56,7 +56,7 @@ public class AmazondynamodbSourceOptions implements Serializable {
             this.secretAccessKey = config.getString(AmazondynamodbConfig.SECRET_ACCESS_KEY);
         }
         if (config.hasPath(AmazondynamodbConfig.QUERY)) {
-            this.query = config.getString(AmazondynamodbConfig.QUERY);
+            this.table = config.getString(AmazondynamodbConfig.QUERY);
         }
         if (config.hasPath(CommonConfig.SCHEMA)) {
             this.schema = config.getConfig(CommonConfig.SCHEMA);

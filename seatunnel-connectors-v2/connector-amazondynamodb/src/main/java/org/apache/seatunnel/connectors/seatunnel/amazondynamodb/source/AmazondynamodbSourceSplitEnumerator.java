@@ -20,10 +20,26 @@ package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.source;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.state.AmazonDynamodbSourceState;
 
-import java.io.IOException;
-import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+@Slf4j
 public class AmazondynamodbSourceSplitEnumerator implements SourceSplitEnumerator<AmazondynamodbSourceSplit, AmazonDynamodbSourceState> {
+
+    private final SourceSplitEnumerator.Context<AmazondynamodbSourceSplit> enumeratorContext;
+    private final Map<Integer, Set<AmazondynamodbSourceSplit>> pendingSplits;
+
+    public AmazondynamodbSourceSplitEnumerator(SourceSplitEnumerator.Context<AmazondynamodbSourceSplit> enumeratorContext) {
+        this.enumeratorContext = enumeratorContext;
+        this.pendingSplits = new HashMap<>();
+    }
+
     @Override
     public void open() {
         // No connection needs to be opened
@@ -31,7 +47,8 @@ public class AmazondynamodbSourceSplitEnumerator implements SourceSplitEnumerato
 
     @Override
     public void run() throws Exception {
-
+        discoverySplits();
+        assignPendingSplits();
     }
 
     @Override
@@ -67,5 +84,30 @@ public class AmazondynamodbSourceSplitEnumerator implements SourceSplitEnumerato
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
 
+    }
+
+    private void discoverySplits() {
+        List<AmazondynamodbSourceSplit> allSplit = new ArrayList<>();
+        log.info("Starting to calculate splits.");
+        allSplit.add(new AmazondynamodbSourceSplit(0));
+        int numReaders = enumeratorContext.currentParallelism();
+        log.debug("Assigned {} to {} readers.", allSplit, numReaders);
+        log.info("Calculated splits successfully, the size of splits is {}.", allSplit.size());
+    }
+
+    private void assignPendingSplits() {
+        // Check if there's any pending splits for given readers
+        for (int pendingReader : enumeratorContext.registeredReaders()) {
+            // Remove pending assignment for the reader
+            final Set<AmazondynamodbSourceSplit> pendingAssignmentForReader =
+                pendingSplits.remove(pendingReader);
+
+            if (pendingAssignmentForReader != null && !pendingAssignmentForReader.isEmpty()) {
+                // Assign pending splits to reader
+                log.info("Assigning splits to readers {}", pendingAssignmentForReader);
+                enumeratorContext.assignSplit(pendingReader, new ArrayList<>(pendingAssignmentForReader));
+                enumeratorContext.signalNoMoreSplits(pendingReader);
+            }
+        }
     }
 }

@@ -50,7 +50,6 @@ public class AmazondynamodbSource implements SeaTunnelSource<SeaTunnelRow, Amazo
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         amazondynamodbSourceOptions = new AmazondynamodbSourceOptions(pluginConfig);
-
     }
 
     @Override
@@ -67,16 +66,16 @@ public class AmazondynamodbSource implements SeaTunnelSource<SeaTunnelRow, Amazo
 
     @Override
     public SourceReader<SeaTunnelRow, AmazondynamodbSourceSplit> createReader(SourceReader.Context readerContext) {
-        return new AmazondynamodbSourceReader(readerContext, amazondynamodbSourceOptions);
+        return new AmazondynamodbSourceReader(readerContext, amazondynamodbSourceOptions, typeInfo);
     }
 
     @Override
     public SourceSplitEnumerator<AmazondynamodbSourceSplit, AmazonDynamodbSourceState> createEnumerator(SourceSplitEnumerator.Context<AmazondynamodbSourceSplit> enumeratorContext) throws Exception {
-        return null;
+        return new AmazondynamodbSourceSplitEnumerator(enumeratorContext);
     }
 
     @Override
     public SourceSplitEnumerator<AmazondynamodbSourceSplit, AmazonDynamodbSourceState> restoreEnumerator(SourceSplitEnumerator.Context<AmazondynamodbSourceSplit> enumeratorContext, AmazonDynamodbSourceState checkpointState) throws Exception {
-        return null;
+        return new AmazondynamodbSourceSplitEnumerator(enumeratorContext);
     }
 }
