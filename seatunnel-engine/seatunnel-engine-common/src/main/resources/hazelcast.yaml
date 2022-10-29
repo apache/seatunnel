@@ -29,4 +29,4 @@ hazelcast:
       port: 5801
   properties:
     hazelcast.invocation.max.retry.count: 20
-    hazelcast.tcp.join.port.try.count: 100
+    hazelcast.tcp.join.port.try.count: 30

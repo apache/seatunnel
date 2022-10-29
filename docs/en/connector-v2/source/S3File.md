@@ -238,6 +238,6 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 ## Changelog
 
-| Version    | Date       | Pull Request                                                    | Subject      |
-|------------|------------|-----------------------------------------------------------------|--------------|
-| 2.2.0-beta | 2022-10-17 | [3119](https://github.com/apache/incubator-seatunnel/pull/3119) | First commit |
+### 2.3.0-beta 2022-10-20
+
+- Add S3File Source Connector
