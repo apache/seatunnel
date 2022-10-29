@@ -136,9 +136,10 @@ public class PipelineBaseScheduler implements JobScheduler {
         }
         if (oldProfile == null || !resourceManager.slotActiveCheck(oldProfile)) {
             SlotProfile newProfile = applyResourceForTask(task).join();
-            log.info(String.format("use new profile: %s to replace not active profile: %s", newProfile, oldProfile));
+            log.info(String.format("use new profile: %s to replace not active profile: %s for task %s", newProfile, oldProfile, task));
             return newProfile;
         }
+        log.info(String.format("use active old profile: %s for task %s", oldProfile, task));
         task.updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED);
         return oldProfile;
     }
