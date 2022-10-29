@@ -289,7 +289,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
                 new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE)
             });
         List<SeaTunnelRow> rows = new ArrayList<>();
-        for (int i = 0; i < 2; ++i) {
+        for (int i = 0; i < 50; ++i) {
             SeaTunnelRow row;
             try {
                 row = new SeaTunnelRow(

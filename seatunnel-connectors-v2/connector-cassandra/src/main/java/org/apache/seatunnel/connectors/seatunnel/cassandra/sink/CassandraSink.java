@@ -63,30 +63,33 @@ public class CassandraSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     public void prepare(Config config) throws PrepareFailException {
         CheckResult checkResult = CheckConfigUtil.checkAllExists(config, HOST, KEYSPACE, TABLE);
         if (!checkResult.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, checkResult.getMsg());
+            throw new PrepareFailException(getPluginName(), PluginType.SINK, checkResult.getMsg());
         }
         this.cassandraConfig = CassandraConfig.getCassandraConfig(config);
-        CqlSession session = CassandraClient.getCqlSessionBuilder(
+        try (CqlSession session = CassandraClient.getCqlSessionBuilder(
             cassandraConfig.getHost(),
             cassandraConfig.getKeyspace(),
             cassandraConfig.getUsername(),
             cassandraConfig.getPassword(),
             cassandraConfig.getDatacenter()
-        ).build();
-        List<String> fields = cassandraConfig.getFields();
-        this.tableSchema = CassandraClient.getTableSchema(session, cassandraConfig.getTable());
-        if (fields == null || fields.isEmpty()) {
-            List<String> newFields = new ArrayList<>();
-            for (int i = 0; i < tableSchema.size(); i++) {
-                newFields.add(tableSchema.get(i).getName().asInternal());
-            }
-            cassandraConfig.setFields(newFields);
-        } else {
-            for (String field : fields) {
-                if (!tableSchema.contains(field)) {
-                    throw new RuntimeException("Field " + field + " does not exist in table " + config.getString(TABLE));
+        ).build()) {
+            List<String> fields = cassandraConfig.getFields();
+            this.tableSchema = CassandraClient.getTableSchema(session, cassandraConfig.getTable());
+            if (fields == null || fields.isEmpty()) {
+                List<String> newFields = new ArrayList<>();
+                for (int i = 0; i < tableSchema.size(); i++) {
+                    newFields.add(tableSchema.get(i).getName().asInternal());
+                }
+                cassandraConfig.setFields(newFields);
+            } else {
+                for (String field : fields) {
+                    if (!tableSchema.contains(field)) {
+                        throw new RuntimeException("Field " + field + " does not exist in table " + config.getString(TABLE));
+                    }
                 }
             }
+        } catch (Exception e) {
+            throw new PrepareFailException(getPluginName(), PluginType.SINK, e.getMessage());
         }
     }
 

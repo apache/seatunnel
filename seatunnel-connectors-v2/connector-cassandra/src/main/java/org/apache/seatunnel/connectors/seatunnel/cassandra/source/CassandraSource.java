@@ -24,8 +24,6 @@ import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.Cassand
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceReader;
-import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -34,8 +32,10 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClient;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig;
-import org.apache.seatunnel.connectors.seatunnel.cassandra.state.CassandraSourceState;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.util.TypeConvertUtil;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -44,7 +44,7 @@ import com.datastax.oss.driver.api.core.cql.Row;
 import com.google.auto.service.AutoService;
 
 @AutoService(SeaTunnelSource.class)
-public class CassandraSource implements SeaTunnelSource<SeaTunnelRow, CassandraSourceSplit, CassandraSourceState> {
+public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     private SeaTunnelRowType rowTypeInfo;
     private CassandraConfig cassandraConfig;
@@ -56,34 +56,32 @@ public class CassandraSource implements SeaTunnelSource<SeaTunnelRow, CassandraS
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        this.cassandraConfig = CassandraConfig.getCassandraConfig(config);
         CheckResult checkResult = CheckConfigUtil.checkAllExists(config, HOST, KEYSPACE, CQL);
         if (!checkResult.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, checkResult.getMsg());
         }
-        // try {
-        CqlSession currentSession = CassandraClient.getCqlSessionBuilder(
+        this.cassandraConfig = CassandraConfig.getCassandraConfig(config);
+        try (CqlSession currentSession = CassandraClient.getCqlSessionBuilder(
             cassandraConfig.getHost(),
             cassandraConfig.getKeyspace(),
             cassandraConfig.getUsername(),
             cassandraConfig.getPassword(),
-            cassandraConfig.getDatacenter()
-        ).build();
-        Row rs = currentSession.execute(CassandraClient.createSimpleStatement(cassandraConfig.getCql(), cassandraConfig.getConsistencyLevel())).one();
-        if (rs == null) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "No data in the table!");
+            cassandraConfig.getDatacenter()).build()) {
+            Row rs = currentSession.execute(CassandraClient.createSimpleStatement(cassandraConfig.getCql(), cassandraConfig.getConsistencyLevel())).one();
+            if (rs == null) {
+                throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "No data in the table!");
+            }
+            int columnSize = rs.getColumnDefinitions().size();
+            String[] fieldNames = new String[columnSize];
+            SeaTunnelDataType<?>[] seaTunnelDataTypes = new SeaTunnelDataType[columnSize];
+            for (int i = 0; i < columnSize; i++) {
+                fieldNames[i] = rs.getColumnDefinitions().get(i).getName().asInternal();
+                seaTunnelDataTypes[i] = TypeConvertUtil.convert(rs.getColumnDefinitions().get(i).getType());
+            }
+            this.rowTypeInfo = new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
+        } catch (Exception e) {
+            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, e.getMessage());
         }
-        int columnSize = rs.getColumnDefinitions().size();
-        String[] fieldNames = new String[columnSize];
-        SeaTunnelDataType<?>[] seaTunnelDataTypes = new SeaTunnelDataType[columnSize];
-        for (int i = 0; i < columnSize; i++) {
-            fieldNames[i] = rs.getColumnDefinitions().get(i).getName().asInternal();
-            seaTunnelDataTypes[i] = TypeConvertUtil.convert(rs.getColumnDefinitions().get(i).getType());
-        }
-        this.rowTypeInfo = new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
-        // } catch (Exception e) {
-        //     throw new PrepareFailException(getPluginName(), PluginType.SOURCE, e.getMessage());
-        // }
     }
 
     @Override
@@ -97,18 +95,8 @@ public class CassandraSource implements SeaTunnelSource<SeaTunnelRow, CassandraS
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, CassandraSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
         return new CassandraSourceReader(cassandraConfig, readerContext);
-    }
-
-    @Override
-    public SourceSplitEnumerator<CassandraSourceSplit, CassandraSourceState> createEnumerator(SourceSplitEnumerator.Context<CassandraSourceSplit> enumeratorContext) throws Exception {
-        return new CassandraSourceSplitEnumerator(enumeratorContext);
-    }
-
-    @Override
-    public SourceSplitEnumerator<CassandraSourceSplit, CassandraSourceState> restoreEnumerator(SourceSplitEnumerator.Context<CassandraSourceSplit> enumeratorContext, CassandraSourceState checkpointState) throws Exception {
-        return new CassandraSourceSplitEnumerator(enumeratorContext);
     }
 
 }

@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 
 public class CassandraClient {
     public static CqlSessionBuilder getCqlSessionBuilder(String nodeAddress, String keyspace, String username, String password, String dataCenter) {
-        List<CqlSessionBuilder> cqlSessionList = Arrays.stream(nodeAddress.split(",")).map(address -> {
+        List<CqlSessionBuilder> cqlSessionBuilderList = Arrays.stream(nodeAddress.split(",")).map(address -> {
             String[] nodeAndPort = address.split(":", 2);
             if (StringUtils.isEmpty(username) && StringUtils.isEmpty(password)) {
                 return CqlSession.builder()
@@ -46,7 +46,7 @@ public class CassandraClient {
                 .withKeyspace(keyspace)
                 .withLocalDatacenter(dataCenter);
         }).collect(Collectors.toList());
-        return cqlSessionList.get(ThreadLocalRandom.current().nextInt(cqlSessionList.size()));
+        return cqlSessionBuilderList.get(ThreadLocalRandom.current().nextInt(cqlSessionBuilderList.size()));
     }
 
     public static SimpleStatement createSimpleStatement(String cql, ConsistencyLevel consistencyLevel) {

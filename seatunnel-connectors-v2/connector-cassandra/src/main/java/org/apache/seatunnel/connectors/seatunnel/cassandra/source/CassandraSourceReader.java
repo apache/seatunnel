@@ -17,32 +17,30 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cassandra.source;
 
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClient;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.util.TypeConvertUtil;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 @Slf4j
-public class CassandraSourceReader implements SourceReader<SeaTunnelRow, CassandraSourceSplit> {
+public class CassandraSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final CassandraConfig cassandraConfig;
-    private final SourceReader.Context readerContext;
-    private final List<CassandraSourceSplit> splits;
+    private final SingleSplitReaderContext readerContext;
     private CqlSession session;
 
-    CassandraSourceReader(CassandraConfig cassandraConfig, Context readerContext) {
+    CassandraSourceReader(CassandraConfig cassandraConfig, SingleSplitReaderContext readerContext) {
         this.cassandraConfig = cassandraConfig;
         this.readerContext = readerContext;
-        this.splits = new ArrayList<>();
     }
 
     @Override
@@ -65,25 +63,14 @@ public class CassandraSourceReader implements SourceReader<SeaTunnelRow, Cassand
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        if (!splits.isEmpty()) {
+        try {
             ResultSet resultSet = session.execute(CassandraClient.createSimpleStatement(cassandraConfig.getCql(), cassandraConfig.getConsistencyLevel()));
             resultSet.forEach(row -> output.collect(TypeConvertUtil.buildSeaTunnelRow(row)));
-            this.readerContext.signalNoMoreElement();
+        } finally {
+            if (Boundedness.BOUNDED.equals(readerContext.getBoundedness())) {
+                this.readerContext.signalNoMoreElement();
+            }
         }
-    }
-
-    @Override
-    public List<CassandraSourceSplit> snapshotState(long checkpointId) throws Exception {
-        return null;
-    }
-
-    @Override
-    public void addSplits(List<CassandraSourceSplit> splits) {
-        this.splits.addAll(splits);
-    }
-
-    @Override
-    public void handleNoMoreSplits() {
     }
 
     @Override

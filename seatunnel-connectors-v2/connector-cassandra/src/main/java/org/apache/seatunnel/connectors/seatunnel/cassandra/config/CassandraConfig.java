@@ -46,6 +46,7 @@ public class CassandraConfig implements Serializable {
     public static final String CONSISTENCY_LEVEL = "consistency_level";
     public static final String BATCH_SIZE = "batch_size";
     public static final String BATCH_TYPE = "batch_type";
+    public static final String ASYNC_WRITE = "async_write";
 
     private String host;
     private String username;
@@ -58,6 +59,7 @@ public class CassandraConfig implements Serializable {
     private ConsistencyLevel consistencyLevel;
     private Integer batchSize;
     private DefaultBatchType batchType;
+    private Boolean asyncWrite;
 
     public CassandraConfig(@NonNull String host, @NonNull String keyspace) {
         this.host = host;
@@ -97,12 +99,17 @@ public class CassandraConfig implements Serializable {
         if (config.hasPath(BATCH_SIZE)) {
             cassandraConfig.setBatchSize(config.getInt(BATCH_SIZE));
         } else {
-            cassandraConfig.setBatchSize(Integer.parseInt("100"));
+            cassandraConfig.setBatchSize(Integer.parseInt("5000"));
         }
         if (config.hasPath(BATCH_TYPE)) {
             cassandraConfig.setBatchType(DefaultBatchType.valueOf(config.getString(BATCH_TYPE)));
         } else {
             cassandraConfig.setBatchType(DefaultBatchType.UNLOGGED);
+        }
+        if (config.hasPath(ASYNC_WRITE)) {
+            cassandraConfig.setAsyncWrite(config.getBoolean(ASYNC_WRITE));
+        } else {
+            cassandraConfig.setAsyncWrite(true);
         }
         return cassandraConfig;
     }
