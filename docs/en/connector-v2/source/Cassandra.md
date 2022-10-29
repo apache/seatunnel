@@ -72,5 +72,11 @@ source {
 }
 ```
 
+## Changelog
+
+### next version
+
+- Add Cassandra Source Connector
+
 
 

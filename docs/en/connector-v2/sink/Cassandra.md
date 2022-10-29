@@ -89,5 +89,11 @@ sink {
 }
 ```
 
+## Changelog
+
+### next version
+
+- Add Cassandra Sink Connector
+
 
 
