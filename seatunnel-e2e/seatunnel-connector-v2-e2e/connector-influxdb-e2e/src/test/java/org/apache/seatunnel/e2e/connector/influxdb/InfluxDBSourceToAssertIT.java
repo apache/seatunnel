@@ -15,72 +15,75 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.v2.influxdb;
+package org.apache.seatunnel.e2e.connector.influxdb;
+
+import static org.awaitility.Awaitility.given;
 
 import org.apache.seatunnel.connectors.seatunnel.influxdb.client.InfluxDBClient;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig;
-import org.apache.seatunnel.e2e.flink.FlinkContainer;
+import org.apache.seatunnel.e2e.common.TestResource;
+import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.BatchPoints;
 import org.influxdb.dto.Point;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
 import java.net.ConnectException;
-import java.sql.SQLException;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
-public class InfluxDBSourceToAssertIT extends FlinkContainer {
+public class InfluxDBSourceToAssertIT extends TestSuiteBase implements TestResource {
 
     private static final String INFLUXDB_DOCKER_IMAGE = "influxdb:1.8";
     private static final String INFLUXDB_CONTAINER_HOST = "influxdb-host";
-    private static final String INFLUXDB_HOST = "localhost";
-
-    private static final int INFLUXDB_PORT = 8764;
     private static final int INFLUXDB_CONTAINER_PORT = 8086;
-    private static final String INFLUXDB_CONNECT_URL = String.format("http://%s:%s", INFLUXDB_HOST, INFLUXDB_PORT);
     private static final String INFLUXDB_DATABASE = "test";
     private static final String INFLUXDB_MEASUREMENT = "test";
 
     private GenericContainer<?> influxDBServer;
-
     private  InfluxDB influxDB;
 
-    @BeforeEach
-    public void startInfluxDBContainer() throws ClassNotFoundException, SQLException, ConnectException {
+    @BeforeAll
+    @Override
+    public void startUp() {
         influxDBServer = new GenericContainer<>(INFLUXDB_DOCKER_IMAGE)
-                .withNetwork(NETWORK)
-                .withNetworkAliases(INFLUXDB_CONTAINER_HOST)
-                .withLogConsumer(new Slf4jLogConsumer(log));
-        influxDBServer.setPortBindings(Lists.newArrayList(
-                String.format("%s:%s", INFLUXDB_PORT, INFLUXDB_CONTAINER_PORT)));
+            .withNetwork(NETWORK)
+            .withNetworkAliases(INFLUXDB_CONTAINER_HOST)
+            .withExposedPorts(INFLUXDB_CONTAINER_PORT)
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(INFLUXDB_DOCKER_IMAGE)));
         Startables.deepStart(Stream.of(influxDBServer)).join();
         log.info("influxdb container started");
-        initializeInfluxDBClient();
+        given().ignoreExceptions()
+            .await()
+            .atLeast(100, TimeUnit.MILLISECONDS)
+            .pollInterval(500, TimeUnit.MILLISECONDS)
+            .atMost(30, TimeUnit.SECONDS)
+            .untilAsserted(() -> initializeInfluxDBClient());
         batchInsertData();
     }
 
-    @Test
-    public void testInfluxDBSource() throws IOException, InterruptedException, SQLException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/influxdb/influxdb_source_to_assert.conf");
+    @TestTemplate
+    public void testInfluxDBSource(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/influxdb_source_to_assert.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
-    private void initializeInfluxDBClient() throws SQLException, ClassNotFoundException, ConnectException {
-        InfluxDBConfig influxDBConfig = new InfluxDBConfig(INFLUXDB_CONNECT_URL);
+    private void initializeInfluxDBClient() throws ConnectException {
+        InfluxDBConfig influxDBConfig = new InfluxDBConfig(String.format("http://%s:%s", influxDBServer.getHost(), influxDBServer.getFirstMappedPort()));
         influxDB = InfluxDBClient.getInfluxDB(influxDBConfig);
     }
 
@@ -106,8 +109,12 @@ public class InfluxDBSourceToAssertIT extends FlinkContainer {
         influxDB.write(batchPoints);
     }
 
-    @AfterEach
-    public void closeInfluxDBContainer() {
+    @AfterAll
+    @Override
+    public void tearDown() {
+        if (influxDB != null) {
+            influxDB.close();
+        }
         if (influxDBServer != null) {
             influxDBServer.stop();
         }
