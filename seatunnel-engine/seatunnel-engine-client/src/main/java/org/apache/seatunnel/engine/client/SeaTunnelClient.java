@@ -43,6 +43,11 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
         return new JobClient(hazelcastClient);
     }
 
+    @Override
+    public void close() {
+        hazelcastClient.getHazelcastInstance().shutdown();
+    }
+
     public ILogger getLogger() {
         return hazelcastClient.getLogger(getClass());
     }
@@ -52,5 +57,11 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
             SeaTunnelPrintMessageCodec.encodeRequest(msg),
             SeaTunnelPrintMessageCodec::decodeResponse
         );
+    }
+
+    public void shutdown() {
+        if (hazelcastClient != null) {
+            hazelcastClient.shutdown();
+        }
     }
 }

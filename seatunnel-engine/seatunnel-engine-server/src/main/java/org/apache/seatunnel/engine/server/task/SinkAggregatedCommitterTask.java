@@ -48,7 +48,6 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -95,7 +94,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
     public void init() throws Exception {
         super.init();
         currState = INIT;
-        this.checkpointBarrierCounter = new HashMap<>();
+        this.checkpointBarrierCounter = new ConcurrentHashMap<>();
         this.commitInfoCache = new ConcurrentHashMap<>();
         this.writerAddressMap = new ConcurrentHashMap<>();
         this.checkpointCommitInfoMap = new ConcurrentHashMap<>();
@@ -177,7 +176,8 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
             return;
         }
         if (barrier.prepareClose()) {
-            prepareCloseStatus = true;
+            this.prepareCloseStatus = true;
+            this.prepareCloseBarrierId.set(barrier.getId());
         }
         if (barrier.snapshot()) {
             if (commitInfoCache.containsKey(barrier.getId())) {
@@ -223,17 +223,13 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
             checkpointCommitInfoMap.remove(key);
         });
         aggregatedCommitter.commit(aggregatedCommitInfo);
-        if (prepareCloseStatus) {
-            closeCall();
-        }
+        tryClose(checkpointId);
     }
 
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         aggregatedCommitter.abort(checkpointCommitInfoMap.get(checkpointId));
         checkpointCommitInfoMap.remove(checkpointId);
-        if (prepareCloseStatus) {
-            closeCall();
-        }
+        tryClose(checkpointId);
     }
 }

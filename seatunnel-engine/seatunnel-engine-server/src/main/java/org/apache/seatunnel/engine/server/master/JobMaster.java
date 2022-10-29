@@ -20,11 +20,13 @@ package org.apache.seatunnel.engine.server.master;
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.loader.SeatunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
@@ -98,6 +100,8 @@ public class JobMaster extends Thread {
 
     private final EngineConfig engineConfig;
 
+    private boolean isRunning = true;
+
     public JobMaster(@NonNull Data jobImmutableInformationData,
                      @NonNull NodeEngine nodeEngine,
                      @NonNull ExecutorService executorService,
@@ -151,6 +155,7 @@ public class JobMaster extends Thread {
         this.checkpointManager = new CheckpointManager(
             jobImmutableInformation.getJobId(),
             nodeEngine,
+            this,
             planTuple.f1(),
             checkpointConfig);
     }
@@ -303,9 +308,18 @@ public class JobMaster extends Thread {
         return ownedSlotProfilesIMap.get(pipelineLocation);
     }
 
+    @SuppressWarnings("checkstyle:MagicNumber")
     public void setOwnedSlotProfiles(@NonNull PipelineLocation pipelineLocation,
                                      @NonNull Map<TaskGroupLocation, SlotProfile> pipelineOwnedSlotProfiles) {
         ownedSlotProfilesIMap.put(pipelineLocation, pipelineOwnedSlotProfiles);
+        try {
+            RetryUtils.retryWithException(() -> {
+                return pipelineOwnedSlotProfiles.equals(ownedSlotProfilesIMap.get(pipelineLocation));
+            }, new RetryUtils.RetryMaterial(20, true,
+                exception -> exception instanceof NullPointerException && isRunning, 1000));
+        } catch (Exception e) {
+            throw new SeaTunnelEngineException("Can not sync pipeline owned slot profiles with IMap", e);
+        }
     }
 
     public SlotProfile getOwnedSlotProfiles(@NonNull TaskGroupLocation taskGroupLocation) {
@@ -324,6 +338,7 @@ public class JobMaster extends Thread {
 
     public void interrupt() {
         try {
+            isRunning = false;
             jobMasterCompleteFuture.cancel(true);
         } finally {
             super.interrupt();

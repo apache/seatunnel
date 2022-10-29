@@ -26,7 +26,6 @@ import org.testcontainers.containers.Container;
 import java.io.IOException;
 
 public class FakeSourceToFileIT extends FlinkContainer {
-
     /**
      * fake source -> local text file sink
      */
