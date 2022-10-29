@@ -106,4 +106,3 @@ snappy-java-1.1.7.1.jar
 snappy-java-1.1.8.3.jar
 ssl-config-core_2.11-0.3.7.jar
 xz-1.5.jar
-slack-api-client-1.25.0.jar
