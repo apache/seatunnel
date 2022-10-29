@@ -207,6 +207,12 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                 preparedStatement.setArray(22, toSqlArray(row.getField(21)));
                 preparedStatement.setArray(23, toSqlArray(row.getField(22)));
                 preparedStatement.setArray(24, toSqlArray(row.getField(23)));
+                preparedStatement.setObject(25, row.getField(24));
+                preparedStatement.setObject(26, row.getField(25));
+                preparedStatement.setObject(27, row.getField(26));
+                preparedStatement.setObject(28, row.getField(27));
+                preparedStatement.setObject(29, row.getField(28));
+                preparedStatement.setObject(30, row.getField(29));
                 preparedStatement.addBatch();
             }
             preparedStatement.executeBatch();
@@ -250,7 +256,13 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                 "c_lowcardinality",
                 "c_nested.int",
                 "c_nested.double",
-                "c_nested.string"
+                "c_nested.string",
+                "c_int128",
+                "c_uint128",
+                "c_int256",
+                "c_uint256",
+                "c_point",
+                "c_ring"
             },
             new SeaTunnelDataType[]{
                 BasicType.LONG_TYPE,
@@ -276,7 +288,13 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                 BasicType.STRING_TYPE,
                 ArrayType.INT_ARRAY_TYPE,
                 ArrayType.DOUBLE_ARRAY_TYPE,
-                ArrayType.STRING_ARRAY_TYPE
+                ArrayType.STRING_ARRAY_TYPE,
+                BasicType.STRING_TYPE,
+                BasicType.STRING_TYPE,
+                BasicType.STRING_TYPE,
+                BasicType.STRING_TYPE,
+                BasicType.STRING_TYPE,
+                BasicType.STRING_TYPE
             });
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 100; ++i) {
@@ -305,7 +323,13 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                     "string",
                     new Integer[]{Integer.parseInt("1")},
                     new Double[]{Double.parseDouble("1.1")},
-                    new String[]{"1"}
+                    new String[]{"1"},
+                    "170141183460469231731687303715884105727",
+                    "340282366920938463463374607431768211455",
+                    "57896044618658097711785492504343953926634992332820282019728792003956564819967",
+                    "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                    new double[]{1, 2},
+                    new double[][]{{2, 3}, {3, 4}}
                 });
             rows.add(row);
         }
