@@ -106,8 +106,8 @@ public class AmazondynamodbSourceReader extends AbstractSingleSplitReader<SeaTun
     private List<Object> convertRow(SeaTunnelDataType<?>[] seaTunnelDataTypes, Map<String, AttributeValue> item) {
         List<Object> fields = new ArrayList<>();
         String[] fieldNames = typeInfo.getFieldNames();
-        for (int i = 1; i <= seaTunnelDataTypes.length; i++) {
-            SeaTunnelDataType<?> seaTunnelDataType = seaTunnelDataTypes[i - 1];
+        for (int i = 0; i < seaTunnelDataTypes.length; i++) {
+            SeaTunnelDataType<?> seaTunnelDataType = seaTunnelDataTypes[i];
             AttributeValue attributeValue = item.get(fieldNames[i]);
             fields.add(convert(seaTunnelDataType, attributeValue));
         }
@@ -115,7 +115,7 @@ public class AmazondynamodbSourceReader extends AbstractSingleSplitReader<SeaTun
     }
 
     private Object convert(SeaTunnelDataType<?> seaTunnelDataType, AttributeValue attributeValue) {
-        if (attributeValue.nul()) {
+        if (attributeValue.type().equals(AttributeValue.Type.NUL)) {
             return null;
         } else if (BasicType.BOOLEAN_TYPE.equals(seaTunnelDataType)) {
             return attributeValue.bool();

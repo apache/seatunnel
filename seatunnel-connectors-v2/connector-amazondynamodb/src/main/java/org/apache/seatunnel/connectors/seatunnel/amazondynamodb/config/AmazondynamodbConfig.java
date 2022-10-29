@@ -24,5 +24,5 @@ public class AmazondynamodbConfig implements Serializable {
     public static final String REGION = "region";
     public static final String ACCESS_KEY_ID = "accessKeyId";
     public static final String SECRET_ACCESS_KEY = "secretAccessKey";
-    public static final String QUERY = "query";
+    public static final String TABLE = "table";
 }
