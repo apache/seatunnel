@@ -126,14 +126,21 @@ public class PipelineBaseScheduler implements JobScheduler {
     private SlotProfile getOrApplyResourceForTask(@NonNull PhysicalVertex task,
                                                   Map<TaskGroupLocation, SlotProfile> ownedSlotProfiles) {
 
+        SlotProfile oldProfile;
         if (ownedSlotProfiles == null
             || ownedSlotProfiles.isEmpty()
-            || ownedSlotProfiles.get(task.getTaskGroupLocation()) == null
-            || !resourceManager.slotActiveCheck(ownedSlotProfiles.get(task.getTaskGroupLocation()))) {
-            return applyResourceForTask(task).join();
+            || ownedSlotProfiles.get(task.getTaskGroupLocation()) == null) {
+            oldProfile = null;
+        } else {
+            oldProfile = ownedSlotProfiles.get(task.getTaskGroupLocation());
+        }
+        if (oldProfile == null || !resourceManager.slotActiveCheck(oldProfile)) {
+            SlotProfile newProfile = applyResourceForTask(task).join();
+            log.info(String.format("use new profile: %s to replace not active profile: %s", newProfile, oldProfile));
+            return newProfile;
         }
         task.updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED);
-        return ownedSlotProfiles.get(task.getTaskGroupLocation());
+        return oldProfile;
     }
 
     private Map<TaskGroupLocation, SlotProfile> applyResourceForPipeline(@NonNull SubPlan subPlan) {
