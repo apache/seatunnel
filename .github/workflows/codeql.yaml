@@ -16,13 +16,8 @@
 name: "CodeQL"
 
 on:
-  push:
-  pull_request:
-    branches: [dev]
-    paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
-      - 'seatunnel-ui/**'
+  schedule:
+    - cron: '0 0 12 * * ?'
 
 jobs:
   analyze:
