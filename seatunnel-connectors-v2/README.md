@@ -53,6 +53,10 @@ own connectors, you need to follow the steps below.
 
 ​    package org.apache.seatunnel.connectors.seatunnel.{connector name}}.sink
 
+4.add connector to plugin-mapping file.
+
+5.add connector to seatunnel-dist/pom.xml.
+
 ### **Startup Class**
 
 Aside from the old startup class, we have created two new startup modules,

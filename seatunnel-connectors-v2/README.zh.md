@@ -9,12 +9,12 @@ SeaTunnel为与计算引擎进行解耦，设计了新的连接器API，通过�
 
 ### **工程结构**
 
-- ../`seatunnel-connectors-v2`                                         connector  代码实现
-- ../`seatunnel-translation`                                           新连接器的翻译层 
-- ../seatunnel-e2e/`seatunnel-flink-connector-v2-e2e`                  在flink上运行的 testcase
-- ../seatunnel-e2e/`seatunnel-spark-connector-v2-e2e`                  在spark上运行的 testcase
-- ../seatunnel-examples/`seatunnel-flink-connector-v2-example`         flink local运行的实例
-- ../seatunnel-examples/`seatunnel-spark-connector-v2-example`         spark local运行的实例
+- ../`seatunnel-connectors-v2`                                         connector-v2代码实现
+- ../`seatunnel-translation`                                           connector-v2的翻译层 
+- ../seatunnel-e2e/`seatunnel-flink-connector-v2-e2e`                  flink上运行的端到端testcase
+- ../seatunnel-e2e/`seatunnel-spark-connector-v2-e2e`                  spark上运行的端到端testcase
+- ../seatunnel-examples/`seatunnel-flink-connector-v2-example`         seatunnel connector-v2的flink local运行的实例
+- ../seatunnel-examples/`seatunnel-spark-connector-v2-example`         seatunnel connector-v2的spark local运行的实例
 
 ### Example
 
@@ -31,7 +31,7 @@ SeaTunnel为与计算引擎进行解耦，设计了新的连接器API，通过�
 4. 在`SeaTunnelApiExample` main方法中配置文件.
 5. 运行main方法即可.
 
-### 创建connector的格式
+### 创建新的seatunnel v2 connector
 
 1.在`seatunnel-connectors-v2`目录下新建一个module，命名为connector-{连接器名}.
 
@@ -42,6 +42,10 @@ SeaTunnel为与计算引擎进行解耦，设计了新的连接器API，通过�
 ​       package org.apache.seatunnel.connectors.seatunnel.{连接器名}.source
 
 ​       package org.apache.seatunnel.connectors.seatunnel.{连接器名}.sink
+
+4.将连接器添加到plugin-mapping文件.
+
+5.将连接器添加到seatunnel-dist/pom.xml.
 
 ### 启动类
 
