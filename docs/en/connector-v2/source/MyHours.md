@@ -19,6 +19,7 @@ Used to read data from My Hours.
 
 | name                        | type   | required | default value |
 | --------------------------- | ------ | -------- | ------------- |
+| url                         | String | Yes      | -             |
 | email                       | String | Yes      | -             |
 | password                    | String | Yes      | -             |
 | method                      | String | No       | get           |
@@ -31,6 +32,10 @@ Used to read data from My Hours.
 | retry_backoff_multiplier_ms | int    | No       | 100           |
 | retry_backoff_max_ms        | int    | No       | 10000         |
 | common-options              |        | No       | -             |
+
+### url [String]
+
+http request url
 
 ### email [String]
 
@@ -130,18 +135,43 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 ## Example
 
-simple:
-
 ```hocon
 MyHours{
+    url = "https://api2.myhours.com/api/Projects/getAll"
     email = "seatunnel@test.com"
     password = "seatunnel"
-	url = "https://api2.myhours.com/api/Projects/getAll"
+	schema {
+       fields {
+         name = string
+         archived = boolean
+         dateArchived = string
+         dateCreated = string
+         clientName = string
+         budgetAlertPercent = string
+         budgetType = int
+         totalTimeLogged = double
+         budgetValue = double
+         totalAmount = double
+         totalExpense = double
+         laborCost = double
+         totalCost = double
+         billableTimeLogged = double
+         totalBillableAmount = double
+         billable = boolean
+         roundType = int
+         roundInterval = int
+         budgetSpentPercentage = double
+         budgetTarget = int
+         budgetPeriodType = string
+         budgetSpent = string
+         id = string
+       }
+    }
 }
 ```
 
 ## Changelog
 
-### 2.2.0-beta 2022-10-22
+### next version
 
 - Add My Hours Source Connector

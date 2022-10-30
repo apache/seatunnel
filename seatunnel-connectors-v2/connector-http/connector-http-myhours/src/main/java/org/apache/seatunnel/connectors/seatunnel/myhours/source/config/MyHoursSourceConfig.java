@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.myhours.source.config;
 
 public class MyHoursSourceConfig {
+    public static final String URL = "url";
     public static final String POST = "POST";
     public static final String EMAIL = "email";
     public static final String PASSWORD = "password";

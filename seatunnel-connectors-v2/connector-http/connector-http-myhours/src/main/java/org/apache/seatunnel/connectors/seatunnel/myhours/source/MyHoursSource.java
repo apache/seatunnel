@@ -54,7 +54,7 @@ public class MyHoursSource extends HttpSource {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, MyHoursSourceConfig.EMAIL, MyHoursSourceConfig.PASSWORD);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, MyHoursSourceConfig.URL, MyHoursSourceConfig.EMAIL, MyHoursSourceConfig.PASSWORD);
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
