@@ -28,9 +28,15 @@ public class RedisConfig {
     public static final String FORMAT = "format";
     public static final String MODE = "mode";
     public static final String NODES = "nodes";
+    public static final String HASH_KEY_PARSE_MODE = "hash_key_parse_mode";
 
     public enum RedisMode {
         SINGLE,
         CLUSTER;
+    }
+
+    public enum HashKeyParseMode {
+        ALL,
+        KV;
     }
 }

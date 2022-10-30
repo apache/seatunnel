@@ -41,6 +41,7 @@ public class RedisParameters implements Serializable {
     private String keyField;
     private RedisDataType redisDataType;
     private RedisConfig.RedisMode mode;
+    private RedisConfig.HashKeyParseMode hashKeyParseMode;
     private List<String> redisNodes = Collections.emptyList();
 
     public void buildWithConfig(Config config) {
@@ -61,6 +62,13 @@ public class RedisParameters implements Serializable {
             this.mode = RedisConfig.RedisMode.valueOf(config.getString(RedisConfig.MODE));
         } else {
             this.mode = RedisConfig.RedisMode.SINGLE;
+        }
+        // set hash key mode
+        if (config.hasPath(RedisConfig.HASH_KEY_PARSE_MODE)) {
+            this.hashKeyParseMode = RedisConfig.HashKeyParseMode
+                    .valueOf(config.getString(RedisConfig.HASH_KEY_PARSE_MODE).toUpperCase());
+        } else {
+            this.hashKeyParseMode = RedisConfig.HashKeyParseMode.ALL;
         }
         // set redis nodes information
         if (config.hasPath(RedisConfig.NODES)) {
