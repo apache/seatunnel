@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
+import lombok.NonNull;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisCluster;
 
@@ -27,7 +28,7 @@ import java.util.Set;
 public class JedisWrapper extends Jedis {
     private final JedisCluster jedisCluster;
 
-    public JedisWrapper(JedisCluster jedisCluster) {
+    public JedisWrapper(@NonNull JedisCluster jedisCluster) {
         this.jedisCluster = jedisCluster;
     }
 

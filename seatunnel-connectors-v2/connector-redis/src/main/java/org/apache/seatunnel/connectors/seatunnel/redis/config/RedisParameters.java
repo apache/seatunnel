@@ -27,6 +27,9 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisCluster;
 
 import java.io.Serializable;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
 
 @Data
 public class RedisParameters implements Serializable {
@@ -38,6 +41,7 @@ public class RedisParameters implements Serializable {
     private String keyField;
     private RedisDataType redisDataType;
     private RedisConfig.RedisMode mode;
+    private List<String> redisNodes = Collections.emptyList();
 
     public void buildWithConfig(Config config) {
         // set host
@@ -57,6 +61,10 @@ public class RedisParameters implements Serializable {
             this.mode = RedisConfig.RedisMode.valueOf(config.getString(RedisConfig.MODE));
         } else {
             this.mode = RedisConfig.RedisMode.SINGLE;
+        }
+        // set redis nodes information
+        if (config.hasPath(RedisConfig.NODES)) {
+            this.redisNodes = config.getStringList(RedisConfig.NODES);
         }
         // set key
         if (config.hasPath(RedisConfig.KEY)) {
@@ -87,15 +95,28 @@ public class RedisParameters implements Serializable {
                 }
                 return jedis;
             case CLUSTER:
+                HashSet<HostAndPort> nodes = new HashSet<>();
                 HostAndPort node = new HostAndPort(host, port);
+                nodes.add(node);
+                if (!redisNodes.isEmpty()) {
+                    for (String redisNode : redisNodes) {
+                        String[] splits = redisNode.split(":");
+                        if (splits.length != 2) {
+                            throw new IllegalArgumentException("Invalid redis node information," +
+                                    "redis node information must like as the following: [host:port]");
+                        }
+                        HostAndPort hostAndPort = new HostAndPort(splits[0], Integer.parseInt(splits[1]));
+                        nodes.add(hostAndPort);
+                    }
+                }
                 ConnectionPoolConfig connectionPoolConfig = new ConnectionPoolConfig();
                 JedisCluster jedisCluster;
                 if (StringUtils.isNotBlank(auth)) {
-                    jedisCluster = new JedisCluster(node, JedisCluster.DEFAULT_TIMEOUT,
+                    jedisCluster = new JedisCluster(nodes, JedisCluster.DEFAULT_TIMEOUT,
                             JedisCluster.DEFAULT_TIMEOUT, JedisCluster.DEFAULT_MAX_ATTEMPTS,
                             auth, connectionPoolConfig);
                 } else {
-                    jedisCluster = new JedisCluster(node);
+                    jedisCluster = new JedisCluster(nodes);
                 }
                 return new JedisWrapper(jedisCluster);
             default:

@@ -27,6 +27,7 @@ public class RedisConfig {
     public static final String DATA_TYPE = "data_type";
     public static final String FORMAT = "format";
     public static final String MODE = "mode";
+    public static final String NODES = "nodes";
 
     public enum RedisMode {
         SINGLE,
