@@ -114,6 +114,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
 
     public void executeExtraCommands(ContainerExtendedFactory extendedFactory) throws IOException, InterruptedException {
         extendedFactory.extend(jobManager);
+        extendedFactory.extend(taskManager);
     }
 
     @Override
