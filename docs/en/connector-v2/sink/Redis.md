@@ -22,6 +22,7 @@ Used to write data to Redis.
 | user           | string | no       | -             |
 | auth           | string | no       | -             |
 | mode           | string | no       | -             |
+| auth           | list   | no       | -             |
 | format         | string | no       | json          |
 | common-options |        | no       | -             |
 
@@ -77,19 +78,25 @@ Redis data types, support `key` `hash` `list` `set` `zset`
 - zset
 > Each data from upstream will be added to the configured zset key with a weight of 1. So the order of data in zset is based on the order of data consumption.
 
-### user [String]
+### user [string]
 
 redis authentication user, you need it when you connect to an encrypted cluster
 
-### auth [String]
+### auth [string]
 
 Redis authentication password, you need it when you connect to an encrypted cluster
 
-### mode [String]
+### mode [string]
 
 redis mode, `single` or `cluster`, default is `single`
 
-### format [String]
+### nodes [list]
+
+redis nodes information, used in cluster mode, must like as the following format:
+
+[host1:port1, host2:port2]
+
+### format [string]
 
 The format of upstream data, now only support `json`, `text` will be supported later, default `json`.
 
@@ -132,6 +139,6 @@ simple:
 
 - Add Redis Sink Connector
 
-### 2.3.0-beta 2022-10-25
+### next version
 
-- Support redis cluster mode connection and user authentication
+- [Improve] Support redis cluster mode connection and user authentication [3188](https://github.com/apache/incubator-seatunnel/pull/3188)
