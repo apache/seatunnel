@@ -42,6 +42,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class AmazondynamodbWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
@@ -125,7 +126,10 @@ public class AmazondynamodbWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             case L:
                 ArrayType<?, ?> arrayType = (ArrayType<?, ?>) seaTunnelDataType;
                 BasicType<?> elementType = arrayType.getElementType();
-                return AttributeValue.builder().l(convertItem(value, elementType, convertType(elementType))).build();
+                Object[] l = (Object[]) value;
+                return AttributeValue.builder()
+                    .l(Stream.of(l).map(o -> convertItem(o, elementType, convertType(elementType)))
+                        .collect(Collectors.toList())).build();
             case NUL:
                 return AttributeValue.builder().nul(true).build();
             default:
