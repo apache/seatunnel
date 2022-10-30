@@ -250,13 +250,6 @@ public class SparkStarter implements Starter {
     }
 
     /**
-     * append original commandline args to StringBuilder
-     */
-    protected void appendArgs(List<String> commands, String[] args) {
-        commands.addAll(Arrays.asList(args));
-    }
-
-    /**
      * append appJar to StringBuilder
      */
     protected void appendAppJar(List<String> commands) {
