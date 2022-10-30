@@ -104,6 +104,9 @@ schema {
 | 001      | tyrantlucifer | 26  |
 | 002      | Zongwen       | 26  |
 
+each kv that in hash key it will be treated as a row and send it to upstream.
+
+**Tips: connector will use the first field information of schema config as the field name of each k that in each kv**
 
 ### keys [string]
 
