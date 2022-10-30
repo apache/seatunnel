@@ -83,7 +83,7 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
     private static final String AMAZONDYNAMODB_DOCKER_IMAGE = "amazon/dynamodb-local";
     private static final String AMAZONDYNAMODB_CONTAINER_HOST = "dynamodb-host";
     private static final int AMAZONDYNAMODB_CONTAINER_PORT = 8000;
-    private static final String AMAZONDYNAMODB_JOB_CONFIG = "/clickhouse_to_clickhouse.conf";
+    private static final String AMAZONDYNAMODB_JOB_CONFIG = "/amazondynamodbIT_source_to_sink.conf";
     private static final String SINK_TABLE = "sink_table";
     private static final String SOURCE_TABLE = "source_table";
     private static final String PARTITION_KEY = "id";
