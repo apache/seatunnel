@@ -314,7 +314,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
                         Byte.parseByte("1"),
                         Collections.singletonList((float) i),
                         Collections.singletonList(i),
-                        Collections.singleton(Double.valueOf("1.1")),
+                        Collections.singleton(Double.valueOf("2.1")),
                         Collections.singleton((long) i),
                         Collections.singletonMap("key_" + i, i)
                     });
