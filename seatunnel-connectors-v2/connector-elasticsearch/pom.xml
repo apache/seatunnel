@@ -46,12 +46,6 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-api</artifactId>
-            <version>${project.version}</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-format-json</artifactId>
             <version>${project.version}</version>
         </dependency>
