@@ -29,6 +29,7 @@
         <module>connector-redis-e2e</module>
         <module>connector-clickhouse-e2e</module>
         <module>connector-influxdb-e2e</module>
+
         <module>connector-cassandra-e2e</module>
     </modules>
 
