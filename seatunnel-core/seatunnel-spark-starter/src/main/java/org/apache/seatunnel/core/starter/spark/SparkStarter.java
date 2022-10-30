@@ -194,14 +194,11 @@ public class SparkStarter implements Starter {
         commands.add("${SPARK_HOME}/bin/spark-submit");
         appendOption(commands, "--class", SeatunnelSpark.class.getName());
         appendOption(commands, "--name", this.commandArgs.getJobName());
-        appendOption(commands, "--master", this.commandArgs.getMaster());
-        appendOption(commands, "--deploy-mode", this.commandArgs.getDeployMode().getName());
         appendJars(commands, this.jars);
         appendFiles(commands, this.files);
         appendSparkConf(commands, this.sparkConf);
         appendAppJar(commands);
-        commands.add("--config");
-        commands.add(this.commandArgs.getConfigFile());
+        appendArgs(commands, args);
         return commands;
     }
 
@@ -248,6 +245,13 @@ public class SparkStarter implements Starter {
             String value = entry.getValue();
             appendOption(commands, "--conf", key + "=" + value);
         }
+    }
+
+    /**
+     * append original commandline args to StringBuilder
+     */
+    protected void appendArgs(List<String> commands, String[] args) {
+        commands.addAll(Arrays.asList(args));
     }
 
     /**
