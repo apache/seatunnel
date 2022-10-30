@@ -55,7 +55,7 @@ own connectors, you need to follow the steps below.
 
 4.add connector to plugin-mapping file.
 
-5.add connector to seatunnel-dist/pom.xml.
+5.add connector dependency to seatunnel-dist/pom.xml, so the connector jar can be find in binary package .
 
 ### **Startup Class**
 
