@@ -98,3 +98,9 @@ source {
     }
 }
 ```
+
+## Changelog
+
+### next version
+
+- Add Neo4j Source Connector
