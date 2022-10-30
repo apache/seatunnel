@@ -17,19 +17,20 @@ Used to read data from Redis.
 
 ##  Options
 
-| name           | type   | required | default value |
-|----------------|--------|----------|---------------|
-| host           | string | yes      | -             |
-| port           | int    | yes      | -             |
-| keys           | string | yes      | -             |
-| data_type      | string | yes      | -             |
-| user           | string | No       | -             |
-| auth           | string | No       | -             |
-| mode           | string | No       | -             |
-| nodes          | list   | No       | -             |
-| schema         | config | No       | -             |
-| format         | string | No       | json          |
-| common-options |        | no       | -             |
+| name                | type   | required | default value |
+|---------------------|--------|----------|---------------|
+| host                | string | yes      | -             |
+| port                | int    | yes      | -             |
+| keys                | string | yes      | -             |
+| data_type           | string | yes      | -             |
+| user                | string | no       | -             |
+| auth                | string | no       | -             |
+| mode                | string | no       | -             |
+| hash_key_parse_mode | string | no       | all           |
+| nodes               | list   | no       | -             |
+| schema              | config | no       | -             |
+| format              | string | no       | json          |
+| common-options      |        | no       | -             |
 
 ### host [string]
 
@@ -38,6 +39,71 @@ redis host
 ### port [int]
 
 redis port
+
+### hash_key_parse_mode [string]
+
+hash key parse mode, support `all` `kv`, used to tell connector how to parse hash key.
+
+when setting it to `all`, connector will treat the value of hash key as a row and use the schema config to parse it, when setting it to `kv`, connector will treat each kv in hash key as a row and use the schema config to parse it:
+
+for example, if the value of hash key and schema config are the following show:
+
+```text
+{ 
+  "001": {
+    "name": "tyrantlucifer",
+    "age": 26
+  },
+  "002": {
+    "name": "Zongwen",
+    "age": 26
+  }
+}
+
+```
+
+if hash_key_parse_mode is `all` and schema config as the following shown, it will generate the following data:
+
+```hocon
+
+schema {
+  fields {
+    001 {
+      name = string
+      age = int
+    }
+    002 {
+      name = string
+      age = int
+    }
+  }
+}
+
+```
+
+| 001                             | 002                       |
+|---------------------------------|---------------------------|
+| Row(name=tyrantlucifer, age=26) | Row(name=Zongwen, age=26) |
+
+if hash_key_parse_mode is `kv` and schema config as the following shown, it will generate the following data:
+
+```hocon
+
+schema {
+  fields {
+    hash_key = string
+    name = string
+    age = int
+  }
+}
+
+```
+
+| hash_key | name          | age |
+|----------|---------------|-----|
+| 001      | tyrantlucifer | 26  |
+| 002      | Zongwen       | 26  |
+
 
 ### keys [string]
 
