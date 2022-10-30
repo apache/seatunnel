@@ -46,7 +46,7 @@ hash key parse mode, support `all` `kv`, used to tell connector how to parse has
 
 when setting it to `all`, connector will treat the value of hash key as a row and use the schema config to parse it, when setting it to `kv`, connector will treat each kv in hash key as a row and use the schema config to parse it:
 
-for example, if the value of hash key and schema config are the following show:
+for example, if the value of hash key is the following shown:
 
 ```text
 { 
