@@ -200,6 +200,8 @@ public class SparkStarter implements Starter {
         appendFiles(commands, this.files);
         appendSparkConf(commands, this.sparkConf);
         appendAppJar(commands);
+        commands.add("--config");
+        commands.add(this.commandArgs.getConfigFile());
         return commands;
     }
 
