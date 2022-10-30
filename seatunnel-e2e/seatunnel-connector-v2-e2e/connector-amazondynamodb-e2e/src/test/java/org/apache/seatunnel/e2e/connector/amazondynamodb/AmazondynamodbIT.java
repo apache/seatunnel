@@ -92,7 +92,7 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
     protected DynamoDbClient dynamoDbClient;
 
     @TestTemplate
-    public void testClickhouse(TestContainer container) throws Exception {
+    public void testAmazondynamodb(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob(AMAZONDYNAMODB_JOB_CONFIG);
         Assertions.assertEquals(0, execResult.getExitCode());
         assertHasData();
