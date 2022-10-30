@@ -26,6 +26,7 @@ Used to read data from Redis.
 | user           | string | No       | -             |
 | auth           | string | No       | -             |
 | mode           | string | No       | -             |
+| nodes          | list   | No       | -             |
 | schema         | config | No       | -             |
 | format         | string | No       | json          |
 | common-options |        | no       | -             |
@@ -69,19 +70,25 @@ redis data types, support `key` `hash` `list` `set` `zset`
 > Each element in the sorted set will be sent downstream as a single row of data
 > For example, the value of sorted set is `[tyrantlucier, CalvinKirs]`, the data received downstream are `tyrantlucifer` and `CalvinKirs` and only two message will be received.
 
-### user [String]
+### user [string]
 
 redis authentication user, you need it when you connect to an encrypted cluster
 
-### auth [String]
+### auth [string]
 
 redis authentication password, you need it when you connect to an encrypted cluster
 
-### mode [String]
+### mode [string]
 
 redis mode, `single` or `cluster`, default is `single`
 
-### format [String]
+### nodes [list]
+
+redis nodes information, used in cluster mode, must like as the following format: 
+
+[host1:port1, host2:port2]
+
+### format [string]
 
 the format of upstream data, now only support `json` `text`, default `json`.
 
