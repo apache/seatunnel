@@ -29,11 +29,7 @@ import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorag
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
@@ -41,6 +37,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 @Slf4j
 public abstract class AbstractCheckpointStorage implements CheckpointStorage {
@@ -110,24 +107,20 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
         }
     }
 
-    public Set<String> getLatestPipelineNames(List<String> fileNames) {
+    public Set<String> getLatestPipelineNames(Collection<String> fileNames) {
         Map<String, String> latestPipelineMap = new HashMap<>();
+        Map<String, Long> latestPipelineVersionMap = new HashMap<>();
         fileNames.forEach(fileName -> {
-            String[] fileNameSegments = fileName.split(FILE_NAME_SPLIT);
+            String[] fileNameSegments = getFileNameSegments(fileName);
             long fileVersion = Long.parseLong(fileNameSegments[FILE_SORT_ID_INDEX]);
             String filePipelineId = fileNameSegments[FILE_NAME_PIPELINE_ID_INDEX];
-            if (latestPipelineMap.containsKey(filePipelineId)) {
-                long oldVersion = Long.parseLong(latestPipelineMap.get(filePipelineId).split(FILE_NAME_SPLIT)[FILE_SORT_ID_INDEX]);
-                if (fileVersion > oldVersion) {
-                    latestPipelineMap.put(filePipelineId, fileName);
-                }
-            } else {
+            Long oldVersion = latestPipelineVersionMap.get(filePipelineId);
+            if (Objects.isNull(oldVersion) || fileVersion > oldVersion) {
+                latestPipelineVersionMap.put(filePipelineId, fileVersion);
                 latestPipelineMap.put(filePipelineId, fileName);
             }
         });
-        Set<String> latestPipelines = new HashSet<>(latestPipelineMap.size());
-        latestPipelineMap.forEach((pipelineId, fileName) -> latestPipelines.add(fileName));
-        return latestPipelines;
+        return latestPipelineMap.entrySet().stream().map(Map.Entry::getValue).collect(Collectors.toSet());
     }
 
     /**
@@ -140,7 +133,7 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
         AtomicReference<String> latestFileName = new AtomicReference<>();
         AtomicLong latestVersion = new AtomicLong();
         fileNames.forEach(fileName -> {
-            String[] fileNameSegments = fileName.split(FILE_NAME_SPLIT);
+            String[] fileNameSegments = getFileNameSegments(fileName);
             long fileVersion = Long.parseLong(fileNameSegments[FILE_SORT_ID_INDEX]);
             String filePipelineId = fileNameSegments[FILE_NAME_PIPELINE_ID_INDEX];
             if (pipelineId.equals(filePipelineId) && fileVersion > latestVersion.get()) {
@@ -151,6 +144,10 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
         return latestFileName.get();
     }
 
+    private String[] getFileNameSegments(String fileName) {
+        return fileName.split(FILE_NAME_SPLIT);
+    }
+
     /**
      * get the pipeline id of the file name
      *
@@ -158,7 +155,7 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
      * @return the pipeline id of the file.
      */
     public String getPipelineIdByFileName(String fileName) {
-        return fileName.split(FILE_NAME_SPLIT)[FILE_NAME_PIPELINE_ID_INDEX];
+        return getFileNameSegments(fileName)[FILE_NAME_PIPELINE_ID_INDEX];
     }
 
     /**
@@ -168,7 +165,7 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
      * @return the checkpoint id of the file.
      */
     public String getCheckpointIdByFileName(String fileName) {
-        return fileName.split(FILE_NAME_SPLIT)[FILE_NAME_CHECKPOINT_ID_INDEX].split("\\.")[0];
+        return getFileNameSegments(fileName)[FILE_NAME_CHECKPOINT_ID_INDEX].split("\\.")[0];
     }
 
     @Override
