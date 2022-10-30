@@ -33,14 +33,14 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.Elasticsear
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 /**
  * ElasticsearchSinkWriter is a sink writer that will write {@link SeaTunnelRow} to Elasticsearch.
  */
@@ -51,8 +51,6 @@ public class ElasticsearchSinkWriter implements SinkWriter<SeaTunnelRow, Elastic
     private final SeaTunnelRowSerializer seaTunnelRowSerializer;
     private final List<String> requestEsList;
     private EsRestClient esRestClient;
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchSinkWriter.class);
 
     public ElasticsearchSinkWriter(
             SinkWriter.Context context,
@@ -101,7 +99,7 @@ public class ElasticsearchSinkWriter implements SinkWriter<SeaTunnelRow, Elastic
                     if (tryCnt == maxRetry) {
                         throw new BulkElasticsearchException("bulk es error,try count=%d", ex);
                     }
-                    LOGGER.warn(String.format("bulk es error,try count=%d", tryCnt), ex);
+                    log.warn(String.format("bulk es error,try count=%d", tryCnt), ex);
                 }
 
             }
