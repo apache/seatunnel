@@ -131,9 +131,9 @@ jobs:
               - "seatunnel-e2e/seatunnel-spark-e2e/**"
               - "seatunnel-connectors/**"
               - "plugin-mapping.properties"
-              - "**/tools/**"
               - "pom.xml"
               - "**/workflows/**"
+              - "**/tools/**"
             engine:
               - "seatunnel-engine/**"
             engine-e2e:
@@ -156,7 +156,7 @@ jobs:
           modules=`python tools/update_modules_check/update_modules_check.py cv2-flink-e2e $update_files`
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT
-          
+
       - name: Check Spark Connector V2 E2E Update
         id: cv2-spark-e2e-modules
         if: ${{ steps.filter.outputs.cv2-spark-e2e == 'true' }}
@@ -165,7 +165,7 @@ jobs:
           modules=`python tools/update_modules_check/update_modules_check.py cv2-spark-e2e $update_files`
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT
-          
+
       - name: Check Connector V2 E2E Update
         id: cv2-e2e-modules
         if: ${{ steps.filter.outputs.cv2-e2e == 'true' }}
@@ -183,7 +183,7 @@ jobs:
           modules=`python tools/update_modules_check/update_modules_check.py engine $update_files`
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT
-          
+
       - name: Check Engine E2E Update
         id: engine-e2e-modules
         if: ${{ steps.filter.outputs.engine-e2e == 'true' }}
@@ -195,10 +195,13 @@ jobs:
 
       - name: Make unit test modules
         id: ut-modules
-        if: ${{ steps.filter.outputs.api == 'false' }}
+        if: ${{ steps.filter.outputs.api == 'false' && (steps.engine-modules.outputs.modules != '' || steps.cv2-modules.outputs.modules != '') }}
         run: |
           modules='${{ steps.engine-modules.outputs.modules }}${{ steps.cv2-modules.outputs.modules }}'
           modules=${modules: 1}
+          includes=`python tools/update_modules_check/update_modules_check.py tree $modules`
+          ./mvnw -Pno_dist -D"e2e.dependency.skip"=false  dependency:tree $includes -DoutputType=text -DoutputFile=/tmp/tree_out.txt
+          modules=`python tools/update_modules_check/update_modules_check.py final /tmp/tree_out.txt`
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT
 
@@ -208,6 +211,9 @@ jobs:
         run: |
           modules='${{ steps.cv2-e2e-modules.outputs.modules }}${{ steps.cv2-flink-e2e-modules.outputs.modules }}${{ steps.cv2-spark-e2e-modules.outputs.modules }}${{ steps.engine-e2e-modules.outputs.modules }}${{ steps.engine-modules.outputs.modules }}${{ steps.cv2-modules.outputs.modules }}'
           modules=${modules: 1}
+          includes=`python tools/update_modules_check/update_modules_check.py tree $modules`
+          ./mvnw -Pno_dist -D"e2e.dependency.skip"=false  dependency:tree $includes -DoutputType=text -DoutputFile=/tmp/tree_out.txt
+          modules=`python tools/update_modules_check/update_modules_check.py final /tmp/tree_out.txt`
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT
 
@@ -297,3 +303,4 @@ jobs:
           ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.it-modules}} -am -amd -Pno_dist
         env:
           MAVEN_OPTS: -Xmx2048m
+

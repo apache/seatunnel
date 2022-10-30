@@ -15,26 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.common.container;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.db2;
 
-import static org.apache.seatunnel.e2e.common.container.EngineType.FLINK;
-import static org.apache.seatunnel.e2e.common.container.EngineType.SPARK;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 
-@AllArgsConstructor
-@Getter
-public enum TestContainerId {
-    FLINK_1_13(FLINK, "1.13.6"),
-    SPARK_2_4(SPARK, "2.4.6"),
-    SEATUNNEL(EngineType.SEATUNNEL, "2.2.0");
-
-    private final EngineType engineType;
-    private final String version;
+public class DB2JdbcRowConverter extends AbstractJdbcRowConverter {
 
     @Override
-    public String toString() {
-        return engineType.toString() + ":" + version;
+    public String converterName() {
+        return "DB2";
+    }
+
+    @Override
+    public SeaTunnelRow toInternal(ResultSet rs, ResultSetMetaData metaData, SeaTunnelRowType typeInfo) throws SQLException {
+        return super.toInternal(rs, metaData, typeInfo);
     }
 }

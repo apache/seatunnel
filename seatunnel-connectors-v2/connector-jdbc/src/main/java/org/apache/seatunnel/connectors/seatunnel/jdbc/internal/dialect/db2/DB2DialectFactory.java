@@ -15,26 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.common.container;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.db2;
 
-import static org.apache.seatunnel.e2e.common.container.EngineType.FLINK;
-import static org.apache.seatunnel.e2e.common.container.EngineType.SPARK;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import com.google.auto.service.AutoService;
 
-@AllArgsConstructor
-@Getter
-public enum TestContainerId {
-    FLINK_1_13(FLINK, "1.13.6"),
-    SPARK_2_4(SPARK, "2.4.6"),
-    SEATUNNEL(EngineType.SEATUNNEL, "2.2.0");
+/**
+ * Factory for {@link DB2Dialect}.
+ */
 
-    private final EngineType engineType;
-    private final String version;
+@AutoService(JdbcDialectFactory.class)
+public class DB2DialectFactory implements JdbcDialectFactory {
 
     @Override
-    public String toString() {
-        return engineType.toString() + ":" + version;
+    public boolean acceptsURL(String url) {
+        return url.startsWith("jdbc:db2:");
+    }
+
+    @Override
+    public JdbcDialect create() {
+        return new DB2Dialect();
     }
 }

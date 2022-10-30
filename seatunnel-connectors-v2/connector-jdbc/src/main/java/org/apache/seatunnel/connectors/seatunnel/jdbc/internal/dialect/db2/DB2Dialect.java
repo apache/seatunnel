@@ -15,26 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.common.container;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.db2;
 
-import static org.apache.seatunnel.e2e.common.container.EngineType.FLINK;
-import static org.apache.seatunnel.e2e.common.container.EngineType.SPARK;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-
-@AllArgsConstructor
-@Getter
-public enum TestContainerId {
-    FLINK_1_13(FLINK, "1.13.6"),
-    SPARK_2_4(SPARK, "2.4.6"),
-    SEATUNNEL(EngineType.SEATUNNEL, "2.2.0");
-
-    private final EngineType engineType;
-    private final String version;
+public class DB2Dialect implements JdbcDialect {
 
     @Override
-    public String toString() {
-        return engineType.toString() + ":" + version;
+    public String dialectName() {
+        return "DB2";
+    }
+
+    @Override
+    public JdbcRowConverter getRowConverter() {
+        return new DB2JdbcRowConverter();
+    }
+
+    @Override
+    public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
+        return new DB2TypeMapper();
     }
 }
