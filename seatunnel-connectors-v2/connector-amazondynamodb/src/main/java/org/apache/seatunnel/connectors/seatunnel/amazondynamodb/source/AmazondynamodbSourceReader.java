@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReader
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -41,6 +42,7 @@ import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -153,23 +155,30 @@ public class AmazondynamodbSourceReader extends AbstractSingleSplitReader<SeaTun
             });
             return seatunnelMap;
         } else if (seaTunnelDataType instanceof ArrayType) {
-            List<Object> seatunnelList = new ArrayList<>(attributeValue.l().size());
+            Object array = Array.newInstance(String.class, attributeValue.l().size());
             if (attributeValue.hasL()) {
-                attributeValue.l().forEach(l -> {
-                    seatunnelList.add(convert(((ArrayType<?, ?>) seaTunnelDataType).getElementType(), l));
-                });
+                List<AttributeValue> datas = attributeValue.l();
+                array = Array.newInstance(((ArrayType<?, ?>) seaTunnelDataType).getElementType().getTypeClass(), attributeValue.l().size());
+                for (int index = 0; index < datas.size(); index++) {
+                    Array.set(array, index, convert(((ArrayType<?, ?>) seaTunnelDataType).getElementType(), datas.get(index)));
+                }
             } else if (attributeValue.hasSs()) {
-                seatunnelList.addAll(attributeValue.ss());
+                List<String> datas = attributeValue.ss();
+                for (int index = 0; index < datas.size(); index++) {
+                    Array.set(array, index, AttributeValue.fromS(datas.get(index)));
+                }
             } else if (attributeValue.hasNs()) {
-                attributeValue.ns().forEach(s -> {
-                    seatunnelList.addAll(attributeValue.ns());
-                });
+                List<String> datas = attributeValue.ns();
+                for (int index = 0; index < datas.size(); index++) {
+                    Array.set(array, index, AttributeValue.fromS(datas.get(index)));
+                }
             } else if (attributeValue.hasBs()) {
-                attributeValue.bs().forEach(s -> {
-                    seatunnelList.add(s.asByteArray());
-                });
+                List<SdkBytes> datas = attributeValue.bs();
+                for (int index = 0; index < datas.size(); index++) {
+                    Array.set(array, index, AttributeValue.fromB(datas.get(index)));
+                }
             }
-            return seatunnelList;
+            return array;
         } else {
             throw new IllegalStateException("Unexpected value: " + seaTunnelDataType);
         }
