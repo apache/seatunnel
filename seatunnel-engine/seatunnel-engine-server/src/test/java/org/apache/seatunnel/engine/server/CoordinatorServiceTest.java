@@ -154,7 +154,7 @@ public class CoordinatorServiceTest {
             });
 
         // wait job restore
-        Thread.sleep(5000);
+        Thread.sleep(30000);
 
         // pipeline will recovery running state
         await().atMost(200000, TimeUnit.MILLISECONDS)
