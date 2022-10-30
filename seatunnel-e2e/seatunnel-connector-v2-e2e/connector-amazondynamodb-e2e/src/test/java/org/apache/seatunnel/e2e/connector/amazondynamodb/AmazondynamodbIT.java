@@ -32,6 +32,7 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
+import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -107,13 +108,14 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
             .withNetworkAliases(AMAZONDYNAMODB_CONTAINER_HOST)
             .withExposedPorts(AMAZONDYNAMODB_CONTAINER_PORT)
             .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(AMAZONDYNAMODB_DOCKER_IMAGE)));
+        dynamoDB.setPortBindings(Lists.newArrayList(String.format("%s:%s", AMAZONDYNAMODB_CONTAINER_PORT, AMAZONDYNAMODB_CONTAINER_PORT)));
         Startables.deepStart(Stream.of(dynamoDB)).join();
         log.info("dynamodb container started");
         given().ignoreExceptions()
             .await()
             .atLeast(100, TimeUnit.MILLISECONDS)
             .pollInterval(500, TimeUnit.MILLISECONDS)
-            .atMost(30, TimeUnit.SECONDS)
+            .atMost(120, TimeUnit.SECONDS)
             .untilAsserted(this::initializeDynamodbClient);
         batchInsertData();
 
@@ -129,7 +131,7 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
 
     private void initializeDynamodbClient() throws ConnectException {
         dynamoDbClient = DynamoDbClient.builder()
-            .endpointOverride(URI.create("http://" + AMAZONDYNAMODB_CONTAINER_HOST + ":" + AMAZONDYNAMODB_CONTAINER_PORT))
+            .endpointOverride(URI.create("http://" + dynamoDB.getHost() + ":" + AMAZONDYNAMODB_CONTAINER_PORT))
             // The region is meaningless for local DynamoDb but required for client builder validation
             .region(Region.US_EAST_1)
             .credentialsProvider(StaticCredentialsProvider.create(
@@ -188,7 +190,7 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
                 "c_timestamp"
             },
             new SeaTunnelDataType[]{
-                BasicType.LONG_TYPE,
+                BasicType.STRING_TYPE,
                 new MapType(BasicType.STRING_TYPE, BasicType.SHORT_TYPE),
                 ArrayType.BYTE_ARRAY_TYPE,
                 BasicType.STRING_TYPE,
@@ -208,7 +210,7 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
 
         SeaTunnelRow row = new SeaTunnelRow(
             new Object[]{
-                1L,
+                "1",
                 Collections.singletonMap("key", Short.parseShort("1")),
                 new Byte[]{Byte.parseByte("1")},
                 "string",
