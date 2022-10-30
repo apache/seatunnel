@@ -120,6 +120,9 @@ public class AmazondynamodbSourceReader extends AbstractSingleSplitReader<SeaTun
         } else if (BasicType.BOOLEAN_TYPE.equals(seaTunnelDataType)) {
             return attributeValue.bool();
         } else if (BasicType.BYTE_TYPE.equals(seaTunnelDataType)) {
+            if (attributeValue.n() != null) {
+                return Byte.parseByte(attributeValue.n());
+            }
             return attributeValue.s().getBytes(StandardCharsets.UTF_8)[0];
         } else if (BasicType.SHORT_TYPE.equals(seaTunnelDataType)) {
             return Short.parseShort(attributeValue.n());
