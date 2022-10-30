@@ -45,7 +45,7 @@ SeaTunnel为与计算引擎进行解耦，设计了新的连接器API，通过�
 
 4.将连接器添加到plugin-mapping文件.
 
-5.将连接器添加到seatunnel-dist/pom.xml.
+5.将连接器添加到seatunnel-dist/pom.xml,这样连接器jar就可以在二进制包中找到.
 
 ### 启动类
 
