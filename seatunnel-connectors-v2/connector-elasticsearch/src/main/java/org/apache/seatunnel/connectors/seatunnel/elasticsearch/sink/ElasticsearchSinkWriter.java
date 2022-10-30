@@ -94,12 +94,14 @@ public class ElasticsearchSinkWriter implements SinkWriter<SeaTunnelRow, Elastic
                     BulkResponse bulkResponse = esRestClient.bulk(requestBody);
                     if (!bulkResponse.isErrors()) {
                         break;
+                    } else {
+                        throw new BulkElasticsearchException(bulkResponse.getResponse());
                     }
                 } catch (Exception ex) {
                     if (tryCnt == maxRetry) {
-                        throw new BulkElasticsearchException("bulk es error,try count=%d", ex);
+                        throw new BulkElasticsearchException("bulk elasticsearch error,try count=%d", ex);
                     }
-                    log.warn(String.format("bulk es error,try count=%d", tryCnt), ex);
+                    log.warn(String.format("bulk elasticsearch error,try count=%d", tryCnt), ex);
                 }
 
             }
