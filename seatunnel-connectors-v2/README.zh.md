@@ -43,7 +43,7 @@ SeaTunnel为与计算引擎进行解耦，设计了新的连接器API，通过�
 
 ​       package org.apache.seatunnel.connectors.seatunnel.{连接器名}.sink
 
-4.将连接器添加到plugin-mapping文件.
+4.将连接器信息添加到在项目根目录的plugin-mapping.properties文件中.
 
 5.将连接器添加到seatunnel-dist/pom.xml,这样连接器jar就可以在二进制包中找到.
 
