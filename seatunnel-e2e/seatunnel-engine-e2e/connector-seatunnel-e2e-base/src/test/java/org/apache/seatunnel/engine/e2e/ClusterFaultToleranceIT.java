@@ -393,7 +393,7 @@ public class ClusterFaultToleranceIT {
             // shutdown on worker node
             node2.shutdown();
 
-            Awaitility.await().atMost(180000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(360000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
                     // Wait job write all rows in file
                     Thread.sleep(2000);
