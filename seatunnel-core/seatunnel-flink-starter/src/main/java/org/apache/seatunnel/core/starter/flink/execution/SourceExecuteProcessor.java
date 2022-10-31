@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
 import org.apache.seatunnel.translation.flink.source.BaseSeaTunnelSourceFunction;
@@ -53,10 +52,8 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
 
     private static final String PLUGIN_TYPE = "source";
 
-    public SourceExecuteProcessor(FlinkEnvironment flinkEnvironment,
-                                  JobContext jobContext,
-                                  List<? extends Config> sourceConfigs) {
-        super(flinkEnvironment, jobContext, sourceConfigs);
+    public SourceExecuteProcessor(List<URL> jarPaths, List<? extends Config> sourceConfigs, JobContext jobContext) {
+        super(jarPaths, sourceConfigs, jobContext);
     }
 
     @Override
@@ -106,7 +103,7 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
     }
 
     @Override
-    protected List<SeaTunnelSource> initializePlugins(List<? extends Config> pluginConfigs) {
+    protected List<SeaTunnelSource> initializePlugins(List<URL> jarPaths, List<? extends Config> pluginConfigs) {
         SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery(addUrlToClassloader);
         List<SeaTunnelSource> sources = new ArrayList<>();
         Set<URL> jars = new HashSet<>();
@@ -123,7 +120,7 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
             }
             sources.add(seaTunnelSource);
         }
-        flinkEnvironment.registerPlugin(new ArrayList<>(jars));
+        jarPaths.addAll(jars);
         return sources;
     }
 }
