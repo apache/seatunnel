@@ -67,11 +67,11 @@ redis data types, support `key` `hash` `list` `set` `zset`
 > Each element in the sorted set will be sent downstream as a single row of data
 > For example, the value of sorted set is `[tyrantlucier, CalvinKirs]`, the data received downstream are `tyrantlucifer` and `CalvinKirs` and only two message will be received.
 
-### auth [String]
+### auth [string]
 
 redis authentication password, you need it when you connect to an encrypted cluster
 
-### format [String]
+### format [string]
 
 the format of upstream data, now only support `json` `text`, default `json`.
 
@@ -121,9 +121,9 @@ connector will generate data as the following:
 |---------|
 | {"code":  200, "data":  "get success", "success":  true}        |
 
-### schema [Config]
+### schema [config]
 
-#### fields [Config]
+#### fields [config]
 
 the schema fields of upstream data
 
