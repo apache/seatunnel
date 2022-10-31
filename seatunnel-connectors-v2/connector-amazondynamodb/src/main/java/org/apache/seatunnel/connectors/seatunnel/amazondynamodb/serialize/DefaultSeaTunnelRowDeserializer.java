@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
+import lombok.AllArgsConstructor;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
@@ -41,13 +42,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@AllArgsConstructor
 public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer {
 
     private final SeaTunnelRowType typeInfo;
-
-    public DefaultSeaTunnelRowDeserializer(SeaTunnelRowType typeInfo) {
-        this.typeInfo = typeInfo;
-    }
 
     @Override
     public SeaTunnelRow deserialize(Map<String, AttributeValue> item) {

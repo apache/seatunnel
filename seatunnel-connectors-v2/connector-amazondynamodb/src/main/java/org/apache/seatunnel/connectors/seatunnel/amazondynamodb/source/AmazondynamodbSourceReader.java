@@ -43,7 +43,6 @@ public class AmazondynamodbSourceReader extends AbstractSingleSplitReader<SeaTun
     protected DynamoDbClient dynamoDbClient;
     protected SingleSplitReaderContext context;
     protected AmazondynamodbSourceOptions amazondynamodbSourceOptions;
-    protected SeaTunnelRowType typeInfo;
     protected SeaTunnelRowDeserializer seaTunnelRowDeserializer;
 
     public AmazondynamodbSourceReader(SingleSplitReaderContext context,
@@ -51,7 +50,6 @@ public class AmazondynamodbSourceReader extends AbstractSingleSplitReader<SeaTun
                                       SeaTunnelRowType typeInfo) {
         this.context = context;
         this.amazondynamodbSourceOptions = amazondynamodbSourceOptions;
-        this.typeInfo = typeInfo;
         this.seaTunnelRowDeserializer = new DefaultSeaTunnelRowDeserializer(typeInfo);
     }
 

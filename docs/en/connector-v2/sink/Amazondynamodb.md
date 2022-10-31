@@ -17,14 +17,16 @@ Write data to `Amazondynamodb`
 
 ## Options
 
-| name           | type   | required | default value |
-|--------------- | ------ |----------| ------------- |
-| url            | string | yes      | -             |
-| region         | string | yes      | -             |
-| accessKeyId    | string | yes      | -             |
-| secretAccessKey| string | yes      | -             |
-| table          | string | yes      | -             |
-| common-options |        | no       | -             |
+| name             | type   | required | default value |
+|----------------- | ------ |----------| ------------- |
+| url              | string | yes      | -             |
+| region           | string | yes      | -             |
+| access_key_id    | string | yes      | -             |
+| secret_access_key| string | yes      | -             |
+| table            | string | yes      | -             |
+| batch_size       | string | no       | 25            |
+| batch_interval_ms| string | no       | 1000          |
+| common-options   |        | no       | -             |
 
 ### url [string]
 

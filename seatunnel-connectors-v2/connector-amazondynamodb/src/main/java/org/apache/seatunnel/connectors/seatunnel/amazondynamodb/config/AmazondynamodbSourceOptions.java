@@ -30,6 +30,9 @@ import java.io.Serializable;
 @AllArgsConstructor
 public class AmazondynamodbSourceOptions implements Serializable {
 
+    private static final int DEFAULT_BATCH_SIZE = 25;
+    private static final int DEFAULT_BATCH_INTERVAL_MS = 1000;
+
     private String url;
 
     private String region;
@@ -41,6 +44,9 @@ public class AmazondynamodbSourceOptions implements Serializable {
     private String table;
 
     private Config schema;
+
+    public int batchSize = DEFAULT_BATCH_SIZE;
+    public int batchIntervalMs = DEFAULT_BATCH_INTERVAL_MS;
 
     public AmazondynamodbSourceOptions(Config config) {
         if (config.hasPath(AmazondynamodbConfig.URL)) {
@@ -60,6 +66,12 @@ public class AmazondynamodbSourceOptions implements Serializable {
         }
         if (config.hasPath(CommonConfig.SCHEMA)) {
             this.schema = config.getConfig(CommonConfig.SCHEMA);
+        }
+        if (config.hasPath(AmazondynamodbConfig.BATCH_SIZE)) {
+            this.batchSize = config.getInt(AmazondynamodbConfig.BATCH_SIZE);
+        }
+        if (config.hasPath(AmazondynamodbConfig.DEFAULT_BATCH_INTERVAL_MS)) {
+            this.batchIntervalMs = config.getInt(AmazondynamodbConfig.DEFAULT_BATCH_INTERVAL_MS);
         }
     }
 }

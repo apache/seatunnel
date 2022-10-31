@@ -22,7 +22,9 @@ import java.io.Serializable;
 public class AmazondynamodbConfig implements Serializable {
     public static final String URL = "url";
     public static final String REGION = "region";
-    public static final String ACCESS_KEY_ID = "accessKeyId";
-    public static final String SECRET_ACCESS_KEY = "secretAccessKey";
+    public static final String ACCESS_KEY_ID = "access_key_id";
+    public static final String SECRET_ACCESS_KEY = "secret_access_key";
     public static final String TABLE = "table";
+    public static final String BATCH_SIZE = "batch_size";
+    public static final String DEFAULT_BATCH_INTERVAL_MS = "batch_interval_ms";
 }

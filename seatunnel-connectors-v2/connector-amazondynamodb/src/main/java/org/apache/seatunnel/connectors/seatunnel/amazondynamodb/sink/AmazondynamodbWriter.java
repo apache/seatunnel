@@ -24,39 +24,25 @@ import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.Defaul
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.SeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-
 import java.io.IOException;
-import java.net.URI;
 
 public class AmazondynamodbWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
-    private final DynamoDbClient dynamoDbClient;
+    private final DdynamoDbSinkClient ddynamoDbSinkClient;
     private final SeaTunnelRowSerializer serializer;
 
     public AmazondynamodbWriter(AmazondynamodbSourceOptions amazondynamodbSourceOptions, SeaTunnelRowType seaTunnelRowType) {
-        dynamoDbClient = DynamoDbClient.builder()
-            .endpointOverride(URI.create(amazondynamodbSourceOptions.getUrl()))
-            // The region is meaningless for local DynamoDb but required for client builder validation
-            .region(Region.of(amazondynamodbSourceOptions.getRegion()))
-            .credentialsProvider(StaticCredentialsProvider.create(
-                AwsBasicCredentials.create(amazondynamodbSourceOptions.getAccessKeyId(), amazondynamodbSourceOptions.getSecretAccessKey())))
-            .build();
+        ddynamoDbSinkClient = new DdynamoDbSinkClient(amazondynamodbSourceOptions, seaTunnelRowType);
         serializer = new DefaultSeaTunnelRowSerializer(seaTunnelRowType, amazondynamodbSourceOptions);
     }
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        dynamoDbClient.putItem(serializer.serialize(element));
+        ddynamoDbSinkClient.write(serializer.serialize(element));
     }
 
     @Override
-    public void close() {
-        if (dynamoDbClient != null) {
-            dynamoDbClient.close();
-        }
+    public void close() throws IOException {
+        ddynamoDbSinkClient.close();
     }
 }

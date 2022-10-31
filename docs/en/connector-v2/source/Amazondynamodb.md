@@ -17,15 +17,15 @@ Read data from Amazondynamodb.
 
 ## Options
 
-| name           | type   | required | default value |
-| -------------- | ------ | -------- | ------------- |
-| url            | string | yes      | -             |
-| region         | string | yes      | -             |
-| accessKeyId    | string | yes      | -             |
-| secretAccessKey| string | yes      | -             |
-| table    	     | string | yes      | -             |
-| schema         | object | yes      | -             |
-| common-options |        | yes      | -             |
+| name             | type   | required | default value |
+| ---------------- | ------ | -------- | ------------- |
+| url              | string | yes      | -             |
+| region           | string | yes      | -             |
+| access_key_id    | string | yes      | -             |
+| secret_access_key| string | yes      | -             |
+| table    	       | string | yes      | -             |
+| schema           | object | yes      | -             |
+| common-options   |        | yes      | -             |
 
 ### url [string]
 
