@@ -30,8 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -40,9 +39,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 public class ElasticsearchSourceReader implements SourceReader<SeaTunnelRow, ElasticsearchSourceSplit> {
-
-    protected static final Logger LOG = LoggerFactory.getLogger(ElasticsearchSourceReader.class);
 
     SourceReader.Context context;
 
@@ -75,23 +73,23 @@ public class ElasticsearchSourceReader implements SourceReader<SeaTunnelRow, Ela
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        ElasticsearchSourceSplit split = splits.poll();
-        if (null != split) {
-            SourceIndexInfo sourceIndexInfo = split.getSourceIndexInfo();
-            synchronized (output.getCheckpointLock()) {
+        synchronized (output.getCheckpointLock()) {
+            ElasticsearchSourceSplit split = splits.poll();
+            if (split != null){
+                SourceIndexInfo sourceIndexInfo = split.getSourceIndexInfo();
                 ScrollResult scrollResult = esRestClient.searchByScroll(sourceIndexInfo.getIndex(), sourceIndexInfo.getSource(), sourceIndexInfo.getScrollTime(), sourceIndexInfo.getScrollSize());
                 outputFromScrollResult(scrollResult, sourceIndexInfo.getSource(), output);
                 while (scrollResult.getDocs() != null && scrollResult.getDocs().size() > 0) {
                     scrollResult = esRestClient.searchWithScrollId(scrollResult.getScrollId(), sourceIndexInfo.getScrollTime());
                     outputFromScrollResult(scrollResult, sourceIndexInfo.getSource(), output);
                 }
+            } else if (noMoreSplit) {
+                // signal to the source that we have reached the end of the data.
+                log.info("Closed the bounded ELasticsearch source");
+                context.signalNoMoreElement();
+            } else {
+                Thread.sleep(pollNextWaitTime);
             }
-        } else if (noMoreSplit) {
-            // signal to the source that we have reached the end of the data.
-            LOG.info("Closed the bounded ELasticsearch source");
-            context.signalNoMoreElement();
-        } else {
-            Thread.sleep(pollNextWaitTime);
         }
     }
 
