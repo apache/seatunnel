@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.e2e.spark.v2.elasticsearch;
 
-import lombok.SneakyThrows;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
@@ -31,18 +30,15 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
-import org.testcontainers.shaded.org.apache.commons.lang3.ThreadUtils;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.UnknownHostException;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -62,16 +58,14 @@ public class ElasticsearchIT extends SparkContainer {
 
     private EsRestClient esRestClient;
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchIT.class);
-
     @BeforeEach
-    public void startMongoContainer() throws Exception {
+    public void startElasticsearchContainer() throws Exception {
         container = new ElasticsearchContainer(DockerImageName.parse("elasticsearch:6.8.23").asCompatibleSubstituteFor("docker.elastic.co/elasticsearch/elasticsearch"))
                 .withNetwork(NETWORK)
                 .withNetworkAliases("elasticsearch")
-                .withLogConsumer(new Slf4jLogConsumer(LOGGER));
+                .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger("elasticsearch:6.8.23")));
         container.start();
-        LOGGER.info("Elasticsearch container started");
+        log.info("Elasticsearch container started");
         esRestClient = EsRestClient.createInstance(Lists.newArrayList(container.getHttpHostAddress()), "", "");
         testDataset = generateTestDataSet();
         createIndexDocs();
@@ -84,7 +78,6 @@ public class ElasticsearchIT extends SparkContainer {
     private void createIndexDocs() {
         StringBuilder requestBody = new StringBuilder();
         Map<String, String> indexInner = new HashMap<>();
-        indexInner.put("_index", "st");
         indexInner.put("_index", "st");
 
         Map<String, Map<String, String>> indexParam = new HashMap<>();
@@ -111,7 +104,7 @@ public class ElasticsearchIT extends SparkContainer {
     }
 
     private List<String> generateTestDataSet() throws JsonProcessingException, UnknownHostException {
-        String[] fiels = new String[]{
+        String[] fields = new String[]{
             "c_map",
             "c_array",
             "c_string",
@@ -148,16 +141,15 @@ public class ElasticsearchIT extends SparkContainer {
                 LocalDate.now().toString(),
                 LocalDateTime.now().toString()
             };
-            for (int j = 0; j  < fiels.length; j++){
-                doc.put(fiels[j], values[j]);
+            for (int j = 0; j  < fields.length; j++){
+                doc.put(fields[j], values[j]);
             }
             documents.add(objectMapper.writeValueAsString(doc));
         }
         return documents;
     }
 
-    @SneakyThrows
-    private List<String> readSinkData() {
+    private List<String> readSinkData() throws InterruptedException{
         //wait for index refresh
         Thread.sleep(2000);
         List<String> source = Lists.newArrayList("c_map", "c_array", "c_string", "c_boolean", "c_tinyint", "c_smallint", "c_int", "c_bigint", "c_float", "c_double", "c_decimal", "c_bytes", "c_date", "c_timestamp");
