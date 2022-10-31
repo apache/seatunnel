@@ -155,16 +155,16 @@ public class CoordinatorServiceTest {
 
         // wait job restore and leave running status
         await().atMost(200000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> Assertions.assertNotEquals(PipelineStatus.RUNNING,
-                                server2.getCoordinatorService().getJobMaster(jobId).getPhysicalPlan().getPipelineList().get(0)
-                                        .getPipelineState()));
+            .untilAsserted(
+                () -> Assertions.assertNotEquals(PipelineStatus.RUNNING,
+                      server2.getCoordinatorService().getJobMaster(jobId).getPhysicalPlan().getPipelineList().get(0)
+                        .getPipelineState()));
 
         // pipeline will recovery running state
         await().atMost(200000, TimeUnit.MILLISECONDS)
             .untilAsserted(
                 () -> Assertions.assertEquals(PipelineStatus.RUNNING,
-                    server2.getCoordinatorService().getJobMaster(jobId).getPhysicalPlan().getPipelineList().get(0)
+                      server2.getCoordinatorService().getJobMaster(jobId).getPhysicalPlan().getPipelineList().get(0)
                         .getPipelineState()));
 
         server2.getCoordinatorService().cancelJob(jobId);
