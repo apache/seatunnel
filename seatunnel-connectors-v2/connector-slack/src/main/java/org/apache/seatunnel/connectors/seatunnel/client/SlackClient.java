@@ -56,7 +56,6 @@ public class SlackClient {
             for (Conversation channel : channels) {
                 if (channel.getName().equals(slackConfig.getSlackChannel())) {
                     conversionId = channel.getId();
-                    log.info("Found conversation ID: {}", conversionId);
                     // Break from for loop
                     break;
                 }
