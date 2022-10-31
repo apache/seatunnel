@@ -20,28 +20,24 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.SourceIndexInfo;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import lombok.ToString;
 
 @ToString
+@AllArgsConstructor
 public class ElasticsearchSourceSplit implements SourceSplit {
 
     private static final long serialVersionUID = -1L;
 
     private String splitId;
 
+    @Getter
     private SourceIndexInfo sourceIndexInfo;
-
-    public ElasticsearchSourceSplit(String splitId, SourceIndexInfo sourceIndexInfo) {
-        this.splitId = splitId;
-        this.sourceIndexInfo = sourceIndexInfo;
-    }
-
-    public SourceIndexInfo getSourceIndexInfo() {
-        return sourceIndexInfo;
-    }
 
     @Override
     public String splitId() {
         return splitId;
     }
 }
+
