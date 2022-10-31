@@ -17,13 +17,5 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.sink;
 
-/**
- * Copyright @ 2022科大讯飞。 All rights reserved.
- * @Title DdynamoDbSinkClient
- * @Project incubator-seatunnel
- * @Description TODO
- * @author gdliu3
- * @date 2022/10/31 14:21
- */
 public class DdynamoDbSinkClient {
 }
