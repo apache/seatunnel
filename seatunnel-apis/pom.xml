@@ -32,5 +32,6 @@
         <module>seatunnel-api-base</module>
         <module>seatunnel-api-flink</module>
         <module>seatunnel-api-spark</module>
+        <module>seatunnel-api-flink-new</module>
     </modules>
 </project>

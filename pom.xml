@@ -129,6 +129,7 @@
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <iceberg.version>0.13.1</iceberg.version>
         <flink.1.13.6.version>1.13.6</flink.1.13.6.version>
+        <flink.1.14.version>1.14.4</flink.1.14.version>
         <spark.2.4.0.version>2.4.0</spark.2.4.0.version>
         <spark.binary.2.4.version>2.4</spark.binary.2.4.version>
         <commons.logging.version>1.2</commons.logging.version>
@@ -160,6 +161,7 @@
         <elasticsearch6.client.version>6.3.1</elasticsearch6.client.version>
         <elasticsearch7.client.version>7.5.1</elasticsearch7.client.version>
         <flink-shaded-hadoop-2.version>2.7.5-7.0</flink-shaded-hadoop-2.version>
+        <flink-shaded-hadoop-3.version>3.1.1.7.2.9.0-173-9.0</flink-shaded-hadoop-3.version>
         <commons-lang3.version>3.4</commons-lang3.version>
         <commons-io.version>2.11.0</commons-io.version>
         <commons-collections4.version>4.4</commons-collections4.version>
@@ -211,6 +213,18 @@
                 <groupId>commons-codec</groupId>
                 <artifactId>commons-codec</artifactId>
                 <version>${codec.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-shaded-hadoop-2</artifactId>
+                <version>${flink-shaded-hadoop-2.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>xml-apis</groupId>
+                        <artifactId>xml-apis</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>

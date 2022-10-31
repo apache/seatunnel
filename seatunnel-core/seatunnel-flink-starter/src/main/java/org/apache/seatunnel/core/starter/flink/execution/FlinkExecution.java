@@ -66,6 +66,7 @@ public class FlinkExecution implements TaskExecution {
         } catch (MalformedURLException e) {
             throw new SeaTunnelException("load flink starter error.", e);
         }
+//        jarPaths = new ArrayList<>();
         registerPlugin();
         JobContext jobContext = new JobContext();
         jobContext.setJobMode(new FlinkEnvironmentFactory(config).getJobMode(config.getConfig("env")));

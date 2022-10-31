@@ -17,24 +17,20 @@
 
 package org.apache.seatunnel.flink.transform;
 
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchTransform;
-import org.apache.seatunnel.flink.stream.FlinkStreamTransform;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.api.scala.typeutils.Types;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.types.Row;
+import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.flink.FlinkEnvironment;
+import org.apache.seatunnel.flink.stream.FlinkStreamTransform;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.util.List;
 
-public class Split implements FlinkStreamTransform, FlinkBatchTransform {
+public class Split implements FlinkStreamTransform {
 
     private Config config;
 
@@ -53,26 +49,15 @@ public class Split implements FlinkStreamTransform, FlinkBatchTransform {
     private RowTypeInfo rowTypeInfo;
 
     @Override
-    public DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Row> data) {
-        return data;
-    }
-
-    @Override
     public DataStream<Row> processStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         return dataStream;
     }
 
     @Override
     public void registerFunction(FlinkEnvironment flinkEnvironment) {
-        if (flinkEnvironment.isStreaming()) {
-            flinkEnvironment
-                    .getStreamTableEnvironment()
-                    .registerFunction(name, new ScalarSplit(rowTypeInfo, num, separator));
-        } else {
-            flinkEnvironment
-                    .getBatchTableEnvironment()
-                    .registerFunction(name, new ScalarSplit(rowTypeInfo, num, separator));
-        }
+        flinkEnvironment
+                .getStreamTableEnvironment()
+                .registerFunction(name, new ScalarSplit(rowTypeInfo, num, separator));
     }
 
     @Override

@@ -17,23 +17,18 @@
 
 package org.apache.seatunnel.flink.transform;
 
+import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.table.api.Table;
+import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
+import org.apache.flink.types.Row;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchTransform;
 import org.apache.seatunnel.flink.stream.FlinkStreamTransform;
 import org.apache.seatunnel.flink.util.TableUtil;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.flink.api.java.DataSet;
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.table.api.Table;
-import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
-import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
-import org.apache.flink.types.Row;
-
-public class Sql implements FlinkStreamTransform, FlinkBatchTransform {
+public class Sql implements FlinkStreamTransform {
 
     private String sql;
 
@@ -51,18 +46,6 @@ public class Sql implements FlinkStreamTransform, FlinkBatchTransform {
             throw new Exception("Flink streaming transform sql execute failed, SQL: " + sql, e);
         }
         return TableUtil.tableToDataStream(tableEnvironment, table, false);
-    }
-
-    @Override
-    public DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Row> data) throws Exception {
-        BatchTableEnvironment tableEnvironment = env.getBatchTableEnvironment();
-        Table table = null;
-        try {
-            table = tableEnvironment.sqlQuery(sql);
-        } catch (Exception e) {
-            throw new Exception("Flink batch transform sql execute failed, SQL: " + sql, e);
-        }
-        return TableUtil.tableToDataSet(tableEnvironment, table);
     }
 
     @Override

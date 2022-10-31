@@ -110,10 +110,10 @@ public class JdbcSink
     @Override
     public Optional<SinkAggregatedCommitter<XidInfo, JdbcAggregatedCommitInfo>> createAggregatedCommitter()
         throws IOException {
-        if (jdbcSinkOptions.isExactlyOnce()) {
+//        if (jdbcSinkOptions.isExactlyOnce()) {
             return Optional.of(new JdbcSinkAggregatedCommitter(jdbcSinkOptions));
-        }
-        return Optional.empty();
+//        }
+//        return Optional.empty();
     }
 
     @Override

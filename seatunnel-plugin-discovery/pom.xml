@@ -34,7 +34,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-api-flink</artifactId>
+            <artifactId>seatunnel-api-flink-new</artifactId>
             <version>${project.version}</version>
             <scope>provided</scope>
         </dependency>
