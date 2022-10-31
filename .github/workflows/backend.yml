@@ -79,40 +79,142 @@ jobs:
           [[ ${{ needs.code-style.result }} == 'success' ]] || exit 1;
           [[ ${{ needs.dead-link.result }} == 'success' ]] || exit 1;
 
-  build:
+  changes:
+    runs-on: ubuntu-latest
+    # To prevent error when there's no base branch
     if: github.repository == 'apache/incubator-seatunnel'
-    name: Build
-    needs: [ sanity-check ]
-    strategy:
-      matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest', 'windows-latest' ]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 80
+    timeout-minutes: 10
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      engine: ${{ steps.filter.outputs.engine }}
+      ut-modules: ${{ steps.ut-modules.outputs.modules }}
+      it-modules: ${{ steps.it-modules.outputs.modules }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v3 # required for push event
+      - uses: actions/setup-python@v4
         with:
-          submodules: true
-      - uses: actions/setup-java@v3
+          python-version: '2.7'
+      - name: Check for file changes
+        uses: dorny/paths-filter@v2
+        id: filter
         with:
-          distribution: 'temurin'
-          java-version: ${{ matrix.java }}
-          cache: 'maven'
-      - name: Build distribution tar
-        run: >-
-          ./mvnw -B install scalastyle:check
-          -D"maven.test.skip"=true
-          -D"checkstyle.skip"=true
-          -D"license.skipAddThirdParty"=true
-          -D"http.keepAlive"=false
-          -D"maven.wagon.http.pool"=false
-          -D"maven.wagon.http.retryHandler.count"=3
-          -D"maven.wagon.httpconnectionManager.ttlSeconds"=120
+          token: ${{ github.token }}
+          list-files: json
+          # The following is a single composite pattern that allows next CI steps,
+          # the pattern is in form of [not (foo or bar)] to be safe.
+          # When new files come in, the CI will NOT ignore them unless listed,
+          # so remember to extend here if they do not serve functional purposes.
+          # NOTE: careful with using ** in expression, keep !**/{old, new things}.
+          filters: |
+            cv2:
+              - "seatunnel-connectors-v2/**"
+            cv2-flink-e2e:
+              - "seatunnel-e2e/seatunnel-flink-connector-v2-e2e/**"
+            cv2-spark-e2e:
+              - "seatunnel-e2e/seatunnel-spark-connector-v2-e2e/**"
+            cv2-e2e:
+              - "seatunnel-e2e/seatunnel-connector-v2-e2e/**"
+            api:
+              - "seatunnel-api/**"
+              - "seatunnel-apis/**"
+              - "seatunnel-common/**"
+              - "seatunnel-config/**"
+              - "seatunnel-connectors/**"
+              - "seatunnel-core/**"
+              - "seatunnel-dist/**"
+              - "seatunnel-e2e/seatunnel-e2e-common/**"
+              - "seatunnel-formats/**"
+              - "seatunnel-plugin-discovery/**"
+              - "seatunnel-transforms/**"
+              - "seatunnel-translation/**"
+              - "seatunnel-e2e/seatunnel-flink-e2e/**"
+              - "seatunnel-e2e/seatunnel-spark-e2e/**"
+              - "seatunnel-connectors/**"
+              - "plugin-mapping.properties"
+              - "**/tools/**"
+              - "pom.xml"
+              - "**/workflows/**"
+            engine:
+              - "seatunnel-engine/**"
+            engine-e2e:
+              - "seatunnel-e2e/seatunnel-engine-e2e/**"
+
+      - name: Check Connector V2 Update
+        id: cv2-modules
+        if: ${{ steps.filter.outputs.cv2 == 'true' }}
+        run: |
+          update_files='${{ steps.filter.outputs.cv2_files }}'
+          modules=`python tools/update_modules_check/update_modules_check.py cv2 $update_files`
+          echo $modules
+          echo "modules=$modules" >> $GITHUB_OUTPUT
+
+      - name: Check Flink Connector V2 E2E Update
+        id: cv2-flink-e2e-modules
+        if: ${{ steps.filter.outputs.cv2-flink-e2e == 'true' }}
+        run: |
+          update_files='${{ steps.filter.outputs.cv2-flink-e2e_files }}'
+          modules=`python tools/update_modules_check/update_modules_check.py cv2-flink-e2e $update_files`
+          echo $modules
+          echo "modules=$modules" >> $GITHUB_OUTPUT
+          
+      - name: Check Spark Connector V2 E2E Update
+        id: cv2-spark-e2e-modules
+        if: ${{ steps.filter.outputs.cv2-spark-e2e == 'true' }}
+        run: |
+          update_files='${{ steps.filter.outputs.cv2-spark-e2e_files }}'
+          modules=`python tools/update_modules_check/update_modules_check.py cv2-spark-e2e $update_files`
+          echo $modules
+          echo "modules=$modules" >> $GITHUB_OUTPUT
+          
+      - name: Check Connector V2 E2E Update
+        id: cv2-e2e-modules
+        if: ${{ steps.filter.outputs.cv2-e2e == 'true' }}
+        run: |
+          update_files='${{ steps.filter.outputs.cv2-e2e_files }}'
+          modules=`python tools/update_modules_check/update_modules_check.py cv2-e2e $update_files`
+          echo $modules
+          echo "modules=$modules" >> $GITHUB_OUTPUT
+
+      - name: Check Engine Update
+        id: engine-modules
+        if: ${{ steps.filter.outputs.engine == 'true' }}
+        run: |
+          update_files='${{ steps.filter.outputs.engine_files }}'
+          modules=`python tools/update_modules_check/update_modules_check.py engine $update_files`
+          echo $modules
+          echo "modules=$modules" >> $GITHUB_OUTPUT
+          
+      - name: Check Engine E2E Update
+        id: engine-e2e-modules
+        if: ${{ steps.filter.outputs.engine-e2e == 'true' }}
+        run: |
+          update_files='${{ steps.filter.outputs.engine-e2e_files }}'
+          modules=`python tools/update_modules_check/update_modules_check.py engine-e2e $update_files`
+          echo $modules
+          echo "modules=$modules" >> $GITHUB_OUTPUT
+
+      - name: Make unit test modules
+        id: ut-modules
+        if: ${{ steps.filter.outputs.api == 'false' }}
+        run: |
+          modules='${{ steps.engine-modules.outputs.modules }}${{ steps.cv2-modules.outputs.modules }}'
+          modules=${modules: 1}
+          echo $modules
+          echo "modules=$modules" >> $GITHUB_OUTPUT
+
+      - name: Make integration test modules
+        id: it-modules
+        if: ${{ steps.filter.outputs.api == 'false' }}
+        run: |
+          modules='${{ steps.cv2-e2e-modules.outputs.modules }}${{ steps.cv2-flink-e2e-modules.outputs.modules }}${{ steps.cv2-spark-e2e-modules.outputs.modules }}${{ steps.engine-e2e-modules.outputs.modules }}${{ steps.engine-modules.outputs.modules }}${{ steps.cv2-modules.outputs.modules }}'
+          modules=${modules: 1}
+          echo $modules
+          echo "modules=$modules" >> $GITHUB_OUTPUT
 
   dependency-license:
-    if: github.repository == 'apache/incubator-seatunnel'
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     name: Dependency licenses
-    needs: [ sanity-check ]
+    needs: [ changes, sanity-check ]
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -136,9 +238,9 @@ jobs:
         run: tools/dependencies/checkLicense.sh
 
   unit-test:
-    name: Unit Test
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true' || (needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != '')
     runs-on: ${{ matrix.os }}
-    needs: [ sanity-check ]
     strategy:
       matrix:
         java: [ '8', '11' ]
@@ -152,16 +254,23 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: Run Unit tests
+      - name: run all modules unit test
+        if: needs.changes.outputs.api == 'true'
         run: |
           ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates
         env:
           MAVEN_OPTS: -Xmx2048m
 
+      - name: run updated modules unit test
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != ''
+        run: |
+          ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.ut-modules}} -am -amd -Pno_dist
+        env:
+          MAVEN_OPTS: -Xmx2048m
+
   integration-test:
-    name: Integration Test
+    needs: [ changes, sanity-check ]
     runs-on: ${{ matrix.os }}
-    needs: [ sanity-check ]
     strategy:
       matrix:
         java: [ '8', '11' ]
@@ -175,8 +284,16 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: Run Integration tests
+      - name: run all modules integration test
+        if: needs.changes.outputs.api == 'true'
         run: |
           ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates
+        env:
+          MAVEN_OPTS: -Xmx2048m
+
+      - name: run updated modules integration test
+        if: needs.changes.outputs.api == 'false'
+        run: |
+          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.it-modules}} -am -amd -Pno_dist
         env:
           MAVEN_OPTS: -Xmx2048m
