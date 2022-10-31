@@ -1,4 +1,23 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.client;
+
+import org.apache.seatunnel.common.Handover;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
@@ -8,14 +27,15 @@ import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.Envelope;
 import com.rabbitmq.client.ShutdownSignalException;
 import com.rabbitmq.utility.Utility;
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 public class QueueingConsumer extends DefaultConsumer {
-    private final BlockingQueue<Delivery> queue;
+    private final Handover<Delivery> handover;
 
     // When this is non-null the queue is in shutdown mode and nextDelivery should
     // throw a shutdown signal exception.
@@ -24,13 +44,13 @@ public class QueueingConsumer extends DefaultConsumer {
 
     private static final Delivery POISON = new Delivery(null, null, null);
 
-    public QueueingConsumer(Channel channel) {
-        this(channel, Integer.MAX_VALUE);
+    public QueueingConsumer(Channel channel, Handover<Delivery> handover) {
+        this(channel, Integer.MAX_VALUE, handover);
     }
 
-    public QueueingConsumer(Channel channel, int capacity) {
+    public QueueingConsumer(Channel channel, int capacity, Handover<Delivery> handover) {
         super(channel);
-        this.queue = new LinkedBlockingQueue<>(capacity);
+        this.handover = handover;
     }
 
     private void checkShutdown() {
@@ -39,10 +59,10 @@ public class QueueingConsumer extends DefaultConsumer {
         }
     }
 
-    private Delivery handle(Delivery delivery) {
+    private Delivery handle(Delivery delivery) throws Handover.ClosedException, InterruptedException {
         if (delivery == POISON || delivery == null && (shutdown != null || cancelled != null)) {
             if (delivery == POISON) {
-                queue.add(POISON);
+                handover.produce(POISON);
                 if (shutdown == null && cancelled == null) {
                     throw new IllegalStateException(
                             "POISON in queue, but null shutdown and null cancelled. "
@@ -60,37 +80,46 @@ public class QueueingConsumer extends DefaultConsumer {
     }
 
     public Delivery nextDelivery()
-            throws InterruptedException, ShutdownSignalException, ConsumerCancelledException {
-        return handle(queue.take());
+            throws Exception {
+        return handle(handover.pollNext().get());
     }
 
     public Delivery nextDelivery(long timeout)
-            throws InterruptedException, ShutdownSignalException, ConsumerCancelledException {
+            throws Exception {
         return nextDelivery(timeout, TimeUnit.MILLISECONDS);
     }
 
     public Delivery nextDelivery(long timeout, TimeUnit unit)
-            throws InterruptedException, ShutdownSignalException, ConsumerCancelledException {
-        return handle(queue.poll(timeout, unit));
+            throws Exception {
+        return handle(handover.pollNext().get());
     }
 
     @Override
     public void handleShutdownSignal(String consumerTag, ShutdownSignalException sig) {
         shutdown = sig;
-        queue.add(POISON);
+        try {
+            handover.produce(POISON);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (Handover.ClosedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
+    @SneakyThrows
     @Override
     public void handleCancel(String consumerTag) throws IOException {
         cancelled = new ConsumerCancelledException();
-        queue.add(POISON);
+        handover.produce(POISON);
     }
 
+    @SneakyThrows
     @Override
     public void handleDelivery(
             String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body)
             throws IOException {
         checkShutdown();
-        this.queue.add(new Delivery(envelope, properties, body));
+        log.info(new String(body) + "?????????");
+        handover.produce(new Delivery(envelope, properties, body));
     }
 }

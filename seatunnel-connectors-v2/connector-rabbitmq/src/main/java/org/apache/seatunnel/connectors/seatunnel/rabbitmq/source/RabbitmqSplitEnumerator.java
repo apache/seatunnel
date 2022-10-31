@@ -22,8 +22,7 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import java.io.IOException;
 import java.util.List;
 
-
-public class RabbitMQSplitEnumerator implements SourceSplitEnumerator {
+public class RabbitmqSplitEnumerator implements SourceSplitEnumerator {
 
     @Override
     public void open() {
@@ -67,6 +66,6 @@ public class RabbitMQSplitEnumerator implements SourceSplitEnumerator {
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
-
+        // nothing
     }
 }

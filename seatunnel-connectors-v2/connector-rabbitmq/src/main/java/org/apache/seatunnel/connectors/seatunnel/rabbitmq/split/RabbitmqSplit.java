@@ -17,28 +17,24 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.split;
 
-import com.sun.istack.internal.Nullable;
+import org.apache.seatunnel.api.source.SourceSplit;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
-import org.apache.seatunnel.api.source.SourceSplit;
-
 import java.util.List;
+import java.util.Set;
 
 @Getter
 @Setter
 @AllArgsConstructor
-public class RabbitMQSplit implements SourceSplit {
-    @Nullable
+public class RabbitmqSplit implements SourceSplit {
     private List<Long> deliveryTags;
+    private Set<String> correlationIds;
 
     @Override
     public String splitId() {
         return "";
     }
-    public RabbitMQSplit copy() {
-        return new RabbitMQSplit(deliveryTags);
-    }
-
 }

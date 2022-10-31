@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
@@ -25,23 +24,29 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitMQSplit;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitMQState;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplitEnumeratorState;
+import org.apache.seatunnel.format.json.JsonDeserializationSchema;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import com.google.auto.service.AutoService;
+
 @AutoService(SeaTunnelSource.class)
-public class RabbitMQSource implements SeaTunnelSource<SeaTunnelRow, RabbitMQSplit, RabbitMQState> {
+public class RabbitmqSource implements SeaTunnelSource<SeaTunnelRow, RabbitmqSplit, RabbitmqSplitEnumeratorState> {
 
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
-    private SeaTunnelRowType typeInfo;
     private JobContext jobContext;
+    private RabbitmqConfig rabbitMQConfig;
 
     @Override
     public Boundedness getBoundedness() {
-        return JobMode.BATCH.equals(jobContext.getJobMode()) ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
+        return Boundedness.BOUNDED;
     }
 
     @Override
@@ -51,29 +56,29 @@ public class RabbitMQSource implements SeaTunnelSource<SeaTunnelRow, RabbitMQSpl
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-
+        this.rabbitMQConfig = new RabbitmqConfig(config);
+        setDeserialization(config);
     }
 
     @Override
-    public SeaTunnelRowType getProducedType() {
-        return this.typeInfo;
+    public SeaTunnelDataType getProducedType() {
+        return deserializationSchema.getProducedType();
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, RabbitMQSplit> createReader(SourceReader.Context readerContext) throws Exception {
-        return null;
+    public SourceReader<SeaTunnelRow, RabbitmqSplit> createReader(SourceReader.Context readerContext) throws Exception {
+        return new RabbitmqSourceReader(deserializationSchema, readerContext, rabbitMQConfig);
     }
 
     @Override
-    public SourceSplitEnumerator<RabbitMQSplit, RabbitMQState> createEnumerator(SourceSplitEnumerator.Context<RabbitMQSplit> enumeratorContext) throws Exception {
-        return null;
+    public SourceSplitEnumerator<RabbitmqSplit, RabbitmqSplitEnumeratorState> createEnumerator(SourceSplitEnumerator.Context<RabbitmqSplit> enumeratorContext) throws Exception {
+        return new RabbitmqSplitEnumerator();
     }
 
     @Override
-    public SourceSplitEnumerator<RabbitMQSplit, RabbitMQState> restoreEnumerator(SourceSplitEnumerator.Context<RabbitMQSplit> enumeratorContext, RabbitMQState checkpointState) throws Exception {
-        return null;
+    public SourceSplitEnumerator<RabbitmqSplit, RabbitmqSplitEnumeratorState> restoreEnumerator(SourceSplitEnumerator.Context<RabbitmqSplit> enumeratorContext, RabbitmqSplitEnumeratorState checkpointState) throws Exception {
+        return new RabbitmqSplitEnumerator();
     }
-
 
     @Override
     public void setJobContext(JobContext jobContext) {
@@ -81,6 +86,9 @@ public class RabbitMQSource implements SeaTunnelSource<SeaTunnelRow, RabbitMQSpl
     }
 
     private void setDeserialization(Config config) {
-
+        // TODO: format SPI
+        //only support json deserializationSchema
+        SeaTunnelRowType rowType = SeaTunnelSchema.buildWithConfig(config.getConfig(SeaTunnelSchema.SCHEMA)).getSeaTunnelRowType();
+        this.deserializationSchema = new JsonDeserializationSchema(false, false, rowType);
     }
 }
