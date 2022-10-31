@@ -95,21 +95,19 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     /**
      * use hadoop conf generate hadoop configuration
      *
-     * @param conf hadoop conf
+     * @param hadoopConf hadoop conf
      * @return Configuration
      */
     @Override
-    public Configuration getConfiguration(HadoopConf conf) {
+    public Configuration getConfiguration(HadoopConf hadoopConf) {
         Configuration configuration = new Configuration();
         configuration.setBoolean(READ_INT96_AS_FIXED, true);
         configuration.setBoolean(WRITE_FIXED_AS_INT96, true);
         configuration.setBoolean(ADD_LIST_ELEMENT_RECORDS, false);
         configuration.setBoolean(WRITE_OLD_LIST_STRUCTURE, false);
-        if (hadoopConf != null) {
-            configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
-            configuration.set("fs.hdfs.impl", hadoopConf.getFsHdfsImpl());
-            hadoopConf.setExtraOptionsForConfiguration(configuration);
-        }
+        configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
+        configuration.set(String.format("fs.%s.impl", hadoopConf.getSchema()), hadoopConf.getFsHdfsImpl());
+        this.hadoopConf.setExtraOptionsForConfiguration(configuration);
         return configuration;
     }
 
