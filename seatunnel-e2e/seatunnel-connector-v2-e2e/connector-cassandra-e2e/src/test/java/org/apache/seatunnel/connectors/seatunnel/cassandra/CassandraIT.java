@@ -31,6 +31,8 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.config.DriverConfig;
+import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
 import com.datastax.oss.driver.api.core.cql.BatchStatement;
 import com.datastax.oss.driver.api.core.cql.BatchType;
 import com.datastax.oss.driver.api.core.cql.BoundStatement;
@@ -89,6 +91,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
     private static final Integer PORT = 9042;
     private static final String INIT_CASSANDRA_PATH = "/init/cassandra_init.conf";
     private static final String CASSANDRA_JOB_CONFIG = "/cassandra_to_cassandra.conf";
+    private static final String CASSANDRA_DRIVER_CONFIG = "/application.conf";
     private static final String DATACENTER = "datacenter1";
     private static final String KEYSPACE = "test";
     private static final String SOURCE_TABLE = "source_table";
@@ -122,7 +125,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
         Awaitility.given()
             .ignoreExceptions()
             .await()
-            .atMost(360L, TimeUnit.SECONDS)
+            .atMost(180L, TimeUnit.SECONDS)
             .untilAsserted(this::initConnection);
         this.initializeCassandraTable();
         this.batchInsertData();
@@ -140,10 +143,17 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
     }
 
     private void initConnection() {
-        this.session = CqlSession.builder()
-            .addContactPoint(new InetSocketAddress(container.getHost(), container.getExposedPorts().get(0)))
-            .withLocalDatacenter(DATACENTER)
-            .build();
+        try {
+            File file = new File(CASSANDRA_DRIVER_CONFIG);
+            this.session = CqlSession.builder()
+                .addContactPoint(new InetSocketAddress(container.getHost(), container.getExposedPorts().get(0)))
+                .withLocalDatacenter(DATACENTER)
+                .withConfigLoader(DriverConfigLoader.fromFile(file))
+                .build();
+        } catch (Exception e) {
+            throw new RuntimeException("Init connection failed!", e);
+        }
+
     }
 
     private void batchInsertData() {
