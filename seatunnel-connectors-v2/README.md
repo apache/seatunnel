@@ -53,7 +53,7 @@ own connectors, you need to follow the steps below.
 
 ​    package org.apache.seatunnel.connectors.seatunnel.{connector name}}.sink
 
-4.add connector to plugin-mapping file.
+4.add connector info to plugin-mapping.properties file in seatunnel root path.
 
 5.add connector dependency to seatunnel-dist/pom.xml, so the connector jar can be find in binary package.
 
