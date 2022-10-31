@@ -71,7 +71,7 @@ If you customize the delimiter, add the "field_delimiter" option.
 
 ## start_mode
 The initial consumption pattern of consumers,there are several types:
-[earliest],[group_offsets],[latest],[specific_offsets]
+[earliest],[group_offsets],[latest],[specific_offsets],[timestamp]
 
 ## start_mode.timestamp
 The time required for consumption mode to be timestamp

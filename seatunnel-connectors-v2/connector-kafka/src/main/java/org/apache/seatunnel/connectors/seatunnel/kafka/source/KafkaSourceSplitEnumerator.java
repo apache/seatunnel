@@ -189,8 +189,10 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
         Collection<TopicPartition> partitions =
             adminClient.describeTopics(topics).all().get().values().stream().flatMap(t -> t.partitions().stream()
                 .map(p -> new TopicPartition(t.name(), p.partition()))).collect(Collectors.toSet());
+        Map<TopicPartition, Long> latestOffsets = listOffsets(partitions, OffsetSpec.latest());
         return partitions.stream().map(partition -> {
             KafkaSourceSplit split = new KafkaSourceSplit(partition);
+            split.setEndOffset(latestOffsets.get(split.getTopicPartition()));
             return split;
         }).collect(Collectors.toSet());
     }
