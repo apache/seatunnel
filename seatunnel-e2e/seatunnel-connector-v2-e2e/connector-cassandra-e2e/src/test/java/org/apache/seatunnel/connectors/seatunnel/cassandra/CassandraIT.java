@@ -122,7 +122,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
         Awaitility.given()
             .ignoreExceptions()
             .await()
-            .atMost(180L, TimeUnit.SECONDS)
+            .atMost(360L, TimeUnit.SECONDS)
             .untilAsserted(this::initConnection);
         this.initializeCassandraTable();
         this.batchInsertData();
