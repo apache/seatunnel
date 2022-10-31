@@ -38,25 +38,27 @@ import java.util.function.BiConsumer;
 
 public abstract class AbstractPluginExecuteProcessor<T> implements PluginExecuteProcessor {
 
-    protected final FlinkEnvironment flinkEnvironment;
+    protected FlinkEnvironment flinkEnvironment;
     protected final List<? extends Config> pluginConfigs;
-    protected final JobContext jobContext;
+    protected JobContext jobContext;
     protected final List<T> plugins;
     protected static final String ENGINE_TYPE = "seatunnel";
     protected static final String PLUGIN_NAME = "plugin_name";
 
     protected final BiConsumer<ClassLoader, URL> addUrlToClassloader = FlinkCommon.ADD_URL_TO_CLASSLOADER;
 
-    protected AbstractPluginExecuteProcessor(FlinkEnvironment flinkEnvironment,
-                                             JobContext jobContext,
-                                             List<? extends Config> pluginConfigs) {
-        this.flinkEnvironment = flinkEnvironment;
-        this.jobContext = jobContext;
+    protected AbstractPluginExecuteProcessor(List<URL> jarPaths, List<? extends Config> pluginConfigs, JobContext jobContext) {
         this.pluginConfigs = pluginConfigs;
-        this.plugins = initializePlugins(pluginConfigs);
+        this.jobContext = jobContext;
+        this.plugins = initializePlugins(jarPaths, pluginConfigs);
     }
 
-    protected abstract List<T> initializePlugins(List<? extends Config> pluginConfigs);
+    @Override
+    public void setFlinkEnvironment(FlinkEnvironment flinkEnvironment) {
+        this.flinkEnvironment = flinkEnvironment;
+    }
+
+    protected abstract List<T> initializePlugins(List<URL> jarPaths, List<? extends Config> pluginConfigs);
 
     protected void registerResultTable(Config pluginConfig, DataStream<Row> dataStream) {
         flinkEnvironment.registerResultTable(pluginConfig, dataStream);
