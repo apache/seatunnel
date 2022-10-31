@@ -52,4 +52,13 @@ public class TaskGroupLocation implements Serializable {
     public int hashCode() {
         return new HashCodeBuilder(17, 37).append(jobId).append(pipelineId).append(taskGroupId).toHashCode();
     }
+
+    @Override
+    public String toString() {
+        return "TaskGroupLocation{" +
+            "jobId=" + jobId +
+            ", pipelineId=" + pipelineId +
+            ", taskGroupId=" + taskGroupId +
+            '}';
+    }
 }
