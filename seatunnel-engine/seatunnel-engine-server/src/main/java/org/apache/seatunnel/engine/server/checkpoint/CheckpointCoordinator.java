@@ -381,6 +381,7 @@ public class CheckpointCoordinator {
             );
             // TODO: clear related future & scheduler task
             pendingCheckpoints.clear();
+            pendingCounter.set(0);
             scheduler.shutdownNow();
             scheduler = Executors.newScheduledThreadPool(
                 1, runnable -> {
