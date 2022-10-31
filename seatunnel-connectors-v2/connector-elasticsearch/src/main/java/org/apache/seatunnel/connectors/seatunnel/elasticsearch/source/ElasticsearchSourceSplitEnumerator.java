@@ -156,12 +156,15 @@ public class ElasticsearchSourceSplitEnumerator implements SourceSplitEnumerator
 
     @Override
     public void addSplitsBack(List<ElasticsearchSourceSplit> splits, int subtaskId) {
-
+        if (!splits.isEmpty()) {
+            addPendingSplit(splits);
+            assignSplit(Collections.singletonList(subtaskId));
+        }
     }
 
     @Override
     public int currentUnassignedSplitSize() {
-        return 0;
+        return pendingSplit.size();
     }
 
     @Override
