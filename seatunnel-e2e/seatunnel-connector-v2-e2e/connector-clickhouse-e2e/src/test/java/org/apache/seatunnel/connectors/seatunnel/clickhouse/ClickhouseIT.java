@@ -36,7 +36,6 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,7 +54,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.Date;
-import java.sql.DriverManager;
+import java.sql.Driver;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -68,13 +67,13 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import scala.Tuple2;
 
-@Disabled("Temporary fast fix, reason1: Transactions are not supported. reason2: Invalid boolean value, should be true or false controlled by setting bool_true_representation and bool_false_representation")
 public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private static final Logger LOG = LoggerFactory.getLogger(ClickhouseIT.class);
     private static final String CLICKHOUSE_DOCKER_IMAGE = "yandex/clickhouse-server:latest";
@@ -110,7 +109,6 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(CLICKHOUSE_DOCKER_IMAGE)));
         Startables.deepStart(Stream.of(this.container)).join();
         LOG.info("Clickhouse container started");
-        Class.forName(DRIVER_CLASS);
         Awaitility.given()
             .ignoreExceptions()
             .await()
@@ -122,7 +120,6 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
 
     private void initializeClickhouseTable() {
         try {
-            this.connection.setAutoCommit(false);
             Statement statement = this.connection.createStatement();
             statement.execute(CONFIG.getString(SOURCE_TABLE));
             statement.execute(CONFIG.getString(SINK_TABLE));
@@ -131,12 +128,11 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private void initConnection() throws SQLException {
-        this.connection = DriverManager.getConnection(
-            this.container.getJdbcUrl(),
-            this.container.getUsername(),
-            this.container.getPassword()
-        );
+    private void initConnection() throws SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException {
+        final Properties info = new Properties();
+        info.put("user", this.container.getUsername());
+        info.put("password", this.container.getPassword());
+        this.connection = ((Driver) Class.forName(DRIVER_CLASS).newInstance()).connect(this.container.getJdbcUrl(), info);
     }
 
     private static Config getInitClickhouseConfig() {
@@ -182,9 +178,10 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
 
     private void batchInsertData() {
         String sql = CONFIG.getString(INSERT_SQL);
+        PreparedStatement preparedStatement = null;
         try {
-            this.connection.setAutoCommit(false);
-            PreparedStatement preparedStatement = this.connection.prepareStatement(sql);
+            this.connection.setAutoCommit(true);
+            preparedStatement = this.connection.prepareStatement(sql);
             for (SeaTunnelRow row : TEST_DATASET._2()) {
                 preparedStatement.setLong(1, (Long) row.getField(0));
                 preparedStatement.setObject(2, row.getField(1));
@@ -213,9 +210,17 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                 preparedStatement.addBatch();
             }
             preparedStatement.executeBatch();
-            this.connection.commit();
+            preparedStatement.clearBatch();
         } catch (SQLException e) {
             throw new RuntimeException("Batch insert data failed!", e);
+        } finally {
+            if (preparedStatement != null) {
+                try {
+                    preparedStatement.close();
+                } catch (SQLException e) {
+                    throw new RuntimeException("PreparedStatement close failed!", e);
+                }
+            }
         }
     }
 
@@ -299,7 +304,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                     i,
                     "string",
                     new Integer[]{Integer.parseInt("1")},
-                    new Double[]{Double.parseDouble("1")},
+                    new Double[]{Double.parseDouble("1.1")},
                     new String[]{"1"}
                 });
             rows.add(row);
