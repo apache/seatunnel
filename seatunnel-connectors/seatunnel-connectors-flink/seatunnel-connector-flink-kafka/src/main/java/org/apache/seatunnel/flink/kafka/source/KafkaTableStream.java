@@ -31,6 +31,7 @@ import org.apache.seatunnel.flink.util.TableUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
@@ -110,7 +111,12 @@ public class KafkaTableStream implements FlinkStreamSource {
         }
         String schemaContent = config.getString(SCHEMA);
         format = FormatType.from(config.getString(SOURCE_FORMAT).trim().toLowerCase());
-        schemaInfo = JsonUtils.parseArray(schemaContent);
+        try {
+            schemaInfo = JsonUtils.stringToJsonNode(schemaContent);
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
+        
     }
 
     @Override
