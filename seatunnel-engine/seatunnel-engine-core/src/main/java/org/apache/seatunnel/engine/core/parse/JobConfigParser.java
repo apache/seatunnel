@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.PartitionSeaTunnelTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.apis.base.plugin.Plugin;
+import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.starter.config.ConfigBuilder;
@@ -55,6 +56,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -104,7 +106,7 @@ public class JobConfigParser {
 
     public ImmutablePair<List<Action>, Set<URL>> parse() {
         List<? extends Config> sinkConfigs = seaTunnelJobConfig.getConfigList("sink");
-        List<? extends Config> transformConfigs = seaTunnelJobConfig.getConfigList("transform");
+        List<? extends Config> transformConfigs = TypesafeConfigUtils.getConfigList(seaTunnelJobConfig, "transform", Collections.emptyList());
         List<? extends Config> sourceConfigs = seaTunnelJobConfig.getConfigList("source");
 
         if (CollectionUtils.isEmpty(sinkConfigs) || CollectionUtils.isEmpty(sourceConfigs)) {
@@ -266,6 +268,10 @@ public class JobConfigParser {
             }
             String resultTableName = config.getString(Plugin.RESULT_TABLE_NAME);
             String sourceTableName = config.getString(Plugin.SOURCE_TABLE_NAME);
+            if (Objects.equals(sourceTableName, resultTableName)) {
+                throw new JobDefineCheckException(String.format(
+                    "Source{%s} and result{%s} table name cannot be equals", sourceTableName, resultTableName));
+            }
 
             transformResultTableNameMap.computeIfAbsent(resultTableName, k -> new ArrayList<>());
             transformResultTableNameMap.get(resultTableName).add(config);
