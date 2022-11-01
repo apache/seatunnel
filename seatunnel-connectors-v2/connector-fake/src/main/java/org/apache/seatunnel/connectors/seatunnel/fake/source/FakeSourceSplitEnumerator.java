@@ -129,7 +129,6 @@ public class FakeSourceSplitEnumerator implements SourceSplitEnumerator<FakeSour
     }
 
     private void assignPendingSplits() {
-        LOG.info("Assigning pending splits. pendingSplits={}", pendingSplits);
         // Check if there's any pending splits for given readers
         for (int pendingReader : enumeratorContext.registeredReaders()) {
             // Remove pending assignment for the reader
@@ -143,8 +142,6 @@ public class FakeSourceSplitEnumerator implements SourceSplitEnumerator<FakeSour
                 LOG.info("Assigning splits to readers {} {}", pendingReader, pendingAssignmentForReader);
                 enumeratorContext.assignSplit(pendingReader, new ArrayList<>(pendingAssignmentForReader));
                 enumeratorContext.signalNoMoreSplits(pendingReader);
-            } else {
-                LOG.info("No pending splits for reader {}", pendingReader);
             }
         }
     }

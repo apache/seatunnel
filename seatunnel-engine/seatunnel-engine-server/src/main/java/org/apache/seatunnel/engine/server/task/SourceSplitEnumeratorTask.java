@@ -260,7 +260,11 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     }
 
     public Set<Integer> getRegisteredReaders() {
-        return taskMemberMapping.keySet().stream().map(TaskLocation::getTaskIndex).collect(Collectors.toSet());
+        LOGGER.info("taskMemberMapping = " + taskMemberMapping);
+        LOGGER.info("taskMemberMapping keyset = " + taskMemberMapping.keySet());
+        Set<Integer> result = taskMemberMapping.keySet().stream().map(TaskLocation::getTaskIndex).collect(Collectors.toSet());
+        LOGGER.info("registered readers = " + result);
+        return result;
     }
 
     private void sendToAllReader(Function<TaskLocation, Operation> function) {
