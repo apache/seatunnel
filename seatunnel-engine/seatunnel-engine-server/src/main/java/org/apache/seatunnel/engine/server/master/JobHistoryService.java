@@ -40,7 +40,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-public class JobHistorySevice {
+public class JobHistoryService {
     /**
      * IMap key is one of jobId {@link org.apache.seatunnel.engine.server.dag.physical.PipelineLocation} and
      * {@link org.apache.seatunnel.engine.server.execution.TaskGroupLocation}
@@ -67,7 +67,7 @@ public class JobHistorySevice {
     //TODO need to limit the amount of storage
     private final IMap<Long, JobStateMapper> finishedJobStateImap;
 
-    public JobHistorySevice(
+    public JobHistoryService(
         IMap<Object, Object> runningJobStateIMap,
         ILogger logger,
         Map<Long, JobMaster> runningJobMasterMap,
@@ -115,17 +115,16 @@ public class JobHistorySevice {
                 objectNode.put("err", "serialize jobStateMapper err");
                 return objectNode.toString();
             }
-        } else {
-            ObjectNode objectNode = objectMapper.createObjectNode();
-            objectNode.put("err", String.format("jobId : %s not found", jobId));
-            return objectNode.toString();
         }
+        ObjectNode objectNode = objectMapper.createObjectNode();
+        objectNode.put("err", String.format("jobId : %s not found", jobId));
+        return objectNode.toString();
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
     public void storeFinishedJobState(JobMaster jobMaster) {
         JobStateMapper jobStateMapper = toJobStateMapper(jobMaster);
-        finishedJobStateImap.put(jobStateMapper.jobId, jobStateMapper, 90, TimeUnit.DAYS);
+        finishedJobStateImap.put(jobStateMapper.jobId, jobStateMapper, 14, TimeUnit.DAYS);
     }
 
     private JobStateMapper toJobStateMapper(JobMaster jobMaster) {

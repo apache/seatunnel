@@ -51,6 +51,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         this.clientCommandArgs = clientCommandArgs;
     }
 
+    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Override
     public void execute() throws CommandExecuteException {
         HazelcastInstance instance = null;
@@ -66,10 +67,10 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             engineClient = new SeaTunnelClient(clientConfig);
             if (clientCommandArgs.isListJob()) {
                 String jobstatus = engineClient.listJobStatus();
-                log.info(jobstatus);
+                System.out.println(jobstatus);
             } else if (null != clientCommandArgs.getJobId()) {
                 String jobState = engineClient.getJobState(Long.parseLong(clientCommandArgs.getJobId()));
-                log.info(jobState);
+                System.out.println(jobState);
             } else {
                 Path configFile = FileUtils.getConfigPath(clientCommandArgs);
                 JobConfig jobConfig = new JobConfig();

@@ -37,7 +37,7 @@ import java.util.concurrent.TimeUnit;
 
 @DisabledOnOs(OS.WINDOWS)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class JobHistorySeviceTest extends AbstractSeaTunnelServerTest {
+class JobHistoryServiceTest extends AbstractSeaTunnelServerTest {
 
     private static final Long JOB_1 = 1L;
     private static final Long JOB_2 = 2L;
@@ -50,20 +50,20 @@ class JobHistorySeviceTest extends AbstractSeaTunnelServerTest {
         // waiting for JOB_1 status turn to RUNNING
         await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertTrue(
-                server.getCoordinatorService().jobHistorySevice.listAllJob().contains(String.format("{\"jobId\":%s,\"jobStatus\":\"RUNNING\"}", JOB_1))));
+                server.getCoordinatorService().getJobHistoryService().listAllJob().contains(String.format("{\"jobId\":%s,\"jobStatus\":\"RUNNING\"}", JOB_1))));
 
         // waiting for JOB_1 status turn to FINISHED
         await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertTrue(
-                server.getCoordinatorService().jobHistorySevice.listAllJob().contains(String.format("{\"jobId\":%s,\"jobStatus\":\"FINISHED\"}", JOB_1))));
+                server.getCoordinatorService().getJobHistoryService().listAllJob().contains(String.format("{\"jobId\":%s,\"jobStatus\":\"FINISHED\"}", JOB_1))));
 
         startJob(JOB_2, "fake_to_console.conf");
         // waiting for JOB_2 status turn to FINISHED and JOB_2 status turn to RUNNING
         await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertTrue(
-                server.getCoordinatorService().jobHistorySevice.listAllJob().contains(String.format("{\"jobId\":%s,\"jobStatus\":\"FINISHED\"}", JOB_1))
+                server.getCoordinatorService().getJobHistoryService().listAllJob().contains(String.format("{\"jobId\":%s,\"jobStatus\":\"FINISHED\"}", JOB_1))
                 &&
-                    server.getCoordinatorService().jobHistorySevice.listAllJob().contains(String.format("{\"jobId\":%s,\"jobStatus\":\"RUNNING\"}", JOB_2))
+                    server.getCoordinatorService().getJobHistoryService().listAllJob().contains(String.format("{\"jobId\":%s,\"jobStatus\":\"RUNNING\"}", JOB_2))
             ));
     }
 
@@ -73,17 +73,17 @@ class JobHistorySeviceTest extends AbstractSeaTunnelServerTest {
         // waiting for JOB_3 status turn to RUNNING
         await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertTrue(
-                server.getCoordinatorService().jobHistorySevice.getJobStatusAsString(JOB_3).contains("TaskGroupLocation")
+                server.getCoordinatorService().getJobHistoryService().getJobStatusAsString(JOB_3).contains("TaskGroupLocation")
                 &&
-                    server.getCoordinatorService().jobHistorySevice.getJobStatusAsString(JOB_3).contains("RUNNING")
+                    server.getCoordinatorService().getJobHistoryService().getJobStatusAsString(JOB_3).contains("RUNNING")
             ));
 
         // waiting for job1 status turn to FINISHED
         await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertTrue(
-                server.getCoordinatorService().jobHistorySevice.getJobStatusAsString(JOB_3).contains("TaskGroupLocation")
+                server.getCoordinatorService().getJobHistoryService().getJobStatusAsString(JOB_3).contains("TaskGroupLocation")
                     &&
-                    server.getCoordinatorService().jobHistorySevice.getJobStatusAsString(JOB_3).contains("FINISHED")
+                    server.getCoordinatorService().getJobHistoryService().getJobStatusAsString(JOB_3).contains("FINISHED")
             ));
     }
 

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.operation;
 
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
 import com.hazelcast.spi.impl.AllowedDuringPassiveState;
@@ -36,13 +37,13 @@ public class ListJobStatusOperation extends Operation implements AllowedDuringPa
     public void run() {
         SeaTunnelServer service = getService();
         CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
-            return service.getCoordinatorService().jobHistorySevice.listAllJob();
+            return service.getCoordinatorService().getJobHistoryService().listAllJob();
         });
 
         try {
             response = future.get();
         } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
+            throw new SeaTunnelEngineException(e);
         }
     }
 

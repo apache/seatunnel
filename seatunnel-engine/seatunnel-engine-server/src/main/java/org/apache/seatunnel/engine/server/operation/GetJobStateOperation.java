@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.operation;
 
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
@@ -68,13 +69,13 @@ public class GetJobStateOperation extends Operation implements IdentifiedDataSer
     public void run() {
         SeaTunnelServer service = getService();
         CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
-            return service.getCoordinatorService().jobHistorySevice.getJobStatusAsString(jobId);
+            return service.getCoordinatorService().getJobHistoryService().getJobStatusAsString(jobId);
         });
 
         try {
             response = future.get();
         } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
+            throw new SeaTunnelEngineException(e);
         }
     }
 
