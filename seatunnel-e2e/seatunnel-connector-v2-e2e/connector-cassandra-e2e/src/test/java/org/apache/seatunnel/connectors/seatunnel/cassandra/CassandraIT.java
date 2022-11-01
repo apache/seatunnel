@@ -241,7 +241,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
         try {
             session.execute(SimpleStatement.builder(String.format("truncate table %s", SINK_TABLE)).setKeyspace(KEYSPACE).build());
         } catch (Exception e) {
-            throw new RuntimeException("Test clickhouse server image error", e);
+            throw new RuntimeException("Test clickhouse server image failed!", e);
         }
     }
 
@@ -328,7 +328,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
                         Collections.singletonMap("key_" + i, i)
                     });
             } catch (UnknownHostException e) {
-                throw new RuntimeException("Generate Test DataSet", e);
+                throw new RuntimeException("Generate Test DataSet Failed!", e);
             }
             rows.add(row);
         }
@@ -341,7 +341,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
             ResultSet resultSet = session.execute(SimpleStatement.builder(sql).setKeyspace(KEYSPACE).build());
             return resultSet.one();
         } catch (Exception e) {
-            throw new RuntimeException("test cassandra server image error", e);
+            throw new RuntimeException("test cassandra server image failed!", e);
         }
     }
 

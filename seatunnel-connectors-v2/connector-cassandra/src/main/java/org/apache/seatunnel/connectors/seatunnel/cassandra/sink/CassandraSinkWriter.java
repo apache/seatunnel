@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.cassandra.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClient;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.util.TypeConvertUtil;
@@ -31,6 +32,7 @@ import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.ColumnDefinitions;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.type.DataType;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -39,6 +41,7 @@ import java.util.List;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@Slf4j
 public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final CassandraConfig cassandraConfig;
@@ -64,7 +67,7 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
         this.batchStatement = BatchStatement.builder(cassandraConfig.getBatchType()).build();
         this.boundStatementList = new ArrayList<>();
         this.completionStages = new ArrayList<>();
-        this.preparedStatement = session.prepare(initPrepareSQL());
+        this.preparedStatement = session.prepare(initPrepareCQL());
     }
 
     @Override
@@ -82,7 +85,7 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
             completionStages.forEach(resultStage -> resultStage.whenComplete(
                 (resultSet, error) -> {
                     if (error != null) {
-                        error.printStackTrace();
+                        log.error(ExceptionUtils.getMessage(error));
                     }
                 }
             ));
@@ -91,6 +94,7 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
             try {
                 this.session.execute(this.batchStatement.addAll(boundStatementList));
             } catch (Exception e) {
+                log.error("Batch insert error,Try inserting one by one!");
                 for (BoundStatement statement : boundStatementList) {
                     this.session.execute(statement);
                 }
@@ -116,11 +120,11 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                 boundStatementList.add(boundStatement);
             }
         } catch (Exception e) {
-            throw new RuntimeException("Add row data into batch error", e);
+            throw new RuntimeException("Add row data into batch error!", e);
         }
     }
 
-    private String initPrepareSQL() {
+    private String initPrepareCQL() {
         String[] placeholder = new String[cassandraConfig.getFields().size()];
         Arrays.fill(placeholder, "?");
         return String.format("INSERT INTO %s (%s) VALUES (%s)",
@@ -137,7 +141,7 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                 this.session.close();
             }
         } catch (Exception e) {
-            throw new RuntimeException("Failed to close CqlSession.", e);
+            throw new RuntimeException("Failed to close CqlSession!", e);
         }
 
     }
