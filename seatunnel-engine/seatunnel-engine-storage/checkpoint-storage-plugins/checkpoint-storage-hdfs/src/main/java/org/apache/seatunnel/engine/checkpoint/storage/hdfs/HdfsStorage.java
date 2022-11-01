@@ -184,7 +184,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
 
         List<PipelineState> pipelineStates = new ArrayList<>();
         fileNames.forEach(file -> {
-            String filePipelineId = file.split(FILE_NAME_SPLIT)[FILE_NAME_PIPELINE_ID_INDEX];
+            String filePipelineId = getPipelineIdByFileName(file);
             if (pipelineId.equals(filePipelineId)) {
                 try {
                     pipelineStates.add(readPipelineState(file, jobId));

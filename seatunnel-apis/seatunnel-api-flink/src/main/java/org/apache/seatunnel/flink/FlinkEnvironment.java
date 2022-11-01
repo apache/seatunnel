@@ -184,7 +184,9 @@ public class FlinkEnvironment implements RuntimeEnv {
     }
 
     private void createStreamEnvironment() {
-        environment = StreamExecutionEnvironment.getExecutionEnvironment();
+        Configuration configuration = new Configuration();
+        EnvironmentUtil.initConfiguration(config, configuration);
+        environment = StreamExecutionEnvironment.getExecutionEnvironment(configuration);
         setTimeCharacteristic();
 
         setCheckpoint();
