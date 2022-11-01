@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.PartitionSeaTunnelTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.apis.base.plugin.Plugin;
+import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.starter.config.ConfigBuilder;
@@ -104,7 +105,7 @@ public class JobConfigParser {
 
     public ImmutablePair<List<Action>, Set<URL>> parse() {
         List<? extends Config> sinkConfigs = seaTunnelJobConfig.getConfigList("sink");
-        List<? extends Config> transformConfigs = seaTunnelJobConfig.getConfigList("transform");
+        List<? extends Config> transformConfigs = TypesafeConfigUtils.getConfigList(seaTunnelJobConfig, "transform", Collections.emptyList());
         List<? extends Config> sourceConfigs = seaTunnelJobConfig.getConfigList("source");
 
         if (CollectionUtils.isEmpty(sinkConfigs) || CollectionUtils.isEmpty(sourceConfigs)) {
