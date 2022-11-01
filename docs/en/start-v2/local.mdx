@@ -134,36 +134,36 @@ You could start the application by the following commands
         {label: 'Flink', value: 'flink'},
         {label: 'SeaTunnel Engine', value: 'SeaTunnel Engine'},
     ]}>
-    <TabItem value="spark">
 
-        ```shell
-        cd "apache-seatunnel-incubating-${version}"
-        ./bin/start-seatunnel-spark-connector-v2.sh \
-        --master local[4] \
-        --deploy-mode client \
-        --config ./config/seatunnel.streaming.conf.template
-        ```
+<TabItem value="spark">
 
-    </TabItem>
-    <TabItem value="flink">
+    ```shell
+    cd "apache-seatunnel-incubating-${version}"
+    ./bin/start-seatunnel-spark-connector-v2.sh \
+    --master local[4] \
+    --deploy-mode client \
+    --config ./config/seatunnel.streaming.conf.template
+    ```
+</TabItem>
 
-        ```shell
-        cd "apache-seatunnel-incubating-${version}"
-        ./bin/start-seatunnel-flink-connector-v2.sh \
-        --config ./config/seatunnel.streaming.conf.template
-        ```
+<TabItem value="flink">
 
-    </TabItem>
+    ```shell
+    cd "apache-seatunnel-incubating-${version}"
+    ./bin/start-seatunnel-flink-connector-v2.sh \
+    --config ./config/seatunnel.streaming.conf.template
+    ```
 
-    <TabItem value="SeaTunnel Engine">
+</TabItem>
 
-        ```shell
-        cd "apache-seatunnel-incubating-${version}"
-        ./bin/seatunnel.sh \
-        --config ./config/seatunnel.streaming.conf.template -e local
-        ```
+<TabItem value="SeaTunnel Engine">
 
-    </TabItem>
+    ```shell
+    cd "apache-seatunnel-incubating-${version}"
+    ./bin/seatunnel.sh \
+    --config ./config/seatunnel.streaming.conf.template -e local
+    ```
+</TabItem>
 
 </Tabs>
 
