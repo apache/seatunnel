@@ -34,7 +34,7 @@ tar -xzvf "apache-seatunnel-incubating-${version}-bin.tar.gz"
 <!-- TODO: We should add example module as quick start which is no need for install Spark or Flink -->
 
 ## Step 3: Install connectors plugin
-Since 2.3.0-beta, the binary package does not provide connector dependencies by default, so when using it for the first time, we need to execute the following command to install the connector: (Of course, you can also manually download the connector from [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/ to download, then manually move to the seatunnel subdirectory under the connectors directory).
+Since 2.2.0-beta, the binary package does not provide connector dependencies by default, so when using it for the first time, we need to execute the following command to install the connector: (Of course, you can also manually download the connector from [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/ to download, then manually move to the seatunnel subdirectory under the connectors directory).
 ```bash
 sh bin/install_plugin.sh 2.3.0-beta
 ```
@@ -62,8 +62,6 @@ You can find all supported connectors and corresponding plugin_config configurat
 :::tip
 
 If you want to install the connector plugin by manually downloading the connector, you need to pay special attention to the following
-
-:::tip
 
 The connectors directory contains the following subdirectories, if they do not exist, you need to create them manually
 
@@ -129,43 +127,43 @@ More information about config please check [config concept](../concept/config)
 You could start the application by the following commands
 
 <Tabs
-  groupId="engine-type"
-  defaultValue="spark"
-  values={[
-    {label: 'Spark', value: 'spark'},
-    {label: 'Flink', value: 'flink'},
-    {label: 'SeaTunnel Engine', value: 'SeaTunnel Engine'},
-  ]}>
-<TabItem value="spark">
+    groupId="engine-type"
+    defaultValue="spark"
+    values={[
+        {label: 'Spark', value: 'spark'},
+        {label: 'Flink', value: 'flink'},
+        {label: 'SeaTunnel Engine', value: 'SeaTunnel Engine'},
+    ]}>
+    <TabItem value="spark">
 
-```shell
-cd "apache-seatunnel-incubating-${version}"
-./bin/start-seatunnel-spark-connector-v2.sh \
---master local[4] \
---deploy-mode client \
---config ./config/seatunnel.streaming.conf.template
-```
+        ```shell
+        cd "apache-seatunnel-incubating-${version}"
+        ./bin/start-seatunnel-spark-connector-v2.sh \
+        --master local[4] \
+        --deploy-mode client \
+        --config ./config/seatunnel.streaming.conf.template
+        ```
 
-</TabItem>
-<TabItem value="flink">
+    </TabItem>
+    <TabItem value="flink">
 
-```shell
-cd "apache-seatunnel-incubating-${version}"
-./bin/start-seatunnel-flink-connector-v2.sh \
---config ./config/seatunnel.streaming.conf.template
-```
+        ```shell
+        cd "apache-seatunnel-incubating-${version}"
+        ./bin/start-seatunnel-flink-connector-v2.sh \
+        --config ./config/seatunnel.streaming.conf.template
+        ```
 
-</TabItem>
+    </TabItem>
 
-<TabItem value="SeaTunnel Engine">
+    <TabItem value="SeaTunnel Engine">
 
-```shell
-cd "apache-seatunnel-incubating-${version}"
-./bin/seatunnel.sh \
---config ./config/seatunnel.streaming.conf.template -e local
-```
+        ```shell
+        cd "apache-seatunnel-incubating-${version}"
+        ./bin/seatunnel.sh \
+        --config ./config/seatunnel.streaming.conf.template -e local
+        ```
 
-</TabItem>
+    </TabItem>
 </Tabs>
 
 **See The Output**: When you run the command, you could see its output in your console or in Flink/Spark UI, You can think this
