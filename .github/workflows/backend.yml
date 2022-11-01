@@ -130,7 +130,6 @@ jobs:
               - "seatunnel-e2e/seatunnel-flink-e2e/**"
               - "seatunnel-e2e/seatunnel-spark-e2e/**"
               - "seatunnel-connectors/**"
-              - "plugin-mapping.properties"
               - "pom.xml"
               - "**/workflows/**"
               - "**/tools/**"
