@@ -65,13 +65,13 @@ public class AssignSplitOperation<SplitT extends SourceSplit> extends Operation 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         out.writeByteArray(splits);
-        taskID.writeData(out);
+        out.writeObject(taskID);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         splits = in.readByteArray();
-        taskID.readData(in);
+        taskID = in.readObject();
     }
 
     @Override

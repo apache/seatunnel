@@ -55,17 +55,17 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
         config.setName("test");
 
         JobImmutableInformation jobInfo = new JobImmutableInformation(1,
-            NODE_ENGINE.getSerializationService().toData(logicalDag), config, Collections.emptyList());
+            nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
 
-        IMap<Object, Object> runningJobState = NODE_ENGINE.getHazelcastInstance().getMap("testRunningJobState");
+        IMap<Object, Object> runningJobState = nodeEngine.getHazelcastInstance().getMap("testRunningJobState");
         IMap<Object, Long[]> runningJobStateTimestamp =
-            NODE_ENGINE.getHazelcastInstance().getMap("testRunningJobStateTimestamp");
+            nodeEngine.getHazelcastInstance().getMap("testRunningJobStateTimestamp");
 
-        Map<Integer, CheckpointPlan> checkpointPlans = PlanUtils.fromLogicalDAG(logicalDag, NODE_ENGINE,
+        Map<Integer, CheckpointPlan> checkpointPlans = PlanUtils.fromLogicalDAG(logicalDag, nodeEngine,
             jobInfo,
             System.currentTimeMillis(),
             Executors.newCachedThreadPool(),
-            INSTANCE.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
+            instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
             runningJobState,
             runningJobStateTimestamp).f1();
         Assertions.assertNotNull(checkpointPlans);

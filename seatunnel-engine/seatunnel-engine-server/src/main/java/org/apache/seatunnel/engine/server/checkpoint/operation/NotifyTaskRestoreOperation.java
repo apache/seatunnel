@@ -71,7 +71,7 @@ public class NotifyTaskRestoreOperation extends TaskOperation {
         int size = in.readInt();
         this.restoredState = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
-            restoredState.add(in.readObject(ActionSubtaskState.class));
+            restoredState.add(in.readObject());
         }
     }
 

@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
+import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -59,15 +59,15 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     private final ConcurrentMap<TopicPartition, KafkaSourceSplit> sourceSplitMap;
     private final Map<TopicPartition, KafkaConsumerThread> consumerThreadMap;
     private final ExecutorService executorService;
-    // TODO support user custom type
-    private SeaTunnelRowType typeInfo;
+    private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
 
-    KafkaSourceReader(ConsumerMetadata metadata, SeaTunnelRowType typeInfo,
+    KafkaSourceReader(ConsumerMetadata metadata,
+                      DeserializationSchema<SeaTunnelRow> deserializationSchema,
                       SourceReader.Context context) {
         this.metadata = metadata;
         this.context = context;
-        this.typeInfo = typeInfo;
         this.sourceSplits = new HashSet<>();
+        this.deserializationSchema = deserializationSchema;
         this.consumerThreadMap = new ConcurrentHashMap<>();
         this.sourceSplitMap = new ConcurrentHashMap<>();
         this.checkpointOffsetMap = new ConcurrentHashMap<>();
@@ -114,9 +114,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                             List<ConsumerRecord<byte[], byte[]>> recordList = records.records(partition);
                             for (ConsumerRecord<byte[], byte[]> record : recordList) {
 
-                                String v = stringDeserializer.deserialize(partition.topic(), record.value());
-                                String t = partition.topic();
-                                output.collect(new SeaTunnelRow(new Object[]{t, v}));
+                                deserializationSchema.deserialize(record.value(), output);
 
                                 if (Boundedness.BOUNDED.equals(context.getBoundedness()) &&
                                     record.offset() >= sourceSplit.getEndOffset()) {

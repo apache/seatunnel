@@ -68,15 +68,15 @@ public class SinkRegisterOperation extends Operation implements IdentifiedDataSe
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        writerTaskID.writeData(out);
-        committerTaskID.writeData(out);
+        out.writeObject(writerTaskID);
+        out.writeObject(committerTaskID);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        writerTaskID.readData(in);
-        committerTaskID.readData(in);
+        writerTaskID = in.readObject();
+        committerTaskID = in.readObject();
     }
 
     @Override

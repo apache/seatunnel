@@ -66,15 +66,15 @@ public class RequestSplitOperation extends Operation implements IdentifiedDataSe
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        taskID.writeData(out);
-        enumeratorTaskID.writeData(out);
+        out.writeObject(taskID);
+        out.writeObject(enumeratorTaskID);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        taskID.readData(in);
-        enumeratorTaskID.readData(in);
+        taskID = in.readObject();
+        enumeratorTaskID = in.readObject();
     }
 
     @Override

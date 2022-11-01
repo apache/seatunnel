@@ -24,7 +24,7 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import lombok.NonNull;
 
 public class JobClient {
-    private SeaTunnelHazelcastClient hazelcastClient;
+    private final SeaTunnelHazelcastClient hazelcastClient;
 
     public JobClient(@NonNull SeaTunnelHazelcastClient hazelcastClient) {
         this.hazelcastClient = hazelcastClient;

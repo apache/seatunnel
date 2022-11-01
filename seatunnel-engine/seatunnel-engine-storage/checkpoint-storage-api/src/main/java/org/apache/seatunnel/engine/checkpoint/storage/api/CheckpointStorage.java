@@ -96,6 +96,17 @@ public interface CheckpointStorage {
     void deleteCheckpoint(String jobId);
 
     /**
+     * get checkpoint state
+     *
+     * @param jobId job id
+     * @param pipelineId pipeline id
+     * @param checkpointId checkpoint id
+     * @return checkpoint state
+     * @throws CheckpointStorageException get checkpoint failed
+     */
+    PipelineState getCheckpoint(String jobId, String pipelineId, String checkpointId) throws CheckpointStorageException;
+
+    /**
      * Delete the checkpoint data.
      *
      * @param jobId job id

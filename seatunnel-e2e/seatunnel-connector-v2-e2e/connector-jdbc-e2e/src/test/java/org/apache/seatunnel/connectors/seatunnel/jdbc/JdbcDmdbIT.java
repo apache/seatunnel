@@ -40,6 +40,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -80,7 +81,7 @@ public class JdbcDmdbIT extends TestSuiteBase implements TestResource {
         dbServer = new GenericContainer<>(DOCKER_IMAGE)
                 .withNetwork(NETWORK)
                 .withNetworkAliases(HOST)
-                .withLogConsumer(new Slf4jLogConsumer(log));
+                .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
         dbServer.setPortBindings(Lists.newArrayList(
                 String.format("%s:%s", 5236, 5236)));
         Startables.deepStart(Stream.of(dbServer)).join();

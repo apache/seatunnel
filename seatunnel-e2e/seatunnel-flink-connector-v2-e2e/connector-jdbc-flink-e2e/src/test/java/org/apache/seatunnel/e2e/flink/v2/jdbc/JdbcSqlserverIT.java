@@ -33,6 +33,7 @@ import org.testcontainers.shaded.com.google.common.collect.Lists;
 import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -50,16 +51,17 @@ import java.util.stream.Stream;
 @Slf4j
 public class JdbcSqlserverIT extends FlinkContainer {
 
+    private static final String DOCKER_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
     private MSSQLServerContainer<?> mssqlServerContainer;
     private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
     public void startSqlserverContainer() throws ClassNotFoundException, SQLException {
-        mssqlServerContainer = new MSSQLServerContainer<>(DockerImageName.parse("mcr.microsoft.com/mssql/server:2022-latest"))
+        mssqlServerContainer = new MSSQLServerContainer<>(DockerImageName.parse(DOCKER_IMAGE))
             .withNetwork(NETWORK)
             .withNetworkAliases("sqlserver")
-            .withLogConsumer(new Slf4jLogConsumer(log));
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
         Startables.deepStart(Stream.of(mssqlServerContainer)).join();
         log.info("Sqlserver container started");
         Class.forName(mssqlServerContainer.getDriverClassName());

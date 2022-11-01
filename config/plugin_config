@@ -64,7 +64,7 @@ seatunnel-connector-spark-email
 --connectors-v2--
 connector-fake
 connector-console
-onnector-assert
+connector-assert
 connector-kafka
 connector-http-base
 connector-http-feishu

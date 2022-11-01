@@ -53,11 +53,13 @@ public class TaskReportStatusOperation extends Operation implements IdentifiedDa
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         out.writeObject(location);
+        out.writeObject(status);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         location = in.readObject(TaskLocation.class);
+        status = in.readObject();
     }
 
     @Override
@@ -65,6 +67,6 @@ public class TaskReportStatusOperation extends Operation implements IdentifiedDa
         ((SeaTunnelServer) getService())
             .getCoordinatorService().getJobMaster(location.getJobId())
             .getCheckpointManager()
-            .reportedTask(this, getCallerAddress());
+            .reportedTask(this);
     }
 }

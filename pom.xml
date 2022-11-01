@@ -87,8 +87,6 @@
         <module>seatunnel-translation</module>
         <module>seatunnel-plugin-discovery</module>
         <module>seatunnel-formats</module>
-        <module>seatunnel-dist</module>
-	    <module>seatunnel-server</module>
         <module>seatunnel-engine</module>
     </modules>
 
@@ -105,6 +103,7 @@
             <modules>
                 <module>seatunnel-examples</module>
                 <module>seatunnel-e2e</module>
+                <module>seatunnel-dist</module>
             </modules>
         </profile>
         <profile>
@@ -115,6 +114,22 @@
                     <value>true</value>
                 </property>
             </activation>
+            <modules>
+                <module>seatunnel-dist</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>no_dist</id>
+            <activation>
+                <property>
+                    <name>release</name>
+                    <value>false</value>
+                </property>
+            </activation>
+            <modules>
+                <module>seatunnel-examples</module>
+                <module>seatunnel-e2e</module>
+            </modules>
         </profile>
     </profiles>
 
@@ -199,6 +214,7 @@
         <snappy-java.version>1.1.8.3</snappy-java.version>
         <checker.qual.version>3.10.0</checker.qual.version>
         <awaitility.version>4.2.0</awaitility.version>
+        <e2e.dependency.skip>true</e2e.dependency.skip>
     </properties>
 
     <dependencyManagement>
@@ -434,52 +450,6 @@
                         <target>${maven.compiler.target}</target>
                     </configuration>
                 </plugin>
-
-                <plugin>
-                    <groupId>net.alchim31.maven</groupId>
-                    <artifactId>scala-maven-plugin</artifactId>
-                    <version>${scala-maven-plugin.version}</version>
-                    <configuration>
-                        <args>
-                            <arg>-nobootcp</arg>
-                            <arg>-target:jvm-${java.version}</arg>
-                        </args>
-                    </configuration>
-                    <executions>
-                        <execution>
-                            <id>scala-compile-first</id>
-                            <phase>process-resources</phase>
-                            <goals>
-                                <goal>compile</goal>
-                            </goals>
-                        </execution>
-                        <execution>
-                            <id>scala-test-compile</id>
-                            <phase>process-test-resources</phase>
-                            <goals>
-                                <goal>testCompile</goal>
-                            </goals>
-                        </execution>
-                        <!-- attach javadocs and sources , -javadoc.jar, sources.jar, to pass mvn deploy-->
-                        <execution>
-                            <id>attach-javadocs</id>
-                            <goals>
-                                <goal>doc-jar</goal>
-                            </goals>
-                            <configuration>
-                                <skip>${maven.javadoc.skip}</skip>
-                            </configuration>
-                        </execution>
-                        <execution>
-                            <id>attach-sources</id>
-                            <goals>
-                                <goal>add-source</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                </plugin>
-                <!-- java/scala compiler (End) -->
-
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
@@ -783,6 +753,53 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>license-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>net.alchim31.maven</groupId>
+                <artifactId>scala-maven-plugin</artifactId>
+                <version>${scala-maven-plugin.version}</version>
+                <configuration>
+                    <args>
+                        <arg>-nobootcp</arg>
+                        <arg>-target:jvm-${java.version}</arg>
+                    </args>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>scala-compile-first</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>scala-test-compile</id>
+                        <phase>process-test-resources</phase>
+                        <goals>
+                            <goal>testCompile</goal>
+                        </goals>
+                    </execution>
+                    <!-- attach javadocs and sources , -javadoc.jar, sources.jar, to pass mvn deploy-->
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>doc-jar</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${maven.javadoc.skip}</skip>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

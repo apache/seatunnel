@@ -17,13 +17,14 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
-import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReleaseSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ResetResourceOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Member;
@@ -31,7 +32,6 @@ import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.spi.impl.NodeEngine;
-import com.hazelcast.spi.impl.operationservice.InvocationBuilder;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
@@ -54,8 +54,10 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     private final ExecutionMode mode = ExecutionMode.LOCAL;
 
+    private volatile boolean isRunning = true;
+
     public AbstractResourceManager(NodeEngine nodeEngine) {
-        this.registerWorker = nodeEngine.getHazelcastInstance().getMap("ResourceManager_RegisterWorker");
+        this.registerWorker = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RESOURCE_MANAGER_REGISTER_WORKER);
         this.nodeEngine = nodeEngine;
     }
 
@@ -66,14 +68,17 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     private void checkRegisterWorkerStillAlive() {
         if (!registerWorker.isEmpty()) {
-            List<Address> aliveWorker = nodeEngine.getClusterService().getMembers().stream().map(Member::getAddress).collect(Collectors.toList());
-            List<Address> dead = registerWorker.keySet().stream().filter(r -> !aliveWorker.contains(r)).collect(Collectors.toList());
+            List<Address> aliveWorker = nodeEngine.getClusterService().getMembers().stream().map(Member::getAddress)
+                .collect(Collectors.toList());
+            List<Address> dead =
+                registerWorker.keySet().stream().filter(r -> !aliveWorker.contains(r)).collect(Collectors.toList());
             dead.forEach(registerWorker::remove);
         }
     }
 
     @Override
-    public CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile) throws NoEnoughResourceException {
+    public CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile)
+        throws NoEnoughResourceException {
         CompletableFuture<SlotProfile> completableFuture = new CompletableFuture<>();
         applyResources(jobId, Collections.singletonList(resourceProfile)).whenComplete((profile, error) -> {
             if (error != null) {
@@ -89,7 +94,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
         if (ExecutionMode.LOCAL.equals(mode)) {
             // Local mode, should wait worker(master node) register.
             try {
-                while (registerWorker.isEmpty()) {
+                while (registerWorker.isEmpty() && isRunning) {
                     LOGGER.info("waiting current worker register to resource manager...");
                     Thread.sleep(DEFAULT_WORKER_CHECK_INTERVAL);
                 }
@@ -108,7 +113,8 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Override
     public CompletableFuture<List<SlotProfile>> applyResources(long jobId,
-                                                               List<ResourceProfile> resourceProfile) throws NoEnoughResourceException {
+                                                               List<ResourceProfile> resourceProfile)
+        throws NoEnoughResourceException {
         waitingWorkerRegister();
         return new ResourceRequestHandler(jobId, resourceProfile, registerWorker, this).request();
     }
@@ -123,18 +129,17 @@ public abstract class AbstractResourceManager implements ResourceManager {
      * @param resourceProfiles the worker should have resource profile list
      */
     protected void findNewWorker(List<ResourceProfile> resourceProfiles) {
-        throw new UnsupportedOperationException("Unsupported operation to find new worker in " + this.getClass().getName());
+        throw new UnsupportedOperationException(
+            "Unsupported operation to find new worker in " + this.getClass().getName());
     }
 
     @Override
     public void close() {
+        isRunning = false;
     }
 
     protected <E> InvocationFuture<E> sendToMember(Operation operation, Address address) {
-        InvocationBuilder invocationBuilder =
-            nodeEngine.getOperationService().createInvocationBuilder(SeaTunnelServer.SERVICE_NAME,
-                operation, address);
-        return invocationBuilder.invoke();
+        return NodeEngineUtil.sendOperationToMemberNode(nodeEngine, operation, address);
     }
 
     @Override
@@ -156,13 +161,27 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Override
     public CompletableFuture<Void> releaseResource(long jobId, SlotProfile profile) {
-        return sendToMember(new ReleaseSlotOperation(jobId, profile), profile.getWorker());
+        if (nodeEngine.getClusterService().getMember(profile.getWorker()) != null) {
+            return sendToMember(new ReleaseSlotOperation(jobId, profile), profile.getWorker());
+        } else {
+            return CompletableFuture.completedFuture(null);
+        }
     }
 
     @Override
     public boolean slotActiveCheck(SlotProfile profile) {
-        return registerWorker.values().stream().flatMap(workerProfile -> Arrays.stream(workerProfile.getAssignedSlots()))
-            .anyMatch(s -> s.getSlotID() == profile.getSlotID());
+        boolean active = false;
+        if (registerWorker.containsKey(profile.getWorker())) {
+            active = Arrays.stream(registerWorker.get(profile.getWorker()).getAssignedSlots())
+                .allMatch(s -> s.getSlotID() == profile.getSlotID());
+        }
+
+        if (!active) {
+            LOGGER.info("received slot active check failed, profile: " + profile);
+        } else {
+            LOGGER.fine("received slot active check success, profile: " + profile);
+        }
+        return active;
     }
 
     @Override

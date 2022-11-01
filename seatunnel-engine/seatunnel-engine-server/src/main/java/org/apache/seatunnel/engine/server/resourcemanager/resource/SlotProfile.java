@@ -31,7 +31,7 @@ import java.io.IOException;
  */
 public class SlotProfile implements IdentifiedDataSerializable {
 
-    private final Address worker;
+    private Address worker;
 
     private int slotID;
 
@@ -83,12 +83,12 @@ public class SlotProfile implements IdentifiedDataSerializable {
     @Override
     public String toString() {
         return "SlotProfile{" +
-                "worker=" + worker +
-                ", slotID=" + slotID +
-                ", ownerJobID=" + ownerJobID +
-                ", assigned=" + assigned +
-                ", resourceProfile=" + resourceProfile +
-                '}';
+            "worker=" + worker +
+            ", slotID=" + slotID +
+            ", ownerJobID=" + ownerJobID +
+            ", assigned=" + assigned +
+            ", resourceProfile=" + resourceProfile +
+            '}';
     }
 
     @Override
@@ -103,7 +103,7 @@ public class SlotProfile implements IdentifiedDataSerializable {
 
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
-        worker.writeData(out);
+        out.writeObject(worker);
         out.writeInt(slotID);
         out.writeLong(ownerJobID);
         out.writeBoolean(assigned);
@@ -112,7 +112,7 @@ public class SlotProfile implements IdentifiedDataSerializable {
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
-        worker.readData(in);
+        worker = in.readObject();
         slotID = in.readInt();
         ownerJobID = in.readLong();
         assigned = in.readBoolean();

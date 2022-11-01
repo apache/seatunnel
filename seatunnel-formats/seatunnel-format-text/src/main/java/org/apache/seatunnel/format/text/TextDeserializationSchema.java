@@ -59,7 +59,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
         String content = new String(message);
         Map<Integer, String> splitsMap = splitLineBySeaTunnelRowType(content, seaTunnelRowType);
-        Object[] objects = new Object[splitsMap.size()];
+        Object[] objects = new Object[seaTunnelRowType.getTotalFields()];
         for (int i = 0; i < objects.length; i++) {
             objects[i] = convert(splitsMap.get(i), seaTunnelRowType.getFieldType(i));
         }
@@ -80,12 +80,23 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
             if (fieldTypes[i].getSqlType() == SqlType.ROW) {
                 // row type
                 int totalFields = ((SeaTunnelRowType) fieldTypes[i]).getTotalFields();
-                ArrayList<String> rowSplits = new ArrayList<>(Arrays.asList(splits).subList(cursor, cursor + totalFields));
-                splitsMap.put(i, String.join(delimiter, rowSplits));
+                // if current field is empty
+                if (cursor >= splits.length) {
+                    splitsMap.put(i, null);
+                } else {
+                    ArrayList<String> rowSplits = new ArrayList<>(Arrays.asList(splits).subList(cursor, cursor + totalFields));
+                    splitsMap.put(i, String.join(delimiter, rowSplits));
+                }
                 cursor += totalFields;
             } else {
                 // not row type
-                splitsMap.put(i, splits[cursor++]);
+                // if current field is empty
+                if (cursor >= splits.length) {
+                    splitsMap.put(i, null);
+                    cursor++;
+                } else {
+                    splitsMap.put(i, splits[cursor++]);
+                }
             }
         }
         return splitsMap;

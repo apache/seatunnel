@@ -40,6 +40,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -70,7 +71,7 @@ public class IoTDBIT extends SparkContainer {
         iotdbServer = new GenericContainer<>(IOTDB_DOCKER_IMAGE)
                 .withNetwork(NETWORK)
                 .withNetworkAliases(IOTDB_HOST)
-                .withLogConsumer(new Slf4jLogConsumer(log));
+                .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IOTDB_DOCKER_IMAGE)));
         iotdbServer.setPortBindings(Lists.newArrayList(
                 String.format("%s:6667", IOTDB_PORT)));
         Startables.deepStart(Stream.of(iotdbServer)).join();

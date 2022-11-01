@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
+import com.hazelcast.jet.datamodel.Tuple2;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -37,6 +38,8 @@ import java.util.Set;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class CheckpointPlan {
 
+    public static final Integer COORDINATOR_INDEX = -1;
+
     private final int pipelineId;
 
     /**
@@ -50,22 +53,24 @@ public class CheckpointPlan {
     private final Set<TaskLocation> startingSubtasks;
 
     /**
-     * Restored completed checkpoint.
-     */
-    private final CompletedCheckpoint restoredCheckpoint;
-
-    /**
      * All actions in this pipeline.
      * <br> key: the action id;
      * <br> value: the parallelism of the action;
      */
     private final Map<Long, Integer> pipelineActions;
 
+    /**
+     * <br> key: the subtask locations;
+     * <br> value: all actions in this subtask; f0: action id, f1: action index;
+     */
+    private final Map<TaskLocation, Set<Tuple2<Long, Integer>>> subtaskActions;
+
     public static final class Builder {
         private final Set<TaskLocation> pipelineSubtasks = new HashSet<>();
         private final Set<TaskLocation> startingSubtasks = new HashSet<>();
-        private CompletedCheckpoint restoredCheckpoint;
         private final Map<Long, Integer> pipelineActions = new HashMap<>();
+
+        private final Map<TaskLocation, Set<Tuple2<Long, Integer>>> subtaskActions = new HashMap<>();
 
         private Builder() {
         }
@@ -82,6 +87,11 @@ public class CheckpointPlan {
 
         public Builder pipelineActions(Map<Long, Integer> pipelineActions) {
             this.pipelineActions.putAll(pipelineActions);
+            return this;
+        }
+
+        public Builder subtaskActions(Map<TaskLocation, Set<Tuple2<Long, Integer>>> subtaskActions) {
+            this.subtaskActions.putAll(subtaskActions);
             return this;
         }
     }

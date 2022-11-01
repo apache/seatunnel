@@ -67,7 +67,7 @@ The number of retries to submit failed (executeBatch)
 
 ### batch_size[int]
 
-For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`
+For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `batch_interval_ms`
 , the data will be flushed into the database
 
 ### batch_interval_ms[int]
@@ -107,13 +107,18 @@ In the case of is_exactly_once = "true", Xa transactions are used. This requires
 ## appendix
 
 there are some reference value for params above.
-| datasource | driver                                       | url                                                                   | xa_data_source_class_name                              | maven                                                                                 |
-|------------|----------------------------------------------|-----------------------------------------------------------------------|--------------------------------------------------------|---------------------------------------------------------------------------------------|
-| mysql      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                      | com.mysql.cj.jdbc.MysqlXADataSource                    | https://mvnrepository.com/artifact/mysql/mysql-connector-java                         |
-| postgresql | org.postgresql.Driver                        | jdbc:postgresql://localhost:5432/postgres                             | org.postgresql.xa.PGXADataSource                       | https://mvnrepository.com/artifact/org.postgresql/postgresql                          |                                                             |
-| dm         | dm.jdbc.driver.DmDriver                      | jdbc:dm://localhost:5236                                              | dm.jdbc.driver.DmdbXADataSource                        | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18                          |
-| phoenix    | org.apache.phoenix.queryserver.client.Driver | jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF    | /                                                      | https://mvnrepository.com/artifact/com.aliyun.phoenix/ali-phoenix-shaded-thin-client  |
-| sqlserver  | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:microsoft:sqlserver://localhost:1433                             | com.microsoft.sqlserver.jdbc.SQLServerXADataSource     | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc                 |
+
+| datasource | driver                                       | url                                                                | xa_data_source_class_name                          | maven                                                                                                       |
+|------------|----------------------------------------------|--------------------------------------------------------------------|----------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
+| MySQL      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | com.mysql.cj.jdbc.MysqlXADataSource                | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
+| PostgreSQL | org.postgresql.Driver                        | jdbc:postgresql://localhost:5432/postgres                          | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                |
+| DM         | dm.jdbc.driver.DmDriver                      | jdbc:dm://localhost:5236                                           | dm.jdbc.driver.DmdbXADataSource                    | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18                                                |
+| Phoenix    | org.apache.phoenix.queryserver.client.Driver | jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF | /                                                  | https://mvnrepository.com/artifact/com.aliyun.phoenix/ali-phoenix-shaded-thin-client                        |
+| SQL Server | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:microsoft:sqlserver://localhost:1433                          | com.microsoft.sqlserver.jdbc.SQLServerXADataSource | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc                                       |
+| Oracle     | oracle.jdbc.OracleDriver                     | jdbc:oracle:thin:@localhost:1521/xepdb1                            | oracle.jdbc.xa.OracleXADataSource                  | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8                                          |
+| GBase8a    | com.gbase.jdbc.Driver                        | jdbc:gbase://e2e_gbase8aDb:5258/test                               | /                                                  | https://www.gbase8.cn/wp-content/uploads/2020/10/gbase-connector-java-8.3.81.53-build55.5.7-bin_min_mix.jar |
+| StarRocks  | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
+| db2        | com.ibm.db2.jcc.DB2Driver                    | jdbc:db2://localhost:50000/testdb                                  | com.ibm.db2.jcc.DB2XADataSource                    | https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc/db2jcc4                                           |
 
 ## Example
 
@@ -148,3 +153,18 @@ jdbc {
     xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
 }
 ```
+
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add Console Sink Connector
+
+### 2.3.0-beta 2022-10-20
+
+- [BugFix] Fix JDBC split exception ([2904](https://github.com/apache/incubator-seatunnel/pull/2904))
+- [Feature] Support Phoenix JDBC Source ([2499](https://github.com/apache/incubator-seatunnel/pull/2499))
+- [Feature] Support SQL Server JDBC Source ([2646](https://github.com/apache/incubator-seatunnel/pull/2646))
+- [Feature] Support Oracle JDBC Source ([2550](https://github.com/apache/incubator-seatunnel/pull/2550))
+- [Feature] Support StarRocks JDBC Source ([3060](https://github.com/apache/incubator-seatunnel/pull/3060))
+- [Feature] Support DB2 JDBC Sink ([2410](https://github.com/apache/incubator-seatunnel/pull/2410))

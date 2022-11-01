@@ -36,6 +36,7 @@ import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
@@ -58,6 +59,7 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class JdbcMysqlIT extends SparkContainer {
+    private static final String DOCKER_IMAGE = "bitnami/mysql:8.0.29";
     private MySQLContainer<?> mc;
     private Config config;
     private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
@@ -66,11 +68,11 @@ public class JdbcMysqlIT extends SparkContainer {
     @BeforeEach
     public void startMySqlContainer() throws Exception {
         // Non-root users need to grant XA_RECOVER_ADMIN permission on is_exactly_once = "true"
-        mc = new MySQLContainer<>(DockerImageName.parse("bitnami/mysql:8.0.29").asCompatibleSubstituteFor("mysql"))
+        mc = new MySQLContainer<>(DockerImageName.parse(DOCKER_IMAGE).asCompatibleSubstituteFor("mysql"))
             .withNetwork(NETWORK)
             .withNetworkAliases("mysql")
             .withUsername("root")
-            .withLogConsumer(new Slf4jLogConsumer(log));
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
         Startables.deepStart(Stream.of(mc)).join();
         log.info("Mysql container started");
         Class.forName(mc.getDriverClassName());

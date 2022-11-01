@@ -23,8 +23,8 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.ExceptionUtil;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kudu.ColumnSchema;
@@ -136,7 +136,7 @@ public class KuduInputFormat implements Serializable {
             }
         } catch (Exception e) {
             log.warn("get row type info exception.", e);
-            throw new PrepareFailException("kudu", PluginType.SOURCE, ExceptionUtil.getMessage(e));
+            throw new PrepareFailException("kudu", PluginType.SOURCE, ExceptionUtils.getMessage(e));
         }
         return new SeaTunnelRowType(fieldNames.toArray(new String[fieldNames.size()]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));
     }

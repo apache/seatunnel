@@ -184,7 +184,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
 
         List<PipelineState> pipelineStates = new ArrayList<>();
         fileNames.forEach(file -> {
-            String filePipelineId = file.split(FILE_NAME_SPLIT)[FILE_NAME_PIPELINE_ID_INDEX];
+            String filePipelineId = getPipelineIdByFileName(file);
             if (pipelineId.equals(filePipelineId)) {
                 try {
                     pipelineStates.add(readPipelineState(file, jobId));
@@ -204,6 +204,26 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         } catch (IOException e) {
             log.error("Failed to delete checkpoint for job {}", jobId, e);
         }
+    }
+
+    @Override
+    public PipelineState getCheckpoint(String jobId, String pipelineId, String checkpointId) throws CheckpointStorageException {
+        String path = getStorageParentDirectory() + jobId;
+        List<String> fileNames = getFileNames(path);
+        if (fileNames.isEmpty()) {
+            throw new CheckpointStorageException("No checkpoint found for job, job id is: " + jobId);
+        }
+        for (String fileName : fileNames) {
+            if (pipelineId.equals(getPipelineIdByFileName(fileName)) &&
+                checkpointId.equals(getCheckpointIdByFileName(fileName))) {
+                try {
+                    return readPipelineState(fileName, jobId);
+                } catch (Exception e) {
+                    log.error("Failed to get checkpoint {} for job {}, pipeline {}", checkpointId, jobId, pipelineId, e);
+                }
+            }
+        }
+        throw new CheckpointStorageException(String.format("No checkpoint found, job(%s), pipeline(%s), checkpoint(%s)", jobId, pipelineId, checkpointId));
     }
 
     @Override

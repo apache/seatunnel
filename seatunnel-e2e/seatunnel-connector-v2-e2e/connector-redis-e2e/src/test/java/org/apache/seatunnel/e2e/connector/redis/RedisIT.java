@@ -42,6 +42,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.DockerLoggerFactory;
 import redis.clients.jedis.Jedis;
 
 import java.io.IOException;
@@ -76,7 +77,7 @@ public class RedisIT extends TestSuiteBase implements TestResource {
             .withNetwork(NETWORK)
             .withNetworkAliases(HOST)
             .withExposedPorts(PORT)
-            .withLogConsumer(new Slf4jLogConsumer(log))
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
             .withCommand(String.format("redis-server --requirepass %s", PASSWORD))
             .waitingFor(new HostPortWaitStrategy()
                 .withStartupTimeout(Duration.ofMinutes(2)));

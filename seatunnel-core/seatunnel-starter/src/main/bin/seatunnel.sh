@@ -50,4 +50,18 @@ else
     args=$@
 fi
 
-java -cp ${APP_JAR} ${APP_MAIN} ${args}
+set +u
+# SeaTunnel Engine Config
+if [ -z $HAZELCAST_CLIENT_CONFIG ]; then
+    HAZELCAST_CLIENT_CONFIG=${CONF_DIR}/hazelcast-client.yaml
+fi
+
+if [ -z $HAZELCAST_CONFIG ]; then
+  HAZELCAST_CONFIG=${CONF_DIR}/hazelcast.yaml
+fi
+
+if [ -z $SEATUNNEL_CONFIG ]; then
+    SEATUNNEL_CONFIG=${CONF_DIR}/seatunnel.yaml
+fi
+
+java -Dhazelcast.client.config=${HAZELCAST_CLIENT_CONFIG} -Dseatunnel.config=${SEATUNNEL_CONFIG} -Dhazelcast.config=${HAZELCAST_CONFIG} -cp ${APP_JAR} ${APP_MAIN} ${args}

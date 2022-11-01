@@ -32,6 +32,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -50,18 +51,19 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class JdbcPostgresIT extends FlinkContainer {
+    private static final String DOCKER_IMAGE = "postgres:14-alpine";
     private PostgreSQLContainer<?> pg;
     private static final String THIRD_PARTY_PLUGINS_URL = "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
     public void startPostgreSqlContainer() throws Exception {
-        pg = new PostgreSQLContainer<>(DockerImageName.parse("postgres:14-alpine"))
+        pg = new PostgreSQLContainer<>(DockerImageName.parse(DOCKER_IMAGE))
             .withNetwork(NETWORK)
             .withNetworkAliases("postgresql")
             .withCommand("postgres -c max_prepared_transactions=100")
             .withUsername("root")
-            .withLogConsumer(new Slf4jLogConsumer(log));
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
         Startables.deepStart(Stream.of(pg)).join();
         log.info("Postgres container started");
         Class.forName(pg.getDriverClassName());
