@@ -122,6 +122,15 @@ public class FlinkExecution implements TaskExecution {
     }
 
     private Config injectJarsToConfig(Config config, String path, List<URL> jars) {
+        List<URL> validJars = new ArrayList<>();
+        for (URL jarUrl : jars) {
+            if (new File(jarUrl.getFile()).exists()) {
+                validJars.add(jarUrl);
+                log.info("Inject jar to config: {}", jarUrl);
+            } else {
+                log.warn("Remove invalid jar when inject jars into config: {}", jarUrl);
+            }
+        }
 
         if (config.hasPath(path)) {
             Set<URL> paths = Arrays.stream(config.getString(path).split(";")).map(uri -> {
@@ -131,14 +140,14 @@ public class FlinkExecution implements TaskExecution {
                     throw new RuntimeException("the uri of jar illegal:" + uri, e);
                 }
             }).collect(Collectors.toSet());
-            paths.addAll(jars);
+            paths.addAll(validJars);
 
             config = config.withValue(path,
                 ConfigValueFactory.fromAnyRef(paths.stream().map(URL::toString).distinct().collect(Collectors.joining(";"))));
 
         } else {
             config = config.withValue(path,
-                ConfigValueFactory.fromAnyRef(jars.stream().map(URL::toString).distinct().collect(Collectors.joining(";"))));
+                ConfigValueFactory.fromAnyRef(validJars.stream().map(URL::toString).distinct().collect(Collectors.joining(";"))));
         }
         return config;
     }
