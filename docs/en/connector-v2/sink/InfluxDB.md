@@ -96,3 +96,9 @@ sink {
 }
 
 ```
+
+## Changelog
+
+### next version
+
+- Add InfluxDB Sink Connector
