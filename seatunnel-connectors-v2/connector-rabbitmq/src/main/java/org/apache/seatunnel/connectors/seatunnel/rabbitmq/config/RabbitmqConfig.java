@@ -4,6 +4,7 @@ import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
@@ -115,6 +116,10 @@ public class RabbitmqConfig implements Serializable {
             this.exchange = config.getString(EXCHANGE);
         }
         parseSinkOptionProperties(config);
+    }
+
+    @VisibleForTesting
+    public RabbitmqConfig() {
 
     }
 }

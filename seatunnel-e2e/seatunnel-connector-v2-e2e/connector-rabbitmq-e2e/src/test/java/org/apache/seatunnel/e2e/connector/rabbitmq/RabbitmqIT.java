@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.connector.rabbitmq;
 
+import com.rabbitmq.client.*;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -26,14 +27,14 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.Handover;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.client.RabbitmqClient;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -56,24 +57,30 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import scala.Tuple2;
 
 @Slf4j
 public class RabbitmqIT extends TestSuiteBase implements TestResource {
-    private static final String IMAGE = "library/rabbitmq:3.11";
+    private static final String IMAGE = "rabbitmq:3-management";
     private static final String HOST = "rabbitmq-e2e";
     private static final int PORT = 5672;
     private static final String QUEUE_NAME = "test";
     private static final String USERNAME = "guest";
     private static final String PASSWORD = "guest";
+    Handover  handover = new Handover<>();
+
 
     private static final Tuple2<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET = generateTestDataSet();
 
     private GenericContainer<?> rabbitmqContainer;
     Connection connection = null;
     Channel channel = null;
+    Channel sinkChannel = null;
+    RabbitmqClient rabbitmqClient;
+    RabbitmqClient sinkRabbitmqClient;
 
     @BeforeAll
     @Override
@@ -81,7 +88,7 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         this.rabbitmqContainer = new GenericContainer<>(DockerImageName.parse(IMAGE))
                 .withNetwork(NETWORK)
                 .withNetworkAliases(HOST)
-                .withExposedPorts(PORT)
+                .withExposedPorts(PORT, 15672)
                 .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
                 .waitingFor(new HostPortWaitStrategy()
                         .withStartupTimeout(Duration.ofMinutes(2)));
@@ -89,14 +96,15 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         log.info("rabbitmq container started");
         this.initRabbitMQ();
         this.initSourceData();
+        this.initSinkRabbitMQ();
     }
 
-    private void initSourceData() throws IOException {
+    private void initSourceData() throws IOException, InterruptedException {
         JsonSerializationSchema jsonSerializationSchema = new JsonSerializationSchema(TEST_DATASET._1());
         List<SeaTunnelRow> rows = TEST_DATASET._2();
-        for (int i = 0; i < rows.size(); i++) {
-            channel.basicPublish("", "", null, new String(jsonSerializationSchema.serialize(rows.get(i))).getBytes(StandardCharsets.UTF_8));
-        }
+            for (int i = 0; i < rows.size(); i++) {
+                rabbitmqClient.write(new String(jsonSerializationSchema.serialize(rows.get(i))).getBytes(StandardCharsets.UTF_8));
+            }
     }
 
     private static Tuple2<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
@@ -166,17 +174,31 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
     private void initRabbitMQ() {
 
         try {
-            System.out.println(rabbitmqContainer.getHost());
-            System.out.println(rabbitmqContainer.getFirstMappedPort());
+            RabbitmqConfig config = new RabbitmqConfig();
+            config.setHost(rabbitmqContainer.getHost());
+            config.setPort(rabbitmqContainer.getFirstMappedPort());
+            config.setQueueName("test");
+            config.setVirtualHost("/");
+            config.setUsername("guest");
+            config.setPassword("guest");
+            rabbitmqClient = new RabbitmqClient(config);
+        } catch (Exception e) {
+            throw new RuntimeException("init Rabbitmq error", e);
+        }
+    }
 
-            ConnectionFactory connectionFactory = new ConnectionFactory();
-            connectionFactory.setHost(rabbitmqContainer.getHost());
-            connectionFactory.setPort(rabbitmqContainer.getFirstMappedPort());
-            connectionFactory.setUsername(USERNAME);
-            connectionFactory.setPassword(PASSWORD);
-            connection = connectionFactory.newConnection();
-            channel = connection.createChannel();
-            channel.queueDeclare(QUEUE_NAME, true, false, false, null);
+    private void initSinkRabbitMQ() {
+
+        try {
+            RabbitmqConfig config = new RabbitmqConfig();
+            config.setHost(rabbitmqContainer.getHost());
+            config.setPort(rabbitmqContainer.getFirstMappedPort());
+            config.setQueueName("test1");
+            config.setVirtualHost("/");
+            config.setUsername("guest");
+            config.setPassword("guest");
+            sinkRabbitmqClient = new RabbitmqClient(config);
+            sinkChannel = sinkRabbitmqClient.getChannel();
         } catch (Exception e) {
             throw new RuntimeException("init Rabbitmq error", e);
         }
@@ -195,9 +217,27 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testRabbitMQ(TestContainer container) throws IOException, InterruptedException {
+    public void testRabbitMQ(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob("/rabbitmq-to-rabbitmq.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+        RabbitmqConfig config = new RabbitmqConfig();
+        config.setHost(rabbitmqContainer.getHost());
+        config.setPort(rabbitmqContainer.getFirstMappedPort());
+        config.setQueueName("test1");
+        config.setVirtualHost("/");
+        config.setUsername("guest");
+        config.setPassword("guest");
+
+        DefaultConsumer consumer = sinkRabbitmqClient.getQueueingConsumer(handover);
+        sinkChannel.basicConsume(config.getQueueName(), true, consumer);
+        for(int i = 0; i < 100; i++) {
+            Optional<Delivery> deliveryOptional = handover.pollNext();
+            if (deliveryOptional.isPresent()) {
+                Delivery delivery = deliveryOptional.get();
+                byte[] body = delivery.getBody();
+                System.out.println(new String(body));
+            }
+        }
 
     }
 }
