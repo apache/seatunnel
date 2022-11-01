@@ -108,6 +108,7 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
         return "TaskLocation{" +
             "taskGroupLocation=" + taskGroupLocation +
             ", taskID=" + taskID +
+            ", index=" + index +
             '}';
     }
 
