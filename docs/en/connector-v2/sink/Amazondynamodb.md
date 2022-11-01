@@ -1,4 +1,4 @@
-````
+
 # Amazondynamodb
 
 > Amazondynamodb sink connector
@@ -9,11 +9,8 @@ Write data to `Amazondynamodb`
 
 ## Key features
 
-- [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [ ] [schema projection](../../concept/connector-v2-features.md)
-- [ ] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
 ## Options
 
@@ -70,4 +67,3 @@ Amazondynamodb {
 
 - Add Amazondynamodb Sink Connector
 
-````
