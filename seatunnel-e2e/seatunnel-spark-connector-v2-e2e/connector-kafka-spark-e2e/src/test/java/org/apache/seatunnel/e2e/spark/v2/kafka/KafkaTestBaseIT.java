@@ -38,7 +38,7 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class KafkaTestBaseIT extends SparkContainer {
-    protected static final int KAFKA_PORT = 9093;
+    protected static final int KAFKA_PORT = 9094;
 
     protected static final String KAFKA_HOST = "kafkaCluster";
 
