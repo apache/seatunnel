@@ -67,7 +67,7 @@ The number of retries to submit failed (executeBatch)
 
 ### batch_size[int]
 
-For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`
+For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `batch_interval_ms`
 , the data will be flushed into the database
 
 ### batch_interval_ms[int]
