@@ -95,7 +95,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         for (Integer integer : sinkColumnsIndexInRow) {
             String fieldName = seaTunnelRowType.getFieldName(integer);
             Object field = seaTunnelRow.getField(integer);
-            recordBuilder.set(fieldName, resolveObject(field, seaTunnelRowType.getFieldType(integer)));
+            recordBuilder.set(fieldName.toLowerCase(), resolveObject(field, seaTunnelRowType.getFieldType(integer)));
         }
         GenericData.Record record = recordBuilder.build();
         try {

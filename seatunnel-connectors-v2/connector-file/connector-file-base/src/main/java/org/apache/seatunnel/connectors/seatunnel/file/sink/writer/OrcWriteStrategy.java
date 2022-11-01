@@ -179,7 +179,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         TypeDescription schema = TypeDescription.createStruct();
         for (Integer i : sinkColumnsIndexInRow) {
             TypeDescription fieldType = buildFieldWithRowType(seaTunnelRowType.getFieldType(i));
-            schema.addField(seaTunnelRowType.getFieldName(i), fieldType);
+            schema.addField(seaTunnelRowType.getFieldName(i).toLowerCase(), fieldType);
         }
         return schema;
     }
