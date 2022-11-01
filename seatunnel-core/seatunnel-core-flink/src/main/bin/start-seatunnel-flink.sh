@@ -59,7 +59,7 @@ if [ -e "${CONF_DIR}/log4j2.properties" ]; then
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-core-flink"
 fi
 
-CLASS_PATH=${APP_DIR}/lib/logging/*:${APP_JAR}
+CLASS_PATH=${APP_DIR}/starter/logging/*:${APP_JAR}
 
 ENV_PARAMETERS_OR_ERROR=$(java ${JAVA_OPTS} -cp ${CLASS_PATH} ${ENV_PARAMETERS_MAIN} ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
 if [ ${EXIT_CODE} -eq 0 ]; then

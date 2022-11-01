@@ -99,7 +99,7 @@ public final class ContainerUtil {
         final String loggingLibPath = startModulePath + File.separator + "target" + File.separator + "logging-e2e" + File.separator;
         checkPathExist(loggingLibPath);
         container.withCopyFileToContainer(MountableFile.forHostPath(loggingLibPath),
-            Paths.get(seatunnelHomeInContainer, "lib", "logging").toString());
+            Paths.get(seatunnelHomeInContainer, "starter", "logging").toString());
     }
 
     public static void copySeaTunnelStarterToContainer(GenericContainer<?> container,

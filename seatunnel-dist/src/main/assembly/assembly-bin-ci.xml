@@ -120,7 +120,7 @@
             <useProjectArtifact>false</useProjectArtifact>
             <useTransitiveDependencies>true</useTransitiveDependencies>
             <unpack>false</unpack>
-            <outputDirectory>/lib/logging</outputDirectory>
+            <outputDirectory>/starter/logging</outputDirectory>
             <includes>
                 <include>org.slf4j:slf4j-api:jar</include>
                 <include>org.slf4j:jcl-over-slf4j:jar</include>
