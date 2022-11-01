@@ -308,7 +308,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
                         (long) i,
                         ByteBuffer.wrap(new byte[]{Byte.parseByte("1")}),
                         Boolean.FALSE,
-                        BigDecimal.valueOf(11L, 1),
+                        BigDecimal.valueOf(11L, 2),
                         Double.parseDouble("1.1"),
                         Float.parseFloat("2.1"),
                         i,
