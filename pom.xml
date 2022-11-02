@@ -197,7 +197,6 @@
         <flatten-maven-plugin.version>1.3.0</flatten-maven-plugin.version>
         <maven-license-maven-plugin>1.20</maven-license-maven-plugin>
         <log4j-core.version>2.17.1</log4j-core.version>
-        <scalastyle-maven-plugin.version>1.0.0</scalastyle-maven-plugin.version>
         <docker-maven-plugin.version>0.38.0</docker-maven-plugin.version>
         <p3c-pmd.version>1.3.0</p3c-pmd.version>
         <maven-scm-provider-jgit.version>1.9.5</maven-scm-provider-jgit.version>
@@ -583,35 +582,7 @@
                         </execution>
                     </executions>
                 </plugin>
-
-                <plugin>
-                    <groupId>org.scalastyle</groupId>
-                    <artifactId>scalastyle-maven-plugin</artifactId>
-                    <version>${scalastyle-maven-plugin.version}</version>
-                    <configuration>
-                        <verbose>false</verbose>
-                        <failOnViolation>true</failOnViolation>
-                        <includeTestSourceDirectory>false</includeTestSourceDirectory>
-                        <failOnWarning>false</failOnWarning>
-                        <sourceDirectory>${basedir}/src/main/scala</sourceDirectory>
-                        <testSourceDirectory>${basedir}/src/test/scala</testSourceDirectory>
-                        <!--suppress UnresolvedMavenProperty -->
-                        <configLocation>
-                            ${maven.multiModuleProjectDirectory}/tools/checkstyle/scalastyle-config.xml
-                        </configLocation>
-                        <outputFile>${project.build.directory}/target/scalastyle-output.xml</outputFile>
-                        <inputEncoding>UTF-8</inputEncoding>
-                        <outputEncoding>UTF-8</outputEncoding>
-                    </configuration>
-                    <executions>
-                        <execution>
-                            <goals>
-                                <goal>check</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                </plugin>
-
+                
                 <!-- checkstyle (End) -->
 
                 <plugin>
@@ -744,11 +715,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.scalastyle</groupId>
-                <artifactId>scalastyle-maven-plugin</artifactId>
             </plugin>
 
             <plugin>
