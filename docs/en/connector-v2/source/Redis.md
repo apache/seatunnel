@@ -17,16 +17,20 @@ Used to read data from Redis.
 
 ##  Options
 
-| name           | type   | required | default value |
-|--------------- |--------|----------|---------------|
-| host           | string | yes      | -             |
-| port           | int    | yes      | -             |
-| keys           | string | yes      | -             |
-| data_type      | string | yes      | -             |
-| auth           | string | No       | -             |
-| schema         | config | No       | -             |
-| format         | string | No       | json          |
-| common-options |        | no       | -             |
+| name                | type   | required | default value |
+|---------------------|--------|----------|---------------|
+| host                | string | yes      | -             |
+| port                | int    | yes      | -             |
+| keys                | string | yes      | -             |
+| data_type           | string | yes      | -             |
+| user                | string | no       | -             |
+| auth                | string | no       | -             |
+| mode                | string | no       | -             |
+| hash_key_parse_mode | string | no       | all           |
+| nodes               | list   | no       | -             |
+| schema              | config | no       | -             |
+| format              | string | no       | json          |
+| common-options      |        | no       | -             |
 
 ### host [string]
 
@@ -35,6 +39,74 @@ redis host
 ### port [int]
 
 redis port
+
+### hash_key_parse_mode [string]
+
+hash key parse mode, support `all` `kv`, used to tell connector how to parse hash key.
+
+when setting it to `all`, connector will treat the value of hash key as a row and use the schema config to parse it, when setting it to `kv`, connector will treat each kv in hash key as a row and use the schema config to parse it:
+
+for example, if the value of hash key is the following shown:
+
+```text
+{ 
+  "001": {
+    "name": "tyrantlucifer",
+    "age": 26
+  },
+  "002": {
+    "name": "Zongwen",
+    "age": 26
+  }
+}
+
+```
+
+if hash_key_parse_mode is `all` and schema config as the following shown, it will generate the following data:
+
+```hocon
+
+schema {
+  fields {
+    001 {
+      name = string
+      age = int
+    }
+    002 {
+      name = string
+      age = int
+    }
+  }
+}
+
+```
+
+| 001                             | 002                       |
+|---------------------------------|---------------------------|
+| Row(name=tyrantlucifer, age=26) | Row(name=Zongwen, age=26) |
+
+if hash_key_parse_mode is `kv` and schema config as the following shown, it will generate the following data:
+
+```hocon
+
+schema {
+  fields {
+    hash_key = string
+    name = string
+    age = int
+  }
+}
+
+```
+
+| hash_key | name          | age |
+|----------|---------------|-----|
+| 001      | tyrantlucifer | 26  |
+| 002      | Zongwen       | 26  |
+
+each kv that in hash key it will be treated as a row and send it to upstream.
+
+**Tips: connector will use the first field information of schema config as the field name of each k that in each kv**
 
 ### keys [string]
 
@@ -67,9 +139,23 @@ redis data types, support `key` `hash` `list` `set` `zset`
 > Each element in the sorted set will be sent downstream as a single row of data
 > For example, the value of sorted set is `[tyrantlucier, CalvinKirs]`, the data received downstream are `tyrantlucifer` and `CalvinKirs` and only two message will be received.
 
+### user [string]
+
+redis authentication user, you need it when you connect to an encrypted cluster
+
 ### auth [string]
 
 redis authentication password, you need it when you connect to an encrypted cluster
+
+### mode [string]
+
+redis mode, `single` or `cluster`, default is `single`
+
+### nodes [list]
+
+redis nodes information, used in cluster mode, must like as the following format: 
+
+[host1:port1, host2:port2]
 
 ### format [string]
 
@@ -166,3 +252,7 @@ simple:
 ### 2.2.0-beta 2022-09-26
 
 - Add Redis Source Connector
+
+### next version
+
+- [Improve] Support redis cluster mode connection and user authentication [3188](https://github.com/apache/incubator-seatunnel/pull/3188)

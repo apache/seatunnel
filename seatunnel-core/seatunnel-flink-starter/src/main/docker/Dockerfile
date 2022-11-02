@@ -31,7 +31,7 @@ ENV FLINK_HOME=/flink
 
 WORKDIR /seatunnel
 
-COPY target/seatunnel-core-flink.jar /seatunnel/lib/
+COPY target/seatunnel-core-flink.jar /seatunnel/starter/
 COPY src/main/bin /seatunnel/bin/
 
 ENTRYPOINT [ "/seatunnel/bin/start-seatunnel-flink-connector-v2.sh" ]

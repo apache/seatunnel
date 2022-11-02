@@ -126,11 +126,12 @@ jobs:
               - "seatunnel-formats/**"
               - "seatunnel-plugin-discovery/**"
               - "seatunnel-transforms/**"
+              - "seatunnel-transforms-v2/**"
               - "seatunnel-translation/**"
+              - "seatunnel-e2e/seatunnel-transforms-v2-e2e/**"
               - "seatunnel-e2e/seatunnel-flink-e2e/**"
               - "seatunnel-e2e/seatunnel-spark-e2e/**"
               - "seatunnel-connectors/**"
-              - "plugin-mapping.properties"
               - "pom.xml"
               - "**/workflows/**"
               - "**/tools/**"
@@ -237,7 +238,6 @@ jobs:
           ./mvnw -B -q install -DskipTests
           -D"maven.test.skip"=true
           -D"maven.javadoc.skip"=true
-          -D"scalastyle.skip"=true
           -D"checkstyle.skip"=true
           -D"license.skipAddThirdParty"
       - name: Check Dependencies Licenses
@@ -263,14 +263,14 @@ jobs:
       - name: run all modules unit test
         if: needs.changes.outputs.api == 'true'
         run: |
-          ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates
+          ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates
         env:
           MAVEN_OPTS: -Xmx2048m
 
       - name: run updated modules unit test
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != ''
         run: |
-          ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.ut-modules}} -am -amd -Pno_dist
+          ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.ut-modules}} -am -amd -Pno_dist
         env:
           MAVEN_OPTS: -Xmx2048m
 
@@ -293,14 +293,14 @@ jobs:
       - name: run all modules integration test
         if: needs.changes.outputs.api == 'true'
         run: |
-          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates
+          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates
         env:
           MAVEN_OPTS: -Xmx2048m
 
       - name: run updated modules integration test
         if: needs.changes.outputs.api == 'false'
         run: |
-          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.it-modules}} -am -amd -Pno_dist
+          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.it-modules}} -am -amd -Pno_dist
         env:
           MAVEN_OPTS: -Xmx2048m
 

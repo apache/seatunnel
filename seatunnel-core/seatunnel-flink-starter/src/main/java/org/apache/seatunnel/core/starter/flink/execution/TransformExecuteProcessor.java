@@ -19,7 +19,6 @@ package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
-import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.stream.FlinkStreamTransform;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFlinkTransformPluginDiscovery;
@@ -39,14 +38,12 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Fl
 
     private static final String PLUGIN_TYPE = "transform";
 
-    protected TransformExecuteProcessor(FlinkEnvironment flinkEnvironment,
-                                        JobContext jobContext,
-                                        List<? extends Config> pluginConfigs) {
-        super(flinkEnvironment, jobContext, pluginConfigs);
+    protected TransformExecuteProcessor(List<URL> jarPaths, List<? extends Config> pluginConfigs, JobContext jobContext) {
+        super(jarPaths, pluginConfigs, jobContext);
     }
 
     @Override
-    protected List<FlinkStreamTransform> initializePlugins(List<? extends Config> pluginConfigs) {
+    protected List<FlinkStreamTransform> initializePlugins(List<URL> jarPaths, List<? extends Config> pluginConfigs) {
         SeaTunnelFlinkTransformPluginDiscovery transformPluginDiscovery = new SeaTunnelFlinkTransformPluginDiscovery();
         List<URL> pluginJars = new ArrayList<>();
         List<FlinkStreamTransform> transforms = pluginConfigs.stream()
@@ -58,7 +55,7 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Fl
                 pluginInstance.prepare(flinkEnvironment);
                 return pluginInstance;
             }).distinct().collect(Collectors.toList());
-        flinkEnvironment.registerPlugin(pluginJars);
+        jarPaths.addAll(pluginJars);
         return transforms;
     }
 
