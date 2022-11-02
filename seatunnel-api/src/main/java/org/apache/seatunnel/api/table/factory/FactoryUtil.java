@@ -87,15 +87,9 @@ public final class FactoryUtil {
         return catalogFactory.createCatalog(catalogName, options);
     }
 
-    @SuppressWarnings("unchecked")
     public static <T extends Factory> T discoverFactory(
             ClassLoader classLoader, Class<T> factoryClass, String factoryIdentifier) {
-        final List<Factory> factories = discoverFactories(classLoader);
-
-        final List<Factory> foundFactories =
-                factories.stream()
-                        .filter(f -> factoryClass.isAssignableFrom(f.getClass()))
-                        .collect(Collectors.toList());
+        final List<T> foundFactories = discoverFactories(classLoader, factoryClass);
 
         if (foundFactories.isEmpty()) {
             throw new FactoryException(
@@ -104,7 +98,7 @@ public final class FactoryUtil {
                             factoryClass.getName()));
         }
 
-        final List<Factory> matchingFactories =
+        final List<T> matchingFactories =
                 foundFactories.stream()
                         .filter(f -> f.factoryIdentifier().equals(factoryIdentifier))
                         .collect(Collectors.toList());
@@ -138,7 +132,16 @@ public final class FactoryUtil {
                                     .collect(Collectors.joining("\n"))));
         }
 
-        return (T) matchingFactories.get(0);
+        return matchingFactories.get(0);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T extends Factory> List<T> discoverFactories(ClassLoader classLoader, Class<T> factoryClass) {
+        final List<Factory> factories = discoverFactories(classLoader);
+        return factories.stream()
+                .filter(f -> factoryClass.isAssignableFrom(f.getClass()))
+                .map(f -> (T) f)
+                .collect(Collectors.toList());
     }
 
     private static List<Factory> discoverFactories(ClassLoader classLoader) {
