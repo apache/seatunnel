@@ -26,6 +26,8 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -40,6 +42,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Serializable> implements BaseSourceFunction<T> {
     protected static final long SLEEP_TIME_INTERVAL = 5L;
     protected final SeaTunnelSource<T, SplitT, StateT> source;
@@ -80,7 +83,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
             createSplitEnumerator();
             createReaders();
         } catch (Exception e) {
-            e.printStackTrace();
+            log.warn("create split enumerator or readers failed", e);
         }
     }
 
