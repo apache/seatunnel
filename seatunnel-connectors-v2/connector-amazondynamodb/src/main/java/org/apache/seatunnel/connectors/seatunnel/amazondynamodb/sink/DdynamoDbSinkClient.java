@@ -104,8 +104,8 @@ public class DdynamoDbSinkClient {
             scheduledFuture.cancel(false);
             scheduler.shutdown();
         }
-        flush();
         if (dynamoDbClient != null) {
+            flush();
             dynamoDbClient.close();
         }
     }
