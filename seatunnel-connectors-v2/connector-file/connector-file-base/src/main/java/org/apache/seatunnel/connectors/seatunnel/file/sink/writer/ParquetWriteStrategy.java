@@ -117,6 +117,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
             }
             needMoveFiles.put(k, getTargetLocation(k));
         });
+        this.beingWrittenWriter.clear();
     }
 
     private ParquetWriter<GenericRecord> getOrCreateWriter(@NonNull String filePath) {
@@ -189,7 +190,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
                 Schema recordSchema = buildAvroSchemaWithRowType((SeaTunnelRowType) seaTunnelDataType, sinkColumnsIndex);
                 GenericRecordBuilder recordBuilder = new GenericRecordBuilder(recordSchema);
                 for (int i = 0; i < fieldNames.length; i++) {
-                    recordBuilder.set(fieldNames[i], resolveObject(seaTunnelRow.getField(i), fieldTypes[i]));
+                    recordBuilder.set(fieldNames[i].toLowerCase(), resolveObject(seaTunnelRow.getField(i), fieldTypes[i]));
                 }
                 return recordBuilder.build();
             default:
@@ -284,7 +285,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         String[] fieldNames = seaTunnelRowType.getFieldNames();
         sinkColumnsIndex.forEach(index -> {
-            Type type = seaTunnelDataType2ParquetDataType(fieldNames[index], fieldTypes[index]);
+            Type type = seaTunnelDataType2ParquetDataType(fieldNames[index].toLowerCase(), fieldTypes[index]);
             types.add(type);
         });
         MessageType seaTunnelRow = Types.buildMessage().addFields(types.toArray(new Type[0])).named("SeaTunnelRecord");

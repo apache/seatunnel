@@ -251,8 +251,14 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         String[] pathSegments = new String[]{textFileSinkConfig.getTmpPath(), Constant.SEATUNNEL, jobId};
         String jobDir = String.join(File.separator, pathSegments) + File.separator;
         try {
-            List<String> transactionDirList = FileSystemUtils.dirList(jobDir).stream().map(Path::toString).collect(Collectors.toList());
-            return transactionDirList.stream().map(dir -> dir.replaceAll(jobDir, "")).collect(Collectors.toList());
+            List<String> transactionDirList = FileSystemUtils.dirList(jobDir)
+                    .stream()
+                    .map(path -> path.toUri().getPath())
+                    .collect(Collectors.toList());
+            return transactionDirList
+                    .stream()
+                    .map(dir -> dir.replaceAll(jobDir, ""))
+                    .collect(Collectors.toList());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

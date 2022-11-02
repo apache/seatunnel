@@ -99,6 +99,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             }
             needMoveFiles.put(k, getTargetLocation(k));
         });
+        this.beingWrittenWriter.clear();
     }
 
     private Writer getOrCreateWriter(@NonNull String filePath) {
