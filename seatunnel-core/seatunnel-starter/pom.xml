@@ -52,10 +52,51 @@
             <artifactId>seatunnel-engine-server</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <!-- logger provider & bridges -->
+        <!-- Declare log4j2 asynchronous loggers provider: disruptor -->
+        <dependency>
+            <groupId>com.lmax</groupId>
+            <artifactId>disruptor</artifactId>
+        </dependency>
+        <!-- logger provider & bridges -->
+
     </dependencies>
 
     <build>
         <finalName>${project.name}</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <configuration>
+                    <artifactSet>
+                        <excludes>
+                            <!--
+                                not excluded:
+                                    slf4j-api
+                                    log4j2-api
+                                    log4j2-core
+                                    log4j-slf4j-impl
+                                    log4j-1.2-api(log4j1.x to log4j2.x bridge)
+                                    jcl-over-slf4j(commons-logging to slf4j bridge)
+                            -->
+                            <exclude>org.slf4j:slf4j-jdk14</exclude>
+                            <exclude>org.slf4j:slf4j-jcl</exclude>
+                            <exclude>org.slf4j:slf4j-nop</exclude>
+                            <exclude>org.slf4j:slf4j-simple</exclude>
+                            <exclude>org.slf4j:slf4j-reload4j</exclude>
+                            <exclude>org.slf4j:slf4j-log4j12</exclude>
+                            <exclude>org.slf4j:log4j-over-slf4j</exclude>
+                            <exclude>log4j:*</exclude>
+                            <exclude>commons-logging:*</exclude>
+                            <exclude>ch.qos.logback:*</exclude>
+                            <exclude>org.apache.logging.log4j:log4j-to-slf4j</exclude>
+                        </excludes>
+                    </artifactSet>
+                </configuration>
+            </plugin>
+        </plugins>
     </build>
 
 </project>

@@ -101,6 +101,49 @@
 
     <build>
         <finalName>${project.name}</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <configuration>
+                    <artifactSet>
+                        <excludes>
+                            <!--
+                                not excluded:
+                                    jcl-over-slf4j(commons-logging to slf4j bridge)
+
+                                Flink server lib already include:
+                                    slf4j-api
+                                    log4j-api
+                                    log4j-core
+                                    log4j-slf4j-impl
+                                    log4j-1.2-api
+                            -->
+                            <exclude>org.slf4j:slf4j-api</exclude>
+                            <exclude>org.slf4j:slf4j-jdk14</exclude>
+                            <exclude>org.slf4j:slf4j-jcl</exclude>
+                            <exclude>org.slf4j:slf4j-nop</exclude>
+                            <exclude>org.slf4j:slf4j-simple</exclude>
+                            <exclude>org.slf4j:slf4j-reload4j</exclude>
+                            <exclude>org.slf4j:slf4j-log4j12</exclude>
+                            <exclude>org.slf4j:log4j-over-slf4j</exclude>
+                            <exclude>log4j:*</exclude>
+                            <exclude>commons-logging:*</exclude>
+                            <exclude>ch.qos.logback:*</exclude>
+                            <exclude>org.apache.logging.log4j:log4j-api</exclude>
+                            <exclude>org.apache.logging.log4j:log4j-core</exclude>
+                            <exclude>org.apache.logging.log4j:log4j-slf4j-impl</exclude>
+                            <exclude>org.apache.logging.log4j:log4j-1.2-api</exclude>
+                            <exclude>org.apache.logging.log4j:log4j-to-slf4j</exclude>
+                        </excludes>
+                    </artifactSet>
+                </configuration>
+            </plugin>
+        </plugins>
     </build>
 
     <profiles>
