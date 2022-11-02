@@ -41,7 +41,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         description = "The name of cluster")
     private String clusterName = "seatunnel_default_cluster";
 
-    @Parameter(names = {"-j", "--job-state"},
+    @Parameter(names = {"-j", "--job-id"},
         description = "The id of jobId")
     private String jobId;
 
