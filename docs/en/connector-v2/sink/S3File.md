@@ -17,11 +17,11 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 - [ ] [schema projection](../../concept/connector-v2-features.md)
 - [x] file format
-    - [x] text
-    - [x] csv
-    - [x] parquet
-    - [x] orc
-    - [x] json
+  - [x] text
+  - [x] csv
+  - [x] parquet
+  - [x] orc
+  - [x] json
 
 ## Options
 
@@ -199,6 +199,6 @@ For orc file format
 
 ## Changelog
 
-| Version    | Date       | Pull Request                                                    | Subject      |
-|------------|------------|-----------------------------------------------------------------|--------------|
-| 2.2.0-beta | 2022-10-17 | [3119](https://github.com/apache/incubator-seatunnel/pull/3119) | First commit |
+### 2.3.0-beta 2022-10-20
+
+- Add S3File Sink Connector
