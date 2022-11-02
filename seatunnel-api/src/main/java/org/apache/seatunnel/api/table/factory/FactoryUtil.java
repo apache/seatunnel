@@ -137,8 +137,7 @@ public final class FactoryUtil {
 
     @SuppressWarnings("unchecked")
     public static <T extends Factory> List<T> discoverFactories(ClassLoader classLoader, Class<T> factoryClass) {
-        final List<Factory> factories = discoverFactories(classLoader);
-        return factories.stream()
+        return discoverFactories(classLoader).stream()
                 .filter(f -> factoryClass.isAssignableFrom(f.getClass()))
                 .map(f -> (T) f)
                 .collect(Collectors.toList());
