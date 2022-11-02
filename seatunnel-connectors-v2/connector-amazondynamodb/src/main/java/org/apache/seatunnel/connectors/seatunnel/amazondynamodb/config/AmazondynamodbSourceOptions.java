@@ -45,33 +45,18 @@ public class AmazondynamodbSourceOptions implements Serializable {
 
     private Config schema;
 
-    public int batchSize = DEFAULT_BATCH_SIZE;
-    public int batchIntervalMs = DEFAULT_BATCH_INTERVAL_MS;
+    private int batchSize;
+
+    private int batchIntervalMs;
 
     public AmazondynamodbSourceOptions(Config config) {
-        if (config.hasPath(AmazondynamodbConfig.URL)) {
-            this.url = config.getString(AmazondynamodbConfig.URL);
-        }
-        if (config.hasPath(AmazondynamodbConfig.REGION)) {
-            this.region = config.getString(AmazondynamodbConfig.REGION);
-        }
-        if (config.hasPath(AmazondynamodbConfig.ACCESS_KEY_ID)) {
-            this.accessKeyId = config.getString(AmazondynamodbConfig.ACCESS_KEY_ID);
-        }
-        if (config.hasPath(AmazondynamodbConfig.SECRET_ACCESS_KEY)) {
-            this.secretAccessKey = config.getString(AmazondynamodbConfig.SECRET_ACCESS_KEY);
-        }
-        if (config.hasPath(AmazondynamodbConfig.TABLE)) {
-            this.table = config.getString(AmazondynamodbConfig.TABLE);
-        }
-        if (config.hasPath(CommonConfig.SCHEMA)) {
-            this.schema = config.getConfig(CommonConfig.SCHEMA);
-        }
-        if (config.hasPath(AmazondynamodbConfig.BATCH_SIZE)) {
-            this.batchSize = config.getInt(AmazondynamodbConfig.BATCH_SIZE);
-        }
-        if (config.hasPath(AmazondynamodbConfig.DEFAULT_BATCH_INTERVAL_MS)) {
-            this.batchIntervalMs = config.getInt(AmazondynamodbConfig.DEFAULT_BATCH_INTERVAL_MS);
-        }
+        this.url = config.getString(AmazondynamodbConfig.URL);
+        this.region = config.getString(AmazondynamodbConfig.REGION);
+        this.accessKeyId = config.getString(AmazondynamodbConfig.ACCESS_KEY_ID);
+        this.secretAccessKey = config.getString(AmazondynamodbConfig.SECRET_ACCESS_KEY);
+        this.table = config.getString(AmazondynamodbConfig.TABLE);
+        this.schema = config.getConfig(CommonConfig.SCHEMA);
+        this.batchSize = config.getInt(AmazondynamodbConfig.BATCH_SIZE);
+        this.batchIntervalMs = config.getInt(AmazondynamodbConfig.DEFAULT_BATCH_INTERVAL_MS);
     }
 }

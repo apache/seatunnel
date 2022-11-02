@@ -64,8 +64,7 @@ public class AmazondynamodbSource extends AbstractSingleSplitSource<SeaTunnelRow
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
         amazondynamodbSourceOptions = new AmazondynamodbSourceOptions(pluginConfig);
-        Config schema = amazondynamodbSourceOptions.getSchema();
-        typeInfo = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
+        typeInfo = SeaTunnelSchema.buildWithConfig(amazondynamodbSourceOptions.getSchema()).getSeaTunnelRowType();
     }
 
     @Override
