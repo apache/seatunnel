@@ -166,7 +166,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                 TypeDescription struct = TypeDescription.createStruct();
                 SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) type).getFieldTypes();
                 for (int i = 0; i < fieldTypes.length; i++) {
-                    struct.addField(((SeaTunnelRowType) type).getFieldName(i), buildFieldWithRowType(fieldTypes[i]));
+                    struct.addField(((SeaTunnelRowType) type).getFieldName(i).toLowerCase(), buildFieldWithRowType(fieldTypes[i]));
                 }
                 return struct;
             case NULL:
