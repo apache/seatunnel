@@ -207,7 +207,6 @@ jobs:
           includes=`python tools/update_modules_check/update_modules_check.py tree $tree_modules`
           ./mvnw -Pno_dist -D"e2e.dependency.skip"=false  dependency:tree $includes -DoutputType=text -DoutputFile=/tmp/tree_out.txt
           build_modules=`python tools/update_modules_check/update_modules_check.py final_ut /tmp/tree_out.txt`
-          build_modules=${build_modules: 1}
           echo $build_modules
           echo "modules=$build_modules" >> $GITHUB_OUTPUT
 
@@ -224,7 +223,6 @@ jobs:
           includes=`python tools/update_modules_check/update_modules_check.py tree $tree_modules`
           ./mvnw -Pno_dist -D"e2e.dependency.skip"=false  dependency:tree $includes -DoutputType=text -DoutputFile=/tmp/tree_out.txt
           build_modules=`python tools/update_modules_check/update_modules_check.py final_it /tmp/tree_out.txt`
-          build_modules=${build_modules: 1}
           echo $build_modules
           echo "modules=$build_modules" >> $GITHUB_OUTPUT
 
