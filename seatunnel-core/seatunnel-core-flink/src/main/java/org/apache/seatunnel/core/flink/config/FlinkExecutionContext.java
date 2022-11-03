@@ -20,6 +20,7 @@ package org.apache.seatunnel.core.flink.config;
 import org.apache.seatunnel.apis.base.api.BaseSink;
 import org.apache.seatunnel.apis.base.api.BaseSource;
 import org.apache.seatunnel.apis.base.api.BaseTransform;
+import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.core.base.config.AbstractExecutionContext;
 import org.apache.seatunnel.core.base.config.EngineType;
@@ -33,6 +34,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -75,7 +77,7 @@ public class FlinkExecutionContext extends AbstractExecutionContext<FlinkEnviron
     public List<BaseTransform<FlinkEnvironment>> getTransforms() {
         final String pluginType = PluginType.TRANSFORM.getType();
         final String engineType = EngineType.FLINK.getEngine();
-        final List<? extends Config> configList = getRootConfig().getConfigList(pluginType);
+        final List<? extends Config> configList = TypesafeConfigUtils.getConfigList(getRootConfig(), pluginType, Collections.emptyList());
         return configList.stream()
             .map(pluginConfig -> {
                 PluginIdentifier pluginIdentifier = PluginIdentifier.of(engineType, pluginType, pluginConfig.getString("plugin_name"));
