@@ -26,4 +26,5 @@ public class BaseSourceConfig {
     public static final String DATETIME_FORMAT = "datetime_format";
     public static final String TIME_FORMAT = "time_format";
     public static final String PARSE_PARTITION_FROM_PATH = "parse_partition_from_path";
+    public static final String SKIP_HEADER_ROW_NUMBER = "skip_header_row_number";
 }
