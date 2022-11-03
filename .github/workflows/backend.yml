@@ -201,7 +201,7 @@ jobs:
           modules='${{ steps.engine-modules.outputs.modules }}${{ steps.cv2-modules.outputs.modules }}'
           modules=${modules: 1}
           pl_modules=`python tools/update_modules_check/update_modules_check.py replace $modules`
-          ./mvnw -Pno_dist -D"e2e.dependency.skip"=false  dependency:tree -DoutputType=text -DoutputFile=/tmp/tree_out.txt -amd -pl $pl_modules -c
+          ./mvnw -Pno_dist -D"e2e.dependency.skip"=false  dependency:tree -DoutputType=text -DoutputFile=/tmp/tree_out.txt -am -amd -pl $pl_modules -c
           build_modules=`python tools/update_modules_check/update_modules_check.py final_ut /tmp/tree_out.txt`
           echo $build_modules
           echo "modules=$build_modules" >> $GITHUB_OUTPUT
@@ -213,7 +213,7 @@ jobs:
           modules='${{ steps.cv2-e2e-modules.outputs.modules }}${{ steps.cv2-flink-e2e-modules.outputs.modules }}${{ steps.cv2-spark-e2e-modules.outputs.modules }}${{ steps.engine-e2e-modules.outputs.modules }}${{ steps.engine-modules.outputs.modules }}${{ steps.cv2-modules.outputs.modules }}'
           modules=${modules: 1}
           pl_modules=`python tools/update_modules_check/update_modules_check.py replace $modules`
-          ./mvnw -Pno_dist -D"e2e.dependency.skip"=false  dependency:tree -DoutputType=text -DoutputFile=/tmp/tree_out.txt -amd -pl $pl_modules -c
+          ./mvnw -Pno_dist -D"e2e.dependency.skip"=false  dependency:tree -DoutputType=text -DoutputFile=/tmp/tree_out.txt -am -amd -pl $pl_modules -c
           build_modules=`python tools/update_modules_check/update_modules_check.py final_it /tmp/tree_out.txt`
           echo $build_modules
           echo "modules=$build_modules" >> $GITHUB_OUTPUT
