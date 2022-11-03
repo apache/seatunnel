@@ -107,6 +107,7 @@ def get_final_ut_modules(file):
             if con[2] == "jar":
                 output = output + "," + ":" + con[1]
 
+    output = output[1:len(output)]
     print(output)
 
 def main(argv):
