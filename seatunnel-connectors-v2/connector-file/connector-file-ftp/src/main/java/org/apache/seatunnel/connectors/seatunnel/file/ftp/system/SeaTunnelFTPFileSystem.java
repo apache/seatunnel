@@ -99,11 +99,12 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
         // get user/password information from URI (overrides info in conf)
         String userAndPassword = uri.getUserInfo();
         if (userAndPassword == null) {
-            userAndPassword = conf.get("fs.ftp.user." + host, null) + ":" + conf
-                    .get("fs.ftp.password." + host, null);
-            if (userAndPassword == null) {
-                throw new IOException("Invalid user/passsword specified");
+            String user = conf.get("fs.ftp.user." + host, null);
+            String password = conf.get("fs.ftp.password." + host, null);
+            if (user == null || password == null) {
+                throw new IOException("Invalid user/password specified");
             }
+            userAndPassword = user + ":" + password;
         }
         String[] userPasswdInfo = userAndPassword.split(":");
         conf.set(FS_FTP_USER_PREFIX + host, userPasswdInfo[0]);
