@@ -155,6 +155,9 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     private Object resolveObject(Object data, SeaTunnelDataType<?> seaTunnelDataType) {
+        if (data == null) {
+            return null;
+        }
         switch (seaTunnelDataType.getSqlType()) {
             case ARRAY:
                 BasicType<?> elementType = ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
