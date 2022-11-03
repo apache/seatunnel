@@ -43,7 +43,6 @@
         <module>connector-file-sftp</module>
         <module>connector-file-s3</module>
     </modules>
-
     <build>
         <plugins>
             <plugin>
