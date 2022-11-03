@@ -45,9 +45,8 @@ public class AmazondynamodbSourceOptions implements Serializable {
 
     private Config schema;
 
-    private int batchSize;
-
-    private int batchIntervalMs;
+    public int batchSize = DEFAULT_BATCH_SIZE;
+    public int batchIntervalMs = DEFAULT_BATCH_INTERVAL_MS;
 
     public AmazondynamodbSourceOptions(Config config) {
         this.url = config.getString(AmazondynamodbConfig.URL);
@@ -56,7 +55,12 @@ public class AmazondynamodbSourceOptions implements Serializable {
         this.secretAccessKey = config.getString(AmazondynamodbConfig.SECRET_ACCESS_KEY);
         this.table = config.getString(AmazondynamodbConfig.TABLE);
         this.schema = config.getConfig(CommonConfig.SCHEMA);
-        this.batchSize = config.getInt(AmazondynamodbConfig.BATCH_SIZE);
-        this.batchIntervalMs = config.getInt(AmazondynamodbConfig.DEFAULT_BATCH_INTERVAL_MS);
+
+        if (config.hasPath(AmazondynamodbConfig.BATCH_SIZE)) {
+            this.batchSize = config.getInt(AmazondynamodbConfig.BATCH_SIZE);
+        }
+        if (config.hasPath(AmazondynamodbConfig.DEFAULT_BATCH_INTERVAL_MS)) {
+            this.batchIntervalMs = config.getInt(AmazondynamodbConfig.DEFAULT_BATCH_INTERVAL_MS);
+        }
     }
 }
