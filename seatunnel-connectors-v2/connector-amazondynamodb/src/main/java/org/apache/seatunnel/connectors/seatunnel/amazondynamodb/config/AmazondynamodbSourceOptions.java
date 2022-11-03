@@ -54,8 +54,10 @@ public class AmazondynamodbSourceOptions implements Serializable {
         this.accessKeyId = config.getString(AmazondynamodbConfig.ACCESS_KEY_ID);
         this.secretAccessKey = config.getString(AmazondynamodbConfig.SECRET_ACCESS_KEY);
         this.table = config.getString(AmazondynamodbConfig.TABLE);
-        this.schema = config.getConfig(CommonConfig.SCHEMA);
 
+        if (config.hasPath(CommonConfig.SCHEMA)) {
+            this.schema = config.getConfig(CommonConfig.SCHEMA);
+        }
         if (config.hasPath(AmazondynamodbConfig.BATCH_SIZE)) {
             this.batchSize = config.getInt(AmazondynamodbConfig.BATCH_SIZE);
         }
