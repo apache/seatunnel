@@ -64,17 +64,14 @@ public class TextSerializationSchema implements SerializationSchema {
             return "";
         }
         switch (fieldType.getSqlType()) {
-            case ARRAY:
-            case MAP:
-                return JsonUtils.toJsonString(field);
+            case DOUBLE:
+            case FLOAT:
+            case INT:
             case STRING:
             case BOOLEAN:
             case TINYINT:
             case SMALLINT:
-            case INT:
             case BIGINT:
-            case FLOAT:
-            case DOUBLE:
             case DECIMAL:
                 return field.toString();
             case DATE:
@@ -87,6 +84,9 @@ public class TextSerializationSchema implements SerializationSchema {
                 return "";
             case BYTES:
                 return new String((byte[]) field);
+            case ARRAY:
+            case MAP:
+                return JsonUtils.toJsonString(field);
             case ROW:
                 Object[] fields = ((SeaTunnelRow) field).getFields();
                 String[] strings = new String[fields.length];
