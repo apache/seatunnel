@@ -63,6 +63,17 @@ def replace_comma_to_commacolon(modules_str):
     modules_str = ":" + modules_str
     print(modules_str)
 
+def get_sub_modules(file):
+    f = open(file, 'rb')
+    output = ""
+    for line in f.readlines():
+        line = line.replace(" ","")
+        if line.startswith("<string>"):
+            line = line.replace(" ","").replace("<string>", "").replace("</string>", "").replace("\n", "")
+            output = output + "," + line
+
+    print(output)
+
 def get_dependency_tree_includes(modules_str):
     modules = modules_str.split(',')
     output = ""
@@ -96,7 +107,6 @@ def get_final_ut_modules(file):
             if con[2] == "jar":
                 output = output + "," + ":" + con[1]
 
-    output = output[1:len(output)]
     print(output)
 
 def main(argv):
@@ -120,6 +130,8 @@ def main(argv):
         get_final_ut_modules(argv[2])
     elif argv[1] == "replace":
         replace_comma_to_commacolon(argv[2])
+    elif argv[1] == "sub":
+        get_sub_modules(argv[2])
 
 if __name__ == "__main__":
     main(sys.argv)
