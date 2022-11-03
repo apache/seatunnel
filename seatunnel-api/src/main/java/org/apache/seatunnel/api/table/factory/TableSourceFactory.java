@@ -28,5 +28,8 @@ import java.io.Serializable;
  */
 public interface TableSourceFactory extends Factory {
 
-    <T, SplitT extends SourceSplit, StateT extends Serializable> TableSource<T, SplitT, StateT> createSource(TableFactoryContext context);
+    default <T, SplitT extends SourceSplit, StateT extends Serializable> TableSource<T, SplitT, StateT> createSource(TableFactoryContext context) {
+        throw new UnsupportedOperationException(this.getClass().getName() + " unsupported create source at now");
+    }
+
 }

@@ -187,6 +187,11 @@ public class OptionRule {
             return this;
         }
 
+        public Builder bothRequired(Option<?>... requiredOptions) {
+            this.requiredOptions.add(RequiredOption.BothRequiredOptions.of(new HashSet<>(Arrays.asList(requiredOptions))));
+            return this;
+        }
+
         public OptionRule build() {
             return new OptionRule(optionalOptions, requiredOptions);
         }

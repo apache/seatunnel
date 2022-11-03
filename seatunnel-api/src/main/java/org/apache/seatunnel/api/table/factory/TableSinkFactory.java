@@ -30,6 +30,8 @@ import org.apache.seatunnel.api.table.connector.TableSink;
  */
 public interface TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends Factory {
 
-    TableSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createSink(TableFactoryContext context);
+    default TableSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createSink(TableFactoryContext context) {
+        return null;
+    }
 
 }

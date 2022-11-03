@@ -17,80 +17,97 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+
+import java.util.Collections;
+import java.util.Map;
+
+@SuppressWarnings("checkstyle:MagicNumber")
 public class Config {
 
     /**
      * Bulk size of clickhouse jdbc
      */
-    public static final String BULK_SIZE = "bulk_size";
+    public static final Option<Integer> BULK_SIZE = Options.key("bulk_size").intType()
+        .defaultValue(20000).withDescription("Bulk size of clickhouse jdbc");
 
     /**
      * Clickhouse fields
      */
-    public static final String FIELDS = "fields";
+    public static final Option<String> FIELDS = Options.key("fields").stringType()
+        .noDefaultValue().withDescription("Clickhouse fields");
 
-    public static final String SQL = "sql";
+    public static final Option<String> SQL = Options.key("sql").stringType()
+        .noDefaultValue().withDescription("Clickhouse sql used to query data");
 
     /**
      * Clickhouse server host
      */
-    public static final String HOST = "host";
+    public static final Option<String> HOST = Options.key("host").stringType()
+        .noDefaultValue().withDescription("Clickhouse server host");
 
     /**
      * Clickhouse table name
      */
-    public static final String TABLE = "table";
+    public static final Option<String> TABLE = Options.key("table").stringType()
+        .noDefaultValue().withDescription("Clickhouse table name");
 
     /**
      * Clickhouse database name
      */
-    public static final String DATABASE = "database";
+    public static final Option<String> DATABASE = Options.key("database").stringType()
+        .noDefaultValue().withDescription("Clickhouse database name");
 
     /**
      * Clickhouse server username
      */
-    public static final String USERNAME = "username";
+    public static final Option<String> USERNAME = Options.key("username").stringType()
+        .noDefaultValue().withDescription("Clickhouse server username");
 
     /**
      * Clickhouse server password
      */
-    public static final String PASSWORD = "password";
+    public static final Option<String> PASSWORD = Options.key("password").stringType()
+        .noDefaultValue().withDescription("Clickhouse server password");
 
     /**
      * Split mode when table is distributed engine
      */
-    public static final String SPLIT_MODE = "split_mode";
+    public static final Option<Boolean> SPLIT_MODE = Options.key("split_mode").booleanType()
+        .defaultValue(false).withDescription("Split mode when table is distributed engine");
 
     /**
      * When split_mode is true, the sharding_key use for split
      */
-    public static final String SHARDING_KEY = "sharding_key";
+    public static final Option<String> SHARDING_KEY = Options.key("sharding_key").stringType()
+        .noDefaultValue().withDescription("When split_mode is true, the sharding_key use for split");
 
     /**
      * ClickhouseFile sink connector used clickhouse-local program's path
      */
-    public static final String CLICKHOUSE_LOCAL_PATH = "clickhouse_local_path";
+    public static final Option<String> CLICKHOUSE_LOCAL_PATH = Options.key("clickhouse_local_path").stringType()
+        .noDefaultValue().withDescription("ClickhouseFile sink connector used clickhouse-local program's path");
 
     /**
      * The method of copy Clickhouse file
      */
-    public static final String COPY_METHOD = "copy_method";
-
-    /**
-     * The size of each batch read temporary data into local file.
-     */
-    public static final String TMP_BATCH_CACHE_LINE = "tmp_batch_cache_line";
+    public static final Option<ClickhouseFileCopyMethod> COPY_METHOD = Options.key("copy_method").enumType(ClickhouseFileCopyMethod.class)
+        .defaultValue(ClickhouseFileCopyMethod.SCP).withDescription("The method of copy Clickhouse file");
 
     /**
      * The password of Clickhouse server node
      */
-    public static final String NODE_PASS = "node_pass";
+    public static final Option<String> NODE_PASS = Options.key("node_pass").stringType()
+        .noDefaultValue().withDescription("The password of Clickhouse server node");
 
     /**
      * The address of Clickhouse server node
      */
-    public static final String NODE_ADDRESS = "node_address";
+    public static final Option<String> NODE_ADDRESS = Options.key("node_address").stringType()
+        .noDefaultValue().withDescription("The address of Clickhouse server node");
 
-    public static final String CLICKHOUSE_PREFIX = "clickhouse.";
+    public static final Option<Map<String, String>> CLICKHOUSE_PREFIX = Options.key("clickhouse").mapType()
+        .defaultValue(Collections.emptyMap()).withDescription("Clickhouse custom config");
 
 }

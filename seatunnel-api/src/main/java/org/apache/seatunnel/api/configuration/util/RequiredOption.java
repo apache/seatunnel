@@ -159,4 +159,45 @@ public interface RequiredOption {
             return String.format("Condition expression: %s, Required options: %s", expression, ExclusiveRequiredOptions.getOptionKeys(requiredOption));
         }
     }
+
+    /**
+     * All options must exist or not exist at the same time
+     */
+    class BothRequiredOptions implements RequiredOption {
+        private final Set<Option<?>> requiredOption;
+
+        BothRequiredOptions(Set<Option<?>> requiredOption) {
+            this.requiredOption = requiredOption;
+        }
+
+        public static BothRequiredOptions of(Set<Option<?>> requiredOption) {
+            return new BothRequiredOptions(requiredOption);
+        }
+
+        public Set<Option<?>> getRequiredOption() {
+            return requiredOption;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (!(obj instanceof BothRequiredOptions)) {
+                return false;
+            }
+            BothRequiredOptions that = (BothRequiredOptions) obj;
+            return Objects.equals(this.requiredOption, that.requiredOption);
+        }
+
+        @Override
+        public int hashCode() {
+            return this.requiredOption.hashCode();
+        }
+
+        @Override
+        public String toString() {
+            return String.format("Both Required options: %s", ExclusiveRequiredOptions.getOptionKeys(requiredOption));
+        }
+    }
 }
