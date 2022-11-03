@@ -225,12 +225,14 @@ const sidebars = {
         },
         "deployment",
         {
-            "type": "category",
-            "label": "Contribution",
-            "items": [
-                "contribution/setup",
-                "contribution/new-license"
-            ]
+            type: 'category',
+            label: 'Contribution',
+            items: [
+                'contribution/setup',
+                'contribution/new-license',
+                'contribution/coding-guide',
+                'contribution/contribute-transform-v2-guide',
+            ],
         },
         "faq"
     ]

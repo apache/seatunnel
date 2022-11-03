@@ -144,7 +144,6 @@ public class ClusterFaultToleranceIT {
      * @param jobMode      jobMode
      * @param rowNumber    row.num per FakeSource parallelism
      * @param parallelism  FakeSource parallelism
-     * @return
      */
     private ImmutablePair<String, String> createTestResources(@NonNull String testCaseName, @NonNull JobMode jobMode,
                                                               long rowNumber, int parallelism) {
