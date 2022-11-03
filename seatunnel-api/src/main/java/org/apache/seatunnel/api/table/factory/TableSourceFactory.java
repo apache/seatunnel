@@ -34,6 +34,6 @@ public interface TableSourceFactory extends Factory {
      * @return
      */
     default <T, SplitT extends SourceSplit, StateT extends Serializable> TableSource<T, SplitT, StateT> createSource(TableFactoryContext context) {
-        return null;
+        throw new UnsupportedOperationException("unsupported now");
     }
 }

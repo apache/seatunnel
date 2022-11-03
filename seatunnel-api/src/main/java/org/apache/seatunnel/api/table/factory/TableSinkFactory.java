@@ -36,7 +36,7 @@ public interface TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT
      * @return
      */
     default TableSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createSink(TableFactoryContext context) {
-        return null;
+        throw new UnsupportedOperationException("unsupported now");
     }
 
 }
