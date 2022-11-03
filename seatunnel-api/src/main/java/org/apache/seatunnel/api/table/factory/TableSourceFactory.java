@@ -28,5 +28,12 @@ import java.io.Serializable;
  */
 public interface TableSourceFactory extends Factory {
 
-    <T, SplitT extends SourceSplit, StateT extends Serializable> TableSource<T, SplitT, StateT> createSource(TableFactoryContext context);
+    /**
+     * We will never use this method now. So gave a default implement and return null.
+     * @param context TableFactoryContext
+     * @return
+     */
+    default <T, SplitT extends SourceSplit, StateT extends Serializable> TableSource<T, SplitT, StateT> createSource(TableFactoryContext context) {
+        return null;
+    }
 }
