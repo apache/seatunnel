@@ -16,8 +16,9 @@
  */
 package org.apache.seatunnel.spark.hbase.sink
 
-import scala.collection.JavaConversions._
-import scala.util.control.Breaks._
+import java.nio.charset.StandardCharsets
+import scala.collection.JavaConversions.{asScalaSet,mapAsJavaMap}
+import scala.util.control.Breaks.{break, breakable}
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
@@ -36,7 +37,7 @@ import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{Dataset, Row}
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.DataTypes
+import org.apache.spark.sql.types.{DataTypes, MapType}
 
 class Hbase extends SparkBatchSink with Logging {
 
@@ -44,7 +45,7 @@ class Hbase extends SparkBatchSink with Logging {
   var hbaseContext: HBaseContext = _
   var hbasePrefix = "hbase."
   var zookeeperPrefix = "zookeeper."
-
+  var MAP_TYPE = "map"
   override def checkConfig(): CheckResult = {
     checkAllExists(config, HBASE_ZOOKEEPER_QUORUM, CATALOG, STAGING_DIR)
   }
@@ -70,16 +71,22 @@ class Hbase extends SparkBatchSink with Logging {
   }
 
   override def output(df: Dataset[Row], environment: SparkEnvironment): Unit = {
-    var dfWithStringFields = df
+    var dfWithFields = df
     val colNames = df.columns
     val catalog = config.getString(CATALOG)
     val stagingDir = config.getString(STAGING_DIR) + "/" + System.currentTimeMillis().toString
     val nullable = config.getBoolean(NULLABLE)
+    var mapKeyType = DataTypes.StringType
+    var mapValueType = DataTypes.IntegerType
 
-    // convert all columns type to string
     for (colName <- colNames) {
-      dfWithStringFields =
-        dfWithStringFields.withColumn(colName, col(colName).cast(DataTypes.StringType))
+      if (df.schema(colName).dataType.typeName == MAP_TYPE) {
+        mapKeyType = df.schema(colName).dataType.asInstanceOf[MapType].keyType
+        mapValueType = df.schema(colName).dataType.asInstanceOf[MapType].valueType
+      } else {
+        dfWithFields =
+          dfWithFields.withColumn(colName, col(colName).cast(DataTypes.StringType))
+      }
     }
 
     val parameters = Map(HBaseTableCatalog.tableCatalog -> catalog)
@@ -102,8 +109,35 @@ class Hbase extends SparkBatchSink with Logging {
           (Bytes.toBytes(htc.getField(colName).cf), Bytes.toBytes(colName), colName)).toSet
       }
 
+      def mapTypeParser(row: Row, colName: String): Map[Any, Any] = {
+        (mapKeyType, mapValueType) match {
+          case (DataTypes.IntegerType, DataTypes.IntegerType) =>
+            row.getAs[Map[Int, Int]](colName).map { case (k, v) => (k, v) }
+          case (DataTypes.IntegerType, DataTypes.LongType) =>
+            row.getAs[Map[Int, Long]](colName).map { case (k, v) => (k, v) }
+          case (DataTypes.IntegerType, DataTypes.FloatType) =>
+            row.getAs[Map[Int, Float]](colName).map { case (k, v) => (k, v) }
+          case (DataTypes.IntegerType, DataTypes.DoubleType) =>
+            row.getAs[Map[Int, Double]](colName).map { case (k, v) => (k, v) }
+          case (DataTypes.IntegerType, DataTypes.StringType) =>
+            row.getAs[Map[Int, String]](colName).map { case (k, v) => (k, v) }
+          case (DataTypes.StringType, DataTypes.IntegerType) =>
+            row.getAs[Map[String, Int]](colName).map { case (k, v) => (k, v) }
+          case (DataTypes.StringType, DataTypes.LongType) =>
+            row.getAs[Map[String, Long]](colName).map { case (k, v) => (k, v) }
+          case (DataTypes.StringType, DataTypes.FloatType) =>
+            row.getAs[Map[String, Float]](colName).map { case (k, v) => (k, v) }
+          case (DataTypes.StringType, DataTypes.DoubleType) =>
+            row.getAs[Map[String, Double]](colName).map { case (k, v) => (k, v) }
+          case (DataTypes.StringType, DataTypes.StringType) =>
+            row.getAs[Map[String, String]](colName).map { case (k, v) => (k, v) }
+          case _ =>
+            throw new Exception("Unsupported map type: " + mapKeyType.typeName + "," + mapValueType.typeName)
+        }
+      }
+
       hbaseContext.bulkLoadThinRows[Row](
-        dfWithStringFields.rdd,
+        dfWithFields.rdd,
         tableName,
         r => {
           val rawPK = new StringBuilder
@@ -114,18 +148,43 @@ class Hbase extends SparkBatchSink with Logging {
           val rkBytes = rawPK.toString.getBytes()
           val familyQualifiersValues = new FamiliesQualifiersValues
           val fq = familyQualifierToByte
-          for (c <- fq) {
-            breakable {
-              val family = c._1
-              val qualifier = c._2
-              val value = r.getAs[String](c._3)
-              if (value == null) {
-                if (nullable) {
-                  familyQualifiersValues += (family, qualifier, null)
-                }
-                break
+
+          for (c <- r.schema.fields) {
+            val colName = c.name
+            val colType = c.dataType.typeName
+
+            if (colType == MAP_TYPE) {
+              val map = mapTypeParser(r, colName)
+              for (entry <- map.entrySet()) {
+                val key = entry.getKey.toString
+                val value = entry.getValue.toString
+                val familyQualifier = fq.filter(_._3 == colName).head
+
+                familyQualifiersValues.add(
+                  familyQualifier._1,
+                  Bytes.toBytes(key),
+                  Bytes.toBytes(value))
               }
-              familyQualifiersValues += (family, qualifier, Bytes.toBytes(value))
+            } else {
+              breakable {
+                var familyQualifier = new Tuple3[Array[Byte], Array[Byte], String](null, null, null)
+                try {
+                  familyQualifier = fq.filter(_._3 == colName).head
+                } catch {
+                  case e: Exception =>
+                    log.warn("WARN: Not found content in the familyQualifier, Skip:" + e.getMessage)
+                    break
+                }
+
+                val colValue = r.getAs[String](colName)
+                familyQualifiersValues.add(
+                  familyQualifier._1,
+                  familyQualifier._2,
+                  Bytes.toBytes(colValue))
+                val colBytes = colValue.getBytes(StandardCharsets.UTF_8)
+                val (family, qualifier, _) = fq.find(_._3 == colName).get
+                familyQualifiersValues.add(family, qualifier, colBytes)
+              }
             }
           }
           (new ByteArrayWrapper(rkBytes), familyQualifiersValues)
@@ -139,7 +198,11 @@ class Hbase extends SparkBatchSink with Logging {
         hbaseConn.getAdmin,
         table,
         hbaseConn.getRegionLocator(tableName))
-
+    } catch {
+      case e: Exception => {
+        log.error("hbase bulk load failed", e)
+        throw e
+      }
     } finally {
       if (hbaseConn != null) {
         hbaseConn.close()
