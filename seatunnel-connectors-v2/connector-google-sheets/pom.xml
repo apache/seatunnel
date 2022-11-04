@@ -63,7 +63,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.1.0</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -74,7 +73,7 @@
                             <relocations>
                                 <relocation>
                                     <pattern>com.google.common</pattern>
-                                    <shadedPattern>my_guava.common</shadedPattern>
+                                    <shadedPattern>${seatunnel.shade.package}.google.sheets.com.google.common</shadedPattern>
                                 </relocation>
                             </relocations>
                             <filters>
