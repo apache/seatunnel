@@ -130,10 +130,10 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                         writer.abortPrepare();
                         throw e;
                     }
+                    List<StateT> states = writer.snapshotState(barrier.getId());
                     if (!writerStateSerializer.isPresent()) {
                         runningTask.addState(barrier, sinkAction.getId(), Collections.emptyList());
                     } else {
-                        List<StateT> states = writer.snapshotState(barrier.getId());
                         runningTask.addState(barrier, sinkAction.getId(), serializeStates(writerStateSerializer.get(), states));
                     }
                     if (containAggCommitter) {

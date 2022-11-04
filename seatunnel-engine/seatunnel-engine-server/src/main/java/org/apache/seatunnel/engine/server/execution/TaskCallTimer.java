@@ -19,11 +19,14 @@ package org.apache.seatunnel.engine.server.execution;
 
 import org.apache.seatunnel.engine.server.TaskExecutionService;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * TaskCallTimer is a time-consuming timer for Task Call method execution
  */
+@Slf4j
 public class TaskCallTimer extends Thread {
 
     long nextExecutionTime;
@@ -120,7 +123,7 @@ public class TaskCallTimer extends Thread {
                     }
                 }
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                log.warn("TaskCallTimer thread interrupted", e);
             }
         }
     }
