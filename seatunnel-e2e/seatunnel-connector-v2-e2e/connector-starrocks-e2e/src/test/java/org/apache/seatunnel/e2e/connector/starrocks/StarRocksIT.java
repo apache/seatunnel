@@ -164,7 +164,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                 .withNetworkAliases(HOST)
                 .withLogConsumer(new Slf4jLogConsumer(log));
         starRocksServer.setPortBindings(Lists.newArrayList(
-                String.format("%s:%s", SR_DOCKER_PORT, SR_PORT)));
+                String.format("%s:%s", SR_PORT, SR_DOCKER_PORT)));
         Startables.deepStart(Stream.of(starRocksServer)).join();
         log.info("StarRocks container started");
         // wait for starrocks fully start
