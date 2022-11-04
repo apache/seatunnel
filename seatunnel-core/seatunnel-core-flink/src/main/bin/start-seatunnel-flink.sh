@@ -51,23 +51,33 @@ else
     args=$@
 fi
 
-ENV_PARAMETERS_OR_ERROR=$(java -cp ${APP_JAR} ${ENV_PARAMETERS_MAIN} ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
+set +u
+# Log4j2 Config
+if [ -e "${CONF_DIR}/log4j2.properties" ]; then
+  JAVA_OPTS="${JAVA_OPTS} -Dlog4j2.configurationFile=${CONF_DIR}/log4j2.properties"
+  JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.path=${APP_DIR}/logs"
+  JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-core-flink"
+fi
+
+CLASS_PATH=${APP_DIR}/starter/logging/*:${APP_JAR}
+
+ENV_PARAMETERS_OR_ERROR=$(java ${JAVA_OPTS} -cp ${CLASS_PATH} ${ENV_PARAMETERS_MAIN} ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
 if [ ${EXIT_CODE} -eq 0 ]; then
-  echo "Export JVM_ARGS: ${ENV_PARAMETERS_OR_ERROR}"
-  export JVM_ARGS="${ENV_PARAMETERS_OR_ERROR}"
+  echo "Export JVM_ARGS: $(echo "${ENV_PARAMETERS_OR_ERROR}" | tail -n 1)"
+  export JVM_ARGS="$(echo "${ENV_PARAMETERS_OR_ERROR}" | tail -n 1)"
 else
     echo "${ENV_PARAMETERS_OR_ERROR}"
     exit ${EXIT_CODE}
 fi
 
-CMD=$(java -cp ${APP_JAR} ${APP_MAIN} ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
+CMD=$(java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
 if [ ${EXIT_CODE} -eq 234 ]; then
     # print usage
     echo "${CMD}"
     exit 0
 elif [ ${EXIT_CODE} -eq 0 ]; then
-    echo "Execute SeaTunnel Flink Job: ${CMD}"
-    eval ${CMD}
+    echo "Execute SeaTunnel Flink Job: $(echo "${CMD}" | tail -n 1)"
+    eval $(echo "${CMD}" | tail -n 1)
 else
     echo "${CMD}"
     exit ${EXIT_CODE}

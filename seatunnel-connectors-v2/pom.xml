@@ -57,6 +57,7 @@
         <module>connector-iceberg</module>
         <module>connector-influxdb</module>
         <module>connector-tikv</module>
+        <module>connector-amazondynamodb</module>
     </modules>
 
     <dependencyManagement>

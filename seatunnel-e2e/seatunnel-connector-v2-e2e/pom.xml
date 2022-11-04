@@ -30,6 +30,7 @@
         <module>connector-clickhouse-e2e</module>
         <module>connector-tikv-e2e</module>
         <module>connector-influxdb-e2e</module>
+        <module>connector-amazondynamodb-e2e</module>
         <module>connector-file-local-e2e</module>
     </modules>
 
