@@ -207,6 +207,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         }
     }
 
+    @SuppressWarnings("checkstyle:MagicNumber")
     private void stateProcess() throws Exception {
         switch (currState) {
             case INIT:
@@ -233,8 +234,11 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             case RUNNING:
                 // The reader closes automatically after reading
                 if (prepareCloseStatus) {
+                    // TODO we should trigger this after CheckpointCoordinator done
                     triggerBarrier(Barrier.completedBarrier());
                     currState = PREPARE_CLOSE;
+                } else {
+                    Thread.sleep(100);
                 }
                 break;
             case PREPARE_CLOSE:

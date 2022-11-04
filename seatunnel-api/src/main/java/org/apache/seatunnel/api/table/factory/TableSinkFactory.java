@@ -30,8 +30,13 @@ import org.apache.seatunnel.api.table.connector.TableSink;
  */
 public interface TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends Factory {
 
+    /**
+     * We will never use this method now. So gave a default implement and return null.
+     * @param context TableFactoryContext
+     * @return
+     */
     default TableSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createSink(TableFactoryContext context) {
-        return null;
+        throw new UnsupportedOperationException("unsupported now");
     }
 
 }
