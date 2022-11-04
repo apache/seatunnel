@@ -67,12 +67,12 @@ public class KafkaSink implements FlinkStreamSink {
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.checkAllExists(config, "topics");
+        return CheckConfigUtil.checkAllExists(config, "topic");
     }
 
     @Override
     public void prepare(FlinkEnvironment env) {
-        topic = config.getString("topics");
+        topic = config.getString("topic");
         if (config.hasPath("semantic")) {
             semantic = config.getString("semantic");
         }
