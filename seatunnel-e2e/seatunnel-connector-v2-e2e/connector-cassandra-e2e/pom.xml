@@ -27,26 +27,17 @@
 
     <artifactId>connector-cassandra-e2e</artifactId>
 
-    <properties>
-        <cassandra.driver.version>4.14.0</cassandra.driver.version>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-cassandra</artifactId>
             <version>${project.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>cassandra</artifactId>
             <version>${testcontainer.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.datastax.oss</groupId>
-            <artifactId>java-driver-core</artifactId>
-            <version>${cassandra.driver.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
