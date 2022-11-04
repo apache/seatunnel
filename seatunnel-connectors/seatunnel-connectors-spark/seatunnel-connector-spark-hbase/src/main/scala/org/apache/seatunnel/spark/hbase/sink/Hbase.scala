@@ -18,9 +18,8 @@ package org.apache.seatunnel.spark.hbase.sink
 
 import scala.collection.JavaConversions._
 import scala.util.control.Breaks._
-
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.hadoop.hbase.{HBaseConfiguration, TableName}
 import org.apache.hadoop.hbase.client.{Connection, ConnectionFactory}
 import org.apache.hadoop.hbase.spark.{ByteArrayWrapper, FamiliesQualifiersValues, HBaseContext}
@@ -86,6 +85,8 @@ class Hbase extends SparkBatchSink with Logging {
     val columnFamily = htc.getColumnFamilies
     val saveMode = config.getString(SAVE_MODE).toLowerCase
     val hbaseConn = ConnectionFactory.createConnection(hbaseConf)
+    val stagingPath = new Path(stagingDir)
+    val fs = stagingPath.getFileSystem(hbaseContext.config)
 
     try {
       if (saveMode == HbaseSaveMode.Overwrite.toString.toLowerCase) {
@@ -127,31 +128,27 @@ class Hbase extends SparkBatchSink with Logging {
         },
         stagingDir)
 
-      val load = new LoadIncrementalHFiles(hbaseConf)
-      val table = hbaseConn.getTable(tableName)
-      load.doBulkLoad(
-        new Path(stagingDir),
-        hbaseConn.getAdmin,
-        table,
-        hbaseConn.getRegionLocator(tableName))
+      if (fs.exists(stagingPath)) {
+        val load = new LoadIncrementalHFiles(hbaseConf)
+        val table = hbaseConn.getTable(tableName)
+        load.doBulkLoad(
+          stagingPath,
+          hbaseConn.getAdmin,
+          table,
+          hbaseConn.getRegionLocator(tableName))
+      }
 
     } finally {
       if (hbaseConn != null) {
         hbaseConn.close()
       }
-
-      cleanUpStagingDir(stagingDir)
+      cleanUpStagingDir(stagingPath, fs)
     }
   }
 
-  private def cleanUpStagingDir(stagingDir: String): Unit = {
-    val stagingPath = new Path(stagingDir)
-    val fs = stagingPath.getFileSystem(hbaseContext.config)
+  private def cleanUpStagingDir(stagingPath: Path, fs: FileSystem): Unit = {
     if (!fs.delete(stagingPath, true)) {
-      logWarning(s"clean staging dir $stagingDir failed")
-    }
-    if (fs != null) {
-      fs.close()
+      logWarning(s"clean staging dir $stagingPath failed")
     }
   }
 
