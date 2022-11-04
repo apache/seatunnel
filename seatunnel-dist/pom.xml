@@ -103,6 +103,13 @@
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
+                <!-- transforms -->
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-transforms-v2</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
                 <!-- connectors -->
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
@@ -287,6 +294,12 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-file-s3</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-amazondynamodb</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -639,6 +652,13 @@
                     <scope>provided</scope>
                 </dependency>
 
+                <!-- transforms v2 -->
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-transforms-v2</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
             </dependencies>
             <build>
                 <plugins>

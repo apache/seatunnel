@@ -218,6 +218,7 @@ const sidebars = {
                 'contribution/setup',
                 'contribution/new-license',
                 'contribution/coding-guide',
+                'contribution/contribute-transform-v2-guide',
             ],
         },
         'faq',

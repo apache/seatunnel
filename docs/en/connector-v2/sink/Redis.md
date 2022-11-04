@@ -13,15 +13,18 @@ Used to write data to Redis.
 
 ##  Options
 
-| name          | type   | required | default value |
-|-------------- |--------|----------|---------------|
-| host          | string | yes      | -             |
-| port          | int    | yes      | -             |
-| key           | string | yes      | -             |
-| data_type     | string | yes      | -             |
-| auth          | string | no       | -             |
-| format        | string | no       | json          |
-| common-options|        | no       | -             |
+| name           | type   | required | default value |
+|----------------|--------|----------|---------------|
+| host           | string | yes      | -             |
+| port           | int    | yes      | -             |
+| key            | string | yes      | -             |
+| data_type      | string | yes      | -             |
+| user           | string | no       | -             |
+| auth           | string | no       | -             |
+| mode           | string | no       | -             |
+| auth           | list   | no       | -             |
+| format         | string | no       | json          |
+| common-options |        | no       | -             |
 
 ### host [string]
 
@@ -75,11 +78,25 @@ Redis data types, support `key` `hash` `list` `set` `zset`
 - zset
 > Each data from upstream will be added to the configured zset key with a weight of 1. So the order of data in zset is based on the order of data consumption.
 
-### auth [String]
+### user [string]
+
+redis authentication user, you need it when you connect to an encrypted cluster
+
+### auth [string]
 
 Redis authentication password, you need it when you connect to an encrypted cluster
 
-### format [String]
+### mode [string]
+
+redis mode, `single` or `cluster`, default is `single`
+
+### nodes [list]
+
+redis nodes information, used in cluster mode, must like as the following format:
+
+[host1:port1, host2:port2]
+
+### format [string]
 
 The format of upstream data, now only support `json`, `text` will be supported later, default `json`.
 
@@ -121,3 +138,7 @@ simple:
 ### 2.2.0-beta 2022-09-26
 
 - Add Redis Sink Connector
+
+### next version
+
+- [Improve] Support redis cluster mode connection and user authentication [3188](https://github.com/apache/incubator-seatunnel/pull/3188)

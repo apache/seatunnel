@@ -112,7 +112,7 @@ public class HudiSourceSplitEnumerator implements SourceSplitEnumerator<HudiSour
     }
 
     private static int getSplitOwner(String tp, int numReaders) {
-        return tp.hashCode() % numReaders;
+        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
     }
 
     @Override
