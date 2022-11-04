@@ -19,35 +19,28 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto;
 
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import lombok.Data;
+
 /**
  * index config by seatunnel
  */
+@Data
 public class IndexInfo {
 
     private String index;
     private String type;
 
-    public IndexInfo(org.apache.seatunnel.shade.com.typesafe.config.Config pluginConfig) {
+    public IndexInfo(Config pluginConfig) {
         index = pluginConfig.getString(SinkConfig.INDEX);
         if (pluginConfig.hasPath(SinkConfig.INDEX_TYPE)) {
             type = pluginConfig.getString(SinkConfig.INDEX_TYPE);
         }
     }
 
-    public String getIndex() {
-        return index;
-    }
-
-    public void setIndex(String index) {
+    public IndexInfo(String index, String type) {
         this.index = index;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
         this.type = type;
     }
-
 }
