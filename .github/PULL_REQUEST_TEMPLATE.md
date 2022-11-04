@@ -26,3 +26,7 @@ Feel free to ping committers for the review!
 * [ ] If any new Jar binary package adding in your PR, please add License Notice according
   [New License Guide](https://github.com/apache/incubator-seatunnel/blob/dev/docs/en/contribution/new-license.md)
 * [ ] If necessary, please update the documentation to describe the new feature. https://github.com/apache/incubator-seatunnel/tree/dev/docs
+* [ ] If you are contributing the connector code, please check that the following files are updated:
+  Connector description document and change log. https://github.com/apache/incubator-seatunnel/tree/dev/docs/en/connector-v2
+  Plugin-mapping. https://github.com/apache/incubator-seatunnel/blob/dev/plugin-mapping.properties
+  Seatunnel dist pom. https://github.com/apache/incubator-seatunnel/blob/dev/seatunnel-dist/pom.xml
