@@ -51,10 +51,17 @@ simple:
     headers = ["a", "b", "c"]
     schema = {
       fields {
-        a: int
-        b: string
-        c: string
+        a = int
+        b = string
+        c = string
       }
     }
   }
 ```
+
+
+## Changelog
+
+### next version
+
+- Add GoogleSheets Source Connector
