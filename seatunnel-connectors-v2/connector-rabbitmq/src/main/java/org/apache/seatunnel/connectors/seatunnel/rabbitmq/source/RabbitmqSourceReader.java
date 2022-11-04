@@ -97,7 +97,9 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
 
     @Override
     public void close() throws IOException {
-
+        if (rabbitMQClient != null) {
+            rabbitMQClient.close();
+        }
     }
 
     @Override
@@ -116,6 +118,10 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
                 deliveryTagsProcessedForCurrentSnapshot.add(envelope.getDeliveryTag());
                 deserializationSchema.deserialize(body, output);
             }
+        }
+        if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
+            // signal to the source that we have reached the end of the data.
+            context.signalNoMoreElement();
         }
     }
 

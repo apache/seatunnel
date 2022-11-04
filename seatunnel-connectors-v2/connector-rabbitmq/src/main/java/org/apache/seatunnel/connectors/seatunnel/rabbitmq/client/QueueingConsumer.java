@@ -119,7 +119,7 @@ public class QueueingConsumer extends DefaultConsumer {
             String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body)
             throws IOException {
         checkShutdown();
-        log.info(new String(body) + "?????????");
+        log.info(new String(body));
         handover.produce(new Delivery(envelope, properties, body));
     }
 }
