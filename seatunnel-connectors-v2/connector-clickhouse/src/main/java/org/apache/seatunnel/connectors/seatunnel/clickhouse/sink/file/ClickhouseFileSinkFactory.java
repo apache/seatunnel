@@ -22,7 +22,6 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.NODE_ADDRESS;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.NODE_PASS;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.SHARDING_KEY;
@@ -43,8 +42,7 @@ public class ClickhouseFileSinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        // TODO fix option rule not match with clickhouse file config key, because config use object and array type for node pass.
         return OptionRule.builder().required(HOST, TABLE, DATABASE, USERNAME, PASSWORD, CLICKHOUSE_LOCAL_PATH)
-            .optional(COPY_METHOD, SHARDING_KEY, FIELDS, NODE_PASS, NODE_ADDRESS).build();
+            .optional(COPY_METHOD, SHARDING_KEY, FIELDS, NODE_PASS).build();
     }
 }
