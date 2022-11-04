@@ -205,9 +205,8 @@ jobs:
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
           tree_modules="$modules$sub_modules"
           includes=`python tools/update_modules_check/update_modules_check.py tree $tree_modules`
-          ./mvnw -Pno_dist -D"e2e.dependency.skip"=false  dependency:tree $includes -DoutputType=text -DoutputFile=/tmp/tree_out.txt
+          ./mvnw -Pci -D"e2e.dependency.skip"=false  dependency:tree $includes -DoutputType=text -DoutputFile=/tmp/tree_out.txt
           build_modules=`python tools/update_modules_check/update_modules_check.py final_ut /tmp/tree_out.txt`
-          build_modules=${build_modules: 1}
           echo $build_modules
           echo "modules=$build_modules" >> $GITHUB_OUTPUT
 
@@ -222,9 +221,8 @@ jobs:
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
           tree_modules="$modules$sub_modules"
           includes=`python tools/update_modules_check/update_modules_check.py tree $tree_modules`
-          ./mvnw -Pno_dist -D"e2e.dependency.skip"=false  dependency:tree $includes -DoutputType=text -DoutputFile=/tmp/tree_out.txt
+          ./mvnw -Pci -D"e2e.dependency.skip"=false  dependency:tree $includes -DoutputType=text -DoutputFile=/tmp/tree_out.txt
           build_modules=`python tools/update_modules_check/update_modules_check.py final_it /tmp/tree_out.txt`
-          build_modules=${build_modules: 1}
           echo $build_modules
           echo "modules=$build_modules" >> $GITHUB_OUTPUT
 
@@ -280,7 +278,7 @@ jobs:
       - name: run updated modules unit test
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != ''
         run: |
-          ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.ut-modules}} -am -Pno_dist
+          ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.ut-modules}} -am -Pci
         env:
           MAVEN_OPTS: -Xmx2048m
 
@@ -311,7 +309,7 @@ jobs:
       - name: run updated modules integration test
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
-          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.it-modules}} -am -Pno_dist
+          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.it-modules}} -am -Pci
         env:
           MAVEN_OPTS: -Xmx2048m
 

@@ -215,7 +215,7 @@ public class ClusterFaultToleranceIT {
                 return clientJobProxy.waitForJobComplete();
             });
 
-            Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(3, TimeUnit.MINUTES)
                 .untilAsserted(() -> {
                     Thread.sleep(2000);
                     System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
