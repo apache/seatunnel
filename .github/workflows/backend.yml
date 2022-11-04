@@ -121,7 +121,6 @@ jobs:
               - "seatunnel-config/**"
               - "seatunnel-connectors/**"
               - "seatunnel-core/**"
-              - "seatunnel-dist/**"
               - "seatunnel-e2e/seatunnel-e2e-common/**"
               - "seatunnel-formats/**"
               - "seatunnel-plugin-discovery/**"
