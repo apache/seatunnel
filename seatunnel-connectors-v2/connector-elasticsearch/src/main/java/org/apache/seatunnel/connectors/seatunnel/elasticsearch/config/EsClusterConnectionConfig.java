@@ -15,32 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto;
+package org.apache.seatunnel.connectors.seatunnel.elasticsearch.config;
 
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig;
+public class EsClusterConnectionConfig {
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+    public static final String HOSTS = "hosts";
 
-import lombok.Data;
+    public static final String USERNAME = "username";
 
-/**
- * index config by seatunnel
- */
-@Data
-public class IndexInfo {
+    public static final String PASSWORD = "password";
 
-    private String index;
-    private String type;
-
-    public IndexInfo(Config pluginConfig) {
-        index = pluginConfig.getString(SinkConfig.INDEX);
-        if (pluginConfig.hasPath(SinkConfig.INDEX_TYPE)) {
-            type = pluginConfig.getString(SinkConfig.INDEX_TYPE);
-        }
-    }
-
-    public IndexInfo(String index, String type) {
-        this.index = index;
-        this.type = type;
-    }
 }
