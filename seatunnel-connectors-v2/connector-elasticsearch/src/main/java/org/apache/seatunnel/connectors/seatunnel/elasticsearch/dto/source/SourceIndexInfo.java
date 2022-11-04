@@ -15,32 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto;
+package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source;
 
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
-/**
- * index config by seatunnel
- */
+import java.io.Serializable;
+import java.util.List;
+
 @Data
-public class IndexInfo {
-
+@AllArgsConstructor
+public class SourceIndexInfo implements Serializable {
     private String index;
-    private String type;
+    private List<String> source;
+    private String scrollTime;
+    private int scrollSize;
 
-    public IndexInfo(Config pluginConfig) {
-        index = pluginConfig.getString(SinkConfig.INDEX);
-        if (pluginConfig.hasPath(SinkConfig.INDEX_TYPE)) {
-            type = pluginConfig.getString(SinkConfig.INDEX_TYPE);
-        }
-    }
-
-    public IndexInfo(String index, String type) {
-        this.index = index;
-        this.type = type;
-    }
 }

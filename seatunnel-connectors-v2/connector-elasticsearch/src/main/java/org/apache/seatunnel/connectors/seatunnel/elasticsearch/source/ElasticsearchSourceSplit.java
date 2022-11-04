@@ -15,32 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto;
+package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.SourceIndexInfo;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.ToString;
 
-import lombok.Data;
+@ToString
+@AllArgsConstructor
+public class ElasticsearchSourceSplit implements SourceSplit {
 
-/**
- * index config by seatunnel
- */
-@Data
-public class IndexInfo {
+    private static final long serialVersionUID = -1L;
 
-    private String index;
-    private String type;
+    private String splitId;
 
-    public IndexInfo(Config pluginConfig) {
-        index = pluginConfig.getString(SinkConfig.INDEX);
-        if (pluginConfig.hasPath(SinkConfig.INDEX_TYPE)) {
-            type = pluginConfig.getString(SinkConfig.INDEX_TYPE);
-        }
-    }
+    @Getter
+    private SourceIndexInfo sourceIndexInfo;
 
-    public IndexInfo(String index, String type) {
-        this.index = index;
-        this.type = type;
+    @Override
+    public String splitId() {
+        return splitId;
     }
 }
+

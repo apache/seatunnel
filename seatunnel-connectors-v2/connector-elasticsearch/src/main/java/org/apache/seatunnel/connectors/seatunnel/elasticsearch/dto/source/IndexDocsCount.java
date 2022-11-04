@@ -15,32 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto;
+package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source;
 
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import lombok.Data;
-
-/**
- * index config by seatunnel
- */
-@Data
-public class IndexInfo {
+public class IndexDocsCount {
 
     private String index;
-    private String type;
+    /**
+     * index docs count
+     */
+    private Long docsCount;
 
-    public IndexInfo(Config pluginConfig) {
-        index = pluginConfig.getString(SinkConfig.INDEX);
-        if (pluginConfig.hasPath(SinkConfig.INDEX_TYPE)) {
-            type = pluginConfig.getString(SinkConfig.INDEX_TYPE);
-        }
+    public String getIndex() {
+        return index;
     }
 
-    public IndexInfo(String index, String type) {
+    public void setIndex(String index) {
         this.index = index;
-        this.type = type;
+    }
+
+    public Long getDocsCount() {
+        return docsCount;
+    }
+
+    public void setDocsCount(Long docsCount) {
+        this.docsCount = docsCount;
     }
 }

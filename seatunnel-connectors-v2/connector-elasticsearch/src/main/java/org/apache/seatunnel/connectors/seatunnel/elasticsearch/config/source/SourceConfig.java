@@ -15,32 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto;
+package org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.source;
 
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig;
+public class SourceConfig {
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+    public static final String INDEX = "index";
 
-import lombok.Data;
+    public static final String SOURCE = "source";
 
-/**
- * index config by seatunnel
- */
-@Data
-public class IndexInfo {
+    public static final String SCROLL_TIME = "scroll_time";
 
-    private String index;
-    private String type;
+    public static final String SCROLL_SIZE = "scroll_size";
 
-    public IndexInfo(Config pluginConfig) {
-        index = pluginConfig.getString(SinkConfig.INDEX);
-        if (pluginConfig.hasPath(SinkConfig.INDEX_TYPE)) {
-            type = pluginConfig.getString(SinkConfig.INDEX_TYPE);
-        }
-    }
-
-    public IndexInfo(String index, String type) {
-        this.index = index;
-        this.type = type;
-    }
 }

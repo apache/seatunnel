@@ -15,32 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto;
-
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source;
 
 import lombok.Data;
 
-/**
- * index config by seatunnel
- */
+import java.util.List;
+import java.util.Map;
+
 @Data
-public class IndexInfo {
+public class ScrollResult {
 
-    private String index;
-    private String type;
-
-    public IndexInfo(Config pluginConfig) {
-        index = pluginConfig.getString(SinkConfig.INDEX);
-        if (pluginConfig.hasPath(SinkConfig.INDEX_TYPE)) {
-            type = pluginConfig.getString(SinkConfig.INDEX_TYPE);
-        }
-    }
-
-    public IndexInfo(String index, String type) {
-        this.index = index;
-        this.type = type;
-    }
+    private String scrollId;
+    private List<Map<String, Object>> docs;
 }
