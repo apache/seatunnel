@@ -50,7 +50,7 @@ public class FlinkStarter implements Starter {
         // set the deployment mode, used to get the job jar path.
         Common.setDeployMode(flinkCommandArgs.getDeployMode());
         Common.setStarter(true);
-        this.appJar = Common.appLibDir().resolve(APP_JAR_NAME).toString();
+        this.appJar = Common.appStarterDir().resolve(APP_JAR_NAME).toString();
     }
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
