@@ -23,8 +23,6 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -67,7 +65,7 @@ public class MyHoursSourceParameter extends HttpParameter {
         }
     }
 
-    public void buildWithLoginConfig(Config pluginConfig) throws JsonProcessingException {
+    public void buildWithLoginConfig(Config pluginConfig) {
         // set url
         this.setUrl(MyHoursSourceConfig.AUTHORIZATION_URL);
         // set method

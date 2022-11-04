@@ -46,6 +46,7 @@ import java.util.Objects;
 @Slf4j
 @AutoService(SeaTunnelSource.class)
 public class MyHoursSource extends HttpSource {
+
     private final MyHoursSourceParameter myHoursSourceParameter = new MyHoursSourceParameter();
     @Override
     public String getPluginName() {
@@ -60,11 +61,7 @@ public class MyHoursSource extends HttpSource {
         }
         //Login to get accessToken
         String accessToken = null;
-        try {
-            accessToken = getAccessToken(pluginConfig);
-        } catch (IOException e) {
-            log.error(e.getMessage(), e);
-        }
+        accessToken = getAccessToken(pluginConfig);
         this.myHoursSourceParameter.buildWithConfig(pluginConfig, accessToken);
         buildSchemaWithConfig(pluginConfig);
     }
@@ -74,7 +71,7 @@ public class MyHoursSource extends HttpSource {
         return new HttpSourceReader(this.myHoursSourceParameter, readerContext, this.deserializationSchema);
     }
 
-    private String getAccessToken(Config pluginConfig) throws IOException, RuntimeException {
+    private String getAccessToken(Config pluginConfig){
         MyHoursSourceParameter myHoursLoginParameter = new MyHoursSourceParameter();
         myHoursLoginParameter.buildWithLoginConfig(pluginConfig);
         HttpClientProvider loginHttpClient = new HttpClientProvider(myHoursLoginParameter);
@@ -94,7 +91,11 @@ public class MyHoursSource extends HttpSource {
             throw new RuntimeException("login http client execute exception");
         } finally {
             if (Objects.nonNull(loginHttpClient)) {
-                loginHttpClient.close();
+                try {
+                    loginHttpClient.close();
+                } catch (IOException e) {
+                    log.warn(e.getMessage(), e);
+                }
             }
         }
     }
