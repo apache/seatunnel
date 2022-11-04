@@ -54,7 +54,7 @@ def get_modules(files, index, start_pre, root_module):
             output_module = output_module + "," + module
 
     else:
-        output_module = root_module
+        output_module = output_module + "," + root_module
 
     print(output_module)
 
