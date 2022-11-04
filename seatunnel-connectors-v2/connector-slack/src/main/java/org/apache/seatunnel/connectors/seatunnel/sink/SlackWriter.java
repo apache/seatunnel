@@ -28,36 +28,35 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.StringJoiner;
 
 @Slf4j
 public class SlackWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private SlackConfig slackConfig;
-    private StringBuffer stringBuffer;
+    private final String conversationId;
     private final SlackClient slackClient;
     private final SeaTunnelRowType seaTunnelRowType;
 
     public SlackWriter(SeaTunnelRowType seaTunnelRowType, Config pluginConfig) {
         this.slackConfig = new SlackConfig(pluginConfig);
         this.seaTunnelRowType = seaTunnelRowType;
-        this.stringBuffer = new StringBuffer();
         this.slackClient = new SlackClient(slackConfig);
+        this.conversationId = slackClient.findConversation();
     }
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         Object[] fields = element.getFields();
-
+        StringJoiner stringJoiner = new StringJoiner(",", "", "\n");
         for (Object field : fields) {
-            stringBuffer.append(field.toString() + ",");
+            stringJoiner.add(field.toString());
         }
-        stringBuffer.deleteCharAt(fields.length - 1);
-        stringBuffer.append("\n");
+        String message = stringJoiner.toString();
         try {
-            String conversationId = slackClient.findConversation();
-            if (conversationId == null || conversationId.equals("")) {
-                throw new RuntimeException("There are no channels to write!");
-            }
-            slackClient.publishMessage(conversationId, stringBuffer.toString());
+            slackClient.publishMessage(conversationId, message);
+            // Slack has a limit on the frequency of sending messages.
+            // One message can be sent as soon as one second.
+            Thread.sleep(1500);
         } catch (Exception e) {
             log.warn("Write to Slack Fail.", e);
             throw new RuntimeException("Write to Slack Fail.", e);
