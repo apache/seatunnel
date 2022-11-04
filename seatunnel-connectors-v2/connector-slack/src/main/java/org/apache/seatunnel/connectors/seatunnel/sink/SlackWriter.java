@@ -36,6 +36,7 @@ public class SlackWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private final String conversationId;
     private final SlackClient slackClient;
     private final SeaTunnelRowType seaTunnelRowType;
+    private static final long POST_MSG_WAITING_TIME = 1500L;
 
     public SlackWriter(SeaTunnelRowType seaTunnelRowType, Config pluginConfig) {
         this.slackConfig = new SlackConfig(pluginConfig);
@@ -56,7 +57,7 @@ public class SlackWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             slackClient.publishMessage(conversationId, message);
             // Slack has a limit on the frequency of sending messages.
             // One message can be sent as soon as one second.
-            Thread.sleep(1500);
+            Thread.sleep(POST_MSG_WAITING_TIME);
         } catch (Exception e) {
             log.warn("Write to Slack Fail.", e);
             throw new RuntimeException("Write to Slack Fail.", e);
