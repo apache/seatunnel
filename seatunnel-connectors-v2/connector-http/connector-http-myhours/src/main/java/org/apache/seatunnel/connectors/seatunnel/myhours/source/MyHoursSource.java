@@ -63,7 +63,7 @@ public class MyHoursSource extends HttpSource {
         try {
             accessToken = getAccessToken(pluginConfig);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error(e.getMessage(), e);
         }
         this.myHoursSourceParameter.buildWithConfig(pluginConfig, accessToken);
         buildSchemaWithConfig(pluginConfig);

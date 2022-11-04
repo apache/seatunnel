@@ -68,6 +68,7 @@ connector-assert
 connector-kafka
 connector-http-base
 connector-http-feishu
+connector-http-myhours
 connector-hive
 connector-clickhouse
 connector-jdbc
