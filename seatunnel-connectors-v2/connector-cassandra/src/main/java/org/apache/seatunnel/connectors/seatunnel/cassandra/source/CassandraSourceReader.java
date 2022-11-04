@@ -67,9 +67,7 @@ public class CassandraSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
             ResultSet resultSet = session.execute(CassandraClient.createSimpleStatement(cassandraConfig.getCql(), cassandraConfig.getConsistencyLevel()));
             resultSet.forEach(row -> output.collect(TypeConvertUtil.buildSeaTunnelRow(row)));
         } finally {
-            if (Boundedness.BOUNDED.equals(readerContext.getBoundedness())) {
-                this.readerContext.signalNoMoreElement();
-            }
+            this.readerContext.signalNoMoreElement();
         }
     }
 
