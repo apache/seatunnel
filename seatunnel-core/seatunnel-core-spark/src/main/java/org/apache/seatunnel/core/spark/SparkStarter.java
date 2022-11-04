@@ -276,7 +276,7 @@ public class SparkStarter implements Starter {
      * append appJar to StringBuilder
      */
     protected void appendAppJar(List<String> commands) {
-        commands.add(Common.appLibDir().resolve("seatunnel-core-spark.jar").toString());
+        commands.add(Common.appStarterDir().resolve("seatunnel-core-spark.jar").toString());
     }
 
     @SuppressWarnings("checkstyle:Indentation")
