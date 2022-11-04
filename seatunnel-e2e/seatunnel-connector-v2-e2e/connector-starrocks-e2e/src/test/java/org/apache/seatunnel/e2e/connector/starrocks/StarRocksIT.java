@@ -66,7 +66,9 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
     private static final String DOCKER_IMAGE = "d87904488/starrocks-starter:2.2.1";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String HOST = "e2e_starRocksdb";
-    private static final int SR_PORT = 9030;
+    private static final int SR_DOCKER_PORT = 9030;
+    private static final int SR_PORT = 9033;
+
     private static final String URL = "jdbc:mysql://%s:" + SR_PORT;
     private static final String USERNAME = "root";
     private static final String PASSWORD = "";
@@ -162,7 +164,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                 .withNetworkAliases(HOST)
                 .withLogConsumer(new Slf4jLogConsumer(log));
         starRocksServer.setPortBindings(Lists.newArrayList(
-                String.format("%s:%s", SR_PORT, SR_PORT)));
+                String.format("%s:%s", SR_DOCKER_PORT, SR_PORT)));
         Startables.deepStart(Stream.of(starRocksServer)).join();
         log.info("StarRocks container started");
         // wait for starrocks fully start
