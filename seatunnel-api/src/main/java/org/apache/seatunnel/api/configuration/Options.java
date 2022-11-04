@@ -210,15 +210,15 @@ public class Options {
 
     public static class NestedTypedOptionBuilder<T> extends TypedOptionBuilder<T> {
 
-        private final Option<?>[] acceptOptions;
+        private final Option<?>[] acceptedOptions;
 
-        NestedTypedOptionBuilder(String key, TypeReference<T> typeReference, Option<?>[] acceptOptions) {
+        NestedTypedOptionBuilder(String key, TypeReference<T> typeReference, Option<?>[] acceptedOptions) {
             super(key, typeReference);
-            this.acceptOptions = acceptOptions;
+            this.acceptedOptions = acceptedOptions;
         }
 
-        public Option<?>[] getAcceptOptions() {
-            return acceptOptions;
+        public Option<?>[] getAcceptedOptions() {
+            return acceptedOptions;
         }
     }
 }
