@@ -31,6 +31,7 @@ import org.apache.seatunnel.flink.util.TableUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.auto.service.AutoService;
 import org.apache.commons.lang3.StringUtils;
@@ -111,7 +112,12 @@ public class KafkaTableStream implements FlinkStreamSource {
         }
         String schemaContent = config.getString(SCHEMA);
         format = FormatType.from(config.getString(SOURCE_FORMAT).trim().toLowerCase());
-        schemaInfo = JsonUtils.parseArray(schemaContent);
+        try {
+            schemaInfo = JsonUtils.stringToJsonNode(schemaContent);
+        } catch (JsonProcessingException e) {
+            log.error("schema parse error", e);
+            throw new ClassCastException(String.format("%s, cannot be cast to com.fasterxml.jackson.databind.JsonNode.", schemaContent));
+        }
     }
 
     @Override
