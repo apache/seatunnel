@@ -40,13 +40,13 @@ def get_modules(files, index, start_pre, root_module):
     update_files = json.loads(files)
     modules_name_set = set([])
     for file in update_files:
-        module_name = file.split('/')[index]
+        names = file.split('/')
+        module_name = names[index]
         if module_name.startswith(start_pre):
             modules_name_set.add(module_name)
 
-        sub_module_name = file.split('/')[index + 1]
-        if sub_module_name.startswith(start_pre):
-            modules_name_set.add(sub_module_name)
+        if len(names) > index + 1 and names[index + 1].startswith(start_pre):
+            modules_name_set.add(names[index + 1])
 
     output_module = ""
     if len(modules_name_set) > 0:
@@ -54,7 +54,7 @@ def get_modules(files, index, start_pre, root_module):
             output_module = output_module + "," + module
 
     else:
-        output_module = root_module
+        output_module = output_module + "," + root_module
 
     print(output_module)
 
