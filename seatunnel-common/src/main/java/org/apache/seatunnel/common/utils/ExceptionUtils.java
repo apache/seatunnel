@@ -33,7 +33,6 @@ public class ExceptionUtils {
             sw.flush();
             return sw.toString();
         } catch (Exception e1) {
-            e1.printStackTrace();
             throw new RuntimeException("Failed to print exception logs", e1);
         }
     }

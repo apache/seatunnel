@@ -28,9 +28,8 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type.In
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
+import java.time.temporal.Temporal;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -39,8 +38,7 @@ import java.util.Map;
  */
 public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
     private final SeaTunnelRowType seaTunnelRowType;
-    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule())
-        .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final IndexSerializer indexSerializer;
 
@@ -58,7 +56,13 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
         Map<String, Object> doc = new HashMap<>(fieldNames.length);
         Object[] fields = row.getFields();
         for (int i = 0; i < fieldNames.length; i++) {
-            doc.put(fieldNames[i], fields[i]);
+            Object value =  fields[i];
+            if (value instanceof Temporal){
+                //jackson not support jdk8 new time api
+                doc.put(fieldNames[i], value.toString());
+            } else {
+                doc.put(fieldNames[i], value);
+            }
         }
 
         StringBuilder sb = new StringBuilder();

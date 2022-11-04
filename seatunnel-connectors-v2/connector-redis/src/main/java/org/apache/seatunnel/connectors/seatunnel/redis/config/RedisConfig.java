@@ -21,8 +21,22 @@ public class RedisConfig {
     public static final String HOST = "host";
     public static final String PORT = "port";
     public static final String AUTH = "auth";
+    public static final String USER = "user";
     public static final String KEY_PATTERN = "keys";
     public static final String KEY = "key";
     public static final String DATA_TYPE = "data_type";
     public static final String FORMAT = "format";
+    public static final String MODE = "mode";
+    public static final String NODES = "nodes";
+    public static final String HASH_KEY_PARSE_MODE = "hash_key_parse_mode";
+
+    public enum RedisMode {
+        SINGLE,
+        CLUSTER;
+    }
+
+    public enum HashKeyParseMode {
+        ALL,
+        KV;
+    }
 }

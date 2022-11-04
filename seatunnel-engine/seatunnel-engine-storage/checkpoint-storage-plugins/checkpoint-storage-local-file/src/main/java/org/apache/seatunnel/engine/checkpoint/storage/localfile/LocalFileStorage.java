@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -137,20 +138,17 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
         if (fileList.isEmpty()) {
             throw new CheckpointStorageException("No checkpoint found for job " + jobId);
         }
-        List<String> fileNames = fileList.stream().map(File::getName).collect(Collectors.toList());
-        Set<String> latestPipelines = getLatestPipelineNames(fileNames);
+        Map<String, File> fileMap = fileList.stream().collect(Collectors.toMap(File::getName, Function.identity(), (v1, v2) -> v2));
+        Set<String> latestPipelines = getLatestPipelineNames(fileMap.keySet());
         List<PipelineState> latestPipelineFiles = new ArrayList<>(latestPipelines.size());
-        fileList.forEach(file -> {
-            String fileName = file.getName();
-            if (latestPipelines.contains(fileName)) {
-                try {
-                    byte[] data = FileUtils.readFileToByteArray(file);
-                    latestPipelineFiles.add(deserializeCheckPointData(data));
-                } catch (IOException e) {
-                    log.error("Failed to read checkpoint data from file " + file.getAbsolutePath(), e);
-                }
+        latestPipelines.forEach(fileName -> {
+            File file = fileMap.get(fileName);
+            try {
+                byte[] data = FileUtils.readFileToByteArray(file);
+                latestPipelineFiles.add(deserializeCheckPointData(data));
+            } catch (IOException e) {
+                log.error("Failed to read checkpoint data from file " + file.getAbsolutePath(), e);
             }
-
         });
         if (latestPipelineFiles.isEmpty()) {
             throw new CheckpointStorageException("Failed to read checkpoint data from file");
@@ -195,6 +193,7 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
         if (fileList.isEmpty()) {
             throw new CheckpointStorageException("No checkpoint found for job " + jobId);
         }
+
         List<PipelineState> pipelineStates = new ArrayList<>();
         fileList.forEach(file -> {
             String filePipelineId = getPipelineIdByFileName(file.getName());
