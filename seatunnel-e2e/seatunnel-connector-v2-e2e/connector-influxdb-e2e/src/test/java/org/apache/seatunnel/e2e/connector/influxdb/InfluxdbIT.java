@@ -185,7 +185,7 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
         for (Object sourceVal : sourceValues.get(0)) {
             for (Object sinkVal : sinkValues.get(0)) {
                 if (!Objects.deepEquals(sourceVal, sinkVal)) {
-                    Assertions.assertEquals(sourceVal, sourceVal);
+                    Assertions.assertEquals(sourceVal, sinkVal);
                 }
             }
         }
