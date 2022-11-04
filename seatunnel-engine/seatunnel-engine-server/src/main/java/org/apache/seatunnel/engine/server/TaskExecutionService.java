@@ -177,6 +177,7 @@ public class TaskExecutionService {
         return new PassiveCompletableFuture<>(resultFuture);
     }
 
+    @Deprecated
     public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
         @NonNull TaskGroup taskGroup,
         @NonNull CompletableFuture<TaskExecutionState> resultFuture) {
@@ -272,7 +273,8 @@ public class TaskExecutionService {
 
         @Override
         public void run() {
-            ClassLoader classLoader = executionContexts.get(tracker.taskGroupExecutionTracker.taskGroup.getTaskGroupLocation()).getClassLoader();
+            TaskExecutionService.TaskGroupExecutionTracker taskGroupExecutionTracker = tracker.taskGroupExecutionTracker;
+            ClassLoader classLoader = executionContexts.get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation()).getClassLoader();
             ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
             Thread.currentThread().setContextClassLoader(classLoader);
             final Task t = tracker.task;
@@ -283,12 +285,12 @@ public class TaskExecutionService {
                 do {
                     result = t.call();
                 } while (!result.isDone() && isRunning &&
-                    !tracker.taskGroupExecutionTracker.executionCompletedExceptionally());
+                    !taskGroupExecutionTracker.executionCompletedExceptionally());
             } catch (Throwable e) {
                 logger.warning("Exception in " + t, e);
-                tracker.taskGroupExecutionTracker.exception(e);
+                taskGroupExecutionTracker.exception(e);
             } finally {
-                tracker.taskGroupExecutionTracker.taskDone();
+                taskGroupExecutionTracker.taskDone();
             }
             Thread.currentThread().setContextClassLoader(oldClassLoader);
         }

@@ -200,11 +200,15 @@ jobs:
         run: |
           modules='${{ steps.engine-modules.outputs.modules }}${{ steps.cv2-modules.outputs.modules }}'
           modules=${modules: 1}
-          includes=`python tools/update_modules_check/update_modules_check.py tree $modules`
-          ./mvnw -Pno_dist -D"e2e.dependency.skip"=false  dependency:tree $includes -DoutputType=text -DoutputFile=/tmp/tree_out.txt
-          modules=`python tools/update_modules_check/update_modules_check.py final /tmp/tree_out.txt`
-          echo $modules
-          echo "modules=$modules" >> $GITHUB_OUTPUT
+          pl_modules=`python tools/update_modules_check/update_modules_check.py replace $modules`
+          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl $pl_modules > /tmp/sub_module.txt
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
+          tree_modules="$modules$sub_modules"
+          includes=`python tools/update_modules_check/update_modules_check.py tree $tree_modules`
+          ./mvnw -Pci -D"e2e.dependency.skip"=false  dependency:tree $includes -DoutputType=text -DoutputFile=/tmp/tree_out.txt
+          build_modules=`python tools/update_modules_check/update_modules_check.py final_ut /tmp/tree_out.txt`
+          echo $build_modules
+          echo "modules=$build_modules" >> $GITHUB_OUTPUT
 
       - name: Make integration test modules
         id: it-modules
@@ -212,11 +216,15 @@ jobs:
         run: |
           modules='${{ steps.cv2-e2e-modules.outputs.modules }}${{ steps.cv2-flink-e2e-modules.outputs.modules }}${{ steps.cv2-spark-e2e-modules.outputs.modules }}${{ steps.engine-e2e-modules.outputs.modules }}${{ steps.engine-modules.outputs.modules }}${{ steps.cv2-modules.outputs.modules }}'
           modules=${modules: 1}
-          includes=`python tools/update_modules_check/update_modules_check.py tree $modules`
-          ./mvnw -Pno_dist -D"e2e.dependency.skip"=false  dependency:tree $includes -DoutputType=text -DoutputFile=/tmp/tree_out.txt
-          modules=`python tools/update_modules_check/update_modules_check.py final /tmp/tree_out.txt`
-          echo $modules
-          echo "modules=$modules" >> $GITHUB_OUTPUT
+          pl_modules=`python tools/update_modules_check/update_modules_check.py replace $modules`
+          ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl $pl_modules > /tmp/sub_module.txt
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
+          tree_modules="$modules$sub_modules"
+          includes=`python tools/update_modules_check/update_modules_check.py tree $tree_modules`
+          ./mvnw -Pci -D"e2e.dependency.skip"=false  dependency:tree $includes -DoutputType=text -DoutputFile=/tmp/tree_out.txt
+          build_modules=`python tools/update_modules_check/update_modules_check.py final_it /tmp/tree_out.txt`
+          echo $build_modules
+          echo "modules=$build_modules" >> $GITHUB_OUTPUT
 
   dependency-license:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
@@ -238,7 +246,6 @@ jobs:
           ./mvnw -B -q install -DskipTests
           -D"maven.test.skip"=true
           -D"maven.javadoc.skip"=true
-          -D"scalastyle.skip"=true
           -D"checkstyle.skip"=true
           -D"license.skipAddThirdParty"
       - name: Check Dependencies Licenses
@@ -264,19 +271,20 @@ jobs:
       - name: run all modules unit test
         if: needs.changes.outputs.api == 'true'
         run: |
-          ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates
+          ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates
         env:
           MAVEN_OPTS: -Xmx2048m
 
       - name: run updated modules unit test
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != ''
         run: |
-          ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.ut-modules}} -am -amd -Pno_dist
+          ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.ut-modules}} -am -Pci
         env:
           MAVEN_OPTS: -Xmx2048m
 
   integration-test:
     needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true' || (needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != '')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -294,14 +302,14 @@ jobs:
       - name: run all modules integration test
         if: needs.changes.outputs.api == 'true'
         run: |
-          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates
+          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates
         env:
           MAVEN_OPTS: -Xmx2048m
 
       - name: run updated modules integration test
-        if: needs.changes.outputs.api == 'false'
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
-          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.it-modules}} -am -amd -Pno_dist
+          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl ${{needs.changes.outputs.it-modules}} -am -Pci
         env:
           MAVEN_OPTS: -Xmx2048m
 
