@@ -32,6 +32,9 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
+import com.google.auto.service.AutoService;
+
+@AutoService(TableSinkFactory.class)
 public class ClickhouseFileSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {

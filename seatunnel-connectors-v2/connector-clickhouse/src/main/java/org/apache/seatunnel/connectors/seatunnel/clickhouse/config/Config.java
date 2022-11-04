@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 @SuppressWarnings("checkstyle:MagicNumber")
@@ -96,16 +97,18 @@ public class Config {
         .defaultValue(ClickhouseFileCopyMethod.SCP).withDescription("The method of copy Clickhouse file");
 
     /**
-     * The password of Clickhouse server node
-     */
-    public static final Option<String> NODE_PASS = Options.key("node_pass").stringType()
-        .noDefaultValue().withDescription("The password of Clickhouse server node");
-
-    /**
      * The address of Clickhouse server node
      */
     public static final Option<String> NODE_ADDRESS = Options.key("node_address").stringType()
         .noDefaultValue().withDescription("The address of Clickhouse server node");
+
+    public static final Option<Map<String, Object>> NODE_PASS_MAP = Options.key("node_pass_map").mapType(NODE_ADDRESS, PASSWORD)
+        .noDefaultValue();
+    /**
+     * The password of Clickhouse server node
+     */
+    public static final Option<List<Map<String, Object>>> NODE_PASS = Options.key("node_pass").listType(NODE_PASS_MAP)
+        .noDefaultValue().withDescription("The password of Clickhouse server node");
 
     public static final Option<Map<String, String>> CLICKHOUSE_PREFIX = Options.key("clickhouse").mapType()
         .defaultValue(Collections.emptyMap()).withDescription("Clickhouse custom config");

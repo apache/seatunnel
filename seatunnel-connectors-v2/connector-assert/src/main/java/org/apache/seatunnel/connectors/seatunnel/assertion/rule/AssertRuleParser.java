@@ -17,6 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.assertion.rule;
 
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.Config.FIELD_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.Config.FIELD_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.Config.FIELD_VALUE;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.Config.RULE_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.Config.RULE_VALUE;
+
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
@@ -39,13 +45,13 @@ public class AssertRuleParser {
         return ruleConfigList.stream()
             .map(config -> {
                 AssertFieldRule fieldRule = new AssertFieldRule();
-                fieldRule.setFieldName(config.getString("field_name"));
-                if (config.hasPath("field_type")) {
-                    fieldRule.setFieldType(getFieldType(config.getString("field_type")));
+                fieldRule.setFieldName(config.getString(FIELD_NAME.key()));
+                if (config.hasPath(FIELD_TYPE.key())) {
+                    fieldRule.setFieldType(getFieldType(config.getString(FIELD_TYPE.key())));
                 }
 
-                if (config.hasPath("field_value")) {
-                    List<AssertFieldRule.AssertRule> fieldValueRules = assembleFieldValueRules(config.getConfigList("field_value"));
+                if (config.hasPath(FIELD_VALUE.key())) {
+                    List<AssertFieldRule.AssertRule> fieldValueRules = assembleFieldValueRules(config.getConfigList(FIELD_VALUE.key()));
                     fieldRule.setFieldRules(fieldValueRules);
                 }
                 return fieldRule;
@@ -57,11 +63,11 @@ public class AssertRuleParser {
         return fieldValueConfigList.stream()
             .map(config -> {
                 AssertFieldRule.AssertRule valueRule = new AssertFieldRule.AssertRule();
-                if (config.hasPath("rule_type")) {
-                    valueRule.setRuleType(AssertFieldRule.AssertRuleType.valueOf(config.getString("rule_type")));
+                if (config.hasPath(RULE_TYPE.key())) {
+                    valueRule.setRuleType(AssertFieldRule.AssertRuleType.valueOf(config.getString(RULE_TYPE.key())));
                 }
-                if (config.hasPath("rule_value")) {
-                    valueRule.setRuleValue(config.getDouble("rule_value"));
+                if (config.hasPath(RULE_VALUE.key())) {
+                    valueRule.setRuleValue(config.getDouble(RULE_VALUE.key()));
                 }
                 return valueRule;
             })

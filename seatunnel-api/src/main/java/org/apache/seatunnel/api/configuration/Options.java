@@ -136,12 +136,32 @@ public class Options {
         }
 
         /**
+         * Defines that the value of the option should be a set of properties, which can be
+         * represented as {@code Map<String, Object>}.
+         *
+         * @param acceptOption Key-value pairs accepted in Map
+         */
+        public TypedOptionBuilder<Map<String, Object>> mapType(Option<?>... acceptOption) {
+            return new NestedTypedOptionBuilder<>(key, new TypeReference<Map<String, Object>>() {
+            }, acceptOption);
+        }
+
+        /**
          * Defines that the value of the option should be a list of properties, which can be
          * represented as {@code List<String>}.
          */
         public TypedOptionBuilder<List<String>> listType() {
             return new TypedOptionBuilder<>(key, new TypeReference<List<String>>() {
             });
+        }
+
+        /**
+         * Defines that the value of the option should be a list of properties, which can be
+         * represented as {@code List<T>}.
+         */
+        public <T> TypedOptionBuilder<List<T>> listType(Option<T> option) {
+            return new NestedTypedOptionBuilder<>(key, new TypeReference<List<T>>() {
+            }, new Option[]{option});
         }
 
         /**
@@ -185,6 +205,20 @@ public class Options {
          */
         public Option<T> noDefaultValue() {
             return new Option<>(key, typeReference, null);
+        }
+    }
+
+    public static class NestedTypedOptionBuilder<T> extends TypedOptionBuilder<T> {
+
+        private final Option<?>[] acceptOptions;
+
+        NestedTypedOptionBuilder(String key, TypeReference<T> typeReference, Option<?>[] acceptOptions) {
+            super(key, typeReference);
+            this.acceptOptions = acceptOptions;
+        }
+
+        public Option<?>[] getAcceptOptions() {
+            return acceptOptions;
         }
     }
 }
