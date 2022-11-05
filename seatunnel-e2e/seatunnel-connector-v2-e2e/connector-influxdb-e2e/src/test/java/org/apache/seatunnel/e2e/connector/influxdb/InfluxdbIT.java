@@ -182,12 +182,19 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
         //assert data values
         List<List<Object>> sourceValues = sourceQueryResult.getResults().get(0).getSeries().get(0).getValues();
         List<List<Object>> sinkValues = sinkQueryResult.getResults().get(0).getSeries().get(0).getValues();
-        for (Object sourceVal : sourceValues.get(0)) {
-            for (Object sinkVal : sinkValues.get(0)) {
-                if (!Objects.deepEquals(sourceVal, sinkVal)) {
-                    Assertions.assertEquals(sourceVal, sinkVal);
+        int rowSize = sourceValues.size();
+        int colSize = sourceValues.get(0).size();
+
+        for (int row = 0; row < rowSize; row++) {
+            for (int col = 0; col < colSize; col++) {
+                Object sourceColValue = sourceValues.get(row).get(col);
+                Object sinkColValue = sinkValues.get(row).get(col);
+
+                if (!Objects.deepEquals(sourceColValue, sinkColValue)) {
+                    Assertions.assertEquals(sourceColValue, sinkColValue);
                 }
             }
+
         }
     }
 
