@@ -77,6 +77,7 @@ const sidebars = {
             items: [
                 'concept/config',
                 'concept/connector-v2-features',
+                'concept/schema-feature',
             ],
         },
         'Connector-v2-release-state',
