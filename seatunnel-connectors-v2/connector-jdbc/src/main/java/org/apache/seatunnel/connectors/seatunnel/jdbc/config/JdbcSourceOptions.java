@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.buildJdbcConnectionOptions;
 
+import org.apache.seatunnel.connectors.seatunnel.common.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -33,6 +34,7 @@ import java.util.Optional;
 @AllArgsConstructor
 public class JdbcSourceOptions implements Serializable {
     private JdbcConnectionOptions jdbcConnectionOptions;
+    private Config schema;
     private String partitionColumn;
     private Long partitionUpperBound;
     private Long partitionLowerBound;
@@ -40,6 +42,9 @@ public class JdbcSourceOptions implements Serializable {
 
     public JdbcSourceOptions(Config config) {
         this.jdbcConnectionOptions = buildJdbcConnectionOptions(config);
+        if (config.hasPath(CommonConfig.SCHEMA)) {
+            this.schema = config.getConfig(CommonConfig.SCHEMA);
+        }
         if (config.hasPath(JdbcConfig.PARTITION_COLUMN)) {
             this.partitionColumn = config.getString(JdbcConfig.PARTITION_COLUMN);
         }

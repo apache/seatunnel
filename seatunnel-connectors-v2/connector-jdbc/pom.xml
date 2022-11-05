@@ -37,6 +37,7 @@
         <phoenix.version>5.2.5-HBase-2.x</phoenix.version>
         <oracle.version>12.2.0.1</oracle.version>
         <db2.version>db2jcc4</db2.version>
+        <tablestore.version>5.13.5</tablestore.version>
     </properties>
 
     <dependencyManagement>
@@ -84,10 +85,23 @@
                 <scope>provided</scope>
             </dependency>
 
+            <dependency>
+                <groupId>com.aliyun.openservices</groupId>
+                <artifactId>tablestore-jdbc</artifactId>
+                <version>${tablestore.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
     <dependencies>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>mysql</groupId>
@@ -118,6 +132,10 @@
         <dependency>
             <groupId>com.ibm.db2.jcc</groupId>
             <artifactId>db2jcc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.aliyun.openservices</groupId>
+            <artifactId>tablestore-jdbc</artifactId>
         </dependency>
     </dependencies>
 
