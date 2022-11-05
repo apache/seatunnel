@@ -19,9 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 
@@ -29,6 +33,7 @@ import redis.clients.jedis.Jedis;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -66,7 +71,21 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 if (deserializationSchema == null) {
                     output.collect(new SeaTunnelRow(new Object[]{value}));
                 } else {
-                    deserializationSchema.deserialize(value.getBytes(), output);
+                    if (redisParameters.getHashKeyParseMode() == RedisConfig.HashKeyParseMode.KV &&
+                            redisDataType == RedisDataType.HASH) {
+                        // Treat each key-value pair in the hash-key as one piece of data
+                        Map<String, String> recordsMap = JsonUtils.toMap(value);
+                        for (Map.Entry<String, String> entry : recordsMap.entrySet()) {
+                            String k = entry.getKey();
+                            String v = entry.getValue();
+                            Map<String, String> valuesMap = JsonUtils.toMap(v);
+                            SeaTunnelDataType<SeaTunnelRow> seaTunnelRowType = deserializationSchema.getProducedType();
+                            valuesMap.put(((SeaTunnelRowType) seaTunnelRowType).getFieldName(0), k);
+                            deserializationSchema.deserialize(JsonUtils.toJsonString(valuesMap).getBytes(), output);
+                        }
+                    } else {
+                        deserializationSchema.deserialize(value.getBytes(), output);
+                    }
                 }
             }
         }

@@ -95,12 +95,14 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
     public void writeData(ObjectDataOutput out) throws IOException {
         out.writeObject(taskGroupLocation);
         out.writeLong(taskID);
+        out.writeInt(index);
     }
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
         taskGroupLocation = in.readObject();
         taskID = in.readLong();
+        index = in.readInt();
     }
 
     @Override
@@ -108,6 +110,7 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
         return "TaskLocation{" +
             "taskGroupLocation=" + taskGroupLocation +
             ", taskID=" + taskID +
+            ", index=" + index +
             '}';
     }
 

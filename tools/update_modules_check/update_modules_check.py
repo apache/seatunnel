@@ -40,9 +40,13 @@ def get_modules(files, index, start_pre, root_module):
     update_files = json.loads(files)
     modules_name_set = set([])
     for file in update_files:
-        module_name = file.split('/')[index]
+        names = file.split('/')
+        module_name = names[index]
         if module_name.startswith(start_pre):
             modules_name_set.add(module_name)
+
+        if len(names) > index + 1 and names[index + 1].startswith(start_pre):
+            modules_name_set.add(names[index + 1])
 
     output_module = ""
     if len(modules_name_set) > 0:
@@ -54,6 +58,22 @@ def get_modules(files, index, start_pre, root_module):
 
     print(output_module)
 
+def replace_comma_to_commacolon(modules_str):
+    modules_str = modules_str.replace(",", ",:")
+    modules_str = ":" + modules_str
+    print(modules_str)
+
+def get_sub_modules(file):
+    f = open(file, 'rb')
+    output = ""
+    for line in f.readlines():
+        line = line.replace(" ","")
+        if line.startswith("<string>"):
+            line = line.replace(" ","").replace("<string>", "").replace("</string>", "").replace("\n", "")
+            output = output + "," + line
+
+    print(output)
+
 def get_dependency_tree_includes(modules_str):
     modules = modules_str.split(',')
     output = ""
@@ -64,14 +84,29 @@ def get_dependency_tree_includes(modules_str):
     output = "-Dincludes=" + output
     print(output)
 
-def get_final_modules(file):
+def get_final_it_modules(file):
     f = open(file, 'rb')
     output = ""
     for line in f.readlines():
         if line.startswith("org.apache.seatunnel"):
             con = line.split(":")
+            # find all e2e modules
+            if con[2] == "jar" and "-e2e" in con[1] and "transform" not in con[1]:
+                output = output + "," + ":" + con[1]
+
+    output = output[1:len(output)]
+    print(output)
+
+def get_final_ut_modules(file):
+    f = open(file, 'rb')
+    output = ""
+    for line in f.readlines():
+        if line.startswith("org.apache.seatunnel"):
+            con = line.split(":")
+            # find all e2e modules
             if con[2] == "jar":
                 output = output + "," + ":" + con[1]
+
     output = output[1:len(output)]
     print(output)
 
@@ -90,8 +125,14 @@ def main(argv):
         get_engine_e2e_modules(argv[2])
     elif argv[1] == "tree":
         get_dependency_tree_includes(argv[2])
-    elif argv[1] == "final":
-        get_final_modules(argv[2])
+    elif argv[1] == "final_it":
+        get_final_it_modules(argv[2])
+    elif argv[1] == "final_ut":
+        get_final_ut_modules(argv[2])
+    elif argv[1] == "replace":
+        replace_comma_to_commacolon(argv[2])
+    elif argv[1] == "sub":
+        get_sub_modules(argv[2])
 
 if __name__ == "__main__":
     main(sys.argv)

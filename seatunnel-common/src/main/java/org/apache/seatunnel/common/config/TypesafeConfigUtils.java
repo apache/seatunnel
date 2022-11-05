@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import lombok.NonNull;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public final class TypesafeConfigUtils {
@@ -109,5 +110,11 @@ public final class TypesafeConfigUtils {
             return config.hasPath(configKey) ? (T) Boolean.valueOf(config.getString(configKey)) : defaultValue;
         }
         throw new RuntimeException("Unsupported config type, configKey: " + configKey);
+    }
+
+    public static List<? extends Config> getConfigList(Config config,
+                                                       String configKey,
+                                                       @NonNull List<? extends Config> defaultValue) {
+        return config.hasPath(configKey) ? config.getConfigList(configKey) : defaultValue;
     }
 }

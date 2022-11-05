@@ -29,6 +29,8 @@
         <module>connector-redis-e2e</module>
         <module>connector-clickhouse-e2e</module>
         <module>connector-influxdb-e2e</module>
+        <module>connector-amazondynamodb-e2e</module>
+        <module>connector-file-local-e2e</module>
     </modules>
 
     <artifactId>seatunnel-connector-v2-e2e</artifactId>
