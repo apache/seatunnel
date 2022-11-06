@@ -43,7 +43,8 @@ public class OpenMldbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
     private final SingleSplitReaderContext readerContext;
 
     public OpenMldbSourceReader(OpenMldbParameters openMldbParameters,
-                                SeaTunnelRowType seaTunnelRowType, SingleSplitReaderContext readerContext) {
+                                SeaTunnelRowType seaTunnelRowType,
+                                SingleSplitReaderContext readerContext) {
         this.openMldbParameters = openMldbParameters;
         this.seaTunnelRowType = seaTunnelRowType;
         this.readerContext = readerContext;
