@@ -55,8 +55,8 @@ public class SlackWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         String message = stringJoiner.toString();
         try {
             slackClient.publishMessage(conversationId, message);
-            // Slack has a limit on the frequency of sending messages.
-            // One message can be sent as soon as one second.
+            // Slack has a limit on the frequency of sending messages
+            // One message can be sent as soon as one second
             Thread.sleep(POST_MSG_WAITING_TIME);
         } catch (Exception e) {
             log.warn("Write to Slack Fail.", e);
