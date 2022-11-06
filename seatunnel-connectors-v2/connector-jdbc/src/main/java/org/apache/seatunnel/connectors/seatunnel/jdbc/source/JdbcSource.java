@@ -78,8 +78,8 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
         jdbcConnectionProvider = new SimpleJdbcConnectionProvider(jdbcSourceOptions.getJdbcConnectionOptions());
         query = jdbcSourceOptions.getJdbcConnectionOptions().query;
         jdbcDialect = JdbcDialectLoader.load(jdbcSourceOptions.getJdbcConnectionOptions().getUrl());
-        try {
-            typeInfo = initTableField(jdbcConnectionProvider.getOrEstablishConnection());
+        try (Connection connection = jdbcConnectionProvider.getOrEstablishConnection()) {
+            typeInfo = initTableField(connection);
             partitionParameter = initPartitionParameterAndExtendSql(jdbcConnectionProvider.getOrEstablishConnection());
         } catch (Exception e) {
             throw new PrepareFailException("jdbc", PluginType.SOURCE, e.toString());
