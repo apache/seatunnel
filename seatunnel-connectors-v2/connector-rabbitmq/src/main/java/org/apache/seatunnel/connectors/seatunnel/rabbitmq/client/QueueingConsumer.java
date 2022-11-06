@@ -31,7 +31,6 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class QueueingConsumer extends DefaultConsumer {
@@ -57,41 +56,6 @@ public class QueueingConsumer extends DefaultConsumer {
         if (shutdown != null) {
             throw Utility.fixStackTrace(shutdown);
         }
-    }
-
-    private Delivery handle(Delivery delivery) throws Handover.ClosedException, InterruptedException {
-        if (delivery == POISON || delivery == null && (shutdown != null || cancelled != null)) {
-            if (delivery == POISON) {
-                handover.produce(POISON);
-                if (shutdown == null && cancelled == null) {
-                    throw new IllegalStateException(
-                            "POISON in queue, but null shutdown and null cancelled. "
-                                    + "This should never happen, please report as a BUG");
-                }
-            }
-            if (null != shutdown) {
-                throw Utility.fixStackTrace(shutdown);
-            }
-            if (null != cancelled) {
-                throw Utility.fixStackTrace(cancelled);
-            }
-        }
-        return delivery;
-    }
-
-    public Delivery nextDelivery()
-            throws Exception {
-        return handle(handover.pollNext().get());
-    }
-
-    public Delivery nextDelivery(long timeout)
-            throws Exception {
-        return nextDelivery(timeout, TimeUnit.MILLISECONDS);
-    }
-
-    public Delivery nextDelivery(long timeout, TimeUnit unit)
-            throws Exception {
-        return handle(handover.pollNext().get());
     }
 
     @Override

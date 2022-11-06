@@ -24,8 +24,8 @@ public class RabbitmqConfig implements Serializable {
     public static final String PASSWORD = "password";
     public static final String URL = "url";
     public static final String NETWORK_RECOVERY_INTERVAL = "network_recovery_interval";
-    public static final String AUTOMATIC_RECOVERY = "automatic_recovery";
-    public static final String TOPOLOGY_RECOVERY = "topology_recovery";
+    public static final String AUTOMATIC_RECOVERY_ENABLED = "automatic_recovery_enabled";
+    public static final String TOPOLOGY_RECOVERY_ENABLED = "topology_recovery_enabled";
     public static final String CONNECTION_TIMEOUT = "connection_timeout";
     public static final String REQUESTED_CHANNEL_MAX = "requested_channel_max";
     public static final String REQUESTED_FRAME_MAX = "requested_frame_max";
@@ -88,8 +88,11 @@ public class RabbitmqConfig implements Serializable {
         if (config.hasPath(NETWORK_RECOVERY_INTERVAL)) {
             this.networkRecoveryInterval = config.getInt(NETWORK_RECOVERY_INTERVAL);
         }
-        if (config.hasPath(AUTOMATIC_RECOVERY)) {
-            this.automaticRecovery = config.getBoolean(AUTOMATIC_RECOVERY);
+        if (config.hasPath(AUTOMATIC_RECOVERY_ENABLED)) {
+            this.automaticRecovery = config.getBoolean(AUTOMATIC_RECOVERY_ENABLED);
+        }
+        if (config.hasPath(TOPOLOGY_RECOVERY_ENABLED)) {
+            this.topologyRecovery = config.getBoolean(TOPOLOGY_RECOVERY_ENABLED);
         }
         if (config.hasPath(CONNECTION_TIMEOUT)) {
             this.connectionTimeout = config.getInt(CONNECTION_TIMEOUT);

@@ -49,6 +49,10 @@ public class RabbitmqClient {
             this.connectionFactory = getConnectionFactory();
             this.connection = connectionFactory.newConnection();
             this.channel = connection.createChannel();
+            //set channel prefetch count
+            if (config.getPrefetchCount() != null) {
+                channel.basicQos(config.getPrefetchCount(), true);
+            }
             setupQueue();
         } catch (Exception e) {
             throw new RuntimeException(

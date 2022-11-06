@@ -34,7 +34,6 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
-import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Delivery;
@@ -57,7 +56,12 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import scala.Tuple2;
@@ -68,19 +72,16 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
     private static final String HOST = "rabbitmq-e2e";
     private static final int PORT = 5672;
     private static final String QUEUE_NAME = "test";
+    private static final String SINK_QUEUE_NAME = "test1";
     private static final String USERNAME = "guest";
     private static final String PASSWORD = "guest";
-    Handover  handover = new Handover<>();
 
     private static final Tuple2<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET = generateTestDataSet();
+    private static final JsonSerializationSchema JSON_SERIALIZATION_SCHEMA = new JsonSerializationSchema(TEST_DATASET._1());
 
     private GenericContainer<?> rabbitmqContainer;
-    Connection connection = null;
-    Channel channel = null;
-    Channel sinkChannel = null;
+    Connection connection;
     RabbitmqClient rabbitmqClient;
-    RabbitmqClient sinkRabbitmqClient;
-    Thread thread;
 
     @BeforeAll
     @Override
@@ -95,25 +96,13 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         Startables.deepStart(Stream.of(rabbitmqContainer)).join();
         log.info("rabbitmq container started");
         this.initRabbitMQ();
-        this.initSourceData();
-        this.initSinkRabbitMQ();
     }
 
     private void initSourceData() throws IOException, InterruptedException {
-        JsonSerializationSchema jsonSerializationSchema = new JsonSerializationSchema(TEST_DATASET._1());
         List<SeaTunnelRow> rows = TEST_DATASET._2();
-
-//        thread = new Thread(() -> {
-//            for (int i = 0; i < rows.size(); i++) {
-//                rabbitmqClient.write(new String(jsonSerializationSchema.serialize(rows.get(1))).getBytes(StandardCharsets.UTF_8));
-//                try {
-//                    Thread.sleep(10);
-//                } catch (InterruptedException e) {
-//                    e.printStackTrace();
-//                }
-//            }
-//        });
-//        thread.start();
+        for (int i = 0; i < rows.size(); i++) {
+            rabbitmqClient.write(new String(JSON_SERIALIZATION_SCHEMA.serialize(rows.get(1))).getBytes(StandardCharsets.UTF_8));
+        }
     }
 
     private static Tuple2<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
@@ -156,10 +145,10 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         );
 
         List<SeaTunnelRow> rows = new ArrayList<>();
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 10; i++) {
             SeaTunnelRow row = new SeaTunnelRow(
                  new Object[]{
-                     Long.valueOf(i),
+                     Long.valueOf(1),
                      Collections.singletonMap("key", Short.parseShort("1")),
                      new Byte[]{Byte.parseByte("1")},
                      "string",
@@ -181,33 +170,31 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
     }
 
     private void initRabbitMQ() {
-
         try {
             RabbitmqConfig config = new RabbitmqConfig();
             config.setHost(rabbitmqContainer.getHost());
             config.setPort(rabbitmqContainer.getFirstMappedPort());
-            config.setQueueName("test");
+            config.setQueueName(QUEUE_NAME);
             config.setVirtualHost("/");
-            config.setUsername("guest");
-            config.setPassword("guest");
+            config.setUsername(USERNAME);
+            config.setPassword(PASSWORD);
             rabbitmqClient = new RabbitmqClient(config);
         } catch (Exception e) {
             throw new RuntimeException("init Rabbitmq error", e);
         }
     }
 
-    private void initSinkRabbitMQ() {
+    private RabbitmqClient initSinkRabbitMQ() {
 
         try {
             RabbitmqConfig config = new RabbitmqConfig();
             config.setHost(rabbitmqContainer.getHost());
             config.setPort(rabbitmqContainer.getFirstMappedPort());
-            config.setQueueName("test1");
+            config.setQueueName(SINK_QUEUE_NAME);
             config.setVirtualHost("/");
-            config.setUsername("guest");
-            config.setPassword("guest");
-            sinkRabbitmqClient = new RabbitmqClient(config);
-            sinkChannel = sinkRabbitmqClient.getChannel();
+            config.setUsername(USERNAME);
+            config.setPassword(PASSWORD);
+            return new RabbitmqClient(config);
         } catch (Exception e) {
             throw new RuntimeException("init Rabbitmq error", e);
         }
@@ -224,35 +211,33 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testRabbitMQ(TestContainer container) throws Exception {
-        JsonSerializationSchema jsonSerializationSchema = new JsonSerializationSchema(TEST_DATASET._1());
-        List<SeaTunnelRow> rows = TEST_DATASET._2();
-        for (int i = 0; i < rows.size(); i++) {
-            rabbitmqClient.write(new String(jsonSerializationSchema.serialize(rows.get(1))).getBytes(StandardCharsets.UTF_8));
-        }
-        Thread.sleep(5);
+        //send data to source queue before executeJob start in every testContainer
+        initSourceData();
+
+        //init consumer client before executeJob start in every testContainer
+        RabbitmqClient sinkRabbitmqClient =  initSinkRabbitMQ();
+
+        Set<String> resultSet = new HashSet<>();
+        Handover  handover = new Handover<>();
+        DefaultConsumer consumer = sinkRabbitmqClient.getQueueingConsumer(handover);
+        sinkRabbitmqClient.getChannel().basicConsume(SINK_QUEUE_NAME, true, consumer);
+        // assert execute Job code
         Container.ExecResult execResult = container.executeJob("/rabbitmq-to-rabbitmq.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-
-//        RabbitmqConfig config = new RabbitmqConfig();
-//        config.setHost(rabbitmqContainer.getHost());
-//        config.setPort(rabbitmqContainer.getFirstMappedPort());
-//        config.setQueueName("test1");
-//        config.setVirtualHost("/");
-//        config.setUsername("guest");
-//        config.setPassword("guest");
-//        Set<String> sets = new HashSet<>();
-//        DefaultConsumer consumer = sinkRabbitmqClient.getQueueingConsumer(handover);
-//        sinkChannel.basicConsume(config.getQueueName(), true, consumer);
-//        for (int i = 0; i < 5; i++) {
-//            Optional<Delivery> deliveryOptional = handover.pollNext();
-//            if (deliveryOptional.isPresent()) {
-//                Delivery delivery = deliveryOptional.get();
-//                byte[] body = delivery.getBody();
-//                sets.add(new String(body));
-//            }
-//        }
-//        Assertions.assertTrue(sets.size() > 0);
-
-
+        //consume data when every  testContainer finished
+        //try to poll five times
+        for (int i = 0; i < 5; i++) {
+            Optional<Delivery> deliveryOptional = handover.pollNext();
+            if (deliveryOptional.isPresent()) {
+                Delivery delivery = deliveryOptional.get();
+                byte[] body = delivery.getBody();
+                resultSet.add(new String(body));
+            }
+        }
+        // close to prevent rabbitmq client consumer in the next TestContainer to consume
+        sinkRabbitmqClient.close();
+        //assert source and sink data
+        Assertions.assertTrue(resultSet.size() > 0);
+        Assertions.assertTrue(resultSet.stream().findAny().get().equals(new String(JSON_SERIALIZATION_SCHEMA.serialize(TEST_DATASET._2().get(1)))));
     }
 }

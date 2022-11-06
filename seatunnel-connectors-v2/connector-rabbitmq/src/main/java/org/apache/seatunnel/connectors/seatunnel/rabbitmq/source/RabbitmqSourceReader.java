@@ -151,11 +151,12 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
 
     @Override
     public void addSplits(List splits) {
-
+        //do nothing
     }
 
     @Override
     public void handleNoMoreSplits() {
+        //do nothing
     }
 
     @Override

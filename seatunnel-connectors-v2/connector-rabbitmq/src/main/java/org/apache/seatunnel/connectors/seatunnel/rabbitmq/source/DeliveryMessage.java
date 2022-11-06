@@ -27,5 +27,4 @@ import lombok.Setter;
 @Getter
 public final class DeliveryMessage {
     private final Delivery delivery;
-    private final String splitId;
 }
