@@ -64,13 +64,14 @@ if [ -z $SEATUNNEL_CONFIG ]; then
     SEATUNNEL_CONFIG=${CONF_DIR}/seatunnel.yaml
 fi
 
-if test ${Xms} ;then
-    JAVA_OPTS="${JAVA_OPTS} -Xms${Xms}"
-fi
-
-if test ${Xmx} ;then
-    JAVA_OPTS="${JAVA_OPTS} -Xmx${Xmx}"
-fi
+for i in "$@"
+do
+  if [[ "${i}" == *"JvmOption"* ]]; then
+    JVM_OPTION="${i}"
+    JAVA_OPTS="${JAVA_OPTS} ${JVM_OPTION#*=}"
+    break
+  fi
+done
 
 JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.client.config=${HAZELCAST_CLIENT_CONFIG}"
 JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.config=${SEATUNNEL_CONFIG}"
