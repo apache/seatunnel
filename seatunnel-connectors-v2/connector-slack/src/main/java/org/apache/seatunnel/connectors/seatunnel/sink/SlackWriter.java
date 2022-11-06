@@ -50,7 +50,7 @@ public class SlackWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         Object[] fields = element.getFields();
         StringJoiner stringJoiner = new StringJoiner(",", "", "\n");
         for (Object field : fields) {
-            stringJoiner.add(field.toString());
+            stringJoiner.add(String.valueOf(field));
         }
         String message = stringJoiner.toString();
         try {
