@@ -123,6 +123,7 @@ public class JobConfigParser {
             complexAnalyze(sourceConfigs, transformConfigs, sinkConfigs);
         }
         actions.forEach(this::addCommonPluginJarsToAction);
+        jarUrlsSet.addAll(commonPluginJars);
         return new ImmutablePair<>(actions, jarUrlsSet);
     }
 
