@@ -24,13 +24,9 @@ import org.apache.seatunnel.connectors.seatunnel.rabbitmq.client.RabbitmqClient;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.Optional;
 
 public class RabbitmqSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
-    private static final Logger LOG = LoggerFactory.getLogger(RabbitmqSinkWriter.class);
     private RabbitmqClient rabbitMQClient;
     private final JsonSerializationSchema jsonSerializationSchema;
 
@@ -46,7 +42,6 @@ public class RabbitmqSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     @Override
     public Optional prepareCommit() {
-
         return Optional.empty();
     }
 

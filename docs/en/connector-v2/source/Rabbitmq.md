@@ -27,11 +27,11 @@ The source must be non-parallel (parallelism set to 1) in order to achieve exact
 | virtual_host                | string  | yes      | -             |
 | username                    | string  | yes      | -             |
 | password                    | string  | yes      | -             |
-| url                         | string  | no       | -             |
 | queue_name                  | string  | yes      | -             |
+| schema                      | config  | yes      | -             |
+| url                         | string  | no       | -             |
 | routing_key                 | string  | no       | -             |
 | exchange                    | string  | no       | -             |
-| schema                      | config  | yes      | -             |
 | network_recovery_interval   | int     | no       | -             |
 | topology_recovery_enabled   | boolean | no       | -             |
 | automatic_recovery_enabled  | boolean | no       | -             |

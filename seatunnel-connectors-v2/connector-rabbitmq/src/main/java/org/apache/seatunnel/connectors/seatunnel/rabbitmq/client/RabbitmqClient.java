@@ -55,12 +55,8 @@ public class RabbitmqClient {
             }
             setupQueue();
         } catch (Exception e) {
-            throw new RuntimeException(
-                    "Error while create RMQ client with "
-                            + this.config.getQueueName()
-                            + " at "
-                            + this.config.getHost(),
-                    e);
+            throw new RuntimeException(String.format("Error while create RMQ client with %s at %s", config.getQueueName(), config.getHost()), e);
+
         }
 
     }
@@ -140,18 +136,9 @@ public class RabbitmqClient {
             }
         } catch (IOException e) {
             if (config.isLogFailuresOnly()) {
-                log.error(
-                        "Cannot send RMQ message {} at {}",
-                        config.getQueueName(),
-                        config.getHost(),
-                        e);
+                log.error("Cannot send RMQ message {} at {}", config.getQueueName(), config.getHost(), e);
             } else {
-                throw new RuntimeException(
-                        "Cannot send RMQ message "
-                                + config.getQueueName()
-                                + " at "
-                                + config.getHost(),
-                        e);
+                throw new RuntimeException(String.format("Cannot send RMQ message %s at %s", config.getQueueName(), config.getHost()), e);
             }
         }
     }
@@ -179,12 +166,8 @@ public class RabbitmqClient {
             t = e;
         }
         if (t != null) {
-            throw new RuntimeException(
-                    "Error while closing RMQ connection with "
-                            + this.config.getQueueName()
-                            + " at "
-                            + this.config.getHost(),
-                    t);
+            throw new RuntimeException(String.format("Error while closing RMQ connection with  %s at %s", config.getQueueName(), config.getHost()), t);
+
         }
     }
 

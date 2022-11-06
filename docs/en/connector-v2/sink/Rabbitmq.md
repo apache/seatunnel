@@ -20,8 +20,8 @@ Used to write data to Rabbitmq.
 | virtual_host                | string  | yes      | -             |
 | username                    | string  | yes      | -             |
 | password                    | string  | yes      | -             |
-| url                         | string  | no       | -             |
 | queue_name                  | string  | yes      | -             |
+| url                         | string  | no       | -             |
 | network_recovery_interval   | int     | no       | -             |
 | topology_recovery_enabled   | boolean | no       | -             |
 | automatic_recovery_enabled  | boolean | no       | -             |
