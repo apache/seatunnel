@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.openmldb.source;
 
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbParameters;
 import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbSqlExecutor;
 
@@ -38,11 +40,13 @@ import java.sql.Timestamp;
 public class OpenMldbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final OpenMldbParameters openMldbParameters;
     private final SeaTunnelRowType seaTunnelRowType;
+    private final SingleSplitReaderContext readerContext;
 
     public OpenMldbSourceReader(OpenMldbParameters openMldbParameters,
-                                SeaTunnelRowType seaTunnelRowType) {
+                                SeaTunnelRowType seaTunnelRowType, SingleSplitReaderContext readerContext) {
         this.openMldbParameters = openMldbParameters;
         this.seaTunnelRowType = seaTunnelRowType;
+        this.readerContext = readerContext;
     }
 
     @Override
@@ -68,10 +72,17 @@ public class OpenMldbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
                 }
                 output.collect(new SeaTunnelRow(objects));
             }
+        } finally {
+            if (Boundedness.BOUNDED.equals(readerContext.getBoundedness())) {
+                // signal to the source that we have reached the end of the data.
+                log.info("Closed the bounded openmldb source");
+                readerContext.signalNoMoreElement();
+            }
         }
     }
 
     private Object getObject(ResultSet resultSet, int index, SeaTunnelDataType<?> dataType) throws SQLException {
+        index = index + 1;
         switch (dataType.getSqlType()) {
             case BOOLEAN:
                 return resultSet.getBoolean(index);

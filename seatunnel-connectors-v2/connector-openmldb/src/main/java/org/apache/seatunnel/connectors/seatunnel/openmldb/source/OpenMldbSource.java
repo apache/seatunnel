@@ -102,7 +102,7 @@ public class OpenMldbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new OpenMldbSourceReader(openMldbParameters, seaTunnelRowType);
+        return new OpenMldbSourceReader(openMldbParameters, seaTunnelRowType, readerContext);
     }
 
     @Override
