@@ -31,7 +31,7 @@ public class CommonTest {
 
     @Test
     public void appLibDir() {
-        assertEquals(Common.appRootDir().toString() + File.separator + "lib", Common.appLibDir().toString());
+        assertEquals(Common.appRootDir().toString() + File.separator + "starter", Common.appStarterDir().toString());
     }
 
     @Test
