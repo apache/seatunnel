@@ -51,7 +51,7 @@ public class OpenMldbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
 
     @Override
     public void open() throws Exception {
-        // do nothing
+        OpenMldbSqlExecutor.initSdkOption(openMldbParameters);
     }
 
     @Override
