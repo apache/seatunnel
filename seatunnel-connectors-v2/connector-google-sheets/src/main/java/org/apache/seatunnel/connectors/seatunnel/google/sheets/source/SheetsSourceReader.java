@@ -20,10 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.google.sheets.source;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.config.SheetsParameters;
+import org.apache.seatunnel.connectors.seatunnel.google.sheets.deserialize.GoogleSheetsDeserializer;
+import org.apache.seatunnel.connectors.seatunnel.google.sheets.deserialize.SeaTunnelRowDeserializer;
 
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.HttpRequestInitializer;
@@ -40,9 +41,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Base64;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class SheetsSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
@@ -56,21 +55,22 @@ public class SheetsSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
 
     private final SingleSplitReaderContext context;
 
-    private DeserializationSchema<SeaTunnelRow> deserializationSchema;
+
+    private final SeaTunnelRowDeserializer seaTunnelRowDeserializer;
 
     public SheetsSourceReader(SheetsParameters sheetsParameters, SingleSplitReaderContext context, DeserializationSchema<SeaTunnelRow> deserializationSchema) throws IOException {
         this.sheetsParameters = sheetsParameters;
         this.context = context;
-        this.deserializationSchema = deserializationSchema;
+        this.seaTunnelRowDeserializer = new GoogleSheetsDeserializer(sheetsParameters.getHeaders(), deserializationSchema);
     }
 
     @Override
     public void open() throws Exception {
         byte[] keyBytes = Base64.getDecoder().decode(sheetsParameters.getServiceAccountKey());
         ServiceAccountCredentials sourceCredentials = ServiceAccountCredentials
-            .fromStream(new ByteArrayInputStream(keyBytes));
+                .fromStream(new ByteArrayInputStream(keyBytes));
         sourceCredentials = (ServiceAccountCredentials) sourceCredentials
-            .createScoped(Collections.singletonList(SheetsScopes.SPREADSHEETS));
+                .createScoped(Collections.singletonList(SheetsScopes.SPREADSHEETS));
         requestInitializer = new HttpCredentialsAdapter(sourceCredentials);
 
     }
@@ -84,26 +84,16 @@ public class SheetsSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         final NetHttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
         Sheets service = new Sheets.Builder(httpTransport, JSON_FACTORY, requestInitializer)
-            .setApplicationName(APPLICATION_NAME)
-            .build();
+                .setApplicationName(APPLICATION_NAME)
+                .build();
         ValueRange response = service.spreadsheets().values()
-            .get(sheetsParameters.getSheetId(), sheetsParameters.getSheetName() + "!" + sheetsParameters.getRange())
-            .execute();
+                .get(sheetsParameters.getSheetId(), sheetsParameters.getSheetName() + "!" + sheetsParameters.getRange())
+                .execute();
         List<List<Object>> values = response.getValues();
         if (values != null) {
             for (List<Object> row : values) {
-                Map<String, Object> data = new HashMap<>();
-                for (int i = 0; i < row.size(); i++) {
-                    String key = i + "";
-                    if (sheetsParameters != null && i < sheetsParameters.getHeaders().size()) {
-                        if (!sheetsParameters.getHeaders().get(i).equals("")) {
-                            key = sheetsParameters.getHeaders().get(i);
-                        }
-                    }
-                    data.put(key, row.get(i));
-                }
-                String dataStr = JsonUtils.toJsonString(data);
-                deserializationSchema.deserialize(dataStr.getBytes(), output);
+                SeaTunnelRow seaTunnelRow = this.seaTunnelRowDeserializer.deserializeRow(row);
+                output.collect(seaTunnelRow);
             }
         }
         this.context.signalNoMoreElement();
