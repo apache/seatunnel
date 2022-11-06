@@ -18,27 +18,29 @@
 package org.apache.seatunnel.connectors.seatunnel.openmldb.source;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbParameters;
+import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbSqlExecutor;
 
 import com._4paradigm.openmldb.sdk.impl.SqlClusterExecutor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.sql.Date;
 import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
 
 @Slf4j
 public class OpenMldbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
-    private final SqlClusterExecutor sqlClusterExecutor;
     private final OpenMldbParameters openMldbParameters;
     private final SeaTunnelRowType seaTunnelRowType;
 
-    public OpenMldbSourceReader(SqlClusterExecutor sqlClusterExecutor,
-                                OpenMldbParameters openMldbParameters,
+    public OpenMldbSourceReader(OpenMldbParameters openMldbParameters,
                                 SeaTunnelRowType seaTunnelRowType) {
-        this.sqlClusterExecutor = sqlClusterExecutor;
         this.openMldbParameters = openMldbParameters;
         this.seaTunnelRowType = seaTunnelRowType;
     }
@@ -50,21 +52,49 @@ public class OpenMldbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
 
     @Override
     public void close() throws IOException {
-        sqlClusterExecutor.close();
+        OpenMldbSqlExecutor.close();
     }
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         int totalFields = seaTunnelRowType.getTotalFields();
         Object[] objects = new Object[totalFields];
-        try (ResultSet resultSet = sqlClusterExecutor.executeSQL(openMldbParameters.getDatabase(),
+        SqlClusterExecutor sqlExecutor = OpenMldbSqlExecutor.getSqlExecutor();
+        try (ResultSet resultSet = sqlExecutor.executeSQL(openMldbParameters.getDatabase(),
                 openMldbParameters.getSql())) {
             while (resultSet.next()) {
                 for (int i = 0; i < totalFields; i++) {
-                    objects[i] = resultSet.getObject(i);
+                    objects[i] = getObject(resultSet, i, seaTunnelRowType.getFieldType(i));
                 }
                 output.collect(new SeaTunnelRow(objects));
             }
+        }
+    }
+
+    private Object getObject(ResultSet resultSet, int index, SeaTunnelDataType<?> dataType) throws SQLException {
+        switch (dataType.getSqlType()) {
+            case BOOLEAN:
+                return resultSet.getBoolean(index);
+            case INT:
+                return resultSet.getInt(index);
+            case SMALLINT:
+                return resultSet.getShort(index);
+            case BIGINT:
+                return resultSet.getLong(index);
+            case FLOAT:
+                return resultSet.getFloat(index);
+            case DOUBLE:
+                return resultSet.getDouble(index);
+            case STRING:
+                return resultSet.getString(index);
+            case DATE:
+                Date date = resultSet.getDate(index);
+                return date.toLocalDate();
+            case TIMESTAMP:
+                Timestamp timestamp = resultSet.getTimestamp(index);
+                return timestamp.toLocalDateTime();
+            default:
+                throw new UnsupportedOperationException("Unsupported this data type");
         }
     }
 }

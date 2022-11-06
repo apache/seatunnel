@@ -35,12 +35,12 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSpl
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbConfig;
 import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbParameters;
+import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbSqlExecutor;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com._4paradigm.openmldb.sdk.Column;
 import com._4paradigm.openmldb.sdk.Schema;
-import com._4paradigm.openmldb.sdk.SdkOption;
 import com._4paradigm.openmldb.sdk.SqlException;
 import com._4paradigm.openmldb.sdk.impl.SqlClusterExecutor;
 import com.google.auto.service.AutoService;
@@ -52,8 +52,6 @@ import java.util.List;
 @AutoService(SeaTunnelSource.class)
 public class OpenMldbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     private OpenMldbParameters openMldbParameters;
-    private final SdkOption sdkOption = new SdkOption();
-    private SqlClusterExecutor sqlClusterExecutor;
     private JobContext jobContext;
     private SeaTunnelRowType seaTunnelRowType;
 
@@ -81,25 +79,13 @@ public class OpenMldbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
         this.openMldbParameters = OpenMldbParameters.buildWithConfig(pluginConfig);
-        if (openMldbParameters.getClusterMode()) {
-            sdkOption.setZkCluster(openMldbParameters.getZkHost());
-            sdkOption.setZkPath(openMldbParameters.getZkPath());
-        } else {
-            sdkOption.setHost(openMldbParameters.getHost());
-            sdkOption.setPort(openMldbParameters.getPort());
-        }
-        sdkOption.setSessionTimeout(openMldbParameters.getSessionTimeout());
-        sdkOption.setRequestTimeout(openMldbParameters.getRequestTimeout());
+        OpenMldbSqlExecutor.initSdkOption(openMldbParameters);
         try {
-            sqlClusterExecutor = new SqlClusterExecutor(sdkOption);
-        } catch (SqlException e) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Failed to initialize SQL container");
-        }
-        try {
-            Schema inputSchema = sqlClusterExecutor.getInputSchema(openMldbParameters.getDatabase(), openMldbParameters.getSql());
+            SqlClusterExecutor sqlExecutor = OpenMldbSqlExecutor.getSqlExecutor();
+            Schema inputSchema = sqlExecutor.getInputSchema(openMldbParameters.getDatabase(), openMldbParameters.getSql());
             List<Column> columnList = inputSchema.getColumnList();
             this.seaTunnelRowType = convert(columnList);
-        } catch (SQLException e) {
+        } catch (SQLException | SqlException e) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Failed to initialize data schema");
         }
     }
@@ -116,7 +102,7 @@ public class OpenMldbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new OpenMldbSourceReader(sqlClusterExecutor, openMldbParameters, seaTunnelRowType);
+        return new OpenMldbSourceReader(openMldbParameters, seaTunnelRowType);
     }
 
     @Override
