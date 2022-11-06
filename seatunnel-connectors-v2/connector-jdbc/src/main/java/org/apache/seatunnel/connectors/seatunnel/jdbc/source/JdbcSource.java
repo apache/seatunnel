@@ -28,7 +28,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcInputFormat;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
@@ -102,16 +101,7 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
 
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        Connection conn;
-        SeaTunnelRowType seaTunnelDataType = null;
-        try {
-            conn = jdbcConnectionProvider.getOrEstablishConnection();
-            seaTunnelDataType = initTableField(conn);
-        } catch (Exception e) {
-            LOG.warn("get row type info exception", e);
-        }
-        this.typeInfo = seaTunnelDataType;
-        return seaTunnelDataType;
+        return typeInfo;
     }
 
     @Override
@@ -140,16 +130,13 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
         ArrayList<String> fieldNames = new ArrayList<>();
         try {
             PreparedStatement ps = conn.prepareStatement(jdbcSourceOptions.getJdbcConnectionOptions().getQuery());
-            ResultSetMetaData resultSetMetaData = ps.getMetaData();
+            ResultSetMetaData resultSetMetaData = ps.executeQuery().getMetaData();
             for (int i = 1; i <= resultSetMetaData.getColumnCount(); i++) {
                 fieldNames.add(resultSetMetaData.getColumnName(i));
                 seaTunnelDataTypes.add(jdbcDialectTypeMapper.mapping(resultSetMetaData, i));
             }
         } catch (Exception e) {
             LOG.warn("get row type info exception", e);
-            if (jdbcSourceOptions.getSchema() != null) {
-                return SeaTunnelSchema.buildWithConfig(jdbcSourceOptions.getSchema()).getSeaTunnelRowType();
-            }
         }
         return new SeaTunnelRowType(fieldNames.toArray(new String[0]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[0]));
     }
