@@ -101,7 +101,7 @@ there are some reference value for params above.
 | gbase8a    | com.gbase.jdbc.Driver                                                  | jdbc:gbase://e2e_gbase8aDb:5258/test                                                                 | https://www.gbase8.cn/wp-content/uploads/2020/10/gbase-connector-java-8.3.81.53-build55.5.7-bin_min_mix.jar |
 | starrocks  | com.mysql.cj.jdbc.Driver                                               | jdbc:mysql://localhost:3306/test                                                                     | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
 | db2        | com.ibm.db2.jcc.DB2Driver                                              | jdbc:db2://localhost:50000/testdb                                                                    | https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc/db2jcc4                                           |
-| tablestore | com.alicloud.openservices.tablestore.jdbc.OTSDriver                    | jdbc:ots:https://myinstance.cn-hangzhou.ots.aliyuncs.com/myinstance                                  | https://mvnrepository.com/artifact/com.aliyun.openservices/tablestore-jdbc                                |
+| tablestore | com.alicloud.openservices.tablestore.jdbc.OTSDriver                    | "jdbc:ots:https://myinstance.cn-hangzhou.ots.aliyuncs.com/myinstance"                                | https://mvnrepository.com/artifact/com.aliyun.openservices/tablestore-jdbc                                  |
 
 ## Example
 
