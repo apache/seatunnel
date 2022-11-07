@@ -52,7 +52,7 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, RedisConfig.HOST, RedisConfig.PORT, RedisConfig.KEY_PATTERN, RedisConfig.DATA_TYPE);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, RedisConfig.HOST.key(), RedisConfig.PORT.key(), RedisConfig.KEY_PATTERN.key(), RedisConfig.DATA_TYPE.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
@@ -66,8 +66,8 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         // TODO: use format SPI
         // default use json format
         String format;
-        if (pluginConfig.hasPath(RedisConfig.FORMAT)) {
-            format = pluginConfig.getString(RedisConfig.FORMAT);
+        if (pluginConfig.hasPath(RedisConfig.FORMAT.key())) {
+            format = pluginConfig.getString(RedisConfig.FORMAT.key());
             this.deserializationSchema = null;
         } else {
             format = "json";
