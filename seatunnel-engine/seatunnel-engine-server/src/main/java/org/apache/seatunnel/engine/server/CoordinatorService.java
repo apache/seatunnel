@@ -136,13 +136,6 @@ public class CoordinatorService {
         this.engineConfig = engineConfig;
         masterActiveListener = Executors.newSingleThreadScheduledExecutor();
         masterActiveListener.scheduleAtFixedRate(this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
-
-        jobHistoryService = new JobHistoryService(
-            nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE),
-            logger,
-            runningJobMasterMap,
-            nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE)
-        );
     }
 
     public JobHistoryService getJobHistoryService() {
@@ -171,6 +164,13 @@ public class CoordinatorService {
         runningJobStateIMap = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
         runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
         ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+
+        jobHistoryService = new JobHistoryService(
+            runningJobStateIMap,
+            logger,
+            runningJobMasterMap,
+            nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE)
+        );
 
         List<CompletableFuture<Void>> collect = runningJobInfoIMap.entrySet().stream().map(entry -> {
             return CompletableFuture.runAsync(() -> {
