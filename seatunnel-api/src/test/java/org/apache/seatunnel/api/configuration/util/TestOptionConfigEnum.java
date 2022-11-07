@@ -15,25 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
+package org.apache.seatunnel.api.configuration.util;
 
-import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.RULES;
-
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-
-import com.google.auto.service.AutoService;
-
-@AutoService(TableSinkFactory.class)
-public class AssertSinkFactory implements TableSinkFactory {
-
-    @Override
-    public String factoryIdentifier() {
-        return "AssertSink";
-    }
-
-    @Override
-    public OptionRule optionRule() {
-        return OptionRule.builder().required(RULES).build();
-    }
+public enum TestOptionConfigEnum {
+    KEY1,
+    KEY2
 }

@@ -15,25 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
+package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 
-import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.RULES;
+import org.apache.seatunnel.api.configuration.util.Option;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import lombok.Data;
 
-import com.google.auto.service.AutoService;
+@Data
+public class NodePassConfig {
 
-@AutoService(TableSinkFactory.class)
-public class AssertSinkFactory implements TableSinkFactory {
+    @Option(description = "The address of Clickhouse server node")
+    private String nodeAddress;
 
-    @Override
-    public String factoryIdentifier() {
-        return "AssertSink";
-    }
+    @Option(description = "Clickhouse server linux password")
+    private String password;
 
-    @Override
-    public OptionRule optionRule() {
-        return OptionRule.builder().required(RULES).build();
-    }
 }

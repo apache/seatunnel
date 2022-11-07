@@ -15,25 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
+package org.apache.seatunnel.api.configuration.util;
 
-import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.RULES;
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Target(ElementType.FIELD)
+public @interface Option {
 
-import com.google.auto.service.AutoService;
+    /**
+     * The key of the option, if not configured, we will default convert `lowerCamelCase` to `under_score_case` and provide it to users
+     */
+    String name() default "";
 
-@AutoService(TableSinkFactory.class)
-public class AssertSinkFactory implements TableSinkFactory {
-
-    @Override
-    public String factoryIdentifier() {
-        return "AssertSink";
-    }
-
-    @Override
-    public OptionRule optionRule() {
-        return OptionRule.builder().required(RULES).build();
-    }
+    /**
+     * The description of the option
+     */
+    String description() default "";
 }

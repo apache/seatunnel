@@ -17,23 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.RULES;
+import org.apache.seatunnel.api.configuration.util.Option;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import lombok.Data;
 
-import com.google.auto.service.AutoService;
+import java.util.List;
 
-@AutoService(TableSinkFactory.class)
-public class AssertSinkFactory implements TableSinkFactory {
+@Data
+public class Rules {
 
-    @Override
-    public String factoryIdentifier() {
-        return "AssertSink";
-    }
+    @Option(description = "row rules for row validation")
+    private List<RowRule> rowRules;
 
-    @Override
-    public OptionRule optionRule() {
-        return OptionRule.builder().required(RULES).build();
-    }
+    @Option(description = "field rules for field validation")
+    private List<FieldRule> fieldRules;
+
 }

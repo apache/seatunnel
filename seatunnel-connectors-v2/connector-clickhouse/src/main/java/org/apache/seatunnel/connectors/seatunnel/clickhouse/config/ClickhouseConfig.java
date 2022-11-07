@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 @SuppressWarnings("checkstyle:MagicNumber")
-public class Config {
+public class ClickhouseConfig {
 
     /**
      * Bulk size of clickhouse jdbc
@@ -96,18 +96,11 @@ public class Config {
     public static final Option<ClickhouseFileCopyMethod> COPY_METHOD = Options.key("copy_method").enumType(ClickhouseFileCopyMethod.class)
         .defaultValue(ClickhouseFileCopyMethod.SCP).withDescription("The method of copy Clickhouse file");
 
-    /**
-     * The address of Clickhouse server node
-     */
-    public static final Option<String> NODE_ADDRESS = Options.key("node_address").stringType()
-        .noDefaultValue().withDescription("The address of Clickhouse server node");
-
-    public static final Option<Map<String, Object>> NODE_PASS_MAP = Options.key("node_pass_map").mapType(NODE_ADDRESS, PASSWORD)
-        .noDefaultValue();
+    public static final String NODE_ADDRESS = "node_address";
     /**
      * The password of Clickhouse server node
      */
-    public static final Option<List<Map<String, Object>>> NODE_PASS = Options.key("node_pass").listType(NODE_PASS_MAP)
+    public static final Option<List<NodePassConfig>> NODE_PASS = Options.key("node_pass").listType(NodePassConfig.class)
         .noDefaultValue().withDescription("The password of Clickhouse server node");
 
     public static final Option<Map<String, String>> CLICKHOUSE_PREFIX = Options.key("clickhouse").mapType()

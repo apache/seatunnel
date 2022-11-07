@@ -17,23 +17,27 @@
 
 package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.RULES;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+public class AssertConfig {
 
-import com.google.auto.service.AutoService;
+    public static final String RULE_TYPE = "rule_type";
 
-@AutoService(TableSinkFactory.class)
-public class AssertSinkFactory implements TableSinkFactory {
+    public static final String RULE_VALUE = "rule_value";
 
-    @Override
-    public String factoryIdentifier() {
-        return "AssertSink";
-    }
+    public static final String ROW_RULES = "row_rules";
 
-    @Override
-    public OptionRule optionRule() {
-        return OptionRule.builder().required(RULES).build();
-    }
+    public static final String FIELD_NAME = "field_name";
+
+    public static final String FIELD_TYPE = "field_type";
+
+    public static final String FIELD_VALUE = "field_value";
+
+    public static final String FIELD_RULES = "field_rules";
+
+    public static final Option<Rules> RULES = Options.key("rules").objectType(Rules.class)
+        .noDefaultValue().withDescription("Rule definition of user's available data. Each rule represents one field validation or row num validation.");
+
+
 }

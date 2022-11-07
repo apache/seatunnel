@@ -122,17 +122,12 @@ public class OptionRule {
         }
 
         /**
-         * Optional options with default value.
+         * Optional options
          *
          * <p> This options will not be validated.
          * <p> This is used by the web-UI to show what options are available.
          */
         public Builder optional(Option<?>... options) {
-            for (Option<?> option : options) {
-                if (option.defaultValue() == null) {
-                    throw new OptionValidationException(String.format("Optional option '%s' should have default value.", option.key()));
-                }
-            }
             this.optionalOptions.addAll(Arrays.asList(options));
             return this;
         }
@@ -188,7 +183,7 @@ public class OptionRule {
         }
 
         public Builder bothRequired(Option<?>... requiredOptions) {
-            this.requiredOptions.add(RequiredOption.BothRequiredOptions.of(new HashSet<>(Arrays.asList(requiredOptions))));
+            this.requiredOptions.add(RequiredOption.BundledRequiredOptions.of(new HashSet<>(Arrays.asList(requiredOptions))));
             return this;
         }
 

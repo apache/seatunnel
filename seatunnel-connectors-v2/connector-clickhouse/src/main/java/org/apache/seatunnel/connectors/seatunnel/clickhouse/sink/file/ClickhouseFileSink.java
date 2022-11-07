@@ -17,17 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.CLICKHOUSE_LOCAL_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.COPY_METHOD;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.FIELDS;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.NODE_ADDRESS;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.NODE_PASS;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.SHARDING_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_LOCAL_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.COPY_METHOD;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.FIELDS;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.NODE_ADDRESS;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.NODE_PASS;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SHARDING_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.USERNAME;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -113,10 +113,10 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
             fields = new ArrayList<>(tableSchema.keySet());
         }
         Map<String, String> nodeUser = config.getObjectList(NODE_PASS.key()).stream()
-                .collect(Collectors.toMap(configObject -> configObject.toConfig().getString(NODE_ADDRESS.key()),
+                .collect(Collectors.toMap(configObject -> configObject.toConfig().getString(NODE_ADDRESS),
                     configObject -> configObject.toConfig().hasPath(USERNAME.key()) ? configObject.toConfig().getString(USERNAME.key()) : "root"));
         Map<String, String> nodePassword = config.getObjectList(NODE_PASS.key()).stream()
-                .collect(Collectors.toMap(configObject -> configObject.toConfig().getString(NODE_ADDRESS.key()),
+                .collect(Collectors.toMap(configObject -> configObject.toConfig().getString(NODE_ADDRESS),
                     configObject -> configObject.toConfig().getString(PASSWORD.key())));
 
         proxy.close();

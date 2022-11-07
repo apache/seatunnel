@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.Config.FIELD_RULES;
-import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.Config.ROW_RULES;
-import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.Config.RULES;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.FIELD_RULES;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.ROW_RULES;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.RULES;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -70,12 +70,12 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
         Config ruleConfig = pluginConfig.getConfig(RULES.key());
         List<? extends Config> rowConfigList = null;
         List<? extends Config> configList = null;
-        if (ruleConfig.hasPath(ROW_RULES.key())) {
-            rowConfigList = ruleConfig.getConfigList(ROW_RULES.key());
+        if (ruleConfig.hasPath(ROW_RULES)) {
+            rowConfigList = ruleConfig.getConfigList(ROW_RULES);
             assertRowRules = new AssertRuleParser().parseRowRules(rowConfigList);
         }
-        if (ruleConfig.hasPath(FIELD_RULES.key())) {
-            configList = ruleConfig.getConfigList(FIELD_RULES.key());
+        if (ruleConfig.hasPath(FIELD_RULES)) {
+            configList = ruleConfig.getConfigList(FIELD_RULES);
             assertFieldRules = new AssertRuleParser().parseRules(configList);
         }
 

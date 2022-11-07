@@ -163,15 +163,15 @@ public interface RequiredOption {
     /**
      * All options must exist or not exist at the same time
      */
-    class BothRequiredOptions implements RequiredOption {
+    class BundledRequiredOptions implements RequiredOption {
         private final Set<Option<?>> requiredOption;
 
-        BothRequiredOptions(Set<Option<?>> requiredOption) {
+        BundledRequiredOptions(Set<Option<?>> requiredOption) {
             this.requiredOption = requiredOption;
         }
 
-        public static BothRequiredOptions of(Set<Option<?>> requiredOption) {
-            return new BothRequiredOptions(requiredOption);
+        public static BundledRequiredOptions of(Set<Option<?>> requiredOption) {
+            return new BundledRequiredOptions(requiredOption);
         }
 
         public Set<Option<?>> getRequiredOption() {
@@ -183,10 +183,10 @@ public interface RequiredOption {
             if (this == obj) {
                 return true;
             }
-            if (!(obj instanceof BothRequiredOptions)) {
+            if (!(obj instanceof BundledRequiredOptions)) {
                 return false;
             }
-            BothRequiredOptions that = (BothRequiredOptions) obj;
+            BundledRequiredOptions that = (BundledRequiredOptions) obj;
             return Objects.equals(this.requiredOption, that.requiredOption);
         }
 
