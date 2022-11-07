@@ -31,7 +31,7 @@ import java.util.Optional;
  * @param <CommitInfoT> The type of commit message.
  * @param <StateT>      The type of state.
  */
-public interface SinkWriter<T, CommitInfoT, StateT> extends Serializable {
+public interface SinkWriter<T, CommitInfoT, StateT> {
 
     /**
      * write data to third party data receiver.

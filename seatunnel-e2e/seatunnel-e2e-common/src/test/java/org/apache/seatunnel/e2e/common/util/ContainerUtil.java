@@ -92,6 +92,16 @@ public final class ContainerUtil {
         return targetConfInContainer;
     }
 
+    public static void copySeaTunnelStarterLoggingToContainer(GenericContainer<?> container,
+                                                              String startModulePath,
+                                                              String seatunnelHomeInContainer) {
+        // copy logging lib
+        final String loggingLibPath = startModulePath + File.separator + "target" + File.separator + "logging-e2e" + File.separator;
+        checkPathExist(loggingLibPath);
+        container.withCopyFileToContainer(MountableFile.forHostPath(loggingLibPath),
+            Paths.get(seatunnelHomeInContainer, "starter", "logging").toString());
+    }
+
     public static void copySeaTunnelStarterToContainer(GenericContainer<?> container,
                                                        String startModuleName,
                                                        String startModulePath,
