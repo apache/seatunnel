@@ -46,8 +46,8 @@ import java.util.Objects;
 @Slf4j
 @AutoService(SeaTunnelSource.class)
 public class MyHoursSource extends HttpSource {
-
     private final MyHoursSourceParameter myHoursSourceParameter = new MyHoursSourceParameter();
+
     @Override
     public String getPluginName() {
         return "MyHours";
