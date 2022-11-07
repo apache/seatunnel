@@ -182,7 +182,7 @@ public class OptionRule {
             return this;
         }
 
-        public Builder bothRequired(Option<?>... requiredOptions) {
+        public Builder bundledRequired(Option<?>... requiredOptions) {
             this.requiredOptions.add(RequiredOption.BundledRequiredOptions.of(new HashSet<>(Arrays.asList(requiredOptions))));
             return this;
         }

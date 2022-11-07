@@ -44,6 +44,6 @@ public class ClickhouseSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder().required(HOST, DATABASE, TABLE)
             .optional(CLICKHOUSE_PREFIX, BULK_SIZE, SPLIT_MODE, FIELDS, SHARDING_KEY)
-            .bothRequired(USERNAME, PASSWORD).build();
+            .bundledRequired(USERNAME, PASSWORD).build();
     }
 }
