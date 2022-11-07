@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
-import org.apache.seatunnel.api.configuration.util.Option;
+import org.apache.seatunnel.api.configuration.util.OptionMark;
 
 import lombok.Data;
 
@@ -26,10 +26,10 @@ import java.util.List;
 @Data
 public class Rules {
 
-    @Option(description = "row rules for row validation")
+    @OptionMark(description = "row rules for row validation")
     private List<RowRule> rowRules;
 
-    @Option(description = "field rules for field validation")
+    @OptionMark(description = "field rules for field validation")
     private List<FieldRule> fieldRules;
 
 }

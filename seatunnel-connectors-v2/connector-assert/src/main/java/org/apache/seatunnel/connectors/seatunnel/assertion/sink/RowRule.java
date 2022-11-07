@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
-import org.apache.seatunnel.api.configuration.util.Option;
+import org.apache.seatunnel.api.configuration.util.OptionMark;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
 
 import lombok.Data;
@@ -25,10 +25,10 @@ import lombok.Data;
 @Data
 public class RowRule {
 
-    @Option(description = "The rule type of the rule")
+    @OptionMark(description = "The rule type of the rule")
     private AssertFieldRule.AssertRuleType ruleType;
 
-    @Option(description = "The value related to rule type")
+    @OptionMark(description = "The value related to rule type")
     private Double ruleValue;
 
 }

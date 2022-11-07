@@ -25,43 +25,43 @@ import java.util.Map;
 @Data
 public class TestOptionConfig {
 
-    @Option(name = "short-value", description = "shortValue")
+    @OptionMark(name = "short-value", description = "shortValue")
     private Short shortValue;
 
-    @Option
+    @OptionMark
     private Integer intValue;
 
-    @Option(description = "longValue")
+    @OptionMark(description = "longValue")
     private Long longValue;
 
-    @Option(description = "floatValue")
+    @OptionMark(description = "floatValue")
     private Float floatValue;
 
-    @Option(description = "doubleValue")
+    @OptionMark(description = "doubleValue")
     private Double doubleValue;
 
-    @Option(description = "stringValue")
+    @OptionMark(description = "stringValue")
     private String stringValue = "default string";
 
-    @Option(description = "booleanValue")
+    @OptionMark(description = "booleanValue")
     private Boolean booleanValue = true;
 
-    @Option(description = "byteValue")
+    @OptionMark(description = "byteValue")
     private Byte byteValue;
 
-    @Option(description = "charValue")
+    @OptionMark(description = "charValue")
     private Character charValue;
 
-    @Option(description = "enumValue")
+    @OptionMark(description = "enumValue")
     private TestOptionConfigEnum enumValue = TestOptionConfigEnum.KEY2;
 
-    @Option(description = "objectValue")
+    @OptionMark(description = "objectValue")
     private TestOptionConfig objectValue;
 
-    @Option(description = "listValue")
+    @OptionMark(description = "listValue")
     private List<TestOptionConfig> listValue;
 
-    @Option(description = "mapValue")
+    @OptionMark(description = "mapValue")
     private Map<String, String> mapValue;
 
 }

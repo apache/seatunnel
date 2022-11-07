@@ -17,17 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 
-import org.apache.seatunnel.api.configuration.util.Option;
+import org.apache.seatunnel.api.configuration.util.OptionMark;
 
 import lombok.Data;
 
 @Data
 public class NodePassConfig {
 
-    @Option(description = "The address of Clickhouse server node")
+    @OptionMark(description = "The address of Clickhouse server node")
     private String nodeAddress;
 
-    @Option(description = "Clickhouse server linux password")
+    @OptionMark(description = "Clickhouse server linux password")
     private String password;
 
 }

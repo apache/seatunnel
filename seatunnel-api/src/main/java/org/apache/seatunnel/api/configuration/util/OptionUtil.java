@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.api.configuration.util;
 
+import org.apache.seatunnel.api.configuration.Option;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.commons.lang3.StringUtils;
 
@@ -27,15 +29,15 @@ import java.util.List;
 
 public class OptionUtil {
 
-    public static List<org.apache.seatunnel.api.configuration.Option<?>> getOptions(Class<?> clazz) throws InstantiationException, IllegalAccessException {
+    public static List<Option<?>> getOptions(Class<?> clazz) throws InstantiationException, IllegalAccessException {
         Field[] fields = clazz.getDeclaredFields();
-        List<org.apache.seatunnel.api.configuration.Option<?>> options = new ArrayList<>();
+        List<Option<?>> options = new ArrayList<>();
         Object object = clazz.newInstance();
         for (Field field : fields) {
             field.setAccessible(true);
-            Option option = field.getAnnotation(Option.class);
+            OptionMark option = field.getAnnotation(OptionMark.class);
             if (option != null) {
-                options.add(new org.apache.seatunnel.api.configuration.Option<>(!StringUtils.isNotBlank(option.name()) ? formatUnderScoreCase(field.getName()) : option.name(),
+                options.add(new Option<>(!StringUtils.isNotBlank(option.name()) ? formatUnderScoreCase(field.getName()) : option.name(),
                     new TypeReference<Object>() {
                         @Override
                         public Type getType() {

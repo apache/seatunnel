@@ -26,7 +26,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @Target(ElementType.FIELD)
-public @interface Option {
+public @interface OptionMark {
 
     /**
      * The key of the option, if not configured, we will default convert `lowerCamelCase` to `under_score_case` and provide it to users
