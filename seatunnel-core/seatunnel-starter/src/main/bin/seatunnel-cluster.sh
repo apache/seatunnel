@@ -60,6 +60,10 @@ if [ -z $SEATUNNEL_CONFIG ]; then
     SEATUNNEL_CONFIG=${CONF_DIR}/seatunnel.yaml
 fi
 
+if test ${JvmOption} ;then
+    JAVA_OPTS="${JAVA_OPTS} ${JvmOption}"
+fi
+
 for i in "$@"
 do
   if [[ "${i}" == *"JvmOption"* ]]; then
