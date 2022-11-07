@@ -186,5 +186,19 @@
             <outputDirectory>/lib</outputDirectory>
             <scope>provided</scope>
         </dependencySet>
+
+        <!-- ============ Connectors Jars ============  -->
+        <!-- SeaTunnel connectors for Demo -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <includes>
+                <include>org.apache.seatunnel:connector-fake:jar</include>
+                <include>org.apache.seatunnel:connector-console:jar</include>
+            </includes>
+            <outputDirectory>/connectors/seatunnel</outputDirectory>
+            <scope>provided</scope>
+        </dependencySet>
     </dependencySets>
 </assembly>
