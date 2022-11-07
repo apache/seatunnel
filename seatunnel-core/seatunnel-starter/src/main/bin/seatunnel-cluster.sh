@@ -36,7 +36,7 @@ done
 PRG_DIR=`dirname "$PRG"`
 APP_DIR=`cd "$PRG_DIR/.." >/dev/null; pwd`
 CONF_DIR=${APP_DIR}/config
-APP_JAR=${APP_DIR}/lib/seatunnel-starter.jar
+APP_JAR=${APP_DIR}/starter/seatunnel-starter.jar
 APP_MAIN="org.apache.seatunnel.core.starter.seatunnel.SeaTunnelServer"
 
 if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
@@ -60,4 +60,19 @@ if [ -z $SEATUNNEL_CONFIG ]; then
     SEATUNNEL_CONFIG=${CONF_DIR}/seatunnel.yaml
 fi
 
-java -Dseatunnel.config=${SEATUNNEL_CONFIG} -Dhazelcast.config=${HAZELCAST_CONFIG} -cp ${APP_JAR} ${APP_MAIN} ${args}
+JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.config=${SEATUNNEL_CONFIG}"
+JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.config=${HAZELCAST_CONFIG}"
+
+# Log4j2 Config
+JAVA_OPTS="${JAVA_OPTS} -Dlog4j2.contextSelector=org.apache.logging.log4j.core.async.AsyncLoggerContextSelector"
+if [ -e "${CONF_DIR}/log4j2.properties" ]; then
+  JAVA_OPTS="${JAVA_OPTS} -Dlog4j2.configurationFile=${CONF_DIR}/log4j2.properties"
+  JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.path=${APP_DIR}/logs"
+  JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-starter-server"
+fi
+
+echo "JAVA_OPTS: ${JAVA_OPTS}"
+
+CLASS_PATH=${APP_DIR}/lib/*:${APP_JAR}
+
+java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}

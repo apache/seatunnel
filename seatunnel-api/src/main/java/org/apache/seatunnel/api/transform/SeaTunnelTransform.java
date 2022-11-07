@@ -24,13 +24,28 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.io.Serializable;
 
-public interface SeaTunnelTransform<T> extends Serializable, PluginIdentifierInterface,
-        SeaTunnelPluginLifeCycle, SeaTunnelJobAware {
+public interface SeaTunnelTransform<T> extends Serializable,
+    PluginIdentifierInterface, SeaTunnelPluginLifeCycle, SeaTunnelJobAware {
 
-    T map(T row);
+    /**
+     * Set the data type info of input data.
+     *
+     * @param inputDataType The data type info of upstream input.
+     */
+    void setTypeInfo(SeaTunnelDataType<T> inputDataType);
 
-    void setTypeInfo(SeaTunnelDataType<T> seaTunnelRowType);
-
+    /**
+     * Get the data type of the records produced by this transform.
+     *
+     * @return Produced data type.
+     */
     SeaTunnelDataType<T> getProducedType();
 
+    /**
+     * Transform input data to {@link this#getProducedType()} types data.
+     *
+     * @param row the data need be transform.
+     * @return transformed data.
+     */
+    T map(T row);
 }

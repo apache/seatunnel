@@ -18,6 +18,7 @@
 package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
+import org.apache.seatunnel.flink.FlinkEnvironment;
 
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.types.Row;
@@ -33,4 +34,11 @@ public interface PluginExecuteProcessor {
      * @return the result data stream
      */
     List<DataStream<Row>> execute(List<DataStream<Row>> upstreamDataStreams) throws TaskExecuteException;
+
+    /**
+     * Set up the flink environment.
+     *
+     * @param flinkEnvironment flinkEnvironment.
+     */
+    void setFlinkEnvironment(FlinkEnvironment flinkEnvironment);
 }

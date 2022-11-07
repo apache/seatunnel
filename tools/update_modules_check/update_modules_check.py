@@ -21,27 +21,32 @@ def get_cv2_modules(files):
     get_modules(files, 1, "connector-", "seatunnel-connectors-v2")
 
 def get_cv2_flink_e2e_modules(files):
-    get_modules(files, 2, "connector-", "seatunnel-e2e/seatunnel-flink-connector-v2-e2e")
+    get_modules(files, 2, "connector-", "seatunnel-flink-connector-v2-e2e")
 
 def get_cv2_spark_e2e_modules(files):
-    get_modules(files, 2, "connector-", "seatunnel-e2e/seatunnel-spark-connector-v2-e2e")
+    get_modules(files, 2, "connector-", "seatunnel-spark-connector-v2-e2e")
 
 def get_cv2_e2e_modules(files):
-    get_modules(files, 2, "connector-", "seatunnel-e2e/seatunnel-connector-v2-e2e")
+    get_modules(files, 2, "connector-", "seatunnel-connector-v2-e2e")
 
 def get_engine_modules(files):
-    get_modules(files, 1, "seatunnel-", "seatunnel-engine")
+    # We don't run all connector e2e when engine module update
+    print(",connector-seatunnel-e2e-base,connector-console-seatunnel-e2e")
 
 def get_engine_e2e_modules(files):
-    get_modules(files, 2, "connector-", "seatunnel-e2e/seatunnel-engine-e2e")
+    get_modules(files, 2, "connector-", "seatunnel-engine-e2e")
 
 def get_modules(files, index, start_pre, root_module):
     update_files = json.loads(files)
     modules_name_set = set([])
     for file in update_files:
-        module_name = file.split('/')[index]
+        names = file.split('/')
+        module_name = names[index]
         if module_name.startswith(start_pre):
-            modules_name_set.add(root_module + "/" + module_name)
+            modules_name_set.add(module_name)
+
+        if len(names) > index + 1 and names[index + 1].startswith(start_pre):
+            modules_name_set.add(names[index + 1])
 
     output_module = ""
     if len(modules_name_set) > 0:
@@ -49,9 +54,61 @@ def get_modules(files, index, start_pre, root_module):
             output_module = output_module + "," + module
 
     else:
-        output_module = root_module
+        output_module = output_module + "," + root_module
 
     print(output_module)
+
+def replace_comma_to_commacolon(modules_str):
+    modules_str = modules_str.replace(",", ",:")
+    modules_str = ":" + modules_str
+    print(modules_str)
+
+def get_sub_modules(file):
+    f = open(file, 'rb')
+    output = ""
+    for line in f.readlines():
+        line = line.replace(" ","")
+        if line.startswith("<string>"):
+            line = line.replace(" ","").replace("<string>", "").replace("</string>", "").replace("\n", "")
+            output = output + "," + line
+
+    print(output)
+
+def get_dependency_tree_includes(modules_str):
+    modules = modules_str.split(',')
+    output = ""
+    for module in modules:
+        output = ",org.apache.seatunnel:" + module + output
+
+    output = output[1:len(output)]
+    output = "-Dincludes=" + output
+    print(output)
+
+def get_final_it_modules(file):
+    f = open(file, 'rb')
+    output = ""
+    for line in f.readlines():
+        if line.startswith("org.apache.seatunnel"):
+            con = line.split(":")
+            # find all e2e modules
+            if con[2] == "jar" and "-e2e" in con[1] and "transform" not in con[1]:
+                output = output + "," + ":" + con[1]
+
+    output = output[1:len(output)]
+    print(output)
+
+def get_final_ut_modules(file):
+    f = open(file, 'rb')
+    output = ""
+    for line in f.readlines():
+        if line.startswith("org.apache.seatunnel"):
+            con = line.split(":")
+            # find all e2e modules
+            if con[2] == "jar":
+                output = output + "," + ":" + con[1]
+
+    output = output[1:len(output)]
+    print(output)
 
 def main(argv):
     if argv[1] == "cv2":
@@ -66,6 +123,16 @@ def main(argv):
         get_engine_modules(argv[2])
     elif argv[1] == "engine-e2e":
         get_engine_e2e_modules(argv[2])
+    elif argv[1] == "tree":
+        get_dependency_tree_includes(argv[2])
+    elif argv[1] == "final_it":
+        get_final_it_modules(argv[2])
+    elif argv[1] == "final_ut":
+        get_final_ut_modules(argv[2])
+    elif argv[1] == "replace":
+        replace_comma_to_commacolon(argv[2])
+    elif argv[1] == "sub":
+        get_sub_modules(argv[2])
 
 if __name__ == "__main__":
     main(sys.argv)

@@ -81,6 +81,7 @@
         <module>seatunnel-apis</module>
         <module>seatunnel-core</module>
         <module>seatunnel-transforms</module>
+        <module>seatunnel-transforms-v2</module>
         <module>seatunnel-connectors</module>
         <module>seatunnel-connectors-v2</module>
         <module>seatunnel-api</module>
@@ -88,48 +89,26 @@
         <module>seatunnel-plugin-discovery</module>
         <module>seatunnel-formats</module>
         <module>seatunnel-engine</module>
+        <module>seatunnel-examples</module>
+        <module>seatunnel-e2e</module>
     </modules>
 
     <profiles>
         <profile>
-            <id>all</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-                <property>
-                    <name>release</name>
-                    <value>false</value>
-                </property>
-            </activation>
-            <modules>
-                <module>seatunnel-examples</module>
-                <module>seatunnel-e2e</module>
-                <module>seatunnel-dist</module>
-            </modules>
-        </profile>
-        <profile>
             <id>release</id>
             <activation>
-                <property>
-                    <name>release</name>
-                    <value>true</value>
-                </property>
+                <activeByDefault>true</activeByDefault>
             </activation>
             <modules>
                 <module>seatunnel-dist</module>
             </modules>
         </profile>
+        <!-- The ci need build without seatunnel-dist modules, so we need add a no_dist profile -->
         <profile>
-            <id>no_dist</id>
+            <id>ci</id>
             <activation>
-                <property>
-                    <name>release</name>
-                    <value>false</value>
-                </property>
+                <activeByDefault>false</activeByDefault>
             </activation>
-            <modules>
-                <module>seatunnel-examples</module>
-                <module>seatunnel-e2e</module>
-            </modules>
         </profile>
     </profiles>
 
@@ -143,11 +122,17 @@
         <scala.binary.version>2.11</scala.binary.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
+
+        <slf4j.version>1.7.25</slf4j.version>
+        <log4j2.version>2.17.1</log4j2.version>
+        <log4j2-disruptor.version>3.4.4</log4j2-disruptor.version>
+        <log4j.version>1.2.17</log4j.version>
+        <logback.version>1.2.3</logback.version>
+        <commons-logging.version>1.2</commons-logging.version>
         <iceberg.version>0.13.1</iceberg.version>
         <flink.1.13.6.version>1.13.6</flink.1.13.6.version>
         <spark.2.4.0.version>2.4.0</spark.2.4.0.version>
         <spark.binary.2.4.version>2.4</spark.binary.2.4.version>
-        <commons.logging.version>1.2</commons.logging.version>
         <commons.beanutils.version>1.9.4</commons.beanutils.version>
         <commons.cli.version>1.4</commons.cli.version>
         <commons.configuration.version>1.7</commons.configuration.version>
@@ -196,8 +181,8 @@
         <flatten-maven-plugin.version>1.3.0</flatten-maven-plugin.version>
         <maven-license-maven-plugin>1.20</maven-license-maven-plugin>
         <log4j-core.version>2.17.1</log4j-core.version>
-        <scalastyle-maven-plugin.version>1.0.0</scalastyle-maven-plugin.version>
         <docker-maven-plugin.version>0.38.0</docker-maven-plugin.version>
+        <maven-dependency-plugin.version>3.1.1</maven-dependency-plugin.version>
         <p3c-pmd.version>1.3.0</p3c-pmd.version>
         <maven-scm-provider-jgit.version>1.9.5</maven-scm-provider-jgit.version>
         <testcontainer.version>1.17.3</testcontainer.version>
@@ -205,7 +190,6 @@
         <skipUT>false</skipUT>
         <skipIT>true</skipIT>
         <elasticsearch>7</elasticsearch>
-        <slf4j.version>1.7.25</slf4j.version>
         <guava.version>19.0</guava.version>
         <auto-service.version>1.0.1</auto-service.version>
         <hadoop2.version>2.6.5</hadoop2.version>
@@ -214,10 +198,149 @@
         <snappy-java.version>1.1.8.3</snappy-java.version>
         <checker.qual.version>3.10.0</checker.qual.version>
         <awaitility.version>4.2.0</awaitility.version>
+        <e2e.dependency.skip>true</e2e.dependency.skip>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <!-- ***************** slf4j & provider & bridges start ***************** -->
+            <!-- Declare slf4j-api -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+            <!-- Declare slf4j-api provider: log4j2.x -->
+            <dependency>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-slf4j-impl</artifactId>
+                <version>${log4j2.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-api</artifactId>
+                <version>${log4j2.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-core</artifactId>
+                <version>${log4j2.version}</version>
+            </dependency>
+            <!-- Declare log4j2 asynchronous loggers provider: disruptor -->
+            <dependency>
+                <groupId>com.lmax</groupId>
+                <artifactId>disruptor</artifactId>
+                <version>${log4j2-disruptor.version}</version>
+            </dependency>
+            <!-- Include the logging bridges -->
+            <!-- commons-logging bridge to slf4j -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>jcl-over-slf4j</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+            <!-- jdk-logging bridge to slf4j -->
+            <!-- low performance, see: https://www.slf4j.org/legacy.html#jul-to-slf4j
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>jul-to-slf4j</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+            -->
+            <!-- log4j1.x bridge to log4j2.x -->
+            <dependency>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-1.2-api</artifactId>
+                <version>${log4j2.version}</version>
+            </dependency>
+            <!-- Exclude the logging bridges via provided scope -->
+            <!-- log4j1.x bridge to slf4j
+                 Use of the SLF4J adapter (log4j-over-slf4j) together with the SLF4J bridge (slf4j-log4j12) should never be attempted as it will cause events to endlessly be routed between SLF4J and Log4j 1
+             -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>log4j-over-slf4j</artifactId>
+                <version>${slf4j.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- slf4j binding to log4j1.x -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-log4j12</artifactId>
+                <version>${slf4j.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- log4j2.x binding to slf4j.
+                 Use of the SLF4J adapter (log4j-to-slf4j-2.x.jar) together with the SLF4J bridge (log4j-slf4j-impl-2.x.jar) should never be attempted as it will cause events to endlessly be routed between SLF4J and Log4j 2
+            -->
+            <dependency>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-to-slf4j</artifactId>
+                <version>${log4j2.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- slf4j binding to jdk-logging -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-jdk14</artifactId>
+                <version>${slf4j.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- slf4j binding to commons-logging -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-jcl</artifactId>
+                <version>${slf4j.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- slf4j binding to nop -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-nop</artifactId>
+                <version>${slf4j.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- slf4j binding to simple -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-simple</artifactId>
+                <version>${slf4j.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- slf4j binding to reload4j -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-reload4j</artifactId>
+                <version>${slf4j.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- Exclude other logging provider via provided scope -->
+            <dependency>
+                <groupId>commons-logging</groupId>
+                <artifactId>commons-logging</artifactId>
+                <version>${commons-logging.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>log4j</groupId>
+                <artifactId>log4j</artifactId>
+                <version>${log4j.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-classic</artifactId>
+                <version>${logback.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-core</artifactId>
+                <version>${logback.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- ***************** slf4j & provider & bridges end ***************** -->
+
             <dependency>
                 <groupId>org.apache.seatunnel</groupId>
                 <artifactId>seatunnel-config-shade</artifactId>
@@ -237,6 +360,10 @@
                     <exclusion>
                         <groupId>xml-apis</groupId>
                         <artifactId>xml-apis</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-log4j12</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -315,11 +442,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.apache.logging.log4j</groupId>
-                <artifactId>log4j-core</artifactId>
-                <version>${log4j-core.version}</version>
-            </dependency>
-            <dependency>
                 <groupId>com.typesafe</groupId>
                 <artifactId>config</artifactId>
                 <version>${config.version}</version>
@@ -335,24 +457,6 @@
                 <groupId>com.google.guava</groupId>
                 <artifactId>guava</artifactId>
                 <version>${guava.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.slf4j</groupId>
-                <artifactId>slf4j-api</artifactId>
-                <version>${slf4j.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.slf4j</groupId>
-                <artifactId>slf4j-log4j12</artifactId>
-                <version>${slf4j.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>commons-logging</groupId>
-                <artifactId>commons-logging</artifactId>
-                <version>${commons.logging.version}</version>
             </dependency>
 
             <dependency>
@@ -408,16 +512,34 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
         </dependency>
+
+        <!-- ***************** slf4j & provider & bridges start ***************** -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>${slf4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j-impl</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-log4j12</artifactId>
-            <version>${slf4j.version}</version>
+            <artifactId>jcl-over-slf4j</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-1.2-api</artifactId>
+        </dependency>
+        <!-- ***************** slf4j & provider & bridges end ***************** -->
+
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
@@ -449,52 +571,6 @@
                         <target>${maven.compiler.target}</target>
                     </configuration>
                 </plugin>
-
-                <plugin>
-                    <groupId>net.alchim31.maven</groupId>
-                    <artifactId>scala-maven-plugin</artifactId>
-                    <version>${scala-maven-plugin.version}</version>
-                    <configuration>
-                        <args>
-                            <arg>-nobootcp</arg>
-                            <arg>-target:jvm-${java.version}</arg>
-                        </args>
-                    </configuration>
-                    <executions>
-                        <execution>
-                            <id>scala-compile-first</id>
-                            <phase>process-resources</phase>
-                            <goals>
-                                <goal>compile</goal>
-                            </goals>
-                        </execution>
-                        <execution>
-                            <id>scala-test-compile</id>
-                            <phase>process-test-resources</phase>
-                            <goals>
-                                <goal>testCompile</goal>
-                            </goals>
-                        </execution>
-                        <!-- attach javadocs and sources , -javadoc.jar, sources.jar, to pass mvn deploy-->
-                        <execution>
-                            <id>attach-javadocs</id>
-                            <goals>
-                                <goal>doc-jar</goal>
-                            </goals>
-                            <configuration>
-                                <skip>${maven.javadoc.skip}</skip>
-                            </configuration>
-                        </execution>
-                        <execution>
-                            <id>attach-sources</id>
-                            <goals>
-                                <goal>add-source</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                </plugin>
-                <!-- java/scala compiler (End) -->
-
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
@@ -508,6 +584,23 @@
                         <excludes>
                             <exclude>**/*IT.java</exclude>
                         </excludes>
+                        <classpathDependencyExcludes>
+                            <!--
+                                The logger provider & bridges declared under 'provided' scope should be explicitly excluded from testing as below.
+                            -->
+                            <classpathDependencyExclude>org.slf4j:slf4j-jdk14</classpathDependencyExclude>
+                            <classpathDependencyExclude>org.slf4j:slf4j-jcl</classpathDependencyExclude>
+                            <classpathDependencyExclude>org.slf4j:slf4j-nop</classpathDependencyExclude>
+                            <classpathDependencyExclude>org.slf4j:slf4j-simple</classpathDependencyExclude>
+                            <classpathDependencyExclude>org.slf4j:slf4j-reload4j</classpathDependencyExclude>
+                            <classpathDependencyExclude>org.slf4j:slf4j-log4j12</classpathDependencyExclude>
+                            <classpathDependencyExclude>org.slf4j:log4j-over-slf4j</classpathDependencyExclude>
+                            <classpathDependencyExclude>commons-logging:commons-logging</classpathDependencyExclude>
+                            <classpathDependencyExclude>log4j:log4j</classpathDependencyExclude>
+                            <classpathDependencyExclude>ch.qos.logback:logback-classic</classpathDependencyExclude>
+                            <classpathDependencyExclude>ch.qos.logback:logback-core</classpathDependencyExclude>
+                            <classpathDependencyExclude>org.apache.logging.log4j:log4j-to-slf4j</classpathDependencyExclude>
+                        </classpathDependencyExcludes>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -548,6 +641,8 @@
                                 <exclude>org.slf4j:*</exclude>
                                 <exclude>ch.qos.logback:*</exclude>
                                 <exclude>log4j:*</exclude>
+                                <exclude>org.apache.logging.log4j:*</exclude>
+                                <exclude>commons-logging:*</exclude>
                             </excludes>
                         </artifactSet>
                         <filters>
@@ -627,35 +722,7 @@
                         </execution>
                     </executions>
                 </plugin>
-
-                <plugin>
-                    <groupId>org.scalastyle</groupId>
-                    <artifactId>scalastyle-maven-plugin</artifactId>
-                    <version>${scalastyle-maven-plugin.version}</version>
-                    <configuration>
-                        <verbose>false</verbose>
-                        <failOnViolation>true</failOnViolation>
-                        <includeTestSourceDirectory>false</includeTestSourceDirectory>
-                        <failOnWarning>false</failOnWarning>
-                        <sourceDirectory>${basedir}/src/main/scala</sourceDirectory>
-                        <testSourceDirectory>${basedir}/src/test/scala</testSourceDirectory>
-                        <!--suppress UnresolvedMavenProperty -->
-                        <configLocation>
-                            ${maven.multiModuleProjectDirectory}/tools/checkstyle/scalastyle-config.xml
-                        </configLocation>
-                        <outputFile>${project.build.directory}/target/scalastyle-output.xml</outputFile>
-                        <inputEncoding>UTF-8</inputEncoding>
-                        <outputEncoding>UTF-8</outputEncoding>
-                    </configuration>
-                    <executions>
-                        <execution>
-                            <goals>
-                                <goal>check</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                </plugin>
-
+                
                 <!-- checkstyle (End) -->
 
                 <plugin>
@@ -743,6 +810,11 @@
                         </execution>
                     </executions>
                 </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <version>${maven-dependency-plugin.version}</version>
+                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -791,17 +863,55 @@
             </plugin>
 
             <plugin>
-                <groupId>org.scalastyle</groupId>
-                <artifactId>scalastyle-maven-plugin</artifactId>
-            </plugin>
-
-            <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>license-maven-plugin</artifactId>
             </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>flatten-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>net.alchim31.maven</groupId>
+                <artifactId>scala-maven-plugin</artifactId>
+                <version>${scala-maven-plugin.version}</version>
+                <configuration>
+                    <args>
+                        <arg>-nobootcp</arg>
+                        <arg>-target:jvm-${java.version}</arg>
+                    </args>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>scala-compile-first</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>scala-test-compile</id>
+                        <phase>process-test-resources</phase>
+                        <goals>
+                            <goal>testCompile</goal>
+                        </goals>
+                    </execution>
+                    <!-- attach javadocs and sources , -javadoc.jar, sources.jar, to pass mvn deploy-->
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>doc-jar</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${maven.javadoc.skip}</skip>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
