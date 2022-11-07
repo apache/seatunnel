@@ -105,4 +105,4 @@ Source Plugin common parameters, refer to [Source Plugin](common-options.md) for
 
 ### next version
 
-- Add Amazondynamodb Source Connector
+- Add Amazon Dynamodb Source Connector

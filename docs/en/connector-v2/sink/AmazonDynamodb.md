@@ -65,5 +65,5 @@ Amazondynamodb {
 
 ### next version
 
-- Add Amazondynamodb Sink Connector
+- Add Amazon Dynamodb Sink Connector
 
