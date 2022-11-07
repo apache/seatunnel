@@ -19,20 +19,20 @@ package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazondynamodbSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamodbSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.SeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import java.io.IOException;
 
-public class AmazondynamodbWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class AmazonDynamodbWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
-    private final DdynamoDbSinkClient ddynamoDbSinkClient;
+    private final DynamoDbSinkClient ddynamoDbSinkClient;
     private final SeaTunnelRowSerializer serializer;
 
-    public AmazondynamodbWriter(AmazondynamodbSourceOptions amazondynamodbSourceOptions, SeaTunnelRowType seaTunnelRowType) {
-        ddynamoDbSinkClient = new DdynamoDbSinkClient(amazondynamodbSourceOptions, seaTunnelRowType);
+    public AmazonDynamodbWriter(AmazonDynamodbSourceOptions amazondynamodbSourceOptions, SeaTunnelRowType seaTunnelRowType) {
+        ddynamoDbSinkClient = new DynamoDbSinkClient(amazondynamodbSourceOptions, seaTunnelRowType);
         serializer = new DefaultSeaTunnelRowSerializer(seaTunnelRowType, amazondynamodbSourceOptions);
     }
 

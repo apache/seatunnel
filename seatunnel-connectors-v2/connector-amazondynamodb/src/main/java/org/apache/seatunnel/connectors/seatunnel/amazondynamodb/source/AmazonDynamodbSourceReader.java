@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.source;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazondynamodbSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamodbSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.DefaultSeaTunnelRowDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.SeaTunnelRowDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
@@ -38,15 +38,15 @@ import java.io.IOException;
 import java.net.URI;
 
 @Slf4j
-public class AmazondynamodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
+public class AmazonDynamodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     protected DynamoDbClient dynamoDbClient;
     protected SingleSplitReaderContext context;
-    protected AmazondynamodbSourceOptions amazondynamodbSourceOptions;
+    protected AmazonDynamodbSourceOptions amazondynamodbSourceOptions;
     protected SeaTunnelRowDeserializer seaTunnelRowDeserializer;
 
-    public AmazondynamodbSourceReader(SingleSplitReaderContext context,
-                                      AmazondynamodbSourceOptions amazondynamodbSourceOptions,
+    public AmazonDynamodbSourceReader(SingleSplitReaderContext context,
+                                      AmazonDynamodbSourceOptions amazondynamodbSourceOptions,
                                       SeaTunnelRowType typeInfo) {
         this.context = context;
         this.amazondynamodbSourceOptions = amazondynamodbSourceOptions;

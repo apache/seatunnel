@@ -28,7 +28,7 @@ import java.io.Serializable;
 
 @Data
 @AllArgsConstructor
-public class AmazondynamodbSourceOptions implements Serializable {
+public class AmazonDynamodbSourceOptions implements Serializable {
 
     private static final int DEFAULT_BATCH_SIZE = 25;
     private static final int DEFAULT_BATCH_INTERVAL_MS = 1000;
@@ -48,7 +48,7 @@ public class AmazondynamodbSourceOptions implements Serializable {
     public int batchSize = DEFAULT_BATCH_SIZE;
     public int batchIntervalMs = DEFAULT_BATCH_INTERVAL_MS;
 
-    public AmazondynamodbSourceOptions(Config config) {
+    public AmazonDynamodbSourceOptions(Config config) {
         this.url = config.getString(AmazondynamodbConfig.URL);
         this.region = config.getString(AmazondynamodbConfig.REGION);
         this.accessKeyId = config.getString(AmazondynamodbConfig.ACCESS_KEY_ID);

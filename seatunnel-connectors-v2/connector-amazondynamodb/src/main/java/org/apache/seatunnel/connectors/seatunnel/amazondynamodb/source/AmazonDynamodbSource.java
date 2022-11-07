@@ -15,66 +15,70 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.sink;
+package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.source;
 
 import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazondynamodbConfig.ACCESS_KEY_ID;
 import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazondynamodbConfig.REGION;
 import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazondynamodbConfig.SECRET_ACCESS_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazondynamodbConfig.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazondynamodbConfig.URL;
+import static org.apache.seatunnel.connectors.seatunnel.common.config.CommonConfig.SCHEMA;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazondynamodbSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamodbSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
+@Slf4j
+@AutoService(SeaTunnelSource.class)
+public class AmazonDynamodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
-@AutoService(SeaTunnelSink.class)
-public class AmazondynamodbSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+    private AmazonDynamodbSourceOptions amazondynamodbSourceOptions;
 
-    private SeaTunnelRowType rowType;
-
-    private AmazondynamodbSourceOptions amazondynamodbSourceOptions;
+    private SeaTunnelRowType typeInfo;
 
     @Override
     public String getPluginName() {
-        return "Amazondynamodb";
+        return "AmazonDynamodb";
     }
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, URL, TABLE, REGION, ACCESS_KEY_ID, SECRET_ACCESS_KEY);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, URL, TABLE, REGION, ACCESS_KEY_ID, SECRET_ACCESS_KEY, SCHEMA);
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
-        amazondynamodbSourceOptions = new AmazondynamodbSourceOptions(pluginConfig);
+        amazondynamodbSourceOptions = new AmazonDynamodbSourceOptions(pluginConfig);
+        typeInfo = SeaTunnelSchema.buildWithConfig(amazondynamodbSourceOptions.getSchema()).getSeaTunnelRowType();
     }
 
     @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.rowType = seaTunnelRowType;
+    public Boundedness getBoundedness() {
+        return Boundedness.BOUNDED;
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
-        return rowType;
+    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
+        return this.typeInfo;
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
-        return new AmazondynamodbWriter(amazondynamodbSourceOptions, rowType);
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
+        return new AmazonDynamodbSourceReader(readerContext, amazondynamodbSourceOptions, typeInfo);
     }
 }
