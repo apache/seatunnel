@@ -26,6 +26,8 @@ Some NoSQL databases or message queue are not strongly limited schema, so the sc
 
 ## How to use schema
 
+`schema` defines the format of the data,it contains`fields` properties. `fields` define the field properties,it's a K-V key-value pair, the Key is the field name and the value is field type. Here is an example.
+
 ```
 source {
   FakeSource {
@@ -56,3 +58,5 @@ source {
 ```
 
 ## When we should use it or not
+
+If there is a `schema` configuration project in Options,the connector can then customize the schema. Like `Fake` `Pulsar` `Http` source connector etc. 
