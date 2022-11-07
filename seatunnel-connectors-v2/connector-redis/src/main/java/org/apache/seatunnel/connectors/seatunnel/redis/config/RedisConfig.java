@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+
 public class RedisConfig {
     public static final String HOST = "host";
     public static final String PORT = "port";
@@ -39,4 +42,9 @@ public class RedisConfig {
         ALL,
         KV;
     }
+
+    public static final Option<String> HOST = Options.key("host").stringType().noDefaultValue().withDescription("redis hostname or ip");
+    public static final Option<String> PORT = Options.key("port").stringType().noDefaultValue().withDescription("redis port");
+    public static final Option<String> AUTH = Options.key("auth").stringType().noDefaultValue().withDescription("auth");
+    public static final Option<String> AUTH = Options.key("auth").stringType().noDefaultValue().withDescription("auth");
 }
