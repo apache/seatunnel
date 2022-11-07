@@ -15,19 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.source;
+package org.apache.seatunnel.connectors.seatunnel.common.schema;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import java.util.Map;
 
-public class AmazonDynamodbSourceFactory implements TableSourceFactory {
-    @Override
-    public String factoryIdentifier() {
-        return "AmazonDynamodbSource";
-    }
+public class SchemaOption {
 
-    @Override
-    public OptionRule optionRule() {
-        return OptionRule.builder().build();
-    }
+    // TODO add option
+    private Map<String, String> fields;
+
 }
