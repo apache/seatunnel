@@ -2,7 +2,7 @@
 
 ## Why we need schema
 
-Some nosql databases are not strongly limited schema, so the schema cannot be obtained through the api. At this time, a schema needs to be defined to convert to SeaTunnelRowType and obtain data.
+Some NoSQL databases or message queue are not strongly limited schema, so the schema cannot be obtained through the api. At this time, a schema needs to be defined to convert to SeaTunnelRowType and obtain data.
 
 ## What type supported at now
 
