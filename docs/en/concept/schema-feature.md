@@ -26,8 +26,6 @@ Some NoSQL databases or message queue are not strongly limited schema, so the sc
 
 ## How to use schema
 
-### step1: Configure schema in config
-
 ```
 source {
   FakeSource {
@@ -57,26 +55,4 @@ source {
 }
 ```
 
-step2:Add dependency
-
-```
-<dependency>
-  <groupId>org.apache.seatunnel</groupId>
-  <artifactId>connector-common</artifactId>
-  <version>${project.version}</version>
-</dependency>
-```
-
-### step2:Initialize SeaTunnelSchema
-
-```
-SeaTunnelSchema.buildWithConfig(pluginConfig.getConfig(CommonConfig.SCHEMA));
-```
-
-### step3:Get seaTunnelRowType and construct SeaTunnelRow
-
-```
-SeaTunnelRowType seaTunnelRowType = schema.getSeaTunnelRowType();
-```
-
-Please see `FakeDataGenerator`.
+## When we should use it or not
