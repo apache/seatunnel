@@ -87,3 +87,9 @@ Elasticsearch {
     }
 }
 ```
+
+## Changelog
+
+### next version
+
+- Add Elasticsearch Source Connector
