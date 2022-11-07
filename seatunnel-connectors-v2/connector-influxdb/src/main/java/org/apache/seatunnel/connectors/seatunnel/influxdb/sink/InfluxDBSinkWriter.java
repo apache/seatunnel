@@ -66,6 +66,22 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                 seaTunnelRowType, sinkConfig.getPrecision().getTimeUnit(), sinkConfig.getKeyTags(), sinkConfig.getKeyTime(), sinkConfig.getMeasurement());
         this.batchList = new ArrayList<>();
 
+        if (batchIntervalMs != null) {
+            scheduler = Executors.newSingleThreadScheduledExecutor(
+                    new ThreadFactoryBuilder().setNameFormat("influxDB-sink-output-%s").build());
+            scheduledFuture = scheduler.scheduleAtFixedRate(
+                () -> {
+                    try {
+                        flush();
+                    } catch (IOException e) {
+                        flushException = e;
+                    }
+                },
+                batchIntervalMs,
+                batchIntervalMs,
+                TimeUnit.MILLISECONDS);
+        }
+
         connect();
     }
 
@@ -104,21 +120,6 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
         initialize = true;
         connect();
-        if (batchIntervalMs != null) {
-            scheduler = Executors.newSingleThreadScheduledExecutor(
-                    new ThreadFactoryBuilder().setNameFormat("influxDB-sink-output-%s").build());
-            scheduledFuture = scheduler.scheduleAtFixedRate(
-                () -> {
-                    try {
-                        flush();
-                    } catch (IOException e) {
-                        flushException = e;
-                    }
-                },
-                    batchIntervalMs,
-                    batchIntervalMs,
-                    TimeUnit.MILLISECONDS);
-        }
     }
 
     public synchronized void write(Point record) throws IOException {
