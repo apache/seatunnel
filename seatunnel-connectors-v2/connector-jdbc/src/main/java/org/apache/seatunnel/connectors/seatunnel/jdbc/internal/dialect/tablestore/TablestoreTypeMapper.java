@@ -52,8 +52,6 @@ public class TablestoreTypeMapper implements JdbcDialectTypeMapper {
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
         String tablestoreServerType = metadata.getColumnTypeName(colIndex).toUpperCase();
-        int precision = metadata.getPrecision(colIndex);
-        int scale = metadata.getScale(colIndex);
         switch (tablestoreServerType) {
             case TABLESTORE_BOOL:
                 return BasicType.BOOLEAN_TYPE;
