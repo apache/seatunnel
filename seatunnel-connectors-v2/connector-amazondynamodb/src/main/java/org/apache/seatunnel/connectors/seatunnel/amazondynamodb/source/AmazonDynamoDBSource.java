@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazondynamodbConfig.ACCESS_KEY_ID;
-import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazondynamodbConfig.REGION;
-import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazondynamodbConfig.SECRET_ACCESS_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazondynamodbConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazondynamodbConfig.URL;
+import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.ACCESS_KEY_ID;
+import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.REGION;
+import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.SECRET_ACCESS_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.URL;
 import static org.apache.seatunnel.connectors.seatunnel.common.config.CommonConfig.SCHEMA;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
@@ -33,7 +33,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamodbSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
@@ -46,9 +46,9 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @AutoService(SeaTunnelSource.class)
-public class AmazonDynamodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
+public class AmazonDynamoDBSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
-    private AmazonDynamodbSourceOptions amazondynamodbSourceOptions;
+    private AmazonDynamoDBSourceOptions amazondynamodbSourceOptions;
 
     private SeaTunnelRowType typeInfo;
 
@@ -63,7 +63,7 @@ public class AmazonDynamodbSource extends AbstractSingleSplitSource<SeaTunnelRow
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
-        amazondynamodbSourceOptions = new AmazonDynamodbSourceOptions(pluginConfig);
+        amazondynamodbSourceOptions = new AmazonDynamoDBSourceOptions(pluginConfig);
         typeInfo = SeaTunnelSchema.buildWithConfig(amazondynamodbSourceOptions.getSchema()).getSeaTunnelRowType();
     }
 
@@ -79,6 +79,6 @@ public class AmazonDynamodbSource extends AbstractSingleSplitSource<SeaTunnelRow
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new AmazonDynamodbSourceReader(readerContext, amazondynamodbSourceOptions, typeInfo);
+        return new AmazonDynamoDBSourceReader(readerContext, amazondynamodbSourceOptions, typeInfo);
     }
 }

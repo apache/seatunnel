@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamodbSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.DefaultSeaTunnelRowDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.SeaTunnelRowDeserializer;
 
@@ -44,7 +44,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 public class DynamoDbSinkClient {
-    private final AmazonDynamodbSourceOptions amazondynamodbSourceOptions;
+    private final AmazonDynamoDBSourceOptions amazondynamodbSourceOptions;
     private ScheduledExecutorService scheduler;
     private ScheduledFuture<?> scheduledFuture;
     private volatile boolean initialize;
@@ -53,7 +53,7 @@ public class DynamoDbSinkClient {
     private final List<WriteRequest> batchList;
     protected SeaTunnelRowDeserializer seaTunnelRowDeserializer;
 
-    public DynamoDbSinkClient(AmazonDynamodbSourceOptions amazondynamodbSourceOptions, SeaTunnelRowType typeInfo) {
+    public DynamoDbSinkClient(AmazonDynamoDBSourceOptions amazondynamodbSourceOptions, SeaTunnelRowType typeInfo) {
         this.amazondynamodbSourceOptions = amazondynamodbSourceOptions;
         this.batchList = new ArrayList<>();
         this.seaTunnelRowDeserializer = new DefaultSeaTunnelRowDeserializer(typeInfo);

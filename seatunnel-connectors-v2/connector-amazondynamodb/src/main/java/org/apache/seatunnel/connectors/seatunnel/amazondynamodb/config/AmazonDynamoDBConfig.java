@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config;
 
 import java.io.Serializable;
 
-public class AmazondynamodbConfig implements Serializable {
+public class AmazonDynamoDBConfig implements Serializable {
     public static final String URL = "url";
     public static final String REGION = "region";
     public static final String ACCESS_KEY_ID = "access_key_id";

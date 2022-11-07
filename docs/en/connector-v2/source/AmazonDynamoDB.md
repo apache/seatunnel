@@ -1,10 +1,10 @@
-# Amazondynamodb
+# AmazonDynamoDB
 
-> Amazondynamodb source connector
+> AmazonDynamoDB source connector
 
 ## Description
 
-Read data from Amazondynamodb.
+Read data from Amazon DynamoDB.
 
 ## Key features
 
@@ -17,35 +17,35 @@ Read data from Amazondynamodb.
 
 ## Options
 
-| name             | type   | required | default value |
-| ---------------- | ------ | -------- | ------------- |
-| url              | string | yes      | -             |
-| region           | string | yes      | -             |
-| access_key_id    | string | yes      | -             |
-| secret_access_key| string | yes      | -             |
-| table    	       | string | yes      | -             |
-| schema           | object | yes      | -             |
-| common-options   |        | yes      | -             |
+| name              | type   | required | default value |
+|-------------------|--------|----------|---------------|
+| url               | string | yes      | -             |
+| region            | string | yes      | -             |
+| access_key_id     | string | yes      | -             |
+| secret_access_key | string | yes      | -             |
+| table    	        | string | yes      | -             |
+| schema            | object | yes      | -             |
+| common-options    |        | yes      | -             |
 
 ### url [string]
 
-url to read to Amazondynamodb.
+url to read to Amazon Dynamodb.
 
 ### region [string]
 
-The region of Amazondynamodb.
+The region of Amazon Dynamodb.
 
 ### accessKeyId [string]
 
-The access id of Amazondynamodb.
+The access id of Amazon DynamoDB.
 
 ### secretAccessKey [string]
 
-The access secret of Amazondynamodb.
+The access secret of Amazon DynamoDB.
 
 ### table [string]
 
-The table of Amazondynamodb.
+The table of Amazon DynamoDB.
 
 ### schema [object]
 
@@ -105,4 +105,4 @@ Source Plugin common parameters, refer to [Source Plugin](common-options.md) for
 
 ### next version
 
-- Add Amazon Dynamodb Source Connector
+- Add Amazon DynamoDB Source Connector
