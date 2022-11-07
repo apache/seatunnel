@@ -50,7 +50,7 @@ public class SocketSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, SinkConfig.PORT, SinkConfig.HOST);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, SinkConfig.PORT.key(), SinkConfig.HOST.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
         }

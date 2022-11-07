@@ -31,7 +31,6 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSpl
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigBeanFactory;
 
 import com.google.auto.service.AutoService;
 
@@ -52,7 +51,7 @@ public class SocketSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        this.parameter = ConfigBeanFactory.create(pluginConfig, SocketSourceParameter.class);
+        this.parameter = new SocketSourceParameter(pluginConfig);
     }
 
     @Override
@@ -66,7 +65,8 @@ public class SocketSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     }
 
     @Override
-    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext)
+        throws Exception {
         return new SocketSourceReader(this.parameter, readerContext);
     }
 }
