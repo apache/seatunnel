@@ -61,7 +61,7 @@ public class TablestoreTypeMapper implements JdbcDialectTypeMapper {
             case TABLESTORE_BIGINT:
                 return BasicType.LONG_TYPE;
             case TABLESTORE_DOUBLE:
-                return new DecimalType(precision, scale);
+                return BasicType.DOUBLE_TYPE;
             case TABLESTORE_VARCHAR:
             case TABLESTORE_MEDIUMTEXT:
                 return BasicType.STRING_TYPE;
