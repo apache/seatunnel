@@ -17,6 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.sink;
 
+import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.ACCESS_ID;
+import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.ACCESS_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.ENDPOINT;
+import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.PROJECT;
+import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.RETRY_TIMES;
+import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.TOPIC;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter.Context;
@@ -37,20 +45,13 @@ import java.io.IOException;
 
 
 /**
- * Datahub sink class
+ * DataHub sink class
  */
 @AutoService(SeaTunnelSink.class)
 public class DataHubSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
-    private final String endpoint = "endpoint";
-    private final String accessId = "accessId";
-    private final String accessKey = "accessKey";
-    private final String project = "project";
-    private final String topic = "topic";
-    private final String timeout = "timeout";
-    private final String retryTimes = "retryTimes";
 
     @Override
     public String getPluginName() {
@@ -60,7 +61,7 @@ public class DataHubSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
-                endpoint, accessId, accessKey, project, topic);
+            ENDPOINT.key(), ACCESS_ID.key(), ACCESS_KEY.key(), PROJECT.key(), TOPIC.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
         }
@@ -80,12 +81,12 @@ public class DataHubSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(Context context) throws IOException {
         return new DataHubWriter(seaTunnelRowType,
-                pluginConfig.getString(endpoint),
-                pluginConfig.getString(accessId),
-                pluginConfig.getString(accessKey),
-                pluginConfig.getString(project),
-                pluginConfig.getString(topic),
-                pluginConfig.getInt(timeout),
-                pluginConfig.getInt(retryTimes));
+            pluginConfig.getString(ENDPOINT.key()),
+            pluginConfig.getString(ACCESS_ID.key()),
+            pluginConfig.getString(ACCESS_KEY.key()),
+            pluginConfig.getString(PROJECT.key()),
+            pluginConfig.getString(TOPIC.key()),
+            pluginConfig.getInt(TIMEOUT.key()),
+            pluginConfig.getInt(RETRY_TIMES.key()));
     }
 }
