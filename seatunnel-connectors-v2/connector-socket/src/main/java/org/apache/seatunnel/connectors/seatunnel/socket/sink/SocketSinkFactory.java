@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.socket.config.SinkConfig;
 
+@AutoService(Factory.class)
 public class SocketSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
