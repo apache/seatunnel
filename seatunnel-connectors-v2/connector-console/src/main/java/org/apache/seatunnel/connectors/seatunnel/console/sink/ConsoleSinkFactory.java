@@ -27,7 +27,7 @@ import com.google.auto.service.AutoService;
 public class ConsoleSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return "ConsoleSink";
+        return "Console";
     }
 
     @Override

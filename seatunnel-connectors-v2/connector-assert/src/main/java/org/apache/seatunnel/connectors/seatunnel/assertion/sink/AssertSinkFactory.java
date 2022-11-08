@@ -30,7 +30,7 @@ public class AssertSinkFactory implements TableSinkFactory {
 
     @Override
     public String factoryIdentifier() {
-        return "AssertSink";
+        return "Assert";
     }
 
     @Override
