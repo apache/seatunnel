@@ -36,7 +36,7 @@ import com.google.auto.service.AutoService;
 public class ElasticsearchSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return "ElasticsearchSource";
+        return "Elasticsearch";
     }
 
     @Override
