@@ -30,7 +30,7 @@ import com.google.auto.service.AutoService;
 public class DingTalkSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return "DingTalkSink";
+        return "DingTalk";
     }
 
     @Override
