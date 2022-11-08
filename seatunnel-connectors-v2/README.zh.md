@@ -7,6 +7,15 @@ SeaTunnel为与计算引擎进行解耦，设计了新的连接器API，通过�
 
 为了和老的代码分开，方便现阶段的并行开发，以及降低merge的难度。我们为新的执行流程定义了新的模块
 
+### **工程结构**
+
+- ../`seatunnel-connectors-v2`                                         connector-v2代码实现
+- ../`seatunnel-translation`                                           connector-v2的翻译层 
+- ../seatunnel-e2e/`seatunnel-flink-connector-v2-e2e`                  flink上运行的端到端testcase
+- ../seatunnel-e2e/`seatunnel-spark-connector-v2-e2e`                  spark上运行的端到端testcase
+- ../seatunnel-examples/`seatunnel-flink-connector-v2-example`         seatunnel connector-v2的flink local运行的实例
+- ../seatunnel-examples/`seatunnel-spark-connector-v2-example`         seatunnel connector-v2的spark local运行的实例
+
 ### Example
 
 我们已经在`seatunnel-examples`
@@ -18,7 +27,25 @@ SeaTunnel为与计算引擎进行解耦，设计了新的连接器API，通过�
    version.（或者当你想在spark引擎运行时在`seatunnel-examples/seatunnel-spark-connector-v2-example/pom.xml`添加依赖）
 2. 如果你的connector中存在scope为test或provided的依赖，将这些依赖添加到seatunnel-examples/seatunnel-flink-connector-v2-example/pom.xml(
    或者在seatunnel-examples/seatunnel-spark-connector-v2-example/pom.xml)中，并且修改scope为compile.
-3. 参考`SeaTunnelApiExample`开发自己的案例程序。
+3. 在resources/examples下添加任务配置文件.
+4. 在`SeaTunnelApiExample` main方法中配置文件.
+5. 运行main方法即可.
+
+### 创建新的seatunnel v2 connector
+
+1.在`seatunnel-connectors-v2`目录下新建一个module，命名为connector-{连接器名}.
+
+2.pom文件可以参考已有连接器的pom文件，并在父model的pom文件中添加当前子model.
+
+3.新建两个package分别对应source和sink
+
+​       package org.apache.seatunnel.connectors.seatunnel.{连接器名}.source
+
+​       package org.apache.seatunnel.connectors.seatunnel.{连接器名}.sink
+
+4.将连接器信息添加到在项目根目录的plugin-mapping.properties文件中.
+
+5.将连接器添加到seatunnel-dist/pom.xml,这样连接器jar就可以在二进制包中找到.
 
 ### 启动类
 
