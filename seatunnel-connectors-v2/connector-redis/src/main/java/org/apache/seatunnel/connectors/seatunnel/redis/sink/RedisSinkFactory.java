@@ -18,11 +18,14 @@
 package org.apache.seatunnel.connectors.seatunnel.redis.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
 
+import com.google.auto.service.AutoService;
+
 @AutoService(Factory.class)
-public class RedisTableSinkFactory implements TableSinkFactory {
+public class RedisSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
         return "Redis";
