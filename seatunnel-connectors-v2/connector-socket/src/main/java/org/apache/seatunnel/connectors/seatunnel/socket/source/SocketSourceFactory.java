@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.socket.source;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
+@AutoService(Factory.class)
 public class SocketSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
