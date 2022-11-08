@@ -26,8 +26,8 @@ Engine Supported
 | index_type      | string | no       |               |
 | username        | string | no       |               |
 | password        | string | no       |               | 
-| max_retry_size  | int    | no       | 3             |
-| max_retry_count | int    | no       | 10            |
+| max_retry_count | int    | no       | 3             |
+| max_batch_size  | int    | no       | 10            |
 | common-options  |        | no       | -             |
 
 
@@ -47,11 +47,11 @@ x-pack username
 ### password [string]
 x-pack password
 
-### max_retry_size [int]
+### max_retry_count [int]
 one bulk request max try size
 
-### max_retry_count [int]
-batch bulk doc max count
+### max_batch_size [int]
+batch bulk doc max size
 
 ### common options
 
