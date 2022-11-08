@@ -55,7 +55,7 @@ public class SheetsSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, SheetsConfig.SERVICE_ACCOUNT_KEY, SheetsConfig.SHEET_ID, SheetsConfig.SHEET_NAME, SheetsConfig.RANGE, SheetsConfig.HEADERS, SeaTunnelSchema.SCHEMA);
+        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, SheetsConfig.SERVICE_ACCOUNT_KEY, SheetsConfig.SHEET_ID, SheetsConfig.SHEET_NAME, SheetsConfig.RANGE, SeaTunnelSchema.SCHEMA);
         if (!checkResult.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, checkResult.getMsg());
         }
@@ -81,6 +81,6 @@ public class SheetsSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new SheetsSourceReader(sheetsParameters, readerContext, deserializationSchema);
+        return new SheetsSourceReader(sheetsParameters, readerContext, deserializationSchema, this.seaTunnelRowType);
     }
 }

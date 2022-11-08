@@ -31,10 +31,10 @@ public class GoogleSheetsDeserializer implements SeaTunnelRowDeserializer {
 
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final List<String> headers;
+    private final String[] fields;
 
-    public GoogleSheetsDeserializer(List<String> headers, DeserializationSchema<SeaTunnelRow> deserializationSchema) {
-        this.headers = headers;
+    public GoogleSheetsDeserializer(String[] fields, DeserializationSchema<SeaTunnelRow> deserializationSchema) {
+        this.fields = fields;
         this.deserializationSchema = deserializationSchema;
     }
 
@@ -43,8 +43,8 @@ public class GoogleSheetsDeserializer implements SeaTunnelRowDeserializer {
         try {
             Map<String, Object> map = new HashMap<>();
             for (int i = 0; i < row.size(); i++) {
-                if (i < headers.size()) {
-                    map.put(headers.get(i), row.get(i));
+                if (i < fields.length) {
+                    map.put(fields[i], row.get(i));
                 }
             }
             String rowStr = objectMapper.writeValueAsString(map);

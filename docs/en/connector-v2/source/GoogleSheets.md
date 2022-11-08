@@ -26,7 +26,6 @@ Used to read data from GoogleSheets.
 | service_account_key | string       | yes      | -             |
 | sheet_id            | string       | yes      | -             |
 | sheet_name          | string       | yes      | -             |
-| headers             | array        | yes      | -             |
 | schema              | config       | yes      | -             |
 
 ### service_account_key [string]
@@ -40,10 +39,6 @@ sheet id in a Google Sheets URL
 ### sheet_name [string]
 
 the name of the sheet you want to import
-
-### headers [array]
-
-as column name
 
 ### schema [config]
 
@@ -61,7 +56,6 @@ simple:
     sheet_id = "1VI0DvyZK-NIdssSdsDSsSSSC-_-rYMi7ppJiI_jhE"
     sheet_name = "sheets01"
     range = "A1:C3"
-    headers = ["a", "b", "c"]
     schema = {
       fields {
         a = int

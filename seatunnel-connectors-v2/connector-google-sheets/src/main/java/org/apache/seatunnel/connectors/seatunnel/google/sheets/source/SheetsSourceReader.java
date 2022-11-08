@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.google.sheets.source;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.config.SheetsParameters;
@@ -47,6 +48,8 @@ public class SheetsSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
 
     private SheetsParameters sheetsParameters;
 
+    private SeaTunnelRowType seaTunnelRowType;
+
     private HttpRequestInitializer requestInitializer;
 
     private static final String APPLICATION_NAME = "SeaTunnel Google Sheets";
@@ -58,10 +61,11 @@ public class SheetsSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
 
     private final SeaTunnelRowDeserializer seaTunnelRowDeserializer;
 
-    public SheetsSourceReader(SheetsParameters sheetsParameters, SingleSplitReaderContext context, DeserializationSchema<SeaTunnelRow> deserializationSchema) throws IOException {
+    public SheetsSourceReader(SheetsParameters sheetsParameters, SingleSplitReaderContext context, DeserializationSchema<SeaTunnelRow> deserializationSchema, SeaTunnelRowType seaTunnelRowType) throws IOException {
         this.sheetsParameters = sheetsParameters;
         this.context = context;
-        this.seaTunnelRowDeserializer = new GoogleSheetsDeserializer(sheetsParameters.getHeaders(), deserializationSchema);
+        this.seaTunnelRowType = seaTunnelRowType;
+        this.seaTunnelRowDeserializer = new GoogleSheetsDeserializer(seaTunnelRowType.getFieldNames(), deserializationSchema);
     }
 
     @Override
@@ -77,7 +81,7 @@ public class SheetsSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
 
     @Override
     public void close() throws IOException {
-
+        // no need close
     }
 
     @Override
