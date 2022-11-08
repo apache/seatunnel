@@ -20,7 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.sentry.sink;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
-@AutoService(Factory.class)
+import com.google.auto.service.AutoService;
+
+@AutoService(TableSinkFactory.class)
 public class SentrySinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
