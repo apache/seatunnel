@@ -25,44 +25,14 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class MyHoursSourceParameter extends HttpParameter {
     public void buildWithConfig(Config pluginConfig, String accessToken) {
-        // set url
-        this.setUrl(pluginConfig.getString(HttpConfig.URL));
-        // set method
-        if (pluginConfig.hasPath(HttpConfig.METHOD)) {
-            this.setMethod(pluginConfig.getString(HttpConfig.METHOD));
-        } else {
-            this.setMethod(HttpConfig.METHOD_DEFAULT_VALUE);
-        }
-        // set headers
-        this.headers = new HashMap<>();
+        super.buildWithConfig(pluginConfig);
+        //put authorization in headers
+        this.headers = this.getHeaders() == null ? new HashMap<>() : this.getHeaders();
         this.headers.put(MyHoursSourceConfig.AUTHORIZATION, MyHoursSourceConfig.ACCESSTOKEN_PREFIX + " " + accessToken);
-        this.setHeaders(headers);
-        // set params
-        if (pluginConfig.hasPath(HttpConfig.PARAMS)) {
-            this.setParams(pluginConfig.getConfig(HttpConfig.PARAMS).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue().unwrapped()), (v1, v2) -> v2)));
-        }
-        // set body
-        if (pluginConfig.hasPath(HttpConfig.BODY)) {
-            this.setBody(pluginConfig.getString(HttpConfig.BODY));
-        }
-        //set poll_interval_ms
-        if (pluginConfig.hasPath(HttpConfig.POLL_INTERVAL_MILLS)) {
-            this.setPollIntervalMillis(pluginConfig.getInt(HttpConfig.POLL_INTERVAL_MILLS));
-        }
-        //set retry
-        if (pluginConfig.hasPath(HttpConfig.RETRY)) {
-            this.setRetry(pluginConfig.getInt(HttpConfig.RETRY));
-            if (pluginConfig.hasPath(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS)) {
-                this.setRetryBackoffMultiplierMillis(pluginConfig.getInt(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS));
-            }
-            if (pluginConfig.hasPath(HttpConfig.RETRY_BACKOFF_MAX_MS)) {
-                this.setRetryBackoffMaxMillis(pluginConfig.getInt(HttpConfig.RETRY_BACKOFF_MAX_MS));
-            }
-        }
+        this.setHeaders(this.headers);
     }
 
     public void buildWithLoginConfig(Config pluginConfig) {
