@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.BulkConfig;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.ElasticsearchVersion;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.IndexInfo;
@@ -40,39 +39,46 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-@Slf4j
 /**
  * ElasticsearchSinkWriter is a sink writer that will write {@link SeaTunnelRow} to Elasticsearch.
  */
+@Slf4j
 public class ElasticsearchSinkWriter implements SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkState> {
 
     private final SinkWriter.Context context;
+
+    private final int maxBatchSize;
+
+    private final int maxRetryCount;
 
     private final SeaTunnelRowSerializer seaTunnelRowSerializer;
     private final List<String> requestEsList;
     private EsRestClient esRestClient;
 
     public ElasticsearchSinkWriter(
-            SinkWriter.Context context,
-            SeaTunnelRowType seaTunnelRowType,
-            Config pluginConfig,
-            List<ElasticsearchSinkState> elasticsearchStates) {
+        SinkWriter.Context context,
+        SeaTunnelRowType seaTunnelRowType,
+        Config pluginConfig,
+        int maxBatchSize, int maxRetryCount,
+        List<ElasticsearchSinkState> elasticsearchStates) {
         this.context = context;
+        this.maxBatchSize = maxBatchSize;
+        this.maxRetryCount = maxRetryCount;
 
         IndexInfo indexInfo = new IndexInfo(pluginConfig);
         esRestClient = EsRestClient.createInstance(pluginConfig);
         ElasticsearchVersion elasticsearchVersion = ElasticsearchVersion.get(esRestClient.getClusterVersion());
         this.seaTunnelRowSerializer = new ElasticsearchRowSerializer(elasticsearchVersion, indexInfo, seaTunnelRowType);
 
-        this.requestEsList = new ArrayList<>(BulkConfig.MAX_BATCH_SIZE);
+        this.requestEsList = new ArrayList<>(maxBatchSize);
     }
 
     @Override
     public void write(SeaTunnelRow element) {
         String indexRequestRow = seaTunnelRowSerializer.serializeRow(element);
         requestEsList.add(indexRequestRow);
-        if (requestEsList.size() >= BulkConfig.MAX_BATCH_SIZE) {
-            bulkEsWithRetry(this.esRestClient, this.requestEsList, BulkConfig.MAX_RETRY_SIZE);
+        if (requestEsList.size() >= maxBatchSize) {
+            bulkEsWithRetry(this.esRestClient, this.requestEsList, maxRetryCount);
             requestEsList.clear();
         }
     }
@@ -110,7 +116,7 @@ public class ElasticsearchSinkWriter implements SinkWriter<SeaTunnelRow, Elastic
 
     @Override
     public void close() throws IOException {
-        bulkEsWithRetry(this.esRestClient, this.requestEsList, BulkConfig.MAX_RETRY_SIZE);
+        bulkEsWithRetry(this.esRestClient, this.requestEsList, maxRetryCount);
         esRestClient.close();
     }
 }

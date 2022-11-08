@@ -22,15 +22,19 @@ import org.apache.seatunnel.api.configuration.Options;
 
 import java.util.List;
 
-public class EsClusterConnectionConfig {
+public class SourceConfig {
 
-    public static final Option<List<String>> HOSTS = Options.key("hosts").listType().noDefaultValue()
-        .withDescription("Elasticsearch cluster http address, the format is host:port, allowing multiple hosts to be specified. Such as [\"host1:9200\", \"host2:9200\"]");
+    public static final Option<String> INDEX = Options.key("index").stringType().noDefaultValue()
+        .withDescription("Elasticsearch index name, support * fuzzy matching");
 
-    public static final Option<String> USERNAME = Options.key("username").stringType().noDefaultValue()
-        .withDescription("x-pack username");
+    public static final Option<List<String>> SOURCE = Options.key("source").listType().noDefaultValue()
+        .withDescription("The fields of index. You can get the document id by specifying the field _id.If sink _id to other index,you need specify an alias for _id due to the Elasticsearch limit");
 
-    public static final Option<String> PASSWORD = Options.key("password").stringType().noDefaultValue()
-        .withDescription("x-pack password");
+    public static final Option<String> SCROLL_TIME = Options.key("scroll_time").stringType().defaultValue("1m")
+        .withDescription("Amount of time Elasticsearch will keep the search context alive for scroll requests");
+
+    @SuppressWarnings("checkstyle:MagicNumber")
+    public static final Option<Integer> SCROLL_SIZE = Options.key("scroll_size").intType().defaultValue(100)
+        .withDescription("Maximum number of hits to be returned with each Elasticsearch scroll request");
 
 }

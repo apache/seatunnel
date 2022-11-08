@@ -43,7 +43,7 @@ public class FakeDataGeneratorTest {
     @ValueSource(strings = {"complex.schema.conf", "simple.schema.conf"})
     public void testComplexSchemaParse(String conf) throws FileNotFoundException, URISyntaxException {
         Config testConfig = getTestConfigFile(conf);
-        SeaTunnelSchema seaTunnelSchema = SeaTunnelSchema.buildWithConfig(testConfig.getConfig(SeaTunnelSchema.SCHEMA));
+        SeaTunnelSchema seaTunnelSchema = SeaTunnelSchema.buildWithConfig(testConfig.getConfig(SeaTunnelSchema.SCHEMA.key()));
         SeaTunnelRowType seaTunnelRowType = seaTunnelSchema.getSeaTunnelRowType();
         FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
         FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(seaTunnelSchema, fakeConfig);
