@@ -52,7 +52,16 @@ public final class ContainerUtil {
     /**
      * An error occurs when the user is not a submodule of seatunnel-e2e.
      */
-    public static final String PROJECT_ROOT_PATH = Paths.get(System.getProperty("user.dir")).getParent().getParent().getParent().toString();
+    public static final String PROJECT_ROOT_PATH = getProjectRootPath();
+
+    private static String getProjectRootPath() {
+        String e2eRootModuleDir = "seatunnel-e2e";
+        Path path = Paths.get(System.getProperty("user.dir"));
+        while (!path.endsWith(Paths.get(e2eRootModuleDir))) {
+            path = path.getParent();
+        }
+        return path.getParent().toString();
+    }
 
     public static void copyConnectorJarToContainer(GenericContainer<?> container,
                                                    String confFile,
@@ -83,17 +92,34 @@ public final class ContainerUtil {
         return targetConfInContainer;
     }
 
+    public static void copySeaTunnelStarterLoggingToContainer(GenericContainer<?> container,
+                                                              String startModulePath,
+                                                              String seatunnelHomeInContainer) {
+        // copy logging lib
+        final String loggingLibPath = startModulePath + File.separator + "target" + File.separator + "logging-e2e" + File.separator;
+        checkPathExist(loggingLibPath);
+        container.withCopyFileToContainer(MountableFile.forHostPath(loggingLibPath),
+            Paths.get(seatunnelHomeInContainer, "starter", "logging").toString());
+    }
+
     public static void copySeaTunnelStarterToContainer(GenericContainer<?> container,
                                                        String startModuleName,
                                                        String startModulePath,
                                                        String seatunnelHomeInContainer) {
         final String startJarName = startModuleName + ".jar";
-        // copy lib
+        // copy starter
         final String startJarPath = startModulePath + File.separator + "target" + File.separator + startJarName;
         checkPathExist(startJarPath);
         // don't use container#withFileSystemBind, this isn't supported in Windows.
         container.withCopyFileToContainer(MountableFile.forHostPath(startJarPath),
-            Paths.get(seatunnelHomeInContainer, "lib", startJarName).toString());
+            Paths.get(seatunnelHomeInContainer, "starter", startJarName).toString());
+
+        // copy lib
+        String transformJar = "seatunnel-transforms-v2.jar";
+        Path transformJarPath = Paths.get(PROJECT_ROOT_PATH, "seatunnel-transforms-v2", "target", transformJar);
+        container.withCopyFileToContainer(
+            MountableFile.forHostPath(transformJarPath),
+            Paths.get(seatunnelHomeInContainer, "lib", transformJar).toString());
 
         // copy bin
         final String startBinPath = startModulePath + File.separator + "src/main/bin/";

@@ -30,6 +30,7 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
+import java.util.Objects;
 
 public class GetTaskGroupAddressOperation extends Operation implements IdentifiedDataSerializable {
 
@@ -50,7 +51,7 @@ public class GetTaskGroupAddressOperation extends Operation implements Identifie
         response = RetryUtils.retryWithException(() -> server.getCoordinatorService().getJobMaster(taskLocation.getJobId())
                 .queryTaskGroupAddress(taskLocation.getTaskGroupLocation().getTaskGroupId()),
             new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
-                exception -> exception instanceof Exception, Constant.OPERATION_RETRY_SLEEP));
+                Objects::nonNull, Constant.OPERATION_RETRY_SLEEP));
     }
 
     @Override

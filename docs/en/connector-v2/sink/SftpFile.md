@@ -159,6 +159,10 @@ SftpFile {
 
 ## Changelog
 
-| Version    | Date       | Pull Request                                                    | Subject      |
-|------------|------------|-----------------------------------------------------------------|--------------|
-| 2.2.0-beta | 2022-10-06 | [3006](https://github.com/apache/incubator-seatunnel/pull/3006) | First commit |
+### Next version
+
+- Add SftpFile Sink Connector
+- [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/incubator-seatunnel/pull/3258))
+  - When field from upstream is null it will throw NullPointerException
+  - Sink columns mapping failed
+  - When restore writer from states getting transaction directly failed

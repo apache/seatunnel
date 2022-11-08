@@ -28,11 +28,8 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>connector-elasticsearch</artifactId>
-    
     <properties>
         <elasticsearch-rest-client.version>7.5.1</elasticsearch-rest-client.version>
-        <jackson.databind.version>2.12.6</jackson.databind.version>
-        <jackson-datatype-jsr310.version>2.13.3</jackson-datatype-jsr310.version>
     </properties>
 
     <dependencies>
@@ -42,15 +39,15 @@
             <version>${elasticsearch-rest-client.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>${jackson.databind.version}</version>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-common</artifactId>
+            <version>${project.version}</version>
+            <scope>compile</scope>
         </dependency>
         <dependency>
-            <groupId>com.fasterxml.jackson.datatype</groupId>
-            <artifactId>jackson-datatype-jsr310</artifactId>
-            <version>${jackson-datatype-jsr310.version}</version>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-format-json</artifactId>
+            <version>${project.version}</version>
         </dependency>
     </dependencies>
-
 </project>

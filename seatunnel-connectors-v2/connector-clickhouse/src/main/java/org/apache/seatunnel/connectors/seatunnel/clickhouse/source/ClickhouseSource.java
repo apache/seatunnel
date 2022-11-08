@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.SQL;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SQL;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.USERNAME;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -64,19 +64,19 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(config, HOST, DATABASE, SQL, USERNAME, PASSWORD);
+        CheckResult result = CheckConfigUtil.checkAllExists(config, HOST.key(), DATABASE.key(), SQL.key(), USERNAME.key(), PASSWORD.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
-        servers = ClickhouseUtil.createNodes(config.getString(HOST), config.getString(DATABASE),
-                config.getString(USERNAME), config.getString(PASSWORD));
+        servers = ClickhouseUtil.createNodes(config.getString(HOST.key()), config.getString(DATABASE.key()),
+                config.getString(USERNAME.key()), config.getString(PASSWORD.key()));
 
-        sql = config.getString(SQL);
+        sql = config.getString(SQL.key());
         ClickHouseNode currentServer = servers.get(ThreadLocalRandom.current().nextInt(servers.size()));
         try (ClickHouseClient client = ClickHouseClient.newInstance(currentServer.getProtocol());
              ClickHouseResponse response =
                      client.connect(currentServer).format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
-                             .query(modifySQLToLimit1(config.getString(SQL))).executeAndWait()) {
+                             .query(modifySQLToLimit1(config.getString(SQL.key()))).executeAndWait()) {
 
             int columnSize = response.getColumns().size();
             String[] fieldNames = new String[columnSize];

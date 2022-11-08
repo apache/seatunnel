@@ -27,13 +27,12 @@ Reading data from Clickhouse can also be done using JDBC
 ## Options
 
 | name           | type   | required | default value |
-| -------------- | ------ | -------- | ------------- |
+|----------------|--------|----------|---------------|
 | host           | string | yes      | -             |
 | database       | string | yes      | -             |
 | sql            | string | yes      | -             |
 | username       | string | yes      | -             |
 | password       | string | yes      | -             |
-| schema         | config | No       | -             |
 | common-options |        | no       | -             |
 
 ### host [string]
@@ -55,12 +54,6 @@ The query sql used to search data though Clickhouse server
 ### password [string]
 
 `ClickHouse` user password
-
-### schema [Config]
-
-#### fields [Config]
-
-the schema fields of upstream data
 
 ### common options 
 
@@ -93,4 +86,9 @@ source {
 
 - [Improve] Clickhouse Source random use host when config multi-host ([3108](https://github.com/apache/incubator-seatunnel/pull/3108))
 
+### next version
+
+- [Improve] Clickhouse Source support nest type and array type([3047](https://github.com/apache/incubator-seatunnel/pull/3047))
+
+- [Improve] Clickhouse Source support geo type([3141](https://github.com/apache/incubator-seatunnel/pull/3141))
 

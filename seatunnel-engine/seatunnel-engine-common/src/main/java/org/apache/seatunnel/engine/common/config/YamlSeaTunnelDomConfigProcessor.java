@@ -34,7 +34,6 @@ import com.hazelcast.logging.Logger;
 import org.w3c.dom.Node;
 
 public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor {
-
     private static final ILogger LOGGER = Logger.getLogger(YamlSeaTunnelDomConfigProcessor.class);
 
     private final SeaTunnelConfig config;

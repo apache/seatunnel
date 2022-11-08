@@ -36,13 +36,15 @@ public class Constant {
 
     public static final String HAZELCAST_SEATUNNEL_DEFAULT_YAML = "seatunnel.yaml";
 
-    public static final int OPERATION_RETRY_TIME = 5;
+    public static final int OPERATION_RETRY_TIME = 10;
 
     public static final int OPERATION_RETRY_SLEEP = 2000;
 
     public static final String IMAP_RUNNING_JOB_INFO = "runningJobInfo";
 
     public static final String IMAP_RUNNING_JOB_STATE = "runningJobState";
+
+    public static final String IMAP_FINISHED_JOB_STATE = "finishedJobState";
 
     public static final String IMAP_STATE_TIMESTAMPS = "stateTimestamps";
 

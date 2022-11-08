@@ -66,7 +66,6 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
         "PROPERTIES (\n" +
         "\"replication_num\" = \"1\",\n" +
         "\"in_memory\" = \"false\"," +
-        "\"in_memory\" = \"false\"," +
         "\"storage_format\" = \"DEFAULT\"" +
         ")";
 
@@ -91,7 +90,6 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
         "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 1\n" +
         "PROPERTIES (\n" +
         "\"replication_num\" = \"1\",\n" +
-        "\"in_memory\" = \"false\"," +
         "\"in_memory\" = \"false\"," +
         "\"storage_format\" = \"DEFAULT\"" +
         ")";
