@@ -27,7 +27,7 @@ Write data to Amazon DynamoDB
 
 ### url [string]
 
-url to write to Amazon DynamoDB.
+The URL to write to Amazon DynamoDB.
 
 ### region [string]
 

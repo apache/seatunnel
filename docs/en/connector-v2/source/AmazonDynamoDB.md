@@ -23,13 +23,13 @@ Read data from Amazon DynamoDB.
 | region            | string | yes      | -             |
 | access_key_id     | string | yes      | -             |
 | secret_access_key | string | yes      | -             |
-| table    	        | string | yes      | -             |
+| table             | string | yes      | -             |
 | schema            | object | yes      | -             |
 | common-options    |        | yes      | -             |
 
 ### url [string]
 
-url to read to Amazon Dynamodb.
+The URL to read to Amazon Dynamodb.
 
 ### region [string]
 
@@ -51,7 +51,7 @@ The table of Amazon DynamoDB.
 
 #### fields [Config]
 
-Amazon Dynamodb is a NOSQL database service of support keys-value storage and document data structure,there is no way to get the data type.Therefore, we must configure schma.
+Amazon Dynamodb is a NOSQL database service of support keys-value storage and document data structure,there is no way to get the data type.Therefore, we must configure schema.
 
 such as:
 
