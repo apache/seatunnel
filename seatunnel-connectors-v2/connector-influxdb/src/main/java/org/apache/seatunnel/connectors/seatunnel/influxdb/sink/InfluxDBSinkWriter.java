@@ -112,7 +112,7 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
     }
 
-    public synchronized void write(Point record) throws IOException {
+    public void write(Point record) throws IOException {
         checkFlushException();
 
         batchList.add(record);
@@ -122,7 +122,7 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
     }
 
-    public synchronized void flush() throws IOException {
+    public void flush() throws IOException {
         checkFlushException();
         if (batchList.isEmpty()) {
             return;
