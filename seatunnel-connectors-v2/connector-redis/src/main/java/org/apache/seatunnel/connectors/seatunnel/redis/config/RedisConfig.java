@@ -33,34 +33,68 @@ public class RedisConfig {
     }
 
     public static final Option<String> HOST =
-        Options.key("host").stringType().noDefaultValue().withDescription("redis hostname or ip");
+        Options.key("host")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("redis hostname or ip");
 
     public static final Option<String> PORT =
-        Options.key("port").stringType().noDefaultValue().withDescription("redis port");
+        Options.key("port")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("redis port");
 
-    public static final Option<String> AUTH = Options.key("auth").stringType().noDefaultValue().withDescription("auth");
+    public static final Option<String> AUTH =
+        Options.key("auth")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("redis authentication password, you need it when you connect to an encrypted cluster");
 
-    public static final Option<String> USER = Options.key("user").stringType().noDefaultValue().withDescription("user");
+    public static final Option<String> USER =
+        Options.key("user")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("redis authentication user, you need it when you connect to an encrypted cluster");
 
     public static final Option<String> KEY_PATTERN =
-        Options.key("keys").stringType().noDefaultValue().withDescription("keys");
+        Options.key("keys")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("keys pattern, redis source connector support fuzzy key matching, user needs to ensure that the matched keys are the same type");
 
-    public static final Option<String> KEY = Options.key("key").stringType().noDefaultValue().withDescription("key");
+    public static final Option<String> KEY =
+        Options.key("key")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("The value of key you want to write to redis.");
 
     public static final Option<String> DATA_TYPE =
-        Options.key("data_type").stringType().noDefaultValue().withDescription("data_type");
+        Options.key("data_type")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("redis data types, support key hash list set zset.");
 
     public static final Option<String> FORMAT =
-        Options.key("format").stringType().noDefaultValue().withDescription("format");
+        Options.key("format")
+            .stringType()
+            .defaultValue("json")
+            .withDescription("the format of upstream data, now only support json and text, default json.");
 
     public static final Option<RedisConfig.RedisMode> MODE =
-        Options.key("mode").enumType(RedisConfig.RedisMode.class).defaultValue(RedisMode.SINGLE)
+        Options.key("mode")
+            .enumType(RedisConfig.RedisMode.class)
+            .defaultValue(RedisMode.SINGLE)
             .withDescription("redis mode, support single or cluster, default value is single");
 
-    public static final Option<String> NODES = Options.key("nodes").stringType().noDefaultValue()
-        .withDescription("this parameter is required if mode is cluster");
+    public static final Option<String> NODES =
+        Options.key("nodes")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("redis nodes information, used in cluster mode, must like as the following format: [host1:port1, host2:port2]");
 
     public static final Option<RedisConfig.HashKeyParseMode> HASH_KEY_PARSE_MODE =
-        Options.key("hash_key_parse_mode").enumType(RedisConfig.HashKeyParseMode.class)
-            .defaultValue(HashKeyParseMode.ALL).withDescription("hash key parse mode, support all or kv, default value is all");
+        Options.key("hash_key_parse_mode")
+            .enumType(RedisConfig.HashKeyParseMode.class)
+            .defaultValue(HashKeyParseMode.ALL)
+            .withDescription("hash key parse mode, support all or kv, default value is all");
 }
