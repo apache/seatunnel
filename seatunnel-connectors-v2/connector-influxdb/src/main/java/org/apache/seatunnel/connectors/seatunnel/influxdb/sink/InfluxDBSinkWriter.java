@@ -51,10 +51,8 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private InfluxDB influxDB;
     private SinkConfig sinkConfig;
     private final List<Point> batchList;
-
     private ScheduledExecutorService scheduler;
     private ScheduledFuture<?> scheduledFuture;
-    private volatile boolean initialize;
     private volatile Exception flushException;
     private final Integer batchIntervalMs;
 
@@ -114,16 +112,7 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
     }
 
-    private void tryInit() throws IOException {
-        if (initialize) {
-            return;
-        }
-        initialize = true;
-        connect();
-    }
-
     public synchronized void write(Point record) throws IOException {
-        tryInit();
         checkFlushException();
 
         batchList.add(record);
