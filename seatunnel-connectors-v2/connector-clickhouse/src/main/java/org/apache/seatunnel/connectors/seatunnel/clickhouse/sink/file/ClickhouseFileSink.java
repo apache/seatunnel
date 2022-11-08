@@ -17,17 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.CLICKHOUSE_LOCAL_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.COPY_METHOD;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.FIELDS;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.NODE_ADDRESS;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.NODE_PASS;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.SHARDING_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_LOCAL_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.COPY_METHOD;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.FIELDS;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.NODE_ADDRESS;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.NODE_PASS;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SHARDING_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.USERNAME;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -73,55 +73,55 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(config, HOST, TABLE, DATABASE, USERNAME, PASSWORD, CLICKHOUSE_LOCAL_PATH);
+        CheckResult checkResult = CheckConfigUtil.checkAllExists(config, HOST.key(), TABLE.key(), DATABASE.key(), USERNAME.key(), PASSWORD.key(), CLICKHOUSE_LOCAL_PATH.key());
         if (!checkResult.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SINK, checkResult.getMsg());
         }
         Map<String, Object> defaultConfigs = ImmutableMap.<String, Object>builder()
-                .put(COPY_METHOD, ClickhouseFileCopyMethod.SCP.getName())
+                .put(COPY_METHOD.key(), COPY_METHOD.defaultValue().getName())
                 .build();
 
         config = config.withFallback(ConfigFactory.parseMap(defaultConfigs));
-        List<ClickHouseNode> nodes = ClickhouseUtil.createNodes(config.getString(HOST),
-                config.getString(DATABASE), config.getString(USERNAME), config.getString(PASSWORD));
+        List<ClickHouseNode> nodes = ClickhouseUtil.createNodes(config.getString(HOST.key()),
+                config.getString(DATABASE.key()), config.getString(USERNAME.key()), config.getString(PASSWORD.key()));
 
         ClickhouseProxy proxy = new ClickhouseProxy(nodes.get(0));
-        Map<String, String> tableSchema = proxy.getClickhouseTableSchema(config.getString(TABLE));
+        Map<String, String> tableSchema = proxy.getClickhouseTableSchema(config.getString(TABLE.key()));
         String shardKey = null;
         String shardKeyType = null;
-        if (config.hasPath(SHARDING_KEY)) {
-            shardKey = config.getString(SHARDING_KEY);
+        if (config.hasPath(SHARDING_KEY.key())) {
+            shardKey = config.getString(SHARDING_KEY.key());
             shardKeyType = tableSchema.get(shardKey);
         }
         ShardMetadata shardMetadata = new ShardMetadata(
                 shardKey,
                 shardKeyType,
-                config.getString(DATABASE),
-                config.getString(TABLE),
+                config.getString(DATABASE.key()),
+                config.getString(TABLE.key()),
                 false, // we don't need to set splitMode in clickhouse file mode.
-                new Shard(1, 1, nodes.get(0)), config.getString(USERNAME), config.getString(PASSWORD));
+                new Shard(1, 1, nodes.get(0)), config.getString(USERNAME.key()), config.getString(PASSWORD.key()));
         List<String> fields;
-        if (config.hasPath(FIELDS)) {
-            fields = config.getStringList(FIELDS);
+        if (config.hasPath(FIELDS.key())) {
+            fields = config.getStringList(FIELDS.key());
             // check if the fields exist in schema
             for (String field : fields) {
                 if (!tableSchema.containsKey(field)) {
-                    throw new RuntimeException("Field " + field + " does not exist in table " + config.getString(TABLE));
+                    throw new RuntimeException("Field " + field + " does not exist in table " + config.getString(TABLE.key()));
                 }
             }
         } else {
             fields = new ArrayList<>(tableSchema.keySet());
         }
-        Map<String, String> nodeUser = config.getObjectList(NODE_PASS).stream()
+        Map<String, String> nodeUser = config.getObjectList(NODE_PASS.key()).stream()
                 .collect(Collectors.toMap(configObject -> configObject.toConfig().getString(NODE_ADDRESS),
-                    configObject -> configObject.toConfig().hasPath(USERNAME) ? configObject.toConfig().getString(USERNAME) : "root"));
-        Map<String, String> nodePassword = config.getObjectList(NODE_PASS).stream()
+                    configObject -> configObject.toConfig().hasPath(USERNAME.key()) ? configObject.toConfig().getString(USERNAME.key()) : "root"));
+        Map<String, String> nodePassword = config.getObjectList(NODE_PASS.key()).stream()
                 .collect(Collectors.toMap(configObject -> configObject.toConfig().getString(NODE_ADDRESS),
-                    configObject -> configObject.toConfig().getString(PASSWORD)));
+                    configObject -> configObject.toConfig().getString(PASSWORD.key())));
 
         proxy.close();
-        this.readerOption = new FileReaderOption(shardMetadata, tableSchema, fields, config.getString(CLICKHOUSE_LOCAL_PATH),
-                ClickhouseFileCopyMethod.from(config.getString(COPY_METHOD)), nodeUser, nodePassword);
+        this.readerOption = new FileReaderOption(shardMetadata, tableSchema, fields, config.getString(CLICKHOUSE_LOCAL_PATH.key()),
+                ClickhouseFileCopyMethod.from(config.getString(COPY_METHOD.key())), nodeUser, nodePassword);
     }
 
     @Override
