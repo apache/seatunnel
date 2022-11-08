@@ -33,7 +33,7 @@ import com.google.auto.service.AutoService;
 public class AmazonDynamoDBSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return "AmazonDynamoDBSource";
+        return "AmazonDynamoDB";
     }
 
     @Override

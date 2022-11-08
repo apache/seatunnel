@@ -34,7 +34,7 @@ import com.google.auto.service.AutoService;
 public class AmazonDynamoDBSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return "AmazonDynamoDBSink";
+        return "AmazonDynamoDB";
     }
 
     @Override
