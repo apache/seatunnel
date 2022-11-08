@@ -15,18 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.neo4j.config;
+package org.apache.seatunnel.connectors.seatunnel.neo4j.sink;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
-import java.util.Map;
+import com.google.auto.service.AutoService;
 
-public class Neo4jSinkConfig extends Neo4jCommonConfig {
-    public static final Option<Map<String, String>> QUERY_PARAM_POSITION =
-        Options.key("queryParamPosition")
-            .mapType()
-            .noDefaultValue()
-            .withDescription(
-                "position mapping information for query parameters. key name is parameter placeholder name. associated value is position of field in input data row.");
+@AutoService(TableSinkFactory.class)
+public class Neo4jSinkFactory implements TableSinkFactory {
+    @Override
+    public String factoryIdentifier() {
+        return null;
+    }
+
+    @Override
+    public OptionRule optionRule() {
+        return null;
+    }
 }
