@@ -24,11 +24,12 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Clickh
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.USERNAME;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
 import com.google.auto.service.AutoService;
 
-@AutoService(TableSourceFactory.class)
+@AutoService(Factory.class)
 public class ClickhouseSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
