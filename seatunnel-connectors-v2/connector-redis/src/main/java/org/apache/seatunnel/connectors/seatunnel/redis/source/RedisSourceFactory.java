@@ -18,13 +18,12 @@
 package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
 
 import com.google.auto.service.AutoService;
 
-@AutoService(Factory.class)
+@AutoService(TableSourceFactory.class)
 public class RedisSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
@@ -35,7 +34,8 @@ public class RedisSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
             .required(RedisConfig.HOST, RedisConfig.PORT, RedisConfig.KEY, RedisConfig.DATA_TYPE)
-            .optional(RedisConfig.HASH_KEY_PARSE_MODE, RedisConfig.AUTH, RedisConfig.USER, RedisConfig.KEY_PATTERN, RedisConfig.FORMAT)
+            .optional(RedisConfig.HASH_KEY_PARSE_MODE, RedisConfig.AUTH, RedisConfig.USER, RedisConfig.KEY_PATTERN,
+                RedisConfig.FORMAT)
             .conditional(RedisConfig.MODE, RedisConfig.RedisMode.CLUSTER, RedisConfig.NODES)
             .build();
     }
