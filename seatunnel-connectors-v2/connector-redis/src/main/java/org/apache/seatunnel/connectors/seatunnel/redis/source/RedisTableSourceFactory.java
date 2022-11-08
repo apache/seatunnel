@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
 
+@AutoService(Factory.class)
 public class RedisTableSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
