@@ -111,7 +111,7 @@ Enable rpc compression in `IoTDB` client
 
 ### connection_timeout_in_ms [int]
 
-The maximum time (in ms) to wait when connect `IoTDB`
+The maximum time (in ms) to wait when connecting to `IoTDB`
 
 ### common options
 
