@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.FIELD_RULES;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.ROW_RULES;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.RULES;
+
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -39,9 +43,6 @@ import java.util.List;
 
 @AutoService(SeaTunnelSink.class)
 public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
-    private static final String RULES = "rules";
-    private static final String ROW_RULES = "row_rules";
-    private static final String FIELD_RULES = "field_rules";
     private SeaTunnelRowType seaTunnelRowType;
     private List<AssertFieldRule> assertFieldRules;
     private List<AssertFieldRule.AssertRule> assertRowRules;
@@ -63,10 +64,10 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public void prepare(Config pluginConfig) {
-        if (!pluginConfig.hasPath(RULES)) {
-            Throwables.propagateIfPossible(new ConfigException.Missing(RULES));
+        if (!pluginConfig.hasPath(RULES.key())) {
+            Throwables.propagateIfPossible(new ConfigException.Missing(RULES.key()));
         }
-        Config ruleConfig = pluginConfig.getConfig(RULES);
+        Config ruleConfig = pluginConfig.getConfig(RULES.key());
         List<? extends Config> rowConfigList = null;
         List<? extends Config> configList = null;
         if (ruleConfig.hasPath(ROW_RULES)) {
@@ -79,7 +80,7 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
         }
 
         if (CollectionUtils.isEmpty(configList) && CollectionUtils.isEmpty(rowConfigList)) {
-            Throwables.propagateIfPossible(new ConfigException.BadValue(RULES, "Assert rule config is empty, please add rule config."));
+            Throwables.propagateIfPossible(new ConfigException.BadValue(RULES.key(), "Assert rule config is empty, please add rule config."));
         }
     }
 
