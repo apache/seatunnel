@@ -23,10 +23,10 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 public class FactoryException extends SeaTunnelRuntimeException {
 
     public FactoryException(String message, Throwable cause) {
-        super(SeaTunnelAPIErrorCode.FACTORY_INITIALIZATION_FAILED, message, cause);
+        super(SeaTunnelAPIErrorCode.FACTORY_INITIALIZE_FAILED, message, cause);
     }
 
     public FactoryException(String message) {
-        super(SeaTunnelAPIErrorCode.FACTORY_INITIALIZATION_FAILED, message);
+        super(SeaTunnelAPIErrorCode.FACTORY_INITIALIZE_FAILED, message);
     }
 }

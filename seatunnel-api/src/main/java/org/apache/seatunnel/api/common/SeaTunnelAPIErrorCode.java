@@ -20,12 +20,12 @@ package org.apache.seatunnel.api.common;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum SeaTunnelAPIErrorCode implements SeaTunnelErrorCode {
-    CONFIG_VALIDATION_FAILED("API-01", "Configuration item validation failure"),
-    OPTION_VALIDATION_FAILED("API-02", "Option item validation failure"),
-    CATALOG_ERROR("API-03", "Catalog related failure"),
-    DATABASE_NOT_FOUND("API-04", "Database not found"),
-    TABLE_NOT_FOUND("API-05", "Table not found"),
-    FACTORY_INITIALIZATION_FAILED("API-06", "Factory initialization failure"),;
+    CONFIG_VALIDATION_FAILED("API-01", "Configuration item validate failed"),
+    OPTION_VALIDATION_FAILED("API-02", "Option item validate failed"),
+    CATALOG_INITIALIZE_FAILED("API-03", "Catalog initialize failed"),
+    DATABASE_NOT_EXISTED("API-04", "Database not existed"),
+    TABLE_NOT_EXISTED("API-05", "Table not existed"),
+    FACTORY_INITIALIZE_FAILED("API-06", "Factory initialize failed"),;
 
     private final String code;
     private final String description;

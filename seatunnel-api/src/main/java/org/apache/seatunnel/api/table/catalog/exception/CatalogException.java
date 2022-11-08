@@ -29,14 +29,14 @@ public class CatalogException extends SeaTunnelRuntimeException {
      * @param message the detail message.
      */
     public CatalogException(String message) {
-        super(SeaTunnelAPIErrorCode.CATALOG_ERROR, message);
+        super(SeaTunnelAPIErrorCode.CATALOG_INITIALIZE_FAILED, message);
     }
 
     /**
      * @param cause the cause.
      */
     public CatalogException(Throwable cause) {
-        super(SeaTunnelAPIErrorCode.CATALOG_ERROR, cause);
+        super(SeaTunnelAPIErrorCode.CATALOG_INITIALIZE_FAILED, cause);
     }
 
     /**
@@ -44,6 +44,6 @@ public class CatalogException extends SeaTunnelRuntimeException {
      * @param cause   the cause.
      */
     public CatalogException(String message, Throwable cause) {
-        super(SeaTunnelAPIErrorCode.CATALOG_ERROR, message, cause);
+        super(SeaTunnelAPIErrorCode.CATALOG_INITIALIZE_FAILED, message, cause);
     }
 }

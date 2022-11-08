@@ -32,6 +32,6 @@ public class TableNotExistException extends SeaTunnelRuntimeException {
     }
 
     public TableNotExistException(String catalogName, TablePath tablePath, Throwable cause) {
-        super(SeaTunnelAPIErrorCode.TABLE_NOT_FOUND, String.format(MSG, tablePath.getFullName(), catalogName), cause);
+        super(SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED, String.format(MSG, tablePath.getFullName(), catalogName), cause);
     }
 }

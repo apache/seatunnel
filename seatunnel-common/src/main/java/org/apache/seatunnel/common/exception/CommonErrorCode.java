@@ -18,12 +18,20 @@
 package org.apache.seatunnel.common.exception;
 
 public enum CommonErrorCode implements SeaTunnelErrorCode {
-    ENUM_ILLEGAL("Common-01", "This enum is not supported by SeaTunnel"),
-    FILE_OPERATION_ERROR("Common-02", "File operation error"),
-    JSON_OPERATION_ERROR("Common-03", "Json covert/parse operation error"),
-    REFLECT_CLASS_OPERATION_ERROR("Common-04", "Reflect class operation error"),
-    SERIALIZE_OPERATION_ERROR("Common-05", "Serialize class operation error"),
-    UNSUPPORTED_OPERATION("Common-06", "Unsupported operation error");
+    ENUM_ILLEGAL("COMMON-01", "This enum is not supported by SeaTunnel"),
+    FILE_OPERATION_FAILED("COMMON-02", "File operation failed, such as (read,list,write,move,copy,sync) etc..."),
+    JSON_OPERATION_FAILED("COMMON-03", "Json covert/parse operation failed"),
+    REFLECT_CLASS_OPERATION_FAILED("COMMON-04", "Reflect class operation failed"),
+    SERIALIZE_OPERATION_ERROR("COMMON-05", "Serialize class operation failed"),
+    UNSUPPORTED_OPERATION("COMMON-06", "Unsupported operation error"),
+    ILLEGAL_ARGUMENT("COMMON-07", "Illegal argument"),
+    UNSUPPORTED_DATA_TYPE("COMMON-08", "Unsupported data type"),
+    SQL_OPERATION_FAILED("COMMON-09", "Sql operation failed, such as (execute,addBatch,close) etc..."),
+    TABLE_SCHEMA_GET_FAILED("COMMON-10", "Get table schema from upstream data failed"),
+    FLUSH_DATA_FAILED("COMMON-11", "Flush data to sink connector failed"),
+    WRITER_OPERATION_FAILED("COMMON-12", "Sink writer operation failed, such as (open, close) etc..."),
+    READER_OPERATION_FAILED("COMMON-13", "Source reader operation failed, such as (open, close) etc..."),
+    HTTP_OPERATION_FAILED("COMMON-14", "Http operation failed, such as (open, close, response) etc...");
 
     private final String code;
     private final String description;
