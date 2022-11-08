@@ -141,4 +141,4 @@ source {
 
 ### next version
 
-- [Improve] Support for dynamic discover topic & partition in streaming mode [3125](https://github.com/apache/incubator-seatunnel/pull/3125)
+- [Improve] Support for dynamic discover topic & partition in streaming mode ([3125](https://github.com/apache/incubator-seatunnel/pull/3125))
