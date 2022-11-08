@@ -93,7 +93,8 @@ const sidebars = {
             "label": "Concept",
             "items": [
                 "concept/config",
-                "concept/connector-v2-features"
+                "concept/connector-v2-features",
+                'concept/schema-feature'
             ]
         },
         {
