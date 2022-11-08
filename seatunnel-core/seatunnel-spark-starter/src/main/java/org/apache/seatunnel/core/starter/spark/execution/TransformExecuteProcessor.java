@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Deprecated
 public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<BaseSparkTransform> {
 
     private static final String PLUGIN_TYPE = "transform";
