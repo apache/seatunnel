@@ -21,7 +21,7 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
     FILE_OPERATION_FAILED("COMMON-01", "File operation failed, such as (read,list,write,move,copy,sync) etc..."),
     JSON_OPERATION_FAILED("COMMON-02", "Json covert/parse operation failed"),
     REFLECT_CLASS_OPERATION_FAILED("COMMON-03", "Reflect class operation failed"),
-    SERIALIZE_OPERATION_ERROR("COMMON-04", "Serialize class operation failed"),
+    SERIALIZE_OPERATION_FAILED("COMMON-04", "Serialize class operation failed"),
     UNSUPPORTED_OPERATION("COMMON-05", "Unsupported operation error"),
     ILLEGAL_ARGUMENT("COMMON-06", "Illegal argument"),
     UNSUPPORTED_DATA_TYPE("COMMON-07", "Unsupported data type"),
