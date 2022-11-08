@@ -18,11 +18,12 @@
 package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
 import com.google.auto.service.AutoService;
 
-@AutoService(TableSinkFactory.class)
+@AutoService(Factory.class)
 public class ConsoleSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
