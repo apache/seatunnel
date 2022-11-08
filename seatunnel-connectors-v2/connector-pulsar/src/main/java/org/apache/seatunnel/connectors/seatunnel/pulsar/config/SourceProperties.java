@@ -168,11 +168,11 @@ public class SourceProperties {
             .noDefaultValue()
             .withDescription("Stop from the specified epoch timestamp (in milliseconds)");
 
-    public static final Option<?> SCHEMA =
+    public static final Option<String> SCHEMA =
         Options.key("schema")
-            .longType()
+            .stringType()
             .noDefaultValue()
-            .withDescription("schema");
+            .withDescription("read data schema");
 
     /**
      * Startup mode for the pulsar consumer, see {@link #CURSOR_STARTUP_MODE}.

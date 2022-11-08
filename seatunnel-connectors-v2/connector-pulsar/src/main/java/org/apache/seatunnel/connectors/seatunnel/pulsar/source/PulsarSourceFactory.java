@@ -41,7 +41,10 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties;
 
-public class PulsarTableSourceFactory implements TableSourceFactory {
+import com.google.auto.service.AutoService;
+
+@AutoService(TableSourceFactory.class)
+public class PulsarSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
         return PulsarConfigUtil.IDENTIFIER;
