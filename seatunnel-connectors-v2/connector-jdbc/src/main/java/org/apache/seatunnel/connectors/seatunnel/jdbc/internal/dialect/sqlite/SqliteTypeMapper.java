@@ -106,6 +106,7 @@ public class SqliteTypeMapper implements JdbcDialectTypeMapper {
             case SQLITE_TINYINT_UNSIGNED:
             case SQLITE_SMALLINT:
             case SQLITE_SMALLINT_UNSIGNED:
+                return BasicType.SHORT_TYPE;
             case SQLITE_MEDIUMINT:
             case SQLITE_MEDIUMINT_UNSIGNED:
             case SQLITE_INT:
