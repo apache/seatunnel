@@ -33,7 +33,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -92,9 +91,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
             case DATE:
                 return LocalDate.parse(attributeValue.s());
             case TIMESTAMP:
-                return LocalDateTime.parse(attributeValue.s()).atZone(ZoneOffset.UTC)
-                    .toInstant()
-                    .toEpochMilli();
+                return LocalDateTime.parse(attributeValue.s());
             case BYTES:
                 return attributeValue.b().asByteArray();
             case MAP:
