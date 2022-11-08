@@ -17,7 +17,7 @@ SeaTunnel uses a grading system for connectors to help you understand what to ex
 | [ClickHouseFile](connector-v2/sink/ClickhouseFile.md)       | Sink   | Beta   | 2.2.0-beta      |
 | [Console](connector-v2/sink/Console.md)                     | Sink   | Beta   | 2.2.0-beta      |
 | [DataHub](connector-v2/sink/Datahub.md)                     | Sink   | Alpha  | 2.2.0-beta      |
-| [DingTalk](connector-v2/sink/dingtalk.md)                   | Sink   | Alpha  | 2.2.0-beta      |
+| [DingTalk](connector-v2/sink/DingTalk.md)                   | Sink   | Alpha  | 2.2.0-beta      |
 | [Elasticsearch](connector-v2/sink/Elasticsearch.md)         | Sink   | Beta   | 2.2.0-beta      |
 | [Email](connector-v2/sink/Email.md)                         | Sink   | Alpha  | 2.2.0-beta      |
 | [Enterprise WeChat](connector-v2/sink/Enterprise-WeChat.md) | Sink   | Alpha  | 2.2.0-beta      |

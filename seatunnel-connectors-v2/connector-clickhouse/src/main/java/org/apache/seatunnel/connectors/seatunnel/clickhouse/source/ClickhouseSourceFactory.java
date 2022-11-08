@@ -33,7 +33,7 @@ import com.google.auto.service.AutoService;
 public class ClickhouseSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return "ClickhouseSource";
+        return "Clickhouse";
     }
 
     @Override

@@ -24,7 +24,7 @@ A sink plugin which use send message to DataHub
 | retryTimes     | int    | yes      | -             |
 | common-options |        | no       | -             |
 
-### url [string]
+### endpoint [string]
 
 your DataHub endpoint start with http （string）
 
