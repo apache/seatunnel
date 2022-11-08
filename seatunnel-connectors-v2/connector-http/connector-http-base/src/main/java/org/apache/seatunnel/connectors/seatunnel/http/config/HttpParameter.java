@@ -28,15 +28,15 @@ import java.util.stream.Collectors;
 @Data
 @SuppressWarnings("MagicNumber")
 public class HttpParameter implements Serializable {
-    private String url;
-    private String method;
-    private Map<String, String> headers;
-    private Map<String, String> params;
-    private String body;
-    private int pollIntervalMillis;
-    private int retry;
-    private int retryBackoffMultiplierMillis = 100;
-    private int retryBackoffMaxMillis = 10000;
+    protected String url;
+    protected String method;
+    protected Map<String, String> headers;
+    protected Map<String, String> params;
+    protected String body;
+    protected int pollIntervalMillis;
+    protected int retry;
+    protected int retryBackoffMultiplierMillis = 100;
+    protected int retryBackoffMaxMillis = 10000;
 
     public void buildWithConfig(Config pluginConfig) {
         // set url
