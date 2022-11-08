@@ -24,7 +24,7 @@ Read data from Amazon DynamoDB.
 | access_key_id     | string | yes      | -             |
 | secret_access_key | string | yes      | -             |
 | table             | string | yes      | -             |
-| schema            | object | yes      | -             |
+| schema            | config | yes      | -             |
 | common-options    |        | yes      | -             |
 
 ### url [string]
@@ -47,9 +47,9 @@ The access secret of Amazon DynamoDB.
 
 The table of Amazon DynamoDB.
 
-### schema [object]
+### schema [Config]
 
-#### fields [Config]
+#### fields [config]
 
 Amazon Dynamodb is a NOSQL database service of support keys-value storage and document data structure,there is no way to get the data type.Therefore, we must configure schema.
 
