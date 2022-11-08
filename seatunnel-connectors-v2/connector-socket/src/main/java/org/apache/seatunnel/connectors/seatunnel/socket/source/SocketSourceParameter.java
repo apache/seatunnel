@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.socket.source;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
+import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.PORT;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -28,37 +28,28 @@ import java.io.Serializable;
 import java.util.Objects;
 
 public class SocketSourceParameter implements Serializable {
-
-    private static final String DEFAULT_HOST = "localhost";
-    private static final int DEFAULT_PORT = 9999;
     private String host;
     private Integer port;
 
-    public static final Option<String> HOST =
-        Options.key("host").stringType().defaultValue(DEFAULT_HOST).withDescription("socket host");
-
-    public static final Option<Integer> PORT =
-        Options.key("port").intType().defaultValue(DEFAULT_PORT).withDescription("socket port");
-
     public String getHost() {
-        return StringUtils.isBlank(host) ? DEFAULT_HOST : host;
+        return StringUtils.isBlank(host) ? HOST.defaultValue() : host;
     }
 
     public Integer getPort() {
-        return Objects.isNull(port) ? DEFAULT_PORT : port;
+        return Objects.isNull(port) ? PORT.defaultValue() : port;
     }
 
     public SocketSourceParameter(Config config) {
         if (config.hasPath(HOST.key())) {
             this.host = config.getString(HOST.key());
         } else {
-            this.host = DEFAULT_HOST;
+            this.host = HOST.defaultValue();
         }
 
         if (config.hasPath(PORT.key())) {
             this.port = config.getInt(PORT.key());
         } else {
-            this.port = DEFAULT_PORT;
+            this.port = PORT.defaultValue();
         }
     }
 }

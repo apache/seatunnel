@@ -17,10 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.socket.source;
 
+import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.PORT;
+
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
-@AutoService(Factory.class)
+import com.google.auto.service.AutoService;
+
+@AutoService(TableSourceFactory.class)
 public class SocketSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
@@ -29,6 +34,6 @@ public class SocketSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().optional(SocketSourceParameter.HOST, SocketSourceParameter.PORT).build();
+        return OptionRule.builder().optional(HOST, PORT).build();
     }
 }

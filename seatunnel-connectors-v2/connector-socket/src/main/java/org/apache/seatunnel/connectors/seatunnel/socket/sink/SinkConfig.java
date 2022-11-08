@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.socket.config;
+package org.apache.seatunnel.connectors.seatunnel.socket.sink;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
+import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.MAX_RETRIES;
+import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.PORT;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -31,16 +32,6 @@ public class SinkConfig implements Serializable {
     private String host;
     private int port;
     private int maxNumRetries;
-    private static final int DEFAULT_MAX_RETRIES = 3;
-
-    public static final Option<String> HOST =
-        Options.key("host").stringType().noDefaultValue().withDescription("socket host");
-
-    public static final Option<Integer> PORT =
-        Options.key("port").intType().noDefaultValue().withDescription("socket port");
-
-    public static final Option<Integer> MAX_RETRIES =
-        Options.key("max_retries").intType().defaultValue(DEFAULT_MAX_RETRIES).withDescription("max retries");
 
     public SinkConfig(Config config) {
         this.host = config.getString(HOST.key());

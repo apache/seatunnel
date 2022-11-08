@@ -17,11 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.socket.sink;
 
+import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.MAX_RETRIES;
+import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.PORT;
+
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.socket.config.SinkConfig;
 
-@AutoService(Factory.class)
+import com.google.auto.service.AutoService;
+
+@AutoService(TableSinkFactory.class)
 public class SocketSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
@@ -30,6 +35,6 @@ public class SocketSinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(SinkConfig.HOST, SinkConfig.PORT).optional(SinkConfig.MAX_RETRIES).build();
+        return OptionRule.builder().required(HOST, PORT).optional(MAX_RETRIES).build();
     }
 }
