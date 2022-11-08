@@ -35,7 +35,7 @@ import com.google.auto.service.AutoService;
 public class DataHubSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return "DataHubSink";
+        return "DataHub";
     }
 
     @Override
