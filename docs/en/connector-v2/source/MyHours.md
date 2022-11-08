@@ -31,7 +31,7 @@ Used to read data from My Hours.
 | retry                       | int    | No       | -             |
 | retry_backoff_multiplier_ms | int    | No       | 100           |
 | retry_backoff_max_ms        | int    | No       | 10000         |
-| common-options              |        | No       | -             |
+| common-options              |   config     | No       | -             |
 
 ### url [String]
 
