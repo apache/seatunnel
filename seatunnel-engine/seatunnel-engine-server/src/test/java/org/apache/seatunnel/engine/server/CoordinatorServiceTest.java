@@ -107,7 +107,7 @@ public class CoordinatorServiceTest {
         clearCoordinatorServiceMethod.setAccessible(false);
 
         // because runningJobMasterMap is empty and we have no JobHistoryServer, so return finished.
-        Assertions.assertTrue(JobStatus.FINISHED.equals(coordinatorService.getJobStatus(jobId)));
+        Assertions.assertTrue(JobStatus.RUNNING.equals(coordinatorService.getJobStatus(jobId)));
         coordinatorServiceTest.shutdown();
     }
 
@@ -165,7 +165,7 @@ public class CoordinatorServiceTest {
         // because runningJobMasterMap is empty and we have no JobHistoryServer, so return finished.
         await().atMost(200000, TimeUnit.MILLISECONDS)
             .untilAsserted(
-                () -> Assertions.assertEquals(JobStatus.FINISHED, server2.getCoordinatorService().getJobStatus(jobId)));
+                () -> Assertions.assertEquals(JobStatus.CANCELED, server2.getCoordinatorService().getJobStatus(jobId)));
         instance2.shutdown();
     }
 }
