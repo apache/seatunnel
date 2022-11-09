@@ -27,6 +27,11 @@ import com.beust.jcommander.Parameter;
 
 public class FlinkCommandArgs extends AbstractCommandArgs {
 
+    @Parameter(names = {"-c", "--config"},
+        description = "Config file",
+        required = true)
+    private String configFile;
+
     @Parameter(names = {"-r", "--run-mode"},
         converter = RunModeConverter.class,
         description = "job run mode, run or run-application")
@@ -50,6 +55,16 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
         this.runMode = runMode;
     }
 
+    @Override
+    public String getConfigFile() {
+        return this.configFile;
+    }
+
+    @Override
+    public void setConfigFile(String configFile) {
+        this.configFile = configFile;
+    }
+
     /**
      * Used to convert the run mode string to the enum value.
      */
@@ -70,5 +85,4 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
             throw new IllegalArgumentException(String.format("Run mode %s not supported", value));
         }
     }
-
 }
