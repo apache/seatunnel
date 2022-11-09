@@ -16,7 +16,7 @@
 # under the License.
 #
 
-name: Label when approved workflow run
+name: "Label when approved workflow run"
 on:
   workflow_run:
     workflows: [Label-when-reviewed]
