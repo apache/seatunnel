@@ -15,16 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.source;
+package org.apache.seatunnel.connectors.seatunnel.myhours.source.config;
 
-public class SourceConfig {
-
-    public static final String INDEX = "index";
-
-    public static final String SOURCE = "source";
-
-    public static final String SCROLL_TIME = "scroll_time";
-
-    public static final String SCROLL_SIZE = "scroll_size";
-
+public class MyHoursSourceConfig {
+    public static final String URL = "url";
+    public static final String POST = "POST";
+    public static final String EMAIL = "email";
+    public static final String PASSWORD = "password";
+    public static final String GRANTTYPE = "grantType";
+    public static final String CLIENTID = "clientId";
+    public static final String API = "api";
+    public static final String AUTHORIZATION = "Authorization";
+    public static final String ACCESSTOKEN = "accessToken";
+    public static final String ACCESSTOKEN_PREFIX = "Bearer";
+    public static final String AUTHORIZATION_URL = "https://api2.myhours.com/api/tokens/login";
 }

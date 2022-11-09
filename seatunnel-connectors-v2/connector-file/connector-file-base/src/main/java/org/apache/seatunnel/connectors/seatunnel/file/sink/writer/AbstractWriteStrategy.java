@@ -40,7 +40,6 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
-import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -248,11 +247,17 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      * @return transaction ids
      */
     public List<String> getTransactionIdFromStates(List<FileSinkState> fileStates) {
-        String[] pathSegments = new String[]{textFileSinkConfig.getPath(), Constant.SEATUNNEL, jobId};
+        String[] pathSegments = new String[]{textFileSinkConfig.getTmpPath(), Constant.SEATUNNEL, jobId};
         String jobDir = String.join(File.separator, pathSegments) + File.separator;
         try {
-            List<String> transactionDirList = FileSystemUtils.dirList(jobDir).stream().map(Path::toString).collect(Collectors.toList());
-            return transactionDirList.stream().map(dir -> dir.replaceAll(jobDir, "")).collect(Collectors.toList());
+            List<String> transactionDirList = FileSystemUtils.dirList(jobDir)
+                    .stream()
+                    .map(path -> path.toUri().getPath())
+                    .collect(Collectors.toList());
+            return transactionDirList
+                    .stream()
+                    .map(dir -> dir.replaceAll(jobDir, ""))
+                    .collect(Collectors.toList());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

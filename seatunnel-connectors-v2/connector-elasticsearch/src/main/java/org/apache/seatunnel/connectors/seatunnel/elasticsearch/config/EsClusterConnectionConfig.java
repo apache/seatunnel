@@ -17,12 +17,20 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+
+import java.util.List;
+
 public class EsClusterConnectionConfig {
 
-    public static final String HOSTS = "hosts";
+    public static final Option<List<String>> HOSTS = Options.key("hosts").listType().noDefaultValue()
+        .withDescription("Elasticsearch cluster http address, the format is host:port, allowing multiple hosts to be specified. Such as [\"host1:9200\", \"host2:9200\"]");
 
-    public static final String USERNAME = "username";
+    public static final Option<String> USERNAME = Options.key("username").stringType().noDefaultValue()
+        .withDescription("x-pack username");
 
-    public static final String PASSWORD = "password";
+    public static final Option<String> PASSWORD = Options.key("password").stringType().noDefaultValue()
+        .withDescription("x-pack password");
 
 }

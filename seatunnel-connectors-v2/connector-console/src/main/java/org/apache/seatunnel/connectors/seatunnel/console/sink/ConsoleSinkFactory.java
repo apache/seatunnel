@@ -15,25 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant;
+package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
-/**
- * bulk es config
- */
-public class BulkConfig {
-    /**
-     * once bulk es include max document size
-     * {@link SinkConfig#MAX_BATCH_SIZE}
-     */
-    @SuppressWarnings("checkstyle:MagicNumber")
-    public static int MAX_BATCH_SIZE = 10;
+import com.google.auto.service.AutoService;
 
-    /**
-     * the max retry size of bulk es
-     * {@link SinkConfig#MAX_RETRY_SIZE}
-     */
-    @SuppressWarnings("checkstyle:MagicNumber")
-    public static int MAX_RETRY_SIZE = 3;
+@AutoService(Factory.class)
+public class ConsoleSinkFactory implements TableSinkFactory {
+    @Override
+    public String factoryIdentifier() {
+        return "Console";
+    }
+
+    @Override
+    public OptionRule optionRule() {
+        return OptionRule.builder().build();
+    }
 }
