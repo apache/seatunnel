@@ -38,7 +38,7 @@ import com.google.auto.service.AutoService;
 public class ClickhouseFileSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return "ClickhouseFileSink";
+        return "ClickhouseFile";
     }
 
     @Override

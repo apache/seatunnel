@@ -19,8 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.source.SourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.source.SourceConfigDeaultConstant;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.SourceIndexInfo;
 
@@ -131,20 +130,20 @@ public class ElasticsearchSourceSplitEnumerator implements SourceSplitEnumerator
 
     private List<ElasticsearchSourceSplit> getElasticsearchSplit() {
         List<ElasticsearchSourceSplit> splits = new ArrayList<>();
-        String scrolllTime = SourceConfigDeaultConstant.SCROLLL_TIME;
-        if (pluginConfig.hasPath(SourceConfig.SCROLL_TIME)) {
-            scrolllTime = pluginConfig.getString(SourceConfig.SCROLL_TIME);
+        String scrollTime = SourceConfig.SCROLL_TIME.defaultValue();
+        if (pluginConfig.hasPath(SourceConfig.SCROLL_TIME.key())) {
+            scrollTime = pluginConfig.getString(SourceConfig.SCROLL_TIME.key());
         }
-        int scrollSize = SourceConfigDeaultConstant.SCROLLL_SIZE;
-        if (pluginConfig.hasPath(SourceConfig.SCROLL_SIZE)) {
-            scrollSize = pluginConfig.getInt(SourceConfig.SCROLL_SIZE);
+        int scrollSize = SourceConfig.SCROLL_SIZE.defaultValue();
+        if (pluginConfig.hasPath(SourceConfig.SCROLL_SIZE.key())) {
+            scrollSize = pluginConfig.getInt(SourceConfig.SCROLL_SIZE.key());
         }
 
-        List<IndexDocsCount> indexDocsCounts = esRestClient.getIndexDocsCount(pluginConfig.getString(SourceConfig.INDEX));
+        List<IndexDocsCount> indexDocsCounts = esRestClient.getIndexDocsCount(pluginConfig.getString(SourceConfig.INDEX.key()));
         indexDocsCounts = indexDocsCounts.stream().filter(x -> x.getDocsCount() != null && x.getDocsCount() > 0)
-                .sorted(Comparator.comparingLong(IndexDocsCount::getDocsCount)).collect(Collectors.toList());
+            .sorted(Comparator.comparingLong(IndexDocsCount::getDocsCount)).collect(Collectors.toList());
         for (IndexDocsCount indexDocsCount : indexDocsCounts) {
-            splits.add(new ElasticsearchSourceSplit(String.valueOf(indexDocsCount.getIndex().hashCode()), new SourceIndexInfo(indexDocsCount.getIndex(), source, scrolllTime, scrollSize)));
+            splits.add(new ElasticsearchSourceSplit(String.valueOf(indexDocsCount.getIndex().hashCode()), new SourceIndexInfo(indexDocsCount.getIndex(), source, scrollTime, scrollSize)));
         }
         return splits;
     }

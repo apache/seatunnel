@@ -71,13 +71,13 @@ public class EsRestClient {
     }
 
     public static EsRestClient createInstance(Config pluginConfig) {
-        List<String> hosts = pluginConfig.getStringList(EsClusterConnectionConfig.HOSTS);
+        List<String> hosts = pluginConfig.getStringList(EsClusterConnectionConfig.HOSTS.key());
         String username = null;
         String password = null;
-        if (pluginConfig.hasPath(EsClusterConnectionConfig.USERNAME)) {
-            username = pluginConfig.getString(EsClusterConnectionConfig.USERNAME);
-            if (pluginConfig.hasPath(EsClusterConnectionConfig.PASSWORD)) {
-                password = pluginConfig.getString(EsClusterConnectionConfig.PASSWORD);
+        if (pluginConfig.hasPath(EsClusterConnectionConfig.USERNAME.key())) {
+            username = pluginConfig.getString(EsClusterConnectionConfig.USERNAME.key());
+            if (pluginConfig.hasPath(EsClusterConnectionConfig.PASSWORD.key())) {
+                password = pluginConfig.getString(EsClusterConnectionConfig.PASSWORD.key());
             }
         }
         return createInstance(hosts, username, password);

@@ -152,7 +152,7 @@ public class PulsarSource<T> implements SeaTunnelSource<T, PulsarPartitionSplit,
         setPartitionDiscoverer(config);
         setDeserialization(config);
 
-        if ((partitionDiscoverer instanceof TopicPatternDiscoverer)
+        if (partitionDiscoverer instanceof TopicPatternDiscoverer
             && partitionDiscoveryIntervalMs > 0
             && Boundedness.BOUNDED == stopCursor.getBoundedness()) {
             throw new IllegalArgumentException("Bounded streams do not support dynamic partition discovery.");
@@ -226,7 +226,7 @@ public class PulsarSource<T> implements SeaTunnelSource<T, PulsarPartitionSplit,
     private void setDeserialization(Config config) {
         String format = config.getString("format");
         // TODO: format SPI
-        SeaTunnelRowType rowType = SeaTunnelSchema.buildWithConfig(config.getConfig(SeaTunnelSchema.SCHEMA)).getSeaTunnelRowType();
+        SeaTunnelRowType rowType = SeaTunnelSchema.buildWithConfig(config.getConfig(SeaTunnelSchema.SCHEMA.key())).getSeaTunnelRowType();
         deserialization = (DeserializationSchema<T>) new JsonDeserializationSchema(false, false, rowType);
     }
 
