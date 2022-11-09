@@ -59,6 +59,7 @@
         <module>connector-amazondynamodb</module>
         <module>connector-cassandra</module>
         <module>connector-starrocks</module>
+        <module>connector-google-sheets</module>
     </modules>
 
     <dependencyManagement>

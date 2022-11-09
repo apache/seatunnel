@@ -1,10 +1,10 @@
-# Amazondynamodb
+# AmazonDynamoDB
 
-> Amazondynamodb source connector
+> AmazonDynamoDB source connector
 
 ## Description
 
-Read data from Amazondynamodb.
+Read data from Amazon DynamoDB.
 
 ## Key features
 
@@ -17,41 +17,41 @@ Read data from Amazondynamodb.
 
 ## Options
 
-| name             | type   | required | default value |
-| ---------------- | ------ | -------- | ------------- |
-| url              | string | yes      | -             |
-| region           | string | yes      | -             |
-| access_key_id    | string | yes      | -             |
-| secret_access_key| string | yes      | -             |
-| table    	       | string | yes      | -             |
-| schema           | object | yes      | -             |
-| common-options   |        | yes      | -             |
+| name              | type   | required | default value |
+|-------------------|--------|----------|---------------|
+| url               | string | yes      | -             |
+| region            | string | yes      | -             |
+| access_key_id     | string | yes      | -             |
+| secret_access_key | string | yes      | -             |
+| table             | string | yes      | -             |
+| schema            | config | yes      | -             |
+| common-options    |        | yes      | -             |
 
 ### url [string]
 
-url to read to Amazondynamodb.
+The URL to read to Amazon Dynamodb.
 
 ### region [string]
 
-The region of Amazondynamodb.
+The region of Amazon Dynamodb.
 
 ### accessKeyId [string]
 
-The access id of Amazondynamodb.
+The access id of Amazon DynamoDB.
 
 ### secretAccessKey [string]
 
-The access secret of Amazondynamodb.
+The access secret of Amazon DynamoDB.
 
 ### table [string]
 
-The table of Amazondynamodb.
+The table of Amazon DynamoDB.
 
-### schema [object]
+### schema [Config]
 
-#### fields [Config]
+#### fields [config]
 
-Amazon Dynamodb is a NOSQL database service of support keys-value storage and document data structure,there is no way to get the data type.Therefore, we must configure schma.
+Amazon Dynamodb is a NOSQL database service of support keys-value storage and document data structure,there is no way to get the data type.Therefore, we must configure schema.
 
 such as:
 
@@ -105,4 +105,4 @@ Source Plugin common parameters, refer to [Source Plugin](common-options.md) for
 
 ### next version
 
-- Add Amazon Dynamodb Source Connector
+- Add Amazon DynamoDB Source Connector

@@ -15,25 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.local.config;
+package org.apache.seatunnel.connectors.seatunnel.feishu.sink;
 
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSinkFactory;
 
-public class LocalConf extends HadoopConf {
-    private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
-    private static final String SCHEMA = "file";
+import com.google.auto.service.AutoService;
 
-    public LocalConf(String hdfsNameKey) {
-        super(hdfsNameKey);
-    }
-
+@AutoService(Factory.class)
+public class FeishuSinkFactory extends HttpSinkFactory {
     @Override
-    public String getFsHdfsImpl() {
-        return HDFS_IMPL;
-    }
-
-    @Override
-    public String getSchema() {
-        return SCHEMA;
+    public String factoryIdentifier() {
+        return "Feishu";
     }
 }

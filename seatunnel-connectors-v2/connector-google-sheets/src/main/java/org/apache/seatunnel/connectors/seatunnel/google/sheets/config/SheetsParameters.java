@@ -15,16 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config;
+package org.apache.seatunnel.connectors.seatunnel.google.sheets.config;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import lombok.Data;
 
 import java.io.Serializable;
 
-public class AmazondynamodbConfig implements Serializable {
-    public static final String URL = "url";
-    public static final String REGION = "region";
-    public static final String ACCESS_KEY_ID = "access_key_id";
-    public static final String SECRET_ACCESS_KEY = "secret_access_key";
-    public static final String TABLE = "table";
-    public static final String BATCH_SIZE = "batch_size";
-    public static final String DEFAULT_BATCH_INTERVAL_MS = "batch_interval_ms";
+@Data
+public class SheetsParameters implements Serializable {
+
+    private byte[] serviceAccountKey;
+
+    private String sheetId;
+
+    private String sheetName;
+
+    private String range;
+
+    public SheetsParameters buildWithConfig(Config config) {
+        this.serviceAccountKey = config.getString(SheetsConfig.SERVICE_ACCOUNT_KEY).getBytes();
+        this.sheetId = config.getString(SheetsConfig.SHEET_ID);
+        this.sheetName = config.getString(SheetsConfig.SHEET_NAME);
+        this.range = config.getString(SheetsConfig.RANGE);
+        return this;
+    }
+
 }
