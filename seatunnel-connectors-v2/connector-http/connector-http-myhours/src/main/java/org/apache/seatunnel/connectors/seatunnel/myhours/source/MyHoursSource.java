@@ -41,7 +41,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.Objects;
 
 @Slf4j
 @AutoService(SeaTunnelSource.class)
@@ -55,12 +54,13 @@ public class MyHoursSource extends HttpSource {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, MyHoursSourceConfig.URL, MyHoursSourceConfig.EMAIL, MyHoursSourceConfig.PASSWORD);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, MyHoursSourceConfig.URL.key(),
+                MyHoursSourceConfig.EMAIL.key(), MyHoursSourceConfig.PASSWORD.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
         //Login to get accessToken
-        String accessToken = null;
+        String accessToken;
         accessToken = getAccessToken(pluginConfig);
         this.myHoursSourceParameter.buildWithConfig(pluginConfig, accessToken);
         buildSchemaWithConfig(pluginConfig);
@@ -81,7 +81,7 @@ public class MyHoursSource extends HttpSource {
                 String content = response.getContent();
                 if (!Strings.isNullOrEmpty(content)) {
                     Map<String, String> contentMap = JsonUtils.toMap(content);
-                    return contentMap.get(MyHoursSourceConfig.ACCESSTOKEN);
+                    return contentMap.get(MyHoursSourceConfig.ACCESS_TOKEN);
                 }
             }
             throw new RuntimeException(String.format("login http client execute exception, http response status code:[%d], content:[%s]",
@@ -90,12 +90,10 @@ public class MyHoursSource extends HttpSource {
         } catch (Exception e) {
             throw new RuntimeException("login http client execute exception");
         } finally {
-            if (Objects.nonNull(loginHttpClient)) {
-                try {
-                    loginHttpClient.close();
-                } catch (IOException e) {
-                    log.warn(e.getMessage(), e);
-                }
+            try {
+                loginHttpClient.close();
+            } catch (IOException e) {
+                log.warn(e.getMessage(), e);
             }
         }
     }
