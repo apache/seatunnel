@@ -90,4 +90,19 @@ public class Config {
      */
     public static final String PARTITION_KEY = "partition_key";
 
+    /**
+     * The initial consumption pattern of consumers
+     */
+    public static final String  START_MODE = "start_mode";
+
+    /**
+     * The time required for consumption mode to be timestamp
+     */
+    public static final String  START_MODE_TIMESTAMP  = "start_mode.timestamp";
+
+    /**
+     * The offset required for consumption mode to be specific_offsets
+     */
+    public static final String  START_MODE_OFFSETS  = "start_mode.offsets";
+
 }
