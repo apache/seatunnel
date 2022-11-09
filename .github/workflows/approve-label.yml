@@ -56,7 +56,6 @@ jobs:
           require_committers_approval: 'true'
           remove_label_when_approval_missing: 'true'
           pullRequestNumber: ${{ steps.source-run-info.outputs.pullRequestNumber }}
-          comment: 'PR approved by at least one committer and no changes requested.'
       - name: Label when approved by anyone
         uses: ./.github/actions/label-when-approved-action
         id: label-when-approved-by-anyone
@@ -64,4 +63,3 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           label: 'reviewed'
           pullRequestNumber: ${{ steps.source-run-info.outputs.pullRequestNumber }}
-          comment: 'PR approved by anyone and no changes requested.'
