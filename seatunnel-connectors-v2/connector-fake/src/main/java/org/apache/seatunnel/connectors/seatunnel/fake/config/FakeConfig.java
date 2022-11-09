@@ -17,6 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.config;
 
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.Config.ARRAY_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.Config.BYTES_LENGTH;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.Config.MAP_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.Config.ROW_NUM;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.Config.SPLIT_NUM;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.Config.SPLIT_READ_INTERVAL;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.Config.STRING_LENGTH;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.Builder;
@@ -27,55 +35,43 @@ import java.io.Serializable;
 @Builder
 @Getter
 public class FakeConfig implements Serializable {
-    public static final String ROW_NUM = "row.num";
-    public static final String SPLIT_NUM = "split.num";
-    public static final String SPLIT_READ_INTERVAL = "split.read-interval";
-    public static final String MAP_SIZE = "map.size";
-    public static final String ARRAY_SIZE = "array.size";
-    public static final String BYTES_LENGTH = "bytes.length";
-    public static final String STRING_LENGTH = "string.length";
-    private static final int DEFAULT_ROW_NUM = 5;
-    private static final int DEFAULT_MAP_SIZE = 5;
-    private static final int DEFAULT_ARRAY_SIZE = 5;
-    private static final int DEFAULT_BYTES_LENGTH = 5;
-    private static final int DEFAULT_STRING_LENGTH = 5;
     @Builder.Default
-    private int rowNum = DEFAULT_ROW_NUM;
+    private int rowNum = ROW_NUM.defaultValue();
     @Builder.Default
-    private int splitNum = 1;
+    private int splitNum = SPLIT_NUM.defaultValue();
     @Builder.Default
-    private int splitReadInterval = 1;
+    private int splitReadInterval = SPLIT_READ_INTERVAL.defaultValue();
     @Builder.Default
-    private int mapSize = DEFAULT_MAP_SIZE;
+    private int mapSize = MAP_SIZE.defaultValue();
     @Builder.Default
-    private int arraySize = DEFAULT_ARRAY_SIZE;
+    private int arraySize = ARRAY_SIZE.defaultValue();
     @Builder.Default
-    private int bytesLength = DEFAULT_BYTES_LENGTH;
+    private int bytesLength = BYTES_LENGTH.defaultValue();
     @Builder.Default
-    private int stringLength = DEFAULT_STRING_LENGTH;
+    private int stringLength = STRING_LENGTH.defaultValue();
 
     public static FakeConfig buildWithConfig(Config config) {
         FakeConfigBuilder builder = FakeConfig.builder();
-        if (config.hasPath(ROW_NUM)) {
-            builder.rowNum(config.getInt(ROW_NUM));
+        if (config.hasPath(ROW_NUM.key())) {
+            builder.rowNum(config.getInt(ROW_NUM.key()));
         }
-        if (config.hasPath(SPLIT_NUM)) {
-            builder.splitNum(config.getInt(SPLIT_NUM));
+        if (config.hasPath(SPLIT_NUM.key())) {
+            builder.splitNum(config.getInt(SPLIT_NUM.key()));
         }
-        if (config.hasPath(SPLIT_READ_INTERVAL)) {
-            builder.splitReadInterval(config.getInt(SPLIT_READ_INTERVAL));
+        if (config.hasPath(SPLIT_READ_INTERVAL.key())) {
+            builder.splitReadInterval(config.getInt(SPLIT_READ_INTERVAL.key()));
         }
-        if (config.hasPath(MAP_SIZE)) {
-            builder.mapSize(config.getInt(MAP_SIZE));
+        if (config.hasPath(MAP_SIZE.key())) {
+            builder.mapSize(config.getInt(MAP_SIZE.key()));
         }
-        if (config.hasPath(ARRAY_SIZE)) {
-            builder.arraySize(config.getInt(ARRAY_SIZE));
+        if (config.hasPath(ARRAY_SIZE.key())) {
+            builder.arraySize(config.getInt(ARRAY_SIZE.key()));
         }
-        if (config.hasPath(BYTES_LENGTH)) {
-            builder.bytesLength(config.getInt(BYTES_LENGTH));
+        if (config.hasPath(BYTES_LENGTH.key())) {
+            builder.bytesLength(config.getInt(BYTES_LENGTH.key()));
         }
-        if (config.hasPath(STRING_LENGTH)) {
-            builder.stringLength(config.getInt(STRING_LENGTH));
+        if (config.hasPath(STRING_LENGTH.key())) {
+            builder.stringLength(config.getInt(STRING_LENGTH.key()));
         }
         return builder.build();
     }

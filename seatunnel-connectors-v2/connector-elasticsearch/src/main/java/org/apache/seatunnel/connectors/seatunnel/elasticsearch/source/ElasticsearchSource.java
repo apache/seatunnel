@@ -27,7 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.source.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.EsTypeMappingSeaTunnelType;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -56,14 +56,14 @@ public class ElasticsearchSource implements SeaTunnelSource<SeaTunnelRow, Elasti
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
-        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA)) {
-            Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA);
+        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
+            Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
             rowTypeInfo = SeaTunnelSchema.buildWithConfig(schemaConfig).getSeaTunnelRowType();
             source = Arrays.asList(rowTypeInfo.getFieldNames());
         } else {
-            source = pluginConfig.getStringList(SourceConfig.SOURCE);
+            source = pluginConfig.getStringList(SourceConfig.SOURCE.key());
             EsRestClient esRestClient = EsRestClient.createInstance(this.pluginConfig);
-            Map<String, String> esFieldType = esRestClient.getFieldTypeMapping(pluginConfig.getString(SourceConfig.INDEX), source);
+            Map<String, String> esFieldType = esRestClient.getFieldTypeMapping(pluginConfig.getString(SourceConfig.INDEX.key()), source);
             esRestClient.close();
             SeaTunnelDataType[] fieldTypes = new SeaTunnelDataType[source.size()];
             for (int i = 0; i < source.size(); i++) {
