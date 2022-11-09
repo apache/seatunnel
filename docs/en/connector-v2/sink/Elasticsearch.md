@@ -19,16 +19,16 @@ Engine Supported
 
 ## Options
 
-| name           | type   | required | default value | 
-|----------------|--------|----------|---------------|
-| hosts          | array  | yes      | -             |
-| index          | string | yes      | -             |
-| index_type     | string | no       |               |
-| username       | string | no       |               |
-| password       | string | no       |               | 
-| max_retry_size | int    | no       | 3             |
-| max_batch_size | int    | no       | 10            |
-| common-options |        | no       | -             |
+| name            | type   | required | default value | 
+|-----------------|--------|----------|---------------|
+| hosts           | array  | yes      | -             |
+| index           | string | yes      | -             |
+| index_type      | string | no       |               |
+| username        | string | no       |               |
+| password        | string | no       |               | 
+| max_retry_count | int    | no       | 3             |
+| max_batch_size  | int    | no       | 10            |
+| common-options  |        | no       | -             |
 
 
 ### hosts [array]
@@ -47,7 +47,7 @@ x-pack username
 ### password [string]
 x-pack password
 
-### max_retry_size [int]
+### max_retry_count [int]
 one bulk request max try size
 
 ### max_batch_size [int]
