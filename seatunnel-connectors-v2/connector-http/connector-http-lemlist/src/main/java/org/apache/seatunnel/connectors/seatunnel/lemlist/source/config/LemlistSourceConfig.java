@@ -15,21 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.http.config;
+package org.apache.seatunnel.connectors.seatunnel.lemlist.source.config;
 
-public class HttpConfig {
+public class LemlistSourceConfig {
     public static final String URL = "url";
-    public static final String METHOD = "method";
-    public static final String METHOD_DEFAULT_VALUE = "GET";
-    public static final String HEADERS = "headers";
-    public static final String PARAMS = "params";
-    public static final String BODY = "body";
-    public static final String SCHEMA = "schema";
-    public static final String FORMAT = "format";
-    public static final String DEFAULT_FORMAT = "json";
-    public static final String POLL_INTERVAL_MILLS = "poll_interval_ms";
-    public static final String RETRY = "retry";
-    public static final String RETRY_BACKOFF_MULTIPLIER_MS = "retry_backoff_multiplier_ms";
-    public static final String RETRY_BACKOFF_MAX_MS = "retry_backoff_max_ms";
-    public static final String BASIC = "Basic";
+    public static final String PASSWORD = "password";
+    public static final String AUTHORIZATION = "Authorization";
 }
