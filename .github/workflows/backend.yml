@@ -121,7 +121,6 @@ jobs:
               - "seatunnel-config/**"
               - "seatunnel-connectors/**"
               - "seatunnel-core/**"
-              - "seatunnel-dist/**"
               - "seatunnel-e2e/seatunnel-e2e-common/**"
               - "seatunnel-formats/**"
               - "seatunnel-plugin-discovery/**"
@@ -212,7 +211,7 @@ jobs:
 
       - name: Make integration test modules
         id: it-modules
-        if: ${{ steps.filter.outputs.api == 'false' }}
+        if: ${{ steps.filter.outputs.api == 'false' && (steps.engine-modules.outputs.modules != '' || steps.cv2-modules.outputs.modules != '' || steps.cv2-e2e-modules.outputs.modules != '' || steps.cv2-flink-e2e-modules.outputs.modules != '' || steps.cv2-spark-e2e-modules.outputs.modules != '' || steps.engine-e2e-modules.outputs.modules != '') }}
         run: |
           modules='${{ steps.cv2-e2e-modules.outputs.modules }}${{ steps.cv2-flink-e2e-modules.outputs.modules }}${{ steps.cv2-spark-e2e-modules.outputs.modules }}${{ steps.engine-e2e-modules.outputs.modules }}${{ steps.engine-modules.outputs.modules }}${{ steps.cv2-modules.outputs.modules }}'
           modules=${modules: 1}

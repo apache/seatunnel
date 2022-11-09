@@ -66,7 +66,7 @@ public class OptionRuleTest {
     @Test
     public void testOptionalException() {
         Assertions.assertThrows(OptionValidationException.class,
-            () -> OptionRule.builder().optional(TEST_NUM, TEST_MODE, TEST_PORTS).build(),
+            () -> OptionRule.builder().required(TEST_NUM, TEST_MODE, TEST_PORTS).build(),
             "Optional option 'option.ports' should have default value.");
     }
 
