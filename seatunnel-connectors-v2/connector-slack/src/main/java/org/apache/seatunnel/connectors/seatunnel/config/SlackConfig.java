@@ -25,9 +25,9 @@ import lombok.NonNull;
 @Data
 public class SlackConfig {
 
-    private static final String WEBHOOKS_URL = "webhooks_url";
-    private static final String OAUTH_TOKEN = "oauth_token";
-    private static final String SLACK_CHANNEL = "slack_channel";
+    public static final String WEBHOOKS_URL = "webhooks_url";
+    public static final String OAUTH_TOKEN = "oauth_token";
+    public static final String SLACK_CHANNEL = "slack_channel";
     private String webHooksUrl;
     private String oauthToken;
     private String slackChannel;
