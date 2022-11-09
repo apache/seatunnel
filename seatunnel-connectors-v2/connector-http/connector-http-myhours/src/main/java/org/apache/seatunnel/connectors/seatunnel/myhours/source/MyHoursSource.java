@@ -59,9 +59,8 @@ public class MyHoursSource extends HttpSource {
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
-        //Login to get accessToken
-        String accessToken;
-        accessToken = getAccessToken(pluginConfig);
+        // Login to get accessToken
+        String accessToken = getAccessToken(pluginConfig);
         this.myHoursSourceParameter.buildWithConfig(pluginConfig, accessToken);
         buildSchemaWithConfig(pluginConfig);
     }

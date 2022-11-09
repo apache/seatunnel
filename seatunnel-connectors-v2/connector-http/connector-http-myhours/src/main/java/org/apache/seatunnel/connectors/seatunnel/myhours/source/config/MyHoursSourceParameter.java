@@ -35,7 +35,6 @@ public class MyHoursSourceParameter extends HttpParameter {
     }
 
     public void buildWithLoginConfig(Config pluginConfig) {
-        super.buildWithConfig(pluginConfig);
         // set url
         this.setUrl(MyHoursSourceConfig.AUTHORIZATION_URL);
         // set method
@@ -50,5 +49,6 @@ public class MyHoursSourceParameter extends HttpParameter {
         bodyParams.put(MyHoursSourceConfig.CLIENT_ID, MyHoursSourceConfig.API);
         String body = JsonUtils.toJsonString(bodyParams);
         this.setBody(body);
+        this.setRetryParameters(pluginConfig);
     }
 }

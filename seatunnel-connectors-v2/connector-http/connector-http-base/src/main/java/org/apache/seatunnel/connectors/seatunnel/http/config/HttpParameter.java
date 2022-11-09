@@ -35,8 +35,8 @@ public class HttpParameter implements Serializable {
     protected String body;
     protected int pollIntervalMillis;
     protected int retry;
-    protected int retryBackoffMultiplierMillis = 100;
-    protected int retryBackoffMaxMillis = 10000;
+    protected int retryBackoffMultiplierMillis = HttpConfig.DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS;
+    protected int retryBackoffMaxMillis = HttpConfig.DEFAULT_RETRY_BACKOFF_MAX_MS;
 
     public void buildWithConfig(Config pluginConfig) {
         // set url
@@ -53,7 +53,12 @@ public class HttpParameter implements Serializable {
         }
         // set params
         if (pluginConfig.hasPath(HttpConfig.PARAMS.key())) {
-            this.setParams(pluginConfig.getConfig(HttpConfig.PARAMS.key()).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue().unwrapped()), (v1, v2) -> v2)));
+            this.setParams(pluginConfig.getConfig(HttpConfig.PARAMS.key())
+                    .entrySet()
+                    .stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey,
+                            entry -> String.valueOf(entry.getValue().unwrapped()),
+                            (v1, v2) -> v2)));
         }
         // set body
         if (pluginConfig.hasPath(HttpConfig.BODY.key())) {
@@ -62,6 +67,10 @@ public class HttpParameter implements Serializable {
         if (pluginConfig.hasPath(HttpConfig.POLL_INTERVAL_MILLS.key())) {
             this.setPollIntervalMillis(pluginConfig.getInt(HttpConfig.POLL_INTERVAL_MILLS.key()));
         }
+        this.setRetryParameters(pluginConfig);
+    }
+
+    public void setRetryParameters(Config pluginConfig) {
         if (pluginConfig.hasPath(HttpConfig.RETRY.key())) {
             this.setRetry(pluginConfig.getInt(HttpConfig.RETRY.key()));
             if (pluginConfig.hasPath(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS.key())) {
