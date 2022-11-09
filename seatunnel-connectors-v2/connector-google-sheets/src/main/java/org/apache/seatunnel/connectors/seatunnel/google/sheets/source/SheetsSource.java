@@ -55,13 +55,13 @@ public class SheetsSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, SheetsConfig.SERVICE_ACCOUNT_KEY, SheetsConfig.SHEET_ID, SheetsConfig.SHEET_NAME, SheetsConfig.RANGE, SeaTunnelSchema.SCHEMA);
+        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, SheetsConfig.SERVICE_ACCOUNT_KEY, SheetsConfig.SHEET_ID, SheetsConfig.SHEET_NAME, SheetsConfig.RANGE, SeaTunnelSchema.SCHEMA.key());
         if (!checkResult.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, checkResult.getMsg());
         }
         this.sheetsParameters = new SheetsParameters().buildWithConfig(pluginConfig);
-        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA)) {
-            Config schema = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA);
+        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
+            Config schema = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
             this.seaTunnelRowType = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
         } else {
             this.seaTunnelRowType = SeaTunnelSchema.buildSimpleTextSchema();
