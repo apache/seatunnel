@@ -1,6 +1,6 @@
-[submodule ".github/actions/label-when-approved-action"]
-	path = .github/actions/label-when-approved-action
+[submodule "label-when-approved-action"]
+	path = label-when-approved-action
 	url = https://github.com/TobKed/label-when-approved-action
-[submodule ".github/actions/get-workflow-origin"]
-	path = .github/actions/get-workflow-origin
+[submodule "get-workflow-origin"]
+	path = get-workflow-origin
 	url = https://github.com/potiuk/get-workflow-origin.git
