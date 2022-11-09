@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.common.schema;
 
 import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -44,9 +45,7 @@ import java.util.Map;
 
 public class SeaTunnelSchema implements Serializable {
 
-    public static final Option<SchemaOption> OPTION = null;
-
-    public static final String SCHEMA = "schema";
+    public static final Option<Schema> SCHEMA = Options.key("schema").objectType(Schema.class).noDefaultValue().withDescription("SeaTunnel Schema");
     private static final String FIELD_KEY = "fields";
     private static final String SIMPLE_SCHEMA_FILED = "content";
     private final SeaTunnelRowType seaTunnelRowType;

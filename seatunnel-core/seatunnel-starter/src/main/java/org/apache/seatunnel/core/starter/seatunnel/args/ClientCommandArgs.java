@@ -37,9 +37,21 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         converter = ExecutionModeConverter.class)
     private ExecutionMode executionMode = ExecutionMode.CLUSTER;
 
+    @Parameter(names = {"-c", "--config"},
+        description = "Config file")
+    private String configFile;
+
     @Parameter(names = {"-cn", "--cluster"},
         description = "The name of cluster")
     private String clusterName = "seatunnel_default_cluster";
+
+    @Parameter(names = {"-j", "--job-id"},
+        description = "Get job status by JobId")
+    private String jobId;
+
+    @Parameter(names = {"-l", "--list"},
+        description = "list job status")
+    private boolean listJob = false;
 
     public String getClusterName() {
         return clusterName;
@@ -65,6 +77,14 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         this.executionMode = executionMode;
     }
 
+    public String getJobId() {
+        return jobId;
+    }
+
+    public boolean isListJob(){
+        return listJob;
+    }
+
     @Override
     public EngineType getEngineType() {
         return EngineType.SEATUNNEL;
@@ -73,5 +93,15 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     @Override
     public DeployMode getDeployMode() {
         return DeployMode.CLIENT;
+    }
+
+    @Override
+    public String getConfigFile() {
+        return this.configFile;
+    }
+
+    @Override
+    public void setConfigFile(String configFile) {
+        this.configFile = configFile;
     }
 }

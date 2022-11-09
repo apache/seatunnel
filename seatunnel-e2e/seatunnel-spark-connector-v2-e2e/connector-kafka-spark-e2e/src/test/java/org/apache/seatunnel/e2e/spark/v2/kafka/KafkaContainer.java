@@ -35,7 +35,7 @@ public class KafkaContainer extends GenericContainer<KafkaContainer> {
 
     private static final DockerImageName DEFAULT_IMAGE_NAME = DockerImageName.parse("confluentinc/cp-kafka");
 
-    public static final int KAFKA_PORT = 9093;
+    public static final int KAFKA_PORT = 9094;
 
     public static final int ZOOKEEPER_PORT = 2181;
 
