@@ -16,7 +16,7 @@
 # under the License.
 #
 
-name: Label when reviewed
+name: Label-when-reviewed
 on: pull_request_review
 jobs:
 

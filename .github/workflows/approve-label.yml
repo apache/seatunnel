@@ -19,16 +19,14 @@
 name: Label when approved workflow run
 on:
   workflow_run:
-    workflows: [Label when reviewed]
+    workflows: [Label-when-reviewed]
     types: [requested]
 permissions:
   # All other permissions are set to none
   checks: write
   contents: read
   pull-requests: write
-
 jobs:
-
   label-when-approved:
     name: "Label when approved"
     runs-on: ubuntu-latest
