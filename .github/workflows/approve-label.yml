@@ -15,12 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 #
----
+
 name: Label when approved workflow run
 on:
   workflow_run:
-    workflows: ["Label when reviewed"]
-    types: ['requested']
+    workflows: [Label when reviewed]
+    types: [requested]
 permissions:
   # All other permissions are set to none
   checks: write
