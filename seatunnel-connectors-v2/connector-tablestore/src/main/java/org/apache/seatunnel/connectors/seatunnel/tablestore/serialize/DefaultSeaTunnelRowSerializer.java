@@ -31,7 +31,9 @@ import com.alicloud.openservices.tablestore.model.PrimaryKeyType;
 import com.alicloud.openservices.tablestore.model.PrimaryKeyValue;
 import com.alicloud.openservices.tablestore.model.RowPutChange;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
 
@@ -47,7 +49,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
     public RowPutChange serialize(SeaTunnelRow seaTunnelRow) {
 
         PrimaryKeyBuilder primaryKeyBuilder = PrimaryKeyBuilder.createPrimaryKeyBuilder();
-        RowPutChange rowPutChange = new RowPutChange(tablestoreOptions.getTable(), primaryKeyBuilder.build());
+        List<Column> columns = new ArrayList<>(seaTunnelRow.getFields().length - tablestoreOptions.getPrimaryKeys().size());
         Arrays.stream(seaTunnelRowType.getFieldNames()).forEach(fieldName -> {
             Object field = seaTunnelRow.getField(seaTunnelRowType.indexOf(fieldName));
             int index = seaTunnelRowType.indexOf(fieldName);
@@ -56,10 +58,13 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                     this.convertPrimaryKeyColumn(fieldName, field,
                         this.convertPrimaryKeyType(seaTunnelRowType.getFieldType(index))));
             } else {
-                rowPutChange.addColumn(this.convertColumn(fieldName, field,
+                columns.add(this.convertColumn(fieldName, field,
                     this.convertColumnType(seaTunnelRowType.getFieldType(index))));
             }
         });
+        RowPutChange rowPutChange = new RowPutChange(tablestoreOptions.getTable(), primaryKeyBuilder.build());
+        columns.forEach(rowPutChange::addColumn);
+
         return rowPutChange;
     }
 
