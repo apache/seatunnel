@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.env;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.common.constants.JobMode;
 
 public class EnvCommonOptions {
     public static final Option<Integer> PARALLELISM =
@@ -27,4 +28,22 @@ public class EnvCommonOptions {
             .noDefaultValue()
             .withDescription("When parallelism is not specified in connector, the parallelism in env is used by default. " +
                 "When parallelism is specified, it will override the parallelism in env.");
+
+    public static final Option<String> JOB_NAME =
+        Options.key("job.name")
+            .stringType()
+            .defaultValue("SeaTunnel Job")
+            .withDescription("The job name of this job");
+
+    public static final Option<JobMode> JOB_MODE =
+        Options.key("job.mode")
+            .enumType(JobMode.class)
+            .defaultValue(JobMode.BATCH)
+            .withDescription("The job mode of this job, support Batch and Stream, Default value is Batch");
+
+    public static final Option<Long> CHECKPOINT_INTERVAL =
+        Options.key("checkpoint.interval")
+            .longType()
+            .noDefaultValue()
+            .withDescription("The interval (in milliseconds) between two consecutive checkpoints.");
 }

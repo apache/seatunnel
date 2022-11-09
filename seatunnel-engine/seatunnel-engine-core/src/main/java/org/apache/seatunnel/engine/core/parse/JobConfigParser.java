@@ -28,11 +28,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.PartitionSeaTunnelTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.api.transform.TransformCommonOptions;
-import org.apache.seatunnel.apis.base.plugin.Plugin;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.starter.config.ConfigBuilder;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
@@ -90,21 +90,26 @@ public class JobConfigParser {
 
     private List<URL> commonPluginJars;
 
+    private EngineConfig engineConfig;
+
     public JobConfigParser(@NonNull String jobDefineFilePath,
                            @NonNull IdGenerator idGenerator,
-                           @NonNull JobConfig jobConfig) {
-        this(jobDefineFilePath, idGenerator, jobConfig, Collections.emptyList());
+                           @NonNull JobConfig jobConfig,
+                           @NonNull EngineConfig engineConfig) {
+        this(jobDefineFilePath, idGenerator, jobConfig, engineConfig, Collections.emptyList());
     }
 
     public JobConfigParser(@NonNull String jobDefineFilePath,
                            @NonNull IdGenerator idGenerator,
                            @NonNull JobConfig jobConfig,
+                           @NonNull EngineConfig engineConfig,
                            @NonNull List<URL> commonPluginJars) {
         this.jobDefineFilePath = jobDefineFilePath;
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
         this.seaTunnelJobConfig = new ConfigBuilder(Paths.get(jobDefineFilePath)).getConfig();
         this.envConfigs = seaTunnelJobConfig.getConfig("env");
+        this.engineConfig = engineConfig;
         this.commonPluginJars = commonPluginJars;
     }
 
@@ -140,14 +145,22 @@ public class JobConfigParser {
     }
 
     private void jobConfigAnalyze(@NonNull Config envConfigs) {
-        if (envConfigs.hasPath("job.mode")) {
-            jobConfig.getJobContext().setJobMode(envConfigs.getEnum(JobMode.class, "job.mode"));
+        if (envConfigs.hasPath(EnvCommonOptions.JOB_MODE.key())) {
+            jobConfig.getJobContext().setJobMode(envConfigs.getEnum(JobMode.class, EnvCommonOptions.JOB_MODE.key()));
         } else {
-            jobConfig.getJobContext().setJobMode(JobMode.BATCH);
+            jobConfig.getJobContext().setJobMode(EnvCommonOptions.JOB_MODE.defaultValue());
         }
-        if (envConfigs.hasPath("checkpoint.interval")) {
+
+        if (envConfigs.hasPath(EnvCommonOptions.JOB_NAME.key())) {
+            jobConfig.setName(envConfigs.getString(EnvCommonOptions.JOB_NAME.key()));
+        } else {
+            jobConfig.setName(EnvCommonOptions.JOB_NAME.defaultValue());
+        }
+
+        if (envConfigs.hasPath(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
             jobConfig.getEnvOptions()
-                .put(ServerConfigOptions.CHECKPOINT_INTERVAL.key(), envConfigs.getInt("checkpoint.interval"));
+                .put(EnvCommonOptions.CHECKPOINT_INTERVAL.key(),
+                    envConfigs.getInt(EnvCommonOptions.CHECKPOINT_INTERVAL.key()));
         }
     }
 
@@ -174,7 +187,7 @@ public class JobConfigParser {
 
             actions.add(sinkAction);
             if (!config.hasPath(SinkCommonOptions.SOURCE_TABLE_NAME.key())) {
-                throw new JobDefineCheckException(Plugin.SOURCE_TABLE_NAME
+                throw new JobDefineCheckException(SinkCommonOptions.SOURCE_TABLE_NAME
                     + " must be set in the sink plugin config when the job have complex dependencies");
             }
             String sourceTableName = config.getString(SinkCommonOptions.SOURCE_TABLE_NAME.key());
@@ -241,8 +254,9 @@ public class JobConfigParser {
                     transformListImmutablePair.getRight());
 
                 action.addUpstream(transformAction);
-                SeaTunnelDataType dataType = transformAnalyze(config.getString(Plugin.SOURCE_TABLE_NAME),
-                    transformAction);
+                SeaTunnelDataType dataType =
+                    transformAnalyze(config.getString(SinkCommonOptions.SOURCE_TABLE_NAME.key()),
+                        transformAction);
                 transformListImmutablePair.getLeft().setTypeInfo(dataType);
                 dataTypeResult = transformListImmutablePair.getLeft().getProducedType();
                 totalParallelism.set(totalParallelism.get() + transformAction.getParallelism());
@@ -255,7 +269,7 @@ public class JobConfigParser {
     private void initRelationMap(List<? extends Config> sourceConfigs, List<? extends Config> transformConfigs) {
         for (Config config : sourceConfigs) {
             if (!config.hasPath(SourceCommonOptions.RESULT_TABLE_NAME.key())) {
-                throw new JobDefineCheckException(Plugin.RESULT_TABLE_NAME
+                throw new JobDefineCheckException(SourceCommonOptions.RESULT_TABLE_NAME.key()
                     + " must be set in the source plugin config when the job have complex dependencies");
             }
             String resultTableName = config.getString(SourceCommonOptions.RESULT_TABLE_NAME.key());
