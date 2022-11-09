@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.client.SlackClient;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.config.SlackConfig;
@@ -59,7 +60,7 @@ public class SlackWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             // One message can be sent as soon as one second
             Thread.sleep(POST_MSG_WAITING_TIME);
         } catch (Exception e) {
-            log.warn("Write to Slack Fail.", e);
+            log.warn("Write to Slack Fail.", ExceptionUtils.getMessage(e));
             throw new RuntimeException("Write to Slack Fail.", e);
         }
     }

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.client;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.config.SlackConfig;
 
 import com.slack.api.Slack;
@@ -81,7 +82,7 @@ public class SlackClient {
             );
             publishMessageSuccess = chatPostMessageResponse.isOk();
         } catch (IOException | SlackApiException e) {
-            log.error("error: {}", e.getMessage(), e);
+            log.error("error: {}", ExceptionUtils.getMessage(e));
         }
         return publishMessageSuccess;
     }
