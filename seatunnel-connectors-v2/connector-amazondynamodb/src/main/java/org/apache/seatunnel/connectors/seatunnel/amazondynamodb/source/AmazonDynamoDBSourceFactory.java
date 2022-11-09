@@ -24,12 +24,13 @@ import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.Am
 import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.URL;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
 import com.google.auto.service.AutoService;
 
-@AutoService(TableSourceFactory.class)
+@AutoService(Factory.class)
 public class AmazonDynamoDBSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {

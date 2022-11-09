@@ -26,11 +26,12 @@ import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.Am
 import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.URL;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
 import com.google.auto.service.AutoService;
 
-@AutoService(TableSinkFactory.class)
+@AutoService(Factory.class)
 public class AmazonDynamoDBSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
