@@ -15,12 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.source;
+package org.apache.seatunnel.connectors.seatunnel.common.schema;
 
-public class SourceConfigDeaultConstant {
+import org.apache.seatunnel.api.configuration.util.OptionMark;
 
-    public static final String SCROLLL_TIME = "1m";
+import lombok.Data;
 
-    public static final int SCROLLL_SIZE = 100;
+import java.util.Map;
+
+@Data
+public class Schema {
+
+    @OptionMark(description = "The schema fields map")
+    private Map<String, String> fields;
 
 }

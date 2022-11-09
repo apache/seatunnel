@@ -68,12 +68,12 @@ public class SftpFileSource extends BaseFileSource {
         }
         // support user-defined schema
         // only json csv text type support user-defined schema now
-        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA)) {
+        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
             switch (fileFormat) {
                 case CSV:
                 case TEXT:
                 case JSON:
-                    Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA);
+                    Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
                     SeaTunnelRowType userDefinedSchema = SeaTunnelSchema
                             .buildWithConfig(schemaConfig)
                             .getSeaTunnelRowType();
