@@ -18,12 +18,15 @@
 package org.apache.seatunnel.connectors.seatunnel.tablestore.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreOptions;
 
 import com.alicloud.openservices.tablestore.SyncClient;
 import com.alicloud.openservices.tablestore.model.BatchWriteRowRequest;
+import com.alicloud.openservices.tablestore.model.BatchWriteRowResponse;
 import com.alicloud.openservices.tablestore.model.RowPutChange;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -33,6 +36,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 public class TablestoreSinkClient {
     private final TablestoreOptions tablestoreOptions;
     private ScheduledExecutorService scheduler;
@@ -102,7 +106,14 @@ public class TablestoreSinkClient {
         }
         BatchWriteRowRequest batchWriteRowRequest = new BatchWriteRowRequest();
         batchList.forEach(batchWriteRowRequest::addRowChange);
-        syncClient.batchWriteRow(batchWriteRowRequest);
+        BatchWriteRowResponse response = syncClient.batchWriteRow(batchWriteRowRequest);
+
+        if (!response.isAllSucceed()) {
+            for (BatchWriteRowResponse.RowResult rowResult : response.getFailedRows()) {
+                throw new SeaTunnelException("Code: " + rowResult.getError().getCode()
+                    + "Message:" + rowResult.getError().getMessage());
+            }
+        }
 
         batchList.clear();
     }

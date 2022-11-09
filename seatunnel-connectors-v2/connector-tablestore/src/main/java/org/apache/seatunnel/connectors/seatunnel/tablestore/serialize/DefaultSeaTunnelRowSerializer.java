@@ -25,10 +25,12 @@ import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreOpt
 import com.alicloud.openservices.tablestore.model.Column;
 import com.alicloud.openservices.tablestore.model.ColumnType;
 import com.alicloud.openservices.tablestore.model.ColumnValue;
+import com.alicloud.openservices.tablestore.model.Condition;
 import com.alicloud.openservices.tablestore.model.PrimaryKeyBuilder;
 import com.alicloud.openservices.tablestore.model.PrimaryKeyColumn;
 import com.alicloud.openservices.tablestore.model.PrimaryKeyType;
 import com.alicloud.openservices.tablestore.model.PrimaryKeyValue;
+import com.alicloud.openservices.tablestore.model.RowExistenceExpectation;
 import com.alicloud.openservices.tablestore.model.RowPutChange;
 
 import java.util.ArrayList;
@@ -63,6 +65,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             }
         });
         RowPutChange rowPutChange = new RowPutChange(tablestoreOptions.getTable(), primaryKeyBuilder.build());
+        rowPutChange.setCondition(new Condition(RowExistenceExpectation.IGNORE));
         columns.forEach(rowPutChange::addColumn);
 
         return rowPutChange;
