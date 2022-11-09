@@ -315,6 +315,11 @@
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-tablestore</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>                </dependency>
             </dependencies>
         </profile>
         <profile>
@@ -671,7 +676,7 @@
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
-                
+
                 <!-- transforms v2 -->
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
