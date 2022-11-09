@@ -27,6 +27,7 @@ header:
     - DISCLAIMER
     - mvnw.cmd
     - .mvn
+    - .gitmodules
     - .gitattributes
     - '**/known-dependencies-*.txt'
     - '**/*.md'
