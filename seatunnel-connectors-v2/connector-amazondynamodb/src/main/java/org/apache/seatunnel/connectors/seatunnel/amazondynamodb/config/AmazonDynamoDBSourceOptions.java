@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config;
 
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.AllArgsConstructor;
@@ -28,7 +26,7 @@ import java.io.Serializable;
 
 @Data
 @AllArgsConstructor
-public class AmazondynamodbSourceOptions implements Serializable {
+public class AmazonDynamoDBSourceOptions implements Serializable {
 
     private String url;
 
@@ -42,24 +40,20 @@ public class AmazondynamodbSourceOptions implements Serializable {
 
     private Config schema;
 
-    public int batchSize = AmazondynamodbConfig.BATCH_SIZE.defaultValue();
-    public int batchIntervalMs = AmazondynamodbConfig.BATCH_INTERVAL_MS.defaultValue();
+    public int batchSize = AmazonDynamoDBConfig.BATCH_SIZE.defaultValue();
+    public int batchIntervalMs = AmazonDynamoDBConfig.BATCH_INTERVAL_MS.defaultValue();
 
-    public AmazondynamodbSourceOptions(Config config) {
-        this.url = config.getString(AmazondynamodbConfig.URL.key());
-        this.region = config.getString(AmazondynamodbConfig.REGION.key());
-        this.accessKeyId = config.getString(AmazondynamodbConfig.ACCESS_KEY_ID.key());
-        this.secretAccessKey = config.getString(AmazondynamodbConfig.SECRET_ACCESS_KEY.key());
-        this.table = config.getString(AmazondynamodbConfig.TABLE.key());
-
-        if (config.hasPath(SeaTunnelSchema.SCHEMA)) {
-            this.schema = config.getConfig(SeaTunnelSchema.SCHEMA);
+    public AmazonDynamoDBSourceOptions(Config config) {
+        this.url = config.getString(AmazonDynamoDBConfig.URL.key());
+        this.region = config.getString(AmazonDynamoDBConfig.REGION.key());
+        this.accessKeyId = config.getString(AmazonDynamoDBConfig.ACCESS_KEY_ID.key());
+        this.secretAccessKey = config.getString(AmazonDynamoDBConfig.SECRET_ACCESS_KEY.key());
+        this.table = config.getString(AmazonDynamoDBConfig.TABLE.key());
+        if (config.hasPath(AmazonDynamoDBConfig.BATCH_SIZE.key())) {
+            this.batchSize = config.getInt(AmazonDynamoDBConfig.BATCH_SIZE.key());
         }
-        if (config.hasPath(AmazondynamodbConfig.BATCH_SIZE.key())) {
-            this.batchSize = config.getInt(AmazondynamodbConfig.BATCH_SIZE.key());
-        }
-        if (config.hasPath(AmazondynamodbConfig.BATCH_INTERVAL_MS.key())) {
-            this.batchIntervalMs = config.getInt(AmazondynamodbConfig.BATCH_INTERVAL_MS.key());
+        if (config.hasPath(AmazonDynamoDBConfig.BATCH_INTERVAL_MS.key())) {
+            this.batchIntervalMs = config.getInt(AmazonDynamoDBConfig.BATCH_INTERVAL_MS.key());
         }
     }
 }

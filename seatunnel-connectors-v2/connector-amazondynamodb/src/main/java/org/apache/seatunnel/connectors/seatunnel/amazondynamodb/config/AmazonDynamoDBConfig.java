@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.configuration.Options;
 
 import java.io.Serializable;
 
-public class AmazondynamodbConfig implements Serializable {
+public class AmazonDynamoDBConfig implements Serializable {
     public static final Option<String> URL = Options.key("url").stringType()
         .noDefaultValue().withDescription("url to read to Amazon DynamoDB");
     public static final Option<String> REGION = Options.key("region").stringType()

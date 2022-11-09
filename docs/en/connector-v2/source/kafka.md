@@ -133,3 +133,7 @@ source {
 ### 2.3.0-beta 2022-10-20
 
 - Add Kafka Source Connector
+
+### Next Version
+
+- [Improve] Support setting read starting offset or time at startup config ([3157](https://github.com/apache/incubator-seatunnel/pull/3157))
