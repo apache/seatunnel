@@ -170,7 +170,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
 
     @Override
     public SourceSplitEnumerator<KafkaSourceSplit, KafkaSourceState> restoreEnumerator(SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext, KafkaSourceState checkpointState) throws Exception {
-        return new KafkaSourceSplitEnumerator(this.metadata, enumeratorContext, checkpointState);
+        return new KafkaSourceSplitEnumerator(this.metadata, enumeratorContext, checkpointState, discoveryIntervalMillis);
     }
 
     @Override
