@@ -18,7 +18,7 @@
 package org.seatunnel.connectors.cdc.base.option;
 
 /**
- * Startup modes for the CDC Connectors.
+ * Startup modes for the CDC Connectors, see {@link SourceOptions#STARTUP_MODE}.
  */
 public enum StartupMode {
     /**

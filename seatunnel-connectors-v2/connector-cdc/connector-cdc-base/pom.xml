@@ -29,6 +29,44 @@
     <artifactId>connector-cdc-base</artifactId>
 
     <properties>
+        <debezium.version>2.0.0.Final</debezium.version>
     </properties>
 
+    <dependencies>
+        <!-- Debezium dependencies -->
+        <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-embedded</artifactId>
+        </dependency>
+    </dependencies>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Debezium dependencies -->
+            <dependency>
+                <groupId>io.debezium</groupId>
+                <artifactId>debezium-api</artifactId>
+                <version>${debezium.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.debezium</groupId>
+                <artifactId>debezium-embedded</artifactId>
+                <version>${debezium.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <artifactId>kafka-log4j-appender</artifactId>
+                        <groupId>org.apache.kafka</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.glassfish.jersey.core</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 </project>

@@ -15,26 +15,20 @@
  * limitations under the License.
  */
 
-package org.seatunnel.connectors.cdc.base.option;
+package org.seatunnel.connectors.cdc.base.source.offset;
 
-/**
- * Stop mode for the CDC Connectors, see {@link SourceOptions#STOP_MODE}.
- */
-public enum StopMode {
-    /**
-     * Stop from the latest offset.
-     */
-    LATEST,
-    /**
-     * Stop from user-supplied timestamp.
-     */
-    TIMESTAMP,
-    /**
-     * Stop from user-supplied specific offset.
-     */
-    SPECIFIC,
-    /**
-     * Real-time job don't stop the source.
-     */
-    NEVER
+import java.util.Map;
+
+public abstract class OffsetFactory {
+    public OffsetFactory() {}
+
+    public abstract Offset earliest();
+
+    public abstract Offset neverStop();
+
+    public abstract Offset latest();
+
+    public abstract Offset specific(Map<String, String> offset);
+
+    public abstract Offset timstamp(long timestmap);
 }

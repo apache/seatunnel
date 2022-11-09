@@ -15,26 +15,16 @@
  * limitations under the License.
  */
 
-package org.seatunnel.connectors.cdc.base.option;
+package org.seatunnel.connectors.cdc.base.source.event;
 
-/**
- * Stop mode for the CDC Connectors, see {@link SourceOptions#STOP_MODE}.
- */
-public enum StopMode {
-    /**
-     * Stop from the latest offset.
-     */
-    LATEST,
-    /**
-     * Stop from user-supplied timestamp.
-     */
-    TIMESTAMP,
-    /**
-     * Stop from user-supplied specific offset.
-     */
-    SPECIFIC,
-    /**
-     * Real-time job don't stop the source.
-     */
-    NEVER
+import lombok.Data;
+import org.seatunnel.connectors.cdc.base.source.offset.Offset;
+
+import java.io.Serializable;
+
+@Data
+public class SnapshotSplitWatermark implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private final String splitId;
+    private final Offset highWatermark;
 }

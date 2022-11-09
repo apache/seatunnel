@@ -15,26 +15,25 @@
  * limitations under the License.
  */
 
-package org.seatunnel.connectors.cdc.base.option;
+package org.seatunnel.connectors.cdc.base.config;
 
-/**
- * Stop mode for the CDC Connectors, see {@link SourceOptions#STOP_MODE}.
- */
-public enum StopMode {
-    /**
-     * Stop from the latest offset.
-     */
-    LATEST,
-    /**
-     * Stop from user-supplied timestamp.
-     */
-    TIMESTAMP,
-    /**
-     * Stop from user-supplied specific offset.
-     */
-    SPECIFIC,
-    /**
-     * Real-time job don't stop the source.
-     */
-    NEVER
+import org.seatunnel.connectors.cdc.base.source.offset.Offset;
+
+import java.io.Serializable;
+
+/** The source configuration which offers basic source configuration. */
+public interface SourceConfig extends Serializable {
+
+    Offset getStartupOffset();
+
+    Offset getStopOffset();
+
+    int getSplitSize();
+
+    /** Factory for the {@code SourceConfig}. */
+    @FunctionalInterface
+    interface Factory<C extends SourceConfig> extends Serializable {
+
+        C create(int subtask);
+    }
 }

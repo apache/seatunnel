@@ -15,26 +15,25 @@
  * limitations under the License.
  */
 
-package org.seatunnel.connectors.cdc.base.option;
+package org.seatunnel.connectors.cdc.debezium;
+
+import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+
+import org.apache.kafka.connect.source.SourceRecord;
+
+import java.io.Serializable;
 
 /**
- * Stop mode for the CDC Connectors, see {@link SourceOptions#STOP_MODE}.
+ * The deserialization schema describes how to turn the Debezium SourceRecord into data types
+ * (Java/Scala objects) that are processed by engine.
+ *
+ * @param <T> The type created by the deserialization schema.
  */
-public enum StopMode {
-    /**
-     * Stop from the latest offset.
-     */
-    LATEST,
-    /**
-     * Stop from user-supplied timestamp.
-     */
-    TIMESTAMP,
-    /**
-     * Stop from user-supplied specific offset.
-     */
-    SPECIFIC,
-    /**
-     * Real-time job don't stop the source.
-     */
-    NEVER
+public interface DebeziumDeserializationSchema<T> extends Serializable {
+
+    /** Deserialize the Debezium record, it is represented in Kafka {@link SourceRecord}. */
+    void deserialize(SourceRecord record, Collector<T> out) throws Exception;
+
+    SeaTunnelDataType<T> getProducedType();
 }
