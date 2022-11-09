@@ -18,7 +18,6 @@
 package org.apache.seatunnel.api.table.factory;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
@@ -27,7 +26,6 @@ import java.io.Serializable;
 
 /**
  * This is an SPI interface, used to create {@link TableSource}. Each plugin need to have it own implementation.
- * todo: now we have not use this interface, we directly use {@link org.apache.seatunnel.api.source.SeaTunnelSource} as the SPI interface
  */
 public interface TableSourceFactory extends Factory {
 

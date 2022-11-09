@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 
 /**
  * This is an SPI interface, used to create {@link TableSink}. Each plugin need to have it own implementation.
- * todo: now we have not use this interface, we directly use {@link org.apache.seatunnel.api.sink.SeaTunnelSink} as the SPI interface.
  *
  * @param <IN>                    row type
  * @param <StateT>                state type
