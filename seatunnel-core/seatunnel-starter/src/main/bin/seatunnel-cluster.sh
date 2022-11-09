@@ -60,6 +60,19 @@ if [ -z $SEATUNNEL_CONFIG ]; then
     SEATUNNEL_CONFIG=${CONF_DIR}/seatunnel.yaml
 fi
 
+if test ${JvmOption} ;then
+    JAVA_OPTS="${JAVA_OPTS} ${JvmOption}"
+fi
+
+for i in "$@"
+do
+  if [[ "${i}" == *"JvmOption"* ]]; then
+    JVM_OPTION="${i}"
+    JAVA_OPTS="${JAVA_OPTS} ${JVM_OPTION#*=}"
+    break
+  fi
+done
+
 JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.config=${SEATUNNEL_CONFIG}"
 JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.config=${HAZELCAST_CONFIG}"
 
