@@ -25,6 +25,7 @@ import java.util.Map;
 public class HttpConfig {
     public static final String METHOD_DEFAULT_VALUE = "GET";
     public static final String DEFAULT_FORMAT = "json";
+    public static final String BASIC = "Basic";
     public static final int DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS = 100;
     public static final int DEFAULT_RETRY_BACKOFF_MAX_MS = 10000;
     public static final Option<String> URL = Options.key("url")
