@@ -74,10 +74,10 @@ public class RedisConfig {
             .noDefaultValue()
             .withDescription("redis data types, support key hash list set zset.");
 
-    public static final Option<String> FORMAT =
+    public static final Option<RedisConfig.Format> FORMAT =
         Options.key("format")
-            .stringType()
-            .defaultValue("json")
+            .enumType(RedisConfig.Format.class)
+            .defaultValue(RedisConfig.Format.JSON)
             .withDescription("the format of upstream data, now only support json and text, default json.");
 
     public static final Option<RedisConfig.RedisMode> MODE =
@@ -97,4 +97,9 @@ public class RedisConfig {
             .enumType(RedisConfig.HashKeyParseMode.class)
             .defaultValue(HashKeyParseMode.ALL)
             .withDescription("hash key parse mode, support all or kv, default value is all");
+
+    public enum Format {
+        JSON,
+        // TEXT will be supported later
+    }
 }

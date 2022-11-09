@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
 
 import com.google.auto.service.AutoService;
@@ -34,9 +35,9 @@ public class RedisSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
             .required(RedisConfig.HOST, RedisConfig.PORT, RedisConfig.KEY, RedisConfig.DATA_TYPE)
-            .optional(RedisConfig.HASH_KEY_PARSE_MODE, RedisConfig.AUTH, RedisConfig.USER, RedisConfig.KEY_PATTERN,
-                RedisConfig.FORMAT)
+            .optional(RedisConfig.HASH_KEY_PARSE_MODE, RedisConfig.AUTH, RedisConfig.USER, RedisConfig.KEY_PATTERN)
             .conditional(RedisConfig.MODE, RedisConfig.RedisMode.CLUSTER, RedisConfig.NODES)
+            .bundledRequired(RedisConfig.FORMAT, SeaTunnelSchema.SCHEMA)
             .build();
     }
 }

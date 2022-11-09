@@ -57,21 +57,22 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
         this.redisParameters.buildWithConfig(pluginConfig);
-        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
-            Config schema = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
-            this.seaTunnelRowType = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
-        } else {
-            this.seaTunnelRowType = SeaTunnelSchema.buildSimpleTextSchema();
-        }
         // TODO: use format SPI
         // default use json format
-        String format;
         if (pluginConfig.hasPath(RedisConfig.FORMAT.key())) {
-            format = pluginConfig.getString(RedisConfig.FORMAT.key());
-            this.deserializationSchema = null;
-        } else {
-            format = "json";
-            this.deserializationSchema = new JsonDeserializationSchema(false, false, seaTunnelRowType);
+            if (!pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
+                throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Must config schema when format parameter been config");
+            }
+            Config schema = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
+
+            RedisConfig.Format format = RedisConfig.Format.valueOf(pluginConfig.getString(RedisConfig.FORMAT.key()));
+            if (RedisConfig.Format.JSON.equals(format)) {
+                this.seaTunnelRowType = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
+                this.deserializationSchema = new JsonDeserializationSchema(false, false, seaTunnelRowType);
+            } else {
+                this.seaTunnelRowType = SeaTunnelSchema.buildSimpleTextSchema();
+                this.deserializationSchema = null;
+            }
         }
     }
 

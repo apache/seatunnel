@@ -28,7 +28,7 @@ Used to read data from Redis.
 | mode                | string | no                    | single       |
 | hash_key_parse_mode | string | no                    | all          |
 | nodes               | list   | yes when mode=cluster | -            |
-| schema              | config | no                    | -            |
+| schema              | config | yes when format=json  | -            |
 | format              | string | no                    | json         |
 | common-options      |        | no                    | -            |
 
@@ -211,7 +211,7 @@ connector will generate data as the following:
 
 #### fields [config]
 
-the schema fields of upstream data
+the schema fields of redis data
 
 ### common options 
 
