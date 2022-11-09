@@ -15,12 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.source;
+package org.apache.seatunnel.connectors.seatunnel.kafka.config;
 
-public class SourceConfigDeaultConstant {
+public enum StartMode {
 
-    public static final String SCROLLL_TIME = "1m";
+    EARLIEST("earliest"),
 
-    public static final int SCROLLL_SIZE = 100;
+    GROUP_OFFSETS("group_offsets"),
 
+    LATEST("latest"),
+
+    TIMESTAMP("timestamp"),
+
+    SPECIFIC_OFFSETS("specific_offsets");
+
+    private String mode;
+
+    StartMode(String mode) {
+        this.mode = mode;
+    }
+
+    public String getMode() {
+        return mode;
+    }
+
+    @Override
+    public String toString() {
+        return mode;
+    }
 }

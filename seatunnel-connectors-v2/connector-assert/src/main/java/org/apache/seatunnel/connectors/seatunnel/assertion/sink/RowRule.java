@@ -15,16 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.source;
+package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
-public class SourceConfig {
+import org.apache.seatunnel.api.configuration.util.OptionMark;
+import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
 
-    public static final String INDEX = "index";
+import lombok.Data;
 
-    public static final String SOURCE = "source";
+@Data
+public class RowRule {
 
-    public static final String SCROLL_TIME = "scroll_time";
+    @OptionMark(description = "The rule type of the rule")
+    private AssertFieldRule.AssertRuleType ruleType;
 
-    public static final String SCROLL_SIZE = "scroll_size";
+    @OptionMark(description = "The value related to rule type")
+    private Double ruleValue;
 
 }
