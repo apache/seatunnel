@@ -29,6 +29,7 @@ header:
     - .mvn
     - .gitmodules
     - .gitattributes
+    - .github/actions
     - '**/known-dependencies-*.txt'
     - '**/*.md'
     - '**/*.mdx'
