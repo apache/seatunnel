@@ -38,6 +38,7 @@ import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProp
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties;
 
@@ -59,7 +60,7 @@ public class PulsarSourceFactory implements TableSourceFactory {
             .conditional(CURSOR_STARTUP_MODE, SUBSCRIPTION, CURSOR_RESET_MODE)
             .conditional(CURSOR_STOP_MODE, SourceProperties.StopMode.TIMESTAMP, CURSOR_STOP_TIMESTAMP)
             .optional(TOPIC_DISCOVERY_INTERVAL, AUTH_PLUGIN_CLASS, AUTH_PARAMS, POLL_TIMEOUT, POLL_INTERVAL,
-                POLL_BATCH_SIZE, SCHEMA)
+                POLL_BATCH_SIZE, SeaTunnelSchema.SCHEMA)
             .build();
     }
 }
