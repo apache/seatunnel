@@ -31,6 +31,8 @@ import com.alicloud.openservices.tablestore.model.PrimaryKeyType;
 import com.alicloud.openservices.tablestore.model.PrimaryKeyValue;
 import com.alicloud.openservices.tablestore.model.RowPutChange;
 
+import java.util.Arrays;
+
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
 
     private final SeaTunnelRowType seaTunnelRowType;
@@ -45,22 +47,19 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
     public RowPutChange serialize(SeaTunnelRow seaTunnelRow) {
 
         PrimaryKeyBuilder primaryKeyBuilder = PrimaryKeyBuilder.createPrimaryKeyBuilder();
-        tablestoreOptions.getPrimaryKeys().forEach(primaryKeyName -> {
-            Object field = seaTunnelRow.getField(seaTunnelRowType.indexOf(primaryKeyName));
-            primaryKeyBuilder.addPrimaryKeyColumn(
-                this.convertPrimaryKeyColumn(primaryKeyName, field,
-                    this.convertPrimaryKeyType(seaTunnelRowType.getFieldType(seaTunnelRowType.indexOf(primaryKeyName)))));
-
-        });
-
         RowPutChange rowPutChange = new RowPutChange(tablestoreOptions.getTable(), primaryKeyBuilder.build());
-        for (int index = 0; index < seaTunnelRowType.getFieldNames().length; index++) {
-            Object fieldValue = seaTunnelRow.getField(index);
-            String fieldName = seaTunnelRowType.getFieldName(index);
-
-            rowPutChange.addColumn(this.convertColumn(fieldName, fieldValue,
-                this.convertColumnType(seaTunnelRowType.getFieldType(index))));
-        }
+        Arrays.stream(seaTunnelRowType.getFieldNames()).forEach(fieldName -> {
+            Object field = seaTunnelRow.getField(seaTunnelRowType.indexOf(fieldName));
+            int index = seaTunnelRowType.indexOf(fieldName);
+            if (tablestoreOptions.getPrimaryKeys().contains(fieldName)) {
+                primaryKeyBuilder.addPrimaryKeyColumn(
+                    this.convertPrimaryKeyColumn(fieldName, field,
+                        this.convertPrimaryKeyType(seaTunnelRowType.getFieldType(index))));
+            } else {
+                rowPutChange.addColumn(this.convertColumn(fieldName, field,
+                    this.convertColumnType(seaTunnelRowType.getFieldType(index))));
+            }
+        });
         return rowPutChange;
     }
 
