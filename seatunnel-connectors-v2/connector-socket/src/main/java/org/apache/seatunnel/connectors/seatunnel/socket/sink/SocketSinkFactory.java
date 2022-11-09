@@ -22,11 +22,12 @@ import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSink
 import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.PORT;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
 import com.google.auto.service.AutoService;
 
-@AutoService(TableSinkFactory.class)
+@AutoService(Factory.class)
 public class SocketSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
