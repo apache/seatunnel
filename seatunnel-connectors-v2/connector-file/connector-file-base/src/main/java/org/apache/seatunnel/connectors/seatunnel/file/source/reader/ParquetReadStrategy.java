@@ -202,7 +202,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         Path filePath = new Path(path);
         ParquetMetadata metadata;
         try {
-            HadoopInputFile hadoopInputFile = HadoopInputFile.fromPath(filePath, getConfiguration());
+            HadoopInputFile hadoopInputFile = HadoopInputFile.fromPath(filePath, getConfiguration(hadoopConf));
             ParquetFileReader reader = ParquetFileReader.open(hadoopInputFile);
             metadata = reader.getFooter();
             reader.close();
