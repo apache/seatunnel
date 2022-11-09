@@ -199,6 +199,41 @@ In the current version, it is recommended to implement ``SinkAggregatedCommitter
 provide strong consistency guarantee in Flink/Spark. At the same time, commit should be idempotent, and save engine
 retry can work normally.
 
+### **TableSourceFactory and TableSinkFactory**
+
+In order to automatically create a Source or Sink, it also supports automatic return of the parameters 
+supported by the current connector and the required parameters. We define TableSourceFactory and TableSinkFactory,
+It is recommended to put it in the same directory as the implementation class of SeaTunnelSource or SeaTunnelSink for easy searching.
+
+- ``factoryIdentifier`` is used to indicate the name of the current Factory. This value should be the same as the 
+  value returned by ``getPluginName``, so that if Factory is used to create Source/Sink in the future,
+  A seamless switch can be achieved.
+- ``createSink`` and ``createSource`` are the methods for creating Source and Sink respectively, 
+  and do not need to be implemented at present.
+- ``optionRule`` returns the parameter logic, which is used to indicate which parameters of our connector are supported,
+  which parameters are required, which parameters are optional, and which parameters are exclusive, which parameters are bundledRequired.
+  This method will be used when we visually create the connector logic, and it will also be used to generate a complete parameter 
+  object according to the parameters configured by the user, and then the connector developer does not need to judge whether the parameters
+  exist one by one in the Config, and use it directly That's it.
+  You can refer to existing implementations, such as ``org.apache.seatunnel.connectors.seatunnel.elasticsearch.source.ElasticsearchSourceFactory``.
+  There is support for configuring Schema for many Sources, so a common Option is used.
+  If you need a schema, you can refer to ``org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema.SCHEMA``.
+
+Don't forget to add ``@AutoService(Factory.class)`` to the class. This Factory is the parent class of TableSourceFactory and TableSinkFactory.
+
+### **Options**
+
+When we implement TableSourceFactory and TableSinkFactory, the corresponding Option will be created.
+Each Option corresponds to a configuration, but different configurations will have different types. 
+Common types can be created by directly calling the corresponding method.
+But if our parameter type is an object, we can use POJO to represent parameters of object type,
+and need to use ``org.apache.seatunnel.api.configuration.util.OptionMark`` on each parameter to indicate that this is A child Option.
+``OptionMark`` has two parameters, ``name`` is used to declare the parameter name corresponding to the field.
+If it is empty, we will convert the small camel case corresponding to java to underscore by default, such as: ``myUserPassword` ` -> ``my_user_password` .
+In most cases, the default is empty. ``description`` is used to indicate the description of the current parameter.
+This parameter is optional. It is recommended to be consistent with the documentation. For specific examples,
+please refer to ``org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertSinkFactory``.
+
 ## **Result**
 
 All Connector implementations should be under the ``seatunnel-connectors-v2``, and the examples that can be referred to
