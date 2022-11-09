@@ -29,7 +29,6 @@ import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProp
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.POLL_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.POLL_INTERVAL;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.POLL_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.SUBSCRIPTION_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.StartMode.SUBSCRIPTION;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.TOPIC;
