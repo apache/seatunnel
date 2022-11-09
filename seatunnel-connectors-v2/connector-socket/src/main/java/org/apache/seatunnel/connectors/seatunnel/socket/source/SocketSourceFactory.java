@@ -35,6 +35,6 @@ public class SocketSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().optional(HOST, PORT).build();
+        return OptionRule.builder().required(HOST, PORT).build();
     }
 }
