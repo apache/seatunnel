@@ -60,6 +60,7 @@
         <module>connector-cassandra</module>
         <module>connector-starrocks</module>
         <module>connector-google-sheets</module>
+        <module>connector-rabbitmq</module>
     </modules>
 
     <dependencyManagement>

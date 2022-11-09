@@ -146,3 +146,9 @@ source {
     }
 }
 ```
+
+## Changelog
+
+### next version
+
+- Add Rabbitmq source Connector

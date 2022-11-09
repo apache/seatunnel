@@ -93,3 +93,9 @@ sink {
       }
 }
 ```
+
+## Changelog
+
+### next version
+
+- Add Rabbitmq Sink Connector
