@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.KafkaDeserializationSchema;
 
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -59,10 +60,10 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     private final ConcurrentMap<TopicPartition, KafkaSourceSplit> sourceSplitMap;
     private final Map<TopicPartition, KafkaConsumerThread> consumerThreadMap;
     private final ExecutorService executorService;
-    private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    private final KafkaDeserializationSchema<SeaTunnelRow> deserializationSchema;
 
     KafkaSourceReader(ConsumerMetadata metadata,
-                      DeserializationSchema<SeaTunnelRow> deserializationSchema,
+                      KafkaDeserializationSchema<SeaTunnelRow> deserializationSchema,
                       SourceReader.Context context) {
         this.metadata = metadata;
         this.context = context;
@@ -114,7 +115,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                             List<ConsumerRecord<byte[], byte[]>> recordList = records.records(partition);
                             for (ConsumerRecord<byte[], byte[]> record : recordList) {
 
-                                deserializationSchema.deserialize(record.value(), output);
+                                deserializationSchema.deserialize(record, output);
 
                                 if (Boundedness.BOUNDED.equals(context.getBoundedness()) &&
                                     record.offset() >= sourceSplit.getEndOffset()) {

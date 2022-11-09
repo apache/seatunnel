@@ -48,6 +48,8 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
+import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.KafkaDeserializationSchema;
+import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.MetadataKafkaDeserializationSchema;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
@@ -57,6 +59,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.auto.service.AutoService;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.TopicPartition;
 
 import java.util.HashMap;
@@ -69,7 +73,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
     private static final String DEFAULT_CONSUMER_GROUP = "SeaTunnel-Consumer-Group";
 
     private final ConsumerMetadata metadata = new ConsumerMetadata();
-    private DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    private KafkaDeserializationSchema<SeaTunnelRow> deserializationSchema;
     private SeaTunnelRowType typeInfo;
     private JobContext jobContext;
 
@@ -173,6 +177,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
     }
 
     private void setDeserialization(Config config) {
+        DeserializationSchema valueDeserialization;
         if (config.hasPath(SCHEMA.key())) {
             Config schema = config.getConfig(SCHEMA.key());
             typeInfo = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
@@ -181,26 +186,27 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
                 format = config.getString(FORMAT.key());
             }
             if (DEFAULT_FORMAT.equals(format)) {
-                deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
+                valueDeserialization = new JsonDeserializationSchema(false, false, typeInfo);
             } else if ("text".equals(format)) {
                 String delimiter = DEFAULT_FIELD_DELIMITER;
                 if (config.hasPath(FIELD_DELIMITER.key())) {
                     delimiter = config.getString(FIELD_DELIMITER.key());
                 }
-                deserializationSchema = TextDeserializationSchema.builder()
-                    .seaTunnelRowType(typeInfo)
-                    .delimiter(delimiter)
-                    .build();
+                valueDeserialization = TextDeserializationSchema.builder()
+                        .seaTunnelRowType(typeInfo)
+                        .delimiter(delimiter)
+                        .build();
             } else {
                 // TODO: use format SPI
                 throw new UnsupportedOperationException("Unsupported format: " + format);
             }
         } else {
             typeInfo = SeaTunnelSchema.buildSimpleTextSchema();
-            this.deserializationSchema = TextDeserializationSchema.builder()
-                .seaTunnelRowType(typeInfo)
-                .delimiter(String.valueOf('\002'))
-                .build();
+            valueDeserialization = TextDeserializationSchema.builder()
+                    .seaTunnelRowType(typeInfo)
+                    .delimiter(String.valueOf('\002'))
+                    .build();
         }
+
     }
 }
