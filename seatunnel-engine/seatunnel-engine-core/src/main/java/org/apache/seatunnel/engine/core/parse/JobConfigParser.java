@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.core.parse;
 
+import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -364,8 +365,8 @@ public class JobConfigParser {
             return Math.max(sourceParallelism, 1);
         }
         int executionParallelism = 0;
-        if (envConfigs.hasPath(CollectionConstants.PARALLELISM)) {
-            executionParallelism = envConfigs.getInt(CollectionConstants.PARALLELISM);
+        if (envConfigs.hasPath(EnvCommonOptions.PARALLELISM.key())) {
+            executionParallelism = envConfigs.getInt(EnvCommonOptions.PARALLELISM.key());
         }
         return Math.max(executionParallelism, 1);
     }
