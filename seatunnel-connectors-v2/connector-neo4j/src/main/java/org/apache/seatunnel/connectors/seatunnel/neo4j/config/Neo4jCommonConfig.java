@@ -23,8 +23,8 @@ import org.apache.seatunnel.api.configuration.Options;
 public abstract class Neo4jCommonConfig {
 
     public static final String PLUGIN_NAME = "Neo4j";
-    public static final Long MAX_TRANSACTION_RETRY_TIME = 30L;
-    public static final Long MAX_CONNECTION_TIMEOUT = 30L;
+    public static final Long DEFAULT_MAX_TRANSACTION_RETRY_TIME = 30L;
+    public static final Long DEFAULT_MAX_CONNECTION_TIMEOUT = 30L;
 
     public static final Option<String> KEY_NEO4J_URI =
         Options.key("uri")
@@ -71,12 +71,12 @@ public abstract class Neo4jCommonConfig {
     public static final Option<Long> KEY_MAX_TRANSACTION_RETRY_TIME =
         Options.key("max_transaction_retry_time")
             .longType()
-            .defaultValue(MAX_TRANSACTION_RETRY_TIME)
+            .defaultValue(DEFAULT_MAX_TRANSACTION_RETRY_TIME)
             .withDescription("maximum transaction retry time(seconds). transaction fail if exceeded.");
 
     public static final Option<Long> KEY_MAX_CONNECTION_TIMEOUT =
         Options.key("max_connection_timeout")
             .longType()
-            .defaultValue(MAX_CONNECTION_TIMEOUT)
+            .defaultValue(DEFAULT_MAX_CONNECTION_TIMEOUT)
             .withDescription("The maximum amount of time to wait for a TCP connection to be established (seconds).");
 }
