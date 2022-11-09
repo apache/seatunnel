@@ -36,6 +36,7 @@ import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProp
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.TOPIC_PATTERN;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
@@ -43,7 +44,7 @@ import org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties;
 
 import com.google.auto.service.AutoService;
 
-@AutoService(TableSourceFactory.class)
+@AutoService(Factory.class)
 public class PulsarSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
