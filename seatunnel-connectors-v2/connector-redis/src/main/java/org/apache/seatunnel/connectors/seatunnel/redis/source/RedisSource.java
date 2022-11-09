@@ -57,8 +57,8 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
         this.redisParameters.buildWithConfig(pluginConfig);
-        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA)) {
-            Config schema = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA);
+        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
+            Config schema = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
             this.seaTunnelRowType = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
         } else {
             this.seaTunnelRowType = SeaTunnelSchema.buildSimpleTextSchema();

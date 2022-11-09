@@ -66,13 +66,13 @@ public class Neo4jSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     public void prepare(Config pluginConfig) throws PrepareFailException {
         neo4jSourceConfig.setDriverBuilder(prepareDriver(pluginConfig));
 
-        final CheckResult configCheck = CheckConfigUtil.checkAllExists(pluginConfig, KEY_QUERY, SeaTunnelSchema.SCHEMA);
+        final CheckResult configCheck = CheckConfigUtil.checkAllExists(pluginConfig, KEY_QUERY, SeaTunnelSchema.SCHEMA.key());
         if (!configCheck.isSuccess()) {
             throw new PrepareFailException(Neo4jSourceConfig.PLUGIN_NAME, PluginType.SOURCE, configCheck.getMsg());
         }
         neo4jSourceConfig.setQuery(pluginConfig.getString(KEY_QUERY));
 
-        this.rowType = SeaTunnelSchema.buildWithConfig(pluginConfig.getConfig(SeaTunnelSchema.SCHEMA)).getSeaTunnelRowType();
+        this.rowType = SeaTunnelSchema.buildWithConfig(pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key())).getSeaTunnelRowType();
     }
 
     @Override

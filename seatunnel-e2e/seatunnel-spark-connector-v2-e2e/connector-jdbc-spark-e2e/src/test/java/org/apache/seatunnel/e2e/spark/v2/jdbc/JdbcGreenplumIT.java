@@ -159,6 +159,9 @@ public class JdbcGreenplumIT extends SparkContainer {
         if (jdbcConnection != null) {
             jdbcConnection.close();
         }
+        if (greenplumServer != null) {
+            greenplumServer.stop();
+        }
     }
 
     @Override

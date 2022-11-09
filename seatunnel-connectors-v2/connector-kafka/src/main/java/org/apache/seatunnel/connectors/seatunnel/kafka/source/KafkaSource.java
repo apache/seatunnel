@@ -26,6 +26,9 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIEL
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PATTERN;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.SCHEMA;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE_OFFSETS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE_TIMESTAMP;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
 
 import org.apache.seatunnel.api.common.JobContext;
@@ -42,15 +45,22 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.auto.service.AutoService;
+import org.apache.kafka.common.TopicPartition;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 @AutoService(SeaTunnelSource.class)
@@ -94,6 +104,40 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
 
         if (config.hasPath(COMMIT_ON_CHECKPOINT)) {
             this.metadata.setCommitOnCheckpoint(config.getBoolean(COMMIT_ON_CHECKPOINT));
+        }
+
+        if (config.hasPath(START_MODE)) {
+            StartMode startMode = StartMode.valueOf(config.getString(START_MODE).toUpperCase());
+            this.metadata.setStartMode(startMode);
+            switch (startMode) {
+                case TIMESTAMP:
+                    long startOffsetsTimestamp = config.getLong(START_MODE_TIMESTAMP);
+                    long currentTimestamp = System.currentTimeMillis();
+                    if (startOffsetsTimestamp < 0 || startOffsetsTimestamp > currentTimestamp) {
+                        throw new IllegalArgumentException("start_mode.timestamp The value is smaller than 0 or smaller than the current time");
+                    }
+                    this.metadata.setStartOffsetsTimestamp(startOffsetsTimestamp);
+                    break;
+                case SPECIFIC_OFFSETS:
+                    Config offsets = config.getConfig(START_MODE_OFFSETS);
+                    ConfigRenderOptions options = ConfigRenderOptions.concise();
+                    String offsetsJson = offsets.root().render(options);
+                    if (offsetsJson == null) {
+                        throw new IllegalArgumentException("start mode is " + StartMode.SPECIFIC_OFFSETS + "but no specific offsets were specified.");
+                    }
+                    Map<TopicPartition, Long> specificStartOffsets = new HashMap<>();
+                    ObjectNode jsonNodes = JsonUtils.parseObject(offsetsJson);
+                    jsonNodes.fieldNames().forEachRemaining(key -> {
+                        String[] topicAndPartition = key.split("-");
+                        long offset = jsonNodes.get(key).asLong();
+                        TopicPartition topicPartition = new TopicPartition(topicAndPartition[0], Integer.valueOf(topicAndPartition[1]));
+                        specificStartOffsets.put(topicPartition, offset);
+                    });
+                    this.metadata.setSpecificStartOffsets(specificStartOffsets);
+                    break;
+                default:
+                    break;
+            }
         }
 
         TypesafeConfigUtils.extractSubConfig(config, "kafka.", false).entrySet().forEach(e -> {
@@ -144,9 +188,9 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
                     delimiter = config.getString(FIELD_DELIMITER);
                 }
                 deserializationSchema = TextDeserializationSchema.builder()
-                        .seaTunnelRowType(typeInfo)
-                        .delimiter(delimiter)
-                        .build();
+                    .seaTunnelRowType(typeInfo)
+                    .delimiter(delimiter)
+                    .build();
             } else {
                 // TODO: use format SPI
                 throw new UnsupportedOperationException("Unsupported format: " + format);
@@ -154,9 +198,9 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
         } else {
             typeInfo = SeaTunnelSchema.buildSimpleTextSchema();
             this.deserializationSchema = TextDeserializationSchema.builder()
-                    .seaTunnelRowType(typeInfo)
-                    .delimiter(String.valueOf('\002'))
-                    .build();
+                .seaTunnelRowType(typeInfo)
+                .delimiter(String.valueOf('\002'))
+                .build();
         }
     }
 }

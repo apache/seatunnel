@@ -39,16 +39,16 @@ import java.util.List;
 
 
 /**
- * Datahub write class
+ * DataHub write class
  */
 @Slf4j
 public class DataHubWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
-    private DatahubClient dataHubClient;
-    private String project;
-    private String topic;
-    private Integer retryTimes;
-    private SeaTunnelRowType seaTunnelRowType;
+    private final DatahubClient dataHubClient;
+    private final String project;
+    private final String topic;
+    private final Integer retryTimes;
+    private final SeaTunnelRowType seaTunnelRowType;
 
     public DataHubWriter(SeaTunnelRowType seaTunnelRowType, String endpoint, String accessId, String accessKey, String project, String topic, Integer timeout, Integer retryTimes) {
         this.dataHubClient = DatahubClientBuilder.newBuilder()
