@@ -65,6 +65,10 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
         this.httpParameter.buildWithConfig(pluginConfig);
+        buildSchemaWithConfig(pluginConfig);
+    }
+
+    protected void buildSchemaWithConfig(Config pluginConfig) {
         if (pluginConfig.hasPath(HttpConfig.SCHEMA)) {
             Config schema = pluginConfig.getConfig(HttpConfig.SCHEMA);
             this.rowType = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();

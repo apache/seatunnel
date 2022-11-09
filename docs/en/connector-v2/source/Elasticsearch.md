@@ -20,14 +20,15 @@ support version >= 2.x and < 8.x.
 ## Options
 
 | name        | type   | required | default value | 
-|-------------|--------| -------- |---------------|
+|-------------|--------|----------|---------------|
 | hosts       | array  | yes      | -             |
 | username    | string | no       | -             |
 | password    | string | no       | -             |
 | index       | string | yes      | -             |
-| source      | array  | yes      | -             |
+| source      | array  | no       | -             |
 | scroll_time | string | no       | 1m            |
 | scroll_size | int    | no       | 100           |
+| schema      |        | no       | -             |
 
 
 
@@ -46,12 +47,17 @@ Elasticsearch index name, support * fuzzy matching.
 ### source [array]
 The fields of index.
 You can get the document id by specifying the field `_id`.If sink _id to other index,you need specify an alias for _id due to the Elasticsearch limit.
+If you don't config source, you must config `schema`.
 
 ### scroll_time [String]
 Amount of time Elasticsearch will keep the search context alive for scroll requests.
 
 ### scroll_size [int]
 Maximum number of hits to be returned with each Elasticsearch scroll request.
+
+### schema
+The structure of the data, including field names and field types.
+If you don't config schema, you must config `source`.
 
 ## Examples
 simple

@@ -158,6 +158,9 @@ public class JdbcGreenplumIT extends FlinkContainer {
         if (jdbcConnection != null) {
             jdbcConnection.close();
         }
+        if (greenplumServer != null) {
+            greenplumServer.stop();
+        }
     }
 
     @Override
