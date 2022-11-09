@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.source;
 
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.COLLECTION;
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.URI;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
@@ -63,8 +62,8 @@ public class MongodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
         this.params = ConfigBeanFactory.create(config, MongodbParameters.class);
 
-        if (config.hasPath(SCHEMA.key())) {
-            Config schema = config.getConfig(SCHEMA.key());
+        if (config.hasPath(SeaTunnelSchema.SCHEMA.key())) {
+            Config schema = config.getConfig(SeaTunnelSchema.SCHEMA.key());
             this.rowType = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
         } else {
             this.rowType = SeaTunnelSchema.buildSimpleTextSchema();

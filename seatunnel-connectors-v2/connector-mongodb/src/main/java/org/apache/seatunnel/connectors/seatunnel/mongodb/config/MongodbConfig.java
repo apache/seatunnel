@@ -45,12 +45,6 @@ public class MongodbConfig implements Serializable {
             .noDefaultValue()
             .withDescription("MongoDB collection");
 
-    public static final Option<Object> SCHEMA =
-        Options.key("schema")
-            .objectType()
-            .noDefaultValue()
-            .withDescription("Because MongoDB does not have the concept of schema, when engine reads MongoDB , it will sample MongoDB data and infer the schema. In fact, this process will be slow and may be inaccurate. SeaTunnel support you specify data schema to resolve these problems.");
-
     // Don't use now
     public static final String FORMAT = "format";
 
