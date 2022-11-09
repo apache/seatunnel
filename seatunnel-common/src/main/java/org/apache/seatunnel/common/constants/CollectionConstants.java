@@ -34,6 +34,4 @@ public class CollectionConstants {
     public static final String TRANSFORM_PLUGIN = "transform";
 
     public static final String SINK_PLUGIN = "sink";
-
-    public static final String PARALLELISM = "parallelism";
 }
