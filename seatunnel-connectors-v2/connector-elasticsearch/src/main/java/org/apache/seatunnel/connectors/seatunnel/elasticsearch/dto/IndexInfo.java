@@ -33,9 +33,9 @@ public class IndexInfo {
     private String type;
 
     public IndexInfo(Config pluginConfig) {
-        index = pluginConfig.getString(SinkConfig.INDEX);
-        if (pluginConfig.hasPath(SinkConfig.INDEX_TYPE)) {
-            type = pluginConfig.getString(SinkConfig.INDEX_TYPE);
+        index = pluginConfig.getString(SinkConfig.INDEX.key());
+        if (pluginConfig.hasPath(SinkConfig.INDEX_TYPE.key())) {
+            type = pluginConfig.getString(SinkConfig.INDEX_TYPE.key());
         }
     }
 
