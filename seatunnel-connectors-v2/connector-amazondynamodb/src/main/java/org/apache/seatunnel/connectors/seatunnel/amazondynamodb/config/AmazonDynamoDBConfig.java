@@ -15,25 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.local.config;
+package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config;
 
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import java.io.Serializable;
 
-public class LocalConf extends HadoopConf {
-    private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
-    private static final String SCHEMA = "file";
-
-    public LocalConf(String hdfsNameKey) {
-        super(hdfsNameKey);
-    }
-
-    @Override
-    public String getFsHdfsImpl() {
-        return HDFS_IMPL;
-    }
-
-    @Override
-    public String getSchema() {
-        return SCHEMA;
-    }
+public class AmazonDynamoDBConfig implements Serializable {
+    public static final String URL = "url";
+    public static final String REGION = "region";
+    public static final String ACCESS_KEY_ID = "access_key_id";
+    public static final String SECRET_ACCESS_KEY = "secret_access_key";
+    public static final String TABLE = "table";
+    public static final String BATCH_SIZE = "batch_size";
+    public static final String DEFAULT_BATCH_INTERVAL_MS = "batch_interval_ms";
 }

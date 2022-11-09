@@ -15,25 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.local.config;
+package org.apache.seatunnel.connectors.seatunnel.google.sheets.deserialize;
 
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-public class LocalConf extends HadoopConf {
-    private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
-    private static final String SCHEMA = "file";
+import java.util.List;
 
-    public LocalConf(String hdfsNameKey) {
-        super(hdfsNameKey);
-    }
+public interface SeaTunnelRowDeserializer {
 
-    @Override
-    public String getFsHdfsImpl() {
-        return HDFS_IMPL;
-    }
+    SeaTunnelRow deserializeRow(List<Object> row);
 
-    @Override
-    public String getSchema() {
-        return SCHEMA;
-    }
 }

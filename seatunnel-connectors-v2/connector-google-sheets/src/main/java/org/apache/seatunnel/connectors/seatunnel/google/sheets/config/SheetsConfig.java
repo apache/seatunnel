@@ -15,25 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.local.config;
+package org.apache.seatunnel.connectors.seatunnel.google.sheets.config;
 
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+public class SheetsConfig {
 
-public class LocalConf extends HadoopConf {
-    private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
-    private static final String SCHEMA = "file";
-
-    public LocalConf(String hdfsNameKey) {
-        super(hdfsNameKey);
-    }
-
-    @Override
-    public String getFsHdfsImpl() {
-        return HDFS_IMPL;
-    }
-
-    @Override
-    public String getSchema() {
-        return SCHEMA;
-    }
+    public static final String SERVICE_ACCOUNT_KEY = "service_account_key";
+    public static final String SHEET_ID = "sheet_id";
+    public static final String SHEET_NAME = "sheet_name";
+    public static final String RANGE = "range";
 }
