@@ -22,8 +22,12 @@ import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceCo
 import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig.TABLE_NAME;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
+import com.google.auto.service.AutoService;
+
+@AutoService(Factory.class)
 public class KuduSourceFactory implements TableSourceFactory {
 
     @Override
