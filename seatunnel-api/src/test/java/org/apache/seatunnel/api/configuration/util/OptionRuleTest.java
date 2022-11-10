@@ -64,37 +64,6 @@ public class OptionRuleTest {
     }
 
     @Test
-    public void testOptionalException() {
-        Assertions.assertThrows(OptionValidationException.class,
-            () -> OptionRule.builder().required(TEST_NUM, TEST_MODE, TEST_PORTS).build(),
-            "Optional option 'option.ports' should have default value.");
-    }
-
-    @Test
-    public void testRequiredException() {
-        Assertions.assertThrows(OptionValidationException.class,
-            () -> OptionRule.builder().required(TEST_NUM, TEST_MODE, TEST_PORTS).build(),
-            "Required option 'option.num' should have no default value.");
-    }
-
-    @Test
-    public void testExclusiveException() {
-        Assertions.assertThrows(OptionValidationException.class,
-            () -> OptionRule.builder().exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC, TEST_MODE, TEST_PORTS).build(),
-            "Required option 'option.mode' should have no default value.");
-        Assertions.assertThrows(OptionValidationException.class,
-            () -> OptionRule.builder().exclusive(TEST_TOPIC_PATTERN).build(),
-            "The number of exclusive options must be greater than 1.");
-    }
-
-    @Test
-    public void testConditionalException() {
-        Assertions.assertThrows(OptionValidationException.class,
-            () -> OptionRule.builder().conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_NUM).build(),
-            "Required option 'option.num' should have no default value.");
-    }
-
-    @Test
     public void testEquals() {
         OptionRule rule1 = OptionRule.builder()
             .optional(TEST_NUM, TEST_MODE)
