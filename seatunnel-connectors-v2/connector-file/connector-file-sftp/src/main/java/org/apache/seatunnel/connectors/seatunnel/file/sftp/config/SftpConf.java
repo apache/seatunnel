@@ -24,9 +24,21 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import java.util.HashMap;
 
 public class SftpConf extends HadoopConf {
+    private static final String HDFS_IMPL = "org.apache.seatunnel.connectors.seatunnel.file.sftp.system.SFTPFileSystem";
+    private static final String SCHEMA = "sftp";
 
     private SftpConf(String hdfsNameKey) {
         super(hdfsNameKey);
+    }
+
+    @Override
+    public String getFsHdfsImpl() {
+        return HDFS_IMPL;
+    }
+
+    @Override
+    public String getSchema() {
+        return SCHEMA;
     }
 
     public static HadoopConf buildWithConfig(Config config) {
@@ -37,7 +49,6 @@ public class SftpConf extends HadoopConf {
         HashMap<String, String> sftpOptions = new HashMap<>();
         sftpOptions.put("fs.sftp.user." + host, config.getString(SftpConfig.SFTP_USERNAME));
         sftpOptions.put("fs.sftp.password." + host + "." + config.getString(SftpConfig.SFTP_USERNAME), config.getString(SftpConfig.SFTP_PASSWORD));
-        sftpOptions.put("fs.sftp.impl", "org.apache.seatunnel.connectors.seatunnel.file.sftp.system.SFTPFileSystem");
         hadoopConf.setExtraOptions(sftpOptions);
         return hadoopConf;
     }
