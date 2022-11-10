@@ -61,3 +61,4 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           label: 'reviewed'
           pullRequestNumber: ${{ steps.source-run-info.outputs.pullRequestNumber }}
+          remove_label_when_approval_missing: 'true'
