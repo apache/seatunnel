@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.google.sheets.source;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.config.SheetsConfig;
 
 import com.google.auto.service.AutoService;
@@ -38,6 +39,7 @@ public class SheetsSourceFactory implements TableSourceFactory {
                 .required(SheetsConfig.SHEET_ID)
                 .required(SheetsConfig.SHEET_NAME)
                 .required(SheetsConfig.RANGE)
+                .optional(SeaTunnelSchema.SCHEMA)
                 .build();
     }
 }
