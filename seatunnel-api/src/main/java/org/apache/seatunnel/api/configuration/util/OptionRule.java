@@ -19,6 +19,8 @@ package org.apache.seatunnel.api.configuration.util;
 
 import org.apache.seatunnel.api.configuration.Option;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreType;
+
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Objects;
@@ -114,6 +116,7 @@ public class OptionRule {
     /**
      * Builder for {@link OptionRule}.
      */
+    @JsonIgnoreType
     public static class Builder {
         private final Set<Option<?>> optionalOptions = new HashSet<>();
         private final Set<RequiredOption> requiredOptions = new HashSet<>();
@@ -137,7 +140,6 @@ public class OptionRule {
          */
         public Builder required(Option<?>... options) {
             for (Option<?> option : options) {
-                verifyRequiredOptionDefaultValue(option);
                 this.requiredOptions.add(RequiredOption.AbsolutelyRequiredOption.of(option));
             }
             return this;
@@ -149,9 +151,6 @@ public class OptionRule {
         public Builder exclusive(Option<?>... options) {
             if (options.length <= 1) {
                 throw new OptionValidationException("The number of exclusive options must be greater than 1.");
-            }
-            for (Option<?> option : options) {
-                verifyRequiredOptionDefaultValue(option);
             }
             this.requiredOptions.add(RequiredOption.ExclusiveRequiredOptions.of(options));
             return this;
@@ -175,15 +174,14 @@ public class OptionRule {
          * Conditional options, These options are required if the {@link Expression} evaluates to true.
          */
         public Builder conditional(Expression expression, Option<?>... requiredOptions) {
-            for (Option<?> o : requiredOptions) {
-                verifyRequiredOptionDefaultValue(o);
-            }
-            this.requiredOptions.add(RequiredOption.ConditionalRequiredOptions.of(expression, new HashSet<>(Arrays.asList(requiredOptions))));
+            this.requiredOptions.add(RequiredOption.ConditionalRequiredOptions.of(expression,
+                new HashSet<>(Arrays.asList(requiredOptions))));
             return this;
         }
 
         public Builder bundledRequired(Option<?>... requiredOptions) {
-            this.requiredOptions.add(RequiredOption.BundledRequiredOptions.of(new HashSet<>(Arrays.asList(requiredOptions))));
+            this.requiredOptions.add(
+                RequiredOption.BundledRequiredOptions.of(new HashSet<>(Arrays.asList(requiredOptions))));
             return this;
         }
 
@@ -193,7 +191,8 @@ public class OptionRule {
 
         private void verifyRequiredOptionDefaultValue(Option<?> option) {
             if (option.defaultValue() != null) {
-                throw new OptionValidationException(String.format("Required option '%s' should have no default value.", option.key()));
+                throw new OptionValidationException(
+                    String.format("Required option '%s' should have no default value.", option.key()));
             }
         }
     }
