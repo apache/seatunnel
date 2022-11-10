@@ -48,12 +48,12 @@ public class LemlistSource extends HttpSource {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, LemlistSourceConfig.URL, LemlistSourceConfig.PASSWORD);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, LemlistSourceConfig.URL.key(), LemlistSourceConfig.PASSWORD.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
         //get accessToken by basic auth
-        String accessToken = getTokenByBasicAuth("", pluginConfig.getString(LemlistSourceConfig.PASSWORD));
+        String accessToken = getTokenByBasicAuth("", pluginConfig.getString(LemlistSourceConfig.PASSWORD.key()));
         lemlistSourceParameter.buildWithConfig(pluginConfig, accessToken);
         buildSchemaWithConfig(pluginConfig);
     }

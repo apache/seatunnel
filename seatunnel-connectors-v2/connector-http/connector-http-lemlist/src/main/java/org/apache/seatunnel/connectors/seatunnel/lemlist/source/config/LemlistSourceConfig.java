@@ -17,8 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.lemlist.source.config;
 
-public class LemlistSourceConfig {
-    public static final String URL = "url";
-    public static final String PASSWORD = "password";
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
+
+public class LemlistSourceConfig extends HttpConfig {
     public static final String AUTHORIZATION = "Authorization";
+    public static final Option<String> PASSWORD = Options.key("password")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("Lemlist login api key");
+
 }

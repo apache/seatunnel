@@ -26,7 +26,7 @@ import java.util.HashMap;
 public class LemlistSourceParameter extends HttpParameter {
     public void buildWithConfig(Config pluginConfig, String accessToken) {
         super.buildWithConfig(pluginConfig);
-        //put authorization in headers
+        // put authorization in headers
         this.headers = this.getHeaders() == null ? new HashMap<>() : this.getHeaders();
         this.headers.put(LemlistSourceConfig.AUTHORIZATION, accessToken);
         this.setHeaders(this.headers);

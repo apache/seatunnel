@@ -17,59 +17,17 @@
 
 package org.apache.seatunnel.e2e.connector.http;
 
-import org.apache.seatunnel.e2e.common.TestResource;
-import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
-import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.utility.DockerImageName;
-import org.testcontainers.utility.DockerLoggerFactory;
-import org.testcontainers.utility.MountableFile;
 
-import java.io.File;
 import java.io.IOException;
-import java.util.stream.Stream;
 
-public class HttpLemlistIT extends TestSuiteBase implements TestResource {
-
-    private static final String IMAGE = "mockserver/mockserver:5.14.0";
-
-    private GenericContainer<?> mockserverContainer;
-
-    @BeforeAll
-    @Override
-    public void startUp() {
-        this.mockserverContainer = new GenericContainer<>(DockerImageName.parse(IMAGE))
-            .withNetwork(NETWORK)
-            .withNetworkAliases("mockserver")
-            .withExposedPorts(1080)
-            .withCopyFileToContainer(MountableFile.forHostPath(new File(HttpLemlistIT.class.getResource(
-                    "/mockserver-config.json").getPath()).getAbsolutePath()),
-                "/tmp/mockserver-config.json")
-            .withEnv("MOCKSERVER_INITIALIZATION_JSON_PATH", "/tmp/mockserver-config.json")
-            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
-            .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));
-        Startables.deepStart(Stream.of(mockserverContainer)).join();
-    }
-
-    @AfterAll
-    @Override
-    public void tearDown() {
-        if (mockserverContainer != null) {
-            mockserverContainer.stop();
-        }
-    }
-
+public class HttpLemlistIT extends HttpIT{
     @TestTemplate
-    public void testHttpSourceToAssertSink(TestContainer container) throws IOException, InterruptedException {
+    public void testHttpLemlistSourceToAssertSink(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/lemlist_json_to_assert.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
