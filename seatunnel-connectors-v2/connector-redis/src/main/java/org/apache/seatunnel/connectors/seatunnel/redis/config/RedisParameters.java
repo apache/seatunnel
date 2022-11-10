@@ -59,7 +59,8 @@ public class RedisParameters implements Serializable {
         }
         // set mode
         if (config.hasPath(RedisConfig.MODE.key())) {
-            this.mode = RedisConfig.RedisMode.valueOf(config.getString(RedisConfig.MODE.key()));
+            this.mode = RedisConfig.RedisMode
+                    .valueOf(config.getString(RedisConfig.MODE.key()).toUpperCase());
         } else {
             this.mode = RedisConfig.MODE.defaultValue();
         }
