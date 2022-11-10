@@ -26,6 +26,7 @@ Used to read data from GoogleSheets.
 | service_account_key | string       | yes      | -             |
 | sheet_id            | string       | yes      | -             |
 | sheet_name          | string       | yes      | -             |
+| range               | string       | yes      | -             |
 | schema              | config       | yes      | -             |
 
 ### service_account_key [string]
@@ -39,6 +40,10 @@ sheet id in a Google Sheets URL
 ### sheet_name [string]
 
 the name of the sheet you want to import
+
+### range [string]
+
+the range of the sheet you want to import
 
 ### schema [config]
 
