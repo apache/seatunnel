@@ -51,4 +51,5 @@ jobs:
             if you try to continue your work, and anyone who are interested in it are encouraged to continue
             work on this pull request.
           remove-pr-stale-when-updated: true
+          remove-issue-stale-when-updated: true
           labels-to-add-when-unstale: 'waiting for review'
