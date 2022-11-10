@@ -27,7 +27,7 @@ Used to read data from GoogleSheets.
 | sheet_id            | string       | yes      | -             |
 | sheet_name          | string       | yes      | -             |
 | range               | string       | yes      | -             |
-| schema              | config       | yes      | -             |
+| schema              | config       | no       | -             |
 
 ### service_account_key [string]
 
