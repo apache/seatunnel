@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.source;
 
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.COLLECTION;
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.URI;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
@@ -56,15 +55,15 @@ public class MongodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(config, URI, DATABASE, COLLECTION);
+        CheckResult result = CheckConfigUtil.checkAllExists(config, URI.key(), DATABASE.key(), COLLECTION.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
 
         this.params = ConfigBeanFactory.create(config, MongodbParameters.class);
 
-        if (config.hasPath(SCHEMA)) {
-            Config schema = config.getConfig(SCHEMA);
+        if (config.hasPath(SeaTunnelSchema.SCHEMA.key())) {
+            Config schema = config.getConfig(SeaTunnelSchema.SCHEMA.key());
             this.rowType = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
         } else {
             this.rowType = SeaTunnelSchema.buildSimpleTextSchema();
