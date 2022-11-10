@@ -23,14 +23,14 @@ Currently, only supports hudi cow table and Snapshot Query with Batch Mode
 ## Options
 
 | name                    | type    | required | default value |
-| ----------------------- | ------- | -------- | ------------- |
+| ----------------------- |---------| -------- | ------------- |
 | table.path              | string  | yes      | -             |
 | table.type              | string  | yes      | -             |
 | conf.files              | string  | yes      | -             |
 | use.kerberos            | boolean | no       | false         |
 | kerberos.principal      | string  | no       | -             |
 | kerberos.principal.file | string  | no       | -             |
-| common-options          |         | no       | -             |
+| common-options          | config  | no       | -             |
 
 ### table.path [string]
 

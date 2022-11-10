@@ -64,27 +64,27 @@ public class HudiSource implements SeaTunnelSource<SeaTunnelRow, HudiSourceSplit
 
     @Override
     public void prepare(Config pluginConfig) {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, TABLE_PATH, CONF_FILES);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, TABLE_PATH.key(), CONF_FILES.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
         // default hudi table tupe is cow
         // TODO: support hudi mor table
         // TODO: support Incremental Query and Read Optimized Query
-        if (!"cow".equalsIgnoreCase(pluginConfig.getString(TABLE_TYPE))) {
+        if (!"cow".equalsIgnoreCase(pluginConfig.getString(TABLE_TYPE.key()))) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Do not support hudi mor table yet!");
         }
         try {
-            this.confFiles = pluginConfig.getString(CONF_FILES);
-            this.tablePath = pluginConfig.getString(TABLE_PATH);
-            if (CheckConfigUtil.isValidParam(pluginConfig, USE_KERBEROS)) {
-                this.useKerberos = pluginConfig.getBoolean(USE_KERBEROS);
+            this.confFiles = pluginConfig.getString(CONF_FILES.key());
+            this.tablePath = pluginConfig.getString(TABLE_PATH.key());
+            if (CheckConfigUtil.isValidParam(pluginConfig, USE_KERBEROS.key())) {
+                this.useKerberos = pluginConfig.getBoolean(USE_KERBEROS.key());
                 if (this.useKerberos) {
-                    CheckResult kerberosCheckResult = CheckConfigUtil.checkAllExists(pluginConfig, KERBEROS_PRINCIPAL, KERBEROS_PRINCIPAL_FILE);
+                    CheckResult kerberosCheckResult = CheckConfigUtil.checkAllExists(pluginConfig, KERBEROS_PRINCIPAL.key(), KERBEROS_PRINCIPAL_FILE.key());
                     if (!kerberosCheckResult.isSuccess()) {
                         throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
                     }
-                    HudiUtil.initKerberosAuthentication(HudiUtil.getConfiguration(this.confFiles), pluginConfig.getString(KERBEROS_PRINCIPAL), pluginConfig.getString(KERBEROS_PRINCIPAL_FILE));
+                    HudiUtil.initKerberosAuthentication(HudiUtil.getConfiguration(this.confFiles), pluginConfig.getString(KERBEROS_PRINCIPAL.key()), pluginConfig.getString(KERBEROS_PRINCIPAL_FILE.key()));
                 }
             }
             this.filePath = HudiUtil.getParquetFileByPath(this.confFiles, tablePath);
