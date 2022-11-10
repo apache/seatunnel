@@ -25,7 +25,7 @@ Source connector for Apache Kafka.
 | consumer.group       | String  | no       | SeaTunnel-Consumer-Group |
 | commit_on_checkpoint | Boolean | no       | true                     |
 | kafka.*              | String  | no       | -                        |
-| common-options       |         | no       | -                        |
+| common-options       | config  | no       | -                        |
 | schema               |         | no       | -                        |
 | format               | String  | no       | json                     |
 | start_mode           | String  | no       | group_offsets            |
@@ -58,7 +58,7 @@ In addition to the above necessary parameters that must be specified by the `Kaf
 
 The way to specify parameters is to add the prefix `kafka.` to the original parameter name. For example, the way to specify `auto.offset.reset` is: `kafka.auto.offset.reset = latest` . If these non-essential parameters are not specified, they will use the default values given in the official Kafka documentation.
 
-### common-options
+### common-options [config]
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
