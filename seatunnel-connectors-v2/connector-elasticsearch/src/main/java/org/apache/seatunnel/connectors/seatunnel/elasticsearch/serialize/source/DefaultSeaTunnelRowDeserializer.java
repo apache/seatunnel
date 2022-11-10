@@ -67,6 +67,8 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
             put("yyyy-MM-dd HH:mm:ss.SS".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SS"));
             put("yyyy-MM-dd HH:mm:ss.SSS".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
             put("yyyy-MM-dd HH:mm:ss.SSSSSS".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS"));
+        put("yyyy-MM-dd HH:mm:ss.SSSS".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSS"));
+put("yyyy-MM-dd HH:mm:ss.SSSSS".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSS"));
         }
     };
 
