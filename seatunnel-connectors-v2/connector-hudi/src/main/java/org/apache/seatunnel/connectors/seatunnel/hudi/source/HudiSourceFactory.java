@@ -18,26 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.hudi.source;
 
 import com.google.auto.service.AutoService;
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.source.*;
-import org.apache.seatunnel.api.table.connector.TableSource;
-import org.apache.seatunnel.api.table.factory.TableFactoryContext;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiPluginException;
-import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import java.io.IOException;
-import java.io.Serializable;
-
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.*;
 
 @AutoService(SeaTunnelSource.class)
 public class HudiSourceFactory implements TableSourceFactory {
