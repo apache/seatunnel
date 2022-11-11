@@ -23,6 +23,8 @@ Some NoSQL databases or message queue are not strongly limited schema, so the sc
 | time      | Only store time. Accuracy is 100 nanoseconds.                |
 | timestamp | Stores a unique number that is updated whenever a row is created or modified. timestamp is based on the internal clock and does not correspond to real time. There can only be one timestamp variable per table. |
 | row       | Row type,can be nested.                                      |
+| map       | A Map is an object that maps keys to values. The key type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `decimal` `date` `time` `timestamp` `null` , and the value type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `decimal` `date` `time` `timestamp` `null` `array` `map`. |
+| array     | A array is a data type that represents a collection of elements. The element type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `array` `map`. |
 
 ## How to use schema
 

@@ -25,15 +25,19 @@ import org.apache.seatunnel.translation.spark.common.serialization.InternalRowCo
 
 import org.apache.spark.sql.catalyst.InternalRow;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 public class InternalRowCollector implements Collector<SeaTunnelRow> {
     private final Handover<InternalRow> handover;
     private final Object checkpointLock;
     private final InternalRowConverter rowSerialization;
+    private final AtomicLong collectTotalCount;
 
     public InternalRowCollector(Handover<InternalRow> handover, Object checkpointLock, SeaTunnelDataType<?> dataType) {
         this.handover = handover;
         this.checkpointLock = checkpointLock;
         this.rowSerialization = new InternalRowConverter(dataType);
+        this.collectTotalCount = new AtomicLong(0);
     }
 
     @Override
@@ -42,9 +46,14 @@ public class InternalRowCollector implements Collector<SeaTunnelRow> {
             synchronized (checkpointLock) {
                 handover.produce(rowSerialization.convert(record));
             }
+            collectTotalCount.incrementAndGet();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public long collectTotalCount() {
+        return collectTotalCount.get();
     }
 
     @Override
