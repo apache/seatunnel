@@ -39,10 +39,10 @@ public class HudiSourceConfig {
                     .noDefaultValue()
                     .withDescription("hudi conf files ");
 
-    public static final Option<String> USE_KERBEROS =
+    public static final Option<Boolean> USE_KERBEROS =
             Options.key("use.kerberos")
-                    .stringType()
-                    .noDefaultValue()
+                    .booleanType()
+                    .defaultValue(false)
                     .withDescription("hudi use.kerberos");
 
     public static final Option<String> KERBEROS_PRINCIPAL =

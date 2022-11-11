@@ -22,6 +22,11 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.TABLE_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.TABLE_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.CONF_FILES;
+
+
 @AutoService(SeaTunnelSource.class)
 public class HudiSourceFactory implements TableSourceFactory {
 
@@ -32,6 +37,6 @@ public class HudiSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return null;
+        return OptionRule.builder().required(TABLE_PATH,TABLE_TYPE,CONF_FILES).build();
     }
 }
