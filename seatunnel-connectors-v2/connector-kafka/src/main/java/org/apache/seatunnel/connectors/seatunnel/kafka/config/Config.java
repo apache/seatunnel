@@ -106,9 +106,9 @@ public class Config {
             .noDefaultValue()
             .withDescription("Configure which field is used as the key of the kafka message.");
 
-    public static final Option<String> START_MODE = Options.key("start_mode")
-            .stringType()
-            .defaultValue("group_offsets")
+    public static final Option<StartMode> START_MODE = Options.key("start_mode")
+            .objectType(StartMode.class)
+            .defaultValue(StartMode.GROUP_OFFSETS)
             .withDescription("The initial consumption pattern of consumers,there are several types:\n" +
                     "[earliest],[group_offsets],[latest],[specific_offsets],[timestamp]");
 
