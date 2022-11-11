@@ -95,14 +95,14 @@ public class JobConfigParser {
                            @NonNull IdGenerator idGenerator,
                            @NonNull JobConfig jobConfig,
                            @NonNull EngineConfig engineConfig) {
-        this(jobDefineFilePath, idGenerator, jobConfig, engineConfig, Collections.emptyList());
+        this(jobDefineFilePath, idGenerator, jobConfig, Collections.emptyList(), engineConfig);
     }
 
     public JobConfigParser(@NonNull String jobDefineFilePath,
                            @NonNull IdGenerator idGenerator,
                            @NonNull JobConfig jobConfig,
-                           @NonNull EngineConfig engineConfig,
-                           @NonNull List<URL> commonPluginJars) {
+                           @NonNull List<URL> commonPluginJars,
+                           @NonNull EngineConfig engineConfig) {
         this.jobDefineFilePath = jobDefineFilePath;
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;

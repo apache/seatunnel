@@ -25,7 +25,7 @@ public class EnvCommonOptions {
     public static final Option<Integer> PARALLELISM =
         Options.key("parallelism")
             .intType()
-            .noDefaultValue()
+            .defaultValue(1)
             .withDescription("When parallelism is not specified in connector, the parallelism in env is used by default. " +
                 "When parallelism is specified, it will override the parallelism in env.");
 

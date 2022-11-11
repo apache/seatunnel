@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -70,9 +71,14 @@ public class JobExecutionEnvironment {
 
     private final JobClient jobClient;
 
-    public JobExecutionEnvironment(JobConfig jobConfig, String jobFilePath,
-                                   SeaTunnelHazelcastClient seaTunnelHazelcastClient) {
+    private final SeaTunnelConfig seaTunnelConfig;
+
+    public JobExecutionEnvironment(JobConfig jobConfig,
+                                   String jobFilePath,
+                                   SeaTunnelHazelcastClient seaTunnelHazelcastClient,
+                                   SeaTunnelConfig seaTunnelConfig) {
         this.jobConfig = jobConfig;
+        this.seaTunnelConfig = seaTunnelConfig;
         this.jobFilePath = jobFilePath;
         this.idGenerator = new IdGenerator();
         this.seaTunnelHazelcastClient = seaTunnelHazelcastClient;
@@ -106,7 +112,7 @@ public class JobExecutionEnvironment {
     }
 
     private JobConfigParser getJobConfigParser() {
-        return new JobConfigParser(jobFilePath, idGenerator, jobConfig, commonPluginJars);
+        return new JobConfigParser(jobFilePath, idGenerator, jobConfig, commonPluginJars, seaTunnelConfig.getEngineConfig());
     }
 
     public void addAction(List<Action> actions) {
