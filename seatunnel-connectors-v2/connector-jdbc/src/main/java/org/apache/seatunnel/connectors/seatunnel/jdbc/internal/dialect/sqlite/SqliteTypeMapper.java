@@ -17,12 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlite;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
-
-import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -173,5 +172,4 @@ public class SqliteTypeMapper implements JdbcDialectTypeMapper {
                                 columnTypeName, jdbcColumnName));
         }
     }
-
 }

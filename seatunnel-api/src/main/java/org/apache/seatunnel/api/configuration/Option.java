@@ -42,7 +42,7 @@ public class Option<T> {
      */
     String description = "";
 
-    Option(String key, TypeReference<T> typeReference, T defaultValue) {
+    public Option(String key, TypeReference<T> typeReference, T defaultValue) {
         this.key = key;
         this.typeReference = typeReference;
         this.defaultValue = defaultValue;

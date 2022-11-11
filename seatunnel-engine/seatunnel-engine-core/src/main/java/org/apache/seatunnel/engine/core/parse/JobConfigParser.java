@@ -56,6 +56,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -122,6 +123,7 @@ public class JobConfigParser {
             complexAnalyze(sourceConfigs, transformConfigs, sinkConfigs);
         }
         actions.forEach(this::addCommonPluginJarsToAction);
+        jarUrlsSet.addAll(commonPluginJars);
         return new ImmutablePair<>(actions, jarUrlsSet);
     }
 
@@ -267,6 +269,10 @@ public class JobConfigParser {
             }
             String resultTableName = config.getString(Plugin.RESULT_TABLE_NAME);
             String sourceTableName = config.getString(Plugin.SOURCE_TABLE_NAME);
+            if (Objects.equals(sourceTableName, resultTableName)) {
+                throw new JobDefineCheckException(String.format(
+                    "Source{%s} and result{%s} table name cannot be equals", sourceTableName, resultTableName));
+            }
 
             transformResultTableNameMap.computeIfAbsent(resultTableName, k -> new ArrayList<>());
             transformResultTableNameMap.get(resultTableName).add(config);

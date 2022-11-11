@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.sink;
 
+import static org.apache.seatunnel.connectors.seatunnel.config.DingTalkConfig.SECRET;
+import static org.apache.seatunnel.connectors.seatunnel.config.DingTalkConfig.URL;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter.Context;
@@ -42,8 +45,6 @@ public class DingTalkSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
-    private final String dtURL = "url";
-    private final String dtSecret = "secret";
 
     @Override
     public String getPluginName() {
@@ -52,13 +53,13 @@ public class DingTalkSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        if (pluginConfig.getIsNull(dtURL)) {
+        if (pluginConfig.getIsNull(URL.key())) {
             throw new PrepareFailException(getPluginName(), PluginType.SINK,
-                String.format("Config must include column : %s", dtURL));
+                String.format("Config must include column : %s", URL.key()));
         }
-        if (pluginConfig.getIsNull(dtSecret)) {
+        if (pluginConfig.getIsNull(SECRET.key())) {
             throw new PrepareFailException(getPluginName(), PluginType.SINK,
-                String.format("Config must include column : %s", dtSecret));
+                String.format("Config must include column : %s", SECRET.key()));
         }
         this.pluginConfig = pluginConfig;
     }
@@ -75,6 +76,6 @@ public class DingTalkSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(Context context) throws IOException {
-        return new DingTalkWriter(pluginConfig.getString(dtURL), pluginConfig.getString(dtSecret));
+        return new DingTalkWriter(pluginConfig.getString(URL.key()), pluginConfig.getString(SECRET.key()));
     }
 }

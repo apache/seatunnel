@@ -38,6 +38,8 @@ public class JdbcConnectionOptions
     public String username;
     public String password;
     public String query;
+    // since sqlite data type affinity, the specific data type cannot be determined only by column type name
+    public boolean typeAffinity;
 
     public int batchSize = DEFAULT_BATCH_SIZE;
     public int batchIntervalMs = DEFAULT_BATCH_INTERVAL_MS;
@@ -99,6 +101,10 @@ public class JdbcConnectionOptions
         return transactionTimeoutSec < 0 ? Optional.empty() : Optional.of(transactionTimeoutSec);
     }
 
+    public boolean isTypeAffinity() {
+        return typeAffinity;
+    }
+
     public static JdbcConnectionOptionsBuilder builder() {
         return new JdbcConnectionOptionsBuilder();
     }
@@ -116,6 +122,7 @@ public class JdbcConnectionOptions
         private String xaDataSourceClassName;
         private int maxCommitAttempts = DEFAULT_MAX_COMMIT_ATTEMPTS;
         private int transactionTimeoutSec = DEFAULT_TRANSACTION_TIMEOUT_SEC;
+        private boolean typeAffinity;
 
         private JdbcConnectionOptionsBuilder() {
         }
@@ -180,6 +187,11 @@ public class JdbcConnectionOptions
             return this;
         }
 
+        public JdbcConnectionOptionsBuilder withTypeAffinity(boolean affinity) {
+            this.typeAffinity = affinity;
+            return this;
+        }
+
         public JdbcConnectionOptions build() {
             JdbcConnectionOptions jdbcConnectionOptions = new JdbcConnectionOptions();
             jdbcConnectionOptions.batchSize = this.batchSize;
@@ -194,6 +206,7 @@ public class JdbcConnectionOptions
             jdbcConnectionOptions.transactionTimeoutSec = this.transactionTimeoutSec;
             jdbcConnectionOptions.maxCommitAttempts = this.maxCommitAttempts;
             jdbcConnectionOptions.xaDataSourceClassName = this.xaDataSourceClassName;
+            jdbcConnectionOptions.typeAffinity = this.typeAffinity;
             return jdbcConnectionOptions;
         }
     }
