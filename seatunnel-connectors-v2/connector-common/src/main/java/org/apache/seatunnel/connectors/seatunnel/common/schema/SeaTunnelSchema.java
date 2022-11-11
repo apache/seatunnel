@@ -150,25 +150,26 @@ public class SeaTunnelSchema implements Serializable {
         switch (sqlType) {
             case ARRAY:
                 SeaTunnelDataType<?> dataType = parseTypeByString(genericType);
-                if (BasicType.STRING_TYPE.equals(dataType)) {
-                    return ArrayType.STRING_ARRAY_TYPE;
-                } else if (BasicType.BOOLEAN_TYPE.equals(dataType)) {
-                    return ArrayType.BOOLEAN_ARRAY_TYPE;
-                } else if (BasicType.BYTE_TYPE.equals(dataType)) {
-                    return ArrayType.BYTE_ARRAY_TYPE;
-                } else if (BasicType.SHORT_TYPE.equals(dataType)) {
-                    return ArrayType.SHORT_ARRAY_TYPE;
-                } else if (BasicType.INT_TYPE.equals(dataType)) {
-                    return ArrayType.INT_ARRAY_TYPE;
-                } else if (BasicType.LONG_TYPE.equals(dataType)) {
-                    return ArrayType.LONG_ARRAY_TYPE;
-                } else if (BasicType.FLOAT_TYPE.equals(dataType)) {
-                    return ArrayType.FLOAT_ARRAY_TYPE;
-                } else if (BasicType.DOUBLE_TYPE.equals(dataType)) {
-                    return ArrayType.DOUBLE_ARRAY_TYPE;
-                } else {
-                    String errorMsg = String.format("Array type not support this genericType [%s]", genericType);
-                    throw new RuntimeException(errorMsg);
+                switch(dataType.getSqlType()) {
+                    case STRING:
+                        return ArrayType.STRING_ARRAY_TYPE;
+                    case BOOLEAN:
+                        return ArrayType.BOOLEAN_ARRAY_TYPE;
+                    case TINYINT:
+                        return ArrayType.BYTE_ARRAY_TYPE;
+                    case SMALLINT:
+                        return ArrayType.SHORT_ARRAY_TYPE;
+                    case INT:
+                        return ArrayType.INT_ARRAY_TYPE;
+                    case BIGINT:
+                        return ArrayType.LONG_ARRAY_TYPE;
+                    case FLOAT:
+                        return ArrayType.FLOAT_ARRAY_TYPE;
+                    case DOUBLE:
+                        return ArrayType.DOUBLE_ARRAY_TYPE;
+                    default:
+                        String errorMsg = String.format("Array type not support this genericType [%s]", genericType);
+                        throw new UnsupportedOperationException(errorMsg);
                 }
             case MAP:
                 return new MapType<>(parseTypeByString(keyGenericType), parseTypeByString(valueGenericType));
