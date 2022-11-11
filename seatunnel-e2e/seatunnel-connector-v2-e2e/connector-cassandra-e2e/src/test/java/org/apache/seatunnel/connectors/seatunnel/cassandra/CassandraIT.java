@@ -241,7 +241,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
         try {
             session.execute(SimpleStatement.builder(String.format("truncate table %s", SINK_TABLE)).setKeyspace(KEYSPACE).build());
         } catch (Exception e) {
-            throw new RuntimeException("Test clickhouse server image failed!", e);
+            throw new RuntimeException("Test Cassandra server image failed!", e);
         }
     }
 

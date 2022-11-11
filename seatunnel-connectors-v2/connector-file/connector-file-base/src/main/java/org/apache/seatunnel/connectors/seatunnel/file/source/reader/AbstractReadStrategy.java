@@ -87,18 +87,13 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         configuration.setBoolean(WRITE_FIXED_AS_INT96, true);
         configuration.setBoolean(ADD_LIST_ELEMENT_RECORDS, false);
         configuration.setBoolean(WRITE_OLD_LIST_STRUCTURE, false);
-        if (hadoopConf != null) {
-            configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
-            configuration.set("fs.hdfs.impl", hadoopConf.getFsHdfsImpl());
-            hadoopConf.setExtraOptionsForConfiguration(configuration);
-        }
+        configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
+        configuration.set(String.format("fs.%s.impl", hadoopConf.getSchema()), hadoopConf.getFsHdfsImpl());
+        hadoopConf.setExtraOptionsForConfiguration(configuration);
         return configuration;
     }
 
     Configuration getConfiguration() throws FilePluginException {
-        if (null == hadoopConf) {
-            log.info("Local file reader didn't need hadoopConf");
-        }
         return getConfiguration(hadoopConf);
     }
 

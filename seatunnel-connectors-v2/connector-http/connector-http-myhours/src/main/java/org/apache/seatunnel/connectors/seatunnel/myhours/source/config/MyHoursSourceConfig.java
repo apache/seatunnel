@@ -17,16 +17,25 @@
 
 package org.apache.seatunnel.connectors.seatunnel.myhours.source.config;
 
-public class MyHoursSourceConfig {
-    public static final String URL = "url";
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
+
+public class MyHoursSourceConfig extends HttpConfig {
     public static final String POST = "POST";
-    public static final String EMAIL = "email";
-    public static final String PASSWORD = "password";
-    public static final String GRANTTYPE = "grantType";
-    public static final String CLIENTID = "clientId";
+    public static final String GRANT_TYPE = "grantType";
+    public static final String CLIENT_ID = "clientId";
     public static final String API = "api";
     public static final String AUTHORIZATION = "Authorization";
-    public static final String ACCESSTOKEN = "accessToken";
-    public static final String ACCESSTOKEN_PREFIX = "Bearer";
+    public static final String ACCESS_TOKEN = "accessToken";
+    public static final String ACCESS_TOKEN_PREFIX = "Bearer";
     public static final String AUTHORIZATION_URL = "https://api2.myhours.com/api/tokens/login";
+    public static final Option<String> EMAIL = Options.key("email")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("My hours login email address");
+    public static final Option<String> PASSWORD = Options.key("password")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("My hours login password");
 }
