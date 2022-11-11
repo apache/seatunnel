@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.Data;
@@ -26,11 +29,25 @@ import org.apache.commons.lang3.StringUtils;
 @Data
 public class KuduSinkConfig {
 
-    private static final String KUDU_SAVE_MODE = "save_mode";
-    private static final String KUDU_MASTER = "kudu_master";
-    private static final String KUDU_TABLE_NAME = "kudu_table";
+    public static final Option<String> KUDU_MASTER =
+        Options.key("kudu_master")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("kudu master address");
 
-    private SaveMode saveMode = SaveMode.APPEND;
+    public static final Option<SaveMode> KUDU_SAVE_MODE =
+        Options.key("save_mode")
+            .enumType(SaveMode.class)
+            .noDefaultValue()
+            .withDescription("Storage mode,append is now supported");
+
+    public static final Option<String> KUDU_TABLE_NAME =
+        Options.key("kudu_table")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("kudu table name");
+
+    private SaveMode saveMode;
 
     private String kuduMaster;
 
@@ -53,10 +70,10 @@ public class KuduSinkConfig {
     }
 
     public KuduSinkConfig(@NonNull Config pluginConfig) {
-        if (pluginConfig.hasPath(KUDU_SAVE_MODE) && pluginConfig.hasPath(KUDU_MASTER) && pluginConfig.hasPath(KUDU_TABLE_NAME)) {
-            this.saveMode = StringUtils.isBlank(pluginConfig.getString(KUDU_SAVE_MODE)) ? SaveMode.APPEND : SaveMode.fromStr(pluginConfig.getString(KUDU_SAVE_MODE));
-            this.kuduMaster = pluginConfig.getString(KUDU_MASTER);
-            this.kuduTableName = pluginConfig.getString(KUDU_TABLE_NAME);
+        if (pluginConfig.hasPath(KUDU_SAVE_MODE.key()) && pluginConfig.hasPath(KUDU_MASTER.key()) && pluginConfig.hasPath(KUDU_TABLE_NAME.key())) {
+            this.saveMode = StringUtils.isBlank(pluginConfig.getString(KUDU_SAVE_MODE.key())) ? SaveMode.APPEND : SaveMode.fromStr(pluginConfig.getString(KUDU_SAVE_MODE.key()));
+            this.kuduMaster = pluginConfig.getString(KUDU_MASTER.key());
+            this.kuduTableName = pluginConfig.getString(KUDU_TABLE_NAME.key());
         } else {
             throw new RuntimeException("Missing Sink configuration parameters");
         }
