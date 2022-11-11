@@ -17,9 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.myhours.source;
 
+import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 import org.apache.seatunnel.connectors.seatunnel.myhours.source.config.MyHoursSourceConfig;
 
 import com.google.auto.service.AutoService;
@@ -37,6 +40,13 @@ public class MyHoursSourceFactory implements TableSourceFactory {
                 .required(MyHoursSourceConfig.URL)
                 .required(MyHoursSourceConfig.EMAIL)
                 .required(MyHoursSourceConfig.PASSWORD)
+                .optional(MyHoursSourceConfig.METHOD)
+                .optional(MyHoursSourceConfig.HEADERS)
+                .optional(MyHoursSourceConfig.PARAMS)
+                .conditional(Condition.of(HttpConfig.METHOD, "post"), MyHoursSourceConfig.BODY)
+                .conditional(Condition.of(HttpConfig.FORMAT, "json"), SeaTunnelSchema.SCHEMA)
+                .optional(MyHoursSourceConfig.FORMAT)
+                .optional(MyHoursSourceConfig.POLL_INTERVAL_MILLS)
                 .optional(MyHoursSourceConfig.RETRY)
                 .optional(MyHoursSourceConfig.RETRY_BACKOFF_MAX_MS)
                 .optional(MyHoursSourceConfig.RETRY_BACKOFF_MULTIPLIER_MS)
