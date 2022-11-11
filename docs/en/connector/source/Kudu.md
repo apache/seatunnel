@@ -18,9 +18,9 @@ Engine Supported and plugin name
 ## Options
 
 | name           | type   | required | default value |
-| -------------- | ------ | -------- | ------------- |
-| kudu_master            | string | yes      | -             |
-| kudu_table       | string | yes      | -         |
+| -------------- | ------ | -------- |---------------|
+| kudu_master    | string | yes      | -             |
+| kudu_table     | string | yes      | -             |
 
 ### kudu_master [string]
 
