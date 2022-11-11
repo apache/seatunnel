@@ -63,22 +63,33 @@ The way to specify parameters is to add the prefix `kafka.` to the original para
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
 ### schema
+
 The structure of the data, including field names and field types.
 
 ## format
+
 Data format. The default format is json. Optional text format. The default field separator is ", ".
 If you customize the delimiter, add the "field_delimiter" option.
 
+## field_delimiter
+
+Customize the field delimiter for data format.
+
 ## start_mode
+
 The initial consumption pattern of consumers,there are several types:
 [earliest],[group_offsets],[latest],[specific_offsets],[timestamp]
 
 ## start_mode.timestamp
-The time required for consumption mode to be timestamp
+
+The time required for consumption mode to be timestamp.
 
 ##  start_mode.offsets
-The offset required for consumption mode to be specific_offsets
+
+The offset required for consumption mode to be specific_offsets.
+
 for example:
+
 ```hocon
    start_mode.offsets = {
             info-0 = 70

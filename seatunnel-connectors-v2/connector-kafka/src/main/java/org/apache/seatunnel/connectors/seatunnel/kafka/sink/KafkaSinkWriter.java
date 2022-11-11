@@ -146,7 +146,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     private Properties getKafkaProperties(Config pluginConfig) {
         Config kafkaConfig = TypesafeConfigUtils.extractSubConfig(pluginConfig,
-                org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG_PREFIX, false);
+                org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG_PREFIX.key(), false);
         Properties kafkaProperties = new Properties();
         kafkaConfig.entrySet().forEach(entry -> {
             kafkaProperties.put(entry.getKey(), entry.getValue().unwrapped());
