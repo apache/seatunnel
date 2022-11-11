@@ -71,7 +71,7 @@ public class OssFileSource extends BaseFileSource {
                 case CSV:
                 case TEXT:
                 case JSON:
-                    Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA);
+                    Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
                     SeaTunnelRowType userDefinedSchema = SeaTunnelSchema
                             .buildWithConfig(schemaConfig)
                             .getSeaTunnelRowType();

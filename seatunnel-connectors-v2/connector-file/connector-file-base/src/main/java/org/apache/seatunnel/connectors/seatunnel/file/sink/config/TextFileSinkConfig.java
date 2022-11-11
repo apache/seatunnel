@@ -132,12 +132,12 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
         Map<String, Integer> columnsMap = new HashMap<>(seaTunnelRowTypeInfo.getFieldNames().length);
         String[] fieldNames = seaTunnelRowTypeInfo.getFieldNames();
         for (int i = 0; i < fieldNames.length; i++) {
-            columnsMap.put(fieldNames[i], i);
+            columnsMap.put(fieldNames[i].toLowerCase(), i);
         }
 
         // init sink column index and partition field index, we will use the column index to found the data in SeaTunnelRow
         this.sinkColumnsIndexInRow = this.sinkColumnList.stream()
-            .map(columnsMap::get)
+            .map(column -> columnsMap.get(column.toLowerCase()))
             .collect(Collectors.toList());
 
         if (!CollectionUtils.isEmpty(this.partitionFieldList)) {

@@ -62,8 +62,6 @@ seatunnel-connector-spark-console
 seatunnel-connector-spark-doris
 seatunnel-connector-spark-email
 --connectors-v2--
-connector-fake
-connector-console
 connector-assert
 connector-kafka
 connector-http-base

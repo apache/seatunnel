@@ -26,11 +26,17 @@ import org.apache.hadoop.fs.aliyun.oss.Constants;
 import java.util.HashMap;
 
 public class OssConf extends HadoopConf {
-    private final String fsHdfsImpl = "org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem";
+    private static final String HDFS_IMPL = "org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem";
+    private static final String SCHEMA = "oss";
 
     @Override
     public String getFsHdfsImpl() {
-        return fsHdfsImpl;
+        return HDFS_IMPL;
+    }
+
+    @Override
+    public String getSchema() {
+        return SCHEMA;
     }
 
     public OssConf(String hdfsNameKey) {

@@ -10,6 +10,15 @@ this [issue](https://github.com/apache/incubator-seatunnel/issues/1608) for deta
 In order to separate from the old code, we have defined new modules for execution flow. This facilitates parallel
 development at the current stage, and reduces the difficulty of merging.
 
+### engineering structure
+
+-  ../`seatunnel-connectors-v2`                                        connector-v2 code implementation
+-  ../`seatunnel-translation`                                          translation layer for the connector-v2
+-  ../seatunnel-e2e/`seatunnel-flink-connector-v2-e2e`                 end to end testcase running on flink
+-  ../seatunnel-e2e/`seatunnel-spark-connector-v2-e2e`                 end to end testcase running on spark
+-  ../seatunnel-examples/`seatunnel-flink-connector-v2-example`        seatunnel connector-v2 example use flink local running instance
+-  ../seatunnel-examples/`seatunnel-spark-connector-v2-example`        seatunnel connector-v2 example use spark local running instance
+
 ### **Example**
 
 We have prepared two new version of the locally executable example program in `seatunnel-examples`,one
@@ -22,13 +31,31 @@ configuration files used in example are saved in the "resources/examples" folder
 own connectors, you need to follow the steps below.
 
 1. Add the groupId, artifactId and version of the connector to be tested to
-   seatunnel-examples/seatunnel-flink-connector-v2-example/pom.xml(or add it to
-   seatunnel-examples/seatunnel-spark-connector-v2-example/pom.xml when you want to runs it in Spark engine) as a
+   `seatunnel-examples/seatunnel-flink-connector-v2-example/pom.xml`(or add it to
+   `seatunnel-examples/seatunnel-spark-connector-v2-example/pom.xml` when you want to runs it in Spark engine) as a
    dependency.
 2. Find the dependency in your connector pom file which scope is test or provided and then add them to
    seatunnel-examples/seatunnel-flink-connector-v2-example/pom.xml(or add it to
    seatunnel-examples/seatunnel-spark-connector-v2-example/pom.xml) file and modify the scope to compile.
-3. Refer to the SeaTunnelApiExample class to develop your sample code.
+3. Add the task configuration file under resources/examples.
+4. Configure the file in the `SeaTunnelApiExample` main method.
+5. Just run the main method.
+
+### **Create new seatunnel v2 connector**
+
+1.Create a new module under the `seatunnel-connectors-v2` directory and name it connector - {connector name}.
+
+2.The pom file can refer to the pom file of the existing connector, and add the current sub model to the pom file of the parent model
+
+3.Create two packages corresponding to source and sink
+
+​    package org.apache.seatunnel.connectors.seatunnel.{connector name}}.source
+
+​    package org.apache.seatunnel.connectors.seatunnel.{connector name}}.sink
+
+4.add connector info to plugin-mapping.properties file in seatunnel root path.
+
+5.add connector dependency to seatunnel-dist/pom.xml, so the connector jar can be find in binary package.
 
 ### **Startup Class**
 
@@ -171,6 +198,41 @@ inconsistency of the state caused by the failure of the second part of the stage
 In the current version, it is recommended to implement ``SinkAggregatedCommitter`` as the first choice, which can
 provide strong consistency guarantee in Flink/Spark. At the same time, commit should be idempotent, and save engine
 retry can work normally.
+
+### TableSourceFactory and TableSinkFactory
+
+In order to automatically create the Source Connector and Sink Connector and Transform Connector, we need the connector to return the parameters needed to create them and the verification rules for each parameter. For Source Connector and Sink Connector, we define `TableSourceFactory` and `TableSinkFactory`
+supported by the current connector and the required parameters. We define TableSourceFactory and TableSinkFactory,
+It is recommended to put it in the same directory as the implementation class of SeaTunnelSource or SeaTunnelSink for easy searching.
+
+- `factoryIdentifier` is used to indicate the name of the current Factory. This value should be the same as the 
+    value returned by `getPluginName`, so that if Factory is used to create Source/Sink in the future,
+    A seamless switch can be achieved.
+- `createSink` and `createSource` are the methods for creating Source and Sink respectively, 
+    and do not need to be implemented at present.
+- `optionRule` returns the parameter logic, which is used to indicate which parameters of our connector are supported,
+    which parameters are required, which parameters are optional, and which parameters are exclusive, which parameters are bundledRequired.
+    This method will be used when we visually create the connector logic, and it will also be used to generate a complete parameter 
+    object according to the parameters configured by the user, and then the connector developer does not need to judge whether the parameters
+    exist one by one in the Config, and use it directly That's it.
+    You can refer to existing implementations, such as `org.apache.seatunnel.connectors.seatunnel.elasticsearch.source.ElasticsearchSourceFactory`.
+    There is support for configuring Schema for many Sources, so a common Option is used.
+    If you need a schema, you can refer to `org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema.SCHEMA`.
+
+Don't forget to add `@AutoService(Factory.class)` to the class. This Factory is the parent class of TableSourceFactory and TableSinkFactory.
+
+### **Options**
+
+When we implement TableSourceFactory and TableSinkFactory, the corresponding Option will be created.
+Each Option corresponds to a configuration, but different configurations will have different types. 
+Common types can be created by directly calling the corresponding method.
+But if our parameter type is an object, we can use POJO to represent parameters of object type,
+and need to use `org.apache.seatunnel.api.configuration.util.OptionMark` on each parameter to indicate that this is A child Option.
+`OptionMark` has two parameters, `name` is used to declare the parameter name corresponding to the field.
+If it is empty, we will convert the small camel case corresponding to java to underscore by default, such as: `myUserPassword`  -> `my_user_password` .
+In most cases, the default is empty. `description` is used to indicate the description of the current parameter.
+This parameter is optional. It is recommended to be consistent with the documentation. For specific examples,
+please refer to `org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertSinkFactory`.
 
 ## **Result**
 
