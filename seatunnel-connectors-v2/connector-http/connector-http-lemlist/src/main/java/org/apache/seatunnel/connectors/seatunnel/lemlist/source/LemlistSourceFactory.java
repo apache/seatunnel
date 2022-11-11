@@ -17,9 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.lemlist.source;
 
+import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 import org.apache.seatunnel.connectors.seatunnel.lemlist.source.config.LemlistSourceConfig;
 
 import com.google.auto.service.AutoService;
@@ -36,6 +39,13 @@ public class LemlistSourceFactory implements TableSourceFactory {
         return OptionRule.builder()
                 .required(LemlistSourceConfig.URL)
                 .required(LemlistSourceConfig.PASSWORD)
+                .optional(LemlistSourceConfig.METHOD)
+                .optional(LemlistSourceConfig.HEADERS)
+                .optional(LemlistSourceConfig.PARAMS)
+                .conditional(Condition.of(HttpConfig.METHOD, "post"), LemlistSourceConfig.BODY)
+                .conditional(Condition.of(HttpConfig.FORMAT, "json"), SeaTunnelSchema.SCHEMA)
+                .optional(LemlistSourceConfig.FORMAT)
+                .optional(LemlistSourceConfig.POLL_INTERVAL_MILLS)
                 .optional(LemlistSourceConfig.RETRY)
                 .optional(LemlistSourceConfig.RETRY_BACKOFF_MAX_MS)
                 .optional(LemlistSourceConfig.RETRY_BACKOFF_MULTIPLIER_MS)
