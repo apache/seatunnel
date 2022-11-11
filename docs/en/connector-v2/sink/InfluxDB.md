@@ -13,20 +13,21 @@ Write data to InfluxDB.
 
 ## Options
 
-| name                        | type     | required | default value                 |
-|-----------------------------|----------|----------|-------------------------------|
-| url                         | string   | yes      | -                             |
-| database                    | string   | yes      |                               |
-| measurement                 | string   | yes      |                               |
-| username                    | string   | no       | -                             |
-| password                    | string   | no       | -                             |
-| key_time                    | string   | yes      | processing time               |
-| key_tags                    | array    | no       | exclude `field` & `key_time`  |
-| batch_size                  | int      | no       | 1024                          |
-| batch_interval_ms           | int      | no       | -                             |
-| max_retries                 | int      | no       | -                             |
-| retry_backoff_multiplier_ms | int      | no       | -                             |
-| connect_timeout_ms          | long     | no       | 15000                         |
+| name                        | type   | required | default value                |
+|-----------------------------|--------|----------|------------------------------|
+| url                         | string | yes      | -                            |
+| database                    | string | yes      |                              |
+| measurement                 | string | yes      |                              |
+| username                    | string | no       | -                            |
+| password                    | string | no       | -                            |
+| key_time                    | string | yes      | processing time              |
+| key_tags                    | array  | no       | exclude `field` & `key_time` |
+| batch_size                  | int    | no       | 1024                         |
+| batch_interval_ms           | int    | no       | -                            |
+| max_retries                 | int    | no       | -                            |
+| retry_backoff_multiplier_ms | int    | no       | -                            |
+| connect_timeout_ms          | long   | no       | 15000                        |
+| common-options              |        | no       | -                            |
 
 ### url
 the url to connect to influxDB e.g.
