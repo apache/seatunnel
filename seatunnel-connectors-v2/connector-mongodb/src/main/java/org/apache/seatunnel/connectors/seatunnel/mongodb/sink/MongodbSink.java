@@ -56,7 +56,7 @@ public class MongodbSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(config, URI, DATABASE, COLLECTION);
+        CheckResult result = CheckConfigUtil.checkAllExists(config, URI.key(), DATABASE.key(), COLLECTION.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }

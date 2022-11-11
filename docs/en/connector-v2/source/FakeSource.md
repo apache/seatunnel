@@ -36,11 +36,7 @@ just for some test cases such as type conversion or connector new feature testin
 
 The schema of fake data that you want to generate
 
-### common options 
-
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
-
-## Examples
+#### Examples
 
 ```hocon
   schema = {
@@ -108,6 +104,10 @@ The length of `bytes` type that connector generated
 ### string.length
 
 The length of `string` type that connector generated
+
+### common options
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
 ## Example
 

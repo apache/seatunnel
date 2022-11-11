@@ -17,9 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.writer;
 
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
+
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
 
 import org.junit.jupiter.api.Test;
@@ -34,8 +37,9 @@ public class ParquetReadStrategyTest {
         assert resource != null;
         String path = Paths.get(resource.toURI()).toString();
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        parquetReadStrategy.init(null);
-        SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(null, path);
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        parquetReadStrategy.init(localConf);
+        SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
         assert seaTunnelRowTypeInfo != null;
         TestCollector testCollector = new TestCollector();
         parquetReadStrategy.read(path, testCollector);
@@ -52,6 +56,25 @@ public class ParquetReadStrategyTest {
         @Override
         public Object getCheckpointLock() {
             return null;
+        }
+    }
+
+    public static class LocalConf extends HadoopConf {
+        private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
+        private static final String SCHEMA = "file";
+
+        public LocalConf(String hdfsNameKey) {
+            super(hdfsNameKey);
+        }
+
+        @Override
+        public String getFsHdfsImpl() {
+            return HDFS_IMPL;
+        }
+
+        @Override
+        public String getSchema() {
+            return SCHEMA;
         }
     }
 }
