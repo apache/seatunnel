@@ -22,9 +22,7 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.TABLE_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.TABLE_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.CONF_FILES;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.*;
 
 
 @AutoService(SeaTunnelSource.class)
@@ -37,6 +35,10 @@ public class HudiSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(TABLE_PATH,TABLE_TYPE,CONF_FILES).build();
+        return OptionRule.builder()
+                .required(TABLE_PATH,TABLE_TYPE,CONF_FILES)
+                .optional(USE_KERBEROS,KERBEROS_PRINCIPAL,KERBEROS_PRINCIPAL_FILE)
+                .conditional(USE_KERBEROS,true,KERBEROS_PRINCIPAL,KERBEROS_PRINCIPAL_FILE)
+                .build();
     }
 }
