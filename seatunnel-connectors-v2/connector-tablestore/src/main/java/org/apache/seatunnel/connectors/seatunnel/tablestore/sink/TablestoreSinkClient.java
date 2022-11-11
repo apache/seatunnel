@@ -78,7 +78,7 @@ public class TablestoreSinkClient {
         initialize = true;
     }
 
-    public synchronized void write(RowPutChange rowPutChange) throws IOException {
+    public void write(RowPutChange rowPutChange) throws IOException {
         tryInit();
         checkFlushException();
         batchList.add(rowPutChange);
@@ -88,7 +88,7 @@ public class TablestoreSinkClient {
         }
     }
 
-    public synchronized void close() throws IOException {
+    public void close() throws IOException {
         if (scheduledFuture != null) {
             scheduledFuture.cancel(false);
             scheduler.shutdown();

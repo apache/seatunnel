@@ -57,7 +57,7 @@ public class TablestoreSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, END_POINT, TABLE, INSTANCE_NAME, ACCESS_KEY_ID, ACCESS_KEY_SECRET, PRIMARY_KEYS);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, END_POINT.key(), TABLE.key(), INSTANCE_NAME.key(), ACCESS_KEY_ID.key(), ACCESS_KEY_SECRET.key(), PRIMARY_KEYS.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }

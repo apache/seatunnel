@@ -49,7 +49,7 @@ The table of Tablestore.
 
 The primaryKeys of Tablestore.
 
-### common options
+### common options [ config ]
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
 

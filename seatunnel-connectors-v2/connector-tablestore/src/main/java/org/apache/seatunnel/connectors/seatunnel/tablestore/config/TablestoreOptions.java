@@ -53,15 +53,13 @@ public class TablestoreOptions implements Serializable {
         this.accessKeyId = config.getString(TablestoreConfig.ACCESS_KEY_ID);
         this.accessKeySecret = config.getString(TablestoreConfig.ACCESS_KEY_SECRET);
         this.table = config.getString(TablestoreConfig.TABLE);
+        this.primaryKeys = config.getStringList(TablestoreConfig.PRIMARY_KEYS);
 
         if (config.hasPath(TablestoreConfig.BATCH_SIZE)) {
             this.batchSize = config.getInt(TablestoreConfig.BATCH_SIZE);
         }
         if (config.hasPath(TablestoreConfig.DEFAULT_BATCH_INTERVAL_MS)) {
             this.batchIntervalMs = config.getInt(TablestoreConfig.DEFAULT_BATCH_INTERVAL_MS);
-        }
-        if (config.hasPath(TablestoreConfig.PRIMARY_KEYS)) {
-            this.primaryKeys = config.getStringList(TablestoreConfig.PRIMARY_KEYS);
         }
     }
 }
