@@ -19,6 +19,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergStreamScanStrategy;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -32,12 +34,35 @@ import org.apache.iceberg.expressions.Expression;
 public class SourceConfig extends CommonConfig {
     private static final long serialVersionUID = -1965861967575264253L;
 
-    private static final String KEY_START_SNAPSHOT_TIMESTAMP = "start_snapshot_timestamp";
-    private static final String KEY_START_SNAPSHOT_ID = "start_snapshot_id";
-    private static final String KEY_END_SNAPSHOT_ID = "end_snapshot_id";
-    private static final String KEY_USE_SNAPSHOT_ID = "use_snapshot_id";
-    private static final String KEY_USE_SNAPSHOT_TIMESTAMP = "use_snapshot_timestamp";
-    private static final String KEY_STREAM_SCAN_STRATEGY = "stream_scan_strategy";
+    public static final Option<Long> KEY_START_SNAPSHOT_TIMESTAMP = Options.key("start_snapshot_timestamp")
+        .longType()
+        .noDefaultValue()
+        .withDescription(" the iceberg timestamp of starting snapshot ");
+
+    public static final Option<Long> KEY_START_SNAPSHOT_ID = Options.key("start_snapshot_id")
+        .longType()
+        .noDefaultValue()
+        .withDescription(" the iceberg id of starting snapshot ");
+
+    public static final Option<Long> KEY_END_SNAPSHOT_ID = Options.key("end_snapshot_id")
+        .longType()
+        .noDefaultValue()
+        .withDescription(" the iceberg id of ending snapshot ");
+
+    public static final Option<Long> KEY_USE_SNAPSHOT_ID = Options.key("use_snapshot_id")
+        .longType()
+        .noDefaultValue()
+        .withDescription(" the iceberg used snapshot id");
+
+    public static final Option<Long> KEY_USE_SNAPSHOT_TIMESTAMP = Options.key("use_snapshot_timestamp")
+        .longType()
+        .noDefaultValue()
+        .withDescription(" the iceberg used snapshot timestamp");
+
+    public static final Option<Long> KEY_STREAM_SCAN_STRATEGY = Options.key("stream_scan_strategy")
+        .longType()
+        .noDefaultValue()
+        .withDescription(" the iceberg strategy of stream scanning");
 
     private Long startSnapshotTimestamp;
     private Long startSnapshotId;
@@ -54,24 +79,24 @@ public class SourceConfig extends CommonConfig {
 
     public SourceConfig(Config pluginConfig) {
         super(pluginConfig);
-        if (pluginConfig.hasPath(KEY_START_SNAPSHOT_TIMESTAMP)) {
-            this.startSnapshotTimestamp = pluginConfig.getLong(KEY_START_SNAPSHOT_TIMESTAMP);
+        if (pluginConfig.hasPath(KEY_START_SNAPSHOT_TIMESTAMP.key())) {
+            this.startSnapshotTimestamp = pluginConfig.getLong(KEY_START_SNAPSHOT_TIMESTAMP.key());
         }
-        if (pluginConfig.hasPath(KEY_START_SNAPSHOT_ID)) {
-            this.startSnapshotId = pluginConfig.getLong(KEY_START_SNAPSHOT_ID);
+        if (pluginConfig.hasPath(KEY_START_SNAPSHOT_ID.key())) {
+            this.startSnapshotId = pluginConfig.getLong(KEY_START_SNAPSHOT_ID.key());
         }
-        if (pluginConfig.hasPath(KEY_END_SNAPSHOT_ID)) {
-            this.endSnapshotId = pluginConfig.getLong(KEY_END_SNAPSHOT_ID);
+        if (pluginConfig.hasPath(KEY_END_SNAPSHOT_ID.key())) {
+            this.endSnapshotId = pluginConfig.getLong(KEY_END_SNAPSHOT_ID.key());
         }
-        if (pluginConfig.hasPath(KEY_USE_SNAPSHOT_ID)) {
-            this.useSnapshotId = pluginConfig.getLong(KEY_USE_SNAPSHOT_ID);
+        if (pluginConfig.hasPath(KEY_USE_SNAPSHOT_ID.key())) {
+            this.useSnapshotId = pluginConfig.getLong(KEY_USE_SNAPSHOT_ID.key());
         }
-        if (pluginConfig.hasPath(KEY_USE_SNAPSHOT_TIMESTAMP)) {
-            this.useSnapshotTimestamp = pluginConfig.getLong(KEY_USE_SNAPSHOT_TIMESTAMP);
+        if (pluginConfig.hasPath(KEY_USE_SNAPSHOT_TIMESTAMP.key())) {
+            this.useSnapshotTimestamp = pluginConfig.getLong(KEY_USE_SNAPSHOT_TIMESTAMP.key());
         }
-        if (pluginConfig.hasPath(KEY_STREAM_SCAN_STRATEGY)) {
+        if (pluginConfig.hasPath(KEY_STREAM_SCAN_STRATEGY.key())) {
             this.streamScanStrategy = pluginConfig.getEnum(
-                IcebergStreamScanStrategy.class, KEY_STREAM_SCAN_STRATEGY);
+                IcebergStreamScanStrategy.class, KEY_STREAM_SCAN_STRATEGY.key());
         }
     }
 
