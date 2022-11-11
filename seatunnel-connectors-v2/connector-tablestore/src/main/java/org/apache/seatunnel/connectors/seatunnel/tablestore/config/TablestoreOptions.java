@@ -48,18 +48,18 @@ public class TablestoreOptions implements Serializable {
     public int batchIntervalMs = DEFAULT_BATCH_INTERVAL_MS;
 
     public TablestoreOptions(Config config) {
-        this.endpoint = config.getString(TablestoreConfig.END_POINT);
-        this.instanceName = config.getString(TablestoreConfig.INSTANCE_NAME);
-        this.accessKeyId = config.getString(TablestoreConfig.ACCESS_KEY_ID);
-        this.accessKeySecret = config.getString(TablestoreConfig.ACCESS_KEY_SECRET);
-        this.table = config.getString(TablestoreConfig.TABLE);
-        this.primaryKeys = config.getStringList(TablestoreConfig.PRIMARY_KEYS);
+        this.endpoint = config.getString(TablestoreConfig.END_POINT.key());
+        this.instanceName = config.getString(TablestoreConfig.INSTANCE_NAME.key());
+        this.accessKeyId = config.getString(TablestoreConfig.ACCESS_KEY_ID.key());
+        this.accessKeySecret = config.getString(TablestoreConfig.ACCESS_KEY_SECRET.key());
+        this.table = config.getString(TablestoreConfig.TABLE.key());
+        this.primaryKeys = config.getStringList(TablestoreConfig.PRIMARY_KEYS.key());
 
-        if (config.hasPath(TablestoreConfig.BATCH_SIZE)) {
-            this.batchSize = config.getInt(TablestoreConfig.BATCH_SIZE);
+        if (config.hasPath(TablestoreConfig.BATCH_SIZE.key())) {
+            this.batchSize = config.getInt(TablestoreConfig.BATCH_SIZE.key());
         }
-        if (config.hasPath(TablestoreConfig.DEFAULT_BATCH_INTERVAL_MS)) {
-            this.batchIntervalMs = config.getInt(TablestoreConfig.DEFAULT_BATCH_INTERVAL_MS);
+        if (config.hasPath(TablestoreConfig.DEFAULT_BATCH_INTERVAL_MS.key())) {
+            this.batchIntervalMs = config.getInt(TablestoreConfig.DEFAULT_BATCH_INTERVAL_MS.key());
         }
     }
 }
