@@ -60,10 +60,11 @@ public class Neo4jIT extends FlinkContainer {
 
     private static final String CONTAINER_IMAGE = "neo4j:latest";
     private static final String CONTAINER_HOST = "neo4j-host";
-    private static final int CONTAINER_PORT = 9687;
+    private static final int HTTP_PORT = 7474;
+    private static final int BOLT_PORT = 7687;
     private static final String CONTAINER_NEO4J_USERNAME = "neo4j";
     private static final String CONTAINER_NEO4J_PASSWORD = "1234";
-    private static final URI CONTAINER_URI = URI.create("neo4j://localhost:" + CONTAINER_PORT);
+    private static final URI CONTAINER_URI = URI.create("neo4j://localhost:" + BOLT_PORT);
 
     private GenericContainer<?> container;
     private Driver neo4jDriver;
@@ -75,10 +76,10 @@ public class Neo4jIT extends FlinkContainer {
         container = new GenericContainer<>(imageName)
             .withNetwork(NETWORK)
             .withNetworkAliases(CONTAINER_HOST)
-            .withExposedPorts(CONTAINER_PORT)
+            .withExposedPorts(HTTP_PORT, BOLT_PORT)
             .withEnv("NEO4J_AUTH", CONTAINER_NEO4J_USERNAME + "/" + CONTAINER_NEO4J_PASSWORD)
             .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(CONTAINER_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", CONTAINER_PORT, CONTAINER_PORT)));
+        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", HTTP_PORT, HTTP_PORT), String.format("%s:%s", BOLT_PORT, BOLT_PORT)));
         Startables.deepStart(Stream.of(container)).join();
         log.info("container started");
         Awaitility.given().ignoreExceptions()
