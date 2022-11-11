@@ -151,7 +151,7 @@ Sink可以根据组件属性进行选择，到底是只实现`SinkCommitter`或`
 
 ### TableSourceFactory 和 TableSinkFactory
 
-为了实现自动化的创建Source或者Sink，同时支持自动返回当前连接器支持的参数和所需的参数。我们定义了TableSourceFactory和TableSinkFactory，
+为了实现自动化的创建Source或者Sink，我们需要连接器能够声明并返回创建他们所需要的参数列表和每个参数的校验规则。为了实现这个目标，我们定义了TableSourceFactory和TableSinkFactory，
 建议将其放在和SeaTunnelSource或SeaTunnelSink实现类同一目录下，方便寻找。
 
 - `factoryIdentifier` 用于表明当前Factory的名称，这个值应该和`getPluginName`返回的值一致，这样后续如果使用Factory来创建Source/Sink，

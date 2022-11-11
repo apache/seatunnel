@@ -201,7 +201,7 @@ retry can work normally.
 
 ### TableSourceFactory and TableSinkFactory
 
-In order to automatically create a Source or Sink, it also supports automatic return of the parameters 
+In order to automatically create the Source Connector and Sink Connector and Transform Connector, we need the connector to return the parameters needed to create them and the verification rules for each parameter. For Source Connector and Sink Connector, we define `TableSourceFactory` and `TableSinkFactory`
 supported by the current connector and the required parameters. We define TableSourceFactory and TableSinkFactory,
 It is recommended to put it in the same directory as the implementation class of SeaTunnelSource or SeaTunnelSink for easy searching.
 
