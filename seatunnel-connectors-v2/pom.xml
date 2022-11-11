@@ -32,6 +32,7 @@
 
     <modules>
         <module>connector-common</module>
+        <module>connector-cdc</module>
         <module>connector-clickhouse</module>
         <module>connector-console</module>
         <module>connector-fake</module>

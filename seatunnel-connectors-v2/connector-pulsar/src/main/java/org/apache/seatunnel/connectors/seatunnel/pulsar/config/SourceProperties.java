@@ -68,7 +68,7 @@ public class SourceProperties {
          */
         EARLIEST,
         /**
-         * "Start from the latest cursor."
+         * Start from the latest cursor.
          */
         LATEST,
         /**
@@ -82,25 +82,25 @@ public class SourceProperties {
         /**
          * Start from user-supplied specific cursors for each partition.
          */
-        SPECIFIC;
+        SPECIFIC
     }
 
     /**
-     * Startup mode for the pulsar consumer, see {@link #CURSOR_STARTUP_MODE}.
+     * Stop mode for the pulsar consumer, see {@link #CURSOR_STOP_MODE}.
      */
     public enum StopMode {
         /**
-         * "Start from the latest cursor."
+         * Stop from the latest cursor.
          */
         LATEST,
         /**
-         * Start from user-supplied timestamp for each partition.
+         * Stop from user-supplied timestamp for each partition.
          */
         TIMESTAMP,
         /**
-         * Start from user-supplied specific cursors for each partition.
+         * Stop from user-supplied specific cursors for each partition.
          */
         SPECIFIC,
-        NEVER;
+        NEVER
     }
 }

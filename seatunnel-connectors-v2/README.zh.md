@@ -149,6 +149,28 @@ Sink可以根据组件属性进行选择，到底是只实现`SinkCommitter`或`
 
 当前版本推荐将实现SinkAggregatedCommitter作为首选，可以在Flink/Spark中提供较强的一致性保证，同时commit应该要实现幂等性，保存引擎重试能够正常运作。
 
+### TableSourceFactory 和 TableSinkFactory
+
+为了实现自动化的创建Source或者Sink，我们需要连接器能够声明并返回创建他们所需要的参数列表和每个参数的校验规则。为了实现这个目标，我们定义了TableSourceFactory和TableSinkFactory，
+建议将其放在和SeaTunnelSource或SeaTunnelSink实现类同一目录下，方便寻找。
+
+- `factoryIdentifier` 用于表明当前Factory的名称，这个值应该和`getPluginName`返回的值一致，这样后续如果使用Factory来创建Source/Sink，
+就能实现无缝切换。
+- `createSink` 和 `createSource` 分别是创建Source和Sink的方法，目前不用实现。
+- `optionRule` 返回的是参数逻辑，用于表示我们的连接器参数哪些支持，哪些参数是必须(required)的，哪些参数是可选(optional)的，哪些参数是互斥(exclusive)的，哪些参数是绑定(bundledRequired)的。
+这个方法会在我们可视化创建连接器逻辑的时候用到，同时也会用于根据用户配置的参数生成完整的参数对象，然后连接器开发者就不用在Config里面一个个判断参数是否存在，直接使用即可。
+可以参考现有的实现，比如`org.apache.seatunnel.connectors.seatunnel.elasticsearch.source.ElasticsearchSourceFactory`。针对很多Source都有支持配置Schema，所以采用了通用的Option，
+需要Schema则可以引用`org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema.SCHEMA`。
+
+别忘记添加`@AutoService(Factory.class)` 到类上面。这个Factory即TableSourceFactory 和 TableSinkFactory的父类。
+
+### Option
+
+当我们实现TableSourceFactory 和 TableSinkFactory时，会创建对应的Option，每一个Option对应的就是一个配置，但是不同的配置会有不同的类型，普通类型直接调用对应的方法即可创建。
+但是如果我们参数类型是一个对象，我们就可以使用POJO来表示对象类型的参数，同时需要在每个参数上使用`org.apache.seatunnel.api.configuration.util.OptionMark`来表明这是一个子Option。
+`OptionMark`有两个参数，`name`用于声明字段对应的参数名称，如果为空的话，我们会默认将java对应的小驼峰转换成下划线进行表达，如：`myUserPassword`->`my_user_password`。
+在大多数情况下，默认为空即可。`description`用于表示当前参数的描述，这个参数是可选的，建议和文档上的保持一致。具体例子可以参考`org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertSinkFactory`。
+
 ## 实现
 
 现阶段所有的连接器实现及可参考的示例都在seatunnel-connectors-v2下，用户可自行查阅参考。
