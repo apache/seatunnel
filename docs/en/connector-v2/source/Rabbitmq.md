@@ -138,9 +138,9 @@ source {
         queue_name = "test"
         schema = {
             fields {
-            id = bigint
-            c_map = "map<string, smallint>"
-            c_array = "array<tinyint>"
+                id = bigint
+                c_map = "map<string, smallint>"
+                c_array = "array<tinyint>"
             }
         }
     }
