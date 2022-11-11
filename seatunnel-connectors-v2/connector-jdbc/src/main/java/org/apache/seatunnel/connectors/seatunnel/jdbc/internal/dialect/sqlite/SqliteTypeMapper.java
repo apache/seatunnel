@@ -17,21 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlite;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
 @Slf4j
 public class SqliteTypeMapper implements JdbcDialectTypeMapper {
-
-    private static final Logger LOG = LoggerFactory.getLogger(SqliteTypeMapper.class);
 
     // ============================data types=====================
 
@@ -126,10 +123,10 @@ public class SqliteTypeMapper implements JdbcDialectTypeMapper {
             case SQLITE_FLOAT:
                 return BasicType.FLOAT_TYPE;
             case SQLITE_FLOAT_UNSIGNED:
-                LOG.warn("{} will probably cause value overflow.", SQLITE_FLOAT_UNSIGNED);
+                log.warn("{} will probably cause value overflow.", SQLITE_FLOAT_UNSIGNED);
                 return BasicType.FLOAT_TYPE;
             case SQLITE_DOUBLE_UNSIGNED:
-                LOG.warn("{} will probably cause value overflow.", SQLITE_DOUBLE_UNSIGNED);
+                log.warn("{} will probably cause value overflow.", SQLITE_DOUBLE_UNSIGNED);
                 return BasicType.DOUBLE_TYPE;
             case SQLITE_CHARACTER:
             case SQLITE_VARYING_CHARACTER:
