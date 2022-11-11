@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
+import org.apache.seatunnel.connectors.seatunnel.http.config.Method;
 import org.apache.seatunnel.connectors.seatunnel.myhours.source.config.MyHoursSourceConfig;
 
 import com.google.auto.service.AutoService;
@@ -43,7 +44,7 @@ public class MyHoursSourceFactory implements TableSourceFactory {
                 .optional(MyHoursSourceConfig.METHOD)
                 .optional(MyHoursSourceConfig.HEADERS)
                 .optional(MyHoursSourceConfig.PARAMS)
-                .conditional(Condition.of(HttpConfig.METHOD, "post"), MyHoursSourceConfig.BODY)
+                .conditional(Condition.of(HttpConfig.METHOD, Method.POST), MyHoursSourceConfig.BODY)
                 .conditional(Condition.of(HttpConfig.FORMAT, "json"), SeaTunnelSchema.SCHEMA)
                 .optional(MyHoursSourceConfig.FORMAT)
                 .optional(MyHoursSourceConfig.POLL_INTERVAL_MILLS)
