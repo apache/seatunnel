@@ -36,6 +36,9 @@ import java.util.Map;
 @ToString
 public class SinkConfig {
 
+    private static final int DEFAULT_BATCH_MAX_SIZE = 1024;
+    private static final long DEFAULT_BATCH_BYTES = 5 * 1024 * 1024;
+
     private static final String LOAD_FORMAT = "format";
     private static final StreamLoadFormat DEFAULT_LOAD_FORMAT = StreamLoadFormat.CSV;
     private static final String COLUMN_SEPARATOR = "column_separator";
@@ -78,12 +81,12 @@ public class SinkConfig {
 
     public static final Option<Integer> BATCH_MAX_SIZE = Options.key("batch_max_rows")
             .intType()
-            .noDefaultValue()
+            .defaultValue(DEFAULT_BATCH_MAX_SIZE)
             .withDescription("For batch writing, when the number of buffers reaches the number of batch_max_rows or the byte size of batch_max_bytes or the time reaches batch_interval_ms, the data will be flushed into the StarRocks");
 
     public static final Option<Long> BATCH_MAX_BYTES = Options.key("batch_max_bytes")
             .longType()
-            .noDefaultValue()
+            .defaultValue(DEFAULT_BATCH_BYTES)
             .withDescription("For batch writing, when the number of buffers reaches the number of batch_max_rows or the byte size of batch_max_bytes or the time reaches batch_interval_ms, the data will be flushed into the StarRocks");
 
     public static final Option<Integer> BATCH_INTERVAL_MS = Options.key("batch_interval_ms")
@@ -124,8 +127,6 @@ public class SinkConfig {
     private String labelPrefix;
     private String columnSeparator;
     private StreamLoadFormat loadFormat = DEFAULT_LOAD_FORMAT;
-    private static final int DEFAULT_BATCH_MAX_SIZE = 1024;
-    private static final long DEFAULT_BATCH_BYTES = 5 * 1024 * 1024;
 
     private int batchMaxSize = DEFAULT_BATCH_MAX_SIZE;
     private long batchMaxBytes = DEFAULT_BATCH_BYTES;
