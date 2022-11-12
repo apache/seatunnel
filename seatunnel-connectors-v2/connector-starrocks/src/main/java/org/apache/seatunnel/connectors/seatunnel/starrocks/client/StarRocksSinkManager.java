@@ -113,7 +113,7 @@ public class StarRocksSinkManager {
                 starrocksStreamLoadVisitor.doStreamLoad(tuple);
             } catch (Exception e) {
 
-                log.error("Writing records to StarRocks failed, retry times = {}", i, e);
+                log.warn("Writing records to StarRocks failed, retry times = {}", i, e);
                 if (i >= sinkConfig.getMaxRetries()) {
                     throw new IOException("Writing records to StarRocks failed.", e);
                 }
