@@ -25,9 +25,13 @@ import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.Tables
 import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.TABLE;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
+import com.google.auto.service.AutoService;
+
+@AutoService(Factory.class)
 public class TablestoreSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
