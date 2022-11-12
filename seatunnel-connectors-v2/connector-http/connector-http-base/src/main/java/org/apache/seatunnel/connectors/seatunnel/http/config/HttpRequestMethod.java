@@ -17,14 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.config;
 
-public enum Method {
+public enum HttpRequestMethod {
     GET("get"),
 
     POST("post");
 
     private String method;
 
-    Method(String method) {
+    HttpRequestMethod(String method) {
         this.method = method;
     }
 

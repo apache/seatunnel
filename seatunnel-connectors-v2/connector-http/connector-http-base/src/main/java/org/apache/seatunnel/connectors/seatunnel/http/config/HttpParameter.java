@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 @SuppressWarnings("MagicNumber")
 public class HttpParameter implements Serializable {
     protected String url;
-    protected Method method;
+    protected HttpRequestMethod method;
     protected Map<String, String> headers;
     protected Map<String, String> params;
     protected String body;
@@ -43,10 +43,10 @@ public class HttpParameter implements Serializable {
         this.setUrl(pluginConfig.getString(HttpConfig.URL.key()));
         // set method
         if (pluginConfig.hasPath(HttpConfig.METHOD.key())) {
-            Method method = Method.valueOf(pluginConfig.getString(HttpConfig.METHOD.key()).toUpperCase());
-            this.setMethod(method);
+            HttpRequestMethod httpRequestMethod = HttpRequestMethod.valueOf(pluginConfig.getString(HttpConfig.METHOD.key()).toUpperCase());
+            this.setMethod(httpRequestMethod);
         } else {
-            this.setMethod(Method.GET);
+            this.setMethod(HttpConfig.METHOD.defaultValue());
         }
         // set headers
         if (pluginConfig.hasPath(HttpConfig.HEADERS.key())) {

@@ -30,9 +30,9 @@ public class HttpConfig {
             .stringType()
             .noDefaultValue()
             .withDescription("Http request url");
-    public static final Option<Method> METHOD = Options.key("method")
-            .objectType(Method.class)
-            .defaultValue(Method.GET)
+    public static final Option<HttpRequestMethod> METHOD = Options.key("method")
+            .objectType(HttpRequestMethod.class)
+            .defaultValue(HttpRequestMethod.GET)
             .withDescription("Http request method");
     public static final Option<Map<String, String>> HEADERS = Options.key("headers")
             .mapType()
