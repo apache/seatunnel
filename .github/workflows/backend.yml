@@ -216,6 +216,11 @@ jobs:
           if [[ "zz"$delete_modules != "zz" ]];then
             pl_modules=`python tools/update_modules_check/update_modules_check.py rm $pl_modules $delete_modules`
           fi
+          
+          if [[ "zz"$pl_modules == "zz" ]];then
+            exit 0
+          fi
+          
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl $pl_modules > /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
           tree_modules="$modules$sub_modules"
@@ -237,6 +242,11 @@ jobs:
           if [[ "zz"$delete_modules != "zz" ]];then
             pl_modules=`python tools/update_modules_check/update_modules_check.py rm $pl_modules $delete_modules`
           fi
+          
+          if [[ "zz"$pl_modules == "zz" ]];then
+            exit 0
+          fi
+          
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl $pl_modules > /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
           tree_modules="$modules$sub_modules"
