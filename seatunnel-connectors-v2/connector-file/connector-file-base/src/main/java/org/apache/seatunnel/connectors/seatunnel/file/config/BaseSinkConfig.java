@@ -34,30 +34,30 @@ public class BaseSinkConfig {
             .stringType()
             .noDefaultValue()
             .withDescription("Compression codec");
-    public static final Option<String> DATE_FORMAT = Options.key("date_format")
-            .stringType()
-            .defaultValue(DateUtils.Formatter.YYYY_MM_DD.getValue())
+    public static final Option<DateUtils.Formatter> DATE_FORMAT = Options.key("date_format")
+            .enumType(DateUtils.Formatter.class)
+            .defaultValue(DateUtils.Formatter.YYYY_MM_DD)
             .withDescription("Date format");
-    public static final Option<String> DATETIME_FORMAT = Options.key("datetime_format")
-            .stringType()
-            .defaultValue(DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS.getValue())
+    public static final Option<DateTimeUtils.Formatter> DATETIME_FORMAT = Options.key("datetime_format")
+            .enumType(DateTimeUtils.Formatter.class)
+            .defaultValue(DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS)
             .withDescription("Datetime format");
-    public static final Option<String> TIME_FORMAT = Options.key("time_format")
-            .stringType()
-            .defaultValue(TimeUtils.Formatter.HH_MM_SS.getValue())
+    public static final Option<TimeUtils.Formatter> TIME_FORMAT = Options.key("time_format")
+            .enumType(TimeUtils.Formatter.class)
+            .defaultValue(TimeUtils.Formatter.HH_MM_SS)
             .withDescription("Time format");
     public static final Option<String> FILE_PATH = Options.key("path")
             .stringType()
             .noDefaultValue()
-            .withDescription("File path");
+            .withDescription("The file path of target files");
     public static final Option<String> FIELD_DELIMITER = Options.key("field_delimiter")
             .stringType()
             .defaultValue(String.valueOf(String.valueOf('\001')))
-            .withDescription("Field delimiter");
+            .withDescription("The separator between columns in a row of data. Only needed by `text` and `csv` file format");
     public static final Option<String> ROW_DELIMITER = Options.key("row_delimiter")
             .stringType()
             .defaultValue("\n")
-            .withDescription("Row delimiter");
+            .withDescription("The separator between rows in a file. Only needed by `text` and `csv` file format");
     public static final Option<List<String>> PARTITION_BY = Options.key("partition_by")
             .listType()
             .noDefaultValue()
@@ -65,7 +65,11 @@ public class BaseSinkConfig {
     public static final Option<String> PARTITION_DIR_EXPRESSION = Options.key("partition_dir_expression")
             .stringType()
             .defaultValue("${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/")
-            .withDescription("Partition directory expressions");
+            .withDescription("If the `partition_by` is specified, " +
+                    "we will generate the corresponding partition directory based on the partition information, " +
+                    "and the final file will be placed in the partition directory. " +
+                    "Default `partition_dir_expression` is `${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/`. " +
+                    "`k0` is the first partition field and `v0` is the value of the first partition field.");
     public static final Option<Boolean> IS_PARTITION_FIELD_WRITE_IN_FILE = Options.key("is_partition_field_write_in_file")
             .booleanType()
             .defaultValue(false)
@@ -77,15 +81,18 @@ public class BaseSinkConfig {
     public static final Option<String> FILE_NAME_EXPRESSION = Options.key("file_name_expression")
             .stringType()
             .defaultValue("${transactionId}")
-            .withDescription("Describe the file expression which will be created into the path");
-    public static final Option<String> FILE_FORMAT = Options.key("file_format")
-            .stringType()
-            .defaultValue(FileFormat.TEXT.toString())
+            .withDescription("`file_name_expression` describes the file expression which will be created into the `path`. " +
+                    "We can add the variable `${now}` or `${uuid}` in the `file_name_expression`, " +
+                    "like `test_${uuid}_${now}`,`${now}` represents the current time, " +
+                    "and its format can be defined by specifying the option `filename_time_format`.");
+    public static final Option<FileFormat> FILE_FORMAT = Options.key("file_format")
+            .enumType(FileFormat.class)
+            .defaultValue(FileFormat.TEXT)
             .withDescription("File format type");
     public static final Option<List<String>> SINK_COLUMNS = Options.key("sink_columns")
             .listType()
             .noDefaultValue()
-            .withDescription("Which columns need be write to file");
+            .withDescription("Which columns need be wrote to file");
     public static final Option<String> FILENAME_TIME_FORMAT = Options.key("filename_time_format")
             .stringType()
             .defaultValue(DateUtils.Formatter.YYYY_MM_DD_SPOT.getValue())
