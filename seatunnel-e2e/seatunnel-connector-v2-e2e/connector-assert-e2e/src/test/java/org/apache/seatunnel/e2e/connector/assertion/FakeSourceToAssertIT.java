@@ -18,7 +18,9 @@
 package org.apache.seatunnel.e2e.connector.assertion;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
@@ -26,6 +28,7 @@ import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
+@DisabledOnContainer(value = {}, type = {EngineType.SEATUNNEL, EngineType.FLINK}, disabledReason = "TODO: Transform v2 translation to flink isn't completed")
 public class FakeSourceToAssertIT extends TestSuiteBase {
 
     @TestTemplate
