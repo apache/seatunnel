@@ -35,6 +35,7 @@ public class GitlabSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
             .required(GitlabSourceConfig.URL)
+            .required(GitlabSourceConfig.ACCESS_TOKEN)
             .optional(GitlabSourceConfig.RETRY)
             .optional(GitlabSourceConfig.RETRY_BACKOFF_MAX_MS)
             .optional(GitlabSourceConfig.RETRY_BACKOFF_MULTIPLIER_MS)

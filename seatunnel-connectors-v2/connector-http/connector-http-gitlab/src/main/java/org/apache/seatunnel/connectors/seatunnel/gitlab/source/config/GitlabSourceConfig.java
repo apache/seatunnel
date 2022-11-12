@@ -22,6 +22,9 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 
 public class GitlabSourceConfig extends HttpConfig {
+
+    public static final String PRIVATE_TOKEN = "PRIVATE-TOKEN";
+
     public static final Option<String> ACCESS_TOKEN = Options.key("access_token")
         .stringType()
         .noDefaultValue()
