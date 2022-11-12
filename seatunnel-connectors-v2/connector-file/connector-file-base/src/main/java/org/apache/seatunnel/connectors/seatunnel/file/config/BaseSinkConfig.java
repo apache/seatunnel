@@ -30,6 +30,12 @@ public class BaseSinkConfig {
     public static final String NON_PARTITION = "NON_PARTITION";
     public static final String TRANSACTION_ID_SPLIT = "_";
     public static final String TRANSACTION_EXPRESSION = "transactionId";
+    public static final String DEFAULT_FIELD_DELIMITER = String.valueOf('\001');
+    public static final String DEFAULT_ROW_DELIMITER = "\n";
+    public static final String DEFAULT_PARTITION_DIR_EXPRESSION = "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/";
+    public static final String DEFAULT_TMP_PATH = "/tmp/seatunnel";
+    public static final String DEFAULT_FILE_NAME_EXPRESSION = "${transactionId}";
+
     public static final Option<String> COMPRESS_CODEC = Options.key("compress_codec")
             .stringType()
             .noDefaultValue()
@@ -52,11 +58,11 @@ public class BaseSinkConfig {
             .withDescription("The file path of target files");
     public static final Option<String> FIELD_DELIMITER = Options.key("field_delimiter")
             .stringType()
-            .defaultValue(String.valueOf(String.valueOf('\001')))
+            .defaultValue(DEFAULT_FIELD_DELIMITER)
             .withDescription("The separator between columns in a row of data. Only needed by `text` and `csv` file format");
     public static final Option<String> ROW_DELIMITER = Options.key("row_delimiter")
             .stringType()
-            .defaultValue("\n")
+            .defaultValue(DEFAULT_ROW_DELIMITER)
             .withDescription("The separator between rows in a file. Only needed by `text` and `csv` file format");
     public static final Option<List<String>> PARTITION_BY = Options.key("partition_by")
             .listType()
@@ -64,7 +70,7 @@ public class BaseSinkConfig {
             .withDescription("Partition keys list");
     public static final Option<String> PARTITION_DIR_EXPRESSION = Options.key("partition_dir_expression")
             .stringType()
-            .defaultValue("${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/")
+            .defaultValue(DEFAULT_PARTITION_DIR_EXPRESSION)
             .withDescription("If the `partition_by` is specified, " +
                     "we will generate the corresponding partition directory based on the partition information, " +
                     "and the final file will be placed in the partition directory. " +
@@ -76,11 +82,11 @@ public class BaseSinkConfig {
             .withDescription("Whether to write partition fields to file");
     public static final Option<String> TMP_PATH = Options.key("tmp_path")
             .stringType()
-            .defaultValue("/tmp/seatunnel")
+            .defaultValue(DEFAULT_TMP_PATH)
             .withDescription("Data write temporary path");
     public static final Option<String> FILE_NAME_EXPRESSION = Options.key("file_name_expression")
             .stringType()
-            .defaultValue("${transactionId}")
+            .defaultValue(DEFAULT_FILE_NAME_EXPRESSION)
             .withDescription("`file_name_expression` describes the file expression which will be created into the `path`. " +
                     "We can add the variable `${now}` or `${uuid}` in the `file_name_expression`, " +
                     "like `test_${uuid}_${now}`,`${now}` represents the current time, " +
