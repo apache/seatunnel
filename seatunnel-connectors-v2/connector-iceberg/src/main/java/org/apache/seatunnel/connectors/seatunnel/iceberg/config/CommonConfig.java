@@ -66,9 +66,9 @@ public class CommonConfig implements Serializable {
         .noDefaultValue()
         .withDescription(" the iceberg warehouse");
 
-    public static final Option<String> KEY_CASE_SENSITIVE = Options.key("case_sensitive")
-        .stringType()
-        .noDefaultValue()
+    public static final Option<Boolean> KEY_CASE_SENSITIVE = Options.key("case_sensitive")
+        .booleanType()
+        .defaultValue(false)
         .withDescription(" the iceberg case_sensitive");
 
     public static final Option<List<String>> KEY_FIELDS = Options.key("fields")

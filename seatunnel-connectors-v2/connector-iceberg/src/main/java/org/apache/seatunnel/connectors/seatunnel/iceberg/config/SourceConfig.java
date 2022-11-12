@@ -19,6 +19,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
 
+import static org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergStreamScanStrategy.FROM_LATEST_SNAPSHOT;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergStreamScanStrategy;
@@ -59,9 +61,9 @@ public class SourceConfig extends CommonConfig {
         .noDefaultValue()
         .withDescription(" the iceberg used snapshot timestamp");
 
-    public static final Option<Long> KEY_STREAM_SCAN_STRATEGY = Options.key("stream_scan_strategy")
-        .longType()
-        .noDefaultValue()
+    public static final Option<IcebergStreamScanStrategy> KEY_STREAM_SCAN_STRATEGY = Options.key("stream_scan_strategy")
+        .enumType(IcebergStreamScanStrategy.class)
+        .defaultValue(FROM_LATEST_SNAPSHOT)
         .withDescription(" the iceberg strategy of stream scanning");
 
     private Long startSnapshotTimestamp;
@@ -71,7 +73,7 @@ public class SourceConfig extends CommonConfig {
     private Long useSnapshotId;
     private Long useSnapshotTimestamp;
 
-    private IcebergStreamScanStrategy streamScanStrategy = IcebergStreamScanStrategy.FROM_LATEST_SNAPSHOT;
+    private IcebergStreamScanStrategy streamScanStrategy = FROM_LATEST_SNAPSHOT;
     private Expression filter;
     private Long splitSize;
     private Integer splitLookback;
