@@ -73,7 +73,7 @@ public class SourceConfig extends CommonConfig {
     private Long useSnapshotId;
     private Long useSnapshotTimestamp;
 
-    private IcebergStreamScanStrategy streamScanStrategy = FROM_LATEST_SNAPSHOT;
+    private IcebergStreamScanStrategy streamScanStrategy = KEY_STREAM_SCAN_STRATEGY.defaultValue();
     private Expression filter;
     private Long splitSize;
     private Integer splitLookback;
