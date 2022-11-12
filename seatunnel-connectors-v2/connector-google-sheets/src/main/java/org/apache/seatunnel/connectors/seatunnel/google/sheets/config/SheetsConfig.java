@@ -33,9 +33,9 @@ public class SheetsConfig {
     public static final Option<String> SHEET_NAME = Options.key("sheet_name")
             .stringType()
             .noDefaultValue()
-            .withDescription("Google Sheets sheet name that you want to import");
+            .withDescription("Google Sheets sheet name that you want to import/output");
     public static final Option<String> RANGE = Options.key("range")
             .stringType()
             .noDefaultValue()
-            .withDescription("Google Sheets sheet range that you want to import");
+            .withDescription("Google Sheets sheet range that you want to import/output");
 }
