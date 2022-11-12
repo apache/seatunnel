@@ -27,37 +27,18 @@ import org.apache.seatunnel.connectors.seatunnel.google.sheets.config.SheetsPara
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.deserialize.GoogleSheetsDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.deserialize.SeaTunnelRowDeserializer;
 
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
-import com.google.api.client.http.HttpRequestInitializer;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.JsonFactory;
-import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.sheets.v4.Sheets;
-import com.google.api.services.sheets.v4.SheetsScopes;
 import com.google.api.services.sheets.v4.model.ValueRange;
-import com.google.auth.http.HttpCredentialsAdapter;
-import com.google.auth.oauth2.ServiceAccountCredentials;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.util.Base64;
-import java.util.Collections;
 import java.util.List;
 
 public class SheetsSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private SheetsParameters sheetsParameters;
-
     private SeaTunnelRowType seaTunnelRowType;
-
-    private HttpRequestInitializer requestInitializer;
-
-    private static final String APPLICATION_NAME = "SeaTunnel Google Sheets";
-
-    private static final JsonFactory JSON_FACTORY = GsonFactory.getDefaultInstance();
-
     private final SingleSplitReaderContext context;
-
+    private Sheets service;
 
     private final SeaTunnelRowDeserializer seaTunnelRowDeserializer;
 
@@ -70,13 +51,7 @@ public class SheetsSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
 
     @Override
     public void open() throws Exception {
-        byte[] keyBytes = Base64.getDecoder().decode(sheetsParameters.getServiceAccountKey());
-        ServiceAccountCredentials sourceCredentials = ServiceAccountCredentials
-                .fromStream(new ByteArrayInputStream(keyBytes));
-        sourceCredentials = (ServiceAccountCredentials) sourceCredentials
-                .createScoped(Collections.singletonList(SheetsScopes.SPREADSHEETS));
-        requestInitializer = new HttpCredentialsAdapter(sourceCredentials);
-
+        this.service = sheetsParameters.buildSheets();
     }
 
     @Override
@@ -86,10 +61,6 @@ public class SheetsSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        final NetHttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
-        Sheets service = new Sheets.Builder(httpTransport, JSON_FACTORY, requestInitializer)
-                .setApplicationName(APPLICATION_NAME)
-                .build();
         ValueRange response = service.spreadsheets().values()
                 .get(sheetsParameters.getSheetId(), sheetsParameters.getSheetName() + "!" + sheetsParameters.getRange())
                 .execute();
