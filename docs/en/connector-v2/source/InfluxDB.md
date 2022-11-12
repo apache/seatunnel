@@ -36,7 +36,7 @@ supports query SQL and can achieve projection effect.
 | epoch              | string | no       | n             |
 | connect_timeout_ms | long   | no       | 15000         |
 | query_timeout_sec  | int    | no       | 3             |
-| common-options     |        | no       | -             |
+| common-options     | config | no       | -             |
 
 ### url
 the url to connect to influxDB e.g.

@@ -27,7 +27,7 @@ Write data to InfluxDB.
 | max_retries                 | int    | no       | -                            |
 | retry_backoff_multiplier_ms | int    | no       | -                            |
 | connect_timeout_ms          | long   | no       | 15000                        |
-| common-options              |        | no       | -                            |
+| common-options              | config | no       | -                            |
 
 ### url
 the url to connect to influxDB e.g.
