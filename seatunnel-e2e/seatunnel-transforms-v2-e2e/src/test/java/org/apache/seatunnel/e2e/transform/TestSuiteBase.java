@@ -37,7 +37,7 @@ import org.testcontainers.containers.Network;
     TestCaseInvocationContextProvider.class
 })
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@DisabledOnContainer(value = {}, type = {EngineType.SEATUNNEL, EngineType.FLINK}, disabledReason = "TODO: Transform v2 translation to flink isn't completed")
+@DisabledOnContainer(value = {}, type = {EngineType.FLINK}, disabledReason = "TODO: Transform v2 translation to flink isn't completed")
 public abstract class TestSuiteBase {
 
     protected static final Network NETWORK = TestContainer.NETWORK;
