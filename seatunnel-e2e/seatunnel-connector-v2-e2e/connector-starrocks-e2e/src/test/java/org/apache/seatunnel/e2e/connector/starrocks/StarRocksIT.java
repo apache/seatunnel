@@ -65,7 +65,7 @@ import java.util.stream.Stream;
 public class StarRocksIT extends TestSuiteBase implements TestResource {
     private static final String DOCKER_IMAGE = "d87904488/starrocks-starter:2.2.1";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
-    private static final String HOST = "e2e_starRocksdb";
+    private static final String HOST = "starrocks_e2e";
     private static final int SR_DOCKER_PORT = 9030;
     private static final int SR_PORT = 9033;
 
