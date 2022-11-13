@@ -52,11 +52,8 @@ public class InfluxDBSourceFactory implements TableSourceFactory {
                 DATABASES
             )
             .bundledRequired(USERNAME, PASSWORD)
+            .bundledRequired(LOWER_BOUND, UPPER_BOUND, PARTITION_NUM, SPLIT_COLUMN)
             .optional(
-                LOWER_BOUND,
-                UPPER_BOUND,
-                PARTITION_NUM,
-                SPLIT_COLUMN,
                 EPOCH,
                 CONNECT_TIMEOUT_MS,
                 QUERY_TIMEOUT_SEC
