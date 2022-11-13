@@ -97,6 +97,11 @@ public class ClickhouseConfig {
         .defaultValue(ClickhouseFileCopyMethod.SCP).withDescription("The method of copy Clickhouse file");
 
     public static final String NODE_ADDRESS = "node_address";
+
+    public static final Option<Boolean> NODE_FREE_PASSWORD = Options.key("node_free_password").booleanType()
+        .defaultValue(false).withDescription("Because seatunnel need to use scp or rsync for file transfer, " +
+            "seatunnel need clickhouse server-side access. If each spark node and clickhouse server are configured with password-free login, " +
+            "you can configure this option to true, otherwise you need to configure the corresponding node password in the node_pass configuration");
     /**
      * The password of Clickhouse server node
      */

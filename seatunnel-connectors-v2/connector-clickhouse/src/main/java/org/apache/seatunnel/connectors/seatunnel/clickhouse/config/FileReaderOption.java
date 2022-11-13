@@ -20,10 +20,13 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.ShardMetadata;
 
+import lombok.Data;
+
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
+@Data
 public class FileReaderOption implements Serializable {
 
     private ShardMetadata shardMetadata;
@@ -40,6 +43,7 @@ public class FileReaderOption implements Serializable {
                             List<String> fields, String clickhouseLocalPath,
                             ClickhouseFileCopyMethod copyMethod,
                             Map<String, String> nodeUser,
+                            boolean nodeFreePass,
                             Map<String, String> nodePassword) {
         this.shardMetadata = shardMetadata;
         this.tableSchema = tableSchema;
@@ -47,78 +51,7 @@ public class FileReaderOption implements Serializable {
         this.clickhouseLocalPath = clickhouseLocalPath;
         this.copyMethod = copyMethod;
         this.nodeUser = nodeUser;
-        this.nodePassword = nodePassword;
-    }
-
-    public SeaTunnelRowType getSeaTunnelRowType() {
-        return seaTunnelRowType;
-    }
-
-    public void setSeaTunnelRowType(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
-    }
-
-    public boolean isNodeFreePass() {
-        return nodeFreePass;
-    }
-
-    public void setNodeFreePass(boolean nodeFreePass) {
         this.nodeFreePass = nodeFreePass;
-    }
-
-    public String getClickhouseLocalPath() {
-        return clickhouseLocalPath;
-    }
-
-    public void setClickhouseLocalPath(String clickhouseLocalPath) {
-        this.clickhouseLocalPath = clickhouseLocalPath;
-    }
-
-    public ClickhouseFileCopyMethod getCopyMethod() {
-        return copyMethod;
-    }
-
-    public void setCopyMethod(ClickhouseFileCopyMethod copyMethod) {
-        this.copyMethod = copyMethod;
-    }
-
-    public Map<String, String> getNodeUser() {
-        return nodeUser;
-    }
-
-    public void setNodeUser(Map<String, String> nodeUser) {
-        this.nodeUser = nodeUser;
-    }
-
-    public Map<String, String> getNodePassword() {
-        return nodePassword;
-    }
-
-    public void setNodePassword(Map<String, String> nodePassword) {
         this.nodePassword = nodePassword;
-    }
-
-    public ShardMetadata getShardMetadata() {
-        return shardMetadata;
-    }
-
-    public void setShardMetadata(ShardMetadata shardMetadata) {
-        this.shardMetadata = shardMetadata;
-    }
-
-    public Map<String, String> getTableSchema() {
-        return tableSchema;
-    }
-
-    public void setTableSchema(Map<String, String> tableSchema) {
-        this.tableSchema = tableSchema;
-    }
-
-    public List<String> getFields() {
-        return fields;
-    }
-
-    public void setFields(List<String> fields) {
-        this.fields = fields;
     }
 }
