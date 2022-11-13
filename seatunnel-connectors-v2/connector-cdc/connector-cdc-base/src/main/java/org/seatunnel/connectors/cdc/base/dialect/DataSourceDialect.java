@@ -18,22 +18,19 @@
 package org.seatunnel.connectors.cdc.base.dialect;
 
 import io.debezium.relational.TableId;
-import io.debezium.relational.history.TableChanges;
 import org.seatunnel.connectors.cdc.base.config.SourceConfig;
-import org.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
 import org.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
 import java.io.Serializable;
 import java.util.List;
-import java.util.Map;
 
 /**
  * The dialect of data source.
  *
  * @param <C> The source config of data source.
  */
-
 public interface DataSourceDialect<C extends SourceConfig> extends Serializable {
 
     /** Get the name of dialect. */
@@ -42,21 +39,11 @@ public interface DataSourceDialect<C extends SourceConfig> extends Serializable 
     /** Discovers the list of data collection to capture. */
     List<TableId> discoverDataCollections(C sourceConfig);
 
-    /**
-     * Discovers the captured data collections' schema by {@link SourceConfig}.
-     *
-     * @param sourceConfig a basic source configuration.
-     */
-    Map<TableId, TableChanges.TableChange> discoverDataCollectionSchemas(C sourceConfig);
-
-    /**
-     * Displays current offset from the database e.g. query Mysql binary logs by query <code>
-     * SHOW MASTER STATUS</code>.
-     */
-    Offset displayCurrentOffset(C sourceConfig);
-
     /** Check if the CollectionId is case-sensitive or not. */
     boolean isDataCollectionIdCaseSensitive(C sourceConfig);
+
+    /** Returns the {@link ChunkSplitter} which used to split collection to splits. */
+    ChunkSplitter createChunkSplitter(C sourceConfig);
 
     /** The fetch task used to fetch data of a snapshot split or stream split. */
     FetchTask<SourceSplitBase> createFetchTask(SourceSplitBase sourceSplitBase);

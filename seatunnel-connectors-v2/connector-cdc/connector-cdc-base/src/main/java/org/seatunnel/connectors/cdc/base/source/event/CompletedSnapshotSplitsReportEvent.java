@@ -24,7 +24,7 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-public class CompletedSnapshotSplitReportEvent implements SourceEvent {
+public class CompletedSnapshotSplitsReportEvent implements SourceEvent {
     private static final long serialVersionUID = 1L;
     List<SnapshotSplitWatermark> completedSnapshotSplitWatermarks;
 }

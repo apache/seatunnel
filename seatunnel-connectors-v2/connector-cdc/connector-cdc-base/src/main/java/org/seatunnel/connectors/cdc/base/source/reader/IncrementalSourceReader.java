@@ -28,13 +28,13 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.fetcher.Si
 
 import lombok.extern.slf4j.Slf4j;
 import org.seatunnel.connectors.cdc.base.config.SourceConfig;
-import org.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitReportEvent;
+import org.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsReportEvent;
 import org.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
-import org.seatunnel.connectors.cdc.base.source.split.LogSplit;
+import org.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
-import org.seatunnel.connectors.cdc.base.source.split.state.LogSplitState;
+import org.seatunnel.connectors.cdc.base.source.split.state.IncrementalSplitState;
 import org.seatunnel.connectors.cdc.base.source.split.state.SnapshotSplitState;
 import org.seatunnel.connectors.cdc.base.source.split.state.SourceSplitStateBase;
 
@@ -47,7 +47,7 @@ import java.util.function.Supplier;
 
 /**
  * The multi-parallel source reader for table snapshot phase from {@link SnapshotSplit} and then
- * single-parallel source reader for table stream phase from {@link LogSplit}.
+ * single-parallel source reader for table stream phase from {@link IncrementalSplit}.
  */
 @Slf4j
 public class IncrementalSourceReader<T, C extends SourceConfig>
@@ -56,7 +56,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
 
     private final Map<String, SnapshotSplit> finishedUnackedSplits;
 
-    private final Map<String, LogSplit> uncompletedStreamSplits;
+    private final Map<String, IncrementalSplit> uncompletedStreamSplits;
 
     private final int subtaskId;
 
@@ -100,8 +100,8 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                 }
             } else {
                 // the stream split is uncompleted
-                uncompletedStreamSplits.put(split.splitId(), split.asLogSplit());
-                unfinishedSplits.add(split.asLogSplit());
+                uncompletedStreamSplits.put(split.splitId(), split.asIncrementalSplit());
+                unfinishedSplits.add(split.asIncrementalSplit());
             }
         }
         // notify split enumerator again about the finished unacked snapshot splits
@@ -132,7 +132,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             for (SnapshotSplit split : finishedUnackedSplits.values()) {
                 completedSnapshotSplitWatermarks.add(new SnapshotSplitWatermark(split.splitId(), split.getHighWatermark()));
             }
-            CompletedSnapshotSplitReportEvent reportEvent = new CompletedSnapshotSplitReportEvent();
+            CompletedSnapshotSplitsReportEvent reportEvent = new CompletedSnapshotSplitsReportEvent();
             reportEvent.setCompletedSnapshotSplitWatermarks(completedSnapshotSplitWatermarks);
             context.sendSourceEventToEnumerator(reportEvent);
             //TODO need enumerator return ack
@@ -149,7 +149,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         if (split.isSnapshotSplit()) {
             return new SnapshotSplitState(split.asSnapshotSplit());
         } else {
-            return new LogSplitState(split.asLogSplit());
+            return new IncrementalSplitState(split.asIncrementalSplit());
         }
     }
 

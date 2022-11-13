@@ -15,22 +15,25 @@
  * limitations under the License.
  */
 
-package org.seatunnel.connectors.cdc.base.source.offset;
+package org.seatunnel.connectors.cdc.base.source.event;
 
-import java.util.Map;
+import org.apache.seatunnel.api.source.SourceEvent;
 
-public abstract class OffsetFactory {
-    public OffsetFactory() {}
+import lombok.Data;
+import org.seatunnel.connectors.cdc.base.source.enumerator.IncrementalSourceEnumerator;
 
-    public abstract Offset earliest();
+import java.util.List;
 
-    public abstract Offset neverStop();
+/**
+ * The {@link SourceEvent} that {@link IncrementalSourceEnumerator} sends to {@link
+ * IncrementalSourceReader} to notify the completed snapshot splits has been received, i.e.
+ * acknowledge for {@link CompletedSnapshotSplitsReportEvent}.
+ */
+@Data
+public class CompletedSnapshotSplitsAckEvent implements SourceEvent {
 
-    public abstract Offset latest();
+    private static final long serialVersionUID = 1L;
 
-    public abstract Offset specific(Map<String, String> offset);
+    private final List<String> completedSplits;
 
-    public abstract Offset specific(String filename, Long position);
-
-    public abstract Offset timstamp(long timestmap);
 }

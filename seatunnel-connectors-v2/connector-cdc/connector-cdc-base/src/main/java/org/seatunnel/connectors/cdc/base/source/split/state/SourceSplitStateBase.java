@@ -36,8 +36,8 @@ public abstract class SourceSplitStateBase {
     }
 
     /** Checks whether this split state is a stream split state. */
-    public final boolean isLogSplitState() {
-        return getClass() == LogSplitState.class;
+    public final boolean isIncrementalSplitState() {
+        return getClass() == IncrementalSplitState.class;
     }
 
     /** Casts this split state into a {@link SnapshotSplitState}. */
@@ -45,9 +45,9 @@ public abstract class SourceSplitStateBase {
         return (SnapshotSplitState) this;
     }
 
-    /** Casts this split state into a {@link LogSplitState}. */
-    public final LogSplitState asLogSplitState() {
-        return (LogSplitState) this;
+    /** Casts this split state into a {@link IncrementalSplitState}. */
+    public final IncrementalSplitState asIncrementalSplitState() {
+        return (IncrementalSplitState) this;
     }
 
     /** Use the current split state to create a new SourceSplit. */

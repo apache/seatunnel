@@ -36,9 +36,9 @@ public abstract class SourceSplitBase implements SourceSplit {
         return getClass() == SnapshotSplit.class;
     }
 
-    /** Checks whether this split is a stream split. */
-    public final boolean isLogSplit() {
-        return getClass() == LogSplit.class;
+    /** Checks whether this split is an incremental split. */
+    public final boolean isIncrementalSplit() {
+        return getClass() == IncrementalSplit.class;
     }
 
     /** Casts this split into a {@link SnapshotSplit}. */
@@ -46,9 +46,9 @@ public abstract class SourceSplitBase implements SourceSplit {
         return (SnapshotSplit) this;
     }
 
-    /** Casts this split into a {@link LogSplit}. */
-    public final LogSplit asLogSplit() {
-        return (LogSplit) this;
+    /** Casts this split into a {@link IncrementalSplit}. */
+    public final IncrementalSplit asIncrementalSplit() {
+        return (IncrementalSplit) this;
     }
 
     @Override

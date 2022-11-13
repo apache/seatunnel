@@ -15,22 +15,18 @@
  * limitations under the License.
  */
 
-package org.seatunnel.connectors.cdc.base.source.offset;
+package org.seatunnel.connectors.cdc.base.source.enumerator.splitter;
 
-import java.util.Map;
+import io.debezium.relational.TableId;
+import org.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 
-public abstract class OffsetFactory {
-    public OffsetFactory() {}
+import java.util.Collection;
 
-    public abstract Offset earliest();
+/** The splitter used to split collection into a set of chunks. */
+public interface ChunkSplitter {
 
-    public abstract Offset neverStop();
-
-    public abstract Offset latest();
-
-    public abstract Offset specific(Map<String, String> offset);
-
-    public abstract Offset specific(String filename, Long position);
-
-    public abstract Offset timstamp(long timestmap);
+    /**
+     * Generates all snapshot splits (chunks) for the give data collection.
+     */
+    Collection<SnapshotSplit> generateSplits(TableId tableId);
 }

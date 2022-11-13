@@ -78,12 +78,12 @@ public class IncrementalSourceRecordEmitter<T>
             if (isLowWatermarkEvent(element) && splitState.isSnapshotSplitState()) {
                 splitState.asSnapshotSplitState().setHighWatermark(watermark);
             }
-        } else if (isSchemaChangeEvent(element) && splitState.isLogSplitState()) {
+        } else if (isSchemaChangeEvent(element) && splitState.isIncrementalSplitState()) {
             //TODO Currently not supported Schema Change
         } else if (isDataChangeRecord(element)) {
-            if (splitState.isLogSplitState()) {
+            if (splitState.isIncrementalSplitState()) {
                 Offset position = getOffsetPosition(element);
-                splitState.asLogSplitState().setStartupOffset(position);
+                splitState.asIncrementalSplitState().setStartupOffset(position);
             }
             emitElement(element, output);
         } else {
