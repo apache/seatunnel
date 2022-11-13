@@ -25,9 +25,52 @@ import org.apache.commons.lang3.StringUtils;
 import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class OptionUtil {
+
+    private OptionUtil() {
+    }
+
+    public static String getOptionKeys(Set<Option<?>> options) {
+        StringBuilder builder = new StringBuilder();
+        boolean flag = false;
+        for (Option<?> option : options) {
+            if (flag) {
+                builder.append(", ");
+            }
+            builder.append("'")
+                .append(option.key())
+                .append("'");
+            flag = true;
+        }
+        return builder.toString();
+    }
+
+    public static String getOptionKeys(Set<Option<?>> options, Set<RequiredOption.BundledRequiredOptions> bundledOptions) {
+        Set<Set<Option<?>>> optionSets = new HashSet<>();
+        for (Option<?> option : options) {
+            optionSets.add(Collections.singleton(option));
+        }
+        for (RequiredOption.BundledRequiredOptions bundledOption : bundledOptions) {
+            optionSets.add(bundledOption.getRequiredOption());
+        }
+        boolean flag = false;
+        StringBuilder builder = new StringBuilder();
+        for (Set<Option<?>> optionSet : optionSets) {
+            if (flag) {
+                builder.append(", ");
+            }
+            builder.append("[")
+                .append(getOptionKeys(optionSet))
+                .append("]");
+            flag = true;
+        }
+        return builder.toString();
+    }
 
     public static List<Option<?>> getOptions(Class<?> clazz) throws InstantiationException, IllegalAccessException {
         Field[] fields = clazz.getDeclaredFields();

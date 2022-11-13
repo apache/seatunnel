@@ -29,4 +29,8 @@ public class OptionValidationException extends RuntimeException {
     public OptionValidationException(String message) {
         super(message);
     }
+
+    public OptionValidationException(String formatMessage, Object... args) {
+        super(String.format(formatMessage, args));
+    }
 }
