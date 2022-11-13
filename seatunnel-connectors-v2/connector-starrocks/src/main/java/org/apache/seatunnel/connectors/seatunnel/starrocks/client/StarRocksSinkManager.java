@@ -105,14 +105,15 @@ public class StarRocksSinkManager {
         if (batchList.isEmpty()) {
             return;
         }
-        StarRocksFlushTuple tuple = null;
+        String label = createBatchLabel();
+        StarRocksFlushTuple tuple = new StarRocksFlushTuple(label, batchBytesSize, new ArrayList<>(batchList));
         for (int i = 0; i <= sinkConfig.getMaxRetries(); i++) {
             try {
-                String label = createBatchLabel();
-                tuple = new StarRocksFlushTuple(label, batchBytesSize, new ArrayList<>(batchList));
-                starrocksStreamLoadVisitor.doStreamLoad(tuple);
+                Boolean successFlag = starrocksStreamLoadVisitor.doStreamLoad(tuple);
+                if (successFlag) {
+                    break;
+                }
             } catch (Exception e) {
-
                 log.warn("Writing records to StarRocks failed, retry times = {}", i, e);
                 if (i >= sinkConfig.getMaxRetries()) {
                     throw new IOException("Writing records to StarRocks failed.", e);
