@@ -139,7 +139,7 @@ public class OptionRule {
             for (Option<?> option : options) {
                 verifyRequiredOptionDefaultValue(option);
             }
-            this.requiredOptions.add(RequiredOption.AbsolutelyRequiredOption.of(options));
+            this.requiredOptions.add(RequiredOption.AbsolutelyRequiredOptions.of(options));
             return this;
         }
 

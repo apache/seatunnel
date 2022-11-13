@@ -45,8 +45,8 @@ public class ConfigValidator {
     }
 
     void validate(RequiredOption requiredOption) {
-        if (requiredOption instanceof RequiredOption.AbsolutelyRequiredOption) {
-            validate((RequiredOption.AbsolutelyRequiredOption) requiredOption);
+        if (requiredOption instanceof RequiredOption.AbsolutelyRequiredOptions) {
+            validate((RequiredOption.AbsolutelyRequiredOptions) requiredOption);
             return;
         }
         if (requiredOption instanceof RequiredOption.BundledRequiredOptions) {
@@ -74,7 +74,7 @@ public class ConfigValidator {
         return absent;
     }
 
-    void validate(RequiredOption.AbsolutelyRequiredOption requiredOption) {
+    void validate(RequiredOption.AbsolutelyRequiredOptions requiredOption) {
         Set<Option<?>> absentOptions = getAbsentOptions(requiredOption.getRequiredOption());
         if (absentOptions.size() == 0) {
             return;

@@ -77,16 +77,16 @@ public interface RequiredOption {
     /**
      * The option is required.
      */
-    class AbsolutelyRequiredOption implements RequiredOption {
+    class AbsolutelyRequiredOptions implements RequiredOption {
         @Getter
         private final Set<Option<?>> requiredOption;
 
-        AbsolutelyRequiredOption(Set<Option<?>> requiredOption) {
+        AbsolutelyRequiredOptions(Set<Option<?>> requiredOption) {
             this.requiredOption = requiredOption;
         }
 
-        public static AbsolutelyRequiredOption of(Option<?>... requiredOption) {
-            return new AbsolutelyRequiredOption(new HashSet<>(Arrays.asList(requiredOption)));
+        public static AbsolutelyRequiredOptions of(Option<?>... requiredOption) {
+            return new AbsolutelyRequiredOptions(new HashSet<>(Arrays.asList(requiredOption)));
         }
 
         @Override
@@ -94,10 +94,10 @@ public interface RequiredOption {
             if (this == obj) {
                 return true;
             }
-            if (!(obj instanceof AbsolutelyRequiredOption)) {
+            if (!(obj instanceof AbsolutelyRequiredOptions)) {
                 return false;
             }
-            AbsolutelyRequiredOption that = (AbsolutelyRequiredOption) obj;
+            AbsolutelyRequiredOptions that = (AbsolutelyRequiredOptions) obj;
             return Objects.equals(this.requiredOption, that.requiredOption);
         }
 
