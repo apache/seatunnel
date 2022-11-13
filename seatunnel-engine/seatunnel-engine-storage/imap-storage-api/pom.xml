@@ -22,19 +22,25 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <artifactId>seatunnel-engine</artifactId>
+        <artifactId>seatunnel-engine-storage</artifactId>
         <groupId>org.apache.seatunnel</groupId>
         <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>seatunnel-engine-storage</artifactId>
+    <artifactId>imap-storage-api</artifactId>
     <packaging>pom</packaging>
-    <modules>
-        <module>checkpoint-storage-api</module>
-        <module>checkpoint-storage-plugins</module>
-        <module>imap-storage-api</module>
-        <module>imap-storage-file</module>
-    </modules>
-    
+
+    <dependencies>
+        <dependency>
+            <groupId>io.protostuff</groupId>
+            <artifactId>protostuff-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.protostuff</groupId>
+            <artifactId>protostuff-runtime</artifactId>
+        </dependency>
+    </dependencies>
+
 </project>
