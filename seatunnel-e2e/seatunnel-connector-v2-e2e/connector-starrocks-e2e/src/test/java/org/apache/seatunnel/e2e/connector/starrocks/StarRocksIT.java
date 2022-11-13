@@ -170,7 +170,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         // wait for starrocks fully start
         given().ignoreExceptions()
                 .await()
-                .atMost(180, TimeUnit.SECONDS)
+                .atMost(360, TimeUnit.SECONDS)
                 .untilAsserted(this::initializeJdbcConnection);
         initializeJdbcTable();
         batchInsertData();
