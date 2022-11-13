@@ -20,6 +20,7 @@ package org.apache.seatunnel.plugin.discovery;
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.apis.base.plugin.Plugin;
 import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -31,6 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.File;
@@ -41,6 +43,7 @@ import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -115,6 +118,29 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         return pluginIdentifiers.stream()
             .map(this::createPluginInstance).distinct()
             .collect(Collectors.toList());
+    }
+
+    /**
+     * Get all support plugin by engine type
+     *
+     * @param engineType engine type
+     * @param pluginType plugin type
+     * @return the all plugin identifier of the engine with artifactId
+     */
+    public static @Nonnull Map<PluginIdentifier, String> getAllSupportedPlugins(String engineType, PluginType pluginType) {
+        Config config = loadConnectorPluginConfig();
+        Map<PluginIdentifier, String> pluginIdentifiers = new HashMap<>();
+        if (config.isEmpty() || !config.hasPath(engineType)) {
+            return pluginIdentifiers;
+        }
+        Config engineConfig = config.getConfig(engineType);
+        if (engineConfig.hasPath(pluginType.getType())) {
+            engineConfig.getConfig(pluginType.getType()).entrySet().forEach(entry -> {
+                pluginIdentifiers.put(PluginIdentifier.of(engineType, pluginType.getType(), entry.getKey()),
+                    entry.getValue().unwrapped().toString());
+            });
+        }
+        return pluginIdentifiers;
     }
 
     @Override
