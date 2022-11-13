@@ -101,7 +101,7 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Se
         SeaTunnelDataType<?> seaTunnelDataType = TypeConverterUtils.convert(stream.schema());
         transform.setTypeInfo(seaTunnelDataType);
         StructType structType = (StructType) TypeConverterUtils.convert(transform.getProducedType());
-        List<Row> rows = new ArrayList<>();
+        List<Row> outputRows = new ArrayList<>();
         Iterator<Row> rowIterator = stream.toLocalIterator();
         SeaTunnelRow seaTunnelRow;
         while (rowIterator.hasNext()) {
@@ -110,11 +110,11 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Se
             seaTunnelRow = (SeaTunnelRow) transform.map(seaTunnelRow);
             InternalRow internalRow = new InternalRowConverter(transform.getProducedType()).convert(seaTunnelRow);
             MutableValue[] mutableValues = ((SpecificInternalRow) internalRow).values();
-            rows.add(new GenericRowWithSchema(
+            outputRows.add(new GenericRowWithSchema(
                 Arrays.stream(mutableValues).map(MutableValue::boxed).toArray(),
                 structType));
         }
-        return sparkEnvironment.getSparkSession().createDataFrame(rows, structType);
+        return sparkEnvironment.getSparkSession().createDataFrame(outputRows, structType);
     }
 
 }
