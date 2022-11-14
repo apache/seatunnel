@@ -45,7 +45,7 @@ public interface DataSourceDialect<C extends SourceConfig> extends Serializable 
     /** Returns the {@link ChunkSplitter} which used to split collection to splits. */
     ChunkSplitter createChunkSplitter(C sourceConfig);
 
-    /** The fetch task used to fetch data of a snapshot split or stream split. */
+    /** The fetch task used to fetch data of a snapshot split or incremental split. */
     FetchTask<SourceSplitBase> createFetchTask(SourceSplitBase sourceSplitBase);
 
     /** The task context used for fetch task to fetch data from external systems. */

@@ -35,7 +35,7 @@ public abstract class SourceSplitStateBase {
         return getClass() == SnapshotSplitState.class;
     }
 
-    /** Checks whether this split state is a stream split state. */
+    /** Checks whether this split state is a incremental split state. */
     public final boolean isIncrementalSplitState() {
         return getClass() == IncrementalSplitState.class;
     }

@@ -43,7 +43,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Fetcher to fetch data from table split, the split is the stream split {@link IncrementalSplit}.
+ * Fetcher to fetch data from table split, the split is the incremental split {@link IncrementalSplit}.
  */
 @Slf4j
 public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, SourceSplitBase> {
@@ -84,7 +84,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
                 } catch (Exception e) {
                     log.error(
                         String.format(
-                            "Execute stream read task for stream split %s fail",
+                            "Execute stream read task for incremental split %s fail",
                             currentIncrementalSplit),
                         e);
                     readException = e;
@@ -144,7 +144,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     /**
      * Returns the record should emit or not.
      *
-     * <p>The watermark signal algorithm is the stream split reader only sends the change event that
+     * <p>The watermark signal algorithm is the incremental split reader only sends the change event that
      * belongs to its finished snapshot splits. For each snapshot split, the change event is valid
      * since the offset is after its high watermark.
      *

@@ -56,7 +56,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
 
     private final Map<String, SnapshotSplit> finishedUnackedSplits;
 
-    private final Map<String, IncrementalSplit> uncompletedStreamSplits;
+    private final Map<String, IncrementalSplit> uncompletedIncrementalSplits;
 
     private final int subtaskId;
 
@@ -77,7 +77,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             context);
         this.sourceConfig = sourceConfig;
         this.finishedUnackedSplits = new HashMap<>();
-        this.uncompletedStreamSplits = new HashMap<>();
+        this.uncompletedIncrementalSplits = new HashMap<>();
         this.subtaskId = context.getIndexOfSubtask();
     }
 
@@ -99,14 +99,14 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     unfinishedSplits.add(split);
                 }
             } else {
-                // the stream split is uncompleted
-                uncompletedStreamSplits.put(split.splitId(), split.asIncrementalSplit());
+                // the incremental split is uncompleted
+                uncompletedIncrementalSplits.put(split.splitId(), split.asIncrementalSplit());
                 unfinishedSplits.add(split.asIncrementalSplit());
             }
         }
         // notify split enumerator again about the finished unacked snapshot splits
         reportFinishedSnapshotSplitsIfNeed();
-        // add all un-finished splits (including stream split) to SourceReaderBase
+        // add all un-finished splits (including incremental split) to SourceReaderBase
         super.addSplits(unfinishedSplits);
     }
 
@@ -117,7 +117,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             checkState(
                 sourceSplit.isSnapshotSplit(),
                 String.format(
-                    "Only snapshot split could finish, but the actual split is stream split %s",
+                    "Only snapshot split could finish, but the actual split is incremental split %s",
                     sourceSplit));
             finishedUnackedSplits.put(sourceSplit.splitId(), sourceSplit.asSnapshotSplit());
         }
@@ -161,8 +161,8 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         // add finished snapshot splits that didn't receive ack yet
         stateSplits.addAll(finishedUnackedSplits.values());
 
-        // add stream splits who are uncompleted
-        stateSplits.addAll(uncompletedStreamSplits.values());
+        // add incremental splits who are uncompleted
+        stateSplits.addAll(uncompletedIncrementalSplits.values());
 
         return stateSplits;
     }
