@@ -115,8 +115,8 @@ sink {
         table = "e2e_table_sink"
         batch_max_rows = 10
         sink.properties.format = "CSV"
-        sink.properties.column_separator = "\\x01",
-        sink.properties.row_delimiter = "\\x02"
+        sink.properties.column_separator = "\x01"
+        sink.properties.row_delimiter = "\x02"
     }
 }
 ```
