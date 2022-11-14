@@ -29,7 +29,7 @@ import java.util.List;
 @AllArgsConstructor
 public class TablestoreOptions implements Serializable {
 
-    private static final int DEFAULT_BATCH_SIZE = 25;
+    
     private static final int DEFAULT_BATCH_INTERVAL_MS = 1000;
 
     private String endpoint;
