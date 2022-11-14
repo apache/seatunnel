@@ -130,3 +130,26 @@ This guide documents an overview of the current Apache SeaTunnel modules and bes
 
 19. If you think which part of the community's current code is unreasonable (especially the core `core` module and the `api` module), the function needs to be updated or modified, the first thing to do is to propose a `discuss issue` or `email` with the community to discuss the need to modify this part of the function, if the community agrees to submit pull request again, do not submit the issue and pull request directly without discussion, so the community will directly consider this pull request is useless, and will be closed down.
 
+## How to develop a high quality connector
+
+As you can see, connector development plays a large part in the overall project, so learning how to develop a high quality connector is very important for developers. Best practices for developing connectors will be presented in this section.
+
+### Connector research
+
+Before you begin to develop a connector that you are interested in, think about what kind of data the connector will access and what kind of data it will output, and how that data will map to the current SeaTunnel internal data types is a good practice.
+
+### Connector validation 
+
+After completing your connector development work, before submitting a pull request, it is best to perform end-to-end testing on the connectors you develop first. BTW, in e2e test cases test all data types that connector is supported is also important.
+
+There are various ways to test end-to-end, such as using [Test Container](https://www.testcontainers.org/) to write some e2e test cases or do integration test in a real environment.
+
+Offer test results in your pull request can reduce the pressure on the community to review and speed up the speed of pr being merged.
+
+### Clear code structure and specification of exceptions
+
+
+
+
+
+
