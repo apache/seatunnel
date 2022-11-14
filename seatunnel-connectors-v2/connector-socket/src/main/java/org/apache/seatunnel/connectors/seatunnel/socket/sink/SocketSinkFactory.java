@@ -15,41 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.socket.source;
+package org.apache.seatunnel.connectors.seatunnel.socket.sink;
 
 import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.MAX_RETRIES;
 import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.PORT;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
-import org.apache.commons.lang3.StringUtils;
+import com.google.auto.service.AutoService;
 
-import java.io.Serializable;
-import java.util.Objects;
-
-public class SocketSourceParameter implements Serializable {
-    private String host;
-    private Integer port;
-
-    public String getHost() {
-        return StringUtils.isBlank(host) ? HOST.defaultValue() : host;
+@AutoService(Factory.class)
+public class SocketSinkFactory implements TableSinkFactory {
+    @Override
+    public String factoryIdentifier() {
+        return "Socket";
     }
 
-    public Integer getPort() {
-        return Objects.isNull(port) ? PORT.defaultValue() : port;
-    }
-
-    public SocketSourceParameter(Config config) {
-        if (config.hasPath(HOST.key())) {
-            this.host = config.getString(HOST.key());
-        } else {
-            this.host = HOST.defaultValue();
-        }
-
-        if (config.hasPath(PORT.key())) {
-            this.port = config.getInt(PORT.key());
-        } else {
-            this.port = PORT.defaultValue();
-        }
+    @Override
+    public OptionRule optionRule() {
+        return OptionRule.builder().required(HOST, PORT).optional(MAX_RETRIES).build();
     }
 }
