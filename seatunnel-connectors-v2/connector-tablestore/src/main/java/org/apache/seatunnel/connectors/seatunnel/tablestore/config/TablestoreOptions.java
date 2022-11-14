@@ -30,7 +30,7 @@ import java.util.List;
 public class TablestoreOptions implements Serializable {
 
     
-    private static final int DEFAULT_BATCH_INTERVAL_MS = 1000;
+    
 
     private String endpoint;
 
