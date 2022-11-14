@@ -87,12 +87,12 @@ public class CommonConfig implements Serializable {
     private boolean caseSensitive;
 
     public CommonConfig(Config pluginConfig) {
-        IcebergCatalogType catalogType = checkArgumentNotNull(pluginConfig.getEnum(IcebergCatalogType.class, KEY_CATALOG_TYPE.key()));
-        checkArgument(CATALOG_TYPE_HADOOP.equals(catalogType)
-                || CATALOG_TYPE_HIVE.equals(catalogType),
+        String catalogType = checkArgumentNotNull(pluginConfig.getString(KEY_CATALOG_TYPE.key()));
+        checkArgument(CATALOG_TYPE_HADOOP.getType().equals(catalogType)
+                || CATALOG_TYPE_HIVE.getType().equals(catalogType),
             "Illegal catalogType: " + catalogType);
 
-        this.catalogType = catalogType;
+        this.catalogType = IcebergCatalogType.valueOf(catalogType);
         this.catalogName = checkArgumentNotNull(pluginConfig.getString(KEY_CATALOG_NAME.key()));
         if (pluginConfig.hasPath(KEY_URI.key())) {
             this.uri = checkArgumentNotNull(pluginConfig.getString(KEY_URI.key()));
