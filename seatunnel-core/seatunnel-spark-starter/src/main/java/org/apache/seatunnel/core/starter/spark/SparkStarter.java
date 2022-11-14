@@ -195,11 +195,13 @@ public class SparkStarter implements Starter {
         commands.add("${SPARK_HOME}/bin/spark-submit");
         appendOption(commands, "--class", SeatunnelSpark.class.getName());
         appendOption(commands, "--name", this.commandArgs.getJobName());
+        appendOption(commands, "--master", this.commandArgs.getMaster());
+        appendOption(commands, "--deploy-mode", this.commandArgs.getDeployMode().getName());
+        appendOption(commands, "--config", this.commandArgs.getConfigFile());
         appendJars(commands, this.jars);
         appendFiles(commands, this.files);
         appendSparkConf(commands, this.sparkConf);
         appendAppJar(commands);
-        appendArgs(commands, args);
         return commands;
     }
 
