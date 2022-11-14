@@ -18,7 +18,7 @@ The internal implementation of StarRocks sink connector is cached and imported b
 | username                    | string                       | yes      | -               |
 | password                    | string                       | yes      | -               |
 | database                    | string                       | yes      | -               |
-| table                       | string                       | no       | -               |
+| table                       | string                       | yes       | -               |
 | labelPrefix                 | string                       | no       | -               |
 | batch_max_rows              | long                         | no       | 1024            |
 | batch_max_bytes             | int                          | no       | 5 * 1024 * 1024 |
@@ -50,44 +50,46 @@ The name of StarRocks table
 
 ### labelPrefix [string]
 
-the prefix of  StarRocks stream load label
+The prefix of StarRocks stream load label
 
-### batch_max_rows [string]
-
-For batch writing, when the number of buffers reaches the number of `batch_max_rows` or the byte size of `batch_max_bytes` or the time reaches `batch_interval_ms`, the data will be flushed into the StarRocks
-
-### batch_max_bytes [string]
+### batch_max_rows [long]
 
 For batch writing, when the number of buffers reaches the number of `batch_max_rows` or the byte size of `batch_max_bytes` or the time reaches `batch_interval_ms`, the data will be flushed into the StarRocks
 
-### batch_interval_ms [string]
+### batch_max_bytes [int]
 
 For batch writing, when the number of buffers reaches the number of `batch_max_rows` or the byte size of `batch_max_bytes` or the time reaches `batch_interval_ms`, the data will be flushed into the StarRocks
 
-### max_retries [string]
+### batch_interval_ms [int]
+
+For batch writing, when the number of buffers reaches the number of `batch_max_rows` or the byte size of `batch_max_bytes` or the time reaches `batch_interval_ms`, the data will be flushed into the StarRocks
+
+### max_retries [int]
 
 The number of retries to flush failed
 
-### retry_backoff_multiplier_ms [string]
+### retry_backoff_multiplier_ms [int]
 
 Using as a multiplier for generating the next delay for backoff
 
-### max_retry_backoff_ms [string]
+### max_retry_backoff_ms [int]
 
 The amount of time to wait before attempting to retry a request to `StarRocks`
 
 ### sink.properties.*  [starrocks stream load config]
 
-the parameter of the stream load `data_desc`
-The way to specify the parameter is to add the prefix `sink.properties.` to the original stream load parameter name. 
-For example, the way to specify `strip_outer_array` is: `sink.properties.strip_outer_array`.
+The parameter of the stream load `data_desc`
+The way to specify the parameter is to add the prefix `sink.properties.` to the original stream load parameter name 
+For example, the way to specify `strip_outer_array` is: `sink.properties.strip_outer_array`
 
 #### Supported import data formats
 
 The supported formats include CSV and JSON. Default value: CSV
 
 ## Example
+
 Use JSON format to import data
+
 ```
 sink {
     StarRocks {
@@ -105,6 +107,7 @@ sink {
 ```
 
 Use CSV format to import data
+
 ```
 sink {
     StarRocks {
