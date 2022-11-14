@@ -125,4 +125,4 @@ Sink plugin common parameters, please refer to [Sink Common Options](common-opti
 
 ### Next version
 
-- Fix generated data part name conflict and improve file commit logic [3416](https://github.com/apache/incubator-seatunnel/pull/3416)
+- [BugFix] Fix generated data part name conflict and improve file commit logic [3416](https://github.com/apache/incubator-seatunnel/pull/3416)
