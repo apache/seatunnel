@@ -32,6 +32,7 @@
 
     <modules>
         <module>connector-common</module>
+        <module>connector-cdc</module>
         <module>connector-clickhouse</module>
         <module>connector-console</module>
         <module>connector-fake</module>
@@ -59,6 +60,7 @@
         <module>connector-amazondynamodb</module>
         <module>connector-cassandra</module>
         <module>connector-starrocks</module>
+        <module>connector-google-sheets</module>
     </modules>
 
     <dependencyManagement>

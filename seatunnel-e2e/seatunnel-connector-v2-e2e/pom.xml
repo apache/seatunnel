@@ -33,6 +33,7 @@
         <module>connector-amazondynamodb-e2e</module>
         <module>connector-file-local-e2e</module>
         <module>connector-cassandra-e2e</module>
+        <module>connector-http-e2e</module>
     </modules>
 
     <artifactId>seatunnel-connector-v2-e2e</artifactId>

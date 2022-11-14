@@ -18,11 +18,11 @@ Write data to `MongoDB`
 ## Options
 
 | name           | type   | required | default value |
-|--------------- | ------ |----------| ------------- |
+|--------------- |--------|----------| ------------- |
 | uri            | string | yes      | -             |
 | database       | string | yes      | -             |
 | collection     | string | yes      | -             |
-| common-options |        | no       | -             |
+| common-options | config | no       | -             |
 
 ### uri [string]
 
