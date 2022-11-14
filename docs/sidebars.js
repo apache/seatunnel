@@ -197,7 +197,8 @@ const sidebars = {
                             "dirName": "connector-v2/sink"
                         }
                     ]
-                }
+                },
+                "Error-Quick-Reference-Manual"
             ]
         },
         {
