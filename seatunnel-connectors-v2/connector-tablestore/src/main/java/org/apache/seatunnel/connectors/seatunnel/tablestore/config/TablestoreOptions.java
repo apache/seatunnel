@@ -44,7 +44,7 @@ public class TablestoreOptions implements Serializable {
 
     private List<String> primaryKeys;
 
-    public int batchSize = DEFAULT_BATCH_SIZE;
+    public int batchSize = Integer.valueOf(BATCH_SIZE.defaultValue());
     public int batchIntervalMs = DEFAULT_BATCH_INTERVAL_MS;
 
     public TablestoreOptions(Config config) {
