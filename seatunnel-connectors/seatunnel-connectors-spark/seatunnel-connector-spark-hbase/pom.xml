@@ -51,6 +51,10 @@
                     <groupId>org.codehaus.janino</groupId>
                     <artifactId>janino</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-client</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
     </dependencies>
