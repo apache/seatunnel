@@ -20,6 +20,12 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.common;
 
+import org.apache.hadoop.conf.Configuration;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
 public class FileConstants {
 
     public static final String DEFAULT_IMAP_NAMESPACE = "/seatunnel-imap";
@@ -29,10 +35,44 @@ public class FileConstants {
     /**
      * init file storage
      */
-    public interface FileInitializableProperties {
-        String FILE_PATH = "file.path";
-        String FILE_NAME = "file.name";
-        String FILE_SIZE = "file.size";
-        String FILE_LAST_MODIFIED = "file.lastModified";
+    public interface FileInitProperties {
+
+        /****************** The following are required parameters for initialization **************/
+
+        String NAMESPACE_KEY = "namespace";
+
+        /**
+         * like OSS bucket name
+         * It is used to distinguish data storage locations of different business.
+         * Type: String
+         */
+        String BUSINESS_KEY = "businessName";
+
+        /**
+         * This parameter is primarily used for cluster isolation
+         * we can use this to distinguish different cluster, like cluster1, cluster2
+         * and this is also used to distinguish different business
+         * 
+         * Type: String
+         */
+        String CLUSTER_NAME = "clusterName";
+
+        /**
+         * We used hdfs api read/write file
+         * so, used this storage need provide hdfs configuratio
+         *
+         * Type:
+         *  @see Configuration
+         */
+        String HDFS_CONFIG_KEY = "hdfsConfig";
+
+        /****************** The following are optional parameters for initialization **************/
+
+        /**
+         * The path of the archive file
+         * Type: int
+         */
+        String ARCHIVE_SCHEDULER_TIME_IN_SECONDS_KEY = "archiveSchedulerTimeInSeconds";
+        
     }
 }

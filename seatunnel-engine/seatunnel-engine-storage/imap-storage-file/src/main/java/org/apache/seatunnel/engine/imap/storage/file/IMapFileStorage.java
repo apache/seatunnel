@@ -21,6 +21,11 @@
 package org.apache.seatunnel.engine.imap.storage.file;
 
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.DEFAULT_IMAP_FILE_PATH_SPLIT;
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.DEFAULT_IMAP_NAMESPACE;
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.BUSINESS_KEY;
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.CLUSTER_NAME;
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.HDFS_CONFIG_KEY;
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.NAMESPACE_KEY;
 import static org.apache.seatunnel.engine.imap.storage.file.common.OrcConstants.ORC_FILE_ARCHIVE_PATH;
 
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
@@ -47,6 +52,7 @@ import org.apache.hadoop.mapred.JobConf;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -115,22 +121,19 @@ public class IMapFileStorage implements IMapStorage {
 
     private Configuration conf;
 
+    /**
+     * @param configuration configuration
+     * @see FileConstants.FileInitProperties
+     */
     @Override
     public void initialize(Map<String, Object> configuration) {
-        Configuration hadoopConf = (Configuration) configuration.get("hadoopConf");
+        checkInitStorageProperties(configuration);
+        Configuration hadoopConf = (Configuration) configuration.get(HDFS_CONFIG_KEY);
         this.conf = hadoopConf;
-        if (configuration.containsKey("namespace")) {
-            this.namespace = (String) configuration.get("namespace");
-        } else {
-            this.namespace = FileConstants.DEFAULT_IMAP_NAMESPACE;
-        }
+        this.namespace = (String) configuration.getOrDefault(NAMESPACE_KEY, DEFAULT_IMAP_NAMESPACE);
+        this.businessName = (String) configuration.get(BUSINESS_KEY);
 
-        if (configuration.containsKey("businessName")) {
-            this.businessName = (String) configuration.get("businessName");
-        }
-        if (configuration.containsKey("clusterName")) {
-            this.clusterName = (String) configuration.get("clusterName");
-        }
+        this.clusterName = (String) configuration.get(CLUSTER_NAME);
 
         this.region = String.valueOf(System.nanoTime());
         JobConf jobConf = new JobConf(hadoopConf);
@@ -414,6 +417,18 @@ public class IMapFileStorage implements IMapStorage {
             return fileNames;
         } catch (IOException e) {
             throw new IMapStorageException(e, "get file names error,path is s%", path);
+        }
+    }
+
+    private void checkInitStorageProperties(Map<String, Object> properties) {
+        if (properties == null || properties.isEmpty()) {
+            throw new IllegalArgumentException("init file storage properties is empty");
+        }
+        List<String> requiredProperties = Arrays.asList(BUSINESS_KEY, CLUSTER_NAME, HDFS_CONFIG_KEY);
+        for (String requiredProperty : requiredProperties) {
+            if (!properties.containsKey(requiredProperty)) {
+                throw new IllegalArgumentException("init file storage properties is not contains " + requiredProperty);
+            }
         }
     }
 
