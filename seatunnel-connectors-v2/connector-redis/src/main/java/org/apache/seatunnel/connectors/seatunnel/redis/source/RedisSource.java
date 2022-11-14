@@ -52,26 +52,28 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, RedisConfig.HOST, RedisConfig.PORT, RedisConfig.KEY_PATTERN, RedisConfig.DATA_TYPE);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, RedisConfig.HOST.key(), RedisConfig.PORT.key(), RedisConfig.KEY_PATTERN.key(), RedisConfig.DATA_TYPE.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
         this.redisParameters.buildWithConfig(pluginConfig);
-        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
-            Config schema = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
-            this.seaTunnelRowType = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
-        } else {
-            this.seaTunnelRowType = SeaTunnelSchema.buildSimpleTextSchema();
-        }
         // TODO: use format SPI
         // default use json format
-        String format;
-        if (pluginConfig.hasPath(RedisConfig.FORMAT)) {
-            format = pluginConfig.getString(RedisConfig.FORMAT);
-            this.deserializationSchema = null;
+        if (pluginConfig.hasPath(RedisConfig.FORMAT.key())) {
+            if (!pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
+                throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Must config schema when format parameter been config");
+            }
+            Config schema = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
+
+            RedisConfig.Format format = RedisConfig.Format
+                    .valueOf(pluginConfig.getString(RedisConfig.FORMAT.key()).toUpperCase());
+            if (RedisConfig.Format.JSON.equals(format)) {
+                this.seaTunnelRowType = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
+                this.deserializationSchema = new JsonDeserializationSchema(false, false, seaTunnelRowType);
+            }
         } else {
-            format = "json";
-            this.deserializationSchema = new JsonDeserializationSchema(false, false, seaTunnelRowType);
+            this.seaTunnelRowType = SeaTunnelSchema.buildSimpleTextSchema();
+            this.deserializationSchema = null;
         }
     }
 

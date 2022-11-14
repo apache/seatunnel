@@ -15,29 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.socket.config;
+package org.apache.seatunnel.connectors.seatunnel.common.source.reader;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import java.util.Set;
 
-import lombok.Data;
+/**
+ * An interface for the elements passed from the fetchers to the source reader.
+ *
+ * @param <E>
+ *
+ */
+public interface RecordsWithSplitIds<E> {
 
-import java.io.Serializable;
+    /**
+     * Moves to the next split.
+     *
+     * @return Returns null, if no splits are left.
+     */
+    String nextSplit();
 
-@Data
-public class SinkConfig implements Serializable {
-    public static final String HOST = "host";
-    public static final String PORT = "port";
-    private static final String MAX_RETRIES = "max_retries";
-    private static final int DEFAULT_MAX_RETRIES = 3;
-    private String host;
-    private int port;
-    private int maxNumRetries = DEFAULT_MAX_RETRIES;
+    /**
+     * Gets the next record from the current split.
+     *
+     * @return Returns null if no more records are left in this split.
+     */
+    E nextRecordFromSplit();
 
-    public SinkConfig(Config config) {
-        this.host = config.getString(HOST);
-        this.port = config.getInt(PORT);
-        if (config.hasPath(MAX_RETRIES)) {
-            this.maxNumRetries = config.getInt(MAX_RETRIES);
-        }
-    }
+    /**
+     * Get the finished splits.
+     *
+     * @return
+     */
+    Set<String> finishedSplits();
+
+    default void recycle() {}
 }

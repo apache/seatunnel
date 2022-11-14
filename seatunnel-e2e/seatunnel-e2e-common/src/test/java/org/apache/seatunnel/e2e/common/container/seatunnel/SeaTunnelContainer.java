@@ -23,6 +23,7 @@ import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
@@ -52,7 +53,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     public void startUp() throws Exception {
         server = new GenericContainer<>(getDockerImage())
             .withNetwork(NETWORK)
-            .withCommand(Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString())
+            .withCommand(ContainerUtil.adaptPathForWin(Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()))
             .withNetworkAliases("server")
             .withExposedPorts()
             .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger("seatunnel-engine:" + JDK_DOCKER_IMAGE)))
