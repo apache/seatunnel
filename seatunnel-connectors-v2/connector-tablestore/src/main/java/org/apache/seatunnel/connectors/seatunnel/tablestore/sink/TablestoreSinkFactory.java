@@ -19,8 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.tablestore.sink;
 
 import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.ACCESS_KEY_ID;
 import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.ACCESS_KEY_SECRET;
+import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.BATCH_INTERVAL_MS;
 import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.DEFAULT_BATCH_INTERVAL_MS;
 import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.END_POINT;
 import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.INSTANCE_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.PRIMARY_KEYS;
@@ -44,7 +44,7 @@ public class TablestoreSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
             .required(END_POINT, TABLE, INSTANCE_NAME, ACCESS_KEY_ID, ACCESS_KEY_SECRET, PRIMARY_KEYS, SeaTunnelSchema.SCHEMA)
-            .optional(DEFAULT_BATCH_INTERVAL_MS, BATCH_SIZE)
+            .optional(BATCH_INTERVAL_MS, BATCH_SIZE)
             .build();
     }
 }

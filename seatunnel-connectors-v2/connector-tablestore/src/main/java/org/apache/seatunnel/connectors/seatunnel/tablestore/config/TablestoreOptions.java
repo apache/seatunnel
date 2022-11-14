@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tablestore.config;
 
+import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.BATCH_INTERVAL_MS;
+import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.BATCH_SIZE;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.AllArgsConstructor;
@@ -29,8 +32,6 @@ import java.util.List;
 @AllArgsConstructor
 public class TablestoreOptions implements Serializable {
 
-    
-    
 
     private String endpoint;
 
@@ -44,8 +45,8 @@ public class TablestoreOptions implements Serializable {
 
     private List<String> primaryKeys;
 
-    public int batchSize = Integer.valueOf(BATCH_SIZE.defaultValue());
-    public int batchIntervalMs = Integer.valueOf(BATCH_INTERVAL_MS.defaultValue());
+    public int batchSize = Integer.parseInt(BATCH_SIZE.defaultValue());
+    public int batchIntervalMs = Integer.parseInt(BATCH_INTERVAL_MS.defaultValue());
 
     public TablestoreOptions(Config config) {
         this.endpoint = config.getString(TablestoreConfig.END_POINT.key());
@@ -55,11 +56,11 @@ public class TablestoreOptions implements Serializable {
         this.table = config.getString(TablestoreConfig.TABLE.key());
         this.primaryKeys = config.getStringList(TablestoreConfig.PRIMARY_KEYS.key());
 
-        if (config.hasPath(TablestoreConfig.BATCH_SIZE.key())) {
-            this.batchSize = config.getInt(TablestoreConfig.BATCH_SIZE.key());
+        if (config.hasPath(BATCH_SIZE.key())) {
+            this.batchSize = config.getInt(BATCH_SIZE.key());
         }
-        if (config.hasPath(TablestoreConfig.DEFAULT_BATCH_INTERVAL_MS.key())) {
-            this.batchIntervalMs = config.getInt(TablestoreConfig.DEFAULT_BATCH_INTERVAL_MS.key());
+        if (config.hasPath(TablestoreConfig.BATCH_INTERVAL_MS.key())) {
+            this.batchIntervalMs = config.getInt(TablestoreConfig.BATCH_INTERVAL_MS.key());
         }
     }
 }
