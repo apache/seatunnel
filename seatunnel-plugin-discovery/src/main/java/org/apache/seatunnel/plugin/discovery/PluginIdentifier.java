@@ -60,13 +60,13 @@ public class PluginIdentifier {
 
         PluginIdentifier that = (PluginIdentifier) o;
 
-        if (!Objects.equals(engineType, that.engineType)) {
+        if (!Objects.equals(engineType.toLowerCase(), that.engineType.toLowerCase())) {
             return false;
         }
-        if (!Objects.equals(pluginType, that.pluginType)) {
+        if (!Objects.equals(pluginType.toLowerCase(), that.pluginType.toLowerCase())) {
             return false;
         }
-        return Objects.equals(pluginName, that.pluginName);
+        return Objects.equals(pluginName.toLowerCase(), that.pluginName.toLowerCase());
     }
 
     @Override
