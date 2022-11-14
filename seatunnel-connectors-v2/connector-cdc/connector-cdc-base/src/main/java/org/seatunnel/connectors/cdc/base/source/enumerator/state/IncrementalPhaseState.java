@@ -15,22 +15,13 @@
  * limitations under the License.
  */
 
-package org.seatunnel.connectors.cdc.base.source.offset;
+package org.seatunnel.connectors.cdc.base.source.enumerator.state;
 
-import java.util.Map;
+import lombok.Data;
 
-public abstract class OffsetFactory {
-    public OffsetFactory() {}
-
-    public abstract Offset earliest();
-
-    public abstract Offset neverStop();
-
-    public abstract Offset latest();
-
-    public abstract Offset specific(Map<String, String> offset);
-
-    public abstract Offset specific(String filename, Long position);
-
-    public abstract Offset timstamp(long timestmap);
+/**
+ * A {@link PendingSplitsState} for pending incremental splits.
+ */
+@Data
+public class IncrementalPhaseState implements PendingSplitsState {
 }

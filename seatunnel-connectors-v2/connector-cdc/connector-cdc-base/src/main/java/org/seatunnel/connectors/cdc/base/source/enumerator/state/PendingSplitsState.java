@@ -15,22 +15,13 @@
  * limitations under the License.
  */
 
-package org.seatunnel.connectors.cdc.base.source.offset;
+package org.seatunnel.connectors.cdc.base.source.enumerator.state;
 
-import java.util.Map;
+import java.io.Serializable;
 
-public abstract class OffsetFactory {
-    public OffsetFactory() {}
-
-    public abstract Offset earliest();
-
-    public abstract Offset neverStop();
-
-    public abstract Offset latest();
-
-    public abstract Offset specific(Map<String, String> offset);
-
-    public abstract Offset specific(String filename, Long position);
-
-    public abstract Offset timstamp(long timestmap);
+/**
+ * A checkpoint of the current state of the containing the currently pending splits that are not yet
+ * assigned.
+ */
+public interface PendingSplitsState extends Serializable {
 }

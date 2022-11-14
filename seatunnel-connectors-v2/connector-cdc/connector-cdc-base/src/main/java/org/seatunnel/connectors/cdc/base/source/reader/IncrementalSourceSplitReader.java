@@ -123,9 +123,9 @@ public class IncrementalSourceSplitReader<C extends SourceConfig>
                     currentFetcher = new IncrementalSourceScanFetcher(taskContext, subtaskId);
                 }
             } else {
-                // point from snapshot split to stream split
+                // point from snapshot split to incremental split
                 if (currentFetcher != null) {
-                    log.info("It's turn to read stream split, close current snapshot fetcher.");
+                    log.info("It's turn to read incremental split, close current snapshot fetcher.");
                     currentFetcher.close();
                 }
                 final FetchTask.Context taskContext =

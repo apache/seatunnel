@@ -17,14 +17,14 @@
 
 package org.seatunnel.connectors.cdc.base.source.reader.external;
 
-import org.seatunnel.connectors.cdc.base.source.split.LogSplit;
+import org.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 
 import java.util.Iterator;
 
 /**
  * Fetcher to fetch data of a table split, the split is either snapshot split {@link SnapshotSplit}
- * or stream split {@link LogSplit}.
+ * or incremental split {@link IncrementalSplit}.
  */
 public interface Fetcher<T, Split> {
 
