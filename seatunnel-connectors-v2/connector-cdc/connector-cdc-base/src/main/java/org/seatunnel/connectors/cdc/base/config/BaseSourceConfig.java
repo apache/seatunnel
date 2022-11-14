@@ -20,7 +20,6 @@ package org.seatunnel.connectors.cdc.base.config;
 import io.debezium.config.Configuration;
 import lombok.Getter;
 import org.seatunnel.connectors.cdc.base.source.IncrementalSource;
-import org.seatunnel.connectors.cdc.base.source.offset.Offset;
 
 import java.util.Properties;
 
@@ -31,10 +30,13 @@ public abstract class BaseSourceConfig implements SourceConfig {
 
     private static final long serialVersionUID = 1L;
 
-    protected final Offset startupOffset;
+    @Getter
+    protected final StartupConfig startupConfig;
 
-    protected final Offset stopOffset;
+    @Getter
+    protected final StopConfig stopConfig;
 
+    @Getter
     protected final int splitSize;
 
     @Getter
@@ -48,33 +50,18 @@ public abstract class BaseSourceConfig implements SourceConfig {
     protected final Properties dbzProperties;
 
     public BaseSourceConfig(
-        Offset startupOffset,
-        Offset stopOffset,
+        StartupConfig startupConfig,
+        StopConfig stopConfig,
         int splitSize,
         double distributionFactorUpper,
         double distributionFactorLower,
         Properties dbzProperties) {
-        this.startupOffset = startupOffset;
-        this.stopOffset = stopOffset;
+        this.startupConfig = startupConfig;
+        this.stopConfig = stopConfig;
         this.splitSize = splitSize;
         this.distributionFactorUpper = distributionFactorUpper;
         this.distributionFactorLower = distributionFactorLower;
         this.dbzProperties = dbzProperties;
-    }
-
-    @Override
-    public Offset getStartupOffset() {
-        return this.startupOffset;
-    }
-
-    @Override
-    public Offset getStopOffset() {
-        return this.stopOffset;
-    }
-
-    @Override
-    public int getSplitSize() {
-        return splitSize;
     }
 
     public Configuration getDbzConfiguration() {

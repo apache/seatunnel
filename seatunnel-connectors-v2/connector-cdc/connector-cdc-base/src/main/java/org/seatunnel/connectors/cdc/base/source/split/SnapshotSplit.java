@@ -17,35 +17,42 @@
 
 package org.seatunnel.connectors.cdc.base.source.split;
 
-import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import io.debezium.relational.TableId;
 import lombok.Getter;
+import org.seatunnel.connectors.cdc.base.source.offset.Offset;
 
 @Getter
-public class SnapshotSplit implements SourceSplit {
-    private final String splitId;
+public class SnapshotSplit extends SourceSplitBase {
     private final TableId tableId;
     private final SeaTunnelRowType splitKeyType;
     private final Object splitStart;
     private final Object splitEnd;
+
+    private final Offset highWatermark;
 
     public SnapshotSplit(
             String splitId,
             TableId tableId,
             SeaTunnelRowType splitKeyType,
             Object splitStart,
-            Object splitEnd) {
-        this.splitId = splitId;
+            Object splitEnd,
+            Offset highWatermark) {
+        super(splitId);
         this.tableId = tableId;
         this.splitKeyType = splitKeyType;
         this.splitStart = splitStart;
         this.splitEnd = splitEnd;
+        this.highWatermark = highWatermark;
     }
 
     @Override
     public String splitId() {
         return this.splitId;
+    }
+
+    public boolean isSnapshotReadFinished() {
+        return highWatermark != null;
     }
 }

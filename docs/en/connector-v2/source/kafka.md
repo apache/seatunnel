@@ -24,14 +24,14 @@ Source connector for Apache Kafka.
 | pattern                             | Boolean | no       | false                    |
 | consumer.group                      | String  | no       | SeaTunnel-Consumer-Group |
 | commit_on_checkpoint                | Boolean | no       | true                     |
-| partition-discovery.interval-millis | long    | no       | -1                       |
+| kafka.*                             | String  | no       | -                        |
+| common-options                      | config  | no       | -                        |
 | schema                              |         | no       | -                        |
 | format                              | String  | no       | json                     |
 | start_mode                          | String  | no       | group_offsets            |
 | start_mode.offsets                  |         | no       |                          |
 | start_mode.timestamp                | Long    | no       |                          |
-| kafka.*                             | String  | no       | -                        |
-| common-options                      |         | no       | -                        |
+| partition-discovery.interval-millis | long    | no       | -1                       |
 
 ### topic [string]
 
@@ -63,27 +63,38 @@ In addition to the above necessary parameters that must be specified by the `Kaf
 
 The way to specify parameters is to add the prefix `kafka.` to the original parameter name. For example, the way to specify `auto.offset.reset` is: `kafka.auto.offset.reset = latest` . If these non-essential parameters are not specified, they will use the default values given in the official Kafka documentation.
 
-### common-options
+### common-options [config]
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
 ### schema
+
 The structure of the data, including field names and field types.
 
 ## format
+
 Data format. The default format is json. Optional text format. The default field separator is ", ".
 If you customize the delimiter, add the "field_delimiter" option.
 
+## field_delimiter
+
+Customize the field delimiter for data format.
+
 ## start_mode
+
 The initial consumption pattern of consumers,there are several types:
 [earliest],[group_offsets],[latest],[specific_offsets],[timestamp]
 
 ## start_mode.timestamp
-The time required for consumption mode to be timestamp
+
+The time required for consumption mode to be timestamp.
 
 ##  start_mode.offsets
-The offset required for consumption mode to be specific_offsets
+
+The offset required for consumption mode to be specific_offsets.
+
 for example:
+
 ```hocon
    start_mode.offsets = {
             info-0 = 70
