@@ -243,6 +243,10 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     }
                 }
             }
+            //Check the row numbers is equal
+            sourceResultSet.last();
+            sinkResultSet.last();
+            Assertions.assertEquals(sourceResultSet.getRow(), sinkResultSet.getRow());
         } catch (Exception e) {
             throw new RuntimeException("get starRocks connection error", e);
         }
