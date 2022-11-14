@@ -41,7 +41,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/** The context for fetch task that fetching data of snapshot split from JDBC data source. */
+/**
+ * The context for fetch task that fetching data of snapshot split from JDBC data source.
+ */
 public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
 
     protected final JdbcSourceConfig sourceConfig;
@@ -50,7 +52,7 @@ public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
     protected final SchemaNameAdjuster schemaNameAdjuster;
 
     public JdbcSourceFetchTaskContext(
-            JdbcSourceConfig sourceConfig, JdbcDataSourceDialect dataSourceDialect) {
+        JdbcSourceConfig sourceConfig, JdbcDataSourceDialect dataSourceDialect) {
         this.sourceConfig = sourceConfig;
         this.dataSourceDialect = dataSourceDialect;
         this.dbzConnectorConfig = sourceConfig.getDbzConnectorConfig();
@@ -70,7 +72,7 @@ public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
     @Override
     public boolean isRecordBetween(SourceRecord record, Object[] splitStart, Object[] splitEnd) {
         SeaTunnelRowType splitKeyType =
-                getSplitType(getDatabaseSchema().tableFor(SourceRecordUtils.getTableId(record)));
+            getSplitType(getDatabaseSchema().tableFor(SourceRecordUtils.getTableId(record)));
         Object[] key = SourceRecordUtils.getSplitKey(splitKeyType, record, getSchemaNameAdjuster());
         return SourceRecordUtils.splitKeyRangeContains(key, splitStart, splitEnd);
     }
@@ -78,12 +80,12 @@ public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
     @SuppressWarnings("checkstyle:MissingSwitchDefault")
     @Override
     public void rewriteOutputBuffer(
-            Map<Struct, SourceRecord> outputBuffer, SourceRecord changeRecord) {
+        Map<Struct, SourceRecord> outputBuffer, SourceRecord changeRecord) {
         Struct key = (Struct) changeRecord.key();
         Struct value = (Struct) changeRecord.value();
         if (value != null) {
             Envelope.Operation operation =
-                    Envelope.Operation.forCode(value.getString(Envelope.FieldName.OPERATION));
+                Envelope.Operation.forCode(value.getString(Envelope.FieldName.OPERATION));
             switch (operation) {
                 case CREATE:
                 case UPDATE:
@@ -91,17 +93,17 @@ public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
                     Struct source = value.getStruct(Envelope.FieldName.SOURCE);
                     Struct after = value.getStruct(Envelope.FieldName.AFTER);
                     Instant fetchTs =
-                            Instant.ofEpochMilli((Long) source.get(Envelope.FieldName.TIMESTAMP));
+                        Instant.ofEpochMilli((Long) source.get(Envelope.FieldName.TIMESTAMP));
                     SourceRecord record =
-                            new SourceRecord(
-                                    changeRecord.sourcePartition(),
-                                    changeRecord.sourceOffset(),
-                                    changeRecord.topic(),
-                                    changeRecord.kafkaPartition(),
-                                    changeRecord.keySchema(),
-                                    changeRecord.key(),
-                                    changeRecord.valueSchema(),
-                                    envelope.read(after, source, fetchTs));
+                        new SourceRecord(
+                            changeRecord.sourcePartition(),
+                            changeRecord.sourceOffset(),
+                            changeRecord.topic(),
+                            changeRecord.kafkaPartition(),
+                            changeRecord.keySchema(),
+                            changeRecord.key(),
+                            changeRecord.valueSchema(),
+                            envelope.read(after, source, fetchTs));
                     outputBuffer.put(key, record);
                     break;
                 case DELETE:
@@ -109,9 +111,9 @@ public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
                     break;
                 case READ:
                     throw new IllegalStateException(
-                            String.format(
-                                    "Data change record shouldn't use READ operation, the the record is %s.",
-                                    changeRecord));
+                        String.format(
+                            "Data change record shouldn't use READ operation, the the record is %s.",
+                            changeRecord));
             }
         }
     }
@@ -119,31 +121,31 @@ public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
     @Override
     public List<SourceRecord> formatMessageTimestamp(Collection<SourceRecord> snapshotRecords) {
         return snapshotRecords.stream()
-                .map(
-                        record -> {
-                            Envelope envelope = Envelope.fromSchema(record.valueSchema());
-                            Struct value = (Struct) record.value();
-                            Struct updateAfter = value.getStruct(Envelope.FieldName.AFTER);
-                            // set message timestamp (source.ts_ms) to 0L
-                            Struct source = value.getStruct(Envelope.FieldName.SOURCE);
-                            source.put(Envelope.FieldName.TIMESTAMP, 0L);
-                            // extend the fetch timestamp(ts_ms)
-                            Instant fetchTs =
-                                    Instant.ofEpochMilli(
-                                            value.getInt64(Envelope.FieldName.TIMESTAMP));
-                            SourceRecord sourceRecord =
-                                    new SourceRecord(
-                                            record.sourcePartition(),
-                                            record.sourceOffset(),
-                                            record.topic(),
-                                            record.kafkaPartition(),
-                                            record.keySchema(),
-                                            record.key(),
-                                            record.valueSchema(),
-                                            envelope.read(updateAfter, source, fetchTs));
-                            return sourceRecord;
-                        })
-                .collect(Collectors.toList());
+            .map(
+                record -> {
+                    Envelope envelope = Envelope.fromSchema(record.valueSchema());
+                    Struct value = (Struct) record.value();
+                    Struct updateAfter = value.getStruct(Envelope.FieldName.AFTER);
+                    // set message timestamp (source.ts_ms) to 0L
+                    Struct source = value.getStruct(Envelope.FieldName.SOURCE);
+                    source.put(Envelope.FieldName.TIMESTAMP, 0L);
+                    // extend the fetch timestamp(ts_ms)
+                    Instant fetchTs =
+                        Instant.ofEpochMilli(
+                            value.getInt64(Envelope.FieldName.TIMESTAMP));
+                    SourceRecord sourceRecord =
+                        new SourceRecord(
+                            record.sourcePartition(),
+                            record.sourceOffset(),
+                            record.topic(),
+                            record.kafkaPartition(),
+                            record.keySchema(),
+                            record.key(),
+                            record.valueSchema(),
+                            envelope.read(updateAfter, source, fetchTs));
+                    return sourceRecord;
+                })
+            .collect(Collectors.toList());
     }
 
     public SourceConfig getSourceConfig() {
