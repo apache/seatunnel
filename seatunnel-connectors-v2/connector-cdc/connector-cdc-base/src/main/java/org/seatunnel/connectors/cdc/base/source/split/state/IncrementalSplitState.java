@@ -21,7 +21,7 @@ import io.debezium.relational.TableId;
 import lombok.Getter;
 import lombok.Setter;
 import org.seatunnel.connectors.cdc.base.source.offset.Offset;
-import org.seatunnel.connectors.cdc.base.source.split.LogSplit;
+import org.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 
 import java.util.List;
 
@@ -30,12 +30,12 @@ import java.util.List;
  */
 @Getter
 @Setter
-public class LogSplitState extends SourceSplitStateBase {
+public class IncrementalSplitState extends SourceSplitStateBase {
 
     private  List<TableId> tableIds;
 
     /**
-     * Minimum watermark for SnapshotSplits for all tables in this LogSplit
+     * Minimum watermark for SnapshotSplits for all tables in this IncrementalSplit
      */
     private Offset startupOffset;
 
@@ -44,7 +44,7 @@ public class LogSplitState extends SourceSplitStateBase {
      */
     private  Offset stopOffset;
 
-    public LogSplitState(LogSplit split) {
+    public IncrementalSplitState(IncrementalSplit split) {
         super(split);
         this.tableIds = split.getTableIds();
         this.startupOffset = split.getStartupOffset();
@@ -52,14 +52,14 @@ public class LogSplitState extends SourceSplitStateBase {
     }
 
     @Override
-    public LogSplit toSourceSplit() {
-        final LogSplit logSplit = split.asLogSplit();
-        return new LogSplit(
-            logSplit.splitId(),
+    public IncrementalSplit toSourceSplit() {
+        final IncrementalSplit incrementalSplit = split.asIncrementalSplit();
+        return new IncrementalSplit(
+            incrementalSplit.splitId(),
             getTableIds(),
             getStartupOffset(),
             getStopOffset(),
-            logSplit.getCompletedSnapshotSplitInfos()
+            incrementalSplit.getCompletedSnapshotSplitInfos()
         );
     }
 }

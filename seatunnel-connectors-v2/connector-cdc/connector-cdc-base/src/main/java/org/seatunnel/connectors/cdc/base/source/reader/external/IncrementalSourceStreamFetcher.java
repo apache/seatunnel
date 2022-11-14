@@ -26,7 +26,7 @@ import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.seatunnel.connectors.cdc.base.source.offset.Offset;
-import org.seatunnel.connectors.cdc.base.source.split.LogSplit;
+import org.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
@@ -43,7 +43,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Fetcher to fetch data from table split, the split is the stream split {@link LogSplit}.
+ * Fetcher to fetch data from table split, the split is the incremental split {@link IncrementalSplit}.
  */
 @Slf4j
 public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, SourceSplitBase> {
@@ -56,7 +56,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
 
     private FetchTask<SourceSplitBase> streamFetchTask;
 
-    private LogSplit currentLogSplit;
+    private IncrementalSplit currentIncrementalSplit;
 
     private Map<TableId, Offset> maxSplitHighWatermarkMap;
 
@@ -73,9 +73,9 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     @Override
     public void submitTask(FetchTask<SourceSplitBase> fetchTask) {
         this.streamFetchTask = fetchTask;
-        this.currentLogSplit = fetchTask.getSplit().asLogSplit();
+        this.currentIncrementalSplit = fetchTask.getSplit().asIncrementalSplit();
         configureFilter();
-        taskContext.configure(currentLogSplit);
+        taskContext.configure(currentIncrementalSplit);
         this.queue = taskContext.getQueue();
         executorService.submit(
             () -> {
@@ -84,8 +84,8 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
                 } catch (Exception e) {
                     log.error(
                         String.format(
-                            "Execute stream read task for stream split %s fail",
-                            currentLogSplit),
+                            "Execute stream read task for incremental split %s fail",
+                            currentIncrementalSplit),
                         e);
                     readException = e;
                 }
@@ -94,7 +94,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
 
     @Override
     public boolean isFinished() {
-        return currentLogSplit == null || !streamFetchTask.isRunning();
+        return currentIncrementalSplit == null || !streamFetchTask.isRunning();
     }
 
     @Override
@@ -119,7 +119,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
             throw new SeaTunnelException(
                 String.format(
                     "Read split %s error due to %s.",
-                    currentLogSplit, readException.getMessage()),
+                    currentIncrementalSplit, readException.getMessage()),
                 readException);
         }
     }
@@ -144,7 +144,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     /**
      * Returns the record should emit or not.
      *
-     * <p>The watermark signal algorithm is the stream split reader only sends the change event that
+     * <p>The watermark signal algorithm is the incremental split reader only sends the change event that
      * belongs to its finished snapshot splits. For each snapshot split, the change event is valid
      * since the offset is after its high watermark.
      *
@@ -188,8 +188,8 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         Map<TableId, Offset> tableIdOffsetPositionMap = new HashMap<>();
         // latest-offset mode
 
-        for (TableId tableId : currentLogSplit.getTableIds()) {
-            tableIdOffsetPositionMap.put(tableId, currentLogSplit.getStartupOffset());
+        for (TableId tableId : currentIncrementalSplit.getTableIds()) {
+            tableIdOffsetPositionMap.put(tableId, currentIncrementalSplit.getStartupOffset());
         }
         this.maxSplitHighWatermarkMap = tableIdOffsetPositionMap;
         this.pureStreamPhaseTables.clear();
