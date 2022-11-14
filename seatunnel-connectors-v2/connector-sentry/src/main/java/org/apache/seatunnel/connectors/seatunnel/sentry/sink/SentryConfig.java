@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.sentry.sink;
 
 public class SentryConfig {
 
-    public static final String SENTRY = "sentry";
+    public static final String SENTRY = "Sentry";
     public static final String DSN = "dsn";
     public static final String ENV = "env";
     public static final String RELEASE = "release";
