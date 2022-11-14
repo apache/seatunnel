@@ -115,7 +115,7 @@ public class KafkaTableStream implements FlinkStreamSource {
         try {
             schemaInfo = JsonUtils.stringToJsonNode(schemaContent);
         } catch (JsonProcessingException e) {
-            log.error("schema parse error", e);
+            LOGGER.error("schema parse error", e);
             throw new ClassCastException(String.format("%s, cannot be cast to com.fasterxml.jackson.databind.JsonNode.", schemaContent));
         }
     }
