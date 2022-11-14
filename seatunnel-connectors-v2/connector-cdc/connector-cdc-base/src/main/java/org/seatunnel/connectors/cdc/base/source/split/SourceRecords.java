@@ -15,16 +15,34 @@
  * limitations under the License.
  */
 
-package org.seatunnel.connectors.cdc.base.source.event;
+package org.seatunnel.connectors.cdc.base.source.split;
 
-import org.apache.seatunnel.api.source.SourceEvent;
+import org.apache.kafka.connect.source.SourceRecord;
 
-import lombok.Data;
-
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
-@Data
-public class CompletedSnapshotSplitReportEvent implements SourceEvent {
-    private static final long serialVersionUID = 1L;
-    List<SnapshotSplitWatermark> completedSnapshotSplitWatermarks;
+/** Data structure to describe a set of {@link SourceRecord}. */
+public final class SourceRecords {
+
+    private final List<SourceRecord> sourceRecords;
+
+    public SourceRecords(List<SourceRecord> sourceRecords) {
+        this.sourceRecords = sourceRecords;
+    }
+
+    public List<SourceRecord> getSourceRecordList() {
+        return sourceRecords;
+    }
+
+    public Iterator<SourceRecord> iterator() {
+        return sourceRecords.iterator();
+    }
+
+    public static SourceRecords fromSingleRecord(SourceRecord record) {
+        final List<SourceRecord> records = new ArrayList<>();
+        records.add(record);
+        return new SourceRecords(records);
+    }
 }
