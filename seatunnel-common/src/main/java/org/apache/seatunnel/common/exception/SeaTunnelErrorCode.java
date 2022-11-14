@@ -15,21 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.configuration.util;
-
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+package org.apache.seatunnel.common.exception;
 
 /**
- * Exception for all errors occurring during option validation phase.
+ * SeaTunnel connector error code interface
  */
-public class OptionValidationException extends SeaTunnelRuntimeException {
+public interface SeaTunnelErrorCode {
+    /**
+     * Get error code
+     * @return error code
+     */
+    String getCode();
 
-    public OptionValidationException(String message, Throwable cause) {
-        super(SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED, message, cause);
-    }
+    /**
+     * Get error description
+     * @return error description
+     */
+    String getDescription();
 
-    public OptionValidationException(String message) {
-        super(SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED, message);
+    default String getErrorMessage() {
+        return String.format("ErrorCode:[%s], ErrorDescription:[%s]", getCode(), getDescription());
     }
 }
