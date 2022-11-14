@@ -17,12 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.tablestore;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
 public class TablestoreDialect implements JdbcDialect {
@@ -46,5 +48,11 @@ public class TablestoreDialect implements JdbcDialect {
         PreparedStatement statement = connection.prepareStatement(queryTemplate);
         statement.setFetchSize(fetchSize);
         return statement;
+    }
+
+    @Override
+    public ResultSetMetaData getResultSetMetaData(Connection conn, JdbcSourceOptions jdbcSourceOptions) throws SQLException {
+        PreparedStatement ps = conn.prepareStatement(jdbcSourceOptions.getJdbcConnectionOptions().getQuery());
+        return ps.executeQuery().getMetaData();
     }
 }

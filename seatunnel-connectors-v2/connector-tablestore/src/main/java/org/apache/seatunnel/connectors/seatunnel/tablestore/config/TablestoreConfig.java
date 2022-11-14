@@ -49,10 +49,10 @@ public class TablestoreConfig implements Serializable {
         .withDescription(" Tablestore batch_size");
     public static final Option<String> DEFAULT_BATCH_INTERVAL_MS = Options.key("batch_interval_ms")
         .stringType()
-        .noDefaultValue()
+        .defaultValue("25")
         .withDescription(" Tablestore batch_interval_ms");
     public static final Option<String> PRIMARY_KEYS = Options.key("primary_keys")
         .stringType()
-        .noDefaultValue()
+        .defaultValue("1000")
         .withDescription(" Tablestore primary_keys");
 }
