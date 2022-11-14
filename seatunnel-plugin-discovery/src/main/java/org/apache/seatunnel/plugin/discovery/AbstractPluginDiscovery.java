@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.apis.base.plugin.Plugin;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -37,10 +38,12 @@ import javax.annotation.Nullable;
 
 import java.io.File;
 import java.io.FileFilter;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -81,6 +84,10 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
     public AbstractPluginDiscovery(String pluginSubDir) {
         this(Common.connectorJarDir(pluginSubDir), loadConnectorPluginConfig());
+    }
+
+    public AbstractPluginDiscovery(Path pluginDir) {
+        this(pluginDir, loadConnectorPluginConfig());
     }
 
     public AbstractPluginDiscovery(Path pluginDir,
@@ -124,7 +131,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
      * Get all support plugin by engine type
      *
      * @param engineType engine type
-     * @param pluginType plugin type
+     * @param pluginType plugin type, not support transform
      * @return the all plugin identifier of the engine with artifactId
      */
     public static @Nonnull Map<PluginIdentifier, String> getAllSupportedPlugins(String engineType, PluginType pluginType) {
@@ -184,6 +191,24 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             }
         }
         throw new RuntimeException("Plugin " + pluginIdentifier + " not found.");
+    }
+
+    /**
+     * Get all support plugin already in SEATUNNEL_HOME, only support connector-v2
+     *
+     * @param pluginType Used to populate the PluginIdentifier, but without any filtering
+     * @return the all plugin identifier of the engine
+     */
+    public @Nonnull List<PluginIdentifier> getAllPlugin(PluginType pluginType) throws IOException {
+        List<URL> files = FileUtils.searchJarFiles(pluginDir);
+        List<PluginIdentifier> plugins = new ArrayList<>();
+        ServiceLoader<T> serviceLoader = ServiceLoader.load(getPluginBaseClass(), new URLClassLoader(files.toArray(new URL[0])));
+        serviceLoader.iterator().forEachRemaining(plugin -> {
+            if (plugin instanceof PluginIdentifierInterface) {
+                plugins.add(PluginIdentifier.of("seatunnel", pluginType.getType(), ((PluginIdentifierInterface) plugin).getPluginName()));
+            }
+        });
+        return plugins;
     }
 
     @Nullable
