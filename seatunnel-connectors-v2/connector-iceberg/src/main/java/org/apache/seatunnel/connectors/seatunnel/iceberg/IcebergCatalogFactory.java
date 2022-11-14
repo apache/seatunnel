@@ -58,9 +58,9 @@ public class IcebergCatalogFactory implements Serializable {
         properties.put(CatalogProperties.WAREHOUSE_LOCATION, warehouse);
 
         switch (catalogType) {
-            case CATALOG_TYPE_HADOOP:
+            case HADOOP:
                 return hadoop(catalogName, serializableConf, properties);
-            case CATALOG_TYPE_HIVE:
+            case HIVE:
                 properties.put(CatalogProperties.URI, uri);
                 return hive(catalogName, serializableConf, properties);
             default:

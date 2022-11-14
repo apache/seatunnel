@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
 
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.CATALOG_TYPE_HADOOP;
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.CATALOG_TYPE_HIVE;
+import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HADOOP;
+import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HIVE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -88,11 +88,11 @@ public class CommonConfig implements Serializable {
 
     public CommonConfig(Config pluginConfig) {
         String catalogType = checkArgumentNotNull(pluginConfig.getString(KEY_CATALOG_TYPE.key()));
-        checkArgument(CATALOG_TYPE_HADOOP.getType().equals(catalogType)
-                || CATALOG_TYPE_HIVE.getType().equals(catalogType),
+        checkArgument(HADOOP.getType().equals(catalogType)
+                || HIVE.getType().equals(catalogType),
             "Illegal catalogType: " + catalogType);
 
-        this.catalogType = IcebergCatalogType.valueOf(catalogType);
+        this.catalogType = IcebergCatalogType.valueOf(catalogType.toUpperCase());
         this.catalogName = checkArgumentNotNull(pluginConfig.getString(KEY_CATALOG_NAME.key()));
         if (pluginConfig.hasPath(KEY_URI.key())) {
             this.uri = checkArgumentNotNull(pluginConfig.getString(KEY_URI.key()));

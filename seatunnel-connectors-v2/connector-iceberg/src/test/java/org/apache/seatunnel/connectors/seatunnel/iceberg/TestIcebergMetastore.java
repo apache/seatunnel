@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg;
 
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.CATALOG_TYPE_HIVE;
+import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HIVE;
 
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.iceberg.catalog.Namespace;
@@ -50,7 +50,7 @@ public class TestIcebergMetastore {
         new File(warehousePath).mkdirs();
 
         HiveCatalog catalog = (HiveCatalog) new IcebergCatalogFactory("seatunnel",
-            CATALOG_TYPE_HIVE,
+            HIVE,
             "file://" + warehousePath,
             METASTORE_URI)
             .create();

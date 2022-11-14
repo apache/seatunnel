@@ -25,7 +25,7 @@ import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonCon
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig.KEY_TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig.KEY_URI;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig.KEY_WAREHOUSE;
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.CATALOG_TYPE_HIVE;
+import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HIVE;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig.KEY_END_SNAPSHOT_ID;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig.KEY_START_SNAPSHOT_ID;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig.KEY_START_SNAPSHOT_TIMESTAMP;
@@ -57,7 +57,7 @@ public class IcebergSourceFactory implements TableSourceFactory {
                 KEY_NAMESPACE,
                 KEY_TABLE
             )
-            .conditional(KEY_CATALOG_TYPE, CATALOG_TYPE_HIVE, KEY_URI)
+            .conditional(KEY_CATALOG_TYPE, HIVE, KEY_URI)
             .optional(
                 KEY_FIELDS,
                 KEY_CASE_SENSITIVE,
