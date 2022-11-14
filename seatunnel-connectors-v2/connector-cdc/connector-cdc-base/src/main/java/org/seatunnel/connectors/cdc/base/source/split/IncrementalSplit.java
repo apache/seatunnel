@@ -17,8 +17,6 @@
 
 package org.seatunnel.connectors.cdc.base.source.split;
 
-import org.apache.seatunnel.api.source.SourceSplit;
-
 import io.debezium.relational.TableId;
 import lombok.Getter;
 import org.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -26,16 +24,15 @@ import org.seatunnel.connectors.cdc.base.source.offset.Offset;
 import java.util.List;
 
 @Getter
-public class LogSplit implements SourceSplit {
-    private final String splitId;
+public class IncrementalSplit extends SourceSplitBase {
 
     /**
-     * All the tables that this log split needs to capture.
+     * All the tables that this incremental split needs to capture.
      */
     private final List<TableId> tableIds;
 
     /**
-     * Minimum watermark for SnapshotSplits for all tables in this LogSplit
+     * Minimum watermark for SnapshotSplits for all tables in this IncrementalSplit
      */
     private final Offset startupOffset;
 
@@ -45,26 +42,21 @@ public class LogSplit implements SourceSplit {
     private final Offset stopOffset;
 
     /**
-     * SnapshotSplit information for all tables in this LogSplit.
+     * SnapshotSplit information for all tables in this IncrementalSplit.
      * <br> Used to support Exactly-Once.
      */
     private final List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos;
 
-    public LogSplit(
+    public IncrementalSplit(
             String splitId,
             List<TableId> capturedTables,
             Offset startupOffset,
             Offset stopOffset,
             List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos) {
-        this.splitId = splitId;
+        super(splitId);
         this.tableIds = capturedTables;
         this.startupOffset = startupOffset;
         this.stopOffset = stopOffset;
         this.completedSnapshotSplitInfos = completedSnapshotSplitInfos;
-    }
-
-    @Override
-    public String splitId() {
-        return this.splitId;
     }
 }
