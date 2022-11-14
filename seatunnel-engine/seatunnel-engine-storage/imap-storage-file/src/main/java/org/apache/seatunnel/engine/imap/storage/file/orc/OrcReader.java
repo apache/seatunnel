@@ -52,7 +52,7 @@ public class OrcReader {
 
     public OrcReader(Path path, Configuration conf) throws IOException {
         this.conf = conf;
-        this.reader = OrcFile.createReader((path), OrcFile.readerOptions(conf));
+        this.reader = OrcFile.createReader(path, OrcFile.readerOptions(conf));
     }
 
     public List<IMapData> queryAllKeys() throws IOException {
@@ -89,32 +89,32 @@ public class OrcReader {
     private IMapData convert(VectorizedRowBatch batch, List<TypeDescription> fieldList, int rowNum, boolean queryAll) {
         IMapData data = new IMapData();
         IntStream.range(0, fieldList.size()).forEach(i -> {
-            if ("deleted".equals(fieldList.get(i).getFullFieldName())) {
+            if (OrcConstants.OrcFields.DELETED.equals(fieldList.get(i).getFullFieldName())) {
                 LongColumnVector longVec = (LongColumnVector) batch.cols[i];
                 data.setDeleted(longVec.vector[rowNum] == 1 ? Boolean.TRUE : Boolean.FALSE);
                 return;
             }
-            if ("key".equals(fieldList.get(i).getFullFieldName())) {
+            if (OrcConstants.OrcFields.KEY.equals(fieldList.get(i).getFullFieldName())) {
                 BytesColumnVector bytesVector = (BytesColumnVector) batch.cols[i];
                 data.setKey(bytesVector.toString(rowNum).getBytes(StandardCharsets.UTF_8));
                 return;
             }
-            if ("keyClass".equals(fieldList.get(i).getFullFieldName())) {
+            if (OrcConstants.OrcFields.KEY_CLASS.equals(fieldList.get(i).getFullFieldName())) {
                 BytesColumnVector bytesVector = (BytesColumnVector) batch.cols[i];
                 data.setKeyClassName(bytesVector.toString(rowNum));
                 return;
             }
-            if ("value".equals(fieldList.get(i).getFullFieldName()) && queryAll) {
+            if (OrcConstants.OrcFields.VALUE.equals(fieldList.get(i).getFullFieldName()) && queryAll) {
                 BytesColumnVector bytesVector = (BytesColumnVector) batch.cols[i];
                 data.setValue(bytesVector.toString(rowNum).getBytes(StandardCharsets.UTF_8));
                 return;
             }
-            if ("valueClass".equals(fieldList.get(i).getFullFieldName()) && queryAll) {
+            if (OrcConstants.OrcFields.VALUE_CLASS.equals(fieldList.get(i).getFullFieldName()) && queryAll) {
                 BytesColumnVector bytesVector = (BytesColumnVector) batch.cols[i];
                 data.setValueClassName(bytesVector.toString(rowNum));
                 return;
             }
-            if ("timestamp".equals(fieldList.get(i).getFullFieldName())) {
+            if (OrcConstants.OrcFields.TIMESTAMP.equals(fieldList.get(i).getFullFieldName())) {
                 LongColumnVector longVec = (LongColumnVector) batch.cols[i];
                 data.setTimestamp(longVec.vector[rowNum]);
             }

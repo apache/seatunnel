@@ -25,4 +25,14 @@ public class FileConstants {
     public static final String DEFAULT_IMAP_NAMESPACE = "/seatunnel-imap";
 
     public static final String DEFAULT_IMAP_FILE_PATH_SPLIT = "/";
+
+    /**
+     * init file storage
+     */
+    public interface FileInitializableProperties {
+        String FILE_PATH = "file.path";
+        String FILE_NAME = "file.name";
+        String FILE_SIZE = "file.size";
+        String FILE_LAST_MODIFIED = "file.lastModified";
+    }
 }

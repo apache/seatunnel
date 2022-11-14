@@ -36,4 +36,22 @@ public class OrcConstants {
      * The path of the archive file
      */
     public static final String ORC_FILE_ARCHIVE_PATH = "archive";
+
+    /**
+     * @see org.apache.seatunnel.engine.imap.storage.file.bean.IMapData
+     */
+    public interface OrcFields{
+        String DELETED = "deleted";
+        int DELETED_INDEX = 0;
+        String KEY = "key";
+        int KEY_INDEX = 1;
+        String KEY_CLASS = "keyClass";
+        int KEY_CLASS_INDEX = 2;
+        String VALUE = "value";
+        int VALUE_INDEX = 3;
+        String VALUE_CLASS = "valueClass";
+        int VALUE_CLASS_INDEX = 4;
+        String TIMESTAMP = "timestamp";
+        int TIMESTAMP_INDEX = 5;
+    }
 }

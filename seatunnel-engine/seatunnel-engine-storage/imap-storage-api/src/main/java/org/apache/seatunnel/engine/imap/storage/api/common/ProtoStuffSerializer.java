@@ -28,6 +28,9 @@ import io.protostuff.runtime.RuntimeSchema;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Todo: move to common module
+ */
 public class ProtoStuffSerializer implements Serializer {
 
     /**

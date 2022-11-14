@@ -54,9 +54,22 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * IMapFileStorage
+ * Please notice :
+ * Only applicable to big data (kv) storage. Otherwise, there may be a lot of fragmented files
+ * This is not suitable for frequently updated scenarios because all data is stored as an appended file.
+ * There is no guarantee that all files will be up-to-date when a query is made, and this delay depends on the archive cycle.
+ * If you write large amounts of data in batches, it is best to archive immediately.
+ * Some design detail:
+ * base on file, use orc file to store data
+ * use disruptor to write data to file
+ * use orc reader to read data from file
+ * use wal to ensure data consistency
+ * use request future to ensure data consistency
+ */
 @Slf4j
 public class IMapFileStorage implements IMapStorage {
 
@@ -94,7 +107,11 @@ public class IMapFileStorage implements IMapStorage {
 
     private String businessRootPath = null;
 
-    public static final int SERVER_NAME_RANDOM_RANGE = 1000;
+    public static final int DEFAULT_ARCHIVE_WAIT_TIME_MILLISECONDS = 1000 * 60 * 5;
+
+    public static final int DEFAULT_QUERY_LIST_SIZE = 256;
+
+    public static final int DEFAULT_QUERY_DATA_TIMEOUT_MILLISECONDS = 100;
 
     private Configuration conf;
 
@@ -115,7 +132,7 @@ public class IMapFileStorage implements IMapStorage {
             this.clusterName = (String) configuration.get("clusterName");
         }
 
-        this.region = String.valueOf((System.currentTimeMillis() + ThreadLocalRandom.current().nextInt(SERVER_NAME_RANDOM_RANGE)));
+        this.region = String.valueOf(System.nanoTime());
         JobConf jobConf = new JobConf(hadoopConf);
         this.businessRootPath = namespace + DEFAULT_IMAP_FILE_PATH_SPLIT + clusterName + DEFAULT_IMAP_FILE_PATH_SPLIT + businessName + DEFAULT_IMAP_FILE_PATH_SPLIT;
         try {
@@ -192,7 +209,7 @@ public class IMapFileStorage implements IMapStorage {
 
     @Override
     public Map<Object, Object> loadAll() {
-        List<IMapData> imapDataList = new ArrayList<>(1024);
+        List<IMapData> imapDataList = new ArrayList<>(DEFAULT_QUERY_LIST_SIZE);
         List<String> fileNames = getFileNames(businessRootPath);
         fileNames.forEach(fileName -> {
             try {
@@ -225,7 +242,7 @@ public class IMapFileStorage implements IMapStorage {
 
     @Override
     public List<Object> loadAllKeys() {
-        List<IMapData> imapDataList = new ArrayList<>(1024);
+        List<IMapData> imapDataList = new ArrayList<>(DEFAULT_QUERY_LIST_SIZE);
         List<String> fileNames = getFileNames(businessRootPath);
         fileNames.forEach(fileName -> {
             try {
@@ -291,7 +308,7 @@ public class IMapFileStorage implements IMapStorage {
     public boolean archive() {
         long requestId = sendToDisruptorQueue(null, WALEventType.IMMEDIATE_ARCHIVE);
         walDisruptor.tryPublish(null, WALEventType.IMMEDIATE_ARCHIVE, requestId);
-        return queryExecuteStatus(requestId, 20000);
+        return queryExecuteStatus(requestId, DEFAULT_ARCHIVE_WAIT_TIME_MILLISECONDS);
     }
 
     private IMapFileData parseToIMapFileData(Object key, Object value) throws IOException {
@@ -321,7 +338,7 @@ public class IMapFileStorage implements IMapStorage {
     }
 
     private boolean queryExecuteStatus(long requestId) {
-        return queryExecuteStatus(requestId, 100);
+        return queryExecuteStatus(requestId, DEFAULT_QUERY_DATA_TIMEOUT_MILLISECONDS);
     }
 
     private boolean queryExecuteStatus(long requestId, long timeout) {

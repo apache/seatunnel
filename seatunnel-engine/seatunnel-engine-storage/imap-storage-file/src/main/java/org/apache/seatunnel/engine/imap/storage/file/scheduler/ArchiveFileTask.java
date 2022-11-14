@@ -29,12 +29,19 @@ import java.util.concurrent.TimeUnit;
 
 public class ArchiveFileTask {
 
+    /**
+     * archive file task scheduler time
+     */
+    private static final int DEFAULT_SCHEDULE_TIME = 60;
+
+    private static final int DEFAULT_SCHEDULER_START_DELAY_TIME = 60;
+
     private static volatile ScheduledExecutorService SCHEDULER_EXECUTOR_SERVICE = null;
 
     private static ConcurrentHashMap<WALDisruptor, Long> TASK_MAP = new ConcurrentHashMap<>();
 
     public static void addTask(WALDisruptor disruptor, Long timestamp) {
-
+        start();
         TASK_MAP.putIfAbsent(disruptor, timestamp);
     }
 
@@ -50,10 +57,10 @@ public class ArchiveFileTask {
                     SCHEDULER_EXECUTOR_SERVICE.scheduleAtFixedRate(() -> TASK_MAP.forEach((disruptor, latestTime) -> {
                         disruptor.tryPublishSchedulerArchive();
                         TASK_MAP.putIfAbsent(disruptor, System.nanoTime());
-                    }), 60, 60, TimeUnit.SECONDS);
+                    }), DEFAULT_SCHEDULER_START_DELAY_TIME, DEFAULT_SCHEDULE_TIME, TimeUnit.SECONDS);
                 }
             }
         }
     }
-    
+
 }

@@ -44,12 +44,12 @@ public class OrcWriter implements AutoCloseable {
 
     VectorizedRowBatch batch = OrcConstants.DATA_SCHEMA.createRowBatch(2);
 
-    LongColumnVector deleted = (LongColumnVector) batch.cols[0];
-    BytesColumnVector key = (BytesColumnVector) batch.cols[1];
-    BytesColumnVector keyClassName = (BytesColumnVector) batch.cols[2];
-    BytesColumnVector value = (BytesColumnVector) batch.cols[3];
-    BytesColumnVector valueClassName = (BytesColumnVector) batch.cols[4];
-    LongColumnVector timestamp = (LongColumnVector) batch.cols[5];
+    LongColumnVector deleted = (LongColumnVector) batch.cols[OrcConstants.OrcFields.DELETED_INDEX];
+    BytesColumnVector key = (BytesColumnVector) batch.cols[OrcConstants.OrcFields.KEY_INDEX];
+    BytesColumnVector keyClassName = (BytesColumnVector) batch.cols[OrcConstants.OrcFields.KEY_CLASS_INDEX];
+    BytesColumnVector value = (BytesColumnVector) batch.cols[OrcConstants.OrcFields.VALUE_INDEX];
+    BytesColumnVector valueClassName = (BytesColumnVector) batch.cols[OrcConstants.OrcFields.VALUE_CLASS_INDEX];
+    LongColumnVector timestamp = (LongColumnVector) batch.cols[OrcConstants.OrcFields.TIMESTAMP_INDEX];
 
     private FileSystem fs;
 

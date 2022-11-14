@@ -23,7 +23,7 @@ package org.apache.seatunnel.engine.imap.storage.api.common;
 import java.io.IOException;
 
 /**
- * Check point serializer
+ * Todo: move to common module
  */
 public interface Serializer {
 

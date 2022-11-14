@@ -44,6 +44,8 @@ public class WALDisruptor implements Closeable {
 
     private static final int DEFAULT_RING_BUFFER_SIZE = 256 * 1024;
 
+    private static final int DEFAULT_CLOSE_WAIT_TIME_SECONDS = 5;
+
     private boolean isClosed = false;
 
     private static final EventTranslatorThreeArg<FileWALEvent, IMapFileData, WALEventType, Long> TRANSLATOR =
@@ -84,7 +86,7 @@ public class WALDisruptor implements Closeable {
     public boolean tryAppendPublish(IMapFileData message, long requestId) {
         return this.tryPublish(message, WALEventType.APPEND, requestId);
     }
-    
+
     public boolean isClosed() {
         return isClosed;
     }
@@ -95,7 +97,7 @@ public class WALDisruptor implements Closeable {
         //we can wait for 5 seconds, so that backlog can be committed
         try {
             tryPublish(null, WALEventType.CLOSED, 0L);
-            disruptor.shutdown(5, TimeUnit.SECONDS);
+            disruptor.shutdown(DEFAULT_CLOSE_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
             log.error("WALDisruptor close timeout error", e);
             throw new IMapStorageException("WALDisruptor close timeout error", e);

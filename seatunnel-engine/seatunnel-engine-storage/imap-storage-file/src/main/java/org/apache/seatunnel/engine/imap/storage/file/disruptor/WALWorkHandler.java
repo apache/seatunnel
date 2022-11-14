@@ -52,6 +52,8 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
 
     private long lastDataWriterTime = System.nanoTime();
 
+    private static final long MINIMUM_INTERVAL_SINCE_LAST_WRITE_NANO_TIME = 1000 * 1000 * 1000 * 60;
+
     public WALWorkHandler(Configuration configuration, String parentPath) {
         this.configuration = configuration;
         this.parentPath = parentPath;
@@ -73,7 +75,7 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
      */
     private void archiveAndCreateNewFile() {
         // should config
-        if (System.nanoTime() - lastDataWriterTime < 60 * 60 * 1000 * 5) {
+        if (System.nanoTime() - lastDataWriterTime < MINIMUM_INTERVAL_SINCE_LAST_WRITE_NANO_TIME) {
             return;
         }
         try {
@@ -89,7 +91,6 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
         log.debug("write data to orc file");
         walEvent(fileWALEvent.getData(), fileWALEvent.getType(), fileWALEvent.getRequestId());
     }
-
 
     private void walEvent(IMapFileData iMapFileData, WALEventType type, long requestId) throws IOException {
         if (type == WALEventType.APPEND) {
