@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.CATALOG_TYPE_HADOOP;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.CATALOG_TYPE_HIVE;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
