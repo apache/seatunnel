@@ -42,7 +42,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
-/** Fetcher to fetch data from table split, the split is the stream split {@link LogSplit}. */
+/**
+ * Fetcher to fetch data from table split, the split is the stream split {@link LogSplit}.
+ */
 @Slf4j
 public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, SourceSplitBase> {
     private final FetchTask.Context taskContext;
@@ -63,7 +65,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     public IncrementalSourceStreamFetcher(FetchTask.Context taskContext, int subTaskId) {
         this.taskContext = taskContext;
         ThreadFactory threadFactory =
-                new ThreadFactoryBuilder().setNameFormat("debezium-reader-" + subTaskId).build();
+            new ThreadFactoryBuilder().setNameFormat("debezium-reader-" + subTaskId).build();
         this.executorService = Executors.newSingleThreadExecutor(threadFactory);
         this.pureStreamPhaseTables = new HashSet<>();
     }
@@ -76,18 +78,18 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         taskContext.configure(currentLogSplit);
         this.queue = taskContext.getQueue();
         executorService.submit(
-                () -> {
-                    try {
-                        streamFetchTask.execute(taskContext);
-                    } catch (Exception e) {
-                        log.error(
-                                String.format(
-                                        "Execute stream read task for stream split %s fail",
-                                        currentLogSplit),
-                                e);
-                        readException = e;
-                    }
-                });
+            () -> {
+                try {
+                    streamFetchTask.execute(taskContext);
+                } catch (Exception e) {
+                    log.error(
+                        String.format(
+                            "Execute stream read task for stream split %s fail",
+                            currentLogSplit),
+                        e);
+                    readException = e;
+                }
+            });
     }
 
     @Override
@@ -115,10 +117,10 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     private void checkReadException() {
         if (readException != null) {
             throw new SeaTunnelException(
-                    String.format(
-                            "Read split %s error due to %s.",
-                            currentLogSplit, readException.getMessage()),
-                    readException);
+                String.format(
+                    "Read split %s error due to %s.",
+                    currentLogSplit, readException.getMessage()),
+                readException);
         }
     }
 
@@ -128,10 +130,10 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
             if (executorService != null) {
                 executorService.shutdown();
                 if (executorService.awaitTermination(
-                        READER_CLOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                    READER_CLOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                     log.warn(
-                            "Failed to close the stream fetcher in {} seconds.",
-                            READER_CLOSE_TIMEOUT_SECONDS);
+                        "Failed to close the stream fetcher in {} seconds.",
+                        READER_CLOSE_TIMEOUT_SECONDS);
                 }
             }
         } catch (Exception e) {
@@ -173,13 +175,13 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         }
         // the existed tables those have finished snapshot reading
         if (maxSplitHighWatermarkMap.containsKey(tableId)
-                && position.isAtOrAfter(maxSplitHighWatermarkMap.get(tableId))) {
+            && position.isAtOrAfter(maxSplitHighWatermarkMap.get(tableId))) {
             pureStreamPhaseTables.add(tableId);
             return true;
         }
 
         return !maxSplitHighWatermarkMap.containsKey(tableId)
-                && taskContext.getTableFilter().isIncluded(tableId);
+            && taskContext.getTableFilter().isIncluded(tableId);
     }
 
     private void configureFilter() {

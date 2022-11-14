@@ -67,9 +67,9 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
     public IncrementalSourceScanFetcher(FetchTask.Context taskContext, int subtaskId) {
         this.taskContext = taskContext;
         ThreadFactory threadFactory =
-                new ThreadFactoryBuilder()
-                        .setNameFormat("debezium-snapshot-reader-" + subtaskId)
-                        .build();
+            new ThreadFactoryBuilder()
+                .setNameFormat("debezium-snapshot-reader-" + subtaskId)
+                .build();
         this.executorService = Executors.newSingleThreadExecutor(threadFactory);
         this.hasNextElement = new AtomicBoolean(false);
         this.reachEnd = new AtomicBoolean(false);
@@ -84,18 +84,18 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
         this.hasNextElement.set(true);
         this.reachEnd.set(false);
         executorService.submit(
-                () -> {
-                    try {
-                        snapshotSplitReadTask.execute(taskContext);
-                    } catch (Exception e) {
-                        log.error(
-                                String.format(
-                                        "Execute snapshot read task for snapshot split %s fail",
-                                        currentSnapshotSplit),
-                                e);
-                        readException = e;
-                    }
-                });
+            () -> {
+                try {
+                    snapshotSplitReadTask.execute(taskContext);
+                } catch (Exception e) {
+                    log.error(
+                        String.format(
+                            "Execute snapshot read task for snapshot split %s fail",
+                            currentSnapshotSplit),
+                        e);
+                    readException = e;
+                }
+            });
     }
 
     @Override
@@ -134,6 +134,9 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
                         splitEnd = true;
                         continue;
                     }
+
+                    outputBuffer.put((Struct) record.key(), record);
+
                 }
             }
             // snapshot split return its data once
@@ -164,10 +167,10 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
     private void checkReadException() {
         if (readException != null) {
             throw new SeaTunnelException(
-                    String.format(
-                            "Read split %s error due to %s.",
-                            currentSnapshotSplit, readException.getMessage()),
-                    readException);
+                String.format(
+                    "Read split %s error due to %s.",
+                    currentSnapshotSplit, readException.getMessage()),
+                readException);
         }
     }
 
@@ -177,10 +180,10 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
             if (executorService != null) {
                 executorService.shutdown();
                 if (executorService.awaitTermination(
-                        READER_CLOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                    READER_CLOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                     log.warn(
-                            "Failed to close the scan fetcher in {} seconds.",
-                            READER_CLOSE_TIMEOUT_SECONDS);
+                        "Failed to close the scan fetcher in {} seconds.",
+                        READER_CLOSE_TIMEOUT_SECONDS);
                 }
             }
         } catch (Exception e) {
