@@ -15,53 +15,51 @@
  * limitations under the License.
  */
 
-package org.seatunnel.connectors.cdc.base.source.split;
+package org.seatunnel.connectors.cdc.base.source.split.state;
 
 import io.debezium.relational.TableId;
 import lombok.Getter;
+import lombok.Setter;
 import org.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.seatunnel.connectors.cdc.base.source.split.LogSplit;
 
 import java.util.List;
 
+/**
+ * The state of split to describe the change log of table(s).
+ */
 @Getter
-public class LogSplit extends SourceSplitBase {
+@Setter
+public class LogSplitState extends SourceSplitStateBase {
 
-    /**
-     * All the tables that this log split needs to capture.
-     */
-    private final List<TableId> tableIds;
+    private  List<TableId> tableIds;
 
     /**
      * Minimum watermark for SnapshotSplits for all tables in this LogSplit
      */
-    private final Offset startupOffset;
+    private Offset startupOffset;
 
     /**
      * Obtained by configuration, may not end
      */
-    private final Offset stopOffset;
+    private  Offset stopOffset;
 
-    /**
-     * SnapshotSplit information for all tables in this LogSplit.
-     * <br> Used to support Exactly-Once.
-     */
-    private final List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos;
-
-    public LogSplit(
-            String splitId,
-            List<TableId> capturedTables,
-            Offset startupOffset,
-            Offset stopOffset,
-            List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos) {
-        super(splitId);
-        this.tableIds = capturedTables;
-        this.startupOffset = startupOffset;
-        this.stopOffset = stopOffset;
-        this.completedSnapshotSplitInfos = completedSnapshotSplitInfos;
+    public LogSplitState(LogSplit split) {
+        super(split);
+        this.tableIds = split.getTableIds();
+        this.startupOffset = split.getStartupOffset();
+        this.stopOffset = split.getStopOffset();
     }
 
     @Override
-    public String splitId() {
-        return this.splitId;
+    public LogSplit toSourceSplit() {
+        final LogSplit logSplit = split.asLogSplit();
+        return new LogSplit(
+            logSplit.splitId(),
+            getTableIds(),
+            getStartupOffset(),
+            getStopOffset(),
+            logSplit.getCompletedSnapshotSplitInfos()
+        );
     }
 }

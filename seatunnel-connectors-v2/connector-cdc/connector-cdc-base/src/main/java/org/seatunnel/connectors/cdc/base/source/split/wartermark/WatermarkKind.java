@@ -15,32 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.source;
+package org.seatunnel.connectors.cdc.base.source.split.wartermark;
 
-import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
+/** The watermark kind. */
+public enum WatermarkKind {
+    LOW,
+    HIGH,
+    END;
 
-import lombok.Data;
-import org.apache.kafka.common.TopicPartition;
-
-import java.io.Serializable;
-import java.util.Map;
-import java.util.Properties;
-
-/**
- * Kafka consumer metadata, include topic, bootstrap server etc.
- */
-
-@Data
-public class ConsumerMetadata implements Serializable {
-
-    private String topic;
-    private boolean isPattern = false;
-    private String bootstrapServers;
-    private Properties properties;
-    private String consumerGroup;
-    private boolean commitOnCheckpoint = false;
-    private StartMode startMode = StartMode.GROUP_OFFSETS;
-    private Map<TopicPartition, Long> specificStartOffsets;
-    private Long startOffsetsTimestamp;
-
+    public WatermarkKind fromString(String kindString) {
+        if (LOW.name().equalsIgnoreCase(kindString)) {
+            return LOW;
+        } else if (HIGH.name().equalsIgnoreCase(kindString)) {
+            return HIGH;
+        } else {
+            return END;
+        }
+    }
 }

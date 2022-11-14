@@ -30,6 +30,7 @@
 
     <properties>
         <debezium.version>1.6.4.Final</debezium.version>
+        <hikaricp.version>4.0.3</hikaricp.version>
     </properties>
 
     <dependencies>
@@ -42,10 +43,30 @@
             <groupId>io.debezium</groupId>
             <artifactId>debezium-embedded</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-common</artifactId>
+        </dependency>
+
     </dependencies>
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>com.zaxxer</groupId>
+                <artifactId>HikariCP</artifactId>
+                <version>4.0.3</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>connector-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
             <!-- Debezium dependencies -->
             <dependency>
                 <groupId>io.debezium</groupId>
