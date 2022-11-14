@@ -53,6 +53,6 @@ public class TablestoreConfig implements Serializable {
         .withDescription(" Tablestore batch_interval_ms");
     public static final Option<String> PRIMARY_KEYS = Options.key("primary_keys")
         .stringType()
-        .defaultValue("1000")
+        .noDefaultValue()
         .withDescription(" Tablestore primary_keys");
 }
