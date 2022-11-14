@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.CATALOG_TYPE_HADOOP;
+import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.CATALOG_TYPE_HIVE;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
@@ -41,8 +43,8 @@ public class CommonConfig implements Serializable {
         .noDefaultValue()
         .withDescription(" the iceberg catalog name");
 
-    public static final Option<String> KEY_CATALOG_TYPE = Options.key("catalog_type")
-        .stringType()
+    public static final Option<IcebergCatalogType> KEY_CATALOG_TYPE = Options.key("catalog_type")
+        .enumType(IcebergCatalogType.class)
         .noDefaultValue()
         .withDescription(" the iceberg catalog type");
 
@@ -76,11 +78,8 @@ public class CommonConfig implements Serializable {
         .noDefaultValue()
         .withDescription(" the iceberg table fields");
 
-    public static final String CATALOG_TYPE_HADOOP = "hadoop";
-    public static final String CATALOG_TYPE_HIVE = "hive";
-
     private String catalogName;
-    private String catalogType;
+    private IcebergCatalogType catalogType;
     private String uri;
     private String warehouse;
     private String namespace;
@@ -88,7 +87,7 @@ public class CommonConfig implements Serializable {
     private boolean caseSensitive;
 
     public CommonConfig(Config pluginConfig) {
-        String catalogType = checkArgumentNotNull(pluginConfig.getString(KEY_CATALOG_TYPE.key()));
+        IcebergCatalogType catalogType = checkArgumentNotNull(pluginConfig.getEnum(IcebergCatalogType.class, KEY_CATALOG_TYPE.key()));
         checkArgument(CATALOG_TYPE_HADOOP.equals(catalogType)
                 || CATALOG_TYPE_HIVE.equals(catalogType),
             "Illegal catalogType: " + catalogType);
