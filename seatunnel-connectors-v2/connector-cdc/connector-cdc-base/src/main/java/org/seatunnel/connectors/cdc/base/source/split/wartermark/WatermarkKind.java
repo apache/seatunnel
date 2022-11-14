@@ -15,16 +15,21 @@
  * limitations under the License.
  */
 
-package org.seatunnel.connectors.cdc.base.source.event;
+package org.seatunnel.connectors.cdc.base.source.split.wartermark;
 
-import org.apache.seatunnel.api.source.SourceEvent;
+/** The watermark kind. */
+public enum WatermarkKind {
+    LOW,
+    HIGH,
+    END;
 
-import lombok.Data;
-
-import java.util.List;
-
-@Data
-public class CompletedSnapshotSplitReportEvent implements SourceEvent {
-    private static final long serialVersionUID = 1L;
-    List<SnapshotSplitWatermark> completedSnapshotSplitWatermarks;
+    public WatermarkKind fromString(String kindString) {
+        if (LOW.name().equalsIgnoreCase(kindString)) {
+            return LOW;
+        } else if (HIGH.name().equalsIgnoreCase(kindString)) {
+            return HIGH;
+        } else {
+            return END;
+        }
+    }
 }
