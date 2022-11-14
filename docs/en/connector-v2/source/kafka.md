@@ -18,16 +18,19 @@ Source connector for Apache Kafka.
 ## Options
 
 | name                 | type    | required | default value            |
-| -------------------- | ------- | -------- | ------------------------ |
+|----------------------|---------| -------- |--------------------------|
 | topic                | String  | yes      | -                        |
 | bootstrap.servers    | String  | yes      | -                        |
 | pattern              | Boolean | no       | false                    |
 | consumer.group       | String  | no       | SeaTunnel-Consumer-Group |
 | commit_on_checkpoint | Boolean | no       | true                     |
 | kafka.*              | String  | no       | -                        |
-| common-options       |         | no       | -                        |
+| common-options       | config  | no       | -                        |
 | schema               |         | no       | -                        |
 | format               | String  | no       | json                     |
+| start_mode           | String  | no       | group_offsets            |
+| start_mode.offsets   |         | no       |                          |
+| start_mode.timestamp | Long    | no       |                          |
 
 ### topic [string]
 
@@ -55,16 +58,45 @@ In addition to the above necessary parameters that must be specified by the `Kaf
 
 The way to specify parameters is to add the prefix `kafka.` to the original parameter name. For example, the way to specify `auto.offset.reset` is: `kafka.auto.offset.reset = latest` . If these non-essential parameters are not specified, they will use the default values given in the official Kafka documentation.
 
-### common-options
+### common-options [config]
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
 ### schema
+
 The structure of the data, including field names and field types.
 
 ## format
+
 Data format. The default format is json. Optional text format. The default field separator is ", ".
 If you customize the delimiter, add the "field_delimiter" option.
+
+## field_delimiter
+
+Customize the field delimiter for data format.
+
+## start_mode
+
+The initial consumption pattern of consumers,there are several types:
+[earliest],[group_offsets],[latest],[specific_offsets],[timestamp]
+
+## start_mode.timestamp
+
+The time required for consumption mode to be timestamp.
+
+##  start_mode.offsets
+
+The offset required for consumption mode to be specific_offsets.
+
+for example:
+
+```hocon
+   start_mode.offsets = {
+            info-0 = 70
+            info-1 = 10
+            info-2 = 10
+         }
+```
 
 ## Example
 
@@ -84,7 +116,7 @@ source {
     format = text
     field_delimiter = "#“
     topic = "topic_1,topic_2,topic_3"
-    bootstrap.server = "localhost:9092"
+    bootstrap.servers = "localhost:9092"
     kafka.max.poll.records = 500
     kafka.client.id = client_1
   }
@@ -112,3 +144,7 @@ source {
 ### 2.3.0-beta 2022-10-20
 
 - Add Kafka Source Connector
+
+### Next Version
+
+- [Improve] Support setting read starting offset or time at startup config ([3157](https://github.com/apache/incubator-seatunnel/pull/3157))

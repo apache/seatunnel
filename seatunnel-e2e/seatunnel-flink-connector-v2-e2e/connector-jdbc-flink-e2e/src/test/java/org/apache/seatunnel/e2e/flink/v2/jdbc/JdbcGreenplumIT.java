@@ -79,7 +79,7 @@ public class JdbcGreenplumIT extends FlinkContainer {
             .await()
             .atLeast(100, TimeUnit.MILLISECONDS)
             .pollInterval(500, TimeUnit.MILLISECONDS)
-            .atMost(180, TimeUnit.SECONDS)
+            .atMost(360, TimeUnit.SECONDS)
             .untilAsserted(() -> initializeJdbcConnection());
         initializeJdbcTable();
         batchInsertData();
@@ -157,6 +157,9 @@ public class JdbcGreenplumIT extends FlinkContainer {
     public void closeGreenplumContainer() throws SQLException {
         if (jdbcConnection != null) {
             jdbcConnection.close();
+        }
+        if (greenplumServer != null) {
+            greenplumServer.stop();
         }
     }
 

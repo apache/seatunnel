@@ -96,6 +96,38 @@ public class SeaTunnelClientTest {
         }
     }
 
+    @Test
+    public void testGetJobState() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("/client_test.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("fake_to_console");
+
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName("SeaTunnelClientTest"));
+        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
+        JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
+
+        try {
+            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
+                return clientJobProxy.waitForJobComplete();
+            });
+            long jobId = clientJobProxy.getJobId();
+
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> Assertions.assertTrue(
+                    engineClient.getJobState(jobId).contains("RUNNING") && engineClient.listJobStatus().contains("RUNNING")));
+
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> Assertions.assertTrue(
+                    engineClient.getJobState(jobId).contains("FINISHED") && engineClient.listJobStatus().contains("FINISHED")));
+
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @AfterAll
     public static void after() {
         INSTANCE.shutdown();

@@ -77,8 +77,8 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
         jdbcConnectionProvider = new SimpleJdbcConnectionProvider(jdbcSourceOptions.getJdbcConnectionOptions());
         query = jdbcSourceOptions.getJdbcConnectionOptions().query;
         jdbcDialect = JdbcDialectLoader.load(jdbcSourceOptions.getJdbcConnectionOptions().getUrl());
-        try {
-            typeInfo = initTableField(jdbcConnectionProvider.getOrEstablishConnection());
+        try (Connection connection = jdbcConnectionProvider.getOrEstablishConnection()) {
+            typeInfo = initTableField(connection);
             partitionParameter = initPartitionParameterAndExtendSql(jdbcConnectionProvider.getOrEstablishConnection());
         } catch (Exception e) {
             throw new PrepareFailException("jdbc", PluginType.SOURCE, e.toString());
@@ -86,7 +86,7 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
 
         inputFormat = new JdbcInputFormat(
             jdbcConnectionProvider,
-            jdbcDialect.getRowConverter(),
+            jdbcDialect,
             typeInfo,
             query,
             0,
@@ -101,16 +101,7 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
 
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        Connection conn;
-        SeaTunnelRowType seaTunnelDataType = null;
-        try {
-            conn = jdbcConnectionProvider.getOrEstablishConnection();
-            seaTunnelDataType = initTableField(conn);
-        } catch (Exception e) {
-            LOG.warn("get row type info exception", e);
-        }
-        this.typeInfo = seaTunnelDataType;
-        return seaTunnelDataType;
+        return typeInfo;
     }
 
     @Override
@@ -147,7 +138,7 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
         } catch (Exception e) {
             LOG.warn("get row type info exception", e);
         }
-        return new SeaTunnelRowType(fieldNames.toArray(new String[fieldNames.size()]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));
+        return new SeaTunnelRowType(fieldNames.toArray(new String[0]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[0]));
     }
 
     private PartitionParameter initPartitionParameter(String columnName, Connection connection) throws SQLException {
