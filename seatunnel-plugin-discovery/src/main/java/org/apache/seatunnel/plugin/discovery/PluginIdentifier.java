@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.plugin.discovery;
 
-import java.util.Objects;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * Used to identify a plugin.
@@ -60,13 +60,13 @@ public class PluginIdentifier {
 
         PluginIdentifier that = (PluginIdentifier) o;
 
-        if (!Objects.equals(engineType.toLowerCase(), that.engineType.toLowerCase())) {
+        if (!StringUtils.equalsIgnoreCase(engineType, that.engineType)) {
             return false;
         }
-        if (!Objects.equals(pluginType.toLowerCase(), that.pluginType.toLowerCase())) {
+        if (!StringUtils.equalsIgnoreCase(pluginType, that.pluginType)) {
             return false;
         }
-        return Objects.equals(pluginName.toLowerCase(), that.pluginName.toLowerCase());
+        return StringUtils.equalsIgnoreCase(pluginName, that.pluginName);
     }
 
     @Override
