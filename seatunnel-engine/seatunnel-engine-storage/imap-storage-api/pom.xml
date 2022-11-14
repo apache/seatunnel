@@ -29,7 +29,6 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>imap-storage-api</artifactId>
-    <packaging>pom</packaging>
 
     <dependencies>
         <dependency>
