@@ -47,7 +47,7 @@ public class TablestoreConfig implements Serializable {
         .stringType()
         .defaultValue("25")
         .withDescription(" Tablestore batch_size");
-    public static final Option<String> DEFAULT_BATCH_INTERVAL_MS = Options.key("batch_interval_ms")
+    public static final Option<String> BATCH_INTERVAL_MS = Options.key("batch_interval_ms")
         .stringType()
         .defaultValue("1000")
         .withDescription(" Tablestore batch_interval_ms");
