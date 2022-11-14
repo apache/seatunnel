@@ -20,7 +20,7 @@ Write data to InfluxDB.
 | measurement                 | string | yes      |                              |
 | username                    | string | no       | -                            |
 | password                    | string | no       | -                            |
-| key_time                    | string | yes      | processing time              |
+| key_time                    | string | no       | processing time              |
 | key_tags                    | array  | no       | exclude `field` & `key_time` |
 | batch_size                  | int    | no       | 1024                         |
 | batch_interval_ms           | int    | no       | -                            |

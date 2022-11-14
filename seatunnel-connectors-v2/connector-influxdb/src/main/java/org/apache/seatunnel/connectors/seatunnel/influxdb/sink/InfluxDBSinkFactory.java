@@ -50,13 +50,13 @@ public class InfluxDBSinkFactory implements TableSourceFactory {
             .required(
                 URL,
                 DATABASES,
-                KEY_MEASUREMENT,
-                KEY_TIME
+                KEY_MEASUREMENT
             )
             .bundledRequired(USERNAME, PASSWORD)
             .optional(
                 CONNECT_TIMEOUT_MS,
                 KEY_TAGS,
+                KEY_TIME,
                 BATCH_SIZE,
                 BATCH_INTERVAL_MS,
                 MAX_RETRIES,
