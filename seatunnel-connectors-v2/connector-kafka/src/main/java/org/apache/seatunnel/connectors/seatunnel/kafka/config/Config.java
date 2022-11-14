@@ -125,5 +125,9 @@ public class Config {
     /**
      * Configuration key to define the consumer's partition discovery interval, in milliseconds.
      */
-    public static final String KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS = "partition-discovery.interval-millis";
+    public static final Option<Long> KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS = Options.key("partition-discovery.interval-millis")
+        .longType()
+        .defaultValue(-1L)
+        .withDescription("The interval for dynamically discovering topics and partitions.");
+
 }

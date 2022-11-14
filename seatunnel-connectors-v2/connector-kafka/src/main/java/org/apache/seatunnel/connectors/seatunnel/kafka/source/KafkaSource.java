@@ -73,7 +73,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private SeaTunnelRowType typeInfo;
     private JobContext jobContext;
-    private long discoveryIntervalMillis = -1;
+    private long discoveryIntervalMillis = KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS.defaultValue();
 
     @Override
     public Boundedness getBoundedness() {
@@ -142,8 +142,8 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
             }
         }
 
-        if (config.hasPath(KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS)) {
-            this.discoveryIntervalMillis = config.getLong(KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS);
+        if (config.hasPath(KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS.key())) {
+            this.discoveryIntervalMillis = config.getLong(KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS.key());
         }
 
         TypesafeConfigUtils.extractSubConfig(config, "kafka.", false).entrySet().forEach(e -> {
