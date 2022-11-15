@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.e2e.spark.v2.iceberg;
 
+import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HADOOP;
+
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergCatalogFactory;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType;
 import org.apache.seatunnel.e2e.spark.SparkContainer;
 
 import lombok.extern.slf4j.Slf4j;
@@ -85,7 +88,7 @@ public class IcebergSourceIT extends SparkContainer {
     );
 
     private static final String CATALOG_NAME = "seatunnel";
-    private static final String CATALOG_TYPE = "hadoop";
+    private static final IcebergCatalogType CATALOG_TYPE = HADOOP;
     private static final String CATALOG_DIR = "/tmp/seatunnel/iceberg/spark/";
     private static final String WAREHOUSE = "file://" + CATALOG_DIR;
     private static Catalog CATALOG;
