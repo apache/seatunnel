@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.myhours.source.config;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -38,7 +39,7 @@ public class MyHoursSourceParameter extends HttpParameter {
         // set url
         this.setUrl(MyHoursSourceConfig.AUTHORIZATION_URL);
         // set method
-        this.setMethod(MyHoursSourceConfig.POST);
+        this.setMethod(HttpRequestMethod.POST);
         // set body
         Map<String, String> bodyParams = new HashMap<>();
         String email = pluginConfig.getString(MyHoursSourceConfig.EMAIL.key());
