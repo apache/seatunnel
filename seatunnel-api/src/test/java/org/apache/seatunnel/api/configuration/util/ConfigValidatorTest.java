@@ -78,11 +78,11 @@ public class ConfigValidatorTest {
 
         // absent
         config.put(TEST_PORTS.key(), "[9090]");
-        assertEquals("There are unconfigured options, the options('password', 'username') are required.",
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('password', 'username') are required.",
             assertThrows(OptionValidationException.class, executable).getMessage());
 
         config.put(KEY_USERNAME.key(), "asuka");
-        assertEquals("There are unconfigured options, the options('password') are required.",
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('password') are required.",
             assertThrows(OptionValidationException.class, executable).getMessage());
 
         // all present
@@ -102,7 +102,7 @@ public class ConfigValidatorTest {
 
         // case2: some present
         config.put(KEY_USERNAME.key(), "asuka");
-        assertEquals("These options('password', 'username') are bundled, must be present or absent together." +
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('password', 'username') are bundled, must be present or absent together." +
                 " The options present are: 'username'. The options absent are 'password'.",
             assertThrows(OptionValidationException.class, executable).getMessage());
 
@@ -120,7 +120,7 @@ public class ConfigValidatorTest {
         Executable executable = () -> validate(config, rule);
 
         // all absent
-        assertEquals("There are unconfigured options, these options(['option.topic-pattern'], ['option.topic']) are mutually exclusive," +
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, these options(['option.topic-pattern'], ['option.topic']) are mutually exclusive," +
                 " allowing only one set(\"[] for a set\") of options to be configured.",
             assertThrows(OptionValidationException.class, executable).getMessage());
 
@@ -130,7 +130,7 @@ public class ConfigValidatorTest {
 
         // present > 1
         config.put(TEST_TOPIC.key(), "[\"saitou\"]");
-        assertEquals("These options(['option.topic-pattern'], ['option.topic']) are mutually exclusive, " +
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options(['option.topic-pattern'], ['option.topic']) are mutually exclusive, " +
                 "allowing only one set(\"[] for a set\") of options to be configured.",
             assertThrows(OptionValidationException.class, executable).getMessage());
     }
@@ -147,13 +147,13 @@ public class ConfigValidatorTest {
         Executable executable = () -> validate(config, rule);
 
         // all absent
-        assertEquals("There are unconfigured options, these options(['kerberos-ticket'], ['password', 'username'], ['bearer-token']) are mutually exclusive," +
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, these options(['kerberos-ticket'], ['password', 'username'], ['bearer-token']) are mutually exclusive," +
                 " allowing only one set(\"[] for a set\") of options to be configured.",
             assertThrows(OptionValidationException.class, executable).getMessage());
 
         // bundled option some present
         config.put(KEY_USERNAME.key(), "asuka");
-        assertEquals("These options('password', 'username') are bundled, must be present or absent together." +
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('password', 'username') are bundled, must be present or absent together." +
                 " The options present are: 'username'. The options absent are 'password'.",
             assertThrows(OptionValidationException.class, executable).getMessage());
 
@@ -163,13 +163,13 @@ public class ConfigValidatorTest {
 
         // tow set options present
         config.put(KEY_BEARER_TOKEN.key(), "ashulin");
-        assertEquals("These options(['password', 'username'], ['bearer-token']) are mutually exclusive," +
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options(['password', 'username'], ['bearer-token']) are mutually exclusive," +
                 " allowing only one set(\"[] for a set\") of options to be configured.",
             assertThrows(OptionValidationException.class, executable).getMessage());
 
         // three set options present
         config.put(KEY_KERBEROS_TICKET.key(), "zongwen");
-        assertEquals("These options(['kerberos-ticket'], ['password', 'username'], ['bearer-token']) are mutually exclusive," +
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options(['kerberos-ticket'], ['password', 'username'], ['bearer-token']) are mutually exclusive," +
                 " allowing only one set(\"[] for a set\") of options to be configured.",
             assertThrows(OptionValidationException.class, executable).getMessage());
     }
@@ -187,7 +187,7 @@ public class ConfigValidatorTest {
 
         // Expression match, and required options absent
         config.put(TEST_MODE.key(), "timestamp");
-        assertEquals("There are unconfigured options, the options('option.timestamp') are required" +
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('option.timestamp') are required" +
                 " because ['option.mode' == TIMESTAMP] is true.",
             assertThrows(OptionValidationException.class, executable).getMessage());
 
@@ -213,7 +213,7 @@ public class ConfigValidatorTest {
 
         // Expression match, and required options absent
         config.put(KEY_USERNAME.key(), "ashulin");
-        assertEquals("There are unconfigured options, the options('option.timestamp') are required" +
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('option.timestamp') are required" +
                 " because ['username' == ashulin] is true.",
             assertThrows(OptionValidationException.class, executable).getMessage());
 
@@ -242,7 +242,7 @@ public class ConfigValidatorTest {
 
         // 'username' == ashulin, and required options absent
         config.put(KEY_USERNAME.key(), "ashulin");
-        assertEquals("There are unconfigured options, the options('option.timestamp') are required" +
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('option.timestamp') are required" +
                 " because ['username' == ashulin || ('username' == asuka && 'password' == saito)] is true.",
             assertThrows(OptionValidationException.class, executable).getMessage());
 
@@ -260,7 +260,7 @@ public class ConfigValidatorTest {
 
         // 'username' == asuka && 'password' == saito, and required options absent
         config.remove(TEST_TIMESTAMP.key());
-        assertEquals("There are unconfigured options, the options('option.timestamp') are required" +
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('option.timestamp') are required" +
                 " because ['username' == ashulin || ('username' == asuka && 'password' == saito)] is true.",
             assertThrows(OptionValidationException.class, executable).getMessage());
     }
