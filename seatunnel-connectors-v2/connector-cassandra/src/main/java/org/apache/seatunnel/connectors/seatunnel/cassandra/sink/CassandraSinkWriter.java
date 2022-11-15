@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClient;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.util.TypeConvertUtil;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
@@ -120,7 +122,7 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                 boundStatementList.add(boundStatement);
             }
         } catch (Exception e) {
-            throw new RuntimeException("Add row data into batch error!", e);
+            throw new CassandraConnectorException(CassandraConnectorErrorCode.ADD_BATCH_DATA_FAILED, e);
         }
     }
 
@@ -141,8 +143,7 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
                 this.session.close();
             }
         } catch (Exception e) {
-            throw new RuntimeException("Failed to close CqlSession!", e);
+            throw new CassandraConnectorException(CassandraConnectorErrorCode.CLOSE_CQL_SESSION_FAILED, e);
         }
-
     }
 }

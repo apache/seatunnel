@@ -25,6 +25,7 @@ import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.Am
 import static org.apache.seatunnel.connectors.seatunnel.common.config.CommonConfig.SCHEMA;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -34,6 +35,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.exception.AmazonDynamoDBConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
@@ -59,9 +61,13 @@ public class AmazonDynamoDBSource extends AbstractSingleSplitSource<SeaTunnelRow
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, URL, TABLE, REGION, ACCESS_KEY_ID, SECRET_ACCESS_KEY, SCHEMA);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
+                URL, TABLE, REGION,
+                ACCESS_KEY_ID, SECRET_ACCESS_KEY, SCHEMA);
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
+            throw new AmazonDynamoDBConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         amazondynamodbSourceOptions = new AmazonDynamoDBSourceOptions(pluginConfig);
         typeInfo = SeaTunnelSchema.buildWithConfig(amazondynamodbSourceOptions.getSchema()).getSeaTunnelRowType();
