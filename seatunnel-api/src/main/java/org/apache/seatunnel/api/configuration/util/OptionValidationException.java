@@ -34,6 +34,6 @@ public class OptionValidationException extends SeaTunnelRuntimeException {
     }
 
     public OptionValidationException(String formatMessage, Object... args) {
-        super(String.format(formatMessage, args));
+        super(SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED, String.format(formatMessage, args));
     }
 }
