@@ -31,3 +31,18 @@ This document records some common error codes and corresponding solutions of Sea
 | COMMON-12 | Source reader operation failed, such as (open, close) etc...           | When users encounter this error code, it maybe some operation of reader such as Parquet,Orc,IceBerg failed, you need to check if the corresponding file or resource has read and write permissions |
 | COMMON-13 | Http operation failed, such as (open, close, response) etc...          | When users encounter this error code, it maybe some http requests failed, please check your network environment                                                                                    |
 
+## Assert Connector Error Codes
+
+| code      | description          | solution                                                                                  |
+|-----------|----------------------|-------------------------------------------------------------------------------------------|
+| ASSERT-01 | Rule validate failed | When users encounter this error code, it means that upstream data does not meet the rules |
+
+## Cassandra Connector Error Codes
+
+| code         | description                                     | solution                                                                                                                                                              |
+|--------------|-------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| CASSANDRA-01 | Field is not existed in target table            | When users encounter this error code, it means that the fields of upstream data don't meet with target cassandra table, please check target cassandra table structure |
+| CASSANDRA-02 | Add batch SeaTunnelRow data into a batch failed | When users encounter this error code, it means that cassandra has some problems, please check it whether is work                                                      |
+| CASSANDRA-03 | Close cql session of cassandra failed           | When users encounter this error code, it means that cassandra has some problems, please check it whether is work                                                      |
+| CASSANDRA-04 | No data in source table                         | When users encounter this error code, it means that source cassandra table has no data, please check it                                                               |
+| CASSANDRA-05 | Parse ip address from string field field        | When users encounter this error code, it means that upstream data does not match ip address format, please check it                                                   |
