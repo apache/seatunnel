@@ -1,0 +1,49 @@
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkDeployment
+metadata:
+  name: seatunnel-flink-v2
+spec:
+  image: artifacts.iflytek.com/zhbg-docker-private/iflydata/bigdata/flink/flink:1.13.6-scala_2.11
+  flinkVersion: v1_13
+  flinkConfiguration:
+    taskmanager.numberOfTaskSlots: "2"
+    state.savepoints.dir: file:///flink-data/flink-savepoints
+    state.checkpoints.dir: file:///flink-data/flink-checkpoints
+  serviceAccount: flink
+  podTemplate:
+    spec:
+      imagePullSecrets:
+        - name: artifacts.iflytek.com
+      initContainers:
+        - name: artifacts-fetcher
+          image: artifacts.iflytek.com/zhbg-docker-private/iflydata/bigdata/busybox:latest
+          # Use wget or other tools to get user jars from remote storage
+          command: [ 'wget', 'http://archive.apache.org/dist/incubator/seatunnel/2.3.0-beta/apache-seatunnel-incubating-2.3.0-beta-bin.tar.gz', '-O', '/tmp/seatunnel.tar.gz',
+                     '&&','mkdir','/tmp/seatunnel',
+                     '&&','tar','-xzvf','/tmp/seatunnel.tar.gz','-C','/tmp/seatunnel','--strip-components','1',
+                     '&&','/tmp/seatunnel/bin/install-plugin.sh','2.3.0-beta' ]
+
+      serviceAccount: flink
+      containers:
+        - name: flink-main-container
+          volumeMounts:
+            - mountPath: /tmp
+              name: flink-volume
+      volumes:
+        - name: flink-volume
+          emptyDir: { }
+
+  jobManager:
+    replicas: 1
+    resource:
+      memory: "1024m"
+      cpu: 1
+  taskManager:
+    resource:
+      memory: "1024m"
+      cpu: 1
+  job:
+    jarURI: local:///tmp/seatunnel/lib/seatunnel-flink-starter.jar
+    args: [ "--config", "/tmp/seatunnel/config/flink.batch.conf.template" ]
+    parallelism: 1
+    upgradeMode: "stateless"
