@@ -4,7 +4,7 @@
   {
     "httpRequest": {
       "method" : "GET",
-      "path": "/example/lemlist/team"
+      "path": "/api/team"
     },
     "httpResponse": {
       "body": [
@@ -79,7 +79,7 @@
   {
     "httpRequest": {
       "method" : "GET",
-      "path": "/example/lemlist/campaigns"
+      "path": "/api/campaigns"
     },
     "httpResponse": {
       "body": [
