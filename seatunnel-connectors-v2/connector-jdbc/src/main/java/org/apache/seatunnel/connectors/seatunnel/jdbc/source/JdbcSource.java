@@ -35,7 +35,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.Simple
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlite.SqliteDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSourceState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
