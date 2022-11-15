@@ -47,7 +47,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Random;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -66,10 +65,11 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKFile
 
     private final Map<Shard, String> shardTempFile;
 
-    private final int random = new Random().nextInt(100000);
+    private final SinkWriter.Context context;
 
     public ClickhouseFileSinkWriter(FileReaderOption readerOption, SinkWriter.Context context) {
         this.readerOption = readerOption;
+        this.context = context;
         proxy = new ClickhouseProxy(this.readerOption.getShardMetadata().getDefaultShard().getNode());
         shardRouter = new ShardRouter(proxy, this.readerOption.getShardMetadata());
         clickhouseTable = proxy.getClickhouseTable(this.readerOption.getShardMetadata().getDatabase(),
@@ -223,7 +223,7 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKFile
             .filter(File::isDirectory)
             .filter(f -> !"detached".equals(f.getName()))
             .map(f -> {
-                File newFile = new File(f.getParent() + "/" + f.getName() + "_" + random);
+                File newFile = new File(f.getParent() + "/" + f.getName() + "_" + context.getIndexOfSubtask());
                 if (f.renameTo(newFile)) {
                     return newFile;
                 } else {
