@@ -37,10 +37,11 @@ public class KafkaSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(Config.TOPIC, Config.BOOTSTRAP_SERVERS)
-                .optional(Config.PATTERN, Config.CONSUMER_GROUP, Config.COMMIT_ON_CHECKPOINT, Config.KAFKA_CONFIG_PREFIX, Config.SCHEMA, Config.FORMAT)
-                .conditional(Condition.of(Config.START_MODE, StartMode.TIMESTAMP), Config.START_MODE_TIMESTAMP)
-                .conditional(Condition.of(Config.START_MODE, StartMode.SPECIFIC_OFFSETS), Config.START_MODE_OFFSETS)
-                .build();
+            .required(Config.TOPIC, Config.BOOTSTRAP_SERVERS)
+            .optional(Config.PATTERN, Config.CONSUMER_GROUP, Config.COMMIT_ON_CHECKPOINT, Config.KAFKA_CONFIG_PREFIX, Config.SCHEMA,
+                Config.FORMAT, Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS)
+            .conditional(Condition.of(Config.START_MODE, StartMode.TIMESTAMP), Config.START_MODE_TIMESTAMP)
+            .conditional(Condition.of(Config.START_MODE, StartMode.SPECIFIC_OFFSETS), Config.START_MODE_OFFSETS)
+            .build();
     }
 }

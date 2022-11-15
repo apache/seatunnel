@@ -212,5 +212,4 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
         splitEnumerator.notifyCheckpointAborted(checkpointId);
         reader.notifyCheckpointAborted(checkpointId);
     }
-
 }
