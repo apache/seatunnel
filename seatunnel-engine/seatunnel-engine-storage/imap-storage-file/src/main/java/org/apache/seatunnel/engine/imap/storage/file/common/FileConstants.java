@@ -22,15 +22,13 @@ package org.apache.seatunnel.engine.imap.storage.file.common;
 
 import org.apache.hadoop.conf.Configuration;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-
 public class FileConstants {
 
     public static final String DEFAULT_IMAP_NAMESPACE = "/seatunnel-imap";
 
     public static final String DEFAULT_IMAP_FILE_PATH_SPLIT = "/";
+
+    public static final int DEFAULT_ARCHIVE_SCHEDULER_TIME_IN_SECONDS = 1000 * 60 * 5;
 
     /**
      * init file storage
@@ -52,7 +50,7 @@ public class FileConstants {
          * This parameter is primarily used for cluster isolation
          * we can use this to distinguish different cluster, like cluster1, cluster2
          * and this is also used to distinguish different business
-         * 
+         * <p>
          * Type: String
          */
         String CLUSTER_NAME = "clusterName";
@@ -60,9 +58,10 @@ public class FileConstants {
         /**
          * We used hdfs api read/write file
          * so, used this storage need provide hdfs configuratio
-         *
+         * <p>
          * Type:
-         *  @see Configuration
+         *
+         * @see Configuration
          */
         String HDFS_CONFIG_KEY = "hdfsConfig";
 
@@ -73,6 +72,6 @@ public class FileConstants {
          * Type: int
          */
         String ARCHIVE_SCHEDULER_TIME_IN_SECONDS_KEY = "archiveSchedulerTimeInSeconds";
-        
+
     }
 }

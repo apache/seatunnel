@@ -20,8 +20,10 @@
 
 package org.apache.seatunnel.engine.imap.storage.file;
 
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.DEFAULT_ARCHIVE_SCHEDULER_TIME_IN_SECONDS;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.DEFAULT_IMAP_FILE_PATH_SPLIT;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.DEFAULT_IMAP_NAMESPACE;
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.ARCHIVE_SCHEDULER_TIME_IN_SECONDS_KEY;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.BUSINESS_KEY;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.CLUSTER_NAME;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.HDFS_CONFIG_KEY;
@@ -40,6 +42,7 @@ import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALEventType;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFuture;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFutureCache;
 import org.apache.seatunnel.engine.imap.storage.file.orc.OrcReader;
+import org.apache.seatunnel.engine.imap.storage.file.scheduler.ArchiveFileTask;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ClassUtils;
@@ -113,7 +116,7 @@ public class IMapFileStorage implements IMapStorage {
 
     private String businessRootPath = null;
 
-    public static final int DEFAULT_ARCHIVE_WAIT_TIME_MILLISECONDS = 1000 * 60 * 5;
+    public static final int DEFAULT_ARCHIVE_WAIT_TIME_MILLISECONDS = 1000 * 60;
 
     public static final int DEFAULT_QUERY_LIST_SIZE = 256;
 
@@ -145,7 +148,9 @@ public class IMapFileStorage implements IMapStorage {
         }
         walDisruptor = new WALDisruptor(hadoopConf, businessRootPath + region);
         serializer = new ProtoStuffSerializer();
-
+        //schedule archive file
+        long archiveSchedulerTime = (long) configuration.getOrDefault(ARCHIVE_SCHEDULER_TIME_IN_SECONDS_KEY, DEFAULT_ARCHIVE_SCHEDULER_TIME_IN_SECONDS);
+        ArchiveFileTask.addTask(walDisruptor, archiveSchedulerTime);
     }
 
     @Override
@@ -225,14 +230,14 @@ public class IMapFileStorage implements IMapStorage {
         });
         Collections.sort(imapDataList);
         Map<byte[], IMapData> fileDataMaps = new HashMap<>(imapDataList.size());
-        Map<byte[], Long> deleteMap = new HashMap<>();
+        Map<String, Long> deleteMap = new HashMap<>();
         for (int i = 0; i < imapDataList.size(); i++) {
             IMapData imapData = imapDataList.get(i);
-            if (deleteMap.containsKey(imapData.getKey())) {
+            if (deleteMap.containsKey(Arrays.toString(imapData.getKey()))) {
                 continue;
             }
             if (imapData.isDeleted()) {
-                deleteMap.put(imapData.getKey(), imapData.getTimestamp());
+                deleteMap.put(Arrays.toString(imapData.getKey()), imapData.getTimestamp());
                 continue;
             }
             if (fileDataMaps.containsKey(imapData.getKey())) {
@@ -305,12 +310,12 @@ public class IMapFileStorage implements IMapStorage {
         } catch (IOException e) {
             log.error("destroy IMapFileStorage error,businessName is {}, cluster name is {}", businessName, region, e);
         }
+        ArchiveFileTask.removeTask(walDisruptor);
 
     }
 
     public boolean archive() {
         long requestId = sendToDisruptorQueue(null, WALEventType.IMMEDIATE_ARCHIVE);
-        walDisruptor.tryPublish(null, WALEventType.IMMEDIATE_ARCHIVE, requestId);
         return queryExecuteStatus(requestId, DEFAULT_ARCHIVE_WAIT_TIME_MILLISECONDS);
     }
 
@@ -320,14 +325,16 @@ public class IMapFileStorage implements IMapStorage {
             .keyClassName(key.getClass().getName())
             .value(serializer.serialize(value))
             .valueClassName(value.getClass().getName())
-            .timestamp(System.nanoTime())
+            .timestamp(System.currentTimeMillis())
+            .deleted(false)
             .build();
     }
 
     private IMapFileData buildDeleteIMapFileData(Object key) throws IOException {
         return IMapFileData.builder()
             .key(serializer.serialize(key))
-            .timestamp(System.nanoTime())
+            .keyClassName(key.getClass().getName())
+            .timestamp(System.currentTimeMillis())
             .deleted(true)
             .build();
     }
@@ -394,8 +401,8 @@ public class IMapFileStorage implements IMapStorage {
             try {
                 return serializer.deserialize(data, clazz);
             } catch (IOException e) {
-                log.error("deserialize data error", e);
-                throw new IMapStorageException("deserialize data error", e);
+                log.error("deserialize data error, data is {}, className is {}", data, className, e);
+                throw new IMapStorageException(e, "deserialize data error: data is s%, className is s%", data, className);
             }
         } catch (ClassNotFoundException e) {
             log.error("deserialize data error, class name is {}", className, e);

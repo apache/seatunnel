@@ -38,14 +38,17 @@ public class ArchiveFileTask {
 
     private static volatile ScheduledExecutorService SCHEDULER_EXECUTOR_SERVICE = null;
 
-    private static ConcurrentHashMap<WALDisruptor, Long> TASK_MAP = new ConcurrentHashMap<>();
+    private static ConcurrentHashMap<WALDisruptor, SchedulerTaskInfo> TASK_MAP = new ConcurrentHashMap<>();
 
-    public static void addTask(WALDisruptor disruptor, Long timestamp) {
+    public static void addTask(WALDisruptor disruptor, Long scheduleTime) {
         start();
-        TASK_MAP.putIfAbsent(disruptor, timestamp);
+        SchedulerTaskInfo taskInfo = SchedulerTaskInfo.builder()
+            .scheduledTime(scheduleTime)
+            .latestTime(System.currentTimeMillis()).build();
+        TASK_MAP.putIfAbsent(disruptor, taskInfo);
     }
 
-    public void removeTask(WALDisruptor disruptor) {
+    public static void removeTask(WALDisruptor disruptor) {
         TASK_MAP.remove(disruptor);
     }
 
@@ -54,9 +57,12 @@ public class ArchiveFileTask {
             synchronized (ArchiveFileTask.class) {
                 if (SCHEDULER_EXECUTOR_SERVICE == null) {
                     SCHEDULER_EXECUTOR_SERVICE = Executors.newSingleThreadScheduledExecutor();
-                    SCHEDULER_EXECUTOR_SERVICE.scheduleAtFixedRate(() -> TASK_MAP.forEach((disruptor, latestTime) -> {
+                    SCHEDULER_EXECUTOR_SERVICE.scheduleAtFixedRate(() -> TASK_MAP.forEach((disruptor, taskInfo) -> {
+                        if (taskInfo.getLatestTime() + taskInfo.getScheduledTime() < System.nanoTime()) {
+                            return;
+                        }
                         disruptor.tryPublishSchedulerArchive();
-                        TASK_MAP.putIfAbsent(disruptor, System.nanoTime());
+                        TASK_MAP.get(disruptor).setLatestTime(System.currentTimeMillis());
                     }), DEFAULT_SCHEDULER_START_DELAY_TIME, DEFAULT_SCHEDULE_TIME, TimeUnit.SECONDS);
                 }
             }

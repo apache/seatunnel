@@ -59,7 +59,7 @@ public class OrcWriter implements AutoCloseable {
         //todo need improve, stripe size is so small
         this.writer =
             OrcFile.createWriter(path,
-                  OrcFile.writerOptions(conf).setSchema(OrcConstants.DATA_SCHEMA).stripeSize(1));
+                OrcFile.writerOptions(conf).setSchema(OrcConstants.DATA_SCHEMA).stripeSize(1));
         this.fs = path.getFileSystem(conf);
         this.currentPath = path;
     }
@@ -69,9 +69,15 @@ public class OrcWriter implements AutoCloseable {
         int row = batch.size++;
         deleted.vector[row] = iMapFileData.isDeleted() ? 1 : 0;
         key.setVal(row, iMapFileData.getKey());
-        keyClassName.setVal(row, iMapFileData.getKeyClassName().getBytes(StandardCharsets.UTF_8));
-        value.setVal(row, iMapFileData.getValue());
-        valueClassName.setVal(row, iMapFileData.getValueClassName().getBytes(StandardCharsets.UTF_8));
+        if (iMapFileData.getKeyClassName() != null) {
+            keyClassName.setVal(row, iMapFileData.getKeyClassName().getBytes(StandardCharsets.UTF_8));
+        }
+        if (null != iMapFileData.getValue()) {
+            value.setVal(row, iMapFileData.getValue());
+        }
+        if (null != iMapFileData.getValueClassName()) {
+            valueClassName.setVal(row, iMapFileData.getValueClassName().getBytes(StandardCharsets.UTF_8));
+        }
         timestamp.vector[row] = iMapFileData.getTimestamp();
 
         if (batch.size == batch.getMaxSize()) {
@@ -111,4 +117,5 @@ public class OrcWriter implements AutoCloseable {
         fs.rename(currentPath, archivePath);
         log.info("archive orc file success, archive path is:{}", archivePath);
     }
+
 }

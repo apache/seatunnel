@@ -20,9 +20,13 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.orc;
 
+import org.apache.seatunnel.engine.imap.storage.api.common.ProtoStuffSerializer;
+import org.apache.seatunnel.engine.imap.storage.api.common.Serializer;
+import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapData;
 import org.apache.seatunnel.engine.imap.storage.file.common.OrcConstants;
 
+import org.apache.commons.lang3.ClassUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.vector.BytesColumnVector;
@@ -34,10 +38,9 @@ import org.apache.orc.RecordReader;
 import org.apache.orc.TypeDescription;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.stream.IntStream;
 
 public class OrcReader {
 
@@ -88,37 +91,56 @@ public class OrcReader {
 
     private IMapData convert(VectorizedRowBatch batch, List<TypeDescription> fieldList, int rowNum, boolean queryAll) {
         IMapData data = new IMapData();
-        IntStream.range(0, fieldList.size()).forEach(i -> {
+        for (int i = 0; i < fieldList.size(); i++) {
             if (OrcConstants.OrcFields.DELETED.equals(fieldList.get(i).getFullFieldName())) {
                 LongColumnVector longVec = (LongColumnVector) batch.cols[i];
                 data.setDeleted(longVec.vector[rowNum] == 1 ? Boolean.TRUE : Boolean.FALSE);
-                return;
+                continue;
             }
             if (OrcConstants.OrcFields.KEY.equals(fieldList.get(i).getFullFieldName())) {
                 BytesColumnVector bytesVector = (BytesColumnVector) batch.cols[i];
-                data.setKey(bytesVector.toString(rowNum).getBytes(StandardCharsets.UTF_8));
-                return;
+                byte[] datas = bytesVector.vector[rowNum] = Arrays.copyOfRange(bytesVector.vector[rowNum], bytesVector.start[rowNum], bytesVector.start[rowNum] + bytesVector.length[rowNum]);
+                data.setKey(datas);
+                continue;
             }
             if (OrcConstants.OrcFields.KEY_CLASS.equals(fieldList.get(i).getFullFieldName())) {
                 BytesColumnVector bytesVector = (BytesColumnVector) batch.cols[i];
                 data.setKeyClassName(bytesVector.toString(rowNum));
-                return;
+                continue;
             }
             if (OrcConstants.OrcFields.VALUE.equals(fieldList.get(i).getFullFieldName()) && queryAll) {
                 BytesColumnVector bytesVector = (BytesColumnVector) batch.cols[i];
-                data.setValue(bytesVector.toString(rowNum).getBytes(StandardCharsets.UTF_8));
-                return;
+                byte[] datas = bytesVector.vector[rowNum] = Arrays.copyOfRange(bytesVector.vector[rowNum], bytesVector.start[rowNum], bytesVector.start[rowNum] + bytesVector.length[rowNum]);
+                data.setValue(datas);
+                continue;
             }
             if (OrcConstants.OrcFields.VALUE_CLASS.equals(fieldList.get(i).getFullFieldName()) && queryAll) {
                 BytesColumnVector bytesVector = (BytesColumnVector) batch.cols[i];
                 data.setValueClassName(bytesVector.toString(rowNum));
-                return;
+                continue;
             }
             if (OrcConstants.OrcFields.TIMESTAMP.equals(fieldList.get(i).getFullFieldName())) {
                 LongColumnVector longVec = (LongColumnVector) batch.cols[i];
                 data.setTimestamp(longVec.vector[rowNum]);
             }
-        });
+        }
         return data;
+    }
+
+    Serializer serializer = new ProtoStuffSerializer();
+
+    private Object deserializeData(byte[] data, String className) {
+        try {
+            Class<?> clazz = ClassUtils.getClass(className);
+            try {
+                return serializer.deserialize(data, clazz);
+            } catch (IOException e) {
+                //log.error("deserialize data error, data is {}, className is {}", data, className, e);
+                throw new IMapStorageException(e, "deserialize data error: data is s%, className is s%", data, className);
+            }
+        } catch (ClassNotFoundException e) {
+            //  log.error("deserialize data error, class name is {}", className, e);
+            throw new IMapStorageException(e, "deserialize data error, class name is {}", className);
+        }
     }
 }

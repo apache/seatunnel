@@ -93,10 +93,10 @@ public class WALDisruptor implements Closeable {
 
     @Override
     public void close() throws IOException {
-        isClosed = true;
         //we can wait for 5 seconds, so that backlog can be committed
         try {
             tryPublish(null, WALEventType.CLOSED, 0L);
+            isClosed = true;
             disruptor.shutdown(DEFAULT_CLOSE_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
             log.error("WALDisruptor close timeout error", e);

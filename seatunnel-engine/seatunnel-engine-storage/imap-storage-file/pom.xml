@@ -58,6 +58,11 @@
             <artifactId>disruptor</artifactId>
             <version>3.4.4</version>
         </dependency>
+        <dependency>
+            <groupId>org.awaitility</groupId>
+            <artifactId>awaitility</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
 </project>

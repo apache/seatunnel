@@ -50,9 +50,9 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
 
     private String parentPath;
 
-    private long lastDataWriterTime = System.nanoTime();
+    private long lastDataWriterTime = System.currentTimeMillis();
 
-    private static final long MINIMUM_INTERVAL_SINCE_LAST_WRITE_NANO_TIME = 1000 * 1000 * 1000 * 60;
+    private static final long MINIMUM_INTERVAL_SINCE_LAST_WRITE_SECONDS_TIME = 1000 * 60;
 
     public WALWorkHandler(Configuration configuration, String parentPath) {
         this.configuration = configuration;
@@ -75,7 +75,7 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
      */
     private void archiveAndCreateNewFile() {
         // should config
-        if (System.nanoTime() - lastDataWriterTime < MINIMUM_INTERVAL_SINCE_LAST_WRITE_NANO_TIME) {
+        if (System.currentTimeMillis() - lastDataWriterTime < MINIMUM_INTERVAL_SINCE_LAST_WRITE_SECONDS_TIME) {
             return;
         }
         try {
@@ -102,9 +102,10 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
                 writeSuccess = false;
                 log.error("write orc file error, walEventBean is {} ", iMapFileData, e);
             }
-            lastDataWriterTime = System.nanoTime();
+            lastDataWriterTime = System.currentTimeMillis();
             // return the result to the client
-            RequestFutureCache.get(requestId).done(writeSuccess);
+            executeResponse(requestId, writeSuccess);
+            return;
         }
 
         if (type == WALEventType.SCHEDULER_ARCHIVE) {
@@ -115,13 +116,22 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
         if (type == WALEventType.IMMEDIATE_ARCHIVE) {
             //close writer and archive
             currentWriter.archive(parentPath);
-            RequestFutureCache.get(requestId).done(true);
+            executeResponse(requestId, true);
             createNewCurrentWriter();
+            return;
         }
         if (type == WALEventType.CLOSED) {
             //close writer and archive
             currentWriter.archive(parentPath);
         }
-
     }
+
+    private void executeResponse(long requestId, boolean success) {
+        try {
+            RequestFutureCache.get(requestId).done(success);
+        } catch (RuntimeException e) {
+            log.error("response error, requestId is {} ", requestId, e);
+        }
+    }
+
 }
