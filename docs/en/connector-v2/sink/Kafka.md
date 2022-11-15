@@ -25,7 +25,7 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 | partition          | int                    | no       | -             |
 | assign_partitions  | list                   | no       | -             |
 | transaction_prefix | string                 | no       | -             |
-| common-options     |                        | no       | -             |
+| common-options     | config                 | no       | -             |
 
 ### topic [string]
 
@@ -88,7 +88,7 @@ This function by `MessageContentPartitioner` class implements `org.apache.kafka.
 If semantic is specified as EXACTLY_ONCE, the producer will write all messages in a Kafka transaction.
 Kafka distinguishes different transactions by different transactionId. This parameter is prefix of  kafka  transactionId, make sure different job use different prefix.
 
-### common options
+### common options [config]
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
 

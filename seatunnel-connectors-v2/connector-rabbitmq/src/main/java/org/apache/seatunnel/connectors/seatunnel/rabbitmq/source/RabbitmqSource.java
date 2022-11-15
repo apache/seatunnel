@@ -104,7 +104,7 @@ public class RabbitmqSource implements SeaTunnelSource<SeaTunnelRow, RabbitmqSpl
     private void setDeserialization(Config config) {
         // TODO: format SPI
         //only support json deserializationSchema
-        SeaTunnelRowType rowType = SeaTunnelSchema.buildWithConfig(config.getConfig(SeaTunnelSchema.SCHEMA)).getSeaTunnelRowType();
+        SeaTunnelRowType rowType = SeaTunnelSchema.buildWithConfig(config.getConfig(SeaTunnelSchema.SCHEMA.key())).getSeaTunnelRowType();
         this.deserializationSchema = new JsonDeserializationSchema(false, false, rowType);
     }
 }
