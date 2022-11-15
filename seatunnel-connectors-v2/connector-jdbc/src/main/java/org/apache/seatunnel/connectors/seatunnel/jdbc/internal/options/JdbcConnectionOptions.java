@@ -37,7 +37,6 @@ public class JdbcConnectionOptions
     public int maxRetries = DEFAULT_MAX_RETRIES;
     public String username;
     public String password;
-    public String query;
 
     public int batchSize = DEFAULT_BATCH_SIZE;
     public int batchIntervalMs = DEFAULT_BATCH_INTERVAL_MS;
@@ -73,10 +72,6 @@ public class JdbcConnectionOptions
 
     public Optional<String> getPassword() {
         return Optional.ofNullable(password);
-    }
-
-    public String getQuery() {
-        return query;
     }
 
     public int getBatchSize() {
@@ -188,7 +183,6 @@ public class JdbcConnectionOptions
             jdbcConnectionOptions.maxRetries = this.maxRetries;
             jdbcConnectionOptions.password = this.password;
             jdbcConnectionOptions.connectionCheckTimeoutSeconds = this.connectionCheckTimeoutSeconds;
-            jdbcConnectionOptions.query = this.query;
             jdbcConnectionOptions.url = this.url;
             jdbcConnectionOptions.username = this.username;
             jdbcConnectionOptions.transactionTimeoutSec = this.transactionTimeoutSec;
