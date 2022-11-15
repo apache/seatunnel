@@ -34,6 +34,7 @@
         <module>connector-http-feishu</module>
         <module>connector-http-wechat</module>
         <module>connector-http-myhours</module>
+        <module>connector-http-klaviyo</module>
     </modules>
 
 </project>
