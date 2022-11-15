@@ -71,9 +71,9 @@ public class PluginIdentifier {
 
     @Override
     public int hashCode() {
-        int result = engineType != null ? engineType.hashCode() : 0;
-        result = 31 * result + (pluginType != null ? pluginType.hashCode() : 0);
-        result = 31 * result + (pluginName != null ? pluginName.hashCode() : 0);
+        int result = engineType != null ? engineType.toLowerCase().hashCode() : 0;
+        result = 31 * result + (pluginType != null ? pluginType.toLowerCase().hashCode() : 0);
+        result = 31 * result + (pluginName != null ? pluginName.toLowerCase().hashCode() : 0);
         return result;
     }
 
