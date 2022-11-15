@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -34,22 +36,78 @@ import java.util.Map;
 @ToString
 public class SinkConfig {
 
-    public static final String NODE_URLS = "nodeUrls";
-    public static final String USERNAME = "username";
-    public static final String PASSWORD = "password";
-    public static final String LABEL_PREFIX = "labelPrefix";
-    public static final String DATABASE = "database";
-    public static final String TABLE = "table";
-    public static final String STARROCKS_SINK_CONFIG_PREFIX = "sink.properties.";
+    private static final int DEFAULT_BATCH_MAX_SIZE = 1024;
+    private static final long DEFAULT_BATCH_BYTES = 5 * 1024 * 1024;
+
     private static final String LOAD_FORMAT = "format";
     private static final StreamLoadFormat DEFAULT_LOAD_FORMAT = StreamLoadFormat.CSV;
     private static final String COLUMN_SEPARATOR = "column_separator";
-    public static final String BATCH_MAX_SIZE = "batch_max_rows";
-    public static final String BATCH_MAX_BYTES = "batch_max_bytes";
-    public static final String BATCH_INTERVAL_MS = "batch_interval_ms";
-    public static final String MAX_RETRIES = "max_retries";
-    public static final String RETRY_BACKOFF_MULTIPLIER_MS = "retry_backoff_multiplier_ms";
-    public static final String MAX_RETRY_BACKOFF_MS = "max_retry_backoff_ms";
+
+    public static final Option<List<String>> NODE_URLS = Options.key("nodeUrls")
+            .listType()
+            .noDefaultValue()
+            .withDescription("StarRocks cluster address, the format is [\"fe_ip:fe_http_port\", ...]");
+
+    public static final Option<String> USERNAME = Options.key("username")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("StarRocks user username");
+
+    public static final Option<String> PASSWORD = Options.key("password")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("StarRocks user password");
+
+    public static final Option<String> LABEL_PREFIX = Options.key("labelPrefix")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("The prefix of StarRocks stream load label");
+
+    public static final Option<String> DATABASE = Options.key("database")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("The name of StarRocks database");
+
+    public static final Option<String> TABLE = Options.key("table")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("The name of StarRocks table");
+
+    public static final Option<String> STARROCKS_SINK_CONFIG_PREFIX = Options.key("sink.properties.")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("The parameter of the stream load data_desc. " +
+                    "The way to specify the parameter is to add the prefix `sink.properties.` to the original stream load parameter name ");
+
+    public static final Option<Integer> BATCH_MAX_SIZE = Options.key("batch_max_rows")
+            .intType()
+            .defaultValue(DEFAULT_BATCH_MAX_SIZE)
+            .withDescription("For batch writing, when the number of buffers reaches the number of batch_max_rows or the byte size of batch_max_bytes or the time reaches batch_interval_ms, the data will be flushed into the StarRocks");
+
+    public static final Option<Long> BATCH_MAX_BYTES = Options.key("batch_max_bytes")
+            .longType()
+            .defaultValue(DEFAULT_BATCH_BYTES)
+            .withDescription("For batch writing, when the number of buffers reaches the number of batch_max_rows or the byte size of batch_max_bytes or the time reaches batch_interval_ms, the data will be flushed into the StarRocks");
+
+    public static final Option<Integer> BATCH_INTERVAL_MS = Options.key("batch_interval_ms")
+            .intType()
+            .noDefaultValue()
+            .withDescription("For batch writing, when the number of buffers reaches the number of batch_max_rows or the byte size of batch_max_bytes or the time reaches batch_interval_ms, the data will be flushed into the StarRocks");
+
+    public static final Option<Integer> MAX_RETRIES = Options.key("max_retries")
+            .intType()
+            .noDefaultValue()
+            .withDescription("The number of retries to flush failed");
+
+    public static final Option<Integer> RETRY_BACKOFF_MULTIPLIER_MS = Options.key("retry_backoff_multiplier_ms")
+            .intType()
+            .noDefaultValue()
+            .withDescription("Using as a multiplier for generating the next delay for backoff");
+
+    public static final Option<Integer> MAX_RETRY_BACKOFF_MS = Options.key("max_retry_backoff_ms")
+            .intType()
+            .noDefaultValue()
+            .withDescription("The amount of time to wait before attempting to retry a request to StarRocks");
 
     public enum StreamLoadFormat {
         CSV, JSON;
@@ -69,8 +127,6 @@ public class SinkConfig {
     private String labelPrefix;
     private String columnSeparator;
     private StreamLoadFormat loadFormat = DEFAULT_LOAD_FORMAT;
-    private static final int DEFAULT_BATCH_MAX_SIZE = 1024;
-    private static final long DEFAULT_BATCH_BYTES = 5 * 1024 * 1024;
 
     private int batchMaxSize = DEFAULT_BATCH_MAX_SIZE;
     private long batchMaxBytes = DEFAULT_BATCH_BYTES;
@@ -84,39 +140,36 @@ public class SinkConfig {
 
     public static SinkConfig loadConfig(Config pluginConfig) {
         SinkConfig sinkConfig = new SinkConfig();
-        sinkConfig.setNodeUrls(pluginConfig.getStringList(NODE_URLS));
-        sinkConfig.setDatabase(pluginConfig.getString(DATABASE));
-        sinkConfig.setTable(pluginConfig.getString(TABLE));
+        sinkConfig.setNodeUrls(pluginConfig.getStringList(NODE_URLS.key()));
+        sinkConfig.setDatabase(pluginConfig.getString(DATABASE.key()));
+        sinkConfig.setTable(pluginConfig.getString(TABLE.key()));
 
-        if (pluginConfig.hasPath(USERNAME)) {
-            sinkConfig.setUsername(pluginConfig.getString(USERNAME));
+        if (pluginConfig.hasPath(USERNAME.key())) {
+            sinkConfig.setUsername(pluginConfig.getString(USERNAME.key()));
         }
-        if (pluginConfig.hasPath(PASSWORD)) {
-            sinkConfig.setPassword(pluginConfig.getString(PASSWORD));
+        if (pluginConfig.hasPath(PASSWORD.key())) {
+            sinkConfig.setPassword(pluginConfig.getString(PASSWORD.key()));
         }
-        if (pluginConfig.hasPath(LABEL_PREFIX)) {
-            sinkConfig.setLabelPrefix(pluginConfig.getString(LABEL_PREFIX));
+        if (pluginConfig.hasPath(LABEL_PREFIX.key())) {
+            sinkConfig.setLabelPrefix(pluginConfig.getString(LABEL_PREFIX.key()));
         }
-        if (pluginConfig.hasPath(COLUMN_SEPARATOR)) {
-            sinkConfig.setColumnSeparator(pluginConfig.getString(COLUMN_SEPARATOR));
+        if (pluginConfig.hasPath(BATCH_MAX_SIZE.key())) {
+            sinkConfig.setBatchMaxSize(pluginConfig.getInt(BATCH_MAX_SIZE.key()));
         }
-        if (pluginConfig.hasPath(BATCH_MAX_SIZE)) {
-            sinkConfig.setBatchMaxSize(pluginConfig.getInt(BATCH_MAX_SIZE));
+        if (pluginConfig.hasPath(BATCH_MAX_BYTES.key())) {
+            sinkConfig.setBatchMaxBytes(pluginConfig.getLong(BATCH_MAX_BYTES.key()));
         }
-        if (pluginConfig.hasPath(BATCH_MAX_BYTES)) {
-            sinkConfig.setBatchMaxBytes(pluginConfig.getLong(BATCH_MAX_BYTES));
+        if (pluginConfig.hasPath(BATCH_INTERVAL_MS.key())) {
+            sinkConfig.setBatchIntervalMs(pluginConfig.getInt(BATCH_INTERVAL_MS.key()));
         }
-        if (pluginConfig.hasPath(BATCH_INTERVAL_MS)) {
-            sinkConfig.setBatchIntervalMs(pluginConfig.getInt(BATCH_INTERVAL_MS));
+        if (pluginConfig.hasPath(MAX_RETRIES.key())) {
+            sinkConfig.setMaxRetries(pluginConfig.getInt(MAX_RETRIES.key()));
         }
-        if (pluginConfig.hasPath(MAX_RETRIES)) {
-            sinkConfig.setMaxRetries(pluginConfig.getInt(MAX_RETRIES));
+        if (pluginConfig.hasPath(RETRY_BACKOFF_MULTIPLIER_MS.key())) {
+            sinkConfig.setRetryBackoffMultiplierMs(pluginConfig.getInt(RETRY_BACKOFF_MULTIPLIER_MS.key()));
         }
-        if (pluginConfig.hasPath(RETRY_BACKOFF_MULTIPLIER_MS)) {
-            sinkConfig.setRetryBackoffMultiplierMs(pluginConfig.getInt(RETRY_BACKOFF_MULTIPLIER_MS));
-        }
-        if (pluginConfig.hasPath(MAX_RETRY_BACKOFF_MS)) {
-            sinkConfig.setMaxRetryBackoffMs(pluginConfig.getInt(MAX_RETRY_BACKOFF_MS));
+        if (pluginConfig.hasPath(MAX_RETRY_BACKOFF_MS.key())) {
+            sinkConfig.setMaxRetryBackoffMs(pluginConfig.getInt(MAX_RETRY_BACKOFF_MS.key()));
         }
         parseSinkStreamLoadProperties(pluginConfig, sinkConfig);
         if (sinkConfig.streamLoadProps.containsKey(COLUMN_SEPARATOR)) {
@@ -130,7 +183,7 @@ public class SinkConfig {
 
     private static void parseSinkStreamLoadProperties(Config pluginConfig, SinkConfig sinkConfig) {
         Config starRocksConfig = TypesafeConfigUtils.extractSubConfig(pluginConfig,
-                STARROCKS_SINK_CONFIG_PREFIX, false);
+                STARROCKS_SINK_CONFIG_PREFIX.key(), false);
         starRocksConfig.entrySet().forEach(entry -> {
             final String configKey = entry.getKey().toLowerCase();
             sinkConfig.streamLoadProps.put(configKey, entry.getValue().unwrapped());

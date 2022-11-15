@@ -30,5 +30,7 @@ public abstract class OffsetFactory {
 
     public abstract Offset specific(Map<String, String> offset);
 
+    public abstract Offset specific(String filename, Long position);
+
     public abstract Offset timstamp(long timestmap);
 }

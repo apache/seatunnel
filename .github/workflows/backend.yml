@@ -138,6 +138,8 @@ jobs:
               - "seatunnel-engine/**"
             engine-e2e:
               - "seatunnel-e2e/seatunnel-engine-e2e/**"
+            deleted-poms:
+              - deleted: "**/pom.xml" 
 
       - name: Check Connector V2 Update
         id: cv2-modules
@@ -193,6 +195,15 @@ jobs:
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT
 
+      - name: Check Deleted Modules
+        id: deleted-modules
+        if: ${{ steps.filter.outputs.deleted-poms == 'true' }}
+        run: |
+          update_files='${{ steps.filter.outputs.deleted-poms_files }}'
+          modules=`python tools/update_modules_check/update_modules_check.py delete $update_files`
+          echo $modules
+          echo "modules=$modules" >> $GITHUB_OUTPUT      
+
       - name: Make unit test modules
         id: ut-modules
         if: ${{ steps.filter.outputs.api == 'false' && (steps.engine-modules.outputs.modules != '' || steps.cv2-modules.outputs.modules != '') }}
@@ -200,6 +211,16 @@ jobs:
           modules='${{ steps.engine-modules.outputs.modules }}${{ steps.cv2-modules.outputs.modules }}'
           modules=${modules: 1}
           pl_modules=`python tools/update_modules_check/update_modules_check.py replace $modules`
+          # remove deleted modules
+          delete_modules='${{ steps.deleted-modules.outputs.modules }}'
+          if [[ "zz"$delete_modules != "zz" ]];then
+            pl_modules=`python tools/update_modules_check/update_modules_check.py rm $pl_modules $delete_modules`
+          fi
+          
+          if [[ "zz"$pl_modules == "zz" ]];then
+            exit 0
+          fi
+          
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl $pl_modules > /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
           tree_modules="$modules$sub_modules"
@@ -216,6 +237,16 @@ jobs:
           modules='${{ steps.cv2-e2e-modules.outputs.modules }}${{ steps.cv2-flink-e2e-modules.outputs.modules }}${{ steps.cv2-spark-e2e-modules.outputs.modules }}${{ steps.engine-e2e-modules.outputs.modules }}${{ steps.engine-modules.outputs.modules }}${{ steps.cv2-modules.outputs.modules }}'
           modules=${modules: 1}
           pl_modules=`python tools/update_modules_check/update_modules_check.py replace $modules`
+          # remove deleted modules
+          delete_modules='${{ steps.deleted-modules.outputs.modules }}'
+          if [[ "zz"$delete_modules != "zz" ]];then
+            pl_modules=`python tools/update_modules_check/update_modules_check.py rm $pl_modules $delete_modules`
+          fi
+          
+          if [[ "zz"$pl_modules == "zz" ]];then
+            exit 0
+          fi
+          
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl $pl_modules > /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
           tree_modules="$modules$sub_modules"
