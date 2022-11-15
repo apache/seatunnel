@@ -23,7 +23,7 @@ Read data from MongoDB.
 | database       | string | yes      | -             |
 | collection     | string | yes      | -             |
 | schema         | object | yes      | -             |
-| common-options |        | yes      | -             |
+| common-options | config | no       | -             |
 
 ### uri [string]
 
@@ -82,3 +82,7 @@ mongodb {
 ### 2.2.0-beta 2022-09-26
 
 - Add MongoDB Source Connector
+
+### Next Version
+
+- common-options is not a required option

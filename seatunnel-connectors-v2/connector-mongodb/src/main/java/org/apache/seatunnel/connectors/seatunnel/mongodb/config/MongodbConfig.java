@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+
 import java.io.Serializable;
 
 /**
@@ -24,16 +27,28 @@ import java.io.Serializable;
  */
 public class MongodbConfig implements Serializable {
 
-    public static final String URI = "uri";
+    public static final Option<String> URI =
+        Options.key("uri")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("MongoDB uri");
 
-    public static final String DATABASE = "database";
+    public static final Option<String> DATABASE =
+        Options.key("database")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("MongoDB database name");
 
-    public static final String COLLECTION = "collection";
+    public static final Option<String> COLLECTION =
+        Options.key("collection")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("MongoDB collection");
 
-    public static final String SCHEMA = "schema";
-
+    // Don't use now
     public static final String FORMAT = "format";
 
+    // Don't use now
     public static final String DEFAULT_FORMAT = "json";
 
 }
