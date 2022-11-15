@@ -97,7 +97,7 @@ public class ReadonlyConfig {
         for (int i = 0; i < keys.length; i++) {
             value = data.get(keys[i]);
             if (i < keys.length - 1) {
-                if (!((value instanceof Map))) {
+                if (!(value instanceof Map)) {
                     return Optional.empty();
                 } else {
                     data = (Map<String, Object>) value;

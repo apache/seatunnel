@@ -22,6 +22,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.Cassand
 import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.TABLE;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -32,6 +33,8 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClient;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
@@ -63,7 +66,9 @@ public class CassandraSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     public void prepare(Config config) throws PrepareFailException {
         CheckResult checkResult = CheckConfigUtil.checkAllExists(config, HOST, KEYSPACE, TABLE);
         if (!checkResult.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SINK, checkResult.getMsg());
+            throw new CassandraConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SINK, checkResult.getMsg()));
         }
         this.cassandraConfig = CassandraConfig.getCassandraConfig(config);
         try (CqlSession session = CassandraClient.getCqlSessionBuilder(
@@ -84,12 +89,15 @@ public class CassandraSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
             } else {
                 for (String field : fields) {
                     if (!tableSchema.contains(field)) {
-                        throw new RuntimeException("Field " + field + " does not exist in table " + config.getString(TABLE));
+                        throw new CassandraConnectorException(CassandraConnectorErrorCode.FIELD_NOT_IN_TABLE,
+                                "Field " + field + " does not exist in table " + config.getString(TABLE));
                     }
                 }
             }
         } catch (Exception e) {
-            throw new PrepareFailException(getPluginName(), PluginType.SINK, e.getMessage());
+            throw new CassandraConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SINK, checkResult.getMsg()));
         }
     }
 
