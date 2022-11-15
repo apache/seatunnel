@@ -23,7 +23,9 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.exception.AmazonDynamoDBConnectorException;
 
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -93,7 +95,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             case ARRAY:
                 return AttributeValue.Type.L;
             default:
-                throw new UnsupportedOperationException("Unsupported dataType: " + seaTunnelDataType);
+                throw new AmazonDynamoDBConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported data type: " + seaTunnelDataType);
         }
     }
 
@@ -140,7 +143,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             case NUL:
                 return AttributeValue.builder().nul(true).build();
             default:
-                throw new UnsupportedOperationException("Unsupported dataType: " + measurementsType);
+                throw new AmazonDynamoDBConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported data type: " + measurementsType);
         }
     }
 
