@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.myhours.source.config;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
