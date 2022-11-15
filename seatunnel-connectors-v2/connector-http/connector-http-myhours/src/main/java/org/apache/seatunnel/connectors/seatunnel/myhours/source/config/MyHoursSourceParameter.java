@@ -19,8 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.myhours.source.config;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
-
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.util.HashMap;
