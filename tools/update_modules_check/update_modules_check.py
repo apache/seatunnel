@@ -110,6 +110,32 @@ def get_final_ut_modules(file):
     output = output[1:len(output)]
     print(output)
 
+def remove_deleted_modules(pl_modules, deleted_modules):
+    pl_modules_arr = pl_modules.replace(":", "").split(",")
+    deleted_modules_arr = deleted_modules.split(",")
+    output = ""
+    for module in pl_modules_arr:
+        if deleted_modules_arr.count(module) == 0:
+            output = output + ",:" + module
+
+    output = output[1:len(output)]
+    print(output)
+
+def get_deleted_modules(files):
+    update_files = json.loads(files)
+    modules_name_set = set([])
+    for file in update_files:
+        names = file.split('/')
+        module_name = names[len(names) - 2]
+        modules_name_set.add(module_name)
+    output_module = ""
+    if len(modules_name_set) > 0:
+        for module in modules_name_set:
+            output_module = output_module + "," + module
+
+    output_module = output_module[1:len(output_module)]
+    print(output_module)
+
 def main(argv):
     if argv[1] == "cv2":
         get_cv2_modules(argv[2])
@@ -133,6 +159,11 @@ def main(argv):
         replace_comma_to_commacolon(argv[2])
     elif argv[1] == "sub":
         get_sub_modules(argv[2])
+    elif argv[1] == "delete":
+        get_deleted_modules(argv[2])
+    elif argv[1] == "rm":
+        remove_deleted_modules(argv[2], argv[3])
+
 
 if __name__ == "__main__":
     main(sys.argv)

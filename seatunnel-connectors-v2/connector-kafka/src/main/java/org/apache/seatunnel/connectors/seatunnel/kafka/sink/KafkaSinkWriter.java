@@ -69,7 +69,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     public void write(SeaTunnelRow element) {
         ProducerRecord<byte[], byte[]> producerRecord = null;
         //Determine the partition of the kafka send message based on the field name
-        if (pluginConfig.hasPath(PARTITION_KEY)){
+        if (pluginConfig.hasPath(PARTITION_KEY.key())){
             String key = partitionExtractor.apply(element);
             producerRecord = seaTunnelRowSerializer.serializeRowByKey(key, element);
         }
@@ -87,14 +87,14 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         this.context = context;
         this.pluginConfig = pluginConfig;
         this.partitionExtractor = createPartitionExtractor(pluginConfig, seaTunnelRowType);
-        if (pluginConfig.hasPath(PARTITION)) {
-            this.partition = pluginConfig.getInt(PARTITION);
+        if (pluginConfig.hasPath(PARTITION.key())) {
+            this.partition = pluginConfig.getInt(PARTITION.key());
         }
-        if (pluginConfig.hasPath(ASSIGN_PARTITIONS)) {
-            MessageContentPartitioner.setAssignPartitions(pluginConfig.getStringList(ASSIGN_PARTITIONS));
+        if (pluginConfig.hasPath(ASSIGN_PARTITIONS.key())) {
+            MessageContentPartitioner.setAssignPartitions(pluginConfig.getStringList(ASSIGN_PARTITIONS.key()));
         }
-        if (pluginConfig.hasPath(TRANSACTION_PREFIX)) {
-            this.transactionPrefix = pluginConfig.getString(TRANSACTION_PREFIX);
+        if (pluginConfig.hasPath(TRANSACTION_PREFIX.key())) {
+            this.transactionPrefix = pluginConfig.getString(TRANSACTION_PREFIX.key());
         } else {
             Random random = new Random();
             this.transactionPrefix = String.format("SeaTunnel%04d", random.nextInt(PREFIX_RANGE));
@@ -146,12 +146,12 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     private Properties getKafkaProperties(Config pluginConfig) {
         Config kafkaConfig = TypesafeConfigUtils.extractSubConfig(pluginConfig,
-                org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG_PREFIX, false);
+                org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG_PREFIX.key(), false);
         Properties kafkaProperties = new Properties();
         kafkaConfig.entrySet().forEach(entry -> {
             kafkaProperties.put(entry.getKey(), entry.getValue().unwrapped());
         });
-        if (pluginConfig.hasPath(ASSIGN_PARTITIONS)) {
+        if (pluginConfig.hasPath(ASSIGN_PARTITIONS.key())) {
             kafkaProperties.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, "org.apache.seatunnel.connectors.seatunnel.kafka.sink.MessageContentPartitioner");
         }
         kafkaProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, pluginConfig.getString(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
@@ -162,11 +162,11 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     // todo: parse the target field from config
     private SeaTunnelRowSerializer<byte[], byte[]> getSerializer(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
-        if (pluginConfig.hasPath(PARTITION)){
-            return new DefaultSeaTunnelRowSerializer(pluginConfig.getString(TOPIC), this.partition, seaTunnelRowType);
+        if (pluginConfig.hasPath(PARTITION.key())){
+            return new DefaultSeaTunnelRowSerializer(pluginConfig.getString(TOPIC.key()), this.partition, seaTunnelRowType);
         }
         else {
-            return new DefaultSeaTunnelRowSerializer(pluginConfig.getString(TOPIC), seaTunnelRowType);
+            return new DefaultSeaTunnelRowSerializer(pluginConfig.getString(TOPIC.key()), seaTunnelRowType);
         }
     }
 
@@ -190,10 +190,10 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     private Function<SeaTunnelRow, String> createPartitionExtractor(Config pluginConfig,
                                                                     SeaTunnelRowType seaTunnelRowType) {
-        if (!pluginConfig.hasPath(PARTITION_KEY)){
+        if (!pluginConfig.hasPath(PARTITION_KEY.key())){
             return row -> null;
         }
-        String partitionKey = pluginConfig.getString(PARTITION_KEY);
+        String partitionKey = pluginConfig.getString(PARTITION_KEY.key());
         List<String> fieldNames = Arrays.asList(seaTunnelRowType.getFieldNames());
         if (!fieldNames.contains(partitionKey)) {
             return row -> partitionKey;

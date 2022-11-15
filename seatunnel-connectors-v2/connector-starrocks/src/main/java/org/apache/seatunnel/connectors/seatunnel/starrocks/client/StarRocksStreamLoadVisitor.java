@@ -44,6 +44,7 @@ public class StarRocksStreamLoadVisitor {
     private final SinkConfig sinkConfig;
     private long pos;
     private static final String RESULT_FAILED = "Fail";
+    private static final String RESULT_SUCCESS = "Success";
     private static final String RESULT_LABEL_EXISTED = "Label Already Exists";
     private static final String LAEBL_STATE_VISIBLE = "VISIBLE";
     private static final String LAEBL_STATE_COMMITTED = "COMMITTED";
@@ -58,7 +59,7 @@ public class StarRocksStreamLoadVisitor {
         this.fieldNames = fieldNames;
     }
 
-    public void doStreamLoad(StarRocksFlushTuple flushData) throws IOException {
+    public Boolean doStreamLoad(StarRocksFlushTuple flushData) throws IOException {
         String host = getAvailableHost();
         if (null == host) {
             throw new IOException("None of the host in `load_url` could be connected.");
@@ -106,6 +107,7 @@ public class StarRocksStreamLoadVisitor {
             // has to block-checking the state to get the final result
             checkLabelState(host, flushData.getLabel());
         }
+        return RESULT_SUCCESS.equals(loadResult.get(keyStatus));
     }
 
     private String getAvailableHost() {

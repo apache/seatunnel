@@ -18,12 +18,15 @@
 
 package org.apache.seatunnel.api.table.catalog.exception;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+
 /** Exception for trying to operate on a database that doesn't exist. */
-public class DatabaseNotExistException extends Exception {
+public class DatabaseNotExistException extends SeaTunnelRuntimeException {
     private static final String MSG = "Database %s does not exist in Catalog %s.";
 
     public DatabaseNotExistException(String catalogName, String databaseName, Throwable cause) {
-        super(String.format(MSG, databaseName, catalogName), cause);
+        super(SeaTunnelAPIErrorCode.DATABASE_NOT_EXISTED, String.format(MSG, databaseName, catalogName), cause);
     }
 
     public DatabaseNotExistException(String catalogName, String databaseName) {

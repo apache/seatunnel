@@ -13,18 +13,18 @@ Used to write data to Redis.
 
 ##  Options
 
-| name           | type   | required | default value |
-|----------------|--------|----------|---------------|
-| host           | string | yes      | -             |
-| port           | int    | yes      | -             |
-| key            | string | yes      | -             |
-| data_type      | string | yes      | -             |
-| user           | string | no       | -             |
-| auth           | string | no       | -             |
-| mode           | string | no       | -             |
-| auth           | list   | no       | -             |
-| format         | string | no       | json          |
-| common-options |        | no       | -             |
+| name           | type   | required              | default value |
+|----------------|--------|-----------------------|--------------|
+| host           | string | yes                   | -            |
+| port           | int    | yes                   | -            |
+| key            | string | yes                   | -            |
+| data_type      | string | yes                   | -            |
+| user           | string | no                    | -            |
+| auth           | string | no                    | -            |
+| mode           | string | no                    | single       |
+| nodes          | list   | yes when mode=cluster | -            |
+| format         | string | no                    | json         |
+| common-options |        | no                    | -            |
 
 ### host [string]
 
