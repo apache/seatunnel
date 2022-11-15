@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.assertion.excecutor.AssertExecutor;
+import org.apache.seatunnel.connectors.seatunnel.assertion.exception.AssertConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.assertion.exception.AssertConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
@@ -49,7 +51,8 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             ASSERT_EXECUTOR
                 .fail(element, seaTunnelRowType, assertFieldRules)
                 .ifPresent(failRule -> {
-                    throw new IllegalStateException("row :" + element + " fail rule: " + failRule);
+                    throw new AssertConnectorException(AssertConnectorErrorCode.RULE_VALIDATION_FAILED,
+                            "row :" + element + " fail rule: " + failRule);
                 });
         }
     }
@@ -67,7 +70,8 @@ public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                         return false;
                 }
             }).findFirst().ifPresent(failRule -> {
-                throw new IllegalStateException("row num :" + LONG_ACCUMULATOR.longValue() + " fail rule: " + failRule);
+                throw new AssertConnectorException(AssertConnectorErrorCode.RULE_VALIDATION_FAILED,
+                        "row num :" + LONG_ACCUMULATOR.longValue() + " fail rule: " + failRule);
             });
         }
     }
