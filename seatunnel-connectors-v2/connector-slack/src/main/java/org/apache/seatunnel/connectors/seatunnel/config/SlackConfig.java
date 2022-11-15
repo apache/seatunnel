@@ -33,8 +33,8 @@ public class SlackConfig {
     private String slackChannel;
 
     public SlackConfig(@NonNull Config pluginConfig) {
-            this.webHooksUrl = pluginConfig.getString(WEBHOOKS_URL);
-            this.oauthToken = pluginConfig.getString(OAUTH_TOKEN);
-            this.slackChannel = pluginConfig.getString(SLACK_CHANNEL);
+        this.webHooksUrl = pluginConfig.getString(WEBHOOKS_URL);
+        this.oauthToken = pluginConfig.getString(OAUTH_TOKEN);
+        this.slackChannel = pluginConfig.getString(SLACK_CHANNEL);
     }
 }
