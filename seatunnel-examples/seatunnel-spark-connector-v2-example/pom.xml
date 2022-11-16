@@ -31,7 +31,7 @@
 
     <properties>
         <spark.scope>compile</spark.scope>
-        <spark.2.4.0.jackson.version>2.6.7</spark.2.4.0.jackson.version>
+        <spark.2.4.0.jackson.version>2.12.7.1</spark.2.4.0.jackson.version>
     </properties>
     <dependencies>
         <dependency>
