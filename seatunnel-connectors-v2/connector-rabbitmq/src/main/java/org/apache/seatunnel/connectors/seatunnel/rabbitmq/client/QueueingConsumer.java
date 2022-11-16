@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.client;
 
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.HANDLE_SHUTDOWN_SIGNAL_FAILED;
+
 import org.apache.seatunnel.common.Handover;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
@@ -63,10 +66,8 @@ public class QueueingConsumer extends DefaultConsumer {
         shutdown = sig;
         try {
             handover.produce(POISON);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        } catch (Handover.ClosedException e) {
-            throw new RuntimeException(e);
+        } catch (InterruptedException | Handover.ClosedException e) {
+            throw new RabbitmqConnectorException(HANDLE_SHUTDOWN_SIGNAL_FAILED, e);
         }
     }
 

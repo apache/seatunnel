@@ -15,27 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject;
+package org.apache.seatunnel.connectors.seatunnel.sentry.sink;
 
-import java.math.BigDecimal;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
-public class DoubleInjectFunction implements ClickhouseFieldInjectFunction {
+import com.google.auto.service.AutoService;
+
+@AutoService(Factory.class)
+public class SentrySinkFactory implements TableSinkFactory {
     @Override
-    public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
-        if (value instanceof BigDecimal) {
-            statement.setDouble(index, ((BigDecimal) value).doubleValue());
-        } else {
-            statement.setDouble(index, Double.parseDouble(value.toString()));
-        }
+    public String factoryIdentifier() {
+        return SentryConfig.SENTRY;
     }
 
     @Override
-    public boolean isCurrentFieldType(String fieldType) {
-        return "UInt32".equals(fieldType)
-            || "UInt64".equals(fieldType)
-            || "Int64".equals(fieldType)
-            || "Float64".equals(fieldType);
+    public OptionRule optionRule() {
+        return OptionRule.builder().required(SentryConfig.DSN)
+            .optional(SentryConfig.ENV, SentryConfig.CACHE_DIRPATH, SentryConfig.ENABLE_EXTERNAL_CONFIGURATION,
+                SentryConfig.FLUSH_TIMEOUTMILLIS, SentryConfig.MAX_CACHEITEMS, SentryConfig.MAX_QUEUESIZE,
+                SentryConfig.RELEASE).build();
     }
 }

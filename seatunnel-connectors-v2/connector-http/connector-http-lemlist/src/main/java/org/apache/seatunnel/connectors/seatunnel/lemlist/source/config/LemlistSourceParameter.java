@@ -15,25 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.configuration.util;
+package org.apache.seatunnel.connectors.seatunnel.lemlist.source.config;
 
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
-/**
- * Exception for all errors occurring during option validation phase.
- */
-public class OptionValidationException extends SeaTunnelRuntimeException {
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-    public OptionValidationException(String message, Throwable cause) {
-        super(SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED, message, cause);
-    }
+import java.util.HashMap;
 
-    public OptionValidationException(String message) {
-        super(SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED, message);
-    }
-
-    public OptionValidationException(String formatMessage, Object... args) {
-        super(SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED, String.format(formatMessage, args));
+public class LemlistSourceParameter extends HttpParameter {
+    public void buildWithConfig(Config pluginConfig, String accessToken) {
+        super.buildWithConfig(pluginConfig);
+        // put authorization in headers
+        this.headers = this.getHeaders() == null ? new HashMap<>() : this.getHeaders();
+        this.headers.put(LemlistSourceConfig.AUTHORIZATION, accessToken);
+        this.setHeaders(this.headers);
     }
 }

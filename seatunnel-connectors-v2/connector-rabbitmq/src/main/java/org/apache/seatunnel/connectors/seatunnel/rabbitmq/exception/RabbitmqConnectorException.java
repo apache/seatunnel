@@ -15,25 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.configuration.util;
+package org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception;
 
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-/**
- * Exception for all errors occurring during option validation phase.
- */
-public class OptionValidationException extends SeaTunnelRuntimeException {
-
-    public OptionValidationException(String message, Throwable cause) {
-        super(SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED, message, cause);
+public class RabbitmqConnectorException extends SeaTunnelRuntimeException {
+    public RabbitmqConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+        super(seaTunnelErrorCode, errorMessage);
     }
 
-    public OptionValidationException(String message) {
-        super(SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED, message);
+    public RabbitmqConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+        super(seaTunnelErrorCode, errorMessage, cause);
     }
 
-    public OptionValidationException(String formatMessage, Object... args) {
-        super(SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED, String.format(formatMessage, args));
+    public RabbitmqConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+        super(seaTunnelErrorCode, cause);
     }
 }

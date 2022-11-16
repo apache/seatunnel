@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.MESSAGE_ACK_FAILED;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.MESSAGE_ACK_REJECTED;
+
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
@@ -25,6 +28,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.client.RabbitmqClient;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
 
 import com.rabbitmq.client.AMQP;
@@ -184,8 +188,7 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
             }
             channel.txCommit();
         } catch (IOException e) {
-            throw new RuntimeException(
-                    "Messages could not be acknowledged during checkpoint creation.", e);
+            throw new RabbitmqConnectorException(MESSAGE_ACK_FAILED, e);
         }
     }
 
@@ -201,8 +204,7 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
                     try {
                         channel.basicReject(deliveryTag, false);
                     } catch (IOException e) {
-                        throw new RuntimeException(
-                                "Message could not be acknowledged with basicReject.", e);
+                        throw new RabbitmqConnectorException(MESSAGE_ACK_REJECTED, e);
                     }
                     return false;
                 }

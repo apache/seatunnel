@@ -17,8 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.client;
 
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.CLOSE_CONNECTION_FAILED;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.CREATE_RABBITMQ_CLIENT_FAILED;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.SEND_MESSAGE_FAILED;
+
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
@@ -55,8 +60,7 @@ public class RabbitmqClient {
             }
             setupQueue();
         } catch (Exception e) {
-            throw new RuntimeException(String.format("Error while create RMQ client with %s at %s", config.getQueueName(), config.getHost()), e);
-
+            throw new RabbitmqConnectorException(CREATE_RABBITMQ_CLIENT_FAILED, String.format("Error while create RMQ client with %s at %s", config.getQueueName(), config.getHost()), e);
         }
 
     }
@@ -138,7 +142,7 @@ public class RabbitmqClient {
             if (config.isLogFailuresOnly()) {
                 log.error("Cannot send RMQ message {} at {}", config.getQueueName(), config.getHost(), e);
             } else {
-                throw new RuntimeException(String.format("Cannot send RMQ message %s at %s", config.getQueueName(), config.getHost()), e);
+                throw new RabbitmqConnectorException(SEND_MESSAGE_FAILED, String.format("Cannot send RMQ message %s at %s", config.getQueueName(), config.getHost()), e);
             }
         }
     }
@@ -166,8 +170,7 @@ public class RabbitmqClient {
             t = e;
         }
         if (t != null) {
-            throw new RuntimeException(String.format("Error while closing RMQ connection with  %s at %s", config.getQueueName(), config.getHost()), t);
-
+            throw new RabbitmqConnectorException(CLOSE_CONNECTION_FAILED, String.format("Error while closing RMQ connection with  %s at %s", config.getQueueName(), config.getHost()), t);
         }
     }
 
