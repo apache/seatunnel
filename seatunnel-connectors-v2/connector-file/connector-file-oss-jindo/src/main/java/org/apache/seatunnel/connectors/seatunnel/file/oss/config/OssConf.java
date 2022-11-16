@@ -24,11 +24,17 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import java.util.HashMap;
 
 public class OssConf extends HadoopConf {
-    private final String fsHdfsImpl = "com.aliyun.emr.fs.oss.JindoOssFileSystem";
+    private static final String HDFS_IMPL = "com.aliyun.emr.fs.oss.JindoOssFileSystem";
+    private static final String SCHEMA = "oss";
 
     @Override
     public String getFsHdfsImpl() {
-        return fsHdfsImpl;
+        return HDFS_IMPL;
+    }
+
+    @Override
+    public String getSchema() {
+        return SCHEMA;
     }
 
     public OssConf(String hdfsNameKey) {

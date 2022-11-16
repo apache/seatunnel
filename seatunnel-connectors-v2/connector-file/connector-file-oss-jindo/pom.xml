@@ -12,9 +12,16 @@
     <artifactId>connector-file-oss-jindo</artifactId>
 
     <properties>
-        <jindo-sdk.version>3.7.3</jindo-sdk.version>
-        <hadoop-aliyun.version>2.9.2</hadoop-aliyun.version>
+        <jindo-sdk.version>4.6.1</jindo-sdk.version>
+        <hadoop-common.version>2.9.2</hadoop-common.version>
     </properties>
+
+    <repositories>
+        <repository>
+            <id>jindodata</id>
+            <url>https://jindodata-binary.oss-cn-shanghai.aliyuncs.com/mvn-repo/</url>
+        </repository>
+    </repositories>
 
     <dependencies>
 
@@ -25,17 +32,22 @@
         </dependency>
 
         <dependency>
-            <groupId>com.aliyun.oss</groupId>
-            <artifactId>jindo-sdk</artifactId>
-            <version>${jindo-sdk.version}</version>
-            <scope>system</scope>
-            <systemPath>${basedir}/src/libs/jindofs-sdk-3.7.3.jar</systemPath>
+            <groupId>com.aliyun.jindodata</groupId>
+            <artifactId>jindo-core</artifactId>
+            <version>4.6.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.aliyun.jindodata</groupId>
+            <artifactId>jindosdk</artifactId>
+            <version>4.6.1</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-aliyun</artifactId>
-            <version>${hadoop-aliyun.version}</version>
+            <artifactId>hadoop-common</artifactId>
+            <version>${hadoop-common.version}</version>
+            <scope>provided</scope>
         </dependency>
 
     </dependencies>
