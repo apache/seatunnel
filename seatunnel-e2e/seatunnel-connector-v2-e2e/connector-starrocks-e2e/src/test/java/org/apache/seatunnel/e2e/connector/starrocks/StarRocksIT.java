@@ -310,7 +310,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         try (Statement statement = jdbcConnection.createStatement()) {
             statement.execute(String.format("TRUNCATE TABLE %s.%s", DATABASE, SINK_TABLE));
         } catch (SQLException e) {
-            throw new RuntimeException("test dm server image error", e);
+            throw new RuntimeException("test starrocks server image error", e);
         }
     }
 }
