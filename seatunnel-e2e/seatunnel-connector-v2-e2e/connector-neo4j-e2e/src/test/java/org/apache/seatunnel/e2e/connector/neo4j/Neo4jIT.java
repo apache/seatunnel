@@ -102,7 +102,11 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void test(TestContainer container) throws IOException, InterruptedException {
         // clean test data before test
-        neo4jSession.run("MATCH (n) detach delete n");
+        final Result checkExists = neo4jSession.run("MATCH (tt:TestTest) RETURN tt");
+        if (checkExists.hasNext()) {
+            neo4jSession.run("MATCH (tt:TestTest) delete tt");
+        }
+
         // given
         neo4jSession.run(
             "CREATE (t:Test {string:'foo', boolean:true, long:2147483648, double:1.7976931348623157E308, " +
