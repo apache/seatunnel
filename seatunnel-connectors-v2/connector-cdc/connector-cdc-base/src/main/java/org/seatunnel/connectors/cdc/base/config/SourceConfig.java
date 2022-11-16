@@ -17,16 +17,14 @@
 
 package org.seatunnel.connectors.cdc.base.config;
 
-import org.seatunnel.connectors.cdc.base.source.offset.Offset;
-
 import java.io.Serializable;
 
 /** The source configuration which offers basic source configuration. */
 public interface SourceConfig extends Serializable {
 
-    Offset getStartupOffset();
+    StartupConfig getStartupConfig();
 
-    Offset getStopOffset();
+    StopConfig getStopConfig();
 
     int getSplitSize();
 

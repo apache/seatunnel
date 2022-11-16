@@ -15,15 +15,22 @@
  * limitations under the License.
  */
 
-package org.seatunnel.connectors.cdc.base.source.event;
+package org.apache.seatunnel.connectors.seatunnel.assertion.exception;
 
-import lombok.Data;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-import java.io.Serializable;
-import java.util.List;
+public class AssertConnectorException extends SeaTunnelRuntimeException {
 
-@Data
-public class CompletedSnapshotSplitReportEvent implements Serializable {
-    private static final long serialVersionUID = 1L;
-    List<SnapshotSplitWatermark> completedSnapshotSplitWatermarks;
+    public AssertConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+        super(seaTunnelErrorCode, errorMessage);
+    }
+
+    public AssertConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+        super(seaTunnelErrorCode, errorMessage, cause);
+    }
+
+    public AssertConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+        super(seaTunnelErrorCode, cause);
+    }
 }

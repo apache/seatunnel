@@ -34,9 +34,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@SuppressWarnings({
-    "MagicNumber", "checkstyle:StaticVariableName"
-})
+@SuppressWarnings("checkstyle:StaticVariableName")
 public class ReadableConfigTest {
     private static final String CONFIG_PATH = "/conf/option-test.conf";
     private static ReadonlyConfig config;

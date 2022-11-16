@@ -32,6 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 import org.apache.commons.lang3.SerializationUtils;
 
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -42,12 +43,14 @@ public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSin
     private final SinkWriter.Context context;
     private transient boolean isOpen;
 
+    private JdbcConnectionProvider connectionProvider;
+
     public JdbcSinkWriter(
         SinkWriter.Context context,
         JdbcStatementBuilder<SeaTunnelRow> statementBuilder,
         JdbcSinkOptions jdbcSinkOptions) {
 
-        JdbcConnectionProvider connectionProvider = new SimpleJdbcConnectionProvider(jdbcSinkOptions.getJdbcConnectionOptions());
+        connectionProvider = new SimpleJdbcConnectionProvider(jdbcSinkOptions.getJdbcConnectionOptions());
 
         this.context = context;
         this.outputFormat = new JdbcOutputFormat<>(
@@ -81,6 +84,13 @@ public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSin
         throws IOException {
         tryOpen();
         outputFormat.flush();
+        try {
+            if (!connectionProvider.getConnection().getAutoCommit()){
+                connectionProvider.getConnection().commit();
+            }
+        } catch (SQLException e) {
+            throw new IOException(e);
+        }
         return Optional.empty();
     }
 
@@ -94,6 +104,13 @@ public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSin
         throws IOException {
         tryOpen();
         outputFormat.flush();
+        try {
+            if (!connectionProvider.getConnection().getAutoCommit()){
+                connectionProvider.getConnection().commit();
+            }
+        } catch (SQLException e) {
+            throw new IOException(e);
+        }
         outputFormat.close();
     }
 }
