@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.sink;
+package org.apache.seatunnel.connectors.seatunnel.datahub.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.ACCESS_ID;
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.ACCESS_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.ENDPOINT;
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.PROJECT;
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.RETRY_TIMES;
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.TOPIC;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.ACCESS_ID;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.ACCESS_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.ENDPOINT;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.PROJECT;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.RETRY_TIMES;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.TOPIC;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter.Context;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -36,6 +37,7 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.datahub.exception.DataHubConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -63,7 +65,9 @@ public class DataHubSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
             ENDPOINT.key(), ACCESS_ID.key(), ACCESS_KEY.key(), PROJECT.key(), TOPIC.key());
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
+            throw new DataHubConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SINK, result.getMsg()));
         }
         this.pluginConfig = pluginConfig;
     }
