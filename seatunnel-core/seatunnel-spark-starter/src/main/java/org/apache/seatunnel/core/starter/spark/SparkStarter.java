@@ -201,7 +201,9 @@ public class SparkStarter implements Starter {
         appendFiles(commands, this.files);
         appendSparkConf(commands, this.sparkConf);
         appendAppJar(commands);
-        appendConfigArg(commands, args);
+        appendOption(commands, "--config", this.commandArgs.getConfigFile());
+        appendOption(commands, "--master", this.commandArgs.getMaster());
+        appendOption(commands, "--deploy-mode", this.commandArgs.getDeployMode().getName());
         return commands;
     }
 
@@ -247,21 +249,6 @@ public class SparkStarter implements Starter {
             String key = entry.getKey();
             String value = entry.getValue();
             appendOption(commands, "--conf", key + "=" + value);
-        }
-    }
-
-    /**
-     * append original commandline args to StringBuilder
-     */
-    protected void appendConfigArg(List<String> commands, String[] args) {
-        List<String> commandArgs = Arrays.asList(args);
-        for (int i = 0; i < commandArgs.size(); i++) {
-            String commandArg = commandArgs.get(i);
-            if (commandArg.equals("--config") || commandArg.equals("-c")) {
-                commands.add(commandArg);
-                commands.add(commandArgs.get(i + 1));
-                break;
-            }
         }
     }
 
