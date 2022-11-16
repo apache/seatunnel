@@ -1,9 +1,9 @@
 apiVersion: flink.apache.org/v1beta1
 kind: FlinkDeployment
 metadata:
-  name: seatunnel-flink-v2
+  name: seatunnel-flink-v2-streaming-example
 spec:
-  image: artifacts.iflytek.com/zhbg-docker-private/iflydata/bigdata/flink/flink:1.13.6-scala_2.11
+  image: flink:1.13.6-scala_2.11
   flinkVersion: v1_13
   flinkConfiguration:
     taskmanager.numberOfTaskSlots: "2"
@@ -12,22 +12,20 @@ spec:
   serviceAccount: flink
   podTemplate:
     spec:
-      imagePullSecrets:
-        - name: artifacts.iflytek.com
       initContainers:
         - name: artifacts-fetcher
-          image: artifacts.iflytek.com/zhbg-docker-private/iflydata/bigdata/busybox:latest
+          image: busybox:latest
           # Use wget or other tools to get user jars from remote storage
-          command: [ 'wget', 'http://archive.apache.org/dist/incubator/seatunnel/2.3.0-beta/apache-seatunnel-incubating-2.3.0-beta-bin.tar.gz', '-O', '/tmp/seatunnel.tar.gz',
-                     '&&','mkdir','/tmp/seatunnel',
-                     '&&','tar','-xzvf','/tmp/seatunnel.tar.gz','-C','/tmp/seatunnel','--strip-components','1',
-                     '&&','/tmp/seatunnel/bin/install-plugin.sh','2.3.0-beta' ]
-
+          command: [ "sh","-c","wget http://archive.apache.org/dist/incubator/seatunnel/2.3.0-beta/apache-seatunnel-incubating-2.3.0-beta-bin.tar.gz -O /opt/seatunnel.tar.gz && mkdir /opt/seatunnel && tar -xzvf /opt/seatunnel.tar.gz -C /opt/seatunnel --strip-components 1 && chmod 755 /opt/seatunnel/bin/install-plugin.sh && echo -e '--connectors-v2-- \n \
+connector-fake \n \
+connector-console \n \
+--end--' > /opt/seatunnel/config/plugin_config && cd /opt/seatunnel && ./bin/install-plugin.sh 2.3.0-beta
+" ]
       serviceAccount: flink
       containers:
         - name: flink-main-container
           volumeMounts:
-            - mountPath: /tmp
+            - mountPath: /opt
               name: flink-volume
       volumes:
         - name: flink-volume
@@ -43,7 +41,8 @@ spec:
       memory: "1024m"
       cpu: 1
   job:
-    jarURI: local:///tmp/seatunnel/lib/seatunnel-flink-starter.jar
-    args: [ "--config", "/tmp/seatunnel/config/flink.batch.conf.template" ]
-    parallelism: 1
+    jarURI: local:///opt/seatunnel/lib/seatunnel-flink-starter.jar
+    entryClass: org.apache.seatunnel.core.starter.flink.SeatunnelFlink
+    args: [ "--config", "/opt/seatunnel/config/flink.streaming.conf.template" ]
+    parallelism: 2
     upgradeMode: "stateless"
