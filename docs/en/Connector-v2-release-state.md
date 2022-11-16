@@ -41,6 +41,7 @@ SeaTunnel uses a grading system for connectors to help you understand what to ex
 | [Klaviyo](connector-v2/source/Klaviyo.md)                   | Source | Alpha  | 2.2.0-beta      |
 | [Kudu](connector-v2/source/Kudu.md)                         | Source | Alpha  | 2.2.0-beta      |
 | [Kudu](connector-v2/sink/Kudu.md)                           | Sink   | Alpha  | 2.2.0-beta      |
+| [Lemlist](connector-v2/source/Lemlist.md)                   | Source | Alpha  | 2.2.0-beta      |
 | [LocalFile](connector-v2/sink/LocalFile.md)                 | Sink   | Beta   | 2.2.0-beta      |
 | [LocalFile](connector-v2/source/LocalFile.md)               | Source | Beta   | 2.2.0-beta      |
 | [MongoDB](connector-v2/source/MongoDB.md)                   | Source | Beta   | 2.2.0-beta      |
