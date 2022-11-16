@@ -23,6 +23,7 @@ Used to read data from Klaviyo.
 | private_key                 | String | Yes      | -             |
 | revision                    | String | Yes      | -             |
 | method                      | String | No       | get           |
+| schema                      | Config | No       | -             |
 | schema.fields               | Config | No       | -             |
 | format                      | String | No       | json          |
 | params                      | Map    | No       | -             |
