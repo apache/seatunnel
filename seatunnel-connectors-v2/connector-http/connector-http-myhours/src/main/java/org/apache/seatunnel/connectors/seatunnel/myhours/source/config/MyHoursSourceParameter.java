@@ -39,7 +39,7 @@ public class MyHoursSourceParameter extends HttpParameter {
         // set url
         this.setUrl(MyHoursSourceConfig.AUTHORIZATION_URL);
         // set method
-        this.setMethod(HttpRequestMethod.POST);
+        this.setMethod(HttpRequestMethod.valueOf(MyHoursSourceConfig.POST));
         // set body
         Map<String, String> bodyParams = new HashMap<>();
         String email = pluginConfig.getString(MyHoursSourceConfig.EMAIL.key());
