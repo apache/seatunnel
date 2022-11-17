@@ -20,16 +20,16 @@ package org.apache.seatunnel.connectors.seatunnel.openmldb.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-public class OpenmldbConnectorException extends SeaTunnelRuntimeException {
-    public OpenmldbConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+public class OpenMldbConnectorException extends SeaTunnelRuntimeException {
+    public OpenMldbConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
         super(seaTunnelErrorCode, errorMessage);
     }
 
-    public OpenmldbConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+    public OpenMldbConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
         super(seaTunnelErrorCode, errorMessage, cause);
     }
 
-    public OpenmldbConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+    public OpenMldbConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
         super(seaTunnelErrorCode, cause);
     }
 }

@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbParameters;
@@ -29,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbSqlExec
 
 import com._4paradigm.openmldb.sdk.impl.SqlClusterExecutor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.connectors.seatunnel.openmldb.exception.OpenMldbConnectorException;
 
 import java.io.IOException;
 import java.sql.Date;
@@ -106,7 +108,8 @@ public class OpenMldbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow
                 Timestamp timestamp = resultSet.getTimestamp(index);
                 return timestamp.toLocalDateTime();
             default:
-                throw new UnsupportedOperationException("Unsupported this data type");
+                throw new OpenMldbConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported this data type");
         }
     }
 }
