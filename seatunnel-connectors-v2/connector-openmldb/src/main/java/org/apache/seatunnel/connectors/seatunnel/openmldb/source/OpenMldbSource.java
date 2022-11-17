@@ -65,20 +65,23 @@ public class OpenMldbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, OpenMldbConfig.CLUSTER_MODE,
-                OpenMldbConfig.SQL,
-                OpenMldbConfig.DATABASE);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
+                OpenMldbConfig.CLUSTER_MODE.key(),
+                OpenMldbConfig.SQL.key(),
+                OpenMldbConfig.DATABASE.key());
         if (!result.isSuccess()) {
             throw new OpenmldbConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format("PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-        if (pluginConfig.getBoolean(OpenMldbConfig.CLUSTER_MODE)) {
+        if (pluginConfig.getBoolean(OpenMldbConfig.CLUSTER_MODE.key())) {
             // cluster mode
-            result = CheckConfigUtil.checkAllExists(pluginConfig, OpenMldbConfig.ZK_HOST, OpenMldbConfig.ZK_PATH);
+            result = CheckConfigUtil.checkAllExists(pluginConfig,
+                    OpenMldbConfig.ZK_HOST.key(), OpenMldbConfig.ZK_PATH.key());
         } else {
             // single mode
-            result = CheckConfigUtil.checkAllExists(pluginConfig, OpenMldbConfig.HOST, OpenMldbConfig.PORT);
+            result = CheckConfigUtil.checkAllExists(pluginConfig,
+                    OpenMldbConfig.HOST.key(), OpenMldbConfig.PORT.key());
         }
         if (!result.isSuccess()) {
             throw new OpenmldbConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,

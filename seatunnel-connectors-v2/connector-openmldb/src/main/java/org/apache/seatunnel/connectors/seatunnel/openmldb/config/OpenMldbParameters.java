@@ -25,14 +25,12 @@ import java.io.Serializable;
 
 @Getter
 public class OpenMldbParameters implements Serializable {
-    private static final int SESSION_TIMEOUT = 10000;
-    private static final int REQUEST_TIMEOUT = 60000;
     private String zkHost;
     private String zkPath;
     private String host;
     private int port;
-    private int sessionTimeout = SESSION_TIMEOUT;
-    private int requestTimeout = REQUEST_TIMEOUT;
+    private int sessionTimeout = OpenMldbConfig.SESSION_TIMEOUT.defaultValue();
+    private int requestTimeout = OpenMldbConfig.REQUEST_TIMEOUT.defaultValue();
     private Boolean clusterMode;
     private String database;
     private String sql;
@@ -43,32 +41,32 @@ public class OpenMldbParameters implements Serializable {
 
     public static OpenMldbParameters buildWithConfig(Config pluginConfig) {
         OpenMldbParameters openMldbParameters = new OpenMldbParameters();
-        openMldbParameters.clusterMode = pluginConfig.getBoolean(OpenMldbConfig.CLUSTER_MODE);
-        openMldbParameters.database = pluginConfig.getString(OpenMldbConfig.DATABASE);
-        openMldbParameters.sql = pluginConfig.getString(OpenMldbConfig.SQL);
+        openMldbParameters.clusterMode = pluginConfig.getBoolean(OpenMldbConfig.CLUSTER_MODE.key());
+        openMldbParameters.database = pluginConfig.getString(OpenMldbConfig.DATABASE.key());
+        openMldbParameters.sql = pluginConfig.getString(OpenMldbConfig.SQL.key());
         // set zkHost
-        if (pluginConfig.hasPath(OpenMldbConfig.ZK_HOST)) {
-            openMldbParameters.zkHost = pluginConfig.getString(OpenMldbConfig.ZK_HOST);
+        if (pluginConfig.hasPath(OpenMldbConfig.ZK_HOST.key())) {
+            openMldbParameters.zkHost = pluginConfig.getString(OpenMldbConfig.ZK_HOST.key());
         }
         // set zkPath
-        if (pluginConfig.hasPath(OpenMldbConfig.ZK_PATH)) {
-            openMldbParameters.zkPath = pluginConfig.getString(OpenMldbConfig.ZK_PATH);
+        if (pluginConfig.hasPath(OpenMldbConfig.ZK_PATH.key())) {
+            openMldbParameters.zkPath = pluginConfig.getString(OpenMldbConfig.ZK_PATH.key());
         }
         // set host
-        if (pluginConfig.hasPath(OpenMldbConfig.HOST)) {
-            openMldbParameters.host = pluginConfig.getString(OpenMldbConfig.HOST);
+        if (pluginConfig.hasPath(OpenMldbConfig.HOST.key())) {
+            openMldbParameters.host = pluginConfig.getString(OpenMldbConfig.HOST.key());
         }
         // set port
-        if (pluginConfig.hasPath(OpenMldbConfig.PORT)) {
-            openMldbParameters.port = pluginConfig.getInt(OpenMldbConfig.PORT);
+        if (pluginConfig.hasPath(OpenMldbConfig.PORT.key())) {
+            openMldbParameters.port = pluginConfig.getInt(OpenMldbConfig.PORT.key());
         }
         // set session timeout
-        if (pluginConfig.hasPath(OpenMldbConfig.SESSION_TIMEOUT)) {
-            openMldbParameters.sessionTimeout = pluginConfig.getInt(OpenMldbConfig.SESSION_TIMEOUT);
+        if (pluginConfig.hasPath(OpenMldbConfig.SESSION_TIMEOUT.key())) {
+            openMldbParameters.sessionTimeout = pluginConfig.getInt(OpenMldbConfig.SESSION_TIMEOUT.key());
         }
         // set request timeout
-        if (pluginConfig.hasPath(OpenMldbConfig.REQUEST_TIMEOUT)) {
-            openMldbParameters.requestTimeout = pluginConfig.getInt(OpenMldbConfig.REQUEST_TIMEOUT);
+        if (pluginConfig.hasPath(OpenMldbConfig.REQUEST_TIMEOUT.key())) {
+            openMldbParameters.requestTimeout = pluginConfig.getInt(OpenMldbConfig.REQUEST_TIMEOUT.key());
         }
         return openMldbParameters;
     }
