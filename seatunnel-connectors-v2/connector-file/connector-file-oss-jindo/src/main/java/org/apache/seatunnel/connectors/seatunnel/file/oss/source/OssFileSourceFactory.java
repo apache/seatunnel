@@ -23,9 +23,9 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfig;
 
 import com.google.auto.service.AutoService;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfig;
 
 @AutoService(Factory.class)
 public class OssFileSourceFactory implements TableSourceFactory {
