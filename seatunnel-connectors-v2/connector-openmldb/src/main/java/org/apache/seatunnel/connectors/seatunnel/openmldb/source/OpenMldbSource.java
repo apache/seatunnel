@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.openmldb.source;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -30,12 +31,14 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbConfig;
 import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbParameters;
 import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbSqlExecutor;
+import org.apache.seatunnel.connectors.seatunnel.openmldb.exception.OpenmldbConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -66,7 +69,9 @@ public class OpenMldbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                 OpenMldbConfig.SQL,
                 OpenMldbConfig.DATABASE);
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
+            throw new OpenmldbConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         if (pluginConfig.getBoolean(OpenMldbConfig.CLUSTER_MODE)) {
             // cluster mode
@@ -76,7 +81,9 @@ public class OpenMldbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             result = CheckConfigUtil.checkAllExists(pluginConfig, OpenMldbConfig.HOST, OpenMldbConfig.PORT);
         }
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
+            throw new OpenmldbConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         this.openMldbParameters = OpenMldbParameters.buildWithConfig(pluginConfig);
         OpenMldbSqlExecutor.initSdkOption(openMldbParameters);
@@ -86,7 +93,8 @@ public class OpenMldbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             List<Column> columnList = inputSchema.getColumnList();
             this.seaTunnelRowType = convert(columnList);
         } catch (SQLException | SqlException e) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Failed to initialize data schema");
+            throw new OpenmldbConnectorException(CommonErrorCode.TABLE_SCHEMA_GET_FAILED,
+                    "Failed to initialize data schema");
         }
     }
 
@@ -131,7 +139,8 @@ public class OpenMldbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             case Types.TIMESTAMP:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             default:
-                throw new UnsupportedOperationException("SeaTunnel does not support this data type");
+                throw new OpenmldbConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "SeaTunnel does not support this data type");
         }
     }
 
