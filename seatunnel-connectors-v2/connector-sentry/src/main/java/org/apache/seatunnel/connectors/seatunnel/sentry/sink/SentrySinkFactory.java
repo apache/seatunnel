@@ -15,15 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.sink;
-
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.ACCESS_ID;
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.ACCESS_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.ENDPOINT;
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.PROJECT;
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.RETRY_TIMES;
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.TOPIC;
+package org.apache.seatunnel.connectors.seatunnel.sentry.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -32,14 +24,17 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class DataHubSinkFactory implements TableSinkFactory {
+public class SentrySinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return "DataHub";
+        return SentryConfig.SENTRY;
     }
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(ENDPOINT, ACCESS_ID, ACCESS_KEY, PROJECT, TOPIC, TIMEOUT, RETRY_TIMES).build();
+        return OptionRule.builder().required(SentryConfig.DSN)
+            .optional(SentryConfig.ENV, SentryConfig.CACHE_DIRPATH, SentryConfig.ENABLE_EXTERNAL_CONFIGURATION,
+                SentryConfig.FLUSH_TIMEOUTMILLIS, SentryConfig.MAX_CACHEITEMS, SentryConfig.MAX_QUEUESIZE,
+                SentryConfig.RELEASE).build();
     }
 }

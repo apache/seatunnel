@@ -18,7 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.exception.AmazonDynamoDBConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.DefaultSeaTunnelRowDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.SeaTunnelRowDeserializer;
 
@@ -127,7 +129,8 @@ public class DynamoDbSinkClient {
 
     private void checkFlushException() {
         if (flushException != null) {
-            throw new RuntimeException("Writing items to DdynamoDb failed.", flushException);
+            throw new AmazonDynamoDBConnectorException(CommonErrorCode.FLUSH_DATA_FAILED,
+                    "Flush data to AmazonDynamoDB failed.", flushException);
         }
     }
 
