@@ -18,17 +18,20 @@
 package org.apache.seatunnel.connectors.seatunnel.file.oss.source;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConf;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.exception.OssJindoConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
 
@@ -48,15 +51,17 @@ public class OssFileSource extends BaseFileSource {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
-                OssConfig.FILE_PATH, OssConfig.FILE_TYPE,
-                OssConfig.BUCKET, OssConfig.ACCESS_KEY,
-                OssConfig.ACCESS_SECRET, OssConfig.BUCKET);
+                OssConfig.FILE_PATH.key(), OssConfig.FILE_TYPE.key(),
+                OssConfig.BUCKET.key(), OssConfig.ACCESS_KEY.key(),
+                OssConfig.ACCESS_SECRET.key(), OssConfig.BUCKET.key());
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
+            throw new OssJindoConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(OssConfig.FILE_TYPE));
+        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(OssConfig.FILE_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
-        String path = pluginConfig.getString(OssConfig.FILE_PATH);
+        String path = pluginConfig.getString(OssConfig.FILE_PATH.key());
         hadoopConf = OssConf.buildWithConfig(pluginConfig);
         try {
             filePaths = readStrategy.getFileNamesByPath(hadoopConf, path);
@@ -64,14 +69,14 @@ public class OssFileSource extends BaseFileSource {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Check file path fail.");
         }
         // support user-defined schema
-        FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(OssConfig.FILE_TYPE).toUpperCase());
+        FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(OssConfig.FILE_TYPE.key()).toUpperCase());
         // only json text csv type support user-defined schema now
-        if (pluginConfig.hasPath(OssConfig.SCHEMA)) {
+        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
             switch (fileFormat) {
                 case CSV:
                 case TEXT:
                 case JSON:
-                    Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA);
+                    Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
                     SeaTunnelRowType userDefinedSchema = SeaTunnelSchema
                             .buildWithConfig(schemaConfig)
                             .getSeaTunnelRowType();
@@ -80,16 +85,19 @@ public class OssFileSource extends BaseFileSource {
                     break;
                 case ORC:
                 case PARQUET:
-                    throw new UnsupportedOperationException("SeaTunnel does not support user-defined schema for [parquet, orc] files");
+                    throw new OssJindoConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+                            "SeaTunnel does not support user-defined schema for [parquet, orc] files");
                 default:
                     // never got in there
-                    throw new UnsupportedOperationException("SeaTunnel does not supported this file format");
+                    throw new OssJindoConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+                            "SeaTunnel does not supported this file format");
             }
         } else {
             try {
                 rowType = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filePaths.get(0));
             } catch (FilePluginException e) {
-                throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Read file schema error.", e);
+                throw new OssJindoConnectorException(CommonErrorCode.TABLE_SCHEMA_GET_FAILED,
+                        "Get data schema information from file failed", e);
             }
         }
     }
