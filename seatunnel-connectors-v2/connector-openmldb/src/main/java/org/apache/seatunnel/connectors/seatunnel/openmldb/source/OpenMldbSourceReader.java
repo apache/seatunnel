@@ -27,10 +27,10 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSpl
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbParameters;
 import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbSqlExecutor;
+import org.apache.seatunnel.connectors.seatunnel.openmldb.exception.OpenMldbConnectorException;
 
 import com._4paradigm.openmldb.sdk.impl.SqlClusterExecutor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.seatunnel.connectors.seatunnel.openmldb.exception.OpenMldbConnectorException;
 
 import java.io.IOException;
 import java.sql.Date;
