@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.sink;
+package org.apache.seatunnel.connectors.seatunnel.datahub.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.ACCESS_ID;
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.ACCESS_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.ENDPOINT;
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.PROJECT;
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.RETRY_TIMES;
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.config.DataHubConfig.TOPIC;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.ACCESS_ID;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.ACCESS_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.ENDPOINT;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.PROJECT;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.RETRY_TIMES;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubConfig.TOPIC;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;

@@ -51,7 +51,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class DeaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer {
+public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer {
 
     private final SeaTunnelRowType rowTypeInfo;
 
@@ -66,10 +66,12 @@ public class DeaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer 
             put("yyyy-MM-dd HH:mm:ss.S".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S"));
             put("yyyy-MM-dd HH:mm:ss.SS".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SS"));
             put("yyyy-MM-dd HH:mm:ss.SSS".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+            put("yyyy-MM-dd HH:mm:ss.SSSS".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSS"));
+            put("yyyy-MM-dd HH:mm:ss.SSSSSS".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS"));
         }
     };
 
-    public DeaultSeaTunnelRowDeserializer(SeaTunnelRowType rowTypeInfo) {
+    public DefaultSeaTunnelRowDeserializer(SeaTunnelRowType rowTypeInfo) {
         this.rowTypeInfo = rowTypeInfo;
     }
 
@@ -122,8 +124,7 @@ public class DeaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer 
             LocalDateTime localDateTime = parseDate(fieldValue);
             return localDateTime.toLocalTime();
         } else if (LocalTimeType.LOCAL_DATE_TIME_TYPE.equals(fieldType)) {
-            LocalDateTime localDateTime = parseDate(fieldValue);
-            return localDateTime;
+            return parseDate(fieldValue);
         } else if (fieldType instanceof DecimalType) {
             return new BigDecimal(fieldValue);
         } else if (fieldType instanceof ArrayType) {
@@ -168,8 +169,7 @@ public class DeaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer 
         if (dateTimeFormatter == null){
             throw new UnsupportedOperationException("unsupported date format");
         }
-        LocalDateTime localDateTime = LocalDateTime.parse(formatDate, dateTimeFormatter);
-        return localDateTime;
+        return LocalDateTime.parse(formatDate, dateTimeFormatter);
     }
 }
 
