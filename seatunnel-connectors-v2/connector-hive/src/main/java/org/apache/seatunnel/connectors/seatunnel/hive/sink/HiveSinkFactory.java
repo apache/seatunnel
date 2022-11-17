@@ -15,17 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config;
+package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import com.google.auto.service.AutoService;
 
-public class HdfsSourceConfig extends BaseSourceConfig {
-    public static final Option<String> DEFAULT_FS = Options.key(FS_DEFAULT_NAME_KEY)
-            .stringType()
-            .noDefaultValue()
-            .withDescription("HDFS namenode host");
+@AutoService(Factory.class)
+public class HiveSinkFactory implements TableSinkFactory {
+    @Override
+    public String factoryIdentifier() {
+        return "Hive";
+    }
+
+    @Override
+    public OptionRule optionRule() {
+        return OptionRule.builder()
+                .required(HiveConfig.TABLE_NAME)
+                .required(HiveConfig.METASTORE_URI)
+                .build();
+    }
 }

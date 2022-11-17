@@ -15,9 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hive.config;
+package org.apache.seatunnel.connectors.seatunnel.hive.source;
 
-public class Constant {
-    public static final String HIVE_RESULT_TABLE_NAME = "hive_table_name";
-    public static final String HIVE_METASTORE_URIS = "hive_metastore_uris";
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
+
+import com.google.auto.service.AutoService;
+
+@AutoService(Factory.class)
+public class HiveSourceFactory implements TableSourceFactory {
+    @Override
+    public String factoryIdentifier() {
+        return "Hive";
+    }
+
+    @Override
+    public OptionRule optionRule() {
+        return OptionRule.builder()
+                .required(HiveConfig.TABLE_NAME)
+                .required(HiveConfig.METASTORE_URI)
+                .build();
+    }
 }
