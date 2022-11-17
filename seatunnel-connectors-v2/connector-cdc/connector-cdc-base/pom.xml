@@ -29,7 +29,6 @@
     <artifactId>connector-cdc-base</artifactId>
 
     <properties>
-        <debezium.version>1.6.4.Final</debezium.version>
         <hikaricp.version>4.0.3</hikaricp.version>
     </properties>
 
