@@ -45,21 +45,6 @@
             </includes>
         </fileSet>
         <!-- ============ Starter Bin ============  -->
-        <fileSet>
-            <directory>../seatunnel-core/seatunnel-core-flink/src/main/bin</directory>
-            <outputDirectory>/bin</outputDirectory>
-            <fileMode>0755</fileMode>
-        </fileSet>
-        <fileSet>
-            <directory>../seatunnel-core/seatunnel-core-flink-sql/src/main/bin</directory>
-            <outputDirectory>/bin</outputDirectory>
-            <fileMode>0755</fileMode>
-        </fileSet>
-        <fileSet>
-            <directory>../seatunnel-core/seatunnel-core-spark/src/main/bin</directory>
-            <outputDirectory>/bin</outputDirectory>
-            <fileMode>0755</fileMode>
-        </fileSet>
         <!--connector starter v2-->
         <fileSet>
             <directory>../seatunnel-core/seatunnel-flink-starter/src/main/bin</directory>
@@ -156,12 +141,6 @@
             <useTransitiveDependencies>true</useTransitiveDependencies>
             <unpack>false</unpack>
             <includes>
-                <!-- Flink starter -->
-                <include>org.apache.seatunnel:seatunnel-core-flink:jar</include>
-                <!-- Flink SQL starter -->
-                <include>org.apache.seatunnel:seatunnel-core-flink-sql:jar</include>
-                <!-- Spark starter -->
-                <include>org.apache.seatunnel:seatunnel-core-spark:jar</include>
                 <!-- Flink V2 starter -->
                 <include>org.apache.seatunnel:seatunnel-flink-starter:jar</include>
                 <!-- Spark V2 starter -->
