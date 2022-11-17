@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cassandra.client;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorException;
+
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
@@ -58,8 +61,8 @@ public class CassandraClient {
             return session.execute(String.format("select * from %s limit 1", table))
                 .getColumnDefinitions();
         } catch (Exception e) {
-            throw new RuntimeException("Cannot get table schema from cassandra", e);
+            throw new CassandraConnectorException(CommonErrorCode.TABLE_SCHEMA_GET_FAILED,
+                    "Cannot get table schema from cassandra", e);
         }
-
     }
 }
