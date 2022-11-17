@@ -42,13 +42,13 @@ public class FtpConf extends HadoopConf {
     }
 
     public static HadoopConf buildWithConfig(Config config) {
-        String host = config.getString(FtpConfig.FTP_HOST);
-        int port = config.getInt(FtpConfig.FTP_PORT);
+        String host = config.getString(FtpConfig.FTP_HOST.key());
+        int port = config.getInt(FtpConfig.FTP_PORT.key());
         String defaultFS = String.format("ftp://%s:%s", host, port);
         HadoopConf hadoopConf = new FtpConf(defaultFS);
         HashMap<String, String> ftpOptions = new HashMap<>();
-        ftpOptions.put("fs.ftp.user." + host, config.getString(FtpConfig.FTP_USERNAME));
-        ftpOptions.put("fs.ftp.password." + host, config.getString(FtpConfig.FTP_PASSWORD));
+        ftpOptions.put("fs.ftp.user." + host, config.getString(FtpConfig.FTP_USERNAME.key()));
+        ftpOptions.put("fs.ftp.password." + host, config.getString(FtpConfig.FTP_PASSWORD.key()));
         hadoopConf.setExtraOptions(ftpOptions);
         return hadoopConf;
     }

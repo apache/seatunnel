@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.SourceIndexInfo;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.DeaultSeaTunnelRowDeserializer;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.DefaultSeaTunnelRowDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.ElasticsearchRecord;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.SeaTunnelRowDeserializer;
 
@@ -58,7 +58,7 @@ public class ElasticsearchSourceReader implements SourceReader<SeaTunnelRow, Ela
     public ElasticsearchSourceReader(SourceReader.Context context, Config pluginConfig, SeaTunnelRowType rowTypeInfo) {
         this.context = context;
         this.pluginConfig = pluginConfig;
-        this.deserializer = new DeaultSeaTunnelRowDeserializer(rowTypeInfo);
+        this.deserializer = new DefaultSeaTunnelRowDeserializer(rowTypeInfo);
     }
 
     @Override
