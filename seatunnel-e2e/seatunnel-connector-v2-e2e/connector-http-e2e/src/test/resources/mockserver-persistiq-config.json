@@ -1,0 +1,17 @@
+// https://www.mock-server.com/mock_server/getting_started.html#request_matchers
+
+[
+  {
+    "httpRequest": {
+      "method" : "GET",
+      "path": "/v1/users"
+    },
+    "httpResponse": {
+      "body": [
+        {
+          "content": "{\"status\":\"success\",\"errors\":[],\"has_more\":true,\"next_page\":\"https://...\",\"dnc_domains\":[{\"id\":\"dom_3eWoGj\",\"name\":\"test.com\"},{\"id\":\"dom_N2X8dM\",\"name\":\"example.com\"}]}"
+        }
+      ]
+    }
+  }
+]

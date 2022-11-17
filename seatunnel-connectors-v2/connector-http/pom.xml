@@ -35,6 +35,7 @@
         <module>connector-http-wechat</module>
         <module>connector-http-myhours</module>
         <module>connector-http-lemlist</module>
+        <module>connector-http-persistiq</module>
     </modules>
 
 </project>
