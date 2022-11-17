@@ -41,8 +41,8 @@ public class FtpFileSink extends BaseFileSink {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
-                FtpConfig.FTP_HOST, FtpConfig.FTP_PORT,
-                FtpConfig.FTP_USERNAME, FtpConfig.FTP_PASSWORD);
+                FtpConfig.FTP_HOST.key(), FtpConfig.FTP_PORT.key(),
+                FtpConfig.FTP_USERNAME.key(), FtpConfig.FTP_PASSWORD.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
         }

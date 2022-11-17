@@ -41,8 +41,8 @@ public class SftpFileSink extends BaseFileSink {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
-                SftpConfig.SFTP_HOST, SftpConfig.SFTP_PORT,
-                SftpConfig.SFTP_USERNAME, SftpConfig.SFTP_PASSWORD);
+                SftpConfig.SFTP_HOST.key(), SftpConfig.SFTP_PORT.key(),
+                SftpConfig.SFTP_USERNAME.key(), SftpConfig.SFTP_PASSWORD.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
         }

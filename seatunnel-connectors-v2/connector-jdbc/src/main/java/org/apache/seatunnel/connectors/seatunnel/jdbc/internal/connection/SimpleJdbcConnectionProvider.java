@@ -129,6 +129,8 @@ public class SimpleJdbcConnectionProvider
                 "No suitable driver found for " + jdbcOptions.getUrl(), "08001");
         }
 
+        connection.setAutoCommit(jdbcOptions.isAutoCommit());
+
         return connection;
     }
 

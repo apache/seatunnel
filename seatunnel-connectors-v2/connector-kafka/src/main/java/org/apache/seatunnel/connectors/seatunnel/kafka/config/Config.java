@@ -101,10 +101,10 @@ public class Config {
             .withDescription("We can decide which partition to send based on the content of the message. " +
                     "The function of this parameter is to distribute information.");
 
-    public static final Option<String> PARTITION_KEY = Options.key("partition_key")
-            .stringType()
+    public static final Option<List<String>> PARTITION_KEY_FIELDS = Options.key("partition_key_fields")
+            .listType()
             .noDefaultValue()
-            .withDescription("Configure which field is used as the key of the kafka message.");
+            .withDescription("Configure which fields are used as the key of the kafka message.");
 
     public static final Option<StartMode> START_MODE = Options.key("start_mode")
             .objectType(StartMode.class)
