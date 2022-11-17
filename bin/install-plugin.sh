@@ -20,6 +20,9 @@
 #All are downloaded by default. You can also choose what you need. 
 #You only need to configure the plug-in name in config/plugin_config.
 
+# get seatunnel home
+SEATUNNEL_HOME=$(cd $(dirname $0);cd ../;pwd)
+
 # connector default version is 2.2.0, you can also choose a custom version. eg: 2.1.2:  sh install-plugin.sh 2.1.2
 version=2.2.0
 
@@ -27,31 +30,40 @@ if [ -n "$1" ]; then
     version="$1"
 fi
 
-echo "Install SeaTunnel connectors plugins, usage version is $version $1"
+echo "Install SeaTunnel connectors plugins, usage version is ${version}"
 
-if [ ! -d connectors ];
+# create the connectors directory
+if [ ! -d ${SEATUNNEL_HOME}/connectors ];
   then
-      mkdir connectors
+      mkdir ${SEATUNNEL_HOME}/connectors
       echo "create connectors directory"
-fi      
-if [ ! -d connectors/flink-sql ];
+fi
+
+# create the flink-sql connectors directory (for v1)
+if [ ! -d ${SEATUNNEL_HOME}/connectors/flink-sql ];
   then
-      mkdir connectors/flink-sql
+      mkdir ${SEATUNNEL_HOME}/connectors/flink-sql
       echo "create flink-sql connectors directory"
 fi
-if [ ! -d connectors/flink ];
+
+# create the flink connectors directory (for v1)
+if [ ! -d ${SEATUNNEL_HOME}/connectors/flink ];
   then
-      mkdir connectors/flink
+      mkdir ${SEATUNNEL_HOME}/connectors/flink
       echo "create flink connectors directory"
-fi 
-if [ ! -d connectors/spark ];
+fi
+
+# create the spark connectors directory (for v1)
+if [ ! -d ${SEATUNNEL_HOME}/connectors/spark ];
   then
-      mkdir connectors/spark
+      mkdir ${SEATUNNEL_HOME}/connectors/spark
       echo "create spark connectors directory"
-fi 
-if [ ! -d connectors/seatunnel ];
+fi
+
+# create the seatunnel connectors directory (for v2)
+if [ ! -d ${SEATUNNEL_HOME}/connectors/seatunnel ];
   then
-      mkdir connectors/seatunnel
+      mkdir ${SEATUNNEL_HOME}/connectors/seatunnel
       echo "create seatunnel connectors directory"
 fi  
 
