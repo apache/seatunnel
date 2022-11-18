@@ -42,9 +42,9 @@ public class OssFileSink extends BaseFileSink {
     public void prepare(Config pluginConfig) throws PrepareFailException {
         super.prepare(pluginConfig);
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
-                OssConfig.FILE_PATH,
-                OssConfig.BUCKET, OssConfig.ACCESS_KEY,
-                OssConfig.ACCESS_SECRET, OssConfig.BUCKET);
+                OssConfig.FILE_PATH.key(),
+                OssConfig.BUCKET.key(), OssConfig.ACCESS_KEY.key(),
+                OssConfig.ACCESS_SECRET.key(), OssConfig.BUCKET.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
         }

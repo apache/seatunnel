@@ -35,6 +35,7 @@
         <module>connector-cassandra-e2e</module>
         <module>connector-http-e2e</module>
         <module>connector-rabbitmq-e2e</module>
+        <module>connector-kafka-e2e</module>
     </modules>
 
     <artifactId>seatunnel-connector-v2-e2e</artifactId>

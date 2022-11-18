@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
+import static java.lang.String.format;
+
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 
@@ -26,6 +28,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Represents a dialect of SQL implemented by a particular JDBC system. Dialects should be immutable
@@ -57,6 +62,110 @@ public interface JdbcDialect extends Serializable {
     JdbcDialectTypeMapper getJdbcDialectTypeMapper();
 
     /**
+     * Quotes the identifier for table name or field name
+     *
+     */
+    default String quoteIdentifier(String identifier) {
+        return identifier;
+    }
+
+    /**
+     * Constructs the dialects insert statement for a single row. The returned string will be
+     * used as a {@link java.sql.PreparedStatement}. Fields in the statement must be in the same
+     * order as the {@code fieldNames} parameter.
+     *
+     * <pre>{@code
+     * INSERT INTO table_name (column_name [, ...]) VALUES (value [, ...])
+     * }</pre>
+     *
+     * @return the dialects {@code INSERT INTO} statement.
+     */
+    default String getInsertIntoStatement(String tableName, String[] fieldNames) {
+        String columns = Arrays.stream(fieldNames)
+            .map(this::quoteIdentifier)
+            .collect(Collectors.joining(", "));
+        String placeholders = Arrays.stream(fieldNames)
+            .map(fieldName -> "?")
+            .collect(Collectors.joining(", "));
+        return String.format("INSERT INTO %s (%s) VALUES (%s)",
+            quoteIdentifier(tableName), columns, placeholders);
+    }
+
+    /**
+     * Constructs the dialects update statement for a single row with the given condition. The
+     * returned string will be used as a {@link java.sql.PreparedStatement}. Fields in the statement
+     * must be in the same order as the {@code fieldNames} parameter.
+     *
+     * <pre>{@code
+     * UPDATE table_name SET col = val [, ...] WHERE cond [AND ...]
+     * }</pre>
+     *
+     * @return the dialects {@code UPDATE} statement.
+     */
+    default String getUpdateStatement(String tableName, String[] fieldNames, String[] conditionFields) {
+        String setClause = Arrays.stream(fieldNames)
+            .map(fieldName -> String.format("%s = ?", quoteIdentifier(fieldName)))
+            .collect(Collectors.joining(", "));
+        String conditionClause = Arrays.stream(conditionFields)
+            .map(fieldName -> String.format("%s = ?", quoteIdentifier(fieldName)))
+            .collect(Collectors.joining(" AND "));
+        return String.format("UPDATE %s SET %s WHERE %s",
+            quoteIdentifier(tableName), setClause, conditionClause);
+    }
+
+    /**
+     * Constructs the dialects delete statement for a single row with the given condition. The
+     * returned string will be used as a {@link java.sql.PreparedStatement}. Fields in the statement
+     * must be in the same order as the {@code fieldNames} parameter.
+     *
+     * <pre>{@code
+     * DELETE FROM table_name WHERE cond [AND ...]
+     * }</pre>
+     *
+     * @return the dialects {@code DELETE} statement.
+     */
+    default String getDeleteStatement(String tableName, String[] conditionFields) {
+        String conditionClause = Arrays.stream(conditionFields)
+            .map(fieldName -> format("%s = ?", quoteIdentifier(fieldName)))
+            .collect(Collectors.joining(" AND "));
+        return String.format("DELETE FROM %s WHERE %s",
+            quoteIdentifier(tableName), conditionClause);
+    }
+
+    /**
+     * Generates a query to determine if a row exists in the table. The returned string will be used
+     * as a {@link java.sql.PreparedStatement}.
+     *
+     * <pre>{@code
+     * SELECT 1 FROM table_name WHERE cond [AND ...]
+     * }</pre>
+     *
+     * @return the dialects {@code QUERY} statement.
+     */
+    default String getRowExistsStatement(String tableName, String[] conditionFields) {
+        String fieldExpressions = Arrays.stream(conditionFields)
+            .map(field -> format("%s = ?", quoteIdentifier(field)))
+            .collect(Collectors.joining(" AND "));
+        return String.format("SELECT 1 FROM %s WHERE %s",
+            quoteIdentifier(tableName), fieldExpressions);
+    }
+
+    /**
+     * Constructs the dialects upsert statement if supported; such as MySQL's {@code DUPLICATE KEY
+     * UPDATE}, or PostgreSQL's {@code ON CONFLICT... DO UPDATE SET..}.
+     *
+     * If supported, the returned string will be used as a {@link java.sql.PreparedStatement}.
+     * Fields in the statement must be in the same order as the {@code fieldNames} parameter.
+     *
+     * <p>If the dialect does not support native upsert statements, the writer will fallback to
+     * {@code SELECT ROW Exists} + {@code UPDATE}/{@code INSERT} which may have poor performance.
+     *
+     * @return the dialects {@code UPSERT} statement or {@link Optional#empty()}.
+     *
+     */
+    Optional<String> getUpsertStatement(String tableName, String[] fieldNames, String[] uniqueKeyFields);
+
+    /**
      * Different dialects optimize their PreparedStatement
      *
      * @return The logic about optimize PreparedStatement
@@ -70,7 +179,7 @@ public interface JdbcDialect extends Serializable {
     }
 
     default ResultSetMetaData getResultSetMetaData(Connection conn, JdbcSourceOptions jdbcSourceOptions) throws SQLException {
-        PreparedStatement ps = conn.prepareStatement(jdbcSourceOptions.getJdbcConnectionOptions().getQuery());
+        PreparedStatement ps = conn.prepareStatement(jdbcSourceOptions.getQuery());
         return ps.getMetaData();
     }
 

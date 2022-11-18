@@ -31,9 +31,6 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>seatunnel-flink-examples</module>
-        <module>seatunnel-spark-examples</module>
-        <module>seatunnel-flink-sql-examples</module>
         <module>seatunnel-flink-connector-v2-example</module>
         <module>seatunnel-spark-connector-v2-example</module>
         <module>seatunnel-engine-examples</module>
