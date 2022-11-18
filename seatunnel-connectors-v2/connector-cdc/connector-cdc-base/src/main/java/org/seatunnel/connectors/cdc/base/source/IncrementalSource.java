@@ -22,28 +22,44 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
-import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import io.debezium.relational.TableId;
 import org.seatunnel.connectors.cdc.base.config.SourceConfig;
+import org.seatunnel.connectors.cdc.base.config.StartupConfig;
+import org.seatunnel.connectors.cdc.base.config.StopConfig;
+import org.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.seatunnel.connectors.cdc.base.option.StopMode;
-import org.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.seatunnel.connectors.cdc.base.source.enumerator.HybridSplitAssigner;
+import org.seatunnel.connectors.cdc.base.source.enumerator.IncrementalSourceEnumerator;
+import org.seatunnel.connectors.cdc.base.source.enumerator.IncrementalSplitAssigner;
+import org.seatunnel.connectors.cdc.base.source.enumerator.SplitAssigner;
+import org.seatunnel.connectors.cdc.base.source.enumerator.state.HybridPendingSplitsState;
+import org.seatunnel.connectors.cdc.base.source.enumerator.state.IncrementalPhaseState;
+import org.seatunnel.connectors.cdc.base.source.enumerator.state.PendingSplitsState;
 import org.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
+import org.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
 
-import java.io.Serializable;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 
-public abstract class IncrementalSource<T, C extends SourceConfig> implements SeaTunnelSource<T, SourceSplit, Serializable> {
+public abstract class IncrementalSource<T, C extends SourceConfig> implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState> {
 
+    protected SourceConfig.Factory<C> configFactory;
     protected OffsetFactory offsetFactory;
-    protected Offset startupOffset;
 
-    protected Offset stopOffset;
+    protected DataSourceDialect<C> dataSourceDialect;
+    protected StartupConfig startupConfig;
+
+    protected int incrementalParallelism;
+    protected StopConfig stopConfig;
 
     protected StopMode stopMode;
     protected DebeziumDeserializationSchema<T> deserializationSchema;
@@ -52,43 +68,39 @@ public abstract class IncrementalSource<T, C extends SourceConfig> implements Se
     public final void prepare(Config pluginConfig) throws PrepareFailException {
         ReadonlyConfig config = ReadonlyConfig.fromConfig(pluginConfig);
 
-        this.offsetFactory = createOffsetFactory();
-        this.startupOffset = getStartupOffset(config);
-        this.stopOffset = getStopOffset(config);
-        this.stopMode = config.get(SourceOptions.STOP_MODE);
+        this.startupConfig = getStartupConfig(config);
+        this.stopConfig = getStopConfig(config);
+        this.stopMode = stopConfig.getStopMode();
+        this.incrementalParallelism = config.get(SourceOptions.INCREMENTAL_PARALLELISM);
+        this.configFactory = createSourceConfigFactory(config);
+        this.offsetFactory = createOffsetFactory(config);
+        this.deserializationSchema = createDebeziumDeserializationSchema(config);
+        this.dataSourceDialect = createDataSourceDialect(config);
     }
 
-    private Offset getStartupOffset(ReadonlyConfig config) {
-        StartupMode startupMode = config.get(SourceOptions.STARTUP_MODE);
-        switch (startupMode) {
-            case EARLIEST:
-                return offsetFactory.earliest();
-            case LATEST:
-                return offsetFactory.latest();
-            case INITIAL:
-                return null;
-            case TIMESTAMP:
-                return offsetFactory.timstamp(config.get(SourceOptions.STOP_TIMESTAMP));
-            default:
-                throw new IllegalArgumentException(String.format("The %s mode is not supported.", startupMode));
-        }
+    protected StartupConfig getStartupConfig(ReadonlyConfig config) {
+        return new StartupConfig(
+            config.get(SourceOptions.STARTUP_MODE),
+            config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE),
+            config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS),
+            config.get(SourceOptions.STARTUP_TIMESTAMP));
     }
 
-    private Offset getStopOffset(ReadonlyConfig config) {
-        StopMode stopMode = config.get(SourceOptions.STOP_MODE);
-        switch (stopMode) {
-            case LATEST:
-                return offsetFactory.latest();
-            case NEVER:
-                return offsetFactory.neverStop();
-            case TIMESTAMP:
-                return offsetFactory.timstamp(config.get(SourceOptions.STOP_TIMESTAMP));
-            default:
-                throw new IllegalArgumentException(String.format("The %s mode is not supported.", stopMode));
-        }
+    private StopConfig getStopConfig(ReadonlyConfig config) {
+        return new StopConfig(
+            config.get(SourceOptions.STOP_MODE),
+            config.get(SourceOptions.STOP_SPECIFIC_OFFSET_FILE),
+            config.get(SourceOptions.STOP_SPECIFIC_OFFSET_POS),
+            config.get(SourceOptions.STOP_TIMESTAMP));
     }
 
-    public abstract OffsetFactory createOffsetFactory();
+    public abstract SourceConfig.Factory<C> createSourceConfigFactory(ReadonlyConfig config);
+
+    public abstract OffsetFactory createOffsetFactory(ReadonlyConfig config);
+
+    public abstract DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(ReadonlyConfig config);
+
+    public abstract DataSourceDialect<C> createDataSourceDialect(ReadonlyConfig config);
 
     @Override
     public Boundedness getBoundedness() {
@@ -101,23 +113,66 @@ public abstract class IncrementalSource<T, C extends SourceConfig> implements Se
     }
 
     @Override
-    public SourceReader<T, SourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
+    public SourceReader<T, SourceSplitBase> createReader(SourceReader.Context readerContext) throws Exception {
         // TODO: https://github.com/apache/incubator-seatunnel/issues/3255
         // https://github.com/apache/incubator-seatunnel/issues/3256
         return null;
     }
 
     @Override
-    public SourceSplitEnumerator<SourceSplit, Serializable> createEnumerator(SourceSplitEnumerator.Context<SourceSplit> enumeratorContext) throws Exception {
-        // TODO: https://github.com/apache/incubator-seatunnel/issues/3253
-        // https://github.com/apache/incubator-seatunnel/issues/3254
-        return null;
+    public SourceSplitEnumerator<SourceSplitBase, PendingSplitsState> createEnumerator(SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext) throws Exception {
+        C sourceConfig = configFactory.create(0);
+        final List<TableId> remainingTables = dataSourceDialect.discoverDataCollections(sourceConfig);
+        final SplitAssigner splitAssigner;
+        SplitAssigner.Context<C> assignerContext = new SplitAssigner.Context<>(sourceConfig, new HashSet<>(remainingTables), new HashMap<>(), new HashMap<>());
+        if (sourceConfig.getStartupConfig().getStartupMode() == StartupMode.INITIAL) {
+            try {
+
+                boolean isTableIdCaseSensitive =
+                    dataSourceDialect.isDataCollectionIdCaseSensitive(sourceConfig);
+                splitAssigner =
+                    new HybridSplitAssigner<>(
+                        assignerContext,
+                        enumeratorContext.currentParallelism(),
+                        incrementalParallelism,
+                        remainingTables,
+                        isTableIdCaseSensitive,
+                        dataSourceDialect,
+                        offsetFactory);
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to discover captured tables for enumerator", e);
+            }
+        } else {
+            splitAssigner = new IncrementalSplitAssigner<>(assignerContext, incrementalParallelism, offsetFactory);
+        }
+
+        return new IncrementalSourceEnumerator(enumeratorContext, splitAssigner);
     }
 
     @Override
-    public SourceSplitEnumerator<SourceSplit, Serializable> restoreEnumerator(SourceSplitEnumerator.Context<SourceSplit> enumeratorContext, Serializable checkpointState) throws Exception {
-        // TODO: https://github.com/apache/incubator-seatunnel/issues/3253
-        // https://github.com/apache/incubator-seatunnel/issues/3254
-        return null;
+    public SourceSplitEnumerator<SourceSplitBase, PendingSplitsState> restoreEnumerator(SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext,
+                                                                                        PendingSplitsState checkpointState) throws Exception {
+        C sourceConfig = configFactory.create(0);
+        final List<TableId> remainingTables = dataSourceDialect.discoverDataCollections(sourceConfig);
+        SplitAssigner.Context<C> assignerContext = new SplitAssigner.Context<>(sourceConfig, new HashSet<>(remainingTables), new HashMap<>(), new HashMap<>());
+        final SplitAssigner splitAssigner;
+        if (checkpointState instanceof HybridPendingSplitsState) {
+            splitAssigner = new HybridSplitAssigner<>(
+                assignerContext,
+                enumeratorContext.currentParallelism(),
+                incrementalParallelism,
+                (HybridPendingSplitsState) checkpointState,
+                dataSourceDialect,
+                offsetFactory);
+        } else if (checkpointState instanceof IncrementalPhaseState) {
+            splitAssigner = new IncrementalSplitAssigner<>(
+                assignerContext,
+                incrementalParallelism,
+                offsetFactory);
+        } else {
+            throw new UnsupportedOperationException(
+                "Unsupported restored PendingSplitsState: " + checkpointState);
+        }
+        return new IncrementalSourceEnumerator(enumeratorContext, splitAssigner);
     }
 }
