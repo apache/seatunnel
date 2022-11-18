@@ -73,7 +73,7 @@ while read line; do
     if  [ ${line:0:1} != "-" ] && [ ${line:0:1} != "#" ]
       	then
       		echo "install connector : " $line
-      		./mvnw dependency:get -DgroupId=org.apache.seatunnel -DartifactId=${line} -Dversion=${version} -Ddest=connectors/${path}
+      		${SEATUNNEL_HOME}/mvnw dependency:get -DgroupId=org.apache.seatunnel -DartifactId=${line} -Dversion=${version} -Ddest=connectors/${path}
     fi
 	  if [ "$line" = "--flink-sql-connectors--" ]
 	    then 
@@ -92,4 +92,4 @@ while read line; do
 	  	 path=seatunnel
 	  fi	 
 
-done < config/plugin_config
+done < ${SEATUNNEL_HOME}/config/plugin_config
