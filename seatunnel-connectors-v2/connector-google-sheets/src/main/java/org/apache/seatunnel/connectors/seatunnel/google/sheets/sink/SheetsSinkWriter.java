@@ -39,9 +39,9 @@ public class SheetsSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private final Sheets service;
     private final List<SeaTunnelRow> seaTunnelRowList;
     private final RangePosition rangePosition;
-    private final Long targetRowCount;
+    private final Integer targetRowCount;
     private final Integer batchSize = 100;
-    private Long totalCount = 0L;
+    private Integer totalCount = 0;
 
     public SheetsSinkWriter(SheetsParameters sheetsParameters, RangePosition rangePosition) throws IOException {
         this.sheetsParameters = sheetsParameters;
@@ -49,7 +49,7 @@ public class SheetsSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         this.service = sheetsParameters.buildSheets();
         this.rangePosition = rangePosition;
         this.targetRowCount = rangePosition.getEndY() - rangePosition.getStartY() + 1;
-        this.seaTunnelRowList = new ArrayList<>();
+        this.seaTunnelRowList = new ArrayList<>(this.targetRowCount);
     }
 
     @Override

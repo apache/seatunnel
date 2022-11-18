@@ -27,9 +27,9 @@ import java.util.regex.Pattern;
 public class RangePosition implements Serializable {
 
     private String startX;
-    private Long startY;
+    private Integer startY;
     private String endX;
-    private Long endY;
+    private Integer endY;
 
     public RangePosition buildWithRange(String range) {
         RangePosition rangePosition = new RangePosition();
@@ -42,7 +42,7 @@ public class RangePosition implements Serializable {
         }
         Matcher startYMatch = yPattern.matcher(ranges[0]);
         if (startYMatch.find()) {
-            rangePosition.setStartY(Long.parseLong(startYMatch.group()));
+            rangePosition.setStartY(Integer.parseInt(startYMatch.group()));
         }
         Matcher endXMatch = xPattern.matcher(ranges[1]);
         if (endXMatch.find()) {
@@ -50,7 +50,7 @@ public class RangePosition implements Serializable {
         }
         Matcher endYMatch = yPattern.matcher(ranges[1]);
         if (endYMatch.find()) {
-            rangePosition.setEndY(Long.parseLong(endYMatch.group()));
+            rangePosition.setEndY(Integer.parseInt(endYMatch.group()));
         }
         return rangePosition;
     }
