@@ -40,21 +40,4 @@ public interface TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT
     default TableSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createSink(TableFactoryContext context) {
         throw new UnsupportedOperationException("unsupported now");
     }
-
-    /**
-     * This method is called by SeaTunnel Web to get the full option rule of a sink.
-     * Please don't overwrite this method.
-     * @return
-     */
-    default OptionRule fullOptionRule() {
-        OptionRule optionRule = optionRule();
-        if (optionRule == null) {
-            throw new FactoryException("OptionRule can not be null");
-        }
-
-        OptionRule sinkCommonOptionRule =
-            OptionRule.builder().optional(SinkCommonOptions.SOURCE_TABLE_NAME, SinkCommonOptions.PARALLELISM).build();
-        optionRule.getOptionalOptions().addAll(sinkCommonOptionRule.getOptionalOptions());
-        return optionRule;
-    }
 }
