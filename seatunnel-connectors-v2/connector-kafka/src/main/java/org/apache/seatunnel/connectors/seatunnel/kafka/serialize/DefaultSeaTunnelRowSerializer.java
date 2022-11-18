@@ -17,42 +17,78 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.serialize;
 
+import org.apache.seatunnel.api.serialization.SerializationSchema;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
 
+import java.util.List;
+import java.util.function.Function;
+
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byte[], byte[]> {
 
-    private int partation = -1;
+    private Integer partition;
     private final String topic;
-    private final JsonSerializationSchema jsonSerializationSchema;
+    private final SerializationSchema keySerialization;
+    private final SerializationSchema valueSerialization;
 
     public DefaultSeaTunnelRowSerializer(String topic, SeaTunnelRowType seaTunnelRowType) {
-        this.topic = topic;
-        this.jsonSerializationSchema = new JsonSerializationSchema(seaTunnelRowType);
+        this(topic, element -> null, createSerializationSchema(seaTunnelRowType));
     }
 
-    public DefaultSeaTunnelRowSerializer(String topic, int partation, SeaTunnelRowType seaTunnelRowType) {
+    public DefaultSeaTunnelRowSerializer(String topic, Integer partition, SeaTunnelRowType seaTunnelRowType) {
         this(topic, seaTunnelRowType);
-        this.partation = partation;
+        this.partition = partition;
+    }
+
+    public DefaultSeaTunnelRowSerializer(String topic,
+                                         List<String> keyFieldNames,
+                                         SeaTunnelRowType seaTunnelRowType) {
+        this(topic, createKeySerializationSchema(keyFieldNames, seaTunnelRowType),
+                createSerializationSchema(seaTunnelRowType));
+    }
+
+    public DefaultSeaTunnelRowSerializer(String topic,
+                                         SerializationSchema keySerialization,
+                                         SerializationSchema valueSerialization) {
+        this.topic = topic;
+        this.keySerialization = keySerialization;
+        this.valueSerialization = valueSerialization;
     }
 
     @Override
     public ProducerRecord<byte[], byte[]> serializeRow(SeaTunnelRow row) {
-        if (this.partation != -1) {
-            return new ProducerRecord<>(topic, this.partation, null, jsonSerializationSchema.serialize(row));
-        }
-        else {
-            return new ProducerRecord<>(topic, null, jsonSerializationSchema.serialize(row));
-        }
+        return new ProducerRecord<>(topic, partition,
+                keySerialization.serialize(row), valueSerialization.serialize(row));
     }
 
-    @Override
-    public ProducerRecord<byte[], byte[]> serializeRowByKey(String key, SeaTunnelRow row) {
-        //if the key is null, kafka will send message to a random partition
-        return new ProducerRecord<>(topic, key == null ? null : key.getBytes(), jsonSerializationSchema.serialize(row));
+    private static SerializationSchema createSerializationSchema(SeaTunnelRowType rowType) {
+        return new JsonSerializationSchema(rowType);
     }
 
+    private static SerializationSchema createKeySerializationSchema(List<String> keyFieldNames,
+                                                                    SeaTunnelRowType seaTunnelRowType) {
+        int[] keyFieldIndexArr = new int[keyFieldNames.size()];
+        SeaTunnelDataType[] keyFieldDataTypeArr = new SeaTunnelDataType[keyFieldNames.size()];
+        for (int i = 0; i < keyFieldNames.size(); i++) {
+            String keyFieldName = keyFieldNames.get(i);
+            int rowFieldIndex = seaTunnelRowType.indexOf(keyFieldName);
+            keyFieldIndexArr[i] = rowFieldIndex;
+            keyFieldDataTypeArr[i] = seaTunnelRowType.getFieldType(rowFieldIndex);
+        }
+        SeaTunnelRowType keyType = new SeaTunnelRowType(keyFieldNames.toArray(new String[0]), keyFieldDataTypeArr);
+        SerializationSchema keySerializationSchema = createSerializationSchema(keyType);
+
+        Function<SeaTunnelRow, SeaTunnelRow> keyDataExtractor = row -> {
+            Object[] keyFields = new Object[keyFieldIndexArr.length];
+            for (int i = 0; i < keyFieldIndexArr.length; i++) {
+                keyFields[i] = row.getField(keyFieldIndexArr[i]);
+            }
+            return new SeaTunnelRow(keyFields);
+        };
+        return row -> keySerializationSchema.serialize(keyDataExtractor.apply(row));
+    }
 }
