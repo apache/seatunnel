@@ -69,8 +69,8 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
             sink.outputStream(flinkEnvironment, stream);
         }
         try {
-            log.info("Flink Execution Plan:{}", flinkEnvironment.getStreamExecutionEnvironment().getExecutionPlan());
-            flinkEnvironment.getStreamExecutionEnvironment().execute(flinkEnvironment.getJobName());
+            log.info("Flink Execution Plan:{}", flinkEnvironment.getExecutionEnvironment().getExecutionPlan());
+            flinkEnvironment.getExecutionEnvironment().execute(flinkEnvironment.getJobName());
         } catch (Exception e) {
             log.warn("Flink with job name [{}] execute failed", flinkEnvironment.getJobName());
             throw e;
@@ -84,7 +84,7 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
 
     private Optional<DataStream<Row>> fromSourceTable(Config pluginConfig) {
         if (pluginConfig.hasPath(SOURCE_TABLE_NAME)) {
-            StreamTableEnvironment tableEnvironment = flinkEnvironment.getStreamTableEnvironment();
+            StreamTableEnvironment tableEnvironment = flinkEnvironment.getTableEnvironment();
             Table table = tableEnvironment.scan(pluginConfig.getString(SOURCE_TABLE_NAME));
             return Optional.ofNullable(TableUtil.tableToDataStream(tableEnvironment, table, true));
         }

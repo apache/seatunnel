@@ -92,9 +92,9 @@ public class FlinkExecution implements TaskExecution {
         dataStreams = transformPluginExecuteProcessor.execute(dataStreams);
         sinkPluginExecuteProcessor.execute(dataStreams);
 
-        log.info("Flink Execution Plan:{}", flinkEnvironment.getStreamExecutionEnvironment().getExecutionPlan());
+        log.info("Flink Execution Plan:{}", flinkEnvironment.getExecutionEnvironment().getExecutionPlan());
         try {
-            flinkEnvironment.getStreamExecutionEnvironment().execute(flinkEnvironment.getJobName());
+            flinkEnvironment.getExecutionEnvironment().execute(flinkEnvironment.getJobName());
         } catch (Exception e) {
             throw new TaskExecuteException("Execute Flink job error", e);
         }

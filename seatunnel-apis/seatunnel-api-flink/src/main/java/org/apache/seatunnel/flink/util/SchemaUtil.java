@@ -19,9 +19,6 @@ package org.apache.seatunnel.flink.util;
 
 import org.apache.seatunnel.flink.enums.FormatType;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.DecimalNode;
@@ -31,23 +28,15 @@ import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.LongNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.api.scala.typeutils.Types;
 import org.apache.flink.formats.avro.typeutils.AvroSchemaConverter;
-import org.apache.flink.table.descriptors.Avro;
-import org.apache.flink.table.descriptors.Csv;
-import org.apache.flink.table.descriptors.DescriptorProperties;
-import org.apache.flink.table.descriptors.FormatDescriptor;
-import org.apache.flink.table.descriptors.Json;
 import org.apache.flink.table.descriptors.Schema;
 import org.apache.flink.table.utils.TypeStringUtils;
 import org.apache.flink.types.Row;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -83,40 +72,6 @@ public final class SchemaUtil {
         }
     }
 
-    public static FormatDescriptor setFormat(FormatType format, Config config) throws Exception {
-        FormatDescriptor formatDescriptor = null;
-        switch (format) {
-            case JSON:
-                formatDescriptor = new Json().failOnMissingField(false).deriveSchema();
-                break;
-            case CSV:
-                Csv csv = new Csv().deriveSchema();
-                Field interPro = csv.getClass().getDeclaredField("internalProperties");
-                interPro.setAccessible(true);
-                Object desc = interPro.get(csv);
-                Class<DescriptorProperties> descCls = DescriptorProperties.class;
-                Method putMethod = descCls.getDeclaredMethod("put", String.class, String.class);
-                putMethod.setAccessible(true);
-                for (Map.Entry<String, ConfigValue> entry : config.entrySet()) {
-                    String key = entry.getKey();
-                    if (key.startsWith("format.") && !StringUtils.equals(key, "format.type")) {
-                        String value = config.getString(key);
-                        putMethod.invoke(desc, key, value);
-                    }
-                }
-                formatDescriptor = csv;
-                break;
-            case AVRO:
-                formatDescriptor = new Avro().avroSchema(config.getString("schema"));
-                break;
-            case ORC:
-            case PARQUET:
-            default:
-                break;
-        }
-        return formatDescriptor;
-    }
-
     private static void getJsonSchema(Schema schema, ObjectNode json) {
         Iterator<Map.Entry<String, JsonNode>> nodeIterator = json.fields();
         while (nodeIterator.hasNext()) {
@@ -132,7 +87,7 @@ public final class SchemaUtil {
             } else if (value instanceof DecimalNode) {
                 schema.field(key, Types.JAVA_BIG_DEC());
             } else if (value instanceof FloatNode) {
-                schema.field(key,  Types.FLOAT());
+                schema.field(key, Types.FLOAT());
             } else if (value instanceof DoubleNode) {
                 schema.field(key, Types.DOUBLE());
             } else if (value instanceof ObjectNode) {

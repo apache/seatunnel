@@ -58,7 +58,7 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
 
     @Override
     public List<DataStream<Row>> execute(List<DataStream<Row>> upstreamDataStreams) {
-        StreamExecutionEnvironment executionEnvironment = flinkEnvironment.getStreamExecutionEnvironment();
+        StreamExecutionEnvironment executionEnvironment = flinkEnvironment.getExecutionEnvironment();
         List<DataStream<Row>> sources = new ArrayList<>();
         for (int i = 0; i < plugins.size(); i++) {
             SeaTunnelSource internalSource = plugins.get(i);

@@ -20,14 +20,12 @@ package org.apache.seatunnel.flink.transform;
 import org.apache.seatunnel.common.PropertiesUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchTransform;
 import org.apache.seatunnel.flink.stream.FlinkStreamTransform;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.flink.api.java.DataSet;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.functions.UserDefinedFunction;
@@ -40,7 +38,7 @@ import java.util.Properties;
 
 @SuppressWarnings("PMD")
 @Slf4j
-public class UDF implements FlinkStreamTransform, FlinkBatchTransform {
+public class UDF implements FlinkStreamTransform {
 
     private static final String UDF_CONFIG_PREFIX = "function.";
 
@@ -49,19 +47,13 @@ public class UDF implements FlinkStreamTransform, FlinkBatchTransform {
     private List<String> functionNames;
 
     @Override
-    public DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Row> data) {
-        return data;
-    }
-
-    @Override
     public DataStream<Row> processStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         return dataStream;
     }
 
     @Override
     public void registerFunction(FlinkEnvironment flinkEnvironment) {
-        TableEnvironment tEnv = flinkEnvironment.isStreaming() ?
-                flinkEnvironment.getStreamTableEnvironment() : flinkEnvironment.getBatchTableEnvironment();
+        TableEnvironment tEnv = flinkEnvironment.getTableEnvironment();
 
         for (int i = 0; i < functionNames.size(); i++) {
             try {

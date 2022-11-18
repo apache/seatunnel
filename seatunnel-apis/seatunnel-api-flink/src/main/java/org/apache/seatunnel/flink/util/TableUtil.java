@@ -18,11 +18,9 @@
 package org.apache.seatunnel.flink.util;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.java.DataSet;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableEnvironment;
-import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 
@@ -40,22 +38,14 @@ public final class TableUtil {
             return tableEnvironment.toAppendStream(table, typeInfo);
         }
         return tableEnvironment
-                .toRetractStream(table, typeInfo)
-                .filter(row -> row.f0)
-                .map(row -> row.f1)
-                .returns(typeInfo);
-    }
-
-    public static DataSet<Row> tableToDataSet(BatchTableEnvironment tableEnvironment, Table table) {
-        return tableEnvironment.toDataSet(table, table.getSchema().toRowType());
+            .toRetractStream(table, typeInfo)
+            .filter(row -> row.f0)
+            .map(row -> row.f1)
+            .returns(typeInfo);
     }
 
     public static void dataStreamToTable(StreamTableEnvironment tableEnvironment, String tableName, DataStream<Row> dataStream) {
         tableEnvironment.registerDataStream(tableName, dataStream);
-    }
-
-    public static void dataSetToTable(BatchTableEnvironment tableEnvironment, String tableName, DataSet<Row> dataSet) {
-        tableEnvironment.registerDataSet(tableName, dataSet);
     }
 
     public static boolean tableExists(TableEnvironment tableEnvironment, String name) {

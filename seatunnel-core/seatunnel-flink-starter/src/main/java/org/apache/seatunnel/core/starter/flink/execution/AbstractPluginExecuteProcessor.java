@@ -66,7 +66,7 @@ public abstract class AbstractPluginExecuteProcessor<T> implements PluginExecute
 
     protected Optional<DataStream<Row>> fromSourceTable(Config pluginConfig) {
         if (pluginConfig.hasPath(SOURCE_TABLE_NAME)) {
-            StreamTableEnvironment tableEnvironment = flinkEnvironment.getStreamTableEnvironment();
+            StreamTableEnvironment tableEnvironment = flinkEnvironment.getTableEnvironment();
             Table table = tableEnvironment.scan(pluginConfig.getString(SOURCE_TABLE_NAME));
             return Optional.ofNullable(TableUtil.tableToDataStream(tableEnvironment, table, true));
         }

@@ -23,7 +23,6 @@ import org.apache.seatunnel.apis.base.api.BaseTransform;
 import org.apache.seatunnel.apis.base.env.Execution;
 import org.apache.seatunnel.apis.base.env.RuntimeEnv;
 import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchExecution;
 import org.apache.seatunnel.flink.stream.FlinkStreamExecution;
 import org.apache.seatunnel.spark.SparkEnvironment;
 import org.apache.seatunnel.spark.batch.SparkBatchExecution;
@@ -64,13 +63,7 @@ public class ExecutionFactory<ENVIRONMENT extends RuntimeEnv> {
                 break;
             case FLINK:
                 FlinkEnvironment flinkEnvironment = (FlinkEnvironment) executionContext.getEnvironment();
-                switch (executionContext.getJobMode()) {
-                    case STREAMING:
-                        execution = new FlinkStreamExecution(flinkEnvironment);
-                        break;
-                    default:
-                        execution = new FlinkBatchExecution(flinkEnvironment);
-                }
+                execution = new FlinkStreamExecution(flinkEnvironment);
                 break;
             default:
                 throw new IllegalArgumentException("No suitable engine");

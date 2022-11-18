@@ -21,20 +21,17 @@ import org.apache.seatunnel.apis.base.plugin.Plugin;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchTransform;
 import org.apache.seatunnel.flink.stream.FlinkStreamTransform;
 import org.apache.seatunnel.flink.util.TableUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.flink.api.java.DataSet;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
-import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 
-public class TableToDataStream implements FlinkStreamTransform, FlinkBatchTransform {
+public class TableToDataStream implements FlinkStreamTransform {
 
     private static final long serialVersionUID = 4556842426965038124L;
     private Config config;
@@ -43,17 +40,9 @@ public class TableToDataStream implements FlinkStreamTransform, FlinkBatchTransf
 
     @Override
     public DataStream<Row> processStream(FlinkEnvironment env, DataStream<Row> dataStream) {
-        StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
+        StreamTableEnvironment tableEnvironment = env.getTableEnvironment();
         Table table = tableEnvironment.scan(config.getString(Plugin.SOURCE_TABLE_NAME));
         return TableUtil.tableToDataStream(tableEnvironment, table, isAppend);
-    }
-
-    @Override
-    public DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Row> data) {
-
-        BatchTableEnvironment batchTableEnvironment = env.getBatchTableEnvironment();
-        Table table = batchTableEnvironment.scan(config.getString(Plugin.SOURCE_TABLE_NAME));
-        return TableUtil.tableToDataSet(batchTableEnvironment, table);
     }
 
     @Override
