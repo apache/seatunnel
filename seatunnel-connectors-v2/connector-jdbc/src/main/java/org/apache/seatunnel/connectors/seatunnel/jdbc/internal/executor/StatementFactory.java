@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
-import java.io.Serializable;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
-/**
- * Sets {@link PreparedStatement} parameters to use in JDBC Sink based on a specific type of
- * StreamRecord.
- */
-public interface JdbcStatementBuilder<T>
-        extends BiConsumerWithException<PreparedStatement, T, SQLException>, Serializable {}
+@FunctionalInterface
+public interface StatementFactory {
+
+    PreparedStatement createStatement(Connection connection) throws SQLException;
+
+}

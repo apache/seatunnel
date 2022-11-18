@@ -38,7 +38,6 @@ public class JdbcConnectionOptions
     public int maxRetries = DEFAULT_MAX_RETRIES;
     public String username;
     public String password;
-    public String query;
 
     public boolean autoCommit = DEFAULT_AUTO_COMMIT;
 
@@ -80,10 +79,6 @@ public class JdbcConnectionOptions
 
     public Optional<String> getPassword() {
         return Optional.ofNullable(password);
-    }
-
-    public String getQuery() {
-        return query;
     }
 
     public int getBatchSize() {
@@ -201,7 +196,6 @@ public class JdbcConnectionOptions
             jdbcConnectionOptions.maxRetries = this.maxRetries;
             jdbcConnectionOptions.password = this.password;
             jdbcConnectionOptions.connectionCheckTimeoutSeconds = this.connectionCheckTimeoutSeconds;
-            jdbcConnectionOptions.query = this.query;
             jdbcConnectionOptions.url = this.url;
             jdbcConnectionOptions.autoCommit = this.autoCommit;
             jdbcConnectionOptions.username = this.username;
