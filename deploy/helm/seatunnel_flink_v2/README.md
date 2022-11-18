@@ -23,7 +23,7 @@ kubectl create -f seatunnel-flink-v2.yaml
 You may follow the logs of your job, after a successful startup (which can take on the order of a minute in a fresh environment, seconds afterwards) you can:
 
 ```shell
-kubectl logs -f deploy/seatunnel-flink-v2
+kubectl logs -f deploy/seatunnel-flink-v2-streaming-example
 ```
 
 To expose the Flink Dashboard you may add a port-forward rule or look the ingress configuration options:
@@ -37,5 +37,5 @@ Now the Flink Dashboard is accessible at localhost:8081.
 In order to stop your job and delete your FlinkDeployment you can simply:
 
 ```shell
-kubectl delete flinkdeployment/seatunnel-flink-v2
+kubectl delete flinkdeployment/seatunnel-flink-v2-streaming-example
 ```

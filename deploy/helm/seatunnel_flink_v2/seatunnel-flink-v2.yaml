@@ -7,42 +7,52 @@ spec:
   flinkVersion: v1_13
   flinkConfiguration:
     taskmanager.numberOfTaskSlots: "2"
-    state.savepoints.dir: file:///flink-data/flink-savepoints
-    state.checkpoints.dir: file:///flink-data/flink-checkpoints
   serviceAccount: flink
-  podTemplate:
-    spec:
-      initContainers:
-        - name: artifacts-fetcher
-          image: busybox:latest
-          # Use wget or other tools to get user jars from remote storage
-          command: [ "sh","-c","wget http://archive.apache.org/dist/incubator/seatunnel/2.3.0-beta/apache-seatunnel-incubating-2.3.0-beta-bin.tar.gz -O /opt/seatunnel.tar.gz && mkdir /opt/seatunnel && tar -xzvf /opt/seatunnel.tar.gz -C /opt/seatunnel --strip-components 1 && chmod 755 /opt/seatunnel/bin/install-plugin.sh && echo -e '--connectors-v2-- \n \
-connector-fake \n \
-connector-console \n \
---end--' > /opt/seatunnel/config/plugin_config && cd /opt/seatunnel && ./bin/install-plugin.sh 2.3.0-beta
-" ]
-      serviceAccount: flink
-      containers:
-        - name: flink-main-container
-          volumeMounts:
-            - mountPath: /opt
-              name: flink-volume
-      volumes:
-        - name: flink-volume
-          emptyDir: { }
-
   jobManager:
-    replicas: 1
     resource:
-      memory: "1024m"
+      memory: "2048m"
       cpu: 1
+    podTemplate:
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: job-manager-pod-template
+      spec:
+        containers:
+          - name: flink-main-container
+            command: [ "sh","-c","cd /tmp/seatunnel && sh ./bin/install-plugin.sh 2.3.0-beta" ]
+            volumeMounts:
+              - mountPath: /tmp
+                name: tmp
+        volumes:
+          - name: tmp
+            emptyDir: { }
+        initContainers:
+          - name: artifacts-fetcher
+            securityContext:
+              privileged: true
+            workingDir: /tmp
+            image: busybox:latest
+            command: [ "sh","-c","wget http://archive.apache.org/dist/incubator/seatunnel/2.3.0-beta/apache-seatunnel-incubating-2.3.0-beta-bin.tar.gz -O /tmp/seatunnel.tar.gz && mkdir /tmp/seatunnel && tar -xzvf /tmp/seatunnel.tar.gz -C /tmp/seatunnel --strip-components 1 && chmod 755 /tmp/seatunnel/bin/install-plugin.sh && echo -e '--connectors-v2-- \n \
+              connector-fake \n \
+              connector-console \n \
+              --end--' > /tmp/seatunnel/config/plugin_config" ]
+            volumeMounts:
+              - mountPath: /tmp
+                name: tmp
+          - name: init-plugins
+              image: jdk:1.8
+              command: [ "sh","-c","cd /tmp/seatunnel && sh ./bin/install-plugin.sh 2.3.0-beta" ]
+              volumeMounts:
+                - mountPath: /tmp
+                  name: tmp
   taskManager:
     resource:
-      memory: "1024m"
+      memory: "2048m"
       cpu: 1
   job:
-    jarURI: local:///opt/seatunnel/lib/seatunnel-flink-starter.jar
+    jarURI: local:///tmp/seatunnel/lib/seatunnel-flink-starter.jar
     entryClass: org.apache.seatunnel.core.starter.flink.SeatunnelFlink
-    args: [ "--config", "/opt/seatunnel/config/flink.streaming.conf.template" ]
+    args: [ "--config", "/tmp/seatunnel/config/flink.streaming.conf.template" ]
     parallelism: 2
     upgradeMode: "stateless"
