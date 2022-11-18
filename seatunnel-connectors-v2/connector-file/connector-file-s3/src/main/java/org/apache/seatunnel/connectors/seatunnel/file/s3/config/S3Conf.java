@@ -42,10 +42,10 @@ public class S3Conf extends HadoopConf {
     }
 
     public static HadoopConf buildWithConfig(Config config) {
-        HadoopConf hadoopConf = new S3Conf(config.getString(S3Config.S3_BUCKET));
+        HadoopConf hadoopConf = new S3Conf(config.getString(S3Config.S3_BUCKET.key()));
         HashMap<String, String> s3Options = new HashMap<>();
-        s3Options.put("fs.s3n.awsAccessKeyId", config.getString(S3Config.S3_ACCESS_KEY));
-        s3Options.put("fs.s3n.awsSecretAccessKey", config.getString(S3Config.S3_SECRET_KEY));
+        s3Options.put("fs.s3n.awsAccessKeyId", config.getString(S3Config.S3_ACCESS_KEY.key()));
+        s3Options.put("fs.s3n.awsSecretAccessKey", config.getString(S3Config.S3_SECRET_KEY.key()));
         hadoopConf.setExtraOptions(s3Options);
         return hadoopConf;
     }

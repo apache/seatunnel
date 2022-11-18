@@ -15,17 +15,17 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 
 ## Options
 
-| name               | type                   | required | default value |
-| ------------------ | ---------------------- | -------- | ------------- |
-| topic              | string                 | yes      | -             |
-| bootstrap.servers  | string                 | yes      | -             |
-| kafka.*            | kafka producer config  | no       | -             |
-| semantic           | string                 | no       | NON           |
-| partition_key      | string                 | no       | -             |
-| partition          | int                    | no       | -             |
-| assign_partitions  | list                   | no       | -             |
-| transaction_prefix | string                 | no       | -             |
-| common-options     | config                 | no       | -             |
+| name                 | type                  | required | default value |
+|----------------------|-----------------------| -------- | ------------- |
+| topic                | string                | yes      | -             |
+| bootstrap.servers    | string                | yes      | -             |
+| kafka.*              | kafka producer config | no       | -             |
+| semantic             | string                | no       | NON           |
+| partition_key_fields | array                 | no       | -             |
+| partition            | int                   | no       | -             |
+| assign_partitions    | array                 | no       | -             |
+| transaction_prefix   | string                | no       | -             |
+| common-options       | config                | no       | -             |
 
 ### topic [string]
 
@@ -51,11 +51,11 @@ In AT_LEAST_ONCE, producer will wait for all outstanding messages in the Kafka b
 
 NON does not provide any guarantees: messages may be lost in case of issues on the Kafka broker and messages may be duplicated.
 
-### partition_key [string]
+### partition_key_fields [array]
 
-Configure which field is used as the key of the kafka message.
+Configure which fields are used as the key of the kafka message.
 
-For example, if you want to use value of a field from upstream data as key, you can assign it to the field name.
+For example, if you want to use value of fields from upstream data as key, you can assign field names to this property.
 
 Upstream data is the following:
 
@@ -66,13 +66,13 @@ Upstream data is the following:
 
 If name is set as the key, then the hash value of the name column will determine which partition the message is sent to.
 
-If the field name does not exist in the upstream data, the configured parameter will be used as the key.
+If not set partition key fields, the null message key will be sent to.
 
 ### partition [int]
 
 We can specify the partition, all messages will be sent to this partition.
 
-### assign_partitions [list]
+### assign_partitions [array]
 
 We can decide which partition to send based on the content of the message. The function of this parameter is to distribute information.
 
@@ -113,3 +113,6 @@ sink {
 ### 2.3.0-beta 2022-10-20
 
 - Add Kafka Sink Connector
+### next version
+
+- [Feature] Support to specify multiple partition keys [3230](https://github.com/apache/incubator-seatunnel/pull/3230)
