@@ -78,7 +78,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 JobConfig jobConfig = new JobConfig();
                 jobConfig.setName(clientCommandArgs.getJobName());
                 JobExecutionEnvironment jobExecutionEnv =
-                    engineClient.createExecutionContext(configFile.toString(), jobConfig, seaTunnelConfig);
+                    engineClient.createExecutionContext(configFile.toString(), jobConfig);
 
                 ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
                 clientJobProxy.waitForJobComplete();

@@ -20,7 +20,6 @@ package org.apache.seatunnel.engine.client;
 import org.apache.seatunnel.engine.client.job.JobClient;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStateCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelListJobStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
@@ -37,8 +36,8 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
     }
 
     @Override
-    public JobExecutionEnvironment createExecutionContext(@NonNull String filePath, @NonNull JobConfig jobConfig, @NonNull SeaTunnelConfig seaTunnelConfig) {
-        return new JobExecutionEnvironment(jobConfig, filePath, hazelcastClient, seaTunnelConfig);
+    public JobExecutionEnvironment createExecutionContext(@NonNull String filePath, @NonNull JobConfig jobConfig) {
+        return new JobExecutionEnvironment(jobConfig, filePath, hazelcastClient);
     }
 
     @Override
@@ -68,14 +67,14 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
         }
     }
 
-    public String getJobState(Long jobId){
+    public String getJobState(Long jobId) {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
             SeaTunnelGetJobStateCodec.encodeRequest(jobId),
             SeaTunnelGetJobStateCodec::decodeResponse
         );
     }
 
-    public String listJobStatus(){
+    public String listJobStatus() {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
             SeaTunnelListJobStatusCodec.encodeRequest(),
             SeaTunnelListJobStatusCodec::decodeResponse

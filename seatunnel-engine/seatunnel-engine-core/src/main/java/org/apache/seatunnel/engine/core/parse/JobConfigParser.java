@@ -32,7 +32,6 @@ import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.starter.config.ConfigBuilder;
-import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
@@ -89,26 +88,21 @@ public class JobConfigParser {
 
     private List<URL> commonPluginJars;
 
-    private EngineConfig engineConfig;
-
     public JobConfigParser(@NonNull String jobDefineFilePath,
                            @NonNull IdGenerator idGenerator,
-                           @NonNull JobConfig jobConfig,
-                           @NonNull EngineConfig engineConfig) {
-        this(jobDefineFilePath, idGenerator, jobConfig, Collections.emptyList(), engineConfig);
+                           @NonNull JobConfig jobConfig) {
+        this(jobDefineFilePath, idGenerator, jobConfig, Collections.emptyList());
     }
 
     public JobConfigParser(@NonNull String jobDefineFilePath,
                            @NonNull IdGenerator idGenerator,
                            @NonNull JobConfig jobConfig,
-                           @NonNull List<URL> commonPluginJars,
-                           @NonNull EngineConfig engineConfig) {
+                           @NonNull List<URL> commonPluginJars) {
         this.jobDefineFilePath = jobDefineFilePath;
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
         this.seaTunnelJobConfig = new ConfigBuilder(Paths.get(jobDefineFilePath)).getConfig();
         this.envConfigs = seaTunnelJobConfig.getConfig("env");
-        this.engineConfig = engineConfig;
         this.commonPluginJars = commonPluginJars;
     }
 

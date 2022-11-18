@@ -101,7 +101,7 @@ public class ClusterFaultToleranceIT {
                 TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
             JobExecutionEnvironment jobExecutionEnv =
-                engineClient.createExecutionContext(testResources.getRight(), jobConfig, seaTunnelConfig);
+                engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
@@ -208,7 +208,7 @@ public class ClusterFaultToleranceIT {
                 TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
             JobExecutionEnvironment jobExecutionEnv =
-                engineClient.createExecutionContext(testResources.getRight(), jobConfig, seaTunnelConfig);
+                engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
@@ -288,7 +288,7 @@ public class ClusterFaultToleranceIT {
                 TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
             JobExecutionEnvironment jobExecutionEnv =
-                engineClient.createExecutionContext(testResources.getRight(), jobConfig, seaTunnelConfig);
+                engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
@@ -370,7 +370,7 @@ public class ClusterFaultToleranceIT {
                 TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
             JobExecutionEnvironment jobExecutionEnv =
-                engineClient.createExecutionContext(testResources.getRight(), jobConfig, seaTunnelConfig);
+                engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
@@ -467,7 +467,7 @@ public class ClusterFaultToleranceIT {
                 TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
             JobExecutionEnvironment jobExecutionEnv =
-                engineClient.createExecutionContext(testResources.getRight(), jobConfig, seaTunnelConfig);
+                engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
@@ -549,7 +549,7 @@ public class ClusterFaultToleranceIT {
                 TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
             JobExecutionEnvironment jobExecutionEnv =
-                engineClient.createExecutionContext(testResources.getRight(), jobConfig, seaTunnelConfig);
+                engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {

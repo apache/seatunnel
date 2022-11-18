@@ -24,14 +24,12 @@ import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 
 import com.hazelcast.client.config.ClientConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CompletableFuture;
@@ -39,13 +37,6 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class JobExecutionIT {
-
-    private static SeaTunnelConfig SEATUNNEL_CONFIG = ConfigProvider.locateAndGetSeaTunnelConfig();
-
-    @BeforeAll
-    public static void beforeClass() throws Exception {
-        SEATUNNEL_CONFIG.getHazelcastConfig().setClusterName(TestUtils.getClusterName("JobExecutionIT"));
-    }
 
     @Test
     public void testSayHello() {
@@ -69,7 +60,7 @@ public class JobExecutionIT {
         clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv =
-            engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
+            engineClient.createExecutionContext(filePath, jobConfig);
 
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
@@ -94,7 +85,7 @@ public class JobExecutionIT {
         clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv =
-            engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
+            engineClient.createExecutionContext(filePath, jobConfig);
 
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
         JobStatus jobStatus1 = clientJobProxy.getJobStatus();
