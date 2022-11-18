@@ -107,6 +107,11 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
             neo4jSession.run("MATCH (tt:TestTest) delete tt");
         }
 
+        final Result checkExistsT = neo4jSession.run("MATCH (t:Test) RETURN t");
+        if (checkExistsT.hasNext()) {
+            neo4jSession.run("MATCH (t:Test) delete t");
+        }
+
         // given
         neo4jSession.run(
             "CREATE (t:Test {string:'foo', boolean:true, long:2147483648, double:1.7976931348623157E308, " +
