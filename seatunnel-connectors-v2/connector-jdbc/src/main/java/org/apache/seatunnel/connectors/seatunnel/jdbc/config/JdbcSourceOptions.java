@@ -33,6 +33,7 @@ import java.util.Optional;
 @AllArgsConstructor
 public class JdbcSourceOptions implements Serializable {
     private JdbcConnectionOptions jdbcConnectionOptions;
+    public String query;
     private String partitionColumn;
     private Long partitionUpperBound;
     private Long partitionLowerBound;
@@ -40,6 +41,7 @@ public class JdbcSourceOptions implements Serializable {
 
     public JdbcSourceOptions(Config config) {
         this.jdbcConnectionOptions = buildJdbcConnectionOptions(config);
+        this.query = config.getString(JdbcConfig.QUERY);
         if (config.hasPath(JdbcConfig.PARTITION_COLUMN)) {
             this.partitionColumn = config.getString(JdbcConfig.PARTITION_COLUMN);
         }

@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import io.debezium.relational.Column;
 import lombok.extern.slf4j.Slf4j;
 
-/** Utilities for converting from MySQL types to Flink types. */
+/** Utilities for converting from MySQL types to SeaTunnel types. */
 
 @Slf4j
 public class MySqlTypeUtils {

@@ -21,6 +21,10 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRow
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
+import java.util.Arrays;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
 public class PostgresDialect implements JdbcDialect {
     @Override
     public String dialectName() {
@@ -35,5 +39,18 @@ public class PostgresDialect implements JdbcDialect {
     @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
         return new PostgresTypeMapper();
+    }
+
+    @Override
+    public Optional<String> getUpsertStatement(String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+        String uniqueColumns = Arrays.stream(uniqueKeyFields)
+            .map(this::quoteIdentifier)
+            .collect(Collectors.joining(", "));
+        String updateClause = Arrays.stream(fieldNames)
+            .map(fieldName -> quoteIdentifier(fieldName) + "=EXCLUDED." + quoteIdentifier(fieldName))
+            .collect(Collectors.joining(", "));
+        String upsertSQL = String.format("%s ON CONFLICT (%s) DO UPDATE SET %s",
+            getInsertIntoStatement(tableName, fieldNames), uniqueColumns, updateClause);
+        return Optional.of(upsertSQL);
     }
 }
