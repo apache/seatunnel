@@ -17,13 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.db2;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
-
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
 
 public class DB2JdbcRowConverter extends AbstractJdbcRowConverter {
 
@@ -32,8 +26,4 @@ public class DB2JdbcRowConverter extends AbstractJdbcRowConverter {
         return "DB2";
     }
 
-    @Override
-    public SeaTunnelRow toInternal(ResultSet rs, ResultSetMetaData metaData, SeaTunnelRowType typeInfo) throws SQLException {
-        return super.toInternal(rs, metaData, typeInfo);
-    }
 }
