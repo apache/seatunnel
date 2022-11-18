@@ -18,47 +18,53 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Function;
 
 @RequiredArgsConstructor
-public class SimpleBatchStatementExecutor implements JdbcBatchStatementExecutor<SeaTunnelRow> {
+public class BufferedBatchStatementExecutor implements JdbcBatchStatementExecutor<SeaTunnelRow> {
     @NonNull
-    private final StatementFactory statementFactory;
+    private final JdbcBatchStatementExecutor<SeaTunnelRow> statementExecutor;
     @NonNull
-    private final SeaTunnelRowType rowType;
+    private final Function<SeaTunnelRow, SeaTunnelRow> valueTransform;
     @NonNull
-    private final JdbcRowConverter converter;
-    private transient PreparedStatement statement;
+    private final List<SeaTunnelRow> buffer = new ArrayList<>();
 
     @Override
     public void prepareStatements(Connection connection) throws SQLException {
-        statement = statementFactory.createStatement(connection);
+        statementExecutor.prepareStatements(connection);
     }
 
     @Override
     public void addToBatch(SeaTunnelRow record) throws SQLException {
-        converter.toExternal(rowType, record, statement);
-        statement.addBatch();
+        buffer.add(valueTransform.apply(record));
     }
 
     @Override
     public void executeBatch() throws SQLException {
-        statement.executeBatch();
-        statement.clearBatch();
+        if (!buffer.isEmpty()) {
+            for (SeaTunnelRow row : buffer) {
+                statementExecutor.addToBatch(row);
+            }
+            statementExecutor.executeBatch();
+            buffer.clear();
+        }
     }
 
     @Override
     public void closeStatements() throws SQLException {
-        if (statement != null) {
-            statement.close();
+        if (!buffer.isEmpty()) {
+            executeBatch();
+        }
+        if (statementExecutor != null) {
+            statementExecutor.closeStatements();
         }
     }
 }
