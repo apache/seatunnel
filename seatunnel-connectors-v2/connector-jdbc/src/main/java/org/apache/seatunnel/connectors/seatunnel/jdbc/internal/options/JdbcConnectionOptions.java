@@ -30,6 +30,7 @@ public class JdbcConnectionOptions
     private static final int DEFAULT_BATCH_INTERVAL_MS = 1000;
     private static final int DEFAULT_MAX_COMMIT_ATTEMPTS = 3;
     private static final int DEFAULT_TRANSACTION_TIMEOUT_SEC = -1;
+    private static final boolean DEFAULT_AUTO_COMMIT = true;
 
     public String url;
     public String driverName;
@@ -40,6 +41,8 @@ public class JdbcConnectionOptions
     public String query;
     // since sqlite data type affinity, the specific data type cannot be determined only by column type name
     public boolean typeAffinity;
+
+    public boolean autoCommit = DEFAULT_AUTO_COMMIT;
 
     public int batchSize = DEFAULT_BATCH_SIZE;
     public int batchIntervalMs = DEFAULT_BATCH_INTERVAL_MS;
@@ -59,6 +62,10 @@ public class JdbcConnectionOptions
 
     public String getDriverName() {
         return driverName;
+    }
+
+    public boolean isAutoCommit() {
+        return autoCommit;
     }
 
     public int getConnectionCheckTimeoutSeconds() {
@@ -117,6 +124,7 @@ public class JdbcConnectionOptions
         private String username;
         private String password;
         private String query;
+        private boolean autoCommit = DEFAULT_AUTO_COMMIT;
         private int batchSize = DEFAULT_BATCH_SIZE;
         private int batchIntervalMs = DEFAULT_BATCH_INTERVAL_MS;
         private String xaDataSourceClassName;
@@ -162,6 +170,11 @@ public class JdbcConnectionOptions
             return this;
         }
 
+        public JdbcConnectionOptionsBuilder withAutoCommit(boolean autoCommit) {
+            this.autoCommit = autoCommit;
+            return this;
+        }
+
         public JdbcConnectionOptionsBuilder withBatchSize(int batchSize) {
             this.batchSize = batchSize;
             return this;
@@ -202,6 +215,7 @@ public class JdbcConnectionOptions
             jdbcConnectionOptions.connectionCheckTimeoutSeconds = this.connectionCheckTimeoutSeconds;
             jdbcConnectionOptions.query = this.query;
             jdbcConnectionOptions.url = this.url;
+            jdbcConnectionOptions.autoCommit = this.autoCommit;
             jdbcConnectionOptions.username = this.username;
             jdbcConnectionOptions.transactionTimeoutSec = this.transactionTimeoutSec;
             jdbcConnectionOptions.maxCommitAttempts = this.maxCommitAttempts;

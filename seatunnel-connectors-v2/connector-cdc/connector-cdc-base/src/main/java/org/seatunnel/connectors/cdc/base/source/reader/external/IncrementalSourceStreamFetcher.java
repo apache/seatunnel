@@ -22,7 +22,6 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.pipeline.DataChangeEvent;
-import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -31,12 +30,8 @@ import org.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -49,8 +44,6 @@ import java.util.concurrent.TimeUnit;
 public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, SourceSplitBase> {
     private final FetchTask.Context taskContext;
     private final ExecutorService executorService;
-    private final Set<TableId> pureStreamPhaseTables;
-
     private volatile ChangeEventQueue<DataChangeEvent> queue;
     private volatile Throwable readException;
 
@@ -58,7 +51,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
 
     private IncrementalSplit currentIncrementalSplit;
 
-    private Map<TableId, Offset> maxSplitHighWatermarkMap;
+    private Offset splitStartWatermark;
 
     private static final long READER_CLOSE_TIMEOUT_SECONDS = 30L;
 
@@ -67,7 +60,6 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         ThreadFactory threadFactory =
             new ThreadFactoryBuilder().setNameFormat("debezium-reader-" + subTaskId).build();
         this.executorService = Executors.newSingleThreadExecutor(threadFactory);
-        this.pureStreamPhaseTables = new HashSet<>();
     }
 
     @Override
@@ -143,55 +135,17 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
 
     /**
      * Returns the record should emit or not.
-     *
-     * <p>The watermark signal algorithm is the incremental split reader only sends the change event that
-     * belongs to its finished snapshot splits. For each snapshot split, the change event is valid
-     * since the offset is after its high watermark.
-     *
-     * <pre> E.g: the data input is :
-     *    snapshot-split-0 info : [0,    1024) highWatermark0
-     *    snapshot-split-1 info : [1024, 2048) highWatermark1
-     *  the data output is:
-     *  only the change event belong to [0,    1024) and offset is after highWatermark0 should send,
-     *  only the change event belong to [1024, 2048) and offset is after highWatermark1 should send.
-     * </pre>
      */
     private boolean shouldEmit(SourceRecord sourceRecord) {
         if (taskContext.isDataChangeRecord(sourceRecord)) {
-            TableId tableId = taskContext.getTableId(sourceRecord);
             Offset position = taskContext.getStreamOffset(sourceRecord);
-            return hasEnterPureStreamPhase(tableId, position);
+            return position.isAtOrAfter(splitStartWatermark);
             // TODO only the table who captured snapshot splits need to filter( Used to support Exactly-Once )
-            // not in the monitored splits scope, do not emit
         }
-        // always send the schema change event and signal event
-        // we need record them to state of SeaTunnel
         return true;
     }
 
-    private boolean hasEnterPureStreamPhase(TableId tableId, Offset position) {
-        if (pureStreamPhaseTables.contains(tableId)) {
-            return true;
-        }
-        // the existed tables those have finished snapshot reading
-        if (maxSplitHighWatermarkMap.containsKey(tableId)
-            && position.isAtOrAfter(maxSplitHighWatermarkMap.get(tableId))) {
-            pureStreamPhaseTables.add(tableId);
-            return true;
-        }
-
-        return !maxSplitHighWatermarkMap.containsKey(tableId)
-            && taskContext.getTableFilter().isIncluded(tableId);
-    }
-
     private void configureFilter() {
-        Map<TableId, Offset> tableIdOffsetPositionMap = new HashMap<>();
-        // latest-offset mode
-
-        for (TableId tableId : currentIncrementalSplit.getTableIds()) {
-            tableIdOffsetPositionMap.put(tableId, currentIncrementalSplit.getStartupOffset());
-        }
-        this.maxSplitHighWatermarkMap = tableIdOffsetPositionMap;
-        this.pureStreamPhaseTables.clear();
+        splitStartWatermark = currentIncrementalSplit.getStartupOffset();
     }
 }

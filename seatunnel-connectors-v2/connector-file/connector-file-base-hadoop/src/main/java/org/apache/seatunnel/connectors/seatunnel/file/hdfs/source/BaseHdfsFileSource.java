@@ -38,23 +38,24 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HdfsSourceConfig.FILE_PATH, HdfsSourceConfig.FILE_TYPE, HdfsSourceConfig.DEFAULT_FS);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HdfsSourceConfig.FILE_PATH.key(),
+                HdfsSourceConfig.FILE_TYPE.key(), HdfsSourceConfig.DEFAULT_FS.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
-        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(HdfsSourceConfig.FILE_TYPE));
+        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(HdfsSourceConfig.FILE_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
-        String path = pluginConfig.getString(HdfsSourceConfig.FILE_PATH);
-        hadoopConf = new HadoopConf(pluginConfig.getString(HdfsSourceConfig.DEFAULT_FS));
+        String path = pluginConfig.getString(HdfsSourceConfig.FILE_PATH.key());
+        hadoopConf = new HadoopConf(pluginConfig.getString(HdfsSourceConfig.DEFAULT_FS.key()));
         try {
             filePaths = readStrategy.getFileNamesByPath(hadoopConf, path);
         } catch (IOException e) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Check file path fail.");
         }
         // support user-defined schema
-        FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(HdfsSourceConfig.FILE_TYPE).toUpperCase());
+        FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(HdfsSourceConfig.FILE_TYPE.key()).toUpperCase());
         // only json text csv type support user-defined schema now
-        if (pluginConfig.hasPath(HdfsSourceConfig.SCHEMA)) {
+        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
             switch (fileFormat) {
                 case CSV:
                 case TEXT:
