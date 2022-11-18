@@ -1,10 +1,10 @@
-# My Hours
+# Klaviyo
 
-> My Hours source connector
-
+> Klaviyo source connector
+ 
 ## Description
 
-Used to read data from My Hours.
+Used to read data from Klaviyo.
 
 ## Key features
 
@@ -20,8 +20,8 @@ Used to read data from My Hours.
 | name                        | type   | required | default value |
 | --------------------------- | ------ | -------- | ------------- |
 | url                         | String | Yes      | -             |
-| email                       | String | Yes      | -             |
-| password                    | String | Yes      | -             |
+| private_key                 | String | Yes      | -             |
+| revision                    | String | Yes      | -             |
 | method                      | String | No       | get           |
 | schema                      | Config | No       | -             |
 | schema.fields               | Config | No       | -             |
@@ -38,13 +38,15 @@ Used to read data from My Hours.
 
 http request url
 
-### email [String]
+### private_key [String]
 
-email for login
+API private key for login, you can get more detail at this link:
 
-### password [String]
+https://developers.klaviyo.com/en/docs/retrieve_api_credentials
 
-password for login
+### revision [String]
+
+API endpoint revision (format: YYYY-MM-DD)
 
 ### method [String]
 
@@ -83,15 +85,12 @@ when you assign format is `json`, you should also assign schema option, for exam
 upstream data is the following:
 
 ```json
-
 {"code":  200, "data":  "get success", "success":  true}
-
 ```
 
 you should assign schema as the following:
 
 ```hocon
-
 schema {
     fields {
         code = int
@@ -99,7 +98,6 @@ schema {
         success = boolean
     }
 }
-
 ```
 
 connector will generate data as the following:
@@ -113,9 +111,7 @@ when you assign format is `text`, connector will do nothing for upstream data, f
 upstream data is the following:
 
 ```json
-
 {"code":  200, "data":  "get success", "success":  true}
-
 ```
 
 connector will generate data as the following:
@@ -130,43 +126,32 @@ connector will generate data as the following:
 
 the schema fields of upstream data
 
-### common options 
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
 ## Example
 
 ```hocon
-MyHours{
-    url = "https://api2.myhours.com/api/Projects/getAll"
-    email = "seatunnel@test.com"
-    password = "seatunnel"
-    schema {
-       fields {
-         name = string
-         archived = boolean
-         dateArchived = string
-         dateCreated = string
-         clientName = string
-         budgetAlertPercent = string
-         budgetType = int
-         totalTimeLogged = double
-         budgetValue = double
-         totalAmount = double
-         totalExpense = double
-         laborCost = double
-         totalCost = double
-         billableTimeLogged = double
-         totalBillableAmount = double
-         billable = boolean
-         roundType = int
-         roundInterval = int
-         budgetSpentPercentage = double
-         budgetTarget = int
-         budgetPeriodType = string
-         budgetSpent = string
-         id = string
-       }
+Klaviyo {
+    url = "https://a.klaviyo.com/api/lists/"
+    private_key = "Seatunnel-test"
+    revision = "2020-10-17"
+    method = "GET"
+    format = "json"
+    schema = {
+          fields {
+            type = string
+            id = string
+            attributes = {
+                  name = string
+                  created = string
+                  updated = string
+            }
+            links = {
+                  self = string
+            }
+          }
     }
 }
 ```
@@ -175,4 +160,4 @@ MyHours{
 
 ### next version
 
-- Add My Hours Source Connector
+- Add Klaviyo Source Connector
