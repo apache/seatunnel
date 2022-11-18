@@ -36,6 +36,7 @@
         <module>connector-http-myhours</module>
         <module>connector-http-lemlist</module>
         <module>connector-http-klaviyo</module>
+        <module>connector-http-notion</module>
     </modules>
 
 </project>

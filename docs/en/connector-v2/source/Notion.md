@@ -1,10 +1,10 @@
-# Lemlist
+# Notion
 
-> Lemlist source connector
+> Notion source connector
 
 ## Description
 
-Used to read data from Lemlist.
+Used to read data from Notion.
 
 ## Key features
 
@@ -21,6 +21,7 @@ Used to read data from Lemlist.
 | --------------------------- | ------ | -------- | ------------- |
 | url                         | String | Yes      | -             |
 | password                    | String | Yes      | -             |
+| version                     | String | Yes      | -             |
 | method                      | String | No       | get           |
 | schema.fields               | Config | No       | -             |
 | format                      | String | No       | json          |
@@ -40,7 +41,11 @@ http request url
 
 API key for login, you can get more detail at this link:
 
-https://app.lemlist.com/settings/integrations
+https://developers.notion.com/docs/authorization
+
+### version [String]
+
+The Notion API is versioned. API versions are named for the date the version is released
 
 ### method [String]
 
@@ -133,13 +138,19 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ## Example
 
 ```hocon
-Lemlist {
-    url = "https://api.lemlist.com/api/campaigns"
+Notion {
+    url = "https://api.notion.com/v1/users/5f0f761d-c2b1-4e56-a09c-7fb84410af32"
     password = "Seatunnel-test"
-    schema {
+    version = "2022-06-28"
+    schema = {
        fields {
-         _id = string
-         name = string
+          object = string
+          id = string
+          type = string
+          person = {
+              email = string
+          }
+          avatar_url = string
        }
     }
 }
@@ -149,4 +160,4 @@ Lemlist {
 
 ### next version
 
-- Add Lemlist Source Connector
+- Add Notion Source Connector
