@@ -17,11 +17,22 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.s3.config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 
 public class S3Config extends BaseSourceConfig {
-    public static final String S3_ACCESS_KEY = "access_key";
-    public static final String S3_SECRET_KEY = "secret_key";
-    public static final String S3_BUCKET = "bucket";
+    public static final Option<String> S3_ACCESS_KEY = Options.key("access_key")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("S3 access key");
+    public static final Option<String> S3_SECRET_KEY = Options.key("secret_key")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("S3 secret key");
+    public static final Option<String> S3_BUCKET = Options.key("bucket")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("S3 bucket");
 
 }
