@@ -38,6 +38,7 @@
         <oracle.version>12.2.0.1</oracle.version>
         <db2.version>db2jcc4</db2.version>
         <tablestore.version>5.13.9</tablestore.version>
+        <teradata.version>17.20.00.12</teradata.version>
     </properties>
 
     <dependencyManagement>
@@ -92,6 +93,13 @@
                 <scope>provided</scope>
             </dependency>
 
+            <dependency>
+                <groupId>com.teradata.jdbc</groupId>
+                <artifactId>terajdbc4</artifactId>
+                <version>${teradata.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
@@ -136,6 +144,10 @@
         <dependency>
             <groupId>com.aliyun.openservices</groupId>
             <artifactId>tablestore-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.teradata.jdbc</groupId>
+            <artifactId>terajdbc4</artifactId>
         </dependency>
     </dependencies>
 
