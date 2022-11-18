@@ -146,8 +146,8 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
                 .collect(Collectors.toList());
         }
 
-        if (config.hasPath(Constant.MAX_ROWS_IN_MEMORY)) {
-            this.maxRowsInMemory = config.getInt(Constant.MAX_ROWS_IN_MEMORY);
+        if (config.hasPath("max_rows_in_memory")) {
+            this.maxRowsInMemory = config.getInt("max_rows_in_memory");
         }
     }
 }
