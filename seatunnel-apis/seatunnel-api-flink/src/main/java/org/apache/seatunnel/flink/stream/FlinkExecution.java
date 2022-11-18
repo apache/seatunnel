@@ -35,13 +35,13 @@ import java.util.List;
 import java.util.Optional;
 
 @Slf4j
-public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkStreamTransform, FlinkStreamSink, FlinkEnvironment> {
+public class FlinkExecution implements Execution<FlinkStreamSource, FlinkStreamTransform, FlinkStreamSink, FlinkEnvironment> {
 
     private Config config;
 
     private final FlinkEnvironment flinkEnvironment;
 
-    public FlinkStreamExecution(FlinkEnvironment streamEnvironment) {
+    public FlinkExecution(FlinkEnvironment streamEnvironment) {
         this.flinkEnvironment = streamEnvironment;
     }
 
