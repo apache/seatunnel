@@ -25,6 +25,9 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class MysqlDialect implements JdbcDialect {
     @Override
@@ -40,6 +43,20 @@ public class MysqlDialect implements JdbcDialect {
     @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
         return new MySqlTypeMapper();
+    }
+
+    @Override
+    public String quoteIdentifier(String identifier) {
+        return "`" + identifier + "`";
+    }
+
+    @Override
+    public Optional<String> getUpsertStatement(String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+        String updateClause = Arrays.stream(fieldNames)
+            .map(fieldName -> quoteIdentifier(fieldName) + "=VALUES(" + quoteIdentifier(fieldName) + ")")
+            .collect(Collectors.joining(", "));
+        String upsertSQL = getInsertIntoStatement(tableName, fieldNames) + " ON DUPLICATE KEY UPDATE " + updateClause;
+        return Optional.of(upsertSQL);
     }
 
     @Override
