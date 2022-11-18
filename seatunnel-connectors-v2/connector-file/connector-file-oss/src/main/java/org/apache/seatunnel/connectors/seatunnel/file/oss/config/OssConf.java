@@ -26,11 +26,17 @@ import org.apache.hadoop.fs.aliyun.oss.Constants;
 import java.util.HashMap;
 
 public class OssConf extends HadoopConf {
-    private final String fsHdfsImpl = "org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem";
+    private static final String HDFS_IMPL = "org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem";
+    private static final String SCHEMA = "oss";
 
     @Override
     public String getFsHdfsImpl() {
-        return fsHdfsImpl;
+        return HDFS_IMPL;
+    }
+
+    @Override
+    public String getSchema() {
+        return SCHEMA;
     }
 
     public OssConf(String hdfsNameKey) {
@@ -38,11 +44,11 @@ public class OssConf extends HadoopConf {
     }
 
     public static HadoopConf buildWithConfig(Config config) {
-        HadoopConf hadoopConf = new OssConf(config.getString(OssConfig.BUCKET));
+        HadoopConf hadoopConf = new OssConf(config.getString(OssConfig.BUCKET.key()));
         HashMap<String, String> ossOptions = new HashMap<>();
-        ossOptions.put(Constants.ACCESS_KEY_ID, config.getString(OssConfig.ACCESS_KEY));
-        ossOptions.put(Constants.ACCESS_KEY_SECRET, config.getString(OssConfig.ACCESS_SECRET));
-        ossOptions.put(Constants.ENDPOINT_KEY, config.getString(OssConfig.ENDPOINT));
+        ossOptions.put(Constants.ACCESS_KEY_ID, config.getString(OssConfig.ACCESS_KEY.key()));
+        ossOptions.put(Constants.ACCESS_KEY_SECRET, config.getString(OssConfig.ACCESS_SECRET.key()));
+        ossOptions.put(Constants.ENDPOINT_KEY, config.getString(OssConfig.ENDPOINT.key()));
         hadoopConf.setExtraOptions(ossOptions);
         return hadoopConf;
     }
