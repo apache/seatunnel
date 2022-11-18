@@ -28,6 +28,7 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.google.sheets.config.RangePosition;
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.config.SheetsConfig;
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.config.SheetsParameters;
 
@@ -36,15 +37,13 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @AutoService(SeaTunnelSink.class)
 public class SheetsSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     private SheetsParameters sheetsParameters;
     private SeaTunnelRowType seaTunnelRowType;
-    private Long rowCount;
+    private RangePosition rangePosition;
 
     @Override
     public String getPluginName() {
@@ -58,7 +57,7 @@ public class SheetsSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, checkResult.getMsg());
         }
         this.sheetsParameters = new SheetsParameters().buildWithConfig(pluginConfig);
-        this.rowCount = matchRowCount(this.sheetsParameters.getRange());
+        this.rangePosition = new RangePosition().buildWithRange(this.sheetsParameters.getRange());
     }
 
     @Override
@@ -73,21 +72,6 @@ public class SheetsSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
-        return new SheetsSinkWriter(this.sheetsParameters, this.rowCount);
-    }
-
-    // Match the number of inserted rows from the range
-    private Long matchRowCount(String range) {
-        Pattern p = Pattern.compile("[0-9]+");
-        Matcher matcher = p.matcher(range);
-        long start = 0L;
-        long end = 0L;
-        if (matcher.find()) {
-            start = Long.parseLong(matcher.group());
-        }
-        if (matcher.find()) {
-            end = Long.parseLong(matcher.group());
-        }
-        return end - start + 1;
+        return new SheetsSinkWriter(this.sheetsParameters, this.rangePosition);
     }
 }

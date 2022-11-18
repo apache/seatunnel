@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.google.sheets.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.google.sheets.config.RangePosition;
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.config.SheetsParameters;
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.serialize.GoogleSheetsSerializer;
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.serialize.SeaTunnelRowSerializer;
@@ -36,33 +37,55 @@ public class SheetsSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private final SheetsParameters sheetsParameters;
     private final SeaTunnelRowSerializer seaTunnelRowSerializer;
     private final Sheets service;
-    private final Long rowCount;
     private final List<SeaTunnelRow> seaTunnelRowList;
+    private final RangePosition rangePosition;
+    private final Long targetRowCount;
+    private final Integer batchSize = 100;
+    private Long totalCount = 0L;
 
-    public SheetsSinkWriter(SheetsParameters sheetsParameters, Long rowCount) throws IOException {
+    public SheetsSinkWriter(SheetsParameters sheetsParameters, RangePosition rangePosition) throws IOException {
         this.sheetsParameters = sheetsParameters;
         this.seaTunnelRowSerializer = new GoogleSheetsSerializer();
         this.service = sheetsParameters.buildSheets();
-        this.rowCount = rowCount;
+        this.rangePosition = rangePosition;
+        this.targetRowCount = rangePosition.getEndY() - rangePosition.getStartY() + 1;
         this.seaTunnelRowList = new ArrayList<>();
     }
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        if (this.seaTunnelRowList.size() < rowCount - 1) {
-            this.seaTunnelRowList.add(element);
-            return;
+        seaTunnelRowList.add(element);
+        totalCount++;
+        if (totalCount % batchSize == 0 || totalCount >= targetRowCount) {
+            flush();
         }
-        this.seaTunnelRowList.add(element);
-        List<List<Object>> values = this.seaTunnelRowSerializer.deserializeRow(this.seaTunnelRowList);
+    }
+
+    public void flush() throws IOException {
+        List<List<Object>> values = seaTunnelRowSerializer.deserializeRow(seaTunnelRowList);
         List<ValueRange> data = new ArrayList<>();
+
+        String start = rangePosition.getStartX();
+        String end = rangePosition.getEndX() + (rangePosition.getStartY() + totalCount - 1);
+        if (targetRowCount >= batchSize) {
+            // If it is the last batch
+            if (totalCount >= targetRowCount) {
+                start += rangePosition.getEndY() - (totalCount % batchSize) + 1;
+            } else {
+                start += rangePosition.getStartY() + totalCount - batchSize;
+            }
+        } else {
+            start += rangePosition.getStartY();
+        }
+
         data.add(new ValueRange()
-                .setRange(this.sheetsParameters.getRange())
+                .setRange(start + ":" + end)
                 .setValues(values));
         BatchUpdateValuesRequest body = new BatchUpdateValuesRequest()
                 .setValueInputOption("RAW")
                 .setData(data);
-        service.spreadsheets().values().batchUpdate(this.sheetsParameters.getSheetId(), body).execute();
+        service.spreadsheets().values().batchUpdate(sheetsParameters.getSheetId(), body).execute();
+        seaTunnelRowList.clear();
     }
 
     @Override
