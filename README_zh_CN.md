@@ -59,8 +59,8 @@ Source[数据源输入] -> Transform[数据处理] -> Sink[结果输出]
 
 ## SeaTunnel 支持的插件
 
-- Connectors 支持 [查看](https://seatunnel.apache.org/docs/category/source)
-
+- Source Connectors 支持 [查看](https://seatunnel.apache.org/docs/category/source-v2/)
+- Sink Connectors 支持 [查看](https://seatunnel.apache.org/docs/category/sink-v2/)
 - Transform 支持 [查看](https://seatunnel.apache.org/docs/transform/common-options/)
 
 ## 环境依赖
