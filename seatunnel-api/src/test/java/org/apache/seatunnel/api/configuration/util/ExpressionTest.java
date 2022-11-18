@@ -25,7 +25,6 @@ import org.apache.seatunnel.api.configuration.OptionTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings("MagicNumber")
 public class ExpressionTest {
     @Test
     public void testToString() {

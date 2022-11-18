@@ -170,7 +170,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         // wait for starrocks fully start
         given().ignoreExceptions()
                 .await()
-                .atMost(180, TimeUnit.SECONDS)
+                .atMost(360, TimeUnit.SECONDS)
                 .untilAsserted(this::initializeJdbcConnection);
         initializeJdbcTable();
         batchInsertData();
@@ -243,6 +243,11 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     }
                 }
             }
+            //Check the row numbers is equal
+            sourceResultSet.last();
+            sinkResultSet.last();
+            Assertions.assertEquals(sourceResultSet.getRow(), sinkResultSet.getRow());
+            clearSinkTable();
         } catch (Exception e) {
             throw new RuntimeException("get starRocks connection error", e);
         }
@@ -297,6 +302,14 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             ResultSet source = statement.executeQuery(sql);
             Assertions.assertTrue(source.next());
         } catch (Exception e) {
+            throw new RuntimeException("test starrocks server image error", e);
+        }
+    }
+
+    private void clearSinkTable() {
+        try (Statement statement = jdbcConnection.createStatement()) {
+            statement.execute(String.format("TRUNCATE TABLE %s.%s", DATABASE, SINK_TABLE));
+        } catch (SQLException e) {
             throw new RuntimeException("test starrocks server image error", e);
         }
     }

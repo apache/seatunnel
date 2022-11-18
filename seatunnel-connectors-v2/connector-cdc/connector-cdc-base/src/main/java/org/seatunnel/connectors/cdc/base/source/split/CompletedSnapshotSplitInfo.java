@@ -47,4 +47,13 @@ public class CompletedSnapshotSplitInfo implements Serializable {
         this.splitEnd = splitEnd;
         this.watermark = watermark;
     }
+
+    public SnapshotSplit asSnapshotSplit() {
+        return new SnapshotSplit(splitId,
+            tableId,
+            splitKeyType,
+            splitStart,
+            splitEnd,
+            watermark);
+    }
 }
