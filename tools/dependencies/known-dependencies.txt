@@ -10,12 +10,11 @@ commons-lang3-3.4.jar
 commons-pool-1.6.jar
 config-1.3.3.jar
 disruptor-3.4.4.jar
-flink-avro-1.13.6.jar
-flink-csv-1.13.6.jar
-flink-json-1.13.6.jar
-flink-orc_2.11-1.13.6.jar
-flink-parquet_2.11-1.13.6.jar
-force-shading-1.13.6.jar
+flink-avro-1.14.6.jar
+flink-csv-1.14.6.jar
+flink-json-1.14.6.jar
+flink-orc_2.11-1.14.6.jar
+flink-parquet_2.11-1.14.6.jar
 guava-19.0.jar
 hazelcast-5.1.jar
 hive-storage-api-2.6.0.jar
