@@ -27,7 +27,7 @@ public class DoubleInjectFunction implements ClickhouseFieldInjectFunction {
         if (value instanceof BigDecimal) {
             statement.setDouble(index, ((BigDecimal) value).doubleValue());
         } else {
-            statement.setDouble(index, (Double) value);
+            statement.setDouble(index, Double.parseDouble(value.toString()));
         }
     }
 

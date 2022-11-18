@@ -23,6 +23,9 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorException;
 
 import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.ColumnDefinitions;
@@ -93,7 +96,8 @@ public class TypeConvertUtil {
             case ProtocolConstants.DataType.SET:
                 return convertToArrayType(convert(((DefaultSetType) type).getElementType()));
             default:
-                throw new RuntimeException("not supported data type: " + type);
+                throw new CassandraConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported this data type: " + type);
         }
     }
 
@@ -115,7 +119,8 @@ public class TypeConvertUtil {
         } else if (dataType.equals(BasicType.BOOLEAN_TYPE)) {
             return ArrayType.BOOLEAN_ARRAY_TYPE;
         } else {
-            throw new RuntimeException("not supported data type: " + dataType);
+            throw new CassandraConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                    "Unsupported this data type: " + dataType);
         }
     }
 
@@ -199,7 +204,8 @@ public class TypeConvertUtil {
                     } else if (Boolean.class.equals(typeClass)) {
                         fields[i] = Objects.requireNonNull(row.getList(i, Boolean.class)).toArray(new Boolean[0]);
                     } else {
-                        throw new RuntimeException("List not supported data type: " + typeClass.toString());
+                        throw new CassandraConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                "List unsupported this data type: " + typeClass.toString());
                     }
                     break;
                 case ProtocolConstants.DataType.SET:
@@ -221,7 +227,8 @@ public class TypeConvertUtil {
                     } else if (Boolean.class.equals(typeClass)) {
                         fields[i] = Objects.requireNonNull(row.getSet(i, Boolean.class)).toArray(new Boolean[0]);
                     } else {
-                        throw new RuntimeException("List not supported data type: " + typeClass.toString());
+                        throw new CassandraConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                "List unsupported this data type: " + typeClass.toString());
                     }
                     break;
                 default:
@@ -248,7 +255,7 @@ public class TypeConvertUtil {
                 try {
                     statement = statement.setInetAddress(index, InetAddress.getByName((String) fileValue));
                 } catch (UnknownHostException e) {
-                    throw new RuntimeException(e);
+                    throw new CassandraConnectorException(CassandraConnectorErrorCode.PARSE_IP_ADDRESS_FAILED, e);
                 }
                 return statement;
             case ProtocolConstants.DataType.TINYINT:

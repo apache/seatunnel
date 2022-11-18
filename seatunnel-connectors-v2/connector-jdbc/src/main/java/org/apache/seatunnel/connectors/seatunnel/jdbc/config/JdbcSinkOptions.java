@@ -27,17 +27,29 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
 public class JdbcSinkOptions implements Serializable {
     private JdbcConnectionOptions jdbcConnectionOptions;
     private boolean isExactlyOnce;
-
+    public String simpleSQL;
+    private String table;
+    private List<String> primaryKeys;
     public JdbcSinkOptions(Config config) {
         this.jdbcConnectionOptions = buildJdbcConnectionOptions(config);
         if (config.hasPath(JdbcConfig.IS_EXACTLY_ONCE) && config.getBoolean(JdbcConfig.IS_EXACTLY_ONCE)) {
             this.isExactlyOnce = true;
+        }
+
+        if (config.hasPath(JdbcConfig.TABLE)) {
+            this.table = config.getString(JdbcConfig.TABLE);
+            if (config.hasPath(JdbcConfig.PRIMARY_KEYS)) {
+                this.primaryKeys = config.getStringList(JdbcConfig.PRIMARY_KEYS);
+            }
+        } else {
+            this.simpleSQL = config.getString(JdbcConfig.QUERY);
         }
     }
 }

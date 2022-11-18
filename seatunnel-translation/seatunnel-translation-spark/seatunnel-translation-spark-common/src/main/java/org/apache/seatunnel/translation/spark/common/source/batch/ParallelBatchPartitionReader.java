@@ -53,6 +53,7 @@ public class ParallelBatchPartitionReader {
     protected volatile boolean prepare = true;
 
     protected volatile BaseSourceFunction<SeaTunnelRow> internalSource;
+    protected volatile InternalRowCollector internalRowCollector;
 
     public ParallelBatchPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId) {
         this.source = source;
@@ -90,9 +91,11 @@ public class ParallelBatchPartitionReader {
             running = false;
             throw new RuntimeException("Failed to open internal source.", e);
         }
+
+        this.internalRowCollector = new InternalRowCollector(handover, checkpointLock, source.getProducedType());
         executorService.execute(() -> {
             try {
-                internalSource.run(new InternalRowCollector(handover, checkpointLock, source.getProducedType()));
+                internalSource.run(internalRowCollector);
             } catch (Exception e) {
                 handover.reportError(e);
                 log.error("BatchPartitionReader execute failed.", e);

@@ -18,8 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.myhours.source.config;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -29,9 +29,9 @@ import java.util.Map;
 public class MyHoursSourceParameter extends HttpParameter {
     public void buildWithConfig(Config pluginConfig, String accessToken) {
         super.buildWithConfig(pluginConfig);
-        //put authorization in headers
+        // put authorization in headers
         this.headers = this.getHeaders() == null ? new HashMap<>() : this.getHeaders();
-        this.headers.put(MyHoursSourceConfig.AUTHORIZATION, MyHoursSourceConfig.ACCESSTOKEN_PREFIX + " " + accessToken);
+        this.headers.put(MyHoursSourceConfig.AUTHORIZATION, MyHoursSourceConfig.ACCESS_TOKEN_PREFIX + " " + accessToken);
         this.setHeaders(this.headers);
     }
 
@@ -39,26 +39,17 @@ public class MyHoursSourceParameter extends HttpParameter {
         // set url
         this.setUrl(MyHoursSourceConfig.AUTHORIZATION_URL);
         // set method
-        this.setMethod(MyHoursSourceConfig.POST);
+        this.setMethod(HttpRequestMethod.valueOf(MyHoursSourceConfig.POST));
         // set body
-        Map bodyParams = new HashMap();
-        String email = pluginConfig.getString(MyHoursSourceConfig.EMAIL);
-        String password = pluginConfig.getString(MyHoursSourceConfig.PASSWORD);
-        bodyParams.put(MyHoursSourceConfig.GRANTTYPE, MyHoursSourceConfig.PASSWORD);
-        bodyParams.put(MyHoursSourceConfig.EMAIL, email);
-        bodyParams.put(MyHoursSourceConfig.PASSWORD, password);
-        bodyParams.put(MyHoursSourceConfig.CLIENTID, MyHoursSourceConfig.API);
+        Map<String, String> bodyParams = new HashMap<>();
+        String email = pluginConfig.getString(MyHoursSourceConfig.EMAIL.key());
+        String password = pluginConfig.getString(MyHoursSourceConfig.PASSWORD.key());
+        bodyParams.put(MyHoursSourceConfig.GRANT_TYPE, MyHoursSourceConfig.PASSWORD.key());
+        bodyParams.put(MyHoursSourceConfig.EMAIL.key(), email);
+        bodyParams.put(MyHoursSourceConfig.PASSWORD.key(), password);
+        bodyParams.put(MyHoursSourceConfig.CLIENT_ID, MyHoursSourceConfig.API);
         String body = JsonUtils.toJsonString(bodyParams);
         this.setBody(body);
-        // set retry
-        if (pluginConfig.hasPath(HttpConfig.RETRY)) {
-            this.setRetry(pluginConfig.getInt(HttpConfig.RETRY));
-            if (pluginConfig.hasPath(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS)) {
-                this.setRetryBackoffMultiplierMillis(pluginConfig.getInt(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS));
-            }
-            if (pluginConfig.hasPath(HttpConfig.RETRY_BACKOFF_MAX_MS)) {
-                this.setRetryBackoffMaxMillis(pluginConfig.getInt(HttpConfig.RETRY_BACKOFF_MAX_MS));
-            }
-        }
+        this.setRetryParameters(pluginConfig);
     }
 }

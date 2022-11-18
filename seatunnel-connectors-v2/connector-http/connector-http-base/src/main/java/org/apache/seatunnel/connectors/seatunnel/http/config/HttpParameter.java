@@ -29,46 +29,54 @@ import java.util.stream.Collectors;
 @SuppressWarnings("MagicNumber")
 public class HttpParameter implements Serializable {
     protected String url;
-    protected String method;
+    protected HttpRequestMethod method;
     protected Map<String, String> headers;
     protected Map<String, String> params;
     protected String body;
     protected int pollIntervalMillis;
     protected int retry;
-    protected int retryBackoffMultiplierMillis = 100;
-    protected int retryBackoffMaxMillis = 10000;
+    protected int retryBackoffMultiplierMillis = HttpConfig.DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS;
+    protected int retryBackoffMaxMillis = HttpConfig.DEFAULT_RETRY_BACKOFF_MAX_MS;
 
     public void buildWithConfig(Config pluginConfig) {
         // set url
-        this.setUrl(pluginConfig.getString(HttpConfig.URL));
+        this.setUrl(pluginConfig.getString(HttpConfig.URL.key()));
         // set method
-        if (pluginConfig.hasPath(HttpConfig.METHOD)) {
-            this.setMethod(pluginConfig.getString(HttpConfig.METHOD));
+        if (pluginConfig.hasPath(HttpConfig.METHOD.key())) {
+            HttpRequestMethod httpRequestMethod = HttpRequestMethod.valueOf(pluginConfig.getString(HttpConfig.METHOD.key()).toUpperCase());
+            this.setMethod(httpRequestMethod);
         } else {
-            this.setMethod(HttpConfig.METHOD_DEFAULT_VALUE);
+            this.setMethod(HttpConfig.METHOD.defaultValue());
         }
         // set headers
-        if (pluginConfig.hasPath(HttpConfig.HEADERS)) {
-            this.setHeaders(pluginConfig.getConfig(HttpConfig.HEADERS).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue().unwrapped()), (v1, v2) -> v2)));
+        if (pluginConfig.hasPath(HttpConfig.HEADERS.key())) {
+            this.setHeaders(pluginConfig.getConfig(HttpConfig.HEADERS.key()).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue().unwrapped()), (v1, v2) -> v2)));
         }
         // set params
-        if (pluginConfig.hasPath(HttpConfig.PARAMS)) {
-            this.setParams(pluginConfig.getConfig(HttpConfig.PARAMS).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue().unwrapped()), (v1, v2) -> v2)));
+        if (pluginConfig.hasPath(HttpConfig.PARAMS.key())) {
+            this.setParams(pluginConfig.getConfig(HttpConfig.PARAMS.key())
+                    .entrySet()
+                    .stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue().unwrapped()), (v1, v2) -> v2)));
         }
         // set body
-        if (pluginConfig.hasPath(HttpConfig.BODY)) {
-            this.setBody(pluginConfig.getString(HttpConfig.BODY));
+        if (pluginConfig.hasPath(HttpConfig.BODY.key())) {
+            this.setBody(pluginConfig.getString(HttpConfig.BODY.key()));
         }
-        if (pluginConfig.hasPath(HttpConfig.POLL_INTERVAL_MILLS)) {
-            this.setPollIntervalMillis(pluginConfig.getInt(HttpConfig.POLL_INTERVAL_MILLS));
+        if (pluginConfig.hasPath(HttpConfig.POLL_INTERVAL_MILLS.key())) {
+            this.setPollIntervalMillis(pluginConfig.getInt(HttpConfig.POLL_INTERVAL_MILLS.key()));
         }
-        if (pluginConfig.hasPath(HttpConfig.RETRY)) {
-            this.setRetry(pluginConfig.getInt(HttpConfig.RETRY));
-            if (pluginConfig.hasPath(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS)) {
-                this.setRetryBackoffMultiplierMillis(pluginConfig.getInt(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS));
+        this.setRetryParameters(pluginConfig);
+    }
+
+    public void setRetryParameters(Config pluginConfig) {
+        if (pluginConfig.hasPath(HttpConfig.RETRY.key())) {
+            this.setRetry(pluginConfig.getInt(HttpConfig.RETRY.key()));
+            if (pluginConfig.hasPath(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS.key())) {
+                this.setRetryBackoffMultiplierMillis(pluginConfig.getInt(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS.key()));
             }
-            if (pluginConfig.hasPath(HttpConfig.RETRY_BACKOFF_MAX_MS)) {
-                this.setRetryBackoffMaxMillis(pluginConfig.getInt(HttpConfig.RETRY_BACKOFF_MAX_MS));
+            if (pluginConfig.hasPath(HttpConfig.RETRY_BACKOFF_MAX_MS.key())) {
+                this.setRetryBackoffMaxMillis(pluginConfig.getInt(HttpConfig.RETRY_BACKOFF_MAX_MS.key()));
             }
         }
     }

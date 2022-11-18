@@ -103,10 +103,10 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
         String kudumaster = "";
         String tableName = "";
         String columnslist = "";
-        if (config.hasPath(KuduSourceConfig.KUDUMASTER) && config.hasPath(KuduSourceConfig.KUDUMASTER) && config.hasPath(KuduSourceConfig.KUDUMASTER)) {
-            kudumaster = config.getString(KuduSourceConfig.KUDUMASTER);
-            tableName = config.getString(KuduSourceConfig.TABLENAME);
-            columnslist = config.getString(KuduSourceConfig.COLUMNSLIST);
+        if (config.hasPath(KuduSourceConfig.KUDU_MASTER.key()) && config.hasPath(KuduSourceConfig.TABLE_NAME.key()) && config.hasPath(KuduSourceConfig.COLUMNS_LIST.key())) {
+            kudumaster = config.getString(KuduSourceConfig.KUDU_MASTER.key());
+            tableName = config.getString(KuduSourceConfig.TABLE_NAME.key());
+            columnslist = config.getString(KuduSourceConfig.COLUMNS_LIST.key());
             kuduInputFormat = new KuduInputFormat(kudumaster, tableName, columnslist);
         } else {
             throw new RuntimeException("Missing Source configuration parameters");
