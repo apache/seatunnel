@@ -145,7 +145,7 @@ public class JdbcDorisdbIT extends AbstractJdbcIT {
     @Override
     SeaTunnelRow initTestData() {
         return new SeaTunnelRow(
-            new Object[]{1234, 1123456, 12, 1, 0, 2222243.2222243, 2222243.22222, 1.22222, 12, "a", "VARCHAR_COL", "STRING_COL", "2022-08-13 17:35:59"});
+            new Object[]{1234, 1123456, 12, 1, 0, 3.2, 2222243.22222, 1.22222, 12, "a", "VARCHAR_COL", "STRING_COL", "2022-08-13 17:35:59"});
     }
 
     private void assertHasData(String table) {
