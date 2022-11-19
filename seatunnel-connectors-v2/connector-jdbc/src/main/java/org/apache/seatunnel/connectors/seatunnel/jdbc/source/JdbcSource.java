@@ -74,7 +74,7 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
     public void prepare(Config pluginConfig) throws PrepareFailException {
         jdbcSourceOptions = new JdbcSourceOptions(pluginConfig);
         jdbcConnectionProvider = new SimpleJdbcConnectionProvider(jdbcSourceOptions.getJdbcConnectionOptions());
-        query = jdbcSourceOptions.getJdbcConnectionOptions().query;
+        query = jdbcSourceOptions.getQuery();
         jdbcDialect = JdbcDialectLoader.load(jdbcSourceOptions.getJdbcConnectionOptions().getUrl());
         try (Connection connection = jdbcConnectionProvider.getOrEstablishConnection()) {
             typeInfo = initTableField(connection);

@@ -26,6 +26,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Optional;
 
 public class TablestoreDialect implements JdbcDialect {
     @Override
@@ -44,6 +45,11 @@ public class TablestoreDialect implements JdbcDialect {
     }
 
     @Override
+    public Optional<String> getUpsertStatement(String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+        return Optional.empty();
+    }
+
+    @Override
     public PreparedStatement creatPreparedStatement(Connection connection, String queryTemplate, int fetchSize) throws SQLException {
         PreparedStatement statement = connection.prepareStatement(queryTemplate);
         statement.setFetchSize(fetchSize);
@@ -52,7 +58,7 @@ public class TablestoreDialect implements JdbcDialect {
 
     @Override
     public ResultSetMetaData getResultSetMetaData(Connection conn, JdbcSourceOptions jdbcSourceOptions) throws SQLException {
-        PreparedStatement ps = conn.prepareStatement(jdbcSourceOptions.getJdbcConnectionOptions().getQuery());
+        PreparedStatement ps = conn.prepareStatement(jdbcSourceOptions.getQuery());
         return ps.executeQuery().getMetaData();
     }
 }

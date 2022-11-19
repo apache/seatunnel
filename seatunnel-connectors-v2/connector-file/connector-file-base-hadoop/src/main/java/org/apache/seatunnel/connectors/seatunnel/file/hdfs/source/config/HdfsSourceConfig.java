@@ -19,8 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 
 public class HdfsSourceConfig extends BaseSourceConfig {
-    public static final String DEFAULT_FS = FS_DEFAULT_NAME_KEY;
+    public static final Option<String> DEFAULT_FS = Options.key(FS_DEFAULT_NAME_KEY)
+            .stringType()
+            .noDefaultValue()
+            .withDescription("HDFS namenode host");
 }
