@@ -82,7 +82,7 @@ public class JdbcDorisdbIT extends AbstractJdbcIT {
         "  CHAR_COL       CHAR,\n" +
         "  VARCHAR_11_COL VARCHAR(11),\n" +
         "  STRING_COL     STRING,\n" +
-        "  DATETIME_COL   DATETIME,\n" +
+        "  DATETIME_COL   DATETIME\n" +
         ")ENGINE=OLAP\n" +
         "DUPLICATE KEY(`BIGINT_COL`)\n" +
         "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 1\n" +
@@ -105,7 +105,7 @@ public class JdbcDorisdbIT extends AbstractJdbcIT {
         "  CHAR_COL,\n" +
         "  VARCHAR_11_COL,\n" +
         "  STRING_COL,\n" +
-        "  DATETIME_COL,\n" +
+        "  DATETIME_COL\n" +
         ")values(\n" +
         "\t?,?,?,?,?,?,?,?,?,?,?,?,?\n" +
         ")";
