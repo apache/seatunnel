@@ -55,6 +55,6 @@ public class IoTDBSinkFactory implements TableSinkFactory{
                 .optional(KEY_TIMESTAMP, KEY_MEASUREMENT_FIELDS, STORAGE_GROUP, BATCH_SIZE, BATCH_INTERVAL_MS,
                         MAX_RETRIES, RETRY_BACKOFF_MULTIPLIER_MS, MAX_RETRY_BACKOFF_MS, DEFAULT_THRIFT_BUFFER_SIZE,
                         MAX_THRIFT_FRAME_SIZE, ZONE_ID, ENABLE_RPC_COMPRESSION, CONNECTION_TIMEOUT_IN_MS)
-                .optional().build();
+                .build();
     }
 }
