@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.util.JdbcCompareUtil;
+
 import org.junit.jupiter.api.Assertions;
 
 import java.sql.Connection;
