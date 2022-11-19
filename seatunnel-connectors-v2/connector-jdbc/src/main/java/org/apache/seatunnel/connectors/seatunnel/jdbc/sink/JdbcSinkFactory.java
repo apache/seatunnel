@@ -48,8 +48,8 @@ public class JdbcSinkFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(URL, DRIVER, QUERY).optional(USER, PASSWORD, MAX_RETRIES, CONNECTION_CHECK_TIMEOUT_SEC, BATCH_SIZE,
-                BATCH_INTERVAL_MS, IS_EXACTLY_ONCE, XA_DATA_SOURCE_CLASS_NAME, MAX_COMMIT_ATTEMPTS, TRANSACTION_TIMEOUT_SEC, TABLE, PRIMARY_KEYS)
+        return OptionRule.builder().required(URL, DRIVER).exclusive(QUERY, TABLE).optional(USER, PASSWORD, MAX_RETRIES, CONNECTION_CHECK_TIMEOUT_SEC, BATCH_SIZE,
+                BATCH_INTERVAL_MS, IS_EXACTLY_ONCE, XA_DATA_SOURCE_CLASS_NAME, MAX_COMMIT_ATTEMPTS, TRANSACTION_TIMEOUT_SEC, PRIMARY_KEYS)
                 .build();
     }
 }
