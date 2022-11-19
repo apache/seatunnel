@@ -26,11 +26,11 @@ import lombok.NoArgsConstructor;
 /**
  * This class is the base class of FlinkEnvironment test for new seatunnel connector API.
  * The before method will create a Flink cluster, and after method will close the Flink cluster.
- * You can use {@link Flink13Container#executeJob} to submit a seatunnel config and run a seatunnel job.
+ * You can use {@link Flink14Container#executeJob} to submit a seatunnel config and run a seatunnel job.
  */
 @NoArgsConstructor
 @AutoService(TestContainer.class)
-public class Flink13Container extends AbstractTestFlinkContainer {
+public class Flink14Container extends AbstractTestFlinkContainer {
 
     @Override
     public TestContainerId identifier() {
@@ -39,7 +39,7 @@ public class Flink13Container extends AbstractTestFlinkContainer {
 
     @Override
     protected String getDockerImage() {
-        return "tyrantlucifer/flink:1.13.6-scala_2.11_hadoop27";
+        return "flink:1.14.6-scala_2.11-java8";
     }
 
     @Override
