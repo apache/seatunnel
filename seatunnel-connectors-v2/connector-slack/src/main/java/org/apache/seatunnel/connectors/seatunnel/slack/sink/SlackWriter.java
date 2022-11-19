@@ -15,14 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.sink;
+package org.apache.seatunnel.connectors.seatunnel.slack.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.connectors.seatunnel.client.SlackClient;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.config.SlackConfig;
+import org.apache.seatunnel.connectors.seatunnel.slack.client.SlackClient;
+import org.apache.seatunnel.connectors.seatunnel.slack.exception.SlackConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.slack.exception.SlackConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -33,16 +34,14 @@ import java.util.StringJoiner;
 
 @Slf4j
 public class SlackWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
-    private SlackConfig slackConfig;
     private final String conversationId;
     private final SlackClient slackClient;
     private final SeaTunnelRowType seaTunnelRowType;
     private static final long POST_MSG_WAITING_TIME = 1500L;
 
     public SlackWriter(SeaTunnelRowType seaTunnelRowType, Config pluginConfig) {
-        this.slackConfig = new SlackConfig(pluginConfig);
         this.seaTunnelRowType = seaTunnelRowType;
-        this.slackClient = new SlackClient(slackConfig);
+        this.slackClient = new SlackClient(pluginConfig);
         this.conversationId = slackClient.findConversation();
     }
 
@@ -61,7 +60,7 @@ public class SlackWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             Thread.sleep(POST_MSG_WAITING_TIME);
         } catch (Exception e) {
             log.warn("Write to Slack Fail.", ExceptionUtils.getMessage(e));
-            throw new RuntimeException("Write to Slack Fail.", e);
+            throw new SlackConnectorException(SlackConnectorErrorCode.WRITE_TO_SLACK_CHANNEL_FAILED, e);
         }
     }
 

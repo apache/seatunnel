@@ -15,10 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.client;
+package org.apache.seatunnel.connectors.seatunnel.slack.client;
+
+import static org.apache.seatunnel.connectors.seatunnel.slack.config.SlackConfig.OAUTH_TOKEN;
+import static org.apache.seatunnel.connectors.seatunnel.slack.config.SlackConfig.SLACK_CHANNEL;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.connectors.seatunnel.config.SlackConfig;
+
+import org.apache.seatunnel.connectors.seatunnel.slack.exception.SlackConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.slack.exception.SlackConnectorException;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.slack.api.Slack;
 import com.slack.api.methods.MethodsClient;
@@ -33,11 +39,11 @@ import java.util.List;
 
 @Slf4j
 public class SlackClient {
-    private SlackConfig slackConfig;
-    private MethodsClient methodsClient;
+    private final Config pluginConfig;
+    private final MethodsClient methodsClient;
 
-    public SlackClient(SlackConfig slackConfig) {
-        this.slackConfig = slackConfig;
+    public SlackClient(Config pluginConfig) {
+        this.pluginConfig = pluginConfig;
         this.methodsClient = Slack.getInstance().methods();
     }
 
@@ -51,11 +57,11 @@ public class SlackClient {
             // Get Conversion List
             ConversationsListResponse conversationsListResponse = methodsClient.conversationsList(r -> r
                 // The Token used to initialize app
-                .token(slackConfig.getOauthToken())
+                .token(pluginConfig.getString(OAUTH_TOKEN.key()))
             );
             channels = conversationsListResponse.getChannels();
             for (Conversation channel : channels) {
-                if (channel.getName().equals(slackConfig.getSlackChannel())) {
+                if (channel.getName().equals(pluginConfig.getString(SLACK_CHANNEL.key()))) {
                     conversionId = channel.getId();
                     // Break from for loop
                     break;
@@ -63,7 +69,7 @@ public class SlackClient {
             }
         } catch (IOException | SlackApiException e) {
             log.warn("Find Slack Conversion Fail.", e);
-            throw new RuntimeException("Find Slack Conversion Fail.", e);
+            throw new SlackConnectorException(SlackConnectorErrorCode.FIND_SLACK_CONVERSATION_FAILED, e);
         }
         return conversionId;
     }
@@ -76,7 +82,7 @@ public class SlackClient {
         try {
             ChatPostMessageResponse chatPostMessageResponse = methodsClient.chatPostMessage(r -> r
                 // The Token used to initialize app
-                .token(slackConfig.getOauthToken())
+                .token(pluginConfig.getString(SLACK_CHANNEL.key()))
                 .channel(channelId)
                 .text(text)
             );
@@ -91,6 +97,5 @@ public class SlackClient {
      * Close Conversion
      */
     public void closeMethodClient() {
-        methodsClient = null;
     }
 }

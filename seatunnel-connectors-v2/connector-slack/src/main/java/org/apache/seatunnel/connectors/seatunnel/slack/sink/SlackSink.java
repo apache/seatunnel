@@ -15,13 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.sink;
-
-import static org.apache.seatunnel.connectors.seatunnel.config.SlackConfig.OAUTH_TOKEN;
-import static org.apache.seatunnel.connectors.seatunnel.config.SlackConfig.SLACK_CHANNEL;
-import static org.apache.seatunnel.connectors.seatunnel.config.SlackConfig.WEBHOOKS_URL;
+package org.apache.seatunnel.connectors.seatunnel.slack.sink;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -32,7 +29,9 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.slack.config.SlackConfig;
 
+import org.apache.seatunnel.connectors.seatunnel.slack.exception.SlackConnectorException;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
@@ -72,9 +71,11 @@ public class SlackSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, WEBHOOKS_URL, OAUTH_TOKEN, SLACK_CHANNEL);
+        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, SlackConfig.WEBHOOKS_URL.key(), SlackConfig.OAUTH_TOKEN.key(), SlackConfig.SLACK_CHANNEL.key());
         if (!checkResult.isSuccess()) {
-            throw new PrepareFailException("Slack", PluginType.SINK, checkResult.getMsg());
+            throw new SlackConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SINK, checkResult.getMsg()));
         }
         this.pluginConfig = pluginConfig;
     }

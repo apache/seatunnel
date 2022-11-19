@@ -15,26 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.config;
+package org.apache.seatunnel.connectors.seatunnel.slack.exception;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
-import lombok.Data;
-import lombok.NonNull;
+public enum SlackConnectorErrorCode implements SeaTunnelErrorCode {
+    FIND_SLACK_CONVERSATION_FAILED("SLACK-01", "Conversation can not be founded in channels"),
+    WRITE_TO_SLACK_CHANNEL_FAILED("SLACK-02", "Write to slack channel failed");
 
-@Data
-public class SlackConfig {
+    private final String code;
 
-    public static final String WEBHOOKS_URL = "webhooks_url";
-    public static final String OAUTH_TOKEN = "oauth_token";
-    public static final String SLACK_CHANNEL = "slack_channel";
-    private String webHooksUrl;
-    private String oauthToken;
-    private String slackChannel;
+    private final String description;
 
-    public SlackConfig(@NonNull Config pluginConfig) {
-        this.webHooksUrl = pluginConfig.getString(WEBHOOKS_URL);
-        this.oauthToken = pluginConfig.getString(OAUTH_TOKEN);
-        this.slackChannel = pluginConfig.getString(SLACK_CHANNEL);
+    SlackConnectorErrorCode(String code, String description) {
+        this.code = code;
+        this.description = description;
+    }
+
+    @Override
+    public String getCode() {
+        return null;
+    }
+
+    @Override
+    public String getDescription() {
+        return null;
     }
 }
