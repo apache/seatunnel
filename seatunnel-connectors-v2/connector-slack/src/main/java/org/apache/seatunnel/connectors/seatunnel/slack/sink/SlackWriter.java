@@ -59,7 +59,7 @@ public class SlackWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             // One message can be sent as soon as one second
             Thread.sleep(POST_MSG_WAITING_TIME);
         } catch (Exception e) {
-            log.warn("Write to Slack Fail.", ExceptionUtils.getMessage(e));
+            log.error("Write to Slack Fail.", ExceptionUtils.getMessage(e));
             throw new SlackConnectorException(SlackConnectorErrorCode.WRITE_TO_SLACK_CHANNEL_FAILED, e);
         }
     }
