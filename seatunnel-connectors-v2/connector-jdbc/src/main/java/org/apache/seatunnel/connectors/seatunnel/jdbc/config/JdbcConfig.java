@@ -27,12 +27,13 @@ import java.io.Serializable;
 import java.util.List;
 
 public class JdbcConfig implements Serializable {
+    private static final int DEFAULT_CONNECTION_CHECK_TIMEOUT_SEC = 30;
 
     public static final Option<String> URL = Options.key("url").stringType().noDefaultValue().withDescription("url");
 
     public static final Option<String> DRIVER =  Options.key("driver").stringType().noDefaultValue().withDescription("driver");
 
-    public static final Option<Integer> CONNECTION_CHECK_TIMEOUT_SEC = Options.key("connection_check_timeout_sec").intType().noDefaultValue().withDescription("connection check time second");
+    public static final Option<Integer> CONNECTION_CHECK_TIMEOUT_SEC = Options.key("connection_check_timeout_sec").intType().defaultValue(DEFAULT_CONNECTION_CHECK_TIMEOUT_SEC).withDescription("connection check time second");
 
     public static final Option<Integer> MAX_RETRIES = Options.key("max_retries").intType().noDefaultValue().withDescription("max_retired");
 
