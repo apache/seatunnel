@@ -21,9 +21,9 @@ import static org.apache.seatunnel.connectors.seatunnel.slack.config.SlackConfig
 import static org.apache.seatunnel.connectors.seatunnel.slack.config.SlackConfig.SLACK_CHANNEL;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-
 import org.apache.seatunnel.connectors.seatunnel.slack.exception.SlackConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.slack.exception.SlackConnectorException;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.slack.api.Slack;
