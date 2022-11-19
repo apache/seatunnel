@@ -42,7 +42,7 @@ public class JdbcDorisdbIT extends AbstractJdbcIT {
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SINK_TABLE = "e2e_table_sink";
     private static final String SR_DRIVER_JAR = "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
-    private static final String COLUMN_STRING = "BIGINT_COL, LARGEINT_COL, SMALLINT_COL, TINYINT_COL, BOOLEAN_COL, DECIMAL_COL, DOUBLE_COL, FLOAT_COL, INT_COL, CHAR_COL, VARCHAR_11_COL, STRING_COL, DATETIME_COL";
+    private static final String COLUMN_STRING = "BIGINT_COL, LARGEINT_COL, SMALLINT_COL, TINYINT_COL, BOOLEAN_COL, DOUBLE_COL, FLOAT_COL, INT_COL, CHAR_COL, VARCHAR_11_COL, STRING_COL, DATETIME_COL";
     private static final String CONFIG_FILE = "/jdbc_doris_source_to_sink.conf";
 
     private static final String DDL_SOURCE = "create table " + DATABASE + "." + SOURCE_TABLE + " (\n" +
@@ -51,7 +51,6 @@ public class JdbcDorisdbIT extends AbstractJdbcIT {
         "  SMALLINT_COL   SMALLINT,\n" +
         "  TINYINT_COL    TINYINT,\n" +
         "  BOOLEAN_COL    BOOLEAN,\n" +
-        "  DECIMAL_COL    DECIMAL,\n" +
         "  DOUBLE_COL     DOUBLE,\n" +
         "  FLOAT_COL      FLOAT,\n" +
         "  INT_COL        INT,\n" +
@@ -75,7 +74,6 @@ public class JdbcDorisdbIT extends AbstractJdbcIT {
         "  SMALLINT_COL   SMALLINT,\n" +
         "  TINYINT_COL    TINYINT,\n" +
         "  BOOLEAN_COL    BOOLEAN,\n" +
-        "  DECIMAL_COL    DECIMAL,\n" +
         "  DOUBLE_COL     DOUBLE,\n" +
         "  FLOAT_COL      FLOAT,\n" +
         "  INT_COL        INT,\n" +
@@ -98,7 +96,6 @@ public class JdbcDorisdbIT extends AbstractJdbcIT {
         "  SMALLINT_COL,\n" +
         "  TINYINT_COL,\n" +
         "  BOOLEAN_COL,\n" +
-        "  DECIMAL_COL,\n" +
         "  DOUBLE_COL,\n" +
         "  FLOAT_COL,\n" +
         "  INT_COL,\n" +
@@ -107,7 +104,7 @@ public class JdbcDorisdbIT extends AbstractJdbcIT {
         "  STRING_COL,\n" +
         "  DATETIME_COL\n" +
         ")values(\n" +
-        "\t?,?,?,?,?,?,?,?,?,?,?,?,?\n" +
+        "\t?,?,?,?,?,?,?,?,?,?,?,?\n" +
         ")";
 
     @Override
@@ -145,7 +142,7 @@ public class JdbcDorisdbIT extends AbstractJdbcIT {
     @Override
     SeaTunnelRow initTestData() {
         return new SeaTunnelRow(
-            new Object[]{1234, 1123456, 12, 1, 0, 3.2, 2222243.22222, 1.22222, 12, "a", "VARCHAR_COL", "STRING_COL", "2022-08-13 17:35:59"});
+            new Object[]{1234, 1123456, 12, 1, 0, 2222243.22222, 1.22222, 12, "a", "VARCHAR_COL", "STRING_COL", "2022-08-13 17:35:59"});
     }
 
     private void assertHasData(String table) {
