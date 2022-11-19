@@ -34,7 +34,7 @@ public class Flink14Container extends AbstractTestFlinkContainer {
 
     @Override
     public TestContainerId identifier() {
-        return TestContainerId.FLINK_1_13;
+        return TestContainerId.FLINK_1_14;
     }
 
     @Override
