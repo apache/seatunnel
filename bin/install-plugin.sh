@@ -70,26 +70,30 @@ fi
 path=flink-sql
 
 while read line; do
+    # v1 connectors flink-sql
+	  if [ "$line" = "--flink-sql-connectors--" ]
+	    then
+	  	 path=flink-sql
+	  fi
+	  # v1 connectors flink
+	  if [ "$line" = "--flink-connectors--" ]
+	    then
+	  	 path=flink
+	  fi
+	  # v1 connectors spark
+	  if [ "$line" = "--spark-connectors--" ]
+	    then
+	  	 path=spark
+	  fi
+	  # v2 connectors
+	  if [ "$line" = "--connectors-v2--" ]
+	    then
+	  	 path=seatunnel
+	  fi
     if  [ ${line:0:1} != "-" ] && [ ${line:0:1} != "#" ]
       	then
       		echo "install connector : " $line
       		${SEATUNNEL_HOME}/mvnw dependency:get -DgroupId=org.apache.seatunnel -DartifactId=${line} -Dversion=${version} -Ddest=connectors/${path}
     fi
-	  if [ "$line" = "--flink-sql-connectors--" ]
-	    then 
-	  	 path=flink-sql
-	  fi	 
-	  if [ "$line" = "--flink-connectors--" ]
-	    then 
-	  	 path=flink
-	  fi	 	
-	  if [ "$line" = "--spark-connectors--" ]
-	    then 
-	  	 path=spark
-	  fi	 
-	  if [ "$line" = "--connectors-v2--" ]
-	    then 
-	  	 path=seatunnel
-	  fi	 
 
 done < ${SEATUNNEL_HOME}/config/plugin_config
