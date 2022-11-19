@@ -50,7 +50,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
         "parallelism.default: 4",
         "env.java.opts: -Doracle.jdbc.timezoneAsRegion=false");
 
-    protected static final String DEFAULT_DOCKER_IMAGE = "flink:1.14.6-scala_2.11-java8";
+    protected static final String DEFAULT_DOCKER_IMAGE = "flink:1.14.6-scala_2.11";
 
     protected GenericContainer<?> jobManager;
     protected GenericContainer<?> taskManager;
