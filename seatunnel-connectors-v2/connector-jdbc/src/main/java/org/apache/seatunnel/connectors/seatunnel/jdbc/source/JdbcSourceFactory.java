@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.AUTO_COMMIT;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.BATCH_INTERVAL_MS;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.CONNECTION_CHECK_TIMEOUT_SEC;
@@ -51,7 +52,7 @@ public class JdbcSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder().required(URL, DRIVER, QUERY).optional(USER, PASSWORD, MAX_RETRIES, CONNECTION_CHECK_TIMEOUT_SEC, BATCH_SIZE,
-                BATCH_INTERVAL_MS, IS_EXACTLY_ONCE, XA_DATA_SOURCE_CLASS_NAME, MAX_COMMIT_ATTEMPTS, TRANSACTION_TIMEOUT_SEC,
+                BATCH_INTERVAL_MS, IS_EXACTLY_ONCE, XA_DATA_SOURCE_CLASS_NAME, MAX_COMMIT_ATTEMPTS, TRANSACTION_TIMEOUT_SEC, AUTO_COMMIT,
                 PARTITION_COLUMN, PARTITION_UPPER_BOUND, PARTITION_LOWER_BOUND, PARTITION_NUM)
                 .build();
     }

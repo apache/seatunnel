@@ -28,6 +28,7 @@ import java.util.List;
 
 public class JdbcConfig implements Serializable {
     private static final int DEFAULT_CONNECTION_CHECK_TIMEOUT_SEC = 30;
+    private static final boolean DEFAULT_AUTO_COMMIT = true;
 
     public static final Option<String> URL = Options.key("url").stringType().noDefaultValue().withDescription("url");
 
@@ -43,7 +44,7 @@ public class JdbcConfig implements Serializable {
 
     public static final Option<String> QUERY = Options.key("query").stringType().noDefaultValue().withDescription("query");
 
-    public static final Option<Boolean> AUTO_COMMIT = Options.key("auto_commit").booleanType().noDefaultValue().withDescription("auto commit");
+    public static final Option<Boolean> AUTO_COMMIT = Options.key("auto_commit").booleanType().defaultValue(DEFAULT_AUTO_COMMIT).withDescription("auto commit");
 
     public static final Option<Integer> BATCH_SIZE = Options.key("batch_size").intType().noDefaultValue().withDescription("batch size");
 

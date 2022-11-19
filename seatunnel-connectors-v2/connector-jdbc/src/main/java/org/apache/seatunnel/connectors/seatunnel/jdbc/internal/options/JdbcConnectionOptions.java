@@ -32,7 +32,6 @@ public class JdbcConnectionOptions
     private static final int DEFAULT_BATCH_INTERVAL_MS = 1000;
     private static final int DEFAULT_MAX_COMMIT_ATTEMPTS = 3;
     private static final int DEFAULT_TRANSACTION_TIMEOUT_SEC = -1;
-    private static final boolean DEFAULT_AUTO_COMMIT = true;
 
     public String url;
     public String driverName;
@@ -41,7 +40,7 @@ public class JdbcConnectionOptions
     public String username;
     public String password;
 
-    public boolean autoCommit = DEFAULT_AUTO_COMMIT;
+    public boolean autoCommit = JdbcConfig.AUTO_COMMIT.defaultValue();
 
     public int batchSize = DEFAULT_BATCH_SIZE;
     public int batchIntervalMs = DEFAULT_BATCH_INTERVAL_MS;
@@ -115,7 +114,7 @@ public class JdbcConnectionOptions
         private String username;
         private String password;
         private String query;
-        private boolean autoCommit = DEFAULT_AUTO_COMMIT;
+        private boolean autoCommit = JdbcConfig.AUTO_COMMIT.defaultValue();
         private int batchSize = DEFAULT_BATCH_SIZE;
         private int batchIntervalMs = DEFAULT_BATCH_INTERVAL_MS;
         private String xaDataSourceClassName;
