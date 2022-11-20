@@ -17,24 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.gbase8a;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
-
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
 
 public class Gbase8aJdbcRowConverter extends AbstractJdbcRowConverter {
     @Override
     public String converterName() {
         return "Gbase8a";
-    }
-
-    @SuppressWarnings("checkstyle:MagicNumber")
-    @Override
-    public SeaTunnelRow toInternal(ResultSet rs, ResultSetMetaData metaData, SeaTunnelRowType typeInfo) throws SQLException {
-        return super.toInternal(rs, metaData, typeInfo);
     }
 
 }

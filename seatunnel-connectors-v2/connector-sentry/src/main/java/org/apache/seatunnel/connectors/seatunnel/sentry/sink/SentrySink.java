@@ -48,7 +48,7 @@ public class SentrySink extends AbstractSimpleSink<SeaTunnelRow, SentrySinkState
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        if (!pluginConfig.hasPath(SentryConfig.DSN)) {
+        if (!pluginConfig.hasPath(SentryConfig.DSN.key())) {
             throw new PrepareFailException(getPluginName(), PluginType.SINK,
                     String.format("Config must include column : %s", SentryConfig.DSN));
         }

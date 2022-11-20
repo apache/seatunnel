@@ -65,7 +65,7 @@ import java.util.stream.Stream;
 public class StarRocksIT extends TestSuiteBase implements TestResource {
     private static final String DOCKER_IMAGE = "d87904488/starrocks-starter:2.2.1";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
-    private static final String HOST = "e2e_starRocksdb";
+    private static final String HOST = "starrocks_e2e";
     private static final int SR_DOCKER_PORT = 9030;
     private static final int SR_PORT = 9033;
 
@@ -99,7 +99,6 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             "PROPERTIES (\n" +
             "\"replication_num\" = \"1\",\n" +
             "\"in_memory\" = \"false\"," +
-            "\"in_memory\" = \"false\"," +
             "\"storage_format\" = \"DEFAULT\"" +
             ")";
 
@@ -123,7 +122,6 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 1\n" +
             "PROPERTIES (\n" +
             "\"replication_num\" = \"1\",\n" +
-            "\"in_memory\" = \"false\"," +
             "\"in_memory\" = \"false\"," +
             "\"storage_format\" = \"DEFAULT\"" +
             ")";
@@ -170,7 +168,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         // wait for starrocks fully start
         given().ignoreExceptions()
                 .await()
-                .atMost(180, TimeUnit.SECONDS)
+                .atMost(360, TimeUnit.SECONDS)
                 .untilAsserted(this::initializeJdbcConnection);
         initializeJdbcTable();
         batchInsertData();
@@ -243,6 +241,11 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     }
                 }
             }
+            //Check the row numbers is equal
+            sourceResultSet.last();
+            sinkResultSet.last();
+            Assertions.assertEquals(sourceResultSet.getRow(), sinkResultSet.getRow());
+            clearSinkTable();
         } catch (Exception e) {
             throw new RuntimeException("get starRocks connection error", e);
         }
@@ -297,6 +300,14 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             ResultSet source = statement.executeQuery(sql);
             Assertions.assertTrue(source.next());
         } catch (Exception e) {
+            throw new RuntimeException("test starrocks server image error", e);
+        }
+    }
+
+    private void clearSinkTable() {
+        try (Statement statement = jdbcConnection.createStatement()) {
+            statement.execute(String.format("TRUNCATE TABLE %s.%s", DATABASE, SINK_TABLE));
+        } catch (SQLException e) {
             throw new RuntimeException("test starrocks server image error", e);
         }
     }

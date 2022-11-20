@@ -23,17 +23,17 @@ import org.apache.seatunnel.api.configuration.Options;
 import java.util.Map;
 
 public class HttpConfig {
-    public static final String METHOD_DEFAULT_VALUE = "GET";
     public static final String DEFAULT_FORMAT = "json";
+    public static final String BASIC = "Basic";
     public static final int DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS = 100;
     public static final int DEFAULT_RETRY_BACKOFF_MAX_MS = 10000;
     public static final Option<String> URL = Options.key("url")
             .stringType()
             .noDefaultValue()
             .withDescription("Http request url");
-    public static final Option<String> METHOD = Options.key("method")
-            .stringType()
-            .defaultValue(METHOD_DEFAULT_VALUE)
+    public static final Option<HttpRequestMethod> METHOD = Options.key("method")
+            .enumType(HttpRequestMethod.class)
+            .defaultValue(HttpRequestMethod.GET)
             .withDescription("Http request method");
     public static final Option<Map<String, String>> HEADERS = Options.key("headers")
             .mapType()
