@@ -157,17 +157,6 @@ Copyright (c) 2008 Alexander Beider & Stephen P. Morse.
 
 ========================================================================
 
-Apache Commons CLI NOTICE
-
-========================================================================
-Apache Commons CLI
-Copyright 2001-2015 The Apache Software Foundation
-
-This product includes software developed at
-The Apache Software Foundation (http://www.apache.org/).
-
-========================================================================
-
 Apache Commons Collections NOTICE
 
 ========================================================================
@@ -260,17 +249,6 @@ This product includes software developed at
 The Apache Software Foundation (https://www.apache.org/).
 
 ========================================================================
-
-Apache Commons Math NOTICE
-
-========================================================================
-Apache Commons Math
-Copyright 2001-2014 The Apache Software Foundation
-
-This product includes software developed at
-The Apache Software Foundation (http://www.apache.org/).
-
-===============================================================================
 
 The inverse error function implementation in the Erf class is based on CUDA
 code developed by Mike Giles, Oxford-Man Institute of Quantitative Finance,
@@ -464,11 +442,26 @@ from the source code management (SCM) system project uses.
 Apache log4j NOTICE
 
 ========================================================================
-Apache log4j
-Copyright 2010 The Apache Software Foundation
+Apache Log4j
+Copyright 1999-2021 Apache Software Foundation
 
 This product includes software developed at
 The Apache Software Foundation (http://www.apache.org/).
+
+ResolverUtil.java
+Copyright 2005-2006 Tim Fennell
+
+Dumbster SMTP test server
+Copyright 2004 Jason Paul Kitchen
+
+TypeUtil.java
+Copyright 2002-2012 Ramnivas Laddad, Juergen Hoeller, Chris Beams
+
+picocli (http://picocli.info)
+Copyright 2017 Remko Popma
+
+TimeoutBlockingWaitStrategy.java and parts of Util.java
+Copyright 2011 LMAX Ltd.
 ========================================================================
 
 Apache ORC NOTICE
@@ -631,3 +624,86 @@ from the Gradle Wrapper which was written originally by Hans Dockter and Adam Mu
 Copyright 2007 the original author or authors.
 
 ========================================================================
+
+ProtoStuff NOTICE
+
+==============================================================
+ protostuff
+ Copyright 2009 David Yu dyuproject@gmail.com
+==============================================================
+
+protobuf is copyright Google inc unless otherwise noted. 
+It is licensed under the BSD license.
+
+jackson-core-asl is copyright FasterXml unless otherwise noted. 
+It is licensed under the apache 2.0 license.
+
+antlr is copyright Terence Parr unless otherwise noted. 
+It is licensed under the BSD license.
+
+stringtemplate is copyright Terence Parr unless otherwise noted.
+It is licensed under the BSD license.
+
+velocity is licensed under the apache 2.0 license.
+
+B64Code.java is copyright Mort Bay Consulting Pty Ltd unless otherwise noted. 
+It is licensed under the apache 2.0 license.
+
+jarjar is copyright Google inc unless otherwise noted. 
+It is licensed under the apache 2.0 license.
+
+guava is copyright Google inc unless otherwise noted.
+It is licensed under the apache 2.0 license.
+=========================================================================
+
+hazelcast NOTICE
+
+=========================================================================
+The packages:
+
+com.hazelcast.internal.util.collection
+com.hazelcast.internal.util.concurrent
+
+and the classes:
+
+com.hazelcast.internal.util.QuickMath
+com.hazelcast.client.impl.protocol.util.UnsafeBuffer
+com.hazelcast.client.impl.protocol.util.BufferBuilder
+
+contain code originating from the Agrona project
+(https://github.com/real-logic/Agrona).
+
+The class com.hazelcast.internal.util.HashUtil contains code originating
+from the Koloboke project (https://github.com/OpenHFT/Koloboke).
+
+The class classloading.ThreadLocalLeakTestUtils contains code originating
+from the Tomcat project (https://github.com/apache/tomcat).
+
+com.hazelcast.internal.cluster.fd.PhiAccrualFailureDetector contains code originating
+from the Akka project (https://github.com/akka/akka/).
+
+The package com.hazelcast.internal.json contains code originating
+from minimal-json project (https://github.com/ralfstx/minimal-json).
+
+The class com.hazelcast.instance.impl.MobyNames contains code originating
+from The Moby Project (https://github.com/moby/moby).
+
+The class com.hazelcast.internal.util.graph.BronKerboschCliqueFinder contains code
+originating from The JGraphT Project (https://github.com/jgrapht/jgrapht).
+
+The packages:
+com.hazelcast.sql
+com.hazelcast.jet.sql
+
+contain code originating from the Apache Calcite (https://github.com/apache/calcite)
+
+The class com.hazelcast.jet.kafka.impl.ResumeTransactionUtil contains
+code derived from the Apache Flink project.
+
+The class com.hazelcast.internal.util.ConcurrentReferenceHashMap contains code written by Doug Lea
+and updated within the WildFly project (https://github.com/wildfly/wildfly).
+
+The class org.apache.calcite.linq4j.tree.ConstantExpression contains code
+originating from the Calcite project (https://github.com/apache/calcite).
+
+=========================================================================

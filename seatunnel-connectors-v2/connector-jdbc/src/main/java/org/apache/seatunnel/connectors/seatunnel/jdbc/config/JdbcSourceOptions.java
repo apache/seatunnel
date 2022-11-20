@@ -33,25 +33,26 @@ import java.util.Optional;
 @AllArgsConstructor
 public class JdbcSourceOptions implements Serializable {
     private JdbcConnectionOptions jdbcConnectionOptions;
+    public String query;
     private String partitionColumn;
     private Long partitionUpperBound;
     private Long partitionLowerBound;
-
-    private Integer parallelism;
+    private Integer partitionNumber;
 
     public JdbcSourceOptions(Config config) {
         this.jdbcConnectionOptions = buildJdbcConnectionOptions(config);
-        if (config.hasPath(JdbcConfig.PARTITION_COLUMN)) {
-            this.partitionColumn = config.getString(JdbcConfig.PARTITION_COLUMN);
+        this.query = config.getString(JdbcConfig.QUERY.key());
+        if (config.hasPath(JdbcConfig.PARTITION_COLUMN.key())) {
+            this.partitionColumn = config.getString(JdbcConfig.PARTITION_COLUMN.key());
         }
-        if (config.hasPath(JdbcConfig.PARTITION_UPPER_BOUND)) {
-            this.partitionUpperBound = config.getLong(JdbcConfig.PARTITION_UPPER_BOUND);
+        if (config.hasPath(JdbcConfig.PARTITION_UPPER_BOUND.key())) {
+            this.partitionUpperBound = config.getLong(JdbcConfig.PARTITION_UPPER_BOUND.key());
         }
-        if (config.hasPath(JdbcConfig.PARTITION_LOWER_BOUND)) {
-            this.partitionLowerBound = config.getLong(JdbcConfig.PARTITION_LOWER_BOUND);
+        if (config.hasPath(JdbcConfig.PARTITION_LOWER_BOUND.key())) {
+            this.partitionLowerBound = config.getLong(JdbcConfig.PARTITION_LOWER_BOUND.key());
         }
-        if (config.hasPath(JdbcConfig.PARALLELISM)) {
-            this.parallelism = config.getInt(JdbcConfig.PARALLELISM);
+        if (config.hasPath(JdbcConfig.PARTITION_NUM.key())) {
+            this.partitionNumber = config.getInt(JdbcConfig.PARTITION_NUM.key());
         }
     }
 
@@ -71,7 +72,7 @@ public class JdbcSourceOptions implements Serializable {
         return Optional.ofNullable(partitionLowerBound);
     }
 
-    public Optional<Integer> getParallelism() {
-        return Optional.ofNullable(parallelism);
+    public Optional<Integer> getPartitionNumber() {
+        return Optional.ofNullable(partitionNumber);
     }
 }

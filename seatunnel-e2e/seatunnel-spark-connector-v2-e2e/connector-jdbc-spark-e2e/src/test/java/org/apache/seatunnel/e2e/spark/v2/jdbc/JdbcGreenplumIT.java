@@ -31,6 +31,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -68,7 +69,7 @@ public class JdbcGreenplumIT extends SparkContainer {
         greenplumServer = new GenericContainer<>(GREENPLUM_IMAGE)
             .withNetwork(NETWORK)
             .withNetworkAliases(GREENPLUM_CONTAINER_HOST)
-            .withLogConsumer(new Slf4jLogConsumer(log));
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(GREENPLUM_IMAGE)));
         greenplumServer.setPortBindings(Lists.newArrayList(
             String.format("%s:%s", GREENPLUM_PORT, GREENPLUM_CONTAINER_PORT)));
         Startables.deepStart(Stream.of(greenplumServer)).join();
@@ -79,7 +80,7 @@ public class JdbcGreenplumIT extends SparkContainer {
             .await()
             .atLeast(100, TimeUnit.MILLISECONDS)
             .pollInterval(500, TimeUnit.MILLISECONDS)
-            .atMost(180, TimeUnit.SECONDS)
+            .atMost(360, TimeUnit.SECONDS)
             .untilAsserted(() -> initializeJdbcConnection());
         initializeJdbcTable();
         batchInsertData();
@@ -157,6 +158,9 @@ public class JdbcGreenplumIT extends SparkContainer {
     public void closeGreenplumContainer() throws SQLException {
         if (jdbcConnection != null) {
             jdbcConnection.close();
+        }
+        if (greenplumServer != null) {
+            greenplumServer.stop();
         }
     }
 

@@ -27,3 +27,16 @@ Optional jdbc drivers:
 Warn: for license compliance, if you use `GreenplumDriver` the have to provide Greenplum JDBC driver yourself, e.g. copy greenplum-xxx.jar to $SEATNUNNEL_HOME/lib for Standalone.
 
 :::
+
+## Options
+
+### common options 
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
+
+
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add Greenplum Source Connector

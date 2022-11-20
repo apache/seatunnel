@@ -34,5 +34,4 @@
         <module>seatunnel-transforms-flink</module>
         <module>seatunnel-transforms-spark</module>
     </modules>
-
 </project>

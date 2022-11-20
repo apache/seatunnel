@@ -32,6 +32,7 @@
 
     <modules>
         <module>connector-common</module>
+        <module>connector-cdc</module>
         <module>connector-clickhouse</module>
         <module>connector-console</module>
         <module>connector-fake</module>
@@ -55,6 +56,12 @@
         <module>connector-sentry</module>
         <module>connector-mongodb</module>
         <module>connector-iceberg</module>
+        <module>connector-influxdb</module>
+        <module>connector-amazondynamodb</module>
+        <module>connector-tablestore</module>
+        <module>connector-cassandra</module>
+        <module>connector-starrocks</module>
+        <module>connector-google-sheets</module>
     </modules>
 
     <dependencyManagement>
@@ -83,19 +90,14 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
                 <configuration>
-                    <skip>true</skip>
+                    <skip>${e2e.dependency.skip}</skip>
+                    <appendOutput>true</appendOutput>
                 </configuration>
             </plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-            </plugin>
-
-            <!-- make sure that flatten runs after maven-shade-plugin -->
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>flatten-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>

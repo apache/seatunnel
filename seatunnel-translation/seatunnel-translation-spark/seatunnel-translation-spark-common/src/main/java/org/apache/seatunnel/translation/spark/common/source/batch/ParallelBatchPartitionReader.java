@@ -26,9 +26,8 @@ import org.apache.seatunnel.translation.source.ParallelSource;
 import org.apache.seatunnel.translation.spark.common.InternalRowCollector;
 import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.sql.catalyst.InternalRow;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -36,9 +35,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
+@Slf4j
 public class ParallelBatchPartitionReader {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(ParallelBatchPartitionReader.class);
 
     protected static final Integer INTERVAL = 100;
 
@@ -55,6 +53,7 @@ public class ParallelBatchPartitionReader {
     protected volatile boolean prepare = true;
 
     protected volatile BaseSourceFunction<SeaTunnelRow> internalSource;
+    protected volatile InternalRowCollector internalRowCollector;
 
     public ParallelBatchPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId) {
         this.source = source;
@@ -92,12 +91,14 @@ public class ParallelBatchPartitionReader {
             running = false;
             throw new RuntimeException("Failed to open internal source.", e);
         }
+
+        this.internalRowCollector = new InternalRowCollector(handover, checkpointLock, source.getProducedType());
         executorService.execute(() -> {
             try {
-                internalSource.run(new InternalRowCollector(handover, checkpointLock, source.getProducedType()));
+                internalSource.run(internalRowCollector);
             } catch (Exception e) {
                 handover.reportError(e);
-                LOGGER.error("BatchPartitionReader execute failed.", e);
+                log.error("BatchPartitionReader execute failed.", e);
                 running = false;
             }
         });

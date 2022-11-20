@@ -24,7 +24,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import java.util.HashMap;
 
 public class FtpConf extends HadoopConf {
-    protected String fsHdfsImpl = "org.apache.seatunnel.connectors.seatunnel.file.ftp.system.SeaTunnelFTPFileSystem";
+    private static final String HDFS_IMPL = "org.apache.seatunnel.connectors.seatunnel.file.ftp.system.SeaTunnelFTPFileSystem";
+    private static final String SCHEMA = "ftp";
 
     private FtpConf(String hdfsNameKey) {
         super(hdfsNameKey);
@@ -32,18 +33,22 @@ public class FtpConf extends HadoopConf {
 
     @Override
     public String getFsHdfsImpl() {
-        return fsHdfsImpl;
+        return HDFS_IMPL;
+    }
+
+    @Override
+    public String getSchema() {
+        return SCHEMA;
     }
 
     public static HadoopConf buildWithConfig(Config config) {
-        String host = config.getString(FtpConfig.FTP_HOST);
-        int port = config.getInt(FtpConfig.FTP_PORT);
+        String host = config.getString(FtpConfig.FTP_HOST.key());
+        int port = config.getInt(FtpConfig.FTP_PORT.key());
         String defaultFS = String.format("ftp://%s:%s", host, port);
         HadoopConf hadoopConf = new FtpConf(defaultFS);
         HashMap<String, String> ftpOptions = new HashMap<>();
-        ftpOptions.put("fs.ftp.user." + host, config.getString(FtpConfig.FTP_USERNAME));
-        ftpOptions.put("fs.ftp.password." + host, config.getString(FtpConfig.FTP_PASSWORD));
-        ftpOptions.put("fs.ftp.impl", hadoopConf.getFsHdfsImpl());
+        ftpOptions.put("fs.ftp.user." + host, config.getString(FtpConfig.FTP_USERNAME.key()));
+        ftpOptions.put("fs.ftp.password." + host, config.getString(FtpConfig.FTP_PASSWORD.key()));
         hadoopConf.setExtraOptions(ftpOptions);
         return hadoopConf;
     }

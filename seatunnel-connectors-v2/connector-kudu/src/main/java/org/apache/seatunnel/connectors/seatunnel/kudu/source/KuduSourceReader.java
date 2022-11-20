@@ -23,20 +23,18 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduInputFormat;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.client.KuduScanner;
 import org.apache.kudu.client.RowResult;
 import org.apache.kudu.client.RowResultIterator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
 
+@Slf4j
 public class KuduSourceReader implements SourceReader<SeaTunnelRow, KuduSourceSplit> {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(KuduSourceReader.class);
 
     private final SourceReader.Context context;
 
@@ -79,7 +77,7 @@ public class KuduSourceReader implements SourceReader<SeaTunnelRow, KuduSourceSp
         }
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
-            LOGGER.info("Closed the bounded fake source");
+            log.info("Closed the bounded fake source");
             context.signalNoMoreElement();
         }
 

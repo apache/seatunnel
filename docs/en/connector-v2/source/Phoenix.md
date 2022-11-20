@@ -30,6 +30,10 @@ if you use phoenix (thick) driver the value is `org.apache.phoenix.jdbc.PhoenixD
 ### url [string]
 if you use phoenix (thick) driver the value is `jdbc:phoenix:localhost:2182/hbase` or you use (thin) driver the value is `jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF`
 
+### common options 
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
+
 ## Example
 use thick client drive
 ```
@@ -49,3 +53,9 @@ use thin client drive
         query = "select age, name from test.source"
     }
 ```
+
+## Changelog
+
+### 2.2.0-beta 2022-09-26
+
+- Add Phoenix Source Connector

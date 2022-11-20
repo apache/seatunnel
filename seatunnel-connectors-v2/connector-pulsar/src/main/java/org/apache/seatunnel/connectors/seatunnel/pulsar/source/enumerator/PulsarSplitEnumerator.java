@@ -151,12 +151,12 @@ public class PulsarSplitEnumerator implements SourceSplitEnumerator<PulsarPartit
     private void checkPartitionChanges(Set<TopicPartition> fetchedPartitions) {
         // Append the partitions into current assignment state.
         final Set<TopicPartition> newPartitions = getNewPartitions(fetchedPartitions);
-        if (newPartitions.isEmpty()) {
-            return;
-        }
         if (partitionDiscoveryIntervalMs <= 0 && !noMoreNewPartitionSplits) {
             LOG.debug("Partition discovery is disabled.");
             noMoreNewPartitionSplits = true;
+        }
+        if (newPartitions.isEmpty()) {
+            return;
         }
         List<PulsarPartitionSplit> newSplits = newPartitions.stream()
             .map(this::createPulsarPartitionSplit)

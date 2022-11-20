@@ -65,8 +65,11 @@ public class JdbcSourceSplitEnumerator implements SourceSplitEnumerator<JdbcSour
         List<JdbcSourceSplit> allSplit = new ArrayList<>();
         LOG.info("Starting to calculate splits.");
         if (null != partitionParameter) {
+            int partitionNumber = partitionParameter.getPartitionNumber() != null ?
+                partitionParameter.getPartitionNumber() : enumeratorContext.currentParallelism();
             JdbcNumericBetweenParametersProvider jdbcNumericBetweenParametersProvider =
-                new JdbcNumericBetweenParametersProvider(partitionParameter.minValue, partitionParameter.maxValue).ofBatchNum(enumeratorContext.currentParallelism());
+                new JdbcNumericBetweenParametersProvider(partitionParameter.minValue, partitionParameter.maxValue)
+                    .ofBatchNum(partitionNumber);
             Serializable[][] parameterValues = jdbcNumericBetweenParametersProvider.getParameterValues();
             for (int i = 0; i < parameterValues.length; i++) {
                 allSplit.add(new JdbcSourceSplit(parameterValues[i], i));
@@ -95,8 +98,8 @@ public class JdbcSourceSplitEnumerator implements SourceSplitEnumerator<JdbcSour
                 // Assign pending splits to reader
                 LOG.info("Assigning splits to readers {}", pendingAssignmentForReader);
                 enumeratorContext.assignSplit(pendingReader, new ArrayList<>(pendingAssignmentForReader));
-                enumeratorContext.signalNoMoreSplits(pendingReader);
             }
+            enumeratorContext.signalNoMoreSplits(pendingReader);
         }
     }
 

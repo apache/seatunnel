@@ -72,12 +72,17 @@ public abstract class AbstractTestContainer implements TestContainer {
         //do nothing
     }
 
-    protected void copySeaTunnelStarter(GenericContainer<?> container) {
-        ContainerUtil.copySeaTunnelStarter(container,
+    protected void copySeaTunnelStarterToContainer(GenericContainer<?> container) {
+        ContainerUtil.copySeaTunnelStarterToContainer(container,
             this.startModuleName,
             this.startModuleFullPath,
-            SEATUNNEL_HOME,
-            getStartShellName());
+            SEATUNNEL_HOME);
+    }
+
+    protected void copySeaTunnelStarterLoggingToContainer(GenericContainer<?> container) {
+        ContainerUtil.copySeaTunnelStarterLoggingToContainer(container,
+            this.startModuleFullPath,
+            SEATUNNEL_HOME);
     }
 
     protected Container.ExecResult executeJob(GenericContainer<?> container, String confFile) throws IOException, InterruptedException {
@@ -101,9 +106,27 @@ public abstract class AbstractTestContainer implements TestContainer {
         command.add(adaptPathForWin(configPath));
         command.addAll(getExtraStartShellCommands());
 
+        LOG.info("Execute config file: {} to Container[{}] "
+                + "\n==================== Shell Command start ====================\n"
+                + "{}"
+                + "\n==================== Shell Command end   ====================",
+                configPath, container.getDockerImageName(), String.join(" ", command));
         Container.ExecResult execResult = container.execInContainer("bash", "-c", String.join(" ", command));
-        LOG.info(execResult.getStdout());
-        LOG.error(execResult.getStderr());
+
+        if (execResult.getStdout() != null && execResult.getStdout().length() > 0) {
+            LOG.info("Execute config file: {} to Container[{}] STDOUT:"
+                    + "\n==================== STDOUT start ====================\n"
+                    + "{}"
+                    + "\n==================== STDOUT end   ====================",
+                    configPath, container.getDockerImageName(), execResult.getStdout());
+        }
+        if (execResult.getStderr() != null && execResult.getStderr().length() > 0) {
+            LOG.error("Execute config file: {} to Container[{}] STDERR:"
+                    + "\n==================== STDERR start ====================\n"
+                    + "{}"
+                    + "\n==================== STDERR end   ====================",
+                    configPath, container.getDockerImageName(), execResult.getStderr());
+        }
         return execResult;
     }
 }

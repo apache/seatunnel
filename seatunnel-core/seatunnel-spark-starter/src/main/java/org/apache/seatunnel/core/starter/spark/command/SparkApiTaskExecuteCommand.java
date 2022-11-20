@@ -26,8 +26,7 @@ import org.apache.seatunnel.core.starter.utils.FileUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 
@@ -35,9 +34,8 @@ import java.nio.file.Path;
  * todo: do we need to move these class to a new module? since this may cause version conflict with the old Spark version.
  * This command is used to execute the Spark job by SeaTunnel new API.
  */
+@Slf4j
 public class SparkApiTaskExecuteCommand implements Command<SparkCommandArgs> {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(SparkApiTaskExecuteCommand.class);
 
     private final SparkCommandArgs sparkCommandArgs;
 
@@ -53,7 +51,7 @@ public class SparkApiTaskExecuteCommand implements Command<SparkCommandArgs> {
             SparkExecution seaTunnelTaskExecution = new SparkExecution(config);
             seaTunnelTaskExecution.execute();
         } catch (Exception e) {
-            LOGGER.error("Run SeaTunnel on spark failed.", e);
+            log.error("Run SeaTunnel on spark failed.", e);
             throw new CommandExecuteException(e.getMessage());
         }
     }

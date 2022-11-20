@@ -26,13 +26,12 @@ import org.apache.seatunnel.flink.stream.FlinkStreamTransform;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.functions.UserDefinedFunction;
 import org.apache.flink.types.Row;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,9 +39,9 @@ import java.util.Map;
 import java.util.Properties;
 
 @SuppressWarnings("PMD")
+@Slf4j
 public class UDF implements FlinkStreamTransform, FlinkBatchTransform {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(UDF.class);
     private static final String UDF_CONFIG_PREFIX = "function.";
 
     private Config config;
@@ -68,7 +67,7 @@ public class UDF implements FlinkStreamTransform, FlinkBatchTransform {
             try {
                 tEnv.createTemporarySystemFunction(functionNames.get(i), (Class<? extends UserDefinedFunction>) Class.forName(classNames.get(i)));
             } catch (ClassNotFoundException e) {
-                LOGGER.error("The udf class {} not founded, make sure you enter the correct class name", classNames.get(i));
+                log.error("The udf class {} not founded, make sure you enter the correct class name", classNames.get(i));
                 throw new RuntimeException(e);
             }
         }
@@ -99,7 +98,7 @@ public class UDF implements FlinkStreamTransform, FlinkBatchTransform {
         functionNames = new ArrayList<>(properties.size());
 
         properties.forEach((k, v) -> {
-            classNames.add(String.valueOf(k));
+            classNames.add(String.valueOf(v));
             functionNames.add(String.valueOf(k));
         });
     }
@@ -109,9 +108,9 @@ public class UDF implements FlinkStreamTransform, FlinkBatchTransform {
         return "udf";
     }
 
-    private void hasSubConfig(String prefix){
+    private void hasSubConfig(String prefix) {
         for (Map.Entry<String, ConfigValue> entry : config.entrySet()) {
-            if (entry.getKey().startsWith(prefix)){
+            if (entry.getKey().startsWith(prefix)) {
                 return;
             }
         }

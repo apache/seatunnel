@@ -53,8 +53,8 @@ public class TestCaseInvocationContextProvider implements TestTemplateInvocation
     @SuppressWarnings("unchecked")
     @Override
     public Stream<TestTemplateInvocationContext> provideTestTemplateInvocationContexts(ExtensionContext context) {
-        List<TestContainer> testContainers = (List<TestContainer>) context.getStore(TEST_RESOURCE_NAMESPACE)
-            .get(TEST_CONTAINERS_STORE_KEY);
+        List<TestContainer> testContainers = AnnotationUtil.filterDisabledContainers((List<TestContainer>) context.getStore(TEST_RESOURCE_NAMESPACE)
+            .get(TEST_CONTAINERS_STORE_KEY), context.getRequiredTestMethod());
 
         ContainerExtendedFactory containerExtendedFactory = (ContainerExtendedFactory) context.getStore(TEST_RESOURCE_NAMESPACE)
             .get(TEST_EXTENDED_FACTORY_STORE_KEY);

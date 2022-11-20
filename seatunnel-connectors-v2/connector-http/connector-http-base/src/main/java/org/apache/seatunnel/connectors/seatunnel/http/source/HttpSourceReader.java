@@ -28,14 +28,13 @@ import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import com.google.common.base.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Objects;
 
+@Slf4j
 public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
-    private static final Logger LOGGER = LoggerFactory.getLogger(HttpSourceReader.class);
     protected final SingleSplitReaderContext context;
     protected final HttpParameter httpParameter;
     protected HttpClientProvider httpClient;
@@ -62,7 +61,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         try {
-            HttpResponse response = httpClient.execute(this.httpParameter.getUrl(), this.httpParameter.getMethod(), this.httpParameter.getHeaders(), this.httpParameter.getParams());
+            HttpResponse response = httpClient.execute(this.httpParameter.getUrl(), this.httpParameter.getMethod().getMethod(), this.httpParameter.getHeaders(), this.httpParameter.getParams(), this.httpParameter.getBody());
             if (HttpResponse.STATUS_OK == response.getCode()) {
                 String content = response.getContent();
                 if (!Strings.isNullOrEmpty(content)) {
@@ -70,13 +69,13 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 }
                 return;
             }
-            LOGGER.error("http client execute exception, http response status code:[{}], content:[{}]", response.getCode(), response.getContent());
+            log.error("http client execute exception, http response status code:[{}], content:[{}]", response.getCode(), response.getContent());
         } catch (Exception e) {
-            LOGGER.error(e.getMessage(), e);
+            log.error(e.getMessage(), e);
         } finally {
             if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
                 // signal to the source that we have reached the end of the data.
-                LOGGER.info("Closed the bounded http source");
+                log.info("Closed the bounded http source");
                 context.signalNoMoreElement();
             } else {
                 if (httpParameter.getPollIntervalMillis() > 0) {

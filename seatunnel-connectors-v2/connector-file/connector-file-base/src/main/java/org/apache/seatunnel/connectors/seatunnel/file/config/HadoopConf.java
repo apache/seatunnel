@@ -26,12 +26,21 @@ import java.util.Map;
 
 @Data
 public class HadoopConf implements Serializable {
+    private static final String HDFS_IMPL = "org.apache.hadoop.hdfs.DistributedFileSystem";
+    private static final String SCHEMA = "hdfs";
     protected Map<String, String> extraOptions = new HashMap<>();
     protected String hdfsNameKey;
-    protected String fsHdfsImpl = "org.apache.hadoop.hdfs.DistributedFileSystem";
 
     public HadoopConf(String hdfsNameKey) {
         this.hdfsNameKey = hdfsNameKey;
+    }
+
+    public String getFsHdfsImpl() {
+        return HDFS_IMPL;
+    }
+
+    public String getSchema() {
+        return SCHEMA;
     }
 
     public void setExtraOptionsForConfiguration(Configuration configuration) {

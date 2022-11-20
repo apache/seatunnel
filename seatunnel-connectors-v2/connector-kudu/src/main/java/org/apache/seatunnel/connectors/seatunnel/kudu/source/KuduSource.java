@@ -36,22 +36,20 @@ import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduSourceState;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.client.KuduClient;
 import org.apache.kudu.client.KuduException;
 import org.apache.kudu.client.KuduScanner;
 import org.apache.kudu.client.RowResult;
 import org.apache.kudu.client.RowResultIterator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @AutoService(SeaTunnelSource.class)
 public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit, KuduSourceState> {
-    private static final Logger LOGGER = LoggerFactory.getLogger(KuduSource.class);
-
     private SeaTunnelRowType rowTypeInfo;
     private KuduInputFormat kuduInputFormat;
     private PartitionParameter partitionParameter;
@@ -85,7 +83,7 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
 
     @Override
     public SourceSplitEnumerator<KuduSourceSplit, KuduSourceState> restoreEnumerator(
-            SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext, KuduSourceState checkpointState) {
+           SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext, KuduSourceState checkpointState) {
         // todo:
         return new KuduSourceSplitEnumerator(enumeratorContext, partitionParameter);
     }
@@ -105,10 +103,10 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
         String kudumaster = "";
         String tableName = "";
         String columnslist = "";
-        if (config.hasPath(KuduSourceConfig.KUDUMASTER) && config.hasPath(KuduSourceConfig.KUDUMASTER) && config.hasPath(KuduSourceConfig.KUDUMASTER)) {
-            kudumaster = config.getString(KuduSourceConfig.KUDUMASTER);
-            tableName = config.getString(KuduSourceConfig.TABLENAME);
-            columnslist = config.getString(KuduSourceConfig.COLUMNSLIST);
+        if (config.hasPath(KuduSourceConfig.KUDU_MASTER.key()) && config.hasPath(KuduSourceConfig.TABLE_NAME.key()) && config.hasPath(KuduSourceConfig.COLUMNS_LIST.key())) {
+            kudumaster = config.getString(KuduSourceConfig.KUDU_MASTER.key());
+            tableName = config.getString(KuduSourceConfig.TABLE_NAME.key());
+            columnslist = config.getString(KuduSourceConfig.COLUMNS_LIST.key());
             kuduInputFormat = new KuduInputFormat(kudumaster, tableName, columnslist);
         } else {
             throw new RuntimeException("Missing Source configuration parameters");
@@ -176,7 +174,7 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
             }
 
         } catch (Exception e) {
-            LOGGER.warn("get row type info exception", e);
+            log.warn("get row type info exception", e);
             throw new PrepareFailException("kudu", PluginType.SOURCE, e.toString());
         }
         return new SeaTunnelRowType(fieldNames.toArray(new String[fieldNames.size()]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));

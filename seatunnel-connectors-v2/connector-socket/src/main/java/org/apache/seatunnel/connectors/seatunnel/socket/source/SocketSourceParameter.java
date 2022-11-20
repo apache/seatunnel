@@ -17,31 +17,39 @@
 
 package org.apache.seatunnel.connectors.seatunnel.socket.source;
 
+import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.PORT;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.Serializable;
 import java.util.Objects;
 
 public class SocketSourceParameter implements Serializable {
-
-    private static final String DEFAULT_HOST = "localhost";
-    private static final int DEFAULT_PORT = 9999;
     private String host;
     private Integer port;
 
     public String getHost() {
-        return StringUtils.isBlank(host) ? DEFAULT_HOST : host;
-    }
-
-    public void setHost(String host) {
-        this.host = host;
+        return StringUtils.isBlank(host) ? HOST.defaultValue() : host;
     }
 
     public Integer getPort() {
-        return Objects.isNull(port) ? DEFAULT_PORT : port;
+        return Objects.isNull(port) ? PORT.defaultValue() : port;
     }
 
-    public void setPort(Integer port) {
-        this.port = port;
+    public SocketSourceParameter(Config config) {
+        if (config.hasPath(HOST.key())) {
+            this.host = config.getString(HOST.key());
+        } else {
+            this.host = HOST.defaultValue();
+        }
+
+        if (config.hasPath(PORT.key())) {
+            this.port = config.getInt(PORT.key());
+        } else {
+            this.port = PORT.defaultValue();
+        }
     }
 }

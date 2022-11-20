@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.FIELD_RULES;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.ROW_RULES;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.RULES;
+
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -39,9 +43,9 @@ import java.util.List;
 
 @AutoService(SeaTunnelSink.class)
 public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
-    private static final String RULES = "rules";
     private SeaTunnelRowType seaTunnelRowType;
     private List<AssertFieldRule> assertFieldRules;
+    private List<AssertFieldRule.AssertRule> assertRowRules;
 
     @Override
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
@@ -55,20 +59,29 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
-        return new AssertSinkWriter(seaTunnelRowType, assertFieldRules);
+        return new AssertSinkWriter(seaTunnelRowType, assertFieldRules, assertRowRules);
     }
 
     @Override
     public void prepare(Config pluginConfig) {
-        if (!pluginConfig.hasPath(RULES)) {
-            Throwables.propagateIfPossible(new ConfigException.Missing(RULES));
+        if (!pluginConfig.hasPath(RULES.key())) {
+            Throwables.propagateIfPossible(new ConfigException.Missing(RULES.key()));
+        }
+        Config ruleConfig = pluginConfig.getConfig(RULES.key());
+        List<? extends Config> rowConfigList = null;
+        List<? extends Config> configList = null;
+        if (ruleConfig.hasPath(ROW_RULES)) {
+            rowConfigList = ruleConfig.getConfigList(ROW_RULES);
+            assertRowRules = new AssertRuleParser().parseRowRules(rowConfigList);
+        }
+        if (ruleConfig.hasPath(FIELD_RULES)) {
+            configList = ruleConfig.getConfigList(FIELD_RULES);
+            assertFieldRules = new AssertRuleParser().parseRules(configList);
         }
 
-        List<? extends Config> configList = pluginConfig.getConfigList(RULES);
-        if (CollectionUtils.isEmpty(configList)) {
-            Throwables.propagateIfPossible(new ConfigException.BadValue(RULES, "Assert rule config is empty, please add rule config."));
+        if (CollectionUtils.isEmpty(configList) && CollectionUtils.isEmpty(rowConfigList)) {
+            Throwables.propagateIfPossible(new ConfigException.BadValue(RULES.key(), "Assert rule config is empty, please add rule config."));
         }
-        assertFieldRules = new AssertRuleParser().parseRules(configList);
     }
 
     @Override

@@ -33,7 +33,7 @@ import java.util.Objects;
 public class FlinkStarter implements Starter {
 
     private static final String APP_NAME = SeatunnelFlink.class.getName();
-    private static final String APP_JAR_NAME = "seatunnel-flink-starter.jar";
+    public static final String APP_JAR_NAME = "seatunnel-flink-starter.jar";
 
     /**
      * SeaTunnel parameters, used by SeaTunnel application. e.g. `-c config.conf`
@@ -50,7 +50,7 @@ public class FlinkStarter implements Starter {
         // set the deployment mode, used to get the job jar path.
         Common.setDeployMode(flinkCommandArgs.getDeployMode());
         Common.setStarter(true);
-        this.appJar = Common.appLibDir().resolve(APP_JAR_NAME).toString();
+        this.appJar = Common.appStarterDir().resolve(APP_JAR_NAME).toString();
     }
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
@@ -73,6 +73,8 @@ public class FlinkStarter implements Starter {
         if (flinkCommandArgs.isCheckConfig()) {
             command.add("--check");
         }
+        //set job name
+        command.add("-Dpipeline.name=" + flinkCommandArgs.getJobName());
         // set System properties
         flinkCommandArgs.getVariables().stream()
                 .filter(Objects::nonNull)

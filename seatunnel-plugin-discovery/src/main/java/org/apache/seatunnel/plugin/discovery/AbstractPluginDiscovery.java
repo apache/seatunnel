@@ -23,12 +23,13 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -38,6 +39,8 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,16 +49,16 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
+@Slf4j
 public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractPluginDiscovery.class);
-    private final Path pluginDir;
+    private static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
 
     /**
      * Add jar url to classloader. The different engine should have different logic to add url into
      * their own classloader
      */
-    private BiConsumer<ClassLoader, URL> addURLToClassLoader = (classLoader, url) -> {
+    private static final BiConsumer DEFAULT_URL_TO_CLASSLOADER = (classLoader, url) -> {
         if (classLoader instanceof URLClassLoader) {
             ReflectionUtils.invoke(classLoader, "addURL", url);
         } else {
@@ -63,18 +66,39 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         }
     };
 
+    private final Path pluginDir;
+    private final Config pluginConfig;
+    private final BiConsumer<ClassLoader, URL> addURLToClassLoaderConsumer;
     protected final ConcurrentHashMap<PluginIdentifier, Optional<URL>> pluginJarPath =
         new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
 
     public AbstractPluginDiscovery(String pluginSubDir, BiConsumer<ClassLoader, URL> addURLToClassloader) {
-        this.pluginDir = Common.connectorJarDir(pluginSubDir);
-        this.addURLToClassLoader = addURLToClassloader;
-        LOGGER.info("Load {} Plugin from {}", getPluginBaseClass().getSimpleName(), pluginDir);
+        this(Common.connectorJarDir(pluginSubDir), loadConnectorPluginConfig(), addURLToClassloader);
     }
 
     public AbstractPluginDiscovery(String pluginSubDir) {
-        this.pluginDir = Common.connectorJarDir(pluginSubDir);
-        LOGGER.info("Load {} Plugin from {}", getPluginBaseClass().getSimpleName(), pluginDir);
+        this(Common.connectorJarDir(pluginSubDir), loadConnectorPluginConfig());
+    }
+
+    public AbstractPluginDiscovery(Path pluginDir,
+                                   Config pluginConfig) {
+        this(pluginDir, pluginConfig, DEFAULT_URL_TO_CLASSLOADER);
+    }
+
+    public AbstractPluginDiscovery(Path pluginDir,
+                                   Config pluginConfig,
+                                   BiConsumer<ClassLoader, URL> addURLToClassLoaderConsumer) {
+        this.pluginDir = pluginDir;
+        this.pluginConfig = pluginConfig;
+        this.addURLToClassLoaderConsumer = addURLToClassLoaderConsumer;
+        log.info("Load {} Plugin from {}", getPluginBaseClass().getSimpleName(), pluginDir);
+    }
+
+    protected static Config loadConnectorPluginConfig() {
+        return ConfigFactory
+            .parseFile(Common.connectorDir().resolve(PLUGIN_MAPPING_FILE).toFile())
+            .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+            .resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
     }
 
     @Override
@@ -95,10 +119,15 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
     @Override
     public T createPluginInstance(PluginIdentifier pluginIdentifier) {
+        return (T) createPluginInstance(pluginIdentifier, Collections.EMPTY_LIST);
+    }
+
+    @Override
+    public T createPluginInstance(PluginIdentifier pluginIdentifier, Collection<URL> pluginJars) {
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         T pluginInstance = loadPluginInstance(pluginIdentifier, classLoader);
         if (pluginInstance != null) {
-            LOGGER.info("Load plugin: {} from classpath", pluginIdentifier);
+            log.info("Load plugin: {} from classpath", pluginIdentifier);
             return pluginInstance;
         }
         Optional<URL> pluginJarPath = getPluginJarPath(pluginIdentifier);
@@ -106,15 +135,24 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         if (pluginJarPath.isPresent()) {
             try {
                 // use current thread classloader to avoid different classloader load same class error.
-                this.addURLToClassLoader.accept(classLoader, pluginJarPath.get());
+                this.addURLToClassLoaderConsumer.accept(classLoader, pluginJarPath.get());
+                for (URL jar : pluginJars) {
+                    addURLToClassLoaderConsumer.accept(classLoader, jar);
+                }
             } catch (Exception e) {
-                LOGGER.warn("can't load jar use current thread classloader, use URLClassLoader instead now." +
+                log.warn("can't load jar use current thread classloader, use URLClassLoader instead now." +
                     " message: " + e.getMessage());
-                classLoader = new URLClassLoader(new URL[]{pluginJarPath.get()}, Thread.currentThread().getContextClassLoader());
+                URL[] urls = new URL[pluginJars.size() + 1];
+                int i = 0;
+                for (URL pluginJar : pluginJars) {
+                    urls[i++] = pluginJar;
+                }
+                urls[i] = pluginJarPath.get();
+                classLoader = new URLClassLoader(urls, Thread.currentThread().getContextClassLoader());
             }
             pluginInstance = loadPluginInstance(pluginIdentifier, classLoader);
             if (pluginInstance != null) {
-                LOGGER.info("Load plugin: {} from path: {} use classloader: {}",
+                log.info("Load plugin: {} from path: {} use classloader: {}",
                     pluginIdentifier, pluginJarPath.get(), classLoader.getClass().getName());
                 return pluginInstance;
             }
@@ -169,16 +207,16 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
      * @return plugin jar path.
      */
     private Optional<URL> findPluginJarPath(PluginIdentifier pluginIdentifier) {
-        if (PLUGIN_JAR_MAPPING.isEmpty()) {
+        if (pluginConfig.isEmpty()) {
             return Optional.empty();
         }
         final String engineType = pluginIdentifier.getEngineType().toLowerCase();
         final String pluginType = pluginIdentifier.getPluginType().toLowerCase();
         final String pluginName = pluginIdentifier.getPluginName().toLowerCase();
-        if (!PLUGIN_JAR_MAPPING.hasPath(engineType)) {
+        if (!pluginConfig.hasPath(engineType)) {
             return Optional.empty();
         }
-        Config engineConfig = PLUGIN_JAR_MAPPING.getConfig(engineType);
+        Config engineConfig = pluginConfig.getConfig(engineType);
         if (!engineConfig.hasPath(pluginType)) {
             return Optional.empty();
         }
@@ -201,10 +239,10 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         }
         try {
             URL pluginJarPath = targetPluginFiles[0].toURI().toURL();
-            LOGGER.info("Discovery plugin jar: {} at: {}", pluginIdentifier.getPluginName(), pluginJarPath);
+            log.info("Discovery plugin jar: {} at: {}", pluginIdentifier.getPluginName(), pluginJarPath);
             return Optional.of(pluginJarPath);
         } catch (MalformedURLException e) {
-            LOGGER.warn("Cannot get plugin URL: " + targetPluginFiles[0], e);
+            log.warn("Cannot get plugin URL: " + targetPluginFiles[0], e);
             return Optional.empty();
         }
     }

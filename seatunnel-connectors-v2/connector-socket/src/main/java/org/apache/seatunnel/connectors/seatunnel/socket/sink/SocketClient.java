@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.socket.sink;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.socket.config.SinkConfig;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -66,7 +65,7 @@ public class SocketClient {
         }
     }
 
-    public void wirte(SeaTunnelRow row) throws IOException {
+    public void write(SeaTunnelRow row) throws IOException {
         byte[] msg = serializationSchema.serialize(row);
         try {
             outputStream.write(msg);

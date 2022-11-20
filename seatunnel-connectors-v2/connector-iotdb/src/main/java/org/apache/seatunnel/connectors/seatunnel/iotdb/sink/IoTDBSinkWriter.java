@@ -27,9 +27,11 @@ import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.SeaTunnelRowSer
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.Optional;
 
 @Slf4j
 public class IoTDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
@@ -41,7 +43,8 @@ public class IoTDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                            SeaTunnelRowType seaTunnelRowType) {
         SinkConfig sinkConfig = SinkConfig.loadConfig(pluginConfig);
         this.serializer = new DefaultSeaTunnelRowSerializer(
-                seaTunnelRowType, sinkConfig.getTimeseriesOptions());
+            seaTunnelRowType, sinkConfig.getStorageGroup(), sinkConfig.getKeyTimestamp(),
+            sinkConfig.getKeyDevice(), sinkConfig.getKeyMeasurementFields());
         this.sinkClient = new IoTDBSinkClient(sinkConfig);
     }
 
@@ -49,6 +52,14 @@ public class IoTDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     public void write(SeaTunnelRow element) throws IOException {
         IoTDBRecord record = serializer.serialize(element);
         sinkClient.write(record);
+    }
+
+    @SneakyThrows
+    @Override
+    public Optional<Void> prepareCommit() {
+        // Flush to storage before snapshot state is performed
+        sinkClient.flush();
+        return super.prepareCommit();
     }
 
     @Override

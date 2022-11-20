@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.core.starter.command;
 
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.config.EngineType;
 
@@ -27,11 +28,6 @@ import java.util.List;
 
 public abstract class AbstractCommandArgs implements CommandArgs {
 
-    @Parameter(names = {"-c", "--config"},
-        description = "Config file",
-        required = true)
-    private String configFile;
-
     @Parameter(names = {"-i", "--variable"},
         description = "variable substitution, such as -i city=beijing, or -i date=20190318")
     private List<String> variables = Collections.emptyList();
@@ -40,6 +36,10 @@ public abstract class AbstractCommandArgs implements CommandArgs {
     @Parameter(names = {"-t", "--check"},
             description = "check config")
     private boolean checkConfig = false;
+
+    @Parameter(names = {"-n", "--name"},
+            description = "application name")
+    private String jobName = Constants.LOGO;
 
     @Parameter(names = {"-h", "--help"},
             help = true,
@@ -50,14 +50,6 @@ public abstract class AbstractCommandArgs implements CommandArgs {
      * Undefined parameters parsed will be stored here as engine original command parameters.
      */
     private List<String> originalParameters;
-
-    public String getConfigFile() {
-        return configFile;
-    }
-
-    public void setConfigFile(String configFile) {
-        this.configFile = configFile;
-    }
 
     public List<String> getVariables() {
         return variables;
@@ -73,6 +65,14 @@ public abstract class AbstractCommandArgs implements CommandArgs {
 
     public void setCheckConfig(boolean checkConfig) {
         this.checkConfig = checkConfig;
+    }
+
+    public String getJobName() {
+        return jobName;
+    }
+
+    public void setJobName(String jobName) {
+        this.jobName = jobName;
     }
 
     public boolean isHelp() {
@@ -96,6 +96,14 @@ public abstract class AbstractCommandArgs implements CommandArgs {
     }
 
     public DeployMode getDeployMode() {
+        throw new UnsupportedOperationException("abstract class CommandArgs not support this method");
+    }
+
+    public String getConfigFile() {
+        throw new UnsupportedOperationException("abstract class CommandArgs not support this method");
+    }
+
+    public void setConfigFile(String configFile) {
         throw new UnsupportedOperationException("abstract class CommandArgs not support this method");
     }
 

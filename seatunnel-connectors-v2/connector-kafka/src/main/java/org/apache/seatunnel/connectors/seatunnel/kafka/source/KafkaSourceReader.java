@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
+import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -31,8 +31,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -54,8 +52,6 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     private static final long THREAD_WAIT_TIME = 500L;
     private static final long POLL_TIMEOUT = 10000L;
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(KafkaSourceReader.class);
-
     private final SourceReader.Context context;
     private final ConsumerMetadata metadata;
     private final Set<KafkaSourceSplit> sourceSplits;
@@ -63,15 +59,15 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     private final ConcurrentMap<TopicPartition, KafkaSourceSplit> sourceSplitMap;
     private final Map<TopicPartition, KafkaConsumerThread> consumerThreadMap;
     private final ExecutorService executorService;
-    // TODO support user custom type
-    private SeaTunnelRowType typeInfo;
+    private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
 
-    KafkaSourceReader(ConsumerMetadata metadata, SeaTunnelRowType typeInfo,
+    KafkaSourceReader(ConsumerMetadata metadata,
+                      DeserializationSchema<SeaTunnelRow> deserializationSchema,
                       SourceReader.Context context) {
         this.metadata = metadata;
         this.context = context;
-        this.typeInfo = typeInfo;
         this.sourceSplits = new HashSet<>();
+        this.deserializationSchema = deserializationSchema;
         this.consumerThreadMap = new ConcurrentHashMap<>();
         this.sourceSplitMap = new ConcurrentHashMap<>();
         this.checkpointOffsetMap = new ConcurrentHashMap<>();
@@ -118,9 +114,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                             List<ConsumerRecord<byte[], byte[]>> recordList = records.records(partition);
                             for (ConsumerRecord<byte[], byte[]> record : recordList) {
 
-                                String v = stringDeserializer.deserialize(partition.topic(), record.value());
-                                String t = partition.topic();
-                                output.collect(new SeaTunnelRow(new Object[]{t, v}));
+                                deserializationSchema.deserialize(record.value(), output);
 
                                 if (Boundedness.BOUNDED.equals(context.getBoundedness()) &&
                                     record.offset() >= sourceSplit.getEndOffset()) {
@@ -171,7 +165,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
 
     @Override
     public void handleNoMoreSplits() {
-        LOGGER.info("receive no more splits message, this reader will not add new split.");
+        log.info("receive no more splits message, this reader will not add new split.");
     }
 
     @Override

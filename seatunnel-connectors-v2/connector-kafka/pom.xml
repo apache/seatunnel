@@ -28,7 +28,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>connector-kafka</artifactId>
-    
+
     <properties>
         <kafka.client.version>3.2.0</kafka.client.version>
     </properties>
@@ -37,6 +37,11 @@
 
         <!-- TODO add to dependency management after version unify-->
         <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
             <version>${kafka.client.version}</version>
@@ -44,6 +49,11 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-format-json</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-format-text</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

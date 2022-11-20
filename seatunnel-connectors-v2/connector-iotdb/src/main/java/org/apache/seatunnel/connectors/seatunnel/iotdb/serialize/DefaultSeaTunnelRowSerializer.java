@@ -17,161 +17,181 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.serialize;
 
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig.TimeseriesOption;
-import static com.google.common.base.Preconditions.checkArgument;
-
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
-import com.google.common.collect.Lists;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.iotdb.tsfile.common.constant.TsFileConstant;
+import com.google.common.base.Strings;
+import lombok.NonNull;
 import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
 
-    private static final String FIELD_DEVICE = "device";
-    private static final String FIELD_TIMESTAMP = "timestamp";
-    private static final String FIELD_MEASUREMENTS = "measurements";
-    private static final String FIELD_TYPES = "types";
-    private static final String FIELD_VALUES = "values";
-    private static final String SEPARATOR = ",";
-
-    private final SeaTunnelRowType seaTunnelRowType;
-    private final Map<String, TimeseriesOption> timeseriesOptionMap;
-    private final Function<SeaTunnelRow, String> deviceExtractor;
     private final Function<SeaTunnelRow, Long> timestampExtractor;
-    private final Function<SeaTunnelRow, List<String>> measurementsExtractor;
-    private final Function<SeaTunnelRow, List<TSDataType>> typesExtractor;
+    private final Function<SeaTunnelRow, String> deviceExtractor;
+    private final Function<SeaTunnelRow, List<Object>> valuesExtractor;
+    private final List<String> measurements;
+    private final List<TSDataType> measurementsType;
 
-    public DefaultSeaTunnelRowSerializer(SeaTunnelRowType seaTunnelRowType,
-                                         List<TimeseriesOption> timeseriesOptions) {
-        validateRowTypeSchema(seaTunnelRowType);
-
-        this.seaTunnelRowType = seaTunnelRowType;
-        this.timeseriesOptionMap = Optional.ofNullable(timeseriesOptions)
-                .orElse(Collections.emptyList()).stream()
-                .collect(Collectors.toMap(option -> option.getPath(), option -> option));
-
-        final List<String> rowTypeFields = Arrays.asList(seaTunnelRowType.getFieldNames());
-        final int deviceIndex = seaTunnelRowType.indexOf(FIELD_DEVICE);
-        this.deviceExtractor = seaTunnelRow -> seaTunnelRow.getField(deviceIndex).toString();
-        final int timestampIndex = seaTunnelRowType.indexOf(FIELD_TIMESTAMP);
-        this.timestampExtractor = rowTypeFields.contains(FIELD_TIMESTAMP) ?
-            seaTunnelRow -> Long.parseLong(seaTunnelRow.getField(timestampIndex).toString()) :
-            seaTunnelRow -> System.currentTimeMillis();
-        final int measurementsIndex = seaTunnelRowType.indexOf(FIELD_MEASUREMENTS);
-        this.measurementsExtractor = seaTunnelRow ->
-                Arrays.asList(seaTunnelRow.getField(measurementsIndex).toString().split(SEPARATOR));
-        final boolean containsTypesField = rowTypeFields.contains(FIELD_TYPES);
-        final int typesIndex = containsTypesField ? seaTunnelRowType.indexOf(FIELD_TYPES) : -1;
-        this.typesExtractor = seaTunnelRow -> {
-            if (!containsTypesField) {
-                return null;
-            }
-            return Arrays.stream(seaTunnelRow.getField(typesIndex).toString().split(SEPARATOR))
-                    .map(type -> TSDataType.valueOf(type))
-                    .collect(Collectors.toList());
-        };
+    public DefaultSeaTunnelRowSerializer(@NonNull SeaTunnelRowType seaTunnelRowType,
+                                         String storageGroup,
+                                         String timestampKey,
+                                         @NonNull String deviceKey,
+                                         List<String> measurementKeys) {
+        this.timestampExtractor = createTimestampExtractor(seaTunnelRowType, timestampKey);
+        this.deviceExtractor = createDeviceExtractor(seaTunnelRowType, deviceKey, storageGroup);
+        this.measurements = createMeasurements(seaTunnelRowType, timestampKey, deviceKey, measurementKeys);
+        this.measurementsType = createMeasurementTypes(seaTunnelRowType, measurements);
+        this.valuesExtractor = createValuesExtractor(seaTunnelRowType, measurements, measurementsType);
     }
 
     @Override
     public IoTDBRecord serialize(SeaTunnelRow seaTunnelRow) {
-        String device = deviceExtractor.apply(seaTunnelRow);
         Long timestamp = timestampExtractor.apply(seaTunnelRow);
-        List<String> measurements = measurementsExtractor.apply(seaTunnelRow);
-        List<TSDataType> types = typesExtractor.apply(seaTunnelRow);
-        List<Object> values = extractValues(device, measurements, types, seaTunnelRow);
-        return new IoTDBRecord(device, timestamp, measurements, types, values);
+        String device = deviceExtractor.apply(seaTunnelRow);
+        List<Object> values = valuesExtractor.apply(seaTunnelRow);
+        return new IoTDBRecord(device, timestamp, measurements, measurementsType, values);
     }
 
-    private void validateRowTypeSchema(SeaTunnelRowType seaTunnelRowType) throws IllegalArgumentException {
-        List<String> rowTypeFields = Lists.newArrayList(seaTunnelRowType.getFieldNames());
-        checkArgument(rowTypeFields.contains(FIELD_DEVICE));
-        checkArgument(rowTypeFields.contains(FIELD_MEASUREMENTS));
-        checkArgument(rowTypeFields.contains(FIELD_VALUES));
-
-        rowTypeFields.remove(FIELD_DEVICE);
-        rowTypeFields.remove(FIELD_TIMESTAMP);
-        rowTypeFields.remove(FIELD_MEASUREMENTS);
-        rowTypeFields.remove(FIELD_TYPES);
-        rowTypeFields.remove(FIELD_VALUES);
-        checkArgument(rowTypeFields.isEmpty(),
-                "Illegal SeaTunnelRowType fields: " + rowTypeFields);
-    }
-
-    private List<Object> extractValues(String device,
-                                       List<String> measurements,
-                                       List<TSDataType> tsDataTypes,
-                                       SeaTunnelRow seaTunnelRow) {
-        int valuesIndex = seaTunnelRowType.indexOf(FIELD_VALUES);
-        String[] valuesStr = StringUtils.trim(
-                seaTunnelRow.getField(valuesIndex).toString()).split(SEPARATOR);
-        if (tsDataTypes == null || tsDataTypes.isEmpty()) {
-            convertTextValues(device, measurements, valuesStr);
-            return Arrays.asList(valuesStr);
+    private Function<SeaTunnelRow, Long> createTimestampExtractor(SeaTunnelRowType seaTunnelRowType,
+                                                                  String timestampKey) {
+        if (Strings.isNullOrEmpty(timestampKey)) {
+            return row -> System.currentTimeMillis();
         }
 
-        List<Object> values = new ArrayList<>();
-        for (int i = 0; i < valuesStr.length; i++) {
-            TSDataType tsDataType = tsDataTypes.get(i);
-            switch (tsDataType) {
-                case INT32:
-                    values.add(Integer.valueOf(valuesStr[i]));
-                    break;
-                case INT64:
-                    values.add(Long.valueOf(valuesStr[i]));
-                    break;
-                case FLOAT:
-                    values.add(Float.valueOf(valuesStr[i]));
-                    break;
-                case DOUBLE:
-                    values.add(Double.valueOf(valuesStr[i]));
-                    break;
-                case BOOLEAN:
-                    values.add(Boolean.valueOf(valuesStr[i]));
-                    break;
-                case TEXT:
-                    String value = valuesStr[i];
-                    if (!value.startsWith("\"") && !value.startsWith("'")) {
-                        value = convertToTextValue(value);
-                    }
-                    values.add(value);
-                    break;
+        int timestampFieldIndex = seaTunnelRowType.indexOf(timestampKey);
+        return row -> {
+            Object timestamp = row.getField(timestampFieldIndex);
+            if (timestamp == null) {
+                return System.currentTimeMillis();
+            }
+            SeaTunnelDataType<?> timestampFieldType = seaTunnelRowType.getFieldType(timestampFieldIndex);
+            switch (timestampFieldType.getSqlType()) {
+                case STRING:
+                    return Long.parseLong((String) timestamp);
+                case TIMESTAMP:
+                    return LocalDateTime.class.cast(timestamp)
+                        .atZone(ZoneOffset.UTC)
+                        .toInstant()
+                        .toEpochMilli();
+                case BIGINT:
+                    return (Long) timestamp;
                 default:
-                    throw new UnsupportedOperationException("Unsupported dataType: " + tsDataType);
+                    throw new UnsupportedOperationException("Unsupported data type: " + timestampFieldType);
             }
-        }
-        return values;
+        };
     }
 
-    private void convertTextValues(String device, List<String> measurements, String[] values) {
-        if (device != null
-                && measurements != null
-                && values != null
-                && !timeseriesOptionMap.isEmpty()
-                && measurements.size() == values.length) {
+    private Function<SeaTunnelRow, String> createDeviceExtractor(SeaTunnelRowType seaTunnelRowType,
+                                                                 String deviceKey,
+                                                                 String storageGroup) {
+        int deviceIndex = seaTunnelRowType.indexOf(deviceKey);
+        return seaTunnelRow -> {
+            String device = seaTunnelRow.getField(deviceIndex).toString();
+            if (Strings.isNullOrEmpty(storageGroup)) {
+                return device;
+            }
+            if (storageGroup.endsWith(".") || device.startsWith(".")) {
+                return storageGroup + device;
+            }
+            return storageGroup + "." + device;
+        };
+    }
+
+    private List<String> createMeasurements(SeaTunnelRowType seaTunnelRowType,
+                                            String timestampKey,
+                                            String deviceKey,
+                                            List<String> measurementKeys) {
+        if (measurementKeys == null || measurementKeys.isEmpty()) {
+            return Stream.of(seaTunnelRowType.getFieldNames())
+                .filter(name -> !name.equals(deviceKey))
+                .filter(name -> !name.equals(timestampKey))
+                .collect(Collectors.toList());
+        }
+        return measurementKeys;
+    }
+
+    private List<TSDataType> createMeasurementTypes(SeaTunnelRowType seaTunnelRowType,
+                                                    List<String> measurements) {
+        return measurements.stream()
+            .map(measurement -> {
+                int indexOfSeaTunnelRow = seaTunnelRowType.indexOf(measurement);
+                SeaTunnelDataType<?> seaTunnelType = seaTunnelRowType.getFieldType(indexOfSeaTunnelRow);
+                return convert(seaTunnelType);
+            })
+            .collect(Collectors.toList());
+    }
+
+    private Function<SeaTunnelRow, List<Object>> createValuesExtractor(SeaTunnelRowType seaTunnelRowType,
+                                                                       List<String> measurements,
+                                                                       List<TSDataType> measurementTypes) {
+        return row -> {
+            List<Object> measurementValues = new ArrayList<>(measurements.size());
             for (int i = 0; i < measurements.size(); i++) {
-                String measurement = device + TsFileConstant.PATH_SEPARATOR + measurements.get(i);
-                TimeseriesOption timeseriesOption = timeseriesOptionMap.get(measurement);
-                if (timeseriesOption != null && TSDataType.TEXT.equals(timeseriesOption.getDataType())) {
-                    // The TEXT data type should be covered by " or '
-                    values[i] = convertToTextValue(values[i]);
-                }
+                String measurement = measurements.get(i);
+                TSDataType measurementDataType = measurementsType.get(i);
+
+                int indexOfSeaTunnelRow = seaTunnelRowType.indexOf(measurement);
+                SeaTunnelDataType seaTunnelDataType = seaTunnelRowType.getFieldType(indexOfSeaTunnelRow);
+                Object seaTunnelFieldValue = row.getField(indexOfSeaTunnelRow);
+
+                Object measurementValue = convert(seaTunnelDataType, measurementDataType, seaTunnelFieldValue);
+                measurementValues.add(measurementValue);
             }
+            return measurementValues;
+        };
+    }
+
+    private static TSDataType convert(SeaTunnelDataType dataType) {
+        switch (dataType.getSqlType()) {
+            case STRING:
+                return TSDataType.TEXT;
+            case BOOLEAN:
+                return TSDataType.BOOLEAN;
+            case TINYINT:
+            case SMALLINT:
+            case INT:
+                return TSDataType.INT32;
+            case BIGINT:
+                return TSDataType.INT64;
+            case FLOAT:
+                return TSDataType.FLOAT;
+            case DOUBLE:
+                return TSDataType.DOUBLE;
+            default:
+                throw new UnsupportedOperationException("Unsupported dataType: " + dataType);
         }
     }
 
-    private String convertToTextValue(Object value) {
-        return "'" + value + "'";
+    private static Object convert(SeaTunnelDataType seaTunnelType,
+                                  TSDataType tsDataType,
+                                  Object value) {
+        if (value == null) {
+            return null;
+        }
+        switch (tsDataType) {
+            case INT32:
+                return ((Number) value).intValue();
+            case INT64:
+                return ((Number) value).longValue();
+            case FLOAT:
+                return ((Number) value).floatValue();
+            case DOUBLE:
+                return ((Number) value).doubleValue();
+            case BOOLEAN:
+                return Boolean.valueOf((Boolean) value);
+            case TEXT:
+                return value.toString();
+            default:
+                throw new UnsupportedOperationException("Unsupported dataType: " + tsDataType);
+        }
     }
 }

@@ -21,17 +21,17 @@ import org.apache.seatunnel.common.config.CheckResult;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.time.Time;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.PipelineOptions;
 
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 public final class EnvironmentUtil {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(EnvironmentUtil.class);
 
     private EnvironmentUtil() {
     }
@@ -54,15 +54,15 @@ public final class EnvironmentUtil {
                         int rate = config.getInt(ConfigKeyName.RESTART_FAILURE_RATE);
                         long delayInterval = config.getLong(ConfigKeyName.RESTART_DELAY_INTERVAL);
                         executionConfig.setRestartStrategy(RestartStrategies.failureRateRestart(rate,
-                                Time.of(failureInterval, TimeUnit.MILLISECONDS),
-                                Time.of(delayInterval, TimeUnit.MILLISECONDS)));
+                            Time.of(failureInterval, TimeUnit.MILLISECONDS),
+                            Time.of(delayInterval, TimeUnit.MILLISECONDS)));
                         break;
                     default:
-                        LOGGER.warn("set restart.strategy failed, unknown restart.strategy [{}],only support no,fixed-delay,failure-rate", restartStrategy);
+                        log.warn("set restart.strategy failed, unknown restart.strategy [{}],only support no,fixed-delay,failure-rate", restartStrategy);
                 }
             }
         } catch (Exception e) {
-            LOGGER.warn("set restart.strategy in config '{}' exception", config, e);
+            log.warn("set restart.strategy in config '{}' exception", config, e);
         }
     }
 
@@ -85,5 +85,18 @@ public final class EnvironmentUtil {
             }
         }
         return CheckResult.success();
+    }
+
+    public static void initConfiguration(Config config, Configuration configuration) {
+        if (config.hasPath("pipeline")) {
+            Config pipeline = config.getConfig("pipeline");
+            if (pipeline.hasPath("jars")) {
+                configuration.setString(PipelineOptions.JARS.key(), pipeline.getString("jars"));
+            }
+            if (pipeline.hasPath("classpaths")) {
+                configuration.setString(PipelineOptions.CLASSPATHS.key(), pipeline.getString("classpaths"));
+            }
+        }
+
     }
 }

@@ -122,17 +122,12 @@ public class OptionRule {
         }
 
         /**
-         * Optional options with default value.
+         * Optional options
          *
          * <p> This options will not be validated.
          * <p> This is used by the web-UI to show what options are available.
          */
         public Builder optional(Option<?>... options) {
-            for (Option<?> option : options) {
-                if (option.defaultValue() == null) {
-                    throw new OptionValidationException(String.format("Optional option '%s' should have default value.", option.key()));
-                }
-            }
             this.optionalOptions.addAll(Arrays.asList(options));
             return this;
         }
@@ -143,8 +138,8 @@ public class OptionRule {
         public Builder required(Option<?>... options) {
             for (Option<?> option : options) {
                 verifyRequiredOptionDefaultValue(option);
-                this.requiredOptions.add(RequiredOption.AbsolutelyRequiredOption.of(option));
             }
+            this.requiredOptions.add(RequiredOption.AbsolutelyRequiredOptions.of(options));
             return this;
         }
 
@@ -159,6 +154,11 @@ public class OptionRule {
                 verifyRequiredOptionDefaultValue(option);
             }
             this.requiredOptions.add(RequiredOption.ExclusiveRequiredOptions.of(options));
+            return this;
+        }
+
+        public Builder exclusive(RequiredOption.ExclusiveRequiredOptions exclusiveRequiredOptions) {
+            this.requiredOptions.add(exclusiveRequiredOptions);
             return this;
         }
 
@@ -184,6 +184,14 @@ public class OptionRule {
                 verifyRequiredOptionDefaultValue(o);
             }
             this.requiredOptions.add(RequiredOption.ConditionalRequiredOptions.of(expression, new HashSet<>(Arrays.asList(requiredOptions))));
+            return this;
+        }
+
+        /**
+         * Bundled options, must be present or absent together.
+         */
+        public Builder bundled(Option<?>... requiredOptions) {
+            this.requiredOptions.add(RequiredOption.BundledRequiredOptions.of(requiredOptions));
             return this;
         }
 

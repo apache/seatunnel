@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.ASSIGN_PARTITIONS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG_PREFIX;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PARTITION;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PARTITION_KEY_FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TRANSACTION_PREFIX;
 
@@ -36,6 +40,8 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
@@ -47,7 +53,6 @@ import java.util.Random;
 public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> {
 
     private final SinkWriter.Context context;
-    private final Config pluginConfig;
 
     private String transactionPrefix;
     private long lastCheckpointId = 0;
@@ -57,22 +62,17 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     private static final int PREFIX_RANGE = 10000;
 
-    // check config
-    @Override
-    public void write(SeaTunnelRow element) {
-        ProducerRecord<byte[], byte[]> producerRecord = seaTunnelRowSerializer.serializeRow(element);
-        kafkaProducerSender.send(producerRecord);
-    }
-
     public KafkaSinkWriter(
             SinkWriter.Context context,
             SeaTunnelRowType seaTunnelRowType,
             Config pluginConfig,
             List<KafkaSinkState> kafkaStates) {
         this.context = context;
-        this.pluginConfig = pluginConfig;
-        if (pluginConfig.hasPath(TRANSACTION_PREFIX)) {
-            this.transactionPrefix = pluginConfig.getString(TRANSACTION_PREFIX);
+        if (pluginConfig.hasPath(ASSIGN_PARTITIONS.key())) {
+            MessageContentPartitioner.setAssignPartitions(pluginConfig.getStringList(ASSIGN_PARTITIONS.key()));
+        }
+        if (pluginConfig.hasPath(TRANSACTION_PREFIX.key())) {
+            this.transactionPrefix = pluginConfig.getString(TRANSACTION_PREFIX.key());
         } else {
             Random random = new Random();
             this.transactionPrefix = String.format("SeaTunnel%04d", random.nextInt(PREFIX_RANGE));
@@ -92,6 +92,12 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         } else {
             this.kafkaProducerSender = new KafkaNoTransactionSender<>(getKafkaProperties(pluginConfig));
         }
+    }
+
+    @Override
+    public void write(SeaTunnelRow element) {
+        ProducerRecord<byte[], byte[]> producerRecord = seaTunnelRowSerializer.serializeRow(element);
+        kafkaProducerSender.send(producerRecord);
     }
 
     @Override
@@ -123,21 +129,28 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     }
 
     private Properties getKafkaProperties(Config pluginConfig) {
-        Config kafkaConfig = TypesafeConfigUtils.extractSubConfig(pluginConfig,
-                org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG_PREFIX, false);
+        Config kafkaConfig = TypesafeConfigUtils.extractSubConfig(pluginConfig, KAFKA_CONFIG_PREFIX.key(), false);
         Properties kafkaProperties = new Properties();
         kafkaConfig.entrySet().forEach(entry -> {
             kafkaProperties.put(entry.getKey(), entry.getValue().unwrapped());
         });
+        if (pluginConfig.hasPath(ASSIGN_PARTITIONS.key())) {
+            kafkaProperties.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, "org.apache.seatunnel.connectors.seatunnel.kafka.sink.MessageContentPartitioner");
+        }
         kafkaProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, pluginConfig.getString(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
         kafkaProperties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
         kafkaProperties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
         return kafkaProperties;
     }
 
-    // todo: parse the target field from config
     private SeaTunnelRowSerializer<byte[], byte[]> getSerializer(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
-        return new DefaultSeaTunnelRowSerializer(pluginConfig.getString(TOPIC), seaTunnelRowType);
+        if (pluginConfig.hasPath(PARTITION.key())) {
+            return new DefaultSeaTunnelRowSerializer(pluginConfig.getString(TOPIC.key()),
+                    pluginConfig.getInt(PARTITION.key()), seaTunnelRowType);
+        } else {
+            return new DefaultSeaTunnelRowSerializer(pluginConfig.getString(TOPIC.key()),
+                    getPartitionKeyFields(pluginConfig, seaTunnelRowType), seaTunnelRowType);
+        }
     }
 
     private KafkaSemantics getKafkaSemantics(Config pluginConfig) {
@@ -158,4 +171,18 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         }
     }
 
+    private List<String> getPartitionKeyFields(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
+        if (pluginConfig.hasPath(PARTITION_KEY_FIELDS.key())) {
+            List<String> partitionKeyFields = pluginConfig.getStringList(PARTITION_KEY_FIELDS.key());
+            List<String> rowTypeFieldNames = Arrays.asList(seaTunnelRowType.getFieldNames());
+            for (String partitionKeyField : partitionKeyFields) {
+                if (!rowTypeFieldNames.contains(partitionKeyField)) {
+                    throw new IllegalArgumentException(String.format(
+                            "Partition key field not found: %s, rowType: %s", partitionKeyField, rowTypeFieldNames));
+                }
+            }
+            return partitionKeyFields;
+        }
+        return Collections.emptyList();
+    }
 }
