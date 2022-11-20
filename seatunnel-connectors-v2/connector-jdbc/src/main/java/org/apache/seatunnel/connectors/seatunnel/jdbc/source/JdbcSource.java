@@ -88,7 +88,7 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
             jdbcDialect,
             typeInfo,
             query,
-            0,
+            jdbcSourceOptions.getFetchSize(),
             true
         );
     }
