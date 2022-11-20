@@ -52,7 +52,7 @@ public class InfluxDBSinkFactory implements TableSourceFactory {
                 DATABASES,
                 KEY_MEASUREMENT
             )
-            .bundledRequired(USERNAME, PASSWORD)
+            .bundled(USERNAME, PASSWORD)
             .optional(
                 CONNECT_TIMEOUT_MS,
                 KEY_TAGS,
