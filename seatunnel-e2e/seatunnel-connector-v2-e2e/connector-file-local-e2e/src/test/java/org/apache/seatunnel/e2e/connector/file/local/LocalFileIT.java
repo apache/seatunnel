@@ -33,14 +33,11 @@ import java.nio.file.Path;
 
 public class LocalFileIT extends TestSuiteBase {
 
-    public static final String HADOOP_UBER = "https://repo.maven.apache.org/maven2/org/apache/flink/flink-shaded-hadoop-2-uber/2.7.5-10.0/flink-shaded-hadoop-2-uber-2.7.5-10.0.jar";
-
     /**
      * Copy data files to container
      */
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory = container -> {
-        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "cd /opt/flink/lib/ && curl -O " + HADOOP_UBER);
         Path jsonPath = ContainerUtil.getResourcesFile("/json/e2e.json").toPath();
         Path orcPath = ContainerUtil.getResourcesFile("/orc/e2e.orc").toPath();
         Path parquetPath = ContainerUtil.getResourcesFile("/parquet/e2e.parquet").toPath();
