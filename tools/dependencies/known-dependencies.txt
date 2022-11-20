@@ -15,6 +15,7 @@ flink-csv-1.14.6.jar
 flink-json-1.14.6.jar
 flink-orc_2.11-1.14.6.jar
 flink-parquet_2.11-1.14.6.jar
+flink-shaded-force-shading-14.0.jar
 guava-19.0.jar
 hazelcast-5.1.jar
 hive-storage-api-2.6.0.jar
