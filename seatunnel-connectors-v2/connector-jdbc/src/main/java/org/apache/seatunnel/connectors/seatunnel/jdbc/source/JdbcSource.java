@@ -89,7 +89,7 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
             typeInfo,
             query,
             jdbcSourceOptions.getFetchSize(),
-            jdbcSourceOptions.getJdbcConnectionOptions().isAutoCommit()
+            true
         );
     }
 
