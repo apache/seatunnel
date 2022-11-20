@@ -50,8 +50,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
         "parallelism.default: 4",
         "env.java.opts: -Doracle.jdbc.timezoneAsRegion=false");
 
-    protected static final String DEFAULT_DOCKER_IMAGE = "flink:1.14.6-scala_2.11";
-    protected static final String HADOOP_UBER = "https://repo.maven.apache.org/maven2/org/apache/flink/flink-shaded-hadoop-2-uber/2.7.5-10.0/flink-shaded-hadoop-2-uber-2.7.5-10.0.jar";
+    protected static final String DEFAULT_DOCKER_IMAGE = "liugddx/flink:1.14.6-scala_2.11";
 
     protected GenericContainer<?> jobManager;
     protected GenericContainer<?> taskManager;
@@ -79,7 +78,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
         copySeaTunnelStarterLoggingToContainer(jobManager);
 
         taskManager = new GenericContainer<>(dockerImage)
-            .withCommand("cd /opt/flink/lib/ && curl -O " + HADOOP_UBER, "taskmanager")
+            .withCommand("taskmanager")
             .withNetwork(NETWORK)
             .withNetworkAliases("taskmanager")
             .withEnv("FLINK_PROPERTIES", properties)

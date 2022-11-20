@@ -39,7 +39,7 @@ public class Flink14Container extends AbstractTestFlinkContainer {
 
     @Override
     protected String getDockerImage() {
-        return "flink:1.14.6-scala_2.11";
+        return "liugddx/flink:1.14.6-scala_2.11";
     }
 
     @Override
