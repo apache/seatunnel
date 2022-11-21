@@ -78,7 +78,7 @@ import java.util.regex.Pattern;
 
 @AutoService(SeaTunnelSource.class)
 public class PulsarSource<T> implements SeaTunnelSource<T, PulsarPartitionSplit, PulsarSplitEnumeratorState> {
-    public static final String IDENTIFIER = "pulsar";
+    public static final String IDENTIFIER = "Pulsar";
     private DeserializationSchema<T> deserialization;
 
     private PulsarAdminConfig adminConfig;
