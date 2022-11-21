@@ -83,6 +83,10 @@ The amount of time to wait before attempting to retry a request to `influxDB`
 ### connect_timeout_ms [long]
 the timeout for connecting to InfluxDB, in milliseconds 
 
+### common options
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+
 ## Examples
 ```hocon
 sink {
