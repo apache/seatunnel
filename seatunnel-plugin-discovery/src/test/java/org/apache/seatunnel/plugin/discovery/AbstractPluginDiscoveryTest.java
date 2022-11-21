@@ -32,7 +32,7 @@ public class AbstractPluginDiscoveryTest {
     @Test
     public void testGetAllPlugins() {
         Common.setDeployMode(DeployMode.CLIENT);
-        System.setProperty("SEATUNNEL_HOME", Objects.requireNonNull(AbstractPluginDiscoveryTest.class.getResource("/")).getPath());
+        System.setProperty("SEATUNNEL_HOME", Objects.requireNonNull(AbstractPluginDiscoveryTest.class.getResource("/home")).getPath());
         Map<PluginIdentifier, String> sourcePlugins = AbstractPluginDiscovery.getAllSupportedPlugins("seatunnel", PluginType.SOURCE);
         Assertions.assertEquals(27, sourcePlugins.size());
 
