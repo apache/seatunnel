@@ -49,12 +49,12 @@ public class JiraSource extends HttpSource {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, JiraSourceConfig.URL.key(), JiraSourceConfig.PASSWORD.key());
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, JiraSourceConfig.URL.key(), JiraSourceConfig.EMAIL.key(), JiraSourceConfig.API_TOKEN.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
         //get accessToken by basic auth
-        String accessToken = getTokenByBasicAuth("", pluginConfig.getString(JiraSourceConfig.PASSWORD.key()));
+        String accessToken = getTokenByBasicAuth(pluginConfig.getString(JiraSourceConfig.EMAIL.key()), pluginConfig.getString(JiraSourceConfig.API_TOKEN.key()));
         jiraSourceParameter.buildWithConfig(pluginConfig, accessToken);
         buildSchemaWithConfig(pluginConfig);
     }

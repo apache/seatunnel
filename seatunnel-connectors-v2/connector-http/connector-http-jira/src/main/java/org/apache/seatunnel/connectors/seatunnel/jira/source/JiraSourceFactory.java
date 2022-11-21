@@ -39,7 +39,8 @@ public class JiraSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
             .required(JiraSourceConfig.URL)
-            .required(JiraSourceConfig.PASSWORD)
+            .required(JiraSourceConfig.EMAIL)
+            .required(JiraSourceConfig.API_TOKEN)
             .optional(JiraSourceConfig.METHOD)
             .optional(JiraSourceConfig.HEADERS)
             .optional(JiraSourceConfig.PARAMS)

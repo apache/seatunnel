@@ -23,9 +23,13 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 
 public class JiraSourceConfig extends HttpConfig {
     public static final String AUTHORIZATION = "Authorization";
-    public static final Option<String> PASSWORD = Options.key("password")
+    public static final Option<String> EMAIL = Options.key("email")
             .stringType()
             .noDefaultValue()
-            .withDescription("Lemlist login api key");
+            .withDescription("Jira email");
 
+    public static final Option<String> API_TOKEN = Options.key("api_token")
+        .stringType()
+        .noDefaultValue()
+        .withDescription("Jira API Token");
 }
