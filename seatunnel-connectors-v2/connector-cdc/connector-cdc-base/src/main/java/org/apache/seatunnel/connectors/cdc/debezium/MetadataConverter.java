@@ -23,9 +23,6 @@ import java.io.Serializable;
 
 /**
  * {@link SourceRecord} metadata info converter.
- *
- * @author Li Zongwen
- * @since 2021/8/30
  */
 @FunctionalInterface
 public interface MetadataConverter extends Serializable {

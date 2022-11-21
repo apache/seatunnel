@@ -50,10 +50,7 @@ import java.util.Arrays;
 import java.util.Optional;
 
 /**
- * 用于将debezium record转为RowData，并支持物理列以及元数据列。
- *
- * @author Li Zongwen
- * @since 2021/9/16
+ * Deserialization schema from Debezium object to {@link SeaTunnelRow}
  */
 public class SeaTunnelRowDebeziumDeserializationConverters implements Serializable {
     private static final long serialVersionUID = -897499476343410567L;
@@ -334,6 +331,7 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                             return LocalTime.ofNanoOfDay((long) dbzObj * 1000L);
                         case NanoTime.SCHEMA_NAME:
                             return LocalTime.ofNanoOfDay((long) dbzObj);
+                        default:
                     }
                 } else if (dbzObj instanceof Integer) {
                     return LocalTime.ofNanoOfDay((long) dbzObj * 1000_000L);
@@ -361,6 +359,7 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                         case NanoTimestamp.SCHEMA_NAME:
                             long nano = (long) dbzObj;
                             return toLocalDateTime(nano / 1000_000, (int) (nano % 1000_000));
+                        default:
                     }
                 }
                 return TemporalConversions.toLocalDateTime(dbzObj, serverTimeZone);
