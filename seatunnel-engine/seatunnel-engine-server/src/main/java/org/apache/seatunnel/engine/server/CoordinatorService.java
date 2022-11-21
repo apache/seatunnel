@@ -480,8 +480,10 @@ public class CoordinatorService {
         long completedTaskCount = threadPoolExecutor.getCompletedTaskCount();
         long taskCount = threadPoolExecutor.getTaskCount();
         logger.info(String.format(
+                "\n" + "***********************************************" +
                 "\n" + "%-26s: %19s\n" + "%-26s: %19s\n" + "%-26s: %19s\n"
-                        + "%-26s: %19s\n" + "%-26s: %19s\n" + "%-26s: %19s\n",
+                        + "%-26s: %19s\n" + "%-26s: %19s\n" + "%-26s: %19s\n"
+                + "***********************************************\n",
                 "activeCount",
                 activeCount,
 
