@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.utils;
+package org.apache.seatunnel.common.utils.function;
 
 @FunctionalInterface
 public interface ConsumerWithException<T>  {

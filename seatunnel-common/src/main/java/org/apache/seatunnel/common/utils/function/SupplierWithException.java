@@ -16,13 +16,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.utils;
+package org.apache.seatunnel.common.utils.function;
 
 /**
- * Similar to a {@link Runnable}, this interface is used to capture a block of code to be executed.
+ * A functional interface for a {@link java.util.function.Supplier} that may throw exceptions.
+ *
+ * @param <R> The type of the result of the supplier.
+ * @param <E> The type of Exceptions thrown by this function.
  */
 @FunctionalInterface
-public interface RunnableWithException {
+public interface SupplierWithException<R, E extends Throwable> {
 
-    void run() throws Exception;
+    /**
+     * Gets the result of this supplier.
+     *
+     * @return The result of thus supplier.
+     * @throws E This function may throw an exception.
+     */
+    R get() throws E;
 }
