@@ -48,15 +48,15 @@ public class OssFileSource extends BaseFileSource {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
-                OssConfig.FILE_PATH, OssConfig.FILE_TYPE,
-                OssConfig.BUCKET, OssConfig.ACCESS_KEY,
-                OssConfig.ACCESS_SECRET, OssConfig.BUCKET);
+                OssConfig.FILE_PATH.key(), OssConfig.FILE_TYPE.key(),
+                OssConfig.BUCKET.key(), OssConfig.ACCESS_KEY.key(),
+                OssConfig.ACCESS_SECRET.key(), OssConfig.BUCKET.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
-        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(OssConfig.FILE_TYPE));
+        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(OssConfig.FILE_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
-        String path = pluginConfig.getString(OssConfig.FILE_PATH);
+        String path = pluginConfig.getString(OssConfig.FILE_PATH.key());
         hadoopConf = OssConf.buildWithConfig(pluginConfig);
         try {
             filePaths = readStrategy.getFileNamesByPath(hadoopConf, path);
@@ -64,9 +64,9 @@ public class OssFileSource extends BaseFileSource {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Check file path fail.");
         }
         // support user-defined schema
-        FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(OssConfig.FILE_TYPE).toUpperCase());
+        FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(OssConfig.FILE_TYPE.key()).toUpperCase());
         // only json text csv type support user-defined schema now
-        if (pluginConfig.hasPath(OssConfig.SCHEMA)) {
+        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
             switch (fileFormat) {
                 case CSV:
                 case TEXT:

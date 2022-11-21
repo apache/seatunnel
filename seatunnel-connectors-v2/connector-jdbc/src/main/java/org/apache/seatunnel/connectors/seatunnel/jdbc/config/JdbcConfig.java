@@ -39,6 +39,8 @@ public class JdbcConfig implements Serializable {
 
     public static final String QUERY = "query";
 
+    public static final String AUTO_COMMIT = "auto_commit";
+
     public static final String BATCH_SIZE = "batch_size";
 
     public static final String BATCH_INTERVAL_MS = "batch_interval_ms";
@@ -53,6 +55,9 @@ public class JdbcConfig implements Serializable {
 
     public static final String TRANSACTION_TIMEOUT_SEC = "transaction_timeout_sec";
 
+    public static final String TABLE = "table";
+
+    public static final String PRIMARY_KEYS = "primary_keys";
 
     //source config
     public static final String PARTITION_COLUMN = "partition_column";
@@ -71,7 +76,10 @@ public class JdbcConfig implements Serializable {
         if (config.hasPath(JdbcConfig.PASSWORD)) {
             jdbcOptions.password = config.getString(JdbcConfig.PASSWORD);
         }
-        jdbcOptions.query = config.getString(JdbcConfig.QUERY);
+
+        if (config.hasPath(JdbcConfig.AUTO_COMMIT)) {
+            jdbcOptions.autoCommit = config.getBoolean(JdbcConfig.AUTO_COMMIT);
+        }
 
         if (config.hasPath(JdbcConfig.MAX_RETRIES)) {
             jdbcOptions.maxRetries = config.getInt(JdbcConfig.MAX_RETRIES);

@@ -36,8 +36,8 @@ import java.util.Locale;
 public class BaseTextFileConfig implements DelimiterConfig, CompressConfig, Serializable {
     private static final long serialVersionUID = 1L;
     protected String compressCodec;
-    protected String fieldDelimiter = String.valueOf('\001');
-    protected String rowDelimiter = "\n";
+    protected String fieldDelimiter = BaseSinkConfig.FIELD_DELIMITER.defaultValue();
+    protected String rowDelimiter = BaseSinkConfig.ROW_DELIMITER.defaultValue();
     protected String path;
     protected String fileNameExpression;
     protected FileFormat fileFormat = FileFormat.TEXT;
@@ -46,41 +46,45 @@ public class BaseTextFileConfig implements DelimiterConfig, CompressConfig, Seri
     protected TimeUtils.Formatter timeFormat = TimeUtils.Formatter.HH_MM_SS;
 
     public BaseTextFileConfig(@NonNull Config config) {
-        if (config.hasPath(Constant.COMPRESS_CODEC)) {
+        if (config.hasPath(BaseSinkConfig.COMPRESS_CODEC.key())) {
             throw new RuntimeException("compress not support now");
         }
 
-        if (config.hasPath(Constant.FIELD_DELIMITER) && StringUtils.isNotEmpty(config.getString(Constant.FIELD_DELIMITER))) {
-            this.fieldDelimiter = config.getString(Constant.FIELD_DELIMITER);
+        if (config.hasPath(BaseSinkConfig.FIELD_DELIMITER.key()) &&
+                StringUtils.isNotEmpty(config.getString(BaseSinkConfig.FIELD_DELIMITER.key()))) {
+            this.fieldDelimiter = config.getString(BaseSinkConfig.FIELD_DELIMITER.key());
         }
 
-        if (config.hasPath(Constant.ROW_DELIMITER) && StringUtils.isNotEmpty(config.getString(Constant.ROW_DELIMITER))) {
-            this.rowDelimiter = config.getString(Constant.ROW_DELIMITER);
+        if (config.hasPath(BaseSinkConfig.ROW_DELIMITER.key()) &&
+                StringUtils.isNotEmpty(config.getString(BaseSinkConfig.ROW_DELIMITER.key()))) {
+            this.rowDelimiter = config.getString(BaseSinkConfig.ROW_DELIMITER.key());
         }
 
-        if (config.hasPath(Constant.PATH) && !StringUtils.isBlank(config.getString(Constant.PATH))) {
-            this.path = config.getString(Constant.PATH);
+        if (config.hasPath(BaseSinkConfig.FILE_PATH.key()) && !StringUtils.isBlank(config.getString(BaseSinkConfig.FILE_PATH.key()))) {
+            this.path = config.getString(BaseSinkConfig.FILE_PATH.key());
         }
         checkNotNull(path);
 
-        if (config.hasPath(Constant.FILE_NAME_EXPRESSION) && !StringUtils.isBlank(config.getString(Constant.FILE_NAME_EXPRESSION))) {
-            this.fileNameExpression = config.getString(Constant.FILE_NAME_EXPRESSION);
+        if (config.hasPath(BaseSinkConfig.FILE_NAME_EXPRESSION.key()) &&
+                !StringUtils.isBlank(config.getString(BaseSinkConfig.FILE_NAME_EXPRESSION.key()))) {
+            this.fileNameExpression = config.getString(BaseSinkConfig.FILE_NAME_EXPRESSION.key());
         }
 
-        if (config.hasPath(Constant.FILE_FORMAT) && !StringUtils.isBlank(config.getString(Constant.FILE_FORMAT))) {
-            this.fileFormat = FileFormat.valueOf(config.getString(Constant.FILE_FORMAT).toUpperCase(Locale.ROOT));
+        if (config.hasPath(BaseSinkConfig.FILE_FORMAT.key()) &&
+                !StringUtils.isBlank(config.getString(BaseSinkConfig.FILE_FORMAT.key()))) {
+            this.fileFormat = FileFormat.valueOf(config.getString(BaseSinkConfig.FILE_FORMAT.key()).toUpperCase(Locale.ROOT));
         }
 
-        if (config.hasPath(Constant.DATE_FORMAT)) {
-            dateFormat = DateUtils.Formatter.parse(config.getString(Constant.DATE_FORMAT));
+        if (config.hasPath(BaseSinkConfig.DATE_FORMAT.key())) {
+            dateFormat = DateUtils.Formatter.parse(config.getString(BaseSinkConfig.DATE_FORMAT.key()));
         }
 
-        if (config.hasPath(Constant.DATETIME_FORMAT)) {
-            datetimeFormat = DateTimeUtils.Formatter.parse(config.getString(Constant.DATETIME_FORMAT));
+        if (config.hasPath(BaseSinkConfig.DATETIME_FORMAT.key())) {
+            datetimeFormat = DateTimeUtils.Formatter.parse(config.getString(BaseSinkConfig.DATETIME_FORMAT.key()));
         }
 
-        if (config.hasPath(Constant.TIME_FORMAT)) {
-            timeFormat = TimeUtils.Formatter.parse(config.getString(Constant.TIME_FORMAT));
+        if (config.hasPath(BaseSinkConfig.TIME_FORMAT.key())) {
+            timeFormat = TimeUtils.Formatter.parse(config.getString(BaseSinkConfig.TIME_FORMAT.key()));
         }
     }
 
