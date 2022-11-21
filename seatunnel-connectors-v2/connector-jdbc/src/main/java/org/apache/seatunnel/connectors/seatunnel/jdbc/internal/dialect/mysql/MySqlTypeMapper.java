@@ -112,7 +112,7 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
             case MYSQL_BIGINT_UNSIGNED:
                 return new DecimalType(20, 0);
             case MYSQL_DECIMAL:
-                return new DecimalType(precision, scale);
+                return new DecimalType(38, 18);
             case MYSQL_DECIMAL_UNSIGNED:
                 return new DecimalType(precision + 1, scale);
             case MYSQL_FLOAT:
