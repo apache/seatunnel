@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
-import org.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
-import org.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
 
 /** A MySQL datasource factory. */
 

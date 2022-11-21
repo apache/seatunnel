@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.configuration.Options;
 
 public class SentryConfig {
 
-    public static final String SENTRY = "sentry";
+    public static final String SENTRY = "Sentry";
 
     public static final Option<String> DSN = Options.key("dsn").stringType().noDefaultValue().withDescription("sentry dsn");
     public static final Option<String> ENV = Options.key("env").stringType().noDefaultValue().withDescription("env");

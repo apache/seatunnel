@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import org.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 
 import java.io.Serializable;
 
