@@ -104,6 +104,7 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
             case ORACLE_CLOB:
                 return BasicType.STRING_TYPE;
             case ORACLE_DATE:
+                return LocalTimeType.LOCAL_DATE_TYPE;
             case ORACLE_TIMESTAMP:
             case ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
