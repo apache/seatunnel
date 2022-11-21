@@ -31,7 +31,6 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>seatunnel-transform-spark-cache</module>
         <module>seatunnel-transform-spark-json</module>
         <module>seatunnel-transform-spark-split</module>
         <module>seatunnel-transform-spark-replace</module>
