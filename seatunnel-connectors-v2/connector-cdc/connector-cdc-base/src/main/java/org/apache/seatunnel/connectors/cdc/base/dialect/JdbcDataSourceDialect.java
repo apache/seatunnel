@@ -43,7 +43,7 @@ public interface JdbcDataSourceDialect extends DataSourceDialect<JdbcSourceConfi
      * @param sourceConfig a basic source configuration.
      * @return a utility that simplifies using a JDBC connection.
      */
-    static JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
+    default JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
         JdbcConnection jdbc =
                 new JdbcConnection(
                         sourceConfig.getDbzConfiguration(),

@@ -32,13 +32,18 @@ import java.util.Map;
 public class BinlogOffsetFactory extends OffsetFactory {
 
     private final MySqlSourceConfig sourceConfig;
-    public BinlogOffsetFactory(MySqlSourceConfigFactory configFactory) {
+
+    private final JdbcDataSourceDialect dialect;
+
+    public BinlogOffsetFactory(MySqlSourceConfigFactory configFactory,
+                               JdbcDataSourceDialect dialect) {
         this.sourceConfig = configFactory.create(0);
+        this.dialect = dialect;
     }
 
     @Override
     public Offset earliest() {
-        try (JdbcConnection jdbcConnection = JdbcDataSourceDialect.openJdbcConnection(sourceConfig)) {
+        try (JdbcConnection jdbcConnection = dialect.openJdbcConnection(sourceConfig)) {
             return MySqlConnectionUtils.earliestBinlogOffset(jdbcConnection);
         } catch (Exception e) {
             throw new RuntimeException("Read the binlog offset error", e);
@@ -52,7 +57,7 @@ public class BinlogOffsetFactory extends OffsetFactory {
 
     @Override
     public Offset latest() {
-        try (JdbcConnection jdbcConnection = JdbcDataSourceDialect.openJdbcConnection(sourceConfig)) {
+        try (JdbcConnection jdbcConnection = dialect.openJdbcConnection(sourceConfig)) {
             return MySqlConnectionUtils.currentBinlogOffset(jdbcConnection);
         } catch (Exception e) {
             throw new RuntimeException("Read the binlog offset error", e);

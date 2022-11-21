@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.eumerator;
 
-import static org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect.openJdbcConnection;
 import static org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils.doubleCompare;
 import static java.math.BigDecimal.ROUND_CEILING;
 
@@ -62,7 +61,7 @@ public class MySqlChunkSplitter implements JdbcSourceChunkSplitter {
 
     @Override
     public Collection<SnapshotSplit> generateSplits(TableId tableId) {
-        try (JdbcConnection jdbc = openJdbcConnection(sourceConfig)) {
+        try (JdbcConnection jdbc = dialect.openJdbcConnection(sourceConfig)) {
 
             LOG.info("Start splitting table {} into chunks...", tableId);
             long start = System.currentTimeMillis();

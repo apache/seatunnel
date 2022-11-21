@@ -18,9 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
@@ -28,6 +30,9 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceCon
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffsetFactory;
 
+import com.google.auto.service.AutoService;
+
+@AutoService(SeaTunnelSource.class)
 public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig> {
     @Override
     public String getPluginName() {
@@ -42,11 +47,6 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
     }
 
     @Override
-    public OffsetFactory createOffsetFactory(ReadonlyConfig config) {
-        return new BinlogOffsetFactory((MySqlSourceConfigFactory) configFactory);
-    }
-
-    @Override
     public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(ReadonlyConfig config) {
         // TODO: seatunnel row
         return null;
@@ -55,5 +55,10 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
     @Override
     public DataSourceDialect<JdbcSourceConfig> createDataSourceDialect(ReadonlyConfig config) {
         return new MySqlDialect((MySqlSourceConfigFactory) configFactory);
+    }
+
+    @Override
+    public OffsetFactory createOffsetFactory(ReadonlyConfig config) {
+        return new BinlogOffsetFactory((MySqlSourceConfigFactory) configFactory, (JdbcDataSourceDialect) dataSourceDialect);
     }
 }

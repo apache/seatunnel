@@ -85,9 +85,9 @@ public abstract class IncrementalSource<T, C extends SourceConfig> implements Se
         this.stopMode = stopConfig.getStopMode();
         this.incrementalParallelism = readonlyConfig.get(SourceOptions.INCREMENTAL_PARALLELISM);
         this.configFactory = createSourceConfigFactory(readonlyConfig);
-        this.offsetFactory = createOffsetFactory(readonlyConfig);
         this.deserializationSchema = createDebeziumDeserializationSchema(readonlyConfig);
         this.dataSourceDialect = createDataSourceDialect(readonlyConfig);
+        this.offsetFactory = createOffsetFactory(readonlyConfig);
     }
 
     protected StartupConfig getStartupConfig(ReadonlyConfig config) {
@@ -108,11 +108,11 @@ public abstract class IncrementalSource<T, C extends SourceConfig> implements Se
 
     public abstract SourceConfig.Factory<C> createSourceConfigFactory(ReadonlyConfig config);
 
-    public abstract OffsetFactory createOffsetFactory(ReadonlyConfig config);
-
     public abstract DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(ReadonlyConfig config);
 
     public abstract DataSourceDialect<C> createDataSourceDialect(ReadonlyConfig config);
+
+    public abstract OffsetFactory createOffsetFactory(ReadonlyConfig config);
 
     @Override
     public Boundedness getBoundedness() {

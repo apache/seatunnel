@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
-import static org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect.openJdbcConnection;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createBinaryClient;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createMySqlConnection;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.isTableIdCaseSensitive;
