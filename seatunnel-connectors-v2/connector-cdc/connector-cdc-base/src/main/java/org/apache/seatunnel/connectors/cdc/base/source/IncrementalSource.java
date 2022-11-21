@@ -39,8 +39,16 @@ import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.HybridPe
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.IncrementalPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.PendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
+import org.apache.seatunnel.connectors.cdc.base.source.reader.IncrementalSourceReader;
+import org.apache.seatunnel.connectors.cdc.base.source.reader.IncrementalSourceRecordEmitter;
+import org.apache.seatunnel.connectors.cdc.base.source.reader.IncrementalSourceSplitReader;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
+import org.apache.seatunnel.connectors.cdc.base.source.split.state.SourceSplitStateBase;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
+import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordEmitter;
+import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWithSplitIds;
+import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceReaderOptions;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -49,9 +57,13 @@ import io.debezium.relational.TableId;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.function.Supplier;
 
 public abstract class IncrementalSource<T, C extends SourceConfig> implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState> {
 
+    protected ReadonlyConfig readonlyConfig;
     protected SourceConfig.Factory<C> configFactory;
     protected OffsetFactory offsetFactory;
 
@@ -66,16 +78,16 @@ public abstract class IncrementalSource<T, C extends SourceConfig> implements Se
 
     @Override
     public final void prepare(Config pluginConfig) throws PrepareFailException {
-        ReadonlyConfig config = ReadonlyConfig.fromConfig(pluginConfig);
+        this.readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
 
-        this.startupConfig = getStartupConfig(config);
-        this.stopConfig = getStopConfig(config);
+        this.startupConfig = getStartupConfig(readonlyConfig);
+        this.stopConfig = getStopConfig(readonlyConfig);
         this.stopMode = stopConfig.getStopMode();
-        this.incrementalParallelism = config.get(SourceOptions.INCREMENTAL_PARALLELISM);
-        this.configFactory = createSourceConfigFactory(config);
-        this.offsetFactory = createOffsetFactory(config);
-        this.deserializationSchema = createDebeziumDeserializationSchema(config);
-        this.dataSourceDialect = createDataSourceDialect(config);
+        this.incrementalParallelism = readonlyConfig.get(SourceOptions.INCREMENTAL_PARALLELISM);
+        this.configFactory = createSourceConfigFactory(readonlyConfig);
+        this.offsetFactory = createOffsetFactory(readonlyConfig);
+        this.deserializationSchema = createDebeziumDeserializationSchema(readonlyConfig);
+        this.dataSourceDialect = createDataSourceDialect(readonlyConfig);
     }
 
     protected StartupConfig getStartupConfig(ReadonlyConfig config) {
@@ -112,11 +124,30 @@ public abstract class IncrementalSource<T, C extends SourceConfig> implements Se
         return deserializationSchema.getProducedType();
     }
 
+    @SuppressWarnings("MagicNumber")
     @Override
     public SourceReader<T, SourceSplitBase> createReader(SourceReader.Context readerContext) throws Exception {
-        // TODO: https://github.com/apache/incubator-seatunnel/issues/3255
-        // https://github.com/apache/incubator-seatunnel/issues/3256
-        return null;
+        // create source config for the given subtask (e.g. unique server id)
+        C sourceConfig = configFactory.create(readerContext.getIndexOfSubtask());
+        BlockingQueue<RecordsWithSplitIds<SourceRecords>> elementsQueue = new LinkedBlockingQueue<>(1024);
+
+        Supplier<IncrementalSourceSplitReader<C>> splitReaderSupplier = () ->
+            new IncrementalSourceSplitReader<>(
+                readerContext.getIndexOfSubtask(), dataSourceDialect, sourceConfig);
+        return new IncrementalSourceReader<>(
+            elementsQueue,
+            splitReaderSupplier,
+            createRecordEmitter(sourceConfig),
+            new SourceReaderOptions(readonlyConfig),
+            readerContext,
+            sourceConfig);
+    }
+
+    protected RecordEmitter<SourceRecords, T, SourceSplitStateBase> createRecordEmitter(
+        SourceConfig sourceConfig) {
+        return new IncrementalSourceRecordEmitter<>(
+            deserializationSchema,
+            offsetFactory);
     }
 
     @Override

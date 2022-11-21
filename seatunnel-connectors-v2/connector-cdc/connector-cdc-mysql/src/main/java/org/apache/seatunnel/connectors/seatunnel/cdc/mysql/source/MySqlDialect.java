@@ -52,12 +52,10 @@ import java.util.List;
 public class MySqlDialect implements JdbcDataSourceDialect {
 
     private static final long serialVersionUID = 1L;
-    private final MySqlSourceConfigFactory configFactory;
     private final MySqlSourceConfig sourceConfig;
     private transient MySqlSchema mySqlSchema;
 
     public MySqlDialect(MySqlSourceConfigFactory configFactory) {
-        this.configFactory = configFactory;
         this.sourceConfig = configFactory.create(0);
     }
 
