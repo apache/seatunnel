@@ -54,8 +54,8 @@ public class RabbitmqConfig implements Serializable {
     public static final String ROUTING_KEY = "routing_key";
     public static final String EXCHANGE = "exchange";
 
-
     public static final String LOG_FAILURES_ONLY = "log_failures_only";
+    public static final String FOR_E2E_TESTING = "for_e2e_testing";
 
     private String host;
     private Integer port;
@@ -76,6 +76,9 @@ public class RabbitmqConfig implements Serializable {
     private String routingKey;
     private boolean logFailuresOnly = false;
     private String exchange = "";
+
+    private boolean forE2ETesting = false;
+
     public static final String RABBITMQ_SINK_CONFIG_PREFIX = "rabbitmq.properties.";
 
     private final Map<String, Object> sinkOptionProps = new HashMap<>();
@@ -134,6 +137,9 @@ public class RabbitmqConfig implements Serializable {
         }
         if (config.hasPath(EXCHANGE)) {
             this.exchange = config.getString(EXCHANGE);
+        }
+        if (config.hasPath(FOR_E2E_TESTING)) {
+            this.forE2ETesting = config.getBoolean(FOR_E2E_TESTING);
         }
         parseSinkOptionProperties(config);
     }

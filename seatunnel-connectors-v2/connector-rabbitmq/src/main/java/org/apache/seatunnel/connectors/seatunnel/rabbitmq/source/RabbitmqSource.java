@@ -58,7 +58,10 @@ public class RabbitmqSource implements SeaTunnelSource<SeaTunnelRow, RabbitmqSpl
 
     @Override
     public Boundedness getBoundedness() {
-        return JobMode.BATCH.equals(jobContext.getJobMode()) ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
+        if (!JobMode.STREAMING.equals(jobContext.getJobMode())) {
+            throw new UnsupportedOperationException("rabbitmq source connector not support batch job mode");
+        }
+        return rabbitMQConfig.isForE2ETesting() ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
     }
 
     @Override
