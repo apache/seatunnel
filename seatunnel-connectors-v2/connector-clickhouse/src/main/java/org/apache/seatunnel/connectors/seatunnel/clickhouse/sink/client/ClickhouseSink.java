@@ -126,9 +126,9 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
         Map<String, String> tableSchema = proxy.getClickhouseTableSchema(config.getString(TABLE.key()));
         String shardKey = null;
         String shardKeyType = null;
+        ClickhouseTable table = proxy.getClickhouseTable(config.getString(DATABASE.key()),
+            config.getString(TABLE.key()));
         if (config.getBoolean(SPLIT_MODE.key())) {
-            ClickhouseTable table = proxy.getClickhouseTable(config.getString(DATABASE.key()),
-                config.getString(TABLE.key()));
             if (!"Distributed".equals(table.getEngine())) {
                 throw new ClickhouseConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, "split mode only support table which engine is " +
                     "'Distributed' engine at now");
@@ -171,7 +171,7 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
             fields.addAll(tableSchema.keySet());
         }
         proxy.close();
-        this.option = new ReaderOption(metadata, clickhouseProperties, fields, tableSchema, config.getInt(BULK_SIZE.key()));
+        this.option = new ReaderOption(metadata, clickhouseProperties, fields, table.getEngine(), tableSchema, config.getInt(BULK_SIZE.key()));
     }
 
     @Override

@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.ShardMetadata;
 
+import lombok.Getter;
+
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +31,8 @@ public class ReaderOption implements Serializable {
 
     private ShardMetadata shardMetadata;
     private List<String> fields;
+    @Getter
+    private String tableEngine;
 
     private Map<String, String> tableSchema;
     private SeaTunnelRowType seaTunnelRowType;
@@ -36,10 +40,15 @@ public class ReaderOption implements Serializable {
     private int bulkSize;
 
     public ReaderOption(ShardMetadata shardMetadata,
-                        Properties properties, List<String> fields, Map<String, String> tableSchema, int bulkSize) {
+                        Properties properties,
+                        List<String> fields,
+                        String tableEngine,
+                        Map<String, String> tableSchema,
+                        int bulkSize) {
         this.shardMetadata = shardMetadata;
         this.properties = properties;
         this.fields = fields;
+        this.tableEngine = tableEngine;
         this.tableSchema = tableSchema;
         this.bulkSize = bulkSize;
     }
