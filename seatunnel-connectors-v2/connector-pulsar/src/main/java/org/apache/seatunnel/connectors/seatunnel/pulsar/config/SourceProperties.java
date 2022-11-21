@@ -141,7 +141,7 @@ public class SourceProperties {
     public static final Option<SourceProperties.StartMode> CURSOR_RESET_MODE =
         Options.key("cursor.reset.mode")
             .enumType(SourceProperties.StartMode.class)
-            .defaultValue(StartMode.LATEST)
+            .noDefaultValue()
             .withDescription(
                 "Cursor reset strategy for Pulsar consumer valid values are 'EARLIEST', 'LATEST'. Note, This option only works if the \"cursor.startup.mode\" option used 'SUBSCRIPTION'.");
 
