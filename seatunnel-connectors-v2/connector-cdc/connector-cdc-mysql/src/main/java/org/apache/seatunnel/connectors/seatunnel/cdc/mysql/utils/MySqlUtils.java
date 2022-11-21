@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils;
 
-import static org.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.rowToArray;
+import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.rowToArray;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
