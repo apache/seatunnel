@@ -19,18 +19,27 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
+import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffsetFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.MySqlCatalog;
 
 import com.google.auto.service.AutoService;
+
+import java.time.ZoneId;
 
 @AutoService(SeaTunnelSource.class)
 public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig> {
@@ -46,10 +55,22 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         return configFactory;
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(ReadonlyConfig config) {
-        // TODO: seatunnel row
-        return null;
+        JdbcSourceConfig jdbcSourceConfig = configFactory.create(0);
+        String baseUrl = config.get(JdbcCatalogOptions.BASE_URL);
+        // TODO: support multi-table
+        // TODO: support metadata keys
+        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", jdbcSourceConfig.getDatabaseList().get(0), jdbcSourceConfig.getUsername(), jdbcSourceConfig.getPassword(), baseUrl);
+        CatalogTable table = mySqlCatalog.getTable(TablePath.of(jdbcSourceConfig.getDatabaseList().get(0), jdbcSourceConfig.getTableList().get(0)));
+        SeaTunnelRowType physicalRowType = table.getTableSchema().toPhysicalRowDataType();
+        String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
+        return (DebeziumDeserializationSchema<T>) SeaTunnelRowDebeziumDeserializeSchema.builder()
+            .setPhysicalRowType(physicalRowType)
+            .setResultTypeInfo(physicalRowType)
+            .setServerTimeZone(ZoneId.of(zoneId))
+            .build();
     }
 
     @Override

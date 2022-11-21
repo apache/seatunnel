@@ -325,6 +325,7 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
         return new DebeziumDeserializationConverter() {
             private static final long serialVersionUID = 1L;
 
+            @SuppressWarnings("MagicNumber")
             @Override
             public Object convert(Object dbzObj, Schema schema) {
                 if (dbzObj instanceof Long) {
@@ -347,6 +348,7 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
         return new DebeziumDeserializationConverter() {
             private static final long serialVersionUID = 1L;
 
+            @SuppressWarnings("MagicNumber")
             @Override
             public Object convert(Object dbzObj, Schema schema) {
                 if (dbzObj instanceof Long) {

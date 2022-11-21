@@ -45,13 +45,6 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
     private static final long serialVersionUID = 1L;
 
     /**
-     * Custom validator to validate the row value.
-     */
-    public interface ValueValidator extends Serializable {
-        void validate(SeaTunnelRow rowData, RowKind rowKind) throws Exception;
-    }
-
-    /**
      * TypeInformation of the produced {@link SeaTunnelRow}. *
      */
     private final SeaTunnelDataType<SeaTunnelRow> resultTypeInfo;
@@ -69,7 +62,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
     /**
      * Returns a builder to build {@link SeaTunnelRowDebeziumDeserializeSchema}.
      */
-    public static Builder newBuilder() {
+    public static Builder builder() {
         return new Builder();
     }
 
@@ -154,6 +147,13 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
     // -------------------------------------------------------------------------------------
     // Builder
     // -------------------------------------------------------------------------------------
+
+    /**
+     * Custom validator to validate the row value.
+     */
+    public interface ValueValidator extends Serializable {
+        void validate(SeaTunnelRow rowData, RowKind rowKind) throws Exception;
+    }
 
     /**
      * Builder of {@link SeaTunnelRowDebeziumDeserializeSchema}.

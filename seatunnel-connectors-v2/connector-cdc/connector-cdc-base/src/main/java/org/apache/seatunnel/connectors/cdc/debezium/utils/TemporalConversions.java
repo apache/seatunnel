@@ -43,6 +43,7 @@ public final class TemporalConversions {
 
     private TemporalConversions() {}
 
+    @SuppressWarnings("MagicNumber")
     public static LocalDate toLocalDate(Object obj) {
         if (obj == null) {
             return null;
@@ -131,6 +132,7 @@ public final class TemporalConversions {
                         + obj.getClass().getName());
     }
 
+    @SuppressWarnings("MagicNumber")
     public static LocalDateTime toLocalDateTime(Object obj, ZoneId serverTimeZone) {
         if (obj == null) {
             return null;

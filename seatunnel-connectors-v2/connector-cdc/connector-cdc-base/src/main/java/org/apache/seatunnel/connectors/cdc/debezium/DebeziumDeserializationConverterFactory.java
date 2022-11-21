@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.cdc.debezium;
 
-
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.io.Serializable;
@@ -31,16 +30,17 @@ import java.util.Optional;
  */
 public interface DebeziumDeserializationConverterFactory extends Serializable {
 
-    /** A user-defined converter factory which always fallback to default converters. */
+    /**
+     * A user-defined converter factory which always fallback to default converters.
+     */
     DebeziumDeserializationConverterFactory DEFAULT =
-            (logicalType, serverTimeZone) -> Optional.empty();
+        (logicalType, serverTimeZone) -> Optional.empty();
 
     /**
      * Returns an optional {@link DebeziumDeserializationConverter}. Returns {@link Optional#empty()}
      * if fallback to default converter.
      *
-     * @param type the SeaTunnel datatype to be converted from objects of
-     *     Debezium
+     * @param type the SeaTunnel datatype to be converted from objects of Debezium
      * @param serverTimeZone TimeZone used to convert data with timestamp type
      */
     Optional<DebeziumDeserializationConverter> createUserDefinedConverter(
