@@ -17,14 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.binlog;
 
+import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
+import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.MySqlSourceFetchTaskContext;
 
 import io.debezium.connector.mysql.MySqlStreamingChangeEventSource;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.util.Clock;
-import org.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
-import org.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
-import org.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
 public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
     private final IncrementalSplit split;

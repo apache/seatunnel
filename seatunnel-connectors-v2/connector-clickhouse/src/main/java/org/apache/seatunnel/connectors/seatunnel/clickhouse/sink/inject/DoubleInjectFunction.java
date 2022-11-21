@@ -33,9 +33,6 @@ public class DoubleInjectFunction implements ClickhouseFieldInjectFunction {
 
     @Override
     public boolean isCurrentFieldType(String fieldType) {
-        return "UInt32".equals(fieldType)
-            || "UInt64".equals(fieldType)
-            || "Int64".equals(fieldType)
-            || "Float64".equals(fieldType);
+        return "Float64".equals(fieldType);
     }
 }
