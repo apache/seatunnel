@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.flink.command;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.config.ConfigBuilder;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
@@ -28,6 +30,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.FileNotFoundException;
 import java.nio.file.Path;
 
 /**
@@ -46,7 +49,14 @@ public class FlinkApiTaskExecuteCommand implements Command<FlinkCommandArgs> {
     @Override
     public void execute() throws CommandExecuteException {
         Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
-
+        if (!configFile.toFile().exists()) {
+            try {
+                throw new FileNotFoundException("Can't find config file: " + configFile);
+            } catch (FileNotFoundException e) {
+                log.error(ExceptionUtils.getMessage(e));
+                throw new SeaTunnelException(e);
+            }
+        }
         Config config = new ConfigBuilder(configFile).getConfig();
         FlinkExecution seaTunnelTaskExecution = new FlinkExecution(config);
         try {
