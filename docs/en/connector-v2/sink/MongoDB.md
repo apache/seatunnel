@@ -1,4 +1,4 @@
-# MongoDb
+# MongoDB
 
 > MongoDB sink connector
 
