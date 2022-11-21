@@ -122,11 +122,12 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
                 deliveryTagsProcessedForCurrentSnapshot.add(envelope.getDeliveryTag());
                 deserializationSchema.deserialize(body, output);
             }
-        }
-        if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
-            // signal to the source that we have reached the end of the data.
-            // rabbitmq source connector on support streaming mode, this is for test
-            context.signalNoMoreElement();
+
+            if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
+                // signal to the source that we have reached the end of the data.
+                // rabbitmq source connector on support streaming mode, this is for test
+                context.signalNoMoreElement();
+            }
         }
     }
 
