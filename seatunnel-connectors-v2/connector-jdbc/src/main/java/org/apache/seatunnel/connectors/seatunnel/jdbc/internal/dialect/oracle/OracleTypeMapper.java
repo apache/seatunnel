@@ -76,10 +76,19 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
             case ORACLE_INTEGER:
                 return BasicType.INT_TYPE;
             case ORACLE_FLOAT:
-            case ORACLE_NUMBER:
                 //The float type will be converted to DecimalType(10, -127),
                 // which will lose precision in the spark engine
                 return new DecimalType(38, 18);
+            case ORACLE_NUMBER:
+                if (scale == 0) {
+                    if (precision <= 9) {
+                        return BasicType.INT_TYPE;
+                    }
+                    if (precision <= 18) {
+                        return BasicType.LONG_TYPE;
+                    }
+                }
+                return new DecimalType(precision, scale);
             case ORACLE_BINARY_DOUBLE:
                 return BasicType.DOUBLE_TYPE;
             case ORACLE_BINARY_FLOAT:
