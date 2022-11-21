@@ -479,24 +479,25 @@ public class CoordinatorService {
         int poolSize = threadPoolExecutor.getPoolSize();
         long completedTaskCount = threadPoolExecutor.getCompletedTaskCount();
         long taskCount = threadPoolExecutor.getTaskCount();
-        StringBuffer sbf = new StringBuffer();
-        sbf.append("activeCount=")
-            .append(activeCount)
-            .append("\n")
-            .append("corePoolSize=")
-            .append(corePoolSize)
-            .append("\n")
-            .append("maximumPoolSize=")
-            .append(maximumPoolSize)
-            .append("\n")
-            .append("poolSize=")
-            .append(poolSize)
-            .append("\n")
-            .append("completedTaskCount=")
-            .append(completedTaskCount)
-            .append("\n")
-            .append("taskCount=")
-            .append(taskCount);
-        logger.info(sbf.toString());
+        logger.info(String.format(
+                "\n" + "%-26s: %19s\n" + "%-26s: %19s\n" + "%-26s: %19s\n"
+                        + "%-26s: %19s\n" + "%-26s: %19s\n" + "%-26s: %19s\n",
+                "activeCount",
+                activeCount,
+
+                "corePoolSize",
+                corePoolSize,
+
+                "maximumPoolSize",
+                maximumPoolSize,
+
+                "poolSize",
+                poolSize,
+
+                "completedTaskCount",
+                completedTaskCount,
+
+                "taskCount",
+                taskCount));
     }
 }
