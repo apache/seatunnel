@@ -37,6 +37,7 @@ public class JdbcSourceOptions implements Serializable {
     private String partitionColumn;
     private Long partitionUpperBound;
     private Long partitionLowerBound;
+    private int fetchSize = JdbcConfig.FETCH_SIZE.defaultValue();
     private Integer partitionNumber;
 
     public JdbcSourceOptions(Config config) {
@@ -53,6 +54,9 @@ public class JdbcSourceOptions implements Serializable {
         }
         if (config.hasPath(JdbcConfig.PARTITION_NUM.key())) {
             this.partitionNumber = config.getInt(JdbcConfig.PARTITION_NUM.key());
+        }
+        if (config.hasPath(JdbcConfig.FETCH_SIZE.key())) {
+            this.fetchSize = config.getInt(JdbcConfig.FETCH_SIZE.key());
         }
     }
 
@@ -74,5 +78,9 @@ public class JdbcSourceOptions implements Serializable {
 
     public Optional<Integer> getPartitionNumber() {
         return Optional.ofNullable(partitionNumber);
+    }
+
+    public int getFetchSize() {
+        return fetchSize;
     }
 }
