@@ -21,6 +21,7 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
+import io.debezium.relational.history.TableChanges;
 import org.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionFactory;
 import org.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
@@ -57,6 +58,9 @@ public interface JdbcDataSourceDialect extends DataSourceDialect<JdbcSourceConfi
 
     /** Get a connection pool factory to create connection pool. */
     JdbcConnectionPoolFactory getPooledDataSourceFactory();
+
+    /** Query and build the schema of table. */
+    TableChanges.TableChange queryTableSchema(JdbcConnection jdbc, TableId tableId);
 
     @Override
     FetchTask<SourceSplitBase> createFetchTask(SourceSplitBase sourceSplitBase);

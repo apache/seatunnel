@@ -24,16 +24,18 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlCon
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.eumerator.MySqlChunkSplitter;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.MySqlSourceFetchTaskContext;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.binlog.MySqlBinlogFetchTask;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.scan.MySqlSnapshotFetchTask;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.TableDiscoveryUtils;
 
 import com.github.shyiko.mysql.binlog.BinaryLogClient;
 import io.debezium.connector.mysql.MySqlConnection;
-import io.debezium.connector.mysql.legacy.MySqlSchema;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
+import io.debezium.relational.history.TableChanges;
 import org.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
@@ -74,8 +76,7 @@ public class MySqlDialect implements JdbcDataSourceDialect {
 
     @Override
     public ChunkSplitter createChunkSplitter(JdbcSourceConfig sourceConfig) {
-        //TODO waiting for other pr
-        return null;
+        return new MySqlChunkSplitter(sourceConfig, this);
     }
 
     @Override
@@ -92,6 +93,14 @@ public class MySqlDialect implements JdbcDataSourceDialect {
         } catch (SQLException e) {
             throw new SeaTunnelException("Error to discover tables: " + e.getMessage(), e);
         }
+    }
+
+    @Override
+    public TableChanges.TableChange queryTableSchema(JdbcConnection jdbc, TableId tableId) {
+        if (mySqlSchema == null) {
+            mySqlSchema = new MySqlSchema(sourceConfig, isDataCollectionIdCaseSensitive(sourceConfig));
+        }
+        return mySqlSchema.getTableSchema(jdbc, tableId);
     }
 
     @Override
