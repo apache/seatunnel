@@ -17,11 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.eumerator;
 
-import static org.seatunnel.connectors.cdc.base.utils.ObjectUtils.doubleCompare;
+import static org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils.doubleCompare;
 import static java.math.BigDecimal.ROUND_CEILING;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkRange;
+import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.JdbcSourceChunkSplitter;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
+import org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlTypeUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlUtils;
 
@@ -29,12 +35,6 @@ import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
-import org.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
-import org.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
-import org.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkRange;
-import org.seatunnel.connectors.cdc.base.source.enumerator.splitter.JdbcSourceChunkSplitter;
-import org.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
-import org.seatunnel.connectors.cdc.base.utils.ObjectUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

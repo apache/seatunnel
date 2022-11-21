@@ -17,15 +17,23 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset;
 
-import org.seatunnel.connectors.cdc.base.source.offset.Offset;
-import org.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
+import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
+
+import io.debezium.jdbc.JdbcConnection;
 
 import java.util.Map;
 
 /** An offset factory class create {@link BinlogOffset} instance. */
 public class BinlogOffsetFactory extends OffsetFactory {
 
-    public BinlogOffsetFactory() {}
+    private final MySqlSourceConfig sourceConfig;
+    public BinlogOffsetFactory(MySqlSourceConfigFactory configFactory) {
+        this.sourceConfig = configFactory.create(0);
+    }
 
     @Override
     public Offset earliest() {
@@ -39,7 +47,11 @@ public class BinlogOffsetFactory extends OffsetFactory {
 
     @Override
     public Offset latest() {
-        return null;
+        try (JdbcConnection jdbcConnection = JdbcDataSourceDialect.openJdbcConnection(sourceConfig)) {
+            return currentBinlogOffset(jdbcConnection);
+        } catch (Exception e) {
+            throw new FlinkRuntimeException("Read the binlog offset error", e);
+        }
     }
 
     @Override
@@ -53,7 +65,7 @@ public class BinlogOffsetFactory extends OffsetFactory {
     }
 
     @Override
-    public Offset timstamp(long timestmap) {
+    public Offset timestamp(long timestamp) {
         throw new UnsupportedOperationException("not supported create new Offset by timestamp.");
     }
 }

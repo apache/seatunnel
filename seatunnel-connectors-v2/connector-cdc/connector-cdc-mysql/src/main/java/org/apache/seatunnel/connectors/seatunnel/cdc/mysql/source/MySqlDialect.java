@@ -17,11 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
+import static org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect.openJdbcConnection;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createBinaryClient;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createMySqlConnection;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.isTableIdCaseSensitive;
 
 import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
+import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
+import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.eumerator.MySqlChunkSplitter;
@@ -36,12 +43,6 @@ import io.debezium.connector.mysql.MySqlConnection;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
-import org.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
-import org.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
-import org.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
-import org.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
-import org.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
-import org.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
 import java.sql.SQLException;
 import java.util.List;
