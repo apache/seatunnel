@@ -133,7 +133,6 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
         assertEquals(Double.MAX_VALUE, tt.get("double").asDouble());
         assertArrayEquals(new byte[]{(byte) 1}, tt.get("byteArray").asByteArray());
         assertEquals(LocalDate.parse("2022-10-07"), tt.get("date").asLocalDate());
-        assertEquals(LocalTime.parse("20:04:00"), tt.get("localTime").asLocalTime());
         assertEquals(LocalDateTime.parse("2022-10-07T20:04:00"), tt.get("localDateTime").asLocalDateTime());
         final ArrayList<Integer> expectedList = new ArrayList<>();
         expectedList.add(0);
