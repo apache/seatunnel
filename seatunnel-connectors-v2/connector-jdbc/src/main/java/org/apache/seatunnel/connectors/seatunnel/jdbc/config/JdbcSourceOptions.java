@@ -37,22 +37,26 @@ public class JdbcSourceOptions implements Serializable {
     private String partitionColumn;
     private Long partitionUpperBound;
     private Long partitionLowerBound;
+    private int fetchSize = JdbcConfig.FETCH_SIZE.defaultValue();
     private Integer partitionNumber;
 
     public JdbcSourceOptions(Config config) {
         this.jdbcConnectionOptions = buildJdbcConnectionOptions(config);
-        this.query = config.getString(JdbcConfig.QUERY);
-        if (config.hasPath(JdbcConfig.PARTITION_COLUMN)) {
-            this.partitionColumn = config.getString(JdbcConfig.PARTITION_COLUMN);
+        this.query = config.getString(JdbcConfig.QUERY.key());
+        if (config.hasPath(JdbcConfig.PARTITION_COLUMN.key())) {
+            this.partitionColumn = config.getString(JdbcConfig.PARTITION_COLUMN.key());
         }
-        if (config.hasPath(JdbcConfig.PARTITION_UPPER_BOUND)) {
-            this.partitionUpperBound = config.getLong(JdbcConfig.PARTITION_UPPER_BOUND);
+        if (config.hasPath(JdbcConfig.PARTITION_UPPER_BOUND.key())) {
+            this.partitionUpperBound = config.getLong(JdbcConfig.PARTITION_UPPER_BOUND.key());
         }
-        if (config.hasPath(JdbcConfig.PARTITION_LOWER_BOUND)) {
-            this.partitionLowerBound = config.getLong(JdbcConfig.PARTITION_LOWER_BOUND);
+        if (config.hasPath(JdbcConfig.PARTITION_LOWER_BOUND.key())) {
+            this.partitionLowerBound = config.getLong(JdbcConfig.PARTITION_LOWER_BOUND.key());
         }
-        if (config.hasPath(JdbcConfig.PARTITION_NUM)) {
-            this.partitionNumber = config.getInt(JdbcConfig.PARTITION_NUM);
+        if (config.hasPath(JdbcConfig.PARTITION_NUM.key())) {
+            this.partitionNumber = config.getInt(JdbcConfig.PARTITION_NUM.key());
+        }
+        if (config.hasPath(JdbcConfig.FETCH_SIZE.key())) {
+            this.fetchSize = config.getInt(JdbcConfig.FETCH_SIZE.key());
         }
     }
 
@@ -74,5 +78,9 @@ public class JdbcSourceOptions implements Serializable {
 
     public Optional<Integer> getPartitionNumber() {
         return Optional.ofNullable(partitionNumber);
+    }
+
+    public int getFetchSize() {
+        return fetchSize;
     }
 }

@@ -119,7 +119,7 @@ public class InfluxDBSourceSplitEnumerator implements SourceSplitEnumerator<Infl
         //calculate numRange base on (lowerBound upperBound partitionNum)
         List<Pair<Long, Long>> rangePairs = genSplitNumRange(config.getLowerBound(), config.getUpperBound(), config.getPartitionNum());
 
-        String[] sqls = sql.split(SQL_WHERE);
+        String[] sqls = sql.split(SQL_WHERE.key());
         if (sqls.length > 2) {
             throw new IllegalArgumentException("sql should not contain more than one where");
         }

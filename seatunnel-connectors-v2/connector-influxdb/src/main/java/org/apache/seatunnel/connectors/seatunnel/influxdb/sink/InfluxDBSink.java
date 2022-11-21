@@ -51,7 +51,7 @@ public class InfluxDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(config, URL, KEY_MEASUREMENT);
+        CheckResult result = CheckConfigUtil.checkAllExists(config, URL.key(), KEY_MEASUREMENT.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
