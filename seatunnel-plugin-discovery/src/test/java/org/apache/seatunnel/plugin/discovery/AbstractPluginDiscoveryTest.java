@@ -23,10 +23,13 @@ import org.apache.seatunnel.common.constants.PluginType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.util.Map;
 import java.util.Objects;
 
+@DisabledOnOs(OS.WINDOWS)
 public class AbstractPluginDiscoveryTest {
 
     @Test
