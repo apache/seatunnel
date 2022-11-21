@@ -21,6 +21,9 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlCon
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlUtils.buildSplitScanQuery;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlUtils.readTableSplitDataStatement;
 
+import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
+import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkKind;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset;
 
 import io.debezium.DebeziumException;
@@ -46,9 +49,6 @@ import io.debezium.util.ColumnUtils;
 import io.debezium.util.Strings;
 import io.debezium.util.Threads;
 import org.apache.kafka.connect.errors.ConnectException;
-import org.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
-import org.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
-import org.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkKind;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
