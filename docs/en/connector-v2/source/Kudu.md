@@ -46,7 +46,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 ```hocon
 source {
-   KuduSource {
+   Kudu {
       result_table_name = "studentlyh2"
       kudu_master = "192.168.88.110:7051"
       kudu_table = "studentlyh2"
@@ -61,3 +61,7 @@ source {
 ### 2.2.0-beta 2022-09-26
 
 - Add Kudu Source Connector
+
+### Next Version
+
+- Change plugin name from `KuduSource` to `Kudu` [3432](https://github.com/apache/incubator-seatunnel/pull/3432)

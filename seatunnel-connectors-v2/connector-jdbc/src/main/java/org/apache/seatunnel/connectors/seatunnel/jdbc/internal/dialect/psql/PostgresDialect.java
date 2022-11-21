@@ -21,11 +21,18 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRow
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class PostgresDialect implements JdbcDialect {
+
+    public static final int DEFAULT_POSTGRES_FETCH_SIZE = 128;
+
     @Override
     public String dialectName() {
         return "PostgreSQL";
@@ -52,5 +59,18 @@ public class PostgresDialect implements JdbcDialect {
         String upsertSQL = String.format("%s ON CONFLICT (%s) DO UPDATE SET %s",
             getInsertIntoStatement(tableName, fieldNames), uniqueColumns, updateClause);
         return Optional.of(upsertSQL);
+    }
+
+    @Override
+    public PreparedStatement creatPreparedStatement(Connection connection, String queryTemplate, int fetchSize) throws SQLException {
+        // use cursor mode, reference: https://jdbc.postgresql.org/documentation/query/#getting-results-based-on-a-cursor
+        connection.setAutoCommit(false);
+        PreparedStatement statement = connection.prepareStatement(queryTemplate, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+        if (fetchSize > 0) {
+            statement.setFetchSize(fetchSize);
+        } else {
+            statement.setFetchSize(DEFAULT_POSTGRES_FETCH_SIZE);
+        }
+        return statement;
     }
 }
