@@ -15,27 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iotdb.config;
+package org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.ToString;
+public class KlaviyoSourceConfig extends HttpConfig {
+    public static final String KLAVIYO_API_KEY = "Klaviyo-API-Key";
+    public static final String AUTHORIZATION = "Authorization";
+    public static final String ACCEPT = "Accept";
+    public static final String APPLICATION_JSON = "application/json";
 
-import java.util.List;
-
-@Getter
-@ToString
-@AllArgsConstructor
-public class CommonConfig {
-
-    public static final Option<String> NODE_URLS = Options.key("node_urls").stringType().noDefaultValue().withDescription("node urls");
-    public static final Option<String> USERNAME = Options.key("username").stringType().noDefaultValue().withDescription("username");
-    public static final Option<String> PASSWORD = Options.key("password").stringType().noDefaultValue().withDescription("password");
-
-    private final List<String> nodeUrls;
-    private final String username;
-    private final String password;
+    public static final Option<String> PRIVATE_KEY = Options.key("private_key")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("Klaviyo login private key");
+    public static final Option<String> REVISION = Options.key("revision")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("API endpoint revision (format: YYYY-MM-DD)");
 }
