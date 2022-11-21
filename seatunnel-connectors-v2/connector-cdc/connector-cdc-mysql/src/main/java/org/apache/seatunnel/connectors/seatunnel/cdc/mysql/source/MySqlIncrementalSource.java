@@ -32,7 +32,6 @@ import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
-import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.MySqlCatalog;
@@ -51,7 +50,8 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
     @Override
     public SourceConfig.Factory<JdbcSourceConfig> createSourceConfigFactory(ReadonlyConfig config) {
         MySqlSourceConfigFactory configFactory = new MySqlSourceConfigFactory();
-        configFactory.serverId(config.get(MySqlSourceOptions.SERVER_ID));
+        configFactory.serverId(config.get(JdbcSourceOptions.SERVER_ID));
+        configFactory.fromReadonlyConfig(readonlyConfig);
         return configFactory;
     }
 
