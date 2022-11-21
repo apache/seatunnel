@@ -15,21 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.v2.neo4j;
+package org.apache.seatunnel.e2e.connector.neo4j;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.neo4j.driver.Values.parameters;
 
-import org.apache.seatunnel.e2e.flink.FlinkContainer;
+import org.apache.seatunnel.e2e.common.TestResource;
+import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestTemplate;
 import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
@@ -50,59 +52,74 @@ import java.io.IOException;
 import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
-public class Neo4jIT extends FlinkContainer {
+public class Neo4jIT extends TestSuiteBase implements TestResource {
 
     private static final String CONTAINER_IMAGE = "neo4j:latest";
     private static final String CONTAINER_HOST = "neo4j-host";
-    private static final int CONTAINER_PORT = 7687;
+    private static final int HTTP_PORT = 7474;
+    private static final int BOLT_PORT = 7687;
     private static final String CONTAINER_NEO4J_USERNAME = "neo4j";
     private static final String CONTAINER_NEO4J_PASSWORD = "1234";
-    private static final URI CONTAINER_URI = URI.create("neo4j://localhost:" + CONTAINER_PORT);
+    private static final URI CONTAINER_URI = URI.create("neo4j://localhost:" + BOLT_PORT);
 
     private GenericContainer<?> container;
     private Driver neo4jDriver;
     private Session neo4jSession;
 
     @BeforeAll
-    public void init() {
+    @Override
+    public void startUp() throws Exception {
         DockerImageName imageName = DockerImageName.parse(CONTAINER_IMAGE);
         container = new GenericContainer<>(imageName)
             .withNetwork(NETWORK)
             .withNetworkAliases(CONTAINER_HOST)
-            .withExposedPorts(CONTAINER_PORT)
+            .withExposedPorts(HTTP_PORT, BOLT_PORT)
             .withEnv("NEO4J_AUTH", CONTAINER_NEO4J_USERNAME + "/" + CONTAINER_NEO4J_PASSWORD)
             .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(CONTAINER_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", CONTAINER_PORT, CONTAINER_PORT)));
+        container.setPortBindings(
+            Lists.newArrayList(String.format("%s:%s", HTTP_PORT, HTTP_PORT),
+                String.format("%s:%s", BOLT_PORT, BOLT_PORT)));
         Startables.deepStart(Stream.of(container)).join();
         log.info("container started");
         Awaitility.given().ignoreExceptions()
             .await()
             .atMost(30, TimeUnit.SECONDS)
             .untilAsserted(this::initConnection);
-
     }
 
     private void initConnection() {
-        neo4jDriver = GraphDatabase.driver(CONTAINER_URI, AuthTokens.basic(CONTAINER_NEO4J_USERNAME, CONTAINER_NEO4J_PASSWORD));
+        neo4jDriver =
+            GraphDatabase.driver(CONTAINER_URI, AuthTokens.basic(CONTAINER_NEO4J_USERNAME, CONTAINER_NEO4J_PASSWORD));
         neo4jSession = neo4jDriver.session(SessionConfig.forDatabase("neo4j"));
     }
 
-    @Test
-    public void test() throws IOException, InterruptedException {
+    @TestTemplate
+    public void test(TestContainer container) throws IOException, InterruptedException {
+        // clean test data before test
+        final Result checkExists = neo4jSession.run("MATCH (tt:TestTest) RETURN tt");
+        if (checkExists.hasNext()) {
+            neo4jSession.run("MATCH (tt:TestTest) delete tt");
+        }
+
+        final Result checkExistsT = neo4jSession.run("MATCH (t:Test) RETURN t");
+        if (checkExistsT.hasNext()) {
+            neo4jSession.run("MATCH (t:Test) delete t");
+        }
+
         // given
-        neo4jSession.run("CREATE (t:Test {string:'foo', boolean:true, long:2147483648, double:1.7976931348623157E308, " +
+        neo4jSession.run(
+            "CREATE (t:Test {string:'foo', boolean:true, long:2147483648, double:1.7976931348623157E308, " +
                 "byteArray:$byteArray, date:date('2022-10-07'), localTime:localtime('20:04:00'), localDateTime:localdatetime('2022-10-07T20:04:00'), " +
                 "list:[0, 1], int:2147483647, float:$float})",
             parameters("byteArray", new byte[]{(byte) 1}, "float", Float.MAX_VALUE)
         );
         // when
-        final Container.ExecResult execResult = executeSeaTunnelFlinkJob("/neo4j/neo4j_to_neo4j.conf");
+        Container.ExecResult execResult = container.executeJob("/neo4j/neo4j_to_neo4j.conf");
         // then
         Assertions.assertEquals(0, execResult.getExitCode());
 
@@ -115,7 +132,6 @@ public class Neo4jIT extends FlinkContainer {
         assertEquals(Double.MAX_VALUE, tt.get("double").asDouble());
         assertArrayEquals(new byte[]{(byte) 1}, tt.get("byteArray").asByteArray());
         assertEquals(LocalDate.parse("2022-10-07"), tt.get("date").asLocalDate());
-        assertEquals(LocalTime.parse("20:04:00"), tt.get("localTime").asLocalTime());
         assertEquals(LocalDateTime.parse("2022-10-07T20:04:00"), tt.get("localDateTime").asLocalDateTime());
         final ArrayList<Integer> expectedList = new ArrayList<>();
         expectedList.add(0);
@@ -127,7 +143,8 @@ public class Neo4jIT extends FlinkContainer {
     }
 
     @AfterAll
-    public void close() {
+    @Override
+    public void tearDown() {
         if (neo4jSession != null) {
             neo4jSession.close();
         }
