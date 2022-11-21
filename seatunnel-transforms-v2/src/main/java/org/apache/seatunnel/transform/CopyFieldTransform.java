@@ -57,7 +57,7 @@ public class CopyFieldTransform extends SingleFieldOutputTransform {
         CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig,
             SRC_FIELD, DEST_FIELD);
         if (!checkResult.isSuccess()) {
-            throw new IllegalArgumentException("Field to check config! " + checkResult.getMsg());
+            throw new IllegalArgumentException("Failed to check config! " + checkResult.getMsg());
         }
 
         this.srcField = pluginConfig.getString(SRC_FIELD);
