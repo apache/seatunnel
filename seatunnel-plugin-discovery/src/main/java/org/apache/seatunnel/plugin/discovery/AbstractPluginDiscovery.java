@@ -18,6 +18,11 @@
 package org.apache.seatunnel.plugin.discovery;
 
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.apis.base.plugin.Plugin;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -196,17 +201,25 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     /**
      * Get all support plugin already in SEATUNNEL_HOME, only support connector-v2
      *
-     * @param pluginType Used to populate the PluginIdentifier, but without any filtering
+     * @param pluginType choose which type plugin should be returned
      * @return the all plugin identifier of the engine
      */
+    @SuppressWarnings("unchecked")
     public @Nonnull List<PluginIdentifier> getAllPlugin(PluginType pluginType) throws IOException {
         List<URL> files = FileUtils.searchJarFiles(pluginDir);
         List<PluginIdentifier> plugins = new ArrayList<>();
-        ServiceLoader<T> serviceLoader = ServiceLoader.load(getPluginBaseClass(), new URLClassLoader(files.toArray(new URL[0])));
-        serviceLoader.iterator().forEachRemaining(plugin -> {
-            if (plugin instanceof PluginIdentifierInterface) {
-                plugins.add(PluginIdentifier.of("seatunnel", pluginType.getType(), ((PluginIdentifierInterface) plugin).getPluginName()));
-            }
+        List factories;
+        if (pluginType.equals(PluginType.SOURCE)) {
+            factories = FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])), TableSourceFactory.class);
+        } else if (pluginType.equals(PluginType.SINK)) {
+            factories = FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])), TableSinkFactory.class);
+        } else if (pluginType.equals(PluginType.TRANSFORM)) {
+            factories = FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])), TableTransformFactory.class);
+        } else {
+            throw new IllegalArgumentException("Unsupported plugin type: " + pluginType);
+        }
+        factories.forEach(plugin -> {
+            plugins.add(PluginIdentifier.of("seatunnel", pluginType.getType(), ((Factory) plugin).factoryIdentifier()));
         });
         return plugins;
     }
