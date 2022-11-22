@@ -59,13 +59,11 @@ public class JdbcDorisdbIT extends AbstractJdbcIT {
         "  STRING_COL     STRING,\n" +
         "  DATETIME_COL   DATETIME,\n" +
         "  DATE_COL       DATE\n" +
-        ")ENGINE=OLAP\n" +
+        ")\n" +
         "DUPLICATE KEY(`BIGINT_COL`)\n" +
         "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 1\n" +
         "PROPERTIES (\n" +
-        "\"replication_num\" = \"1\",\n" +
-        "\"in_memory\" = \"false\"," +
-        "\"storage_format\" = \"DEFAULT\"" +
+        "\"replication_allocation\" = \"tag.location.default: 1\"" +
         ")";
 
 
@@ -88,9 +86,7 @@ public class JdbcDorisdbIT extends AbstractJdbcIT {
         "DUPLICATE KEY(`BIGINT_COL`)\n" +
         "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 1\n" +
         "PROPERTIES (\n" +
-        "\"replication_num\" = \"1\",\n" +
-        "\"in_memory\" = \"false\"," +
-        "\"storage_format\" = \"DEFAULT\"" +
+        "\"replication_allocation\" = \"tag.location.default: 1\"" +
         ")";
 
     private static final String INIT_DATA_SQL = "insert into " + DATABASE + "." + SOURCE_TABLE + " (\n" +
