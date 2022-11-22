@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.socket.sink;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.socket.config.SinkConfig;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -61,7 +62,9 @@ public class SocketClient {
                 createConnection();
             }
         } catch (IOException e) {
-            throw new IOException("Cannot connect to socket server at " + hostName + ":" + port, e);
+            throw new IOException(String.format(
+                "Cannot connect to socket server at %s:%d",
+                hostName, port), e);
         }
     }
 
@@ -70,37 +73,22 @@ public class SocketClient {
         try {
             outputStream.write(msg);
             outputStream.flush();
-
         } catch (IOException e) {
             // if no re-tries are enable, fail immediately
             if (maxNumRetries == 0) {
-                throw new IOException(
-                        "Failed to send message '"
-                                + row
-                                + "' to socket server at "
-                                + hostName
-                                + ":"
-                                + port
-                                + ". Connection re-tries are not enabled.",
-                        e);
+                throw new IOException(String.format(
+                    "Failed to send message '%s' to socket server at %s:%d. Connection re-tries are not enabled.",
+                    row, hostName, port), e);
             }
 
             log.error(
-                    "Failed to send message '"
-                            + row
-                            + "' to socket server at "
-                            + hostName
-                            + ":"
-                            + port
-                            + ". Trying to reconnect...",
-                    e);
+                "Failed to send message '{}' to socket server at {}:{}. Trying to reconnect...",
+                row, hostName, port, e);
 
             synchronized (SocketClient.class) {
                 IOException lastException = null;
                 retries = 0;
-
                 while (isRunning && (maxNumRetries < 0 || retries < maxNumRetries)) {
-
                     // first, clean up the old resources
                     try {
                         if (outputStream != null) {
@@ -128,32 +116,21 @@ public class SocketClient {
                     } catch (IOException ee) {
                         lastException = ee;
                         log.error(
-                                "Re-connect to socket server and send message failed. Retry time(s): "
-                                        + retries,
-                                ee);
+                            "Re-connect to socket server and send message failed. Retry time(s): {}",
+                            retries, ee);
                     }
                     try {
                         this.wait(CONNECTION_RETRY_DELAY);
-                    }
-                    catch (InterruptedException ex) {
+                    } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();
-                        throw new IOException(
-                                "unable to write; interrupted while doing another attempt", e);
+                        throw new IOException("unable to write; interrupted while doing another attempt", e);
                     }
                 }
 
                 if (isRunning) {
-                    throw new IOException(
-                            "Failed to send message '"
-                                    + row
-                                    + "' to socket server at "
-                                    + hostName
-                                    + ":"
-                                    + port
-                                    + ". Failed after "
-                                    + retries
-                                    + " retries.",
-                            lastException);
+                    throw new IOException(String.format(
+                        "Failed to send message '%s' to socket server at %s:%d. Failed after %d retries.",
+                        row, hostName, port, retries), lastException);
                 }
             }
         }
