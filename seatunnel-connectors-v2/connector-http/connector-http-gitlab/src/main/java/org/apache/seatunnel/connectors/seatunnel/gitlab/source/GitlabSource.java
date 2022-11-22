@@ -46,6 +46,14 @@ public class GitlabSource extends HttpSource {
     }
 
     @Override
+    public Boundedness getBoundedness() {
+        if (JobMode.BATCH.equals(jobContext.getJobMode())) {
+            return Boundedness.BOUNDED;
+        }
+        throw new UnsupportedOperationException("Gitlab source connector not support unbounded operation");
+    }
+
+    @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, GitlabSourceConfig.URL.key(),
             GitlabSourceConfig.ACCESS_TOKEN.key());
