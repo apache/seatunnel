@@ -37,7 +37,7 @@ public class HudiSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(TABLE_PATH,TABLE_TYPE,CONF_FILES)
-                .optional(USE_KERBEROS,KERBEROS_PRINCIPAL,KERBEROS_PRINCIPAL_FILE)
+                .optional(USE_KERBEROS)
                 .conditional(USE_KERBEROS,true,KERBEROS_PRINCIPAL,KERBEROS_PRINCIPAL_FILE)
                 .build();
     }
