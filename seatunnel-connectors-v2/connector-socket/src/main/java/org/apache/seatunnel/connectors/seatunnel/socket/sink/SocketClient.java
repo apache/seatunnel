@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.socket.sink;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.socket.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.socket.exception.SocketConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.socket.exception.SocketConnectorException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -62,8 +64,8 @@ public class SocketClient {
                 createConnection();
             }
         } catch (IOException e) {
-            throw new IOException(String.format(
-                "Cannot connect to socket server at %s:%d",
+            throw new SocketConnectorException(SocketConnectorErrorCode.SOCKET_SERVER_CONNECT_FAILED,
+                String.format("Cannot connect to socket server at %s:%d",
                 hostName, port), e);
         }
     }
@@ -76,8 +78,8 @@ public class SocketClient {
         } catch (IOException e) {
             // if no re-tries are enable, fail immediately
             if (maxNumRetries == 0) {
-                throw new IOException(String.format(
-                    "Failed to send message '%s' to socket server at %s:%d. Connection re-tries are not enabled.",
+                throw new SocketConnectorException(SocketConnectorErrorCode.SEND_MESSAGE_TO_SOCKET_SERVER_FAILED,
+                    String.format("Failed to send message '%s' to socket server at %s:%d. Connection re-tries are not enabled.",
                     row, hostName, port), e);
             }
 
@@ -115,21 +117,21 @@ public class SocketClient {
                         return;
                     } catch (IOException ee) {
                         lastException = ee;
-                        log.error(
-                            "Re-connect to socket server and send message failed. Retry time(s): {}",
+                        log.error("Re-connect to socket server and send message failed. Retry time(s): {}",
                             retries, ee);
                     }
                     try {
                         this.wait(CONNECTION_RETRY_DELAY);
                     } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();
-                        throw new IOException("unable to write; interrupted while doing another attempt", e);
+                        throw new SocketConnectorException(SocketConnectorErrorCode.SOCKET_WRITE_FAILED,
+                            "unable to write; interrupted while doing another attempt", e);
                     }
                 }
 
                 if (isRunning) {
-                    throw new IOException(String.format(
-                        "Failed to send message '%s' to socket server at %s:%d. Failed after %d retries.",
+                    throw new SocketConnectorException(SocketConnectorErrorCode.SEND_MESSAGE_TO_SOCKET_SERVER_FAILED,
+                        String.format("Failed to send message '%s' to socket server at %s:%d. Failed after %d retries.",
                         row, hostName, port, retries), lastException);
                 }
             }
