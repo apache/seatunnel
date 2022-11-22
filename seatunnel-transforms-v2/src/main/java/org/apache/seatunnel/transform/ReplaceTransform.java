@@ -77,7 +77,7 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
         CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig,
             KEY_REPLACE_FIELD.key(), KEY_PATTERN.key(), KEY_REPLACEMENT.key());
         if (!checkResult.isSuccess()) {
-            throw new IllegalArgumentException("Field to check config! " + checkResult.getMsg());
+            throw new IllegalArgumentException("Failed to check config! " + checkResult.getMsg());
         }
 
         replaceField = pluginConfig.getString(KEY_REPLACE_FIELD.key());
