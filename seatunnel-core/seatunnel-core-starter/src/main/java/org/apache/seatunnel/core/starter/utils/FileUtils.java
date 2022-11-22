@@ -17,12 +17,16 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+@Slf4j
 public class FileUtils {
 
     private FileUtils() {
@@ -47,6 +51,19 @@ public class FileUtils {
                 return Paths.get(getFileName(args.getConfigFile()));
             default:
                 throw new IllegalArgumentException("Unsupported deploy mode: " + args.getDeployMode());
+        }
+    }
+
+    /**
+     * Check whether the conf file exists.
+     *
+     * @param configFile the path of the config file
+     */
+    public static void checkConfigExist(Path configFile) {
+        if (!configFile.toFile().exists()) {
+            String message = "Can't find config file: " + configFile;
+            log.error(message);
+            throw new SeaTunnelException(message);
         }
     }
 
