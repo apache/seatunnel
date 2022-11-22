@@ -88,7 +88,7 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
                         return BasicType.LONG_TYPE;
                     }
                 }
-                return new DecimalType(precision, scale);
+                return new DecimalType(38, 18);
             case ORACLE_BINARY_DOUBLE:
                 return BasicType.DOUBLE_TYPE;
             case ORACLE_BINARY_FLOAT:
