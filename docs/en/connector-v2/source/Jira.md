@@ -144,8 +144,10 @@ Jira {
     api_token = "xxx" 
     schema {
        fields {
-         id = string
-         name = string
+         expand = string
+         startAt = bigint
+         maxResults = int
+         total = int
        }
     }
 }
