@@ -17,10 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.client;
 
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.CLOSE_CONNECTION_FAILED;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.CREATE_RABBITMQ_CLIENT_FAILED;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.SEND_MESSAGE_FAILED;
-
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
@@ -40,13 +36,15 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.TimeoutException;
 
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.*;
+
 @Slf4j
 @AllArgsConstructor
 public class RabbitmqClient {
-    private RabbitmqConfig config;
-    private ConnectionFactory connectionFactory;
-    private Connection connection;
-    private Channel channel;
+    private final RabbitmqConfig config;
+    private final ConnectionFactory connectionFactory;
+    private final Connection connection;
+    private final Channel channel;
 
     public RabbitmqClient(RabbitmqConfig config) {
         this.config = config;
@@ -74,23 +72,19 @@ public class RabbitmqClient {
         return consumer;
     }
 
-    public ConnectionFactory getConnectionFactory()
-            throws URISyntaxException, NoSuchAlgorithmException, KeyManagementException {
+    public ConnectionFactory getConnectionFactory() {
         ConnectionFactory factory = new ConnectionFactory();
         if (!StringUtils.isEmpty(config.getUri())) {
             try {
                 factory.setUri(config.getUri());
             } catch (URISyntaxException e) {
-                log.error("Failed to parse uri", e);
-                throw e;
+                throw new RabbitmqConnectorException(PARSE_URI_FAILED, e);
             } catch (KeyManagementException e) {
                 // this should never happen
-                log.error("Failed to initialize ssl context.", e);
-                throw e;
+                throw new RabbitmqConnectorException(INIT_SSL_CONTEXT_FAILED, e);
             } catch (NoSuchAlgorithmException e) {
                 // this should never happen
-                log.error("Failed to setup ssl factory.", e);
-                throw e;
+                throw new RabbitmqConnectorException(SETUP_SSL_FACTORY_FAILED, e);
             }
         } else {
             factory.setHost(config.getHost());
