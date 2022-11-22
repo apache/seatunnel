@@ -51,10 +51,10 @@ public class HttpJiraIT extends TestSuiteBase implements TestResource {
                 .withNetwork(NETWORK)
                 .withNetworkAliases("mockserver")
                 .withExposedPorts(1080)
-                .withCopyFileToContainer(MountableFile.forHostPath(new File(HttpIT.class.getResource(
-                                "/mockserver-lemlist-config.json").getPath()).getAbsolutePath()),
-                        "/tmp/mockserver-lemlist-config.json")
-                .withEnv("MOCKSERVER_INITIALIZATION_JSON_PATH", "/tmp/mockserver-lemlist-config.json")
+                .withCopyFileToContainer(MountableFile.forHostPath(new File(HttpJiraIT.class.getResource(
+                                "/mockserver-jira-config.json").getPath()).getAbsolutePath()),
+                        "/tmp/mockserver-jira-config.json")
+                .withEnv("MOCKSERVER_INITIALIZATION_JSON_PATH", "/tmp/mockserver-jira-config.json")
                 .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
                 .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));
         Startables.deepStart(Stream.of(mockserverContainer)).join();
