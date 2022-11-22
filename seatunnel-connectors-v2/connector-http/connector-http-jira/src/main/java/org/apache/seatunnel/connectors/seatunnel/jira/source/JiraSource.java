@@ -20,10 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.jira.source;
 import static org.apache.seatunnel.connectors.seatunnel.http.util.AuthorizationUtil.getTokenByBasicAuth;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
@@ -45,6 +47,14 @@ public class JiraSource extends HttpSource {
     @Override
     public String getPluginName() {
         return "Jira";
+    }
+
+    @Override
+    public Boundedness getBoundedness() {
+        if (JobMode.BATCH.equals(jobContext.getJobMode())) {
+            return Boundedness.BOUNDED;
+        }
+        throw new UnsupportedOperationException("Jira source connector not support unbounded operation");
     }
 
     @Override
