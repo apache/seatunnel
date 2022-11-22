@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.commit;
 
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
@@ -37,7 +38,8 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
     private final String dbName;
     private final String tableName;
 
-    public HiveSinkAggregatedCommitter(Config pluginConfig, String dbName, String tableName) {
+    public HiveSinkAggregatedCommitter(Config pluginConfig, String dbName, String tableName, HadoopConf hadoopConf) {
+        super(hadoopConf);
         this.pluginConfig = pluginConfig;
         this.dbName = dbName;
         this.tableName = tableName;
