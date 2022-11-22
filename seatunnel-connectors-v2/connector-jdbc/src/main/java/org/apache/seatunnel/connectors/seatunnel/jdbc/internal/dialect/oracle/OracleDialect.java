@@ -21,12 +21,19 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRow
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class OracleDialect implements JdbcDialect {
+
+    private static final int DEFAULT_ORACLE_FETCH_SIZE = 128;
+
     @Override
     public String dialectName() {
         return "Oracle";
@@ -83,5 +90,16 @@ public class OracleDialect implements JdbcDialect {
             insertValues);
 
         return Optional.of(upsertSQL);
+    }
+
+    @Override
+    public PreparedStatement creatPreparedStatement(Connection connection, String queryTemplate, int fetchSize) throws SQLException {
+        PreparedStatement statement = connection.prepareStatement(queryTemplate, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+        if (fetchSize > 0) {
+            statement.setFetchSize(fetchSize);
+        } else {
+            statement.setFetchSize(DEFAULT_ORACLE_FETCH_SIZE);
+        }
+        return statement;
     }
 }
