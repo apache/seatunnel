@@ -44,6 +44,7 @@ import java.util.concurrent.TimeUnit;
 
 public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionReader {
     protected static final Integer CHECKPOINT_SLEEP_INTERVAL = 10;
+    protected static final Integer CHECKPOINT_RETRIES = 3;
     protected volatile Integer checkpointId;
     protected final Integer checkpointInterval;
     protected final String checkpointPath;
@@ -117,19 +118,30 @@ public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionRea
 
     public void virtualCheckpoint() {
         try {
-            synchronized (checkpointLock) {
-                while (!handover.isEmpty()) {
+            int checkpointRetries = Math.max(1, CHECKPOINT_RETRIES);
+            do {
+                checkpointRetries--;
+                if (internalRowCollector.collectTotalCount() == 0) {
                     Thread.sleep(CHECKPOINT_SLEEP_INTERVAL);
                 }
-                // Block #next() method
-                synchronized (handover) {
-                    final int currentCheckpoint = checkpointId;
-                    ReaderState readerState = snapshotState();
-                    saveState(readerState, currentCheckpoint);
-                    internalSource.notifyCheckpointComplete(currentCheckpoint);
-                    running = false;
+                synchronized (checkpointLock) {
+                    if (internalRowCollector.collectTotalCount() != 0 || checkpointRetries == 0) {
+                        checkpointRetries = 0;
+
+                        while (!handover.isEmpty()) {
+                            Thread.sleep(CHECKPOINT_SLEEP_INTERVAL);
+                        }
+                        // Block #next() method
+                        synchronized (handover) {
+                            final int currentCheckpoint = checkpointId;
+                            ReaderState readerState = snapshotState();
+                            saveState(readerState, currentCheckpoint);
+                            internalSource.notifyCheckpointComplete(currentCheckpoint);
+                            running = false;
+                        }
+                    }
                 }
-            }
+            } while (checkpointRetries > 0);
         } catch (Exception e) {
             throw new RuntimeException("An error occurred in virtual checkpoint execution.", e);
         }

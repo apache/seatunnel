@@ -17,11 +17,25 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sftp.config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 
 public class SftpConfig extends BaseSourceConfig {
-    public static final String SFTP_PASSWORD = "password";
-    public static final String SFTP_USERNAME = "user";
-    public static final String SFTP_HOST = "host";
-    public static final String SFTP_PORT = "port";
+    public static final Option<String> SFTP_PASSWORD = Options.key("password")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("SFTP server password");
+    public static final Option<String> SFTP_USERNAME = Options.key("user")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("SFTP server username");
+    public static final Option<String> SFTP_HOST = Options.key("host")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("SFTP server host");
+    public static final Option<Integer> SFTP_PORT = Options.key("port")
+            .intType()
+            .noDefaultValue()
+            .withDescription("SFTP server port");
 }
