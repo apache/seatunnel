@@ -15,33 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.source;
+package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.source;
 
-import org.apache.seatunnel.api.configuration.util.Condition;
+import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.ACCESS_KEY_ID;
+import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.REGION;
+import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.SECRET_ACCESS_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.URL;
+
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.kafka.config.Config;
-import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class KafkaSourceFactory implements TableSourceFactory {
-
+public class AmazonDynamoDBSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return "Kafka";
+        return "AmazonDynamoDB";
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(Config.TOPIC, Config.BOOTSTRAP_SERVERS)
-            .optional(Config.PATTERN, Config.CONSUMER_GROUP, Config.COMMIT_ON_CHECKPOINT, Config.KAFKA_CONFIG_PREFIX, Config.SCHEMA,
-                Config.FORMAT, Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS)
-            .conditional(Condition.of(Config.START_MODE, StartMode.TIMESTAMP), Config.START_MODE_TIMESTAMP)
-            .conditional(Condition.of(Config.START_MODE, StartMode.SPECIFIC_OFFSETS), Config.START_MODE_OFFSETS)
-            .build();
+            .required(URL, REGION, ACCESS_KEY_ID, SECRET_ACCESS_KEY, TABLE, SeaTunnelSchema.SCHEMA).build();
     }
 }
