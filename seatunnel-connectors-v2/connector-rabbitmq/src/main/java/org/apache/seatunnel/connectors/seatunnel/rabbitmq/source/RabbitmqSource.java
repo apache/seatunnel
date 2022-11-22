@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.common.config.CommonConfig.SCHEMA;
+import static org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PORT;
@@ -71,7 +71,7 @@ public class RabbitmqSource implements SeaTunnelSource<SeaTunnelRow, RabbitmqSpl
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(config, HOST, PORT, VIRTUAL_HOST, USERNAME, PASSWORD, QUEUE_NAME, SCHEMA);
+        CheckResult result = CheckConfigUtil.checkAllExists(config, HOST.key(), PORT.key(), VIRTUAL_HOST.key(), USERNAME.key(), PASSWORD.key(), QUEUE_NAME.key(), SCHEMA.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
         }
@@ -107,7 +107,7 @@ public class RabbitmqSource implements SeaTunnelSource<SeaTunnelRow, RabbitmqSpl
     private void setDeserialization(Config config) {
         // TODO: format SPI
         //only support json deserializationSchema
-        SeaTunnelRowType rowType = SeaTunnelSchema.buildWithConfig(config.getConfig(SeaTunnelSchema.SCHEMA.key())).getSeaTunnelRowType();
+        SeaTunnelRowType rowType = SeaTunnelSchema.buildWithConfig(config.getConfig(SCHEMA.key())).getSeaTunnelRowType();
         this.deserializationSchema = new JsonDeserializationSchema(false, false, rowType);
     }
 }

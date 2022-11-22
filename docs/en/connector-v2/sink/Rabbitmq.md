@@ -61,7 +61,7 @@ the queue to write the message to
 
 the schema fields of upstream data.
 
-### network_recovery_interval [string]
+### network_recovery_interval [int]
 
 how long will automatic recovery wait before attempting to reconnect, in ms
 

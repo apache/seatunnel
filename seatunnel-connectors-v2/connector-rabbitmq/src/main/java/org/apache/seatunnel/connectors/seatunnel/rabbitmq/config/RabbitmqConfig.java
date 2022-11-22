@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -34,29 +36,6 @@ import java.util.Map;
 @Getter
 @AllArgsConstructor
 public class RabbitmqConfig implements Serializable {
-    public static final String HOST = "host";
-    public static final String PORT = "port";
-    public static final String VIRTUAL_HOST = "virtual_host";
-    public static final String USERNAME = "username";
-    public static final String PASSWORD = "password";
-    public static final String URL = "url";
-    public static final String NETWORK_RECOVERY_INTERVAL = "network_recovery_interval";
-    public static final String AUTOMATIC_RECOVERY_ENABLED = "automatic_recovery_enabled";
-    public static final String TOPOLOGY_RECOVERY_ENABLED = "topology_recovery_enabled";
-    public static final String CONNECTION_TIMEOUT = "connection_timeout";
-    public static final String REQUESTED_CHANNEL_MAX = "requested_channel_max";
-    public static final String REQUESTED_FRAME_MAX = "requested_frame_max";
-    public static final String REQUESTED_HEARTBEAT = "requested_heartbeat";
-
-    public static final String PREFETCH_COUNT = "prefetch_count";
-    public static final String DELIVERY_TIMEOUT = "delivery_timeout";
-    public static final String QUEUE_NAME = "queue_name";
-    public static final String ROUTING_KEY = "routing_key";
-    public static final String EXCHANGE = "exchange";
-
-    public static final String LOG_FAILURES_ONLY = "log_failures_only";
-    public static final String FOR_E2E_TESTING = "for_e2e_testing";
-
     private String host;
     private Integer port;
     private String virtualHost;
@@ -83,6 +62,103 @@ public class RabbitmqConfig implements Serializable {
 
     private final Map<String, Object> sinkOptionProps = new HashMap<>();
 
+    public static final Option<String> HOST = Options.key("host")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("the default host to use for connections");
+
+    public static final Option<Integer> PORT = Options.key("port")
+            .intType()
+            .noDefaultValue()
+            .withDescription("the default port to use for connections");
+
+    public static final Option<String> VIRTUAL_HOST = Options.key("virtual_host")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("the virtual host to use when connecting to the broker");
+
+    public static final Option<String> USERNAME = Options.key("username")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("the AMQP user name to use when connecting to the broker");
+
+    public static final Option<String> PASSWORD = Options.key("password")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("the password to use when connecting to the broker");
+
+
+    public static final Option<String> QUEUE_NAME = Options.key("queue_name")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("the queue to write the message to");
+
+    public static final Option<String> URL = Options.key("url")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("convenience method for setting the fields in an AMQP URI: host, port, username, password and virtual host");
+
+    public static final Option<Integer> NETWORK_RECOVERY_INTERVAL = Options.key("network_recovery_interval")
+            .intType()
+            .noDefaultValue()
+            .withDescription("how long will automatic recovery wait before attempting to reconnect, in ms");
+
+    public static final Option<Boolean> AUTOMATIC_RECOVERY_ENABLED = Options.key("AUTOMATIC_RECOVERY_ENABLED")
+            .booleanType()
+            .noDefaultValue()
+            .withDescription("if true, enables connection recovery");
+
+    public static final Option<Boolean> TOPOLOGY_RECOVERY_ENABLED = Options.key("topology_recovery_enabled")
+            .booleanType()
+            .noDefaultValue()
+            .withDescription("if true, enables topology recovery");
+
+    public static final Option<Integer> CONNECTION_TIMEOUT = Options.key("connection_timeout")
+            .intType()
+            .noDefaultValue()
+            .withDescription("connection TCP establishment timeout in milliseconds");
+
+
+    public static final Option<Integer> REQUESTED_CHANNEL_MAX = Options.key("requested_channel_max")
+            .intType()
+            .noDefaultValue()
+            .withDescription("initially requested maximum channel number");
+
+    public static final Option<Integer> REQUESTED_FRAME_MAX = Options.key("requested_frame_max")
+            .intType()
+            .noDefaultValue()
+            .withDescription("the requested maximum frame size");
+
+    public static final Option<Integer> REQUESTED_HEARTBEAT = Options.key("requested_heartbeat")
+            .intType()
+            .noDefaultValue()
+            .withDescription("the requested heartbeat timeout");
+
+    public static final Option<Long> PREFETCH_COUNT = Options.key("prefetch_count")
+            .longType()
+            .noDefaultValue()
+            .withDescription("prefetchCount the max number of messages to receive without acknowledgement\n");
+
+    public static final Option<Integer> DELIVERY_TIMEOUT = Options.key("delivery_timeout")
+            .intType()
+            .noDefaultValue()
+            .withDescription("deliveryTimeout maximum wait time");
+
+    public static final Option<String> ROUTING_KEY = Options.key("routing_key")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("the routing key to publish the message to");
+
+    public static final Option<String> EXCHANGE = Options.key("exchange")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("the exchange to publish the message to");
+
+    public static final Option<Boolean> FOR_E2E_TESTING = Options.key("for_e2e_testing")
+            .booleanType()
+            .noDefaultValue()
+            .withDescription("use to recognize E2E mode");
+
     private void parseSinkOptionProperties(Config pluginConfig) {
         Config sinkOptionConfig = TypesafeConfigUtils.extractSubConfig(pluginConfig,
                 RABBITMQ_SINK_CONFIG_PREFIX, false);
@@ -93,53 +169,53 @@ public class RabbitmqConfig implements Serializable {
     }
 
     public RabbitmqConfig(Config config) {
-        this.host = config.getString(HOST);
-        this.port = config.getInt(PORT);
-        this.queueName = config.getString(QUEUE_NAME);
-        if (config.hasPath(USERNAME)) {
-            this.username = config.getString(USERNAME);
+        this.host = config.getString(HOST.key());
+        this.port = config.getInt(PORT.key());
+        this.queueName = config.getString(QUEUE_NAME.key());
+        if (config.hasPath(USERNAME.key())) {
+            this.username = config.getString(USERNAME.key());
         }
-        if (config.hasPath(PASSWORD)) {
-            this.password = config.getString(PASSWORD);
+        if (config.hasPath(PASSWORD.key())) {
+            this.password = config.getString(PASSWORD.key());
         }
-        if (config.hasPath(VIRTUAL_HOST)) {
-            this.virtualHost = config.getString(VIRTUAL_HOST);
+        if (config.hasPath(VIRTUAL_HOST.key())) {
+            this.virtualHost = config.getString(VIRTUAL_HOST.key());
         }
-        if (config.hasPath(NETWORK_RECOVERY_INTERVAL)) {
-            this.networkRecoveryInterval = config.getInt(NETWORK_RECOVERY_INTERVAL);
+        if (config.hasPath(NETWORK_RECOVERY_INTERVAL.key())) {
+            this.networkRecoveryInterval = config.getInt(NETWORK_RECOVERY_INTERVAL.key());
         }
-        if (config.hasPath(AUTOMATIC_RECOVERY_ENABLED)) {
-            this.automaticRecovery = config.getBoolean(AUTOMATIC_RECOVERY_ENABLED);
+        if (config.hasPath(AUTOMATIC_RECOVERY_ENABLED.key())) {
+            this.automaticRecovery = config.getBoolean(AUTOMATIC_RECOVERY_ENABLED.key());
         }
-        if (config.hasPath(TOPOLOGY_RECOVERY_ENABLED)) {
-            this.topologyRecovery = config.getBoolean(TOPOLOGY_RECOVERY_ENABLED);
+        if (config.hasPath(TOPOLOGY_RECOVERY_ENABLED.key())) {
+            this.topologyRecovery = config.getBoolean(TOPOLOGY_RECOVERY_ENABLED.key());
         }
-        if (config.hasPath(CONNECTION_TIMEOUT)) {
-            this.connectionTimeout = config.getInt(CONNECTION_TIMEOUT);
+        if (config.hasPath(CONNECTION_TIMEOUT.key())) {
+            this.connectionTimeout = config.getInt(CONNECTION_TIMEOUT.key());
         }
-        if (config.hasPath(REQUESTED_CHANNEL_MAX)) {
-            this.requestedChannelMax = config.getInt(REQUESTED_CHANNEL_MAX);
+        if (config.hasPath(REQUESTED_CHANNEL_MAX.key())) {
+            this.requestedChannelMax = config.getInt(REQUESTED_CHANNEL_MAX.key());
         }
-        if (config.hasPath(REQUESTED_FRAME_MAX)) {
-            this.requestedFrameMax = config.getInt(REQUESTED_FRAME_MAX);
+        if (config.hasPath(REQUESTED_FRAME_MAX.key())) {
+            this.requestedFrameMax = config.getInt(REQUESTED_FRAME_MAX.key());
         }
-        if (config.hasPath(REQUESTED_HEARTBEAT)) {
-            this.requestedHeartbeat = config.getInt(REQUESTED_HEARTBEAT);
+        if (config.hasPath(REQUESTED_HEARTBEAT.key())) {
+            this.requestedHeartbeat = config.getInt(REQUESTED_HEARTBEAT.key());
         }
-        if (config.hasPath(PREFETCH_COUNT)) {
-            this.prefetchCount = config.getInt(PREFETCH_COUNT);
+        if (config.hasPath(PREFETCH_COUNT.key())) {
+            this.prefetchCount = config.getInt(PREFETCH_COUNT.key());
         }
-        if (config.hasPath(DELIVERY_TIMEOUT)) {
-            this.deliveryTimeout = config.getInt(DELIVERY_TIMEOUT);
+        if (config.hasPath(DELIVERY_TIMEOUT.key())) {
+            this.deliveryTimeout = config.getInt(DELIVERY_TIMEOUT.key());
         }
-        if (config.hasPath(ROUTING_KEY)) {
-            this.routingKey = config.getString(ROUTING_KEY);
+        if (config.hasPath(ROUTING_KEY.key())) {
+            this.routingKey = config.getString(ROUTING_KEY.key());
         }
-        if (config.hasPath(EXCHANGE)) {
-            this.exchange = config.getString(EXCHANGE);
+        if (config.hasPath(EXCHANGE.key())) {
+            this.exchange = config.getString(EXCHANGE.key());
         }
-        if (config.hasPath(FOR_E2E_TESTING)) {
-            this.forE2ETesting = config.getBoolean(FOR_E2E_TESTING);
+        if (config.hasPath(FOR_E2E_TESTING.key())) {
+            this.forE2ETesting = config.getBoolean(FOR_E2E_TESTING.key());
         }
         parseSinkOptionProperties(config);
     }

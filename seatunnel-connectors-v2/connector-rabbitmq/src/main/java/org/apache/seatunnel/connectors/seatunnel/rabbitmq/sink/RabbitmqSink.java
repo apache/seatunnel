@@ -58,7 +58,7 @@ public class RabbitmqSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
 
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HOST, PORT, VIRTUAL_HOST, USERNAME, PASSWORD, QUEUE_NAME);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HOST.key(), PORT.key(), VIRTUAL_HOST.key(), USERNAME.key(), PASSWORD.key(), QUEUE_NAME.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
         }

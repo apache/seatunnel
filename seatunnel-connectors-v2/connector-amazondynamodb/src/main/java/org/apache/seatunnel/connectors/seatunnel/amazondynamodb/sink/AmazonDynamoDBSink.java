@@ -58,7 +58,7 @@ public class AmazonDynamoDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, URL, TABLE, REGION, ACCESS_KEY_ID, SECRET_ACCESS_KEY);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, URL.key(), TABLE.key(), REGION.key(), ACCESS_KEY_ID.key(), SECRET_ACCESS_KEY.key());
         if (!result.isSuccess()) {
             throw new AmazonDynamoDBConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format("PluginName: %s, PluginType: %s, Message: %s",

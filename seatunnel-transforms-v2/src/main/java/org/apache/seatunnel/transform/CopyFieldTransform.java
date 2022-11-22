@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.transform;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -39,8 +41,15 @@ import java.util.Map;
 @AutoService(SeaTunnelTransform.class)
 public class CopyFieldTransform extends SingleFieldOutputTransform {
 
-    private static final String SRC_FIELD = "src_field";
-    private static final String DEST_FIELD = "dest_field";
+    public static final Option<String> SRC_FIELD = Options.key("src_field")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("Src field you want to copy");
+
+    public static final Option<String> DEST_FIELD = Options.key("dest_field")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("Copy Src field to Dest field");
 
     private String srcField;
     private int srcFieldIndex;
@@ -55,13 +64,13 @@ public class CopyFieldTransform extends SingleFieldOutputTransform {
     @Override
     protected void setConfig(Config pluginConfig) {
         CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig,
-            SRC_FIELD, DEST_FIELD);
+            SRC_FIELD.key(), DEST_FIELD.key());
         if (!checkResult.isSuccess()) {
-            throw new IllegalArgumentException("Field to check config! " + checkResult.getMsg());
+            throw new IllegalArgumentException("Failed to check config! " + checkResult.getMsg());
         }
 
-        this.srcField = pluginConfig.getString(SRC_FIELD);
-        this.destField = pluginConfig.getString(DEST_FIELD);
+        this.srcField = pluginConfig.getString(SRC_FIELD.key());
+        this.destField = pluginConfig.getString(DEST_FIELD.key());
     }
 
     @Override
