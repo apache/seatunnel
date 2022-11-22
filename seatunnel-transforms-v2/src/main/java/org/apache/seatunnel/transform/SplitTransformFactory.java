@@ -15,33 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.source;
+package org.apache.seatunnel.transform;
 
-import org.apache.seatunnel.api.configuration.util.Condition;
+import static org.apache.seatunnel.transform.SplitTransform.KEY_OUTPUT_FIELDS;
+import static org.apache.seatunnel.transform.SplitTransform.KEY_SEPARATOR;
+import static org.apache.seatunnel.transform.SplitTransform.KEY_SPLIT_FIELD;
+
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.kafka.config.Config;
-import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
+import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class KafkaSourceFactory implements TableSourceFactory {
-
+public class SplitTransformFactory implements TableTransformFactory{
     @Override
     public String factoryIdentifier() {
-        return "Kafka";
+        return "Split";
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(Config.TOPIC, Config.BOOTSTRAP_SERVERS)
-            .optional(Config.PATTERN, Config.CONSUMER_GROUP, Config.COMMIT_ON_CHECKPOINT, Config.KAFKA_CONFIG_PREFIX, Config.SCHEMA,
-                Config.FORMAT, Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS)
-            .conditional(Condition.of(Config.START_MODE, StartMode.TIMESTAMP), Config.START_MODE_TIMESTAMP)
-            .conditional(Condition.of(Config.START_MODE, StartMode.SPECIFIC_OFFSETS), Config.START_MODE_OFFSETS)
-            .build();
+                .required(KEY_SEPARATOR, KEY_SPLIT_FIELD, KEY_OUTPUT_FIELDS)
+                .build();
     }
 }

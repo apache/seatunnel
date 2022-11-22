@@ -15,8 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.common.config;
+package org.apache.seatunnel.transform;
 
-public class CommonConfig {
-    public static final String SCHEMA = "schema";
+import static org.apache.seatunnel.transform.CopyFieldTransform.DEST_FIELD;
+import static org.apache.seatunnel.transform.CopyFieldTransform.SRC_FIELD;
+
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableTransformFactory;
+
+import com.google.auto.service.AutoService;
+
+@AutoService(Factory.class)
+public class CopyFieldTransformFactory implements TableTransformFactory {
+    @Override
+    public String factoryIdentifier() {
+        return "Copy";
+    }
+
+    @Override
+    public OptionRule optionRule() {
+        return OptionRule.builder()
+                .required(SRC_FIELD, DEST_FIELD)
+                .build();
+    }
 }
