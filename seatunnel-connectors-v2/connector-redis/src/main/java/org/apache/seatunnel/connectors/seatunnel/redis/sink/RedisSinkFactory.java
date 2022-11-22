@@ -35,7 +35,7 @@ public class RedisSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
             .required(RedisConfig.HOST, RedisConfig.PORT, RedisConfig.KEY, RedisConfig.DATA_TYPE)
-            .optional(RedisConfig.AUTH, RedisConfig.USER, RedisConfig.KEY_PATTERN, RedisConfig.FORMAT)
+            .optional(RedisConfig.MODE, RedisConfig.AUTH, RedisConfig.USER, RedisConfig.KEY_PATTERN, RedisConfig.FORMAT)
             .conditional(RedisConfig.MODE, RedisConfig.RedisMode.CLUSTER, RedisConfig.NODES)
             .build();
     }
