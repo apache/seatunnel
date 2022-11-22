@@ -22,7 +22,7 @@ Write data to Clickhouse can also be done using JDBC
 ## Options
 
 | name                   | type    | required | default value |
-| ---------------------- | ------- | -------- | ------------- |
+|------------------------|---------|----------|---------------|
 | host                   | string  | yes      | -             |
 | database               | string  | yes      | -             |
 | table                  | string  | yes      | -             |
@@ -36,6 +36,7 @@ Write data to Clickhouse can also be done using JDBC
 | node_pass.node_address | string  | no       | -             |
 | node_pass.username     | string  | no       | "root"        |
 | node_pass.password     | string  | no       | -             |
+| compatible_mode        | boolean | no       | false         |
 | common-options         |         | no       | -             |
 
 ### host [string]
@@ -94,6 +95,11 @@ The username corresponding to the clickhouse server, default root user.
 
 The password corresponding to the clickhouse server.
 
+### compatible_mode [boolean]
+
+In the lower version of Clickhouse, the ClickhouseLocal program does not support the `--path` parameter, 
+you need to use this mode to take other ways to realize the `--path` parameter function
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
@@ -126,3 +132,4 @@ Sink plugin common parameters, please refer to [Sink Common Options](common-opti
 ### Next version
 
 - [BugFix] Fix generated data part name conflict and improve file commit logic [3416](https://github.com/apache/incubator-seatunnel/pull/3416)
+- [Feature] Support compatible_mode compatible with lower version Clickhouse  [3416](https://github.com/apache/incubator-seatunnel/pull/3416)

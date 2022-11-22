@@ -33,6 +33,7 @@ import org.apache.commons.io.FileUtils;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -53,7 +54,10 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKFileCommitInfo, ClickhouseSinkState> {
-    private static final String CLICKHOUSE_LOCAL_FILE_PREFIX = "/tmp/clickhouse-local/seatunnel-file";
+    private static final String CLICKHOUSE_LOCAL_FILE_PREFIX = "/tmp/seatunnel/clickhouse-local/seatunnel-file";
+
+    private static final String CK_LOCAL_CONFIG_TEMPLATE = "<yandex><path> %s </path> <users><default><password/> <profile>default</profile> <quota>default</quota>" +
+        "<access_management>1</access_management></default></users><profiles><default/></profiles><quotas><default/></quotas></yandex>";
     private static final String CLICKHOUSE_LOCAL_FILE_SUFFIX = "/local_data.log";
     private static final int UUID_LENGTH = 10;
     private final FileReaderOption readerOption;
@@ -161,7 +165,9 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKFile
 
     private List<String> generateClickhouseLocalFiles(String clickhouseLocalFileTmpFile) throws IOException,
         InterruptedException {
-        String uuid = UUID.randomUUID().toString().substring(0, UUID_LENGTH).replaceAll("-", "_");
+        // temp file path format prefix/<uuid>/suffix
+        String[] tmpStrArr = clickhouseLocalFileTmpFile.split("/");
+        String uuid = tmpStrArr[tmpStrArr.length - 2];
         List<String> localPaths = Arrays.stream(this.readerOption.getClickhouseLocalPath().trim().split(" "))
             .collect(Collectors.toList());
         String clickhouseLocalFile = clickhouseLocalFileTmpFile.substring(0, clickhouseLocalFileTmpFile.length() - CLICKHOUSE_LOCAL_FILE_SUFFIX.length());
@@ -188,8 +194,19 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKFile
                 }
             }).collect(Collectors.joining(",")),
             uuid));
-        command.add("--path");
-        command.add("\"" + clickhouseLocalFile + "\"");
+        if (readerOption.isCompatibleMode()) {
+            String ckLocalConfigPath = String.format("%s/%s/config.xml", CLICKHOUSE_LOCAL_FILE_PREFIX, uuid);
+            try (FileWriter writer = new FileWriter(ckLocalConfigPath)) {
+                writer.write(String.format(CK_LOCAL_CONFIG_TEMPLATE, clickhouseLocalFile));
+            } catch (IOException e) {
+                throw new RuntimeException("Error occurs when create ck local config", e);
+            }
+            command.add("--config-file");
+            command.add("\"" + ckLocalConfigPath + "\"");
+        } else {
+            command.add("--path");
+            command.add("\"" + clickhouseLocalFile + "\"");
+        }
         log.info("Generate clickhouse local file command: {}", String.join(" ", command));
         ProcessBuilder processBuilder = new ProcessBuilder("bash", "-c", String.join(" ", command));
         Process start = processBuilder.start();

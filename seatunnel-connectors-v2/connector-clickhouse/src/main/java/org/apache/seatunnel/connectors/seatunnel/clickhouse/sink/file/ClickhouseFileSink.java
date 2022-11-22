@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_LOCAL_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.COMPATIBLE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.COPY_METHOD;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.FIELDS;
@@ -85,6 +86,7 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
         Map<String, Object> defaultConfigs = ImmutableMap.<String, Object>builder()
             .put(COPY_METHOD.key(), COPY_METHOD.defaultValue().getName())
             .put(NODE_FREE_PASSWORD.key(), NODE_FREE_PASSWORD.defaultValue())
+            .put(COMPATIBLE_MODE.key(), COMPATIBLE_MODE.defaultValue())
                 .build();
 
         config = config.withFallback(ConfigFactory.parseMap(defaultConfigs));
@@ -127,7 +129,8 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
 
         proxy.close();
         this.readerOption = new FileReaderOption(shardMetadata, tableSchema, fields, config.getString(CLICKHOUSE_LOCAL_PATH.key()),
-            ClickhouseFileCopyMethod.from(config.getString(COPY_METHOD.key())), nodeUser, config.getBoolean(NODE_FREE_PASSWORD.key()), nodePassword);
+            ClickhouseFileCopyMethod.from(config.getString(COPY_METHOD.key())), nodeUser, config.getBoolean(NODE_FREE_PASSWORD.key()), nodePassword,
+            config.getBoolean(COMPATIBLE_MODE.key()));
     }
 
     @Override

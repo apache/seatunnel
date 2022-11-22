@@ -96,6 +96,10 @@ public class ClickhouseConfig {
     public static final Option<ClickhouseFileCopyMethod> COPY_METHOD = Options.key("copy_method").enumType(ClickhouseFileCopyMethod.class)
         .defaultValue(ClickhouseFileCopyMethod.SCP).withDescription("The method of copy Clickhouse file");
 
+    public static final Option<Boolean> COMPATIBLE_MODE = Options.key("compatible_mode").booleanType()
+        .defaultValue(false).withDescription("In the lower version of Clickhouse, the ClickhouseLocal program does not support the `--path` parameter, " +
+            "you need to use this mode to take other ways to realize the --path parameter function");
+
     public static final String NODE_ADDRESS = "node_address";
 
     public static final Option<Boolean> NODE_FREE_PASSWORD = Options.key("node_free_password").booleanType()
