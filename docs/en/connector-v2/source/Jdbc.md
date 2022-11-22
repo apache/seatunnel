@@ -32,6 +32,7 @@ supports query SQL and can achieve projection effect.
 | partition_upper_bound        | Long   | No       | -               |
 | partition_lower_bound        | Long   | No       | -               |
 | partition_num                | Int    | No       | job parallelism |
+| fetch_size                   | Int    | No       | 0               |
 | common-options               |        | No       | -               |
 
 
@@ -76,6 +77,11 @@ The partition_column min value for scan, if not set SeaTunnel will query databas
 ### partition_num [int]
 
 The number of partition count, only support positive integer. default value is job parallelism
+
+### fetch_size [int]
+
+For queries that return a large number of objects, you can configure the row fetch size used in the query to 
+improve performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default value.
 
 ### common options 
 
@@ -153,3 +159,4 @@ parallel:
 - [BugFix] Fix jdbc split bug ([3220](https://github.com/apache/incubator-seatunnel/pull/3220))
 - [Feature] Support Sqlite JDBC Source ([3089](https://github.com/apache/incubator-seatunnel/pull/3089))
 - [Feature] Support Tablestore Source ([3309](https://github.com/apache/incubator-seatunnel/pull/3309))
+- [Feature] Support JDBC Fetch Size Config ([3478](https://github.com/apache/incubator-seatunnel/pull/3478))

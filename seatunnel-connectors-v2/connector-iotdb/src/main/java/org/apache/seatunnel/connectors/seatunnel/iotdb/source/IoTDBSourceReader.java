@@ -87,7 +87,9 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
     public void close() throws IOException {
         //nothing to do
         try {
-            session.close();
+            if (session != null) {
+                session.close();
+            }
         } catch (IoTDBConnectionException e) {
             throw new IOException("close IoTDB session failed", e);
         }
@@ -123,37 +125,36 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
 
     private Session buildSession(Map<String, Object> conf) {
         Session.Builder sessionBuilder = new Session.Builder();
-        if (conf.containsKey(HOST)) {
+        if (conf.containsKey(HOST.key())) {
             sessionBuilder
-                    .host((String) conf.get(HOST))
-                    .port(Integer.parseInt(conf.get(PORT).toString()))
+                    .host((String) conf.get(HOST.key()))
+                    .port(Integer.parseInt(conf.get(PORT.key()).toString()))
                     .build();
         } else {
-            String nodeUrlsString = (String) conf.get(NODE_URLS);
-
+            String nodeUrlsString = (String) conf.get(NODE_URLS.key());
             List<String> nodes = Stream.of(nodeUrlsString.split(NODES_SPLIT)).collect(Collectors.toList());
             sessionBuilder.nodeUrls(nodes);
         }
-        if (null != conf.get(FETCH_SIZE)) {
-            sessionBuilder.fetchSize(Integer.parseInt(conf.get(FETCH_SIZE).toString()));
+        if (null != conf.get(FETCH_SIZE.key())) {
+            sessionBuilder.fetchSize(Integer.parseInt(conf.get(FETCH_SIZE.key()).toString()));
         }
-        if (null != conf.get(USERNAME)) {
-            sessionBuilder.username((String) conf.get(USERNAME));
+        if (null != conf.get(USERNAME.key())) {
+            sessionBuilder.username((String) conf.get(USERNAME.key()));
         }
-        if (null != conf.get(PASSWORD)) {
-            sessionBuilder.password((String) conf.get(PASSWORD));
+        if (null != conf.get(PASSWORD.key())) {
+            sessionBuilder.password((String) conf.get(PASSWORD.key()));
         }
-        if (null != conf.get(THRIFT_DEFAULT_BUFFER_SIZE)) {
-            sessionBuilder.thriftDefaultBufferSize(Integer.parseInt(conf.get(THRIFT_DEFAULT_BUFFER_SIZE).toString()));
+        if (null != conf.get(THRIFT_DEFAULT_BUFFER_SIZE.key())) {
+            sessionBuilder.thriftDefaultBufferSize(Integer.parseInt(conf.get(THRIFT_DEFAULT_BUFFER_SIZE.key()).toString()));
         }
-        if (null != conf.get(THRIFT_MAX_FRAME_SIZE)) {
-            sessionBuilder.thriftMaxFrameSize(Integer.parseInt(conf.get(THRIFT_MAX_FRAME_SIZE).toString()));
+        if (null != conf.get(THRIFT_MAX_FRAME_SIZE.key())) {
+            sessionBuilder.thriftMaxFrameSize(Integer.parseInt(conf.get(THRIFT_MAX_FRAME_SIZE.key()).toString()));
         }
-        if (null != conf.get(ENABLE_CACHE_LEADER)) {
-            sessionBuilder.enableCacheLeader(Boolean.parseBoolean(conf.get(ENABLE_CACHE_LEADER).toString()));
+        if (null != conf.get(ENABLE_CACHE_LEADER.key())) {
+            sessionBuilder.enableCacheLeader(Boolean.parseBoolean(conf.get(ENABLE_CACHE_LEADER.key()).toString()));
         }
-        if (null != conf.get(VERSION)) {
-            Version version = Version.valueOf(conf.get(VERSION).toString());
+        if (null != conf.get(VERSION.key())) {
+            Version version = Version.valueOf(conf.get(VERSION.key()).toString());
             sessionBuilder.version(version);
         }
         return sessionBuilder.build();

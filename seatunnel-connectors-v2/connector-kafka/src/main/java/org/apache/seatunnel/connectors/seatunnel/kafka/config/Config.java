@@ -122,4 +122,12 @@ public class Config {
             .noDefaultValue()
             .withDescription("The offset required for consumption mode to be specific_offsets.");
 
+    /**
+     * Configuration key to define the consumer's partition discovery interval, in milliseconds.
+     */
+    public static final Option<Long> KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS = Options.key("partition-discovery.interval-millis")
+        .longType()
+        .defaultValue(-1L)
+        .withDescription("The interval for dynamically discovering topics and partitions.");
+
 }

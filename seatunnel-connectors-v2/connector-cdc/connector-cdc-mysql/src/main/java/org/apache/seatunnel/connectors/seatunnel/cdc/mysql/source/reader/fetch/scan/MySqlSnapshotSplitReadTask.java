@@ -21,6 +21,9 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlCon
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlUtils.buildSplitScanQuery;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlUtils.readTableSplitDataStatement;
 
+import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
+import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkKind;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset;
 
 import io.debezium.DebeziumException;
@@ -31,6 +34,7 @@ import io.debezium.connector.mysql.MySqlOffsetContext;
 import io.debezium.connector.mysql.MySqlValueConverters;
 import io.debezium.pipeline.EventDispatcher;
 import io.debezium.pipeline.source.AbstractSnapshotChangeEventSource;
+import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.pipeline.source.spi.SnapshotProgressListener;
 import io.debezium.pipeline.spi.ChangeRecordEmitter;
 import io.debezium.pipeline.spi.OffsetContext;
@@ -45,9 +49,6 @@ import io.debezium.util.ColumnUtils;
 import io.debezium.util.Strings;
 import io.debezium.util.Threads;
 import org.apache.kafka.connect.errors.ConnectException;
-import org.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
-import org.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
-import org.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkKind;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -97,7 +98,7 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
 
     @Override
     public SnapshotResult execute(
-        ChangeEventSourceContext context, OffsetContext previousOffset)
+        ChangeEventSource.ChangeEventSourceContext context, OffsetContext previousOffset)
         throws InterruptedException {
         SnapshottingTask snapshottingTask = getSnapshottingTask(previousOffset);
         final SnapshotContext ctx;
@@ -119,10 +120,10 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
 
     @Override
     protected SnapshotResult doExecute(
-        ChangeEventSourceContext context,
+        ChangeEventSource.ChangeEventSourceContext context,
         OffsetContext previousOffset,
-        SnapshotContext snapshotContext,
-        SnapshottingTask snapshottingTask)
+        AbstractSnapshotChangeEventSource.SnapshotContext snapshotContext,
+        AbstractSnapshotChangeEventSource.SnapshottingTask snapshottingTask)
         throws Exception {
         final RelationalSnapshotChangeEventSource.RelationalSnapshotContext ctx =
             (RelationalSnapshotChangeEventSource.RelationalSnapshotContext) snapshotContext;
@@ -152,12 +153,12 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
     }
 
     @Override
-    protected SnapshottingTask getSnapshottingTask(OffsetContext previousOffset) {
+    protected AbstractSnapshotChangeEventSource.SnapshottingTask getSnapshottingTask(OffsetContext previousOffset) {
         return new SnapshottingTask(false, true);
     }
 
     @Override
-    protected SnapshotContext prepare(ChangeEventSourceContext changeEventSourceContext)
+    protected AbstractSnapshotChangeEventSource.SnapshotContext prepare(ChangeEventSource.ChangeEventSourceContext changeEventSourceContext)
         throws Exception {
         return new MySqlSnapshotContext();
     }
@@ -249,7 +250,7 @@ public class MySqlSnapshotSplitReadTask extends AbstractSnapshotChangeEventSourc
     }
 
     protected ChangeRecordEmitter getChangeRecordEmitter(
-        SnapshotContext snapshotContext, TableId tableId, Object[] row) {
+        AbstractSnapshotChangeEventSource.SnapshotContext snapshotContext, TableId tableId, Object[] row) {
         snapshotContext.offset.event(tableId, clock.currentTime());
         return new SnapshotChangeRecordEmitter(snapshotContext.offset, row, clock);
     }
