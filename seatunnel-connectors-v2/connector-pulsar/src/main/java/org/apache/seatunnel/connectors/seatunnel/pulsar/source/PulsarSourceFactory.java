@@ -57,7 +57,7 @@ public class PulsarSourceFactory implements TableSourceFactory {
             .required(SUBSCRIPTION_NAME, CLIENT_SERVICE_URL, ADMIN_SERVICE_URL)
             .exclusive(TOPIC, TOPIC_PATTERN)
             .conditional(CURSOR_STARTUP_MODE, SourceProperties.StartMode.TIMESTAMP, CURSOR_STARTUP_TIMESTAMP)
-            .conditional(CURSOR_STARTUP_MODE, SUBSCRIPTION, CURSOR_RESET_MODE)
+            .conditional(CURSOR_STARTUP_MODE, SourceProperties.StartMode.SUBSCRIPTION, CURSOR_RESET_MODE)
             .conditional(CURSOR_STOP_MODE, SourceProperties.StopMode.TIMESTAMP, CURSOR_STOP_TIMESTAMP)
             .optional(CURSOR_STARTUP_MODE, CURSOR_STOP_MODE, TOPIC_DISCOVERY_INTERVAL,
                 POLL_TIMEOUT, POLL_INTERVAL,
