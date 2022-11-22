@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.core.starter.seatunnel.command;
 
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
@@ -73,6 +74,11 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 System.out.println(jobState);
             } else {
                 Path configFile = FileUtils.getConfigPath(clientCommandArgs);
+                if (!configFile.toFile().exists()) {
+                    String message = "Can't find config file: " + configFile;
+                    log.error(message);
+                    throw new SeaTunnelException(message);
+                }
                 JobConfig jobConfig = new JobConfig();
                 jobConfig.setName(clientCommandArgs.getJobName());
                 JobExecutionEnvironment jobExecutionEnv =
