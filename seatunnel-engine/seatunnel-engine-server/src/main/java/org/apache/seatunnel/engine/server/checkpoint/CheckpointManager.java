@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.job.Job;
 import org.apache.seatunnel.engine.core.job.JobStatus;
@@ -37,6 +38,7 @@ import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
@@ -165,6 +167,14 @@ public class CheckpointManager {
         log.debug("reported task({}) status{}", reportStatusOperation.getLocation().getTaskID(),
             reportStatusOperation.getStatus());
         getCheckpointCoordinator(reportStatusOperation.getLocation()).reportedTask(reportStatusOperation);
+    }
+
+    /**
+     * Called by the {@link SourceSplitEnumeratorTask}.
+     * <br> used by SourceSplitEnumeratorTask to tell CheckpointCoordinator pipeline will trigger close barrier by SourceSplitEnumeratorTask.
+     */
+    public void readyToClose(TaskLocation taskLocation) {
+        getCheckpointCoordinator(taskLocation).tryTriggerPendingCheckpoint(CheckpointType.COMPLETED_POINT_TYPE);
     }
 
     /**

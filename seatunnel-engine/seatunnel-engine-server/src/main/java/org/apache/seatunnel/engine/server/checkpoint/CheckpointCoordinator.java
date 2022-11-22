@@ -228,15 +228,19 @@ public class CheckpointCoordinator {
     }
 
     private void scheduleTriggerPendingCheckpoint(long delayMills) {
-        scheduler.schedule(this::tryTriggerPendingCheckpoint, delayMills, TimeUnit.MILLISECONDS);
+        scheduler.schedule(() -> tryTriggerPendingCheckpoint(), delayMills, TimeUnit.MILLISECONDS);
     }
 
     protected void tryTriggerPendingCheckpoint() {
+        tryTriggerPendingCheckpoint(CheckpointType.CHECKPOINT_TYPE);
+    }
+
+    protected void tryTriggerPendingCheckpoint(CheckpointType checkpointType) {
         synchronized (lock) {
             final long currentTimestamp = Instant.now().toEpochMilli();
             if (currentTimestamp - latestTriggerTimestamp.get() >= coordinatorConfig.getCheckpointInterval() &&
                 pendingCounter.get() < coordinatorConfig.getMaxConcurrentCheckpoints() && isAllTaskReady) {
-                CompletableFuture<PendingCheckpoint> pendingCheckpoint = createPendingCheckpoint(currentTimestamp, CheckpointType.CHECKPOINT_TYPE);
+                CompletableFuture<PendingCheckpoint> pendingCheckpoint = createPendingCheckpoint(currentTimestamp, checkpointType);
                 startTriggerPendingCheckpoint(pendingCheckpoint);
                 pendingCounter.incrementAndGet();
                 scheduleTriggerPendingCheckpoint(coordinatorConfig.getCheckpointInterval());
@@ -271,23 +275,21 @@ public class CheckpointCoordinator {
             PassiveCompletableFuture<CompletedCheckpoint> completableFuture = pendingCheckpoint.getCompletableFuture();
             completableFuture.thenAcceptAsync(this::completePendingCheckpoint);
 
-            if (COMPLETED_POINT_TYPE != pendingCheckpoint.getCheckpointType()) {
-                // Trigger the barrier and wait for all tasks to ACK
-                LOG.debug("trigger checkpoint barrier {}/{}/{}, {}", pendingCheckpoint.getJobId(), pendingCheckpoint.getPipelineId(), pendingCheckpoint.getCheckpointId(), pendingCheckpoint.getCheckpointType());
-                CompletableFuture<InvocationFuture<?>[]> completableFutureArray = CompletableFuture.supplyAsync(() ->
-                        new CheckpointBarrier(pendingCheckpoint.getCheckpointId(),
-                            pendingCheckpoint.getCheckpointTimestamp(),
-                            pendingCheckpoint.getCheckpointType()))
-                    .thenApplyAsync(this::triggerCheckpoint);
+            // Trigger the barrier and wait for all tasks to ACK
+            LOG.debug("trigger checkpoint barrier {}/{}/{}, {}", pendingCheckpoint.getJobId(), pendingCheckpoint.getPipelineId(), pendingCheckpoint.getCheckpointId(), pendingCheckpoint.getCheckpointType());
+            CompletableFuture<InvocationFuture<?>[]> completableFutureArray = CompletableFuture.supplyAsync(() ->
+                    new CheckpointBarrier(pendingCheckpoint.getCheckpointId(),
+                        pendingCheckpoint.getCheckpointTimestamp(),
+                        pendingCheckpoint.getCheckpointType()))
+                .thenApplyAsync(this::triggerCheckpoint);
 
-                try {
-                    CompletableFuture.allOf(completableFutureArray).get();
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                } catch (Exception e) {
-                    LOG.error(ExceptionUtils.getMessage(e));
-                    return;
-                }
+            try {
+                CompletableFuture.allOf(completableFutureArray).get();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            } catch (Exception e) {
+                LOG.error(ExceptionUtils.getMessage(e));
+                return;
             }
 
             LOG.info("Start a scheduled task to prevent checkpoint timeouts");
@@ -307,16 +309,21 @@ public class CheckpointCoordinator {
 
     CompletableFuture<PendingCheckpoint> createPendingCheckpoint(long triggerTimestamp, CheckpointType checkpointType) {
         synchronized (lock) {
-            CompletableFuture<Long> idFuture = CompletableFuture.supplyAsync(() -> {
-                try {
-                    // this must happen outside the coordinator-wide lock,
-                    // because it communicates with external services
-                    // (in HA mode) and may block for a while.
-                    return checkpointIdCounter.getAndIncrement();
-                } catch (Throwable e) {
-                    throw new CompletionException(e);
-                }
-            });
+            CompletableFuture<Long> idFuture;
+            if (!checkpointType.equals(COMPLETED_POINT_TYPE)) {
+                idFuture = CompletableFuture.supplyAsync(() -> {
+                    try {
+                        // this must happen outside the coordinator-wide lock,
+                        // because it communicates with external services
+                        // (in HA mode) and may block for a while.
+                        return checkpointIdCounter.getAndIncrement();
+                    } catch (Throwable e) {
+                        throw new CompletionException(e);
+                    }
+                });
+            } else {
+                idFuture = CompletableFuture.supplyAsync(() -> Barrier.PREPARE_CLOSE_BARRIER_ID);
+            }
             return triggerPendingCheckpoint(triggerTimestamp, idFuture, checkpointType);
         }
     }
