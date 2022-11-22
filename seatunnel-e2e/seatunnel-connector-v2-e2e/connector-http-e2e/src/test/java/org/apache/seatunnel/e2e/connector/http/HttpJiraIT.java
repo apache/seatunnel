@@ -70,7 +70,7 @@ public class HttpJiraIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testHttpLemlistSourceToAssertSink(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/lemlist_json_to_assert.conf");
+        Container.ExecResult execResult = container.executeJob("/jira_json_to_assert.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
