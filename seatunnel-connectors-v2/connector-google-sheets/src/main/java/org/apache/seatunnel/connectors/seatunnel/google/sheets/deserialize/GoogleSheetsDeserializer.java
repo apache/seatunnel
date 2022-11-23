@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.google.sheets.deserialize;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.google.sheets.exception.GoogleSheetsConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.google.sheets.exception.GoogleSheetsConnectorException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -50,7 +52,8 @@ public class GoogleSheetsDeserializer implements SeaTunnelRowDeserializer {
             String rowStr = objectMapper.writeValueAsString(map);
             return deserializationSchema.deserialize(rowStr.getBytes());
         } catch (IOException e) {
-            throw new RuntimeException("Object json deserialization exception.", e);
+            throw new GoogleSheetsConnectorException(GoogleSheetsConnectorErrorCode.OBJECT_JSON_DESERIALIZATION_FAILD,
+                "Object json deserialization exception.", e);
         }
     }
 }
