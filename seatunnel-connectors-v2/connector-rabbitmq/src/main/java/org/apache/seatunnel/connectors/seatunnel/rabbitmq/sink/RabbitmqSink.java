@@ -25,6 +25,7 @@ import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.Rabbitmq
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.VIRTUAL_HOST;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -36,6 +37,7 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -60,7 +62,9 @@ public class RabbitmqSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HOST.key(), PORT.key(), VIRTUAL_HOST.key(), USERNAME.key(), PASSWORD.key(), QUEUE_NAME.key());
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
+            throw new RabbitmqConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SINK, result.getMsg()));
         }
         rabbitMQConfig = new RabbitmqConfig(pluginConfig);
     }

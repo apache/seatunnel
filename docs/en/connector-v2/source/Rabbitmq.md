@@ -41,7 +41,7 @@ The source must be non-parallel (parallelism set to 1) in order to achieve exact
 | requested_heartbeat         | int     | no       | -             |
 | prefetch_count              | int     | no       | -             |
 | delivery_timeout            | long    | no       | -             |
-
+| common-options              |         | no       | -             |
 
 ### host [string]
 
@@ -122,6 +122,10 @@ prefetchCount the max number of messages to receive without acknowledgement
 ### delivery_timeout [long]
 
 deliveryTimeout maximum wait time, in milliseconds, for the next message delivery
+
+### common options
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
 ## Example
 

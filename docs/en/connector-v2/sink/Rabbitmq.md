@@ -13,19 +13,20 @@ Used to write data to Rabbitmq.
 
 ##  Options
 
-| name                        | type    | required | default value |
-|-----------------------------|---------|----------|---------------|
-| host                        | string  | yes      | -             |
-| port                        | int     | yes      | -             |
-| virtual_host                | string  | yes      | -             |
-| username                    | string  | yes      | -             |
-| password                    | string  | yes      | -             |
-| queue_name                  | string  | yes      | -             |
-| url                         | string  | no       | -             |
-| network_recovery_interval   | int     | no       | -             |
-| topology_recovery_enabled   | boolean | no       | -             |
-| automatic_recovery_enabled  | boolean | no       | -             |
-| connection_timeout          | int     | no       | -             |
+| name                        | type    | required  | default value |
+|-----------------------------|---------|-----------|---------------|
+| host                        | string  | yes       | -             |
+| port                        | int     | yes       | -             |
+| virtual_host                | string  | yes       | -             |
+| username                    | string  | yes       | -             |
+| password                    | string  | yes       | -             |
+| queue_name                  | string  | yes       | -             |
+| url                         | string  | no        | -             |
+| network_recovery_interval   | int     | no        | -             |
+| topology_recovery_enabled   | boolean | no        | -             |
+| automatic_recovery_enabled  | boolean | no        | -             |
+| connection_timeout          | int     | no        | -             |
+| common-options              |         | no        | -             |
 
 ### host [string]
 
@@ -76,6 +77,10 @@ if true, enables connection recovery
 ### connection_timeout [int]
 
 connection TCP establishment timeout in milliseconds; zero for infinite
+
+### common options
+
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
 

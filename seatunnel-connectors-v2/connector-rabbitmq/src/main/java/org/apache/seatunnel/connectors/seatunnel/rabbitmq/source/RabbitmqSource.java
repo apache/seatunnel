@@ -27,6 +27,7 @@ import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.Rabbitmq
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -41,6 +42,7 @@ import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplitEnumeratorState;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
@@ -59,7 +61,9 @@ public class RabbitmqSource implements SeaTunnelSource<SeaTunnelRow, RabbitmqSpl
     @Override
     public Boundedness getBoundedness() {
         if (!JobMode.STREAMING.equals(jobContext.getJobMode())) {
-            throw new UnsupportedOperationException("rabbitmq source connector not support batch job mode");
+            throw new RabbitmqConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SOURCE, "not support batch job mode"));
         }
         return rabbitMQConfig.isForE2ETesting() ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
     }
@@ -73,7 +77,9 @@ public class RabbitmqSource implements SeaTunnelSource<SeaTunnelRow, RabbitmqSpl
     public void prepare(Config config) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(config, HOST.key(), PORT.key(), VIRTUAL_HOST.key(), USERNAME.key(), PASSWORD.key(), QUEUE_NAME.key(), SCHEMA.key());
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
+            throw new RabbitmqConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         this.rabbitMQConfig = new RabbitmqConfig(config);
         setDeserialization(config);
