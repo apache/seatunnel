@@ -58,9 +58,11 @@
         <module>connector-iceberg</module>
         <module>connector-influxdb</module>
         <module>connector-amazondynamodb</module>
+        <module>connector-tablestore</module>
         <module>connector-cassandra</module>
         <module>connector-starrocks</module>
         <module>connector-google-sheets</module>
+        <module>connector-slack</module>
     </modules>
 
     <dependencyManagement>

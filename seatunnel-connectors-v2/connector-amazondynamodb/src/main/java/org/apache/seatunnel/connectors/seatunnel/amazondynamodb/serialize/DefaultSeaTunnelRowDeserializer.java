@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.exception.AmazonDynamoDBConnectorException;
 
 import lombok.AllArgsConstructor;
 import software.amazon.awssdk.core.SdkBytes;
@@ -126,7 +128,8 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                 }
                 return array;
             default:
-                throw new IllegalStateException("Unexpected value: " + seaTunnelDataType);
+                throw new AmazonDynamoDBConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported data type: " + seaTunnelDataType);
         }
     }
 

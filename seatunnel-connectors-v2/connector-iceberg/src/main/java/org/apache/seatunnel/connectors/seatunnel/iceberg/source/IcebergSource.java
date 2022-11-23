@@ -97,7 +97,7 @@ public class IcebergSource implements SeaTunnelSource<SeaTunnelRow, IcebergFileS
             columnNames.toArray(new String[0]),
             columnDataTypes.toArray(new SeaTunnelDataType[0]));
 
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, CommonConfig.KEY_FIELDS);
+        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, CommonConfig.KEY_FIELDS.key());
         if (checkResult.isSuccess()) {
             SeaTunnelSchema configSchema = SeaTunnelSchema.buildWithConfig(pluginConfig);
             SeaTunnelRowType projectedRowType = configSchema.getSeaTunnelRowType();
