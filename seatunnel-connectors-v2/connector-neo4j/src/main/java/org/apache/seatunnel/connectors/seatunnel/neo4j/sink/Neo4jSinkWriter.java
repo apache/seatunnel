@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.neo4j.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkQueryInfo;
 
 import lombok.extern.slf4j.Slf4j;
 import org.neo4j.driver.Driver;
@@ -35,21 +35,21 @@ import java.util.stream.Collectors;
 @Slf4j
 public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
 
-    private final Neo4jSinkConfig config;
+    private final Neo4jSinkQueryInfo neo4jSinkQueryInfo;
     private final transient Driver driver;
     private final transient Session session;
 
-    public Neo4jSinkWriter(Neo4jSinkConfig neo4JSinkConfig) {
-        this.config = neo4JSinkConfig;
-        this.driver = config.getDriverBuilder().build();
-        this.session = driver.session(SessionConfig.forDatabase(neo4JSinkConfig.getDriverBuilder().getDatabase()));
+    public Neo4jSinkWriter(Neo4jSinkQueryInfo neo4jSinkQueryInfo) {
+        this.neo4jSinkQueryInfo = neo4jSinkQueryInfo;
+        this.driver = this.neo4jSinkQueryInfo.getDriverBuilder().build();
+        this.session = driver.session(SessionConfig.forDatabase(neo4jSinkQueryInfo.getDriverBuilder().getDatabase()));
     }
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        final Map<String, Object> queryParamPosition = config.getQueryParamPosition().entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> element.getField((Integer) e.getValue())));
-        final Query query = new Query(config.getQuery(), queryParamPosition);
+        final Map<String, Object> queryParamPosition = neo4jSinkQueryInfo.getQueryParamPosition().entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> element.getField((Integer) e.getValue())));
+        final Query query = new Query(neo4jSinkQueryInfo.getQuery(), queryParamPosition);
         session.writeTransaction(tx -> {
             tx.run(query);
             return null;

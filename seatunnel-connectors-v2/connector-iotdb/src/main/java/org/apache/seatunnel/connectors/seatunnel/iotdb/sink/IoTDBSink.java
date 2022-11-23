@@ -51,7 +51,7 @@ public class IoTDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, NODE_URLS, USERNAME, PASSWORD, KEY_DEVICE);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, NODE_URLS.key(), USERNAME.key(), PASSWORD.key(), KEY_DEVICE.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
         }

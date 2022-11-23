@@ -100,7 +100,7 @@ The maximum number of records to fetch to wait when polling. A longer time incre
 
 Startup mode for Pulsar consumer, valid values are `'EARLIEST'`, `'LATEST'`, `'SUBSCRIPTION'`, `'TIMESTAMP'`.
 
-### cursor.startup.timestamp [String]
+### cursor.startup.timestamp [Long]
 
 Start from the specified epoch timestamp (in milliseconds).
 
@@ -118,7 +118,7 @@ Stop mode for Pulsar consumer, valid values are `'NEVER'`, `'LATEST'`and `'TIMES
 
 **Note, When `'NEVER' `is specified, it is a real-time job, and other mode are off-line jobs.**
 
-### cursor.startup.timestamp [String]
+### cursor.stop.timestamp [Long]
 
 Stop from the specified epoch timestamp (in milliseconds).
 
