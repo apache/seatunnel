@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.notion.source;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -29,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.notion.source.config.NotionSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.notion.source.config.NotionSourceParameter;
+import org.apache.seatunnel.connectors.seatunnel.notion.source.exception.NotionConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -48,7 +50,9 @@ public class NotionSource extends HttpSource {
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, NotionSourceConfig.URL.key(), NotionSourceConfig.PASSWORD.key(), NotionSourceConfig.VERSION.key());
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
+            throw new NotionConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         notionSourceParameter.buildWithConfig(pluginConfig);
         buildSchemaWithConfig(pluginConfig);
