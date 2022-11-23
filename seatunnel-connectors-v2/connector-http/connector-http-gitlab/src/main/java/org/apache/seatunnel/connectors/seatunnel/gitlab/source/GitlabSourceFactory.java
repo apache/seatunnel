@@ -15,27 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.sentry.sink;
+package org.apache.seatunnel.connectors.seatunnel.gitlab.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.sentry.config.SentryConfig;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.gitlab.source.config.GitlabSourceConfig;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class SentrySinkFactory implements TableSinkFactory {
+public class GitlabSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return SentryConfig.SENTRY;
+        return "Gitlab";
     }
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(SentryConfig.DSN)
-            .optional(SentryConfig.ENV, SentryConfig.CACHE_DIRPATH, SentryConfig.ENABLE_EXTERNAL_CONFIGURATION,
-                SentryConfig.FLUSH_TIMEOUTMILLIS, SentryConfig.MAX_CACHEITEMS, SentryConfig.MAX_QUEUESIZE,
-                SentryConfig.RELEASE).build();
+        return OptionRule.builder()
+            .required(GitlabSourceConfig.URL)
+            .required(GitlabSourceConfig.ACCESS_TOKEN)
+            .optional(GitlabSourceConfig.RETRY)
+            .optional(GitlabSourceConfig.RETRY_BACKOFF_MAX_MS)
+            .optional(GitlabSourceConfig.RETRY_BACKOFF_MULTIPLIER_MS)
+            .build();
     }
 }

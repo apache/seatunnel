@@ -15,24 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.lemlist.source;
-
-import static org.apache.seatunnel.connectors.seatunnel.http.util.AuthorizationUtil.getTokenByBasicAuth;
+package org.apache.seatunnel.connectors.seatunnel.gitlab.source;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.seatunnel.gitlab.source.config.GitlabSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.gitlab.source.config.GitlabSourceParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
-import org.apache.seatunnel.connectors.seatunnel.lemlist.source.config.LemlistSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.lemlist.source.config.LemlistSourceParameter;
-import org.apache.seatunnel.connectors.seatunnel.lemlist.source.exception.LemlistConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -41,29 +39,36 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @AutoService(SeaTunnelSource.class)
-public class LemlistSource extends HttpSource {
-    private final LemlistSourceParameter lemlistSourceParameter = new LemlistSourceParameter();
+public class GitlabSource extends HttpSource {
+    private final GitlabSourceParameter gitlabSourceParameter = new GitlabSourceParameter();
+
     @Override
     public String getPluginName() {
-        return "Lemlist";
+        return "Gitlab";
+    }
+
+    @Override
+    public Boundedness getBoundedness() {
+        if (JobMode.BATCH.equals(jobContext.getJobMode())) {
+            return Boundedness.BOUNDED;
+        }
+        throw new UnsupportedOperationException("Gitlab source connector not support unbounded operation");
     }
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, LemlistSourceConfig.URL.key(), LemlistSourceConfig.PASSWORD.key());
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, GitlabSourceConfig.URL.key(),
+            GitlabSourceConfig.ACCESS_TOKEN.key());
         if (!result.isSuccess()) {
-            throw new LemlistConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
+            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
-        //get accessToken by basic auth
-        String accessToken = getTokenByBasicAuth("", pluginConfig.getString(LemlistSourceConfig.PASSWORD.key()));
-        lemlistSourceParameter.buildWithConfig(pluginConfig, accessToken);
+        this.gitlabSourceParameter.buildWithConfig(pluginConfig);
         buildSchemaWithConfig(pluginConfig);
     }
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(this.lemlistSourceParameter, readerContext, this.deserializationSchema);
+        return new HttpSourceReader(this.gitlabSourceParameter, readerContext, this.deserializationSchema);
     }
+
 }

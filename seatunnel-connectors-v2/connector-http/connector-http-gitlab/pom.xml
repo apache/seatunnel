@@ -21,48 +21,20 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <artifactId>connector-cdc</artifactId>
+        <artifactId>connector-http</artifactId>
         <groupId>org.apache.seatunnel</groupId>
         <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
-    <artifactId>connector-cdc-mysql</artifactId>
+
+    <artifactId>connector-http-gitlab</artifactId>
 
     <dependencies>
-
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-cdc-base</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.debezium</groupId>
-            <artifactId>debezium-connector-mysql</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-jdbc</artifactId>
+            <artifactId>connector-http-base</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>
-
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.apache.seatunnel</groupId>
-                <artifactId>connector-cdc-base</artifactId>
-                <version>${project.version}</version>
-                <scope>compile</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>io.debezium</groupId>
-                <artifactId>debezium-connector-mysql</artifactId>
-                <version>${debezium.version}</version>
-                <scope>compile</scope>
-            </dependency>
-
-        </dependencies>
-    </dependencyManagement>
 
 </project>
