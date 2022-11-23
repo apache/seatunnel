@@ -31,9 +31,8 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
-import com.hazelcast.logging.ILogger;
-import com.hazelcast.logging.Logger;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashMap;
 import java.util.List;
@@ -43,8 +42,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class PipelineBaseScheduler implements JobScheduler {
-    private static final ILogger LOGGER = Logger.getLogger(PipelineBaseScheduler.class);
     private final PhysicalPlan physicalPlan;
 
     private final long jobId;
@@ -91,6 +90,8 @@ public class PipelineBaseScheduler implements JobScheduler {
             Map<TaskGroupLocation, SlotProfile> slotProfiles =
                 getOrApplyResourceForPipeline(pipeline, jobMaster.getOwnedSlotProfiles(pipeline.getPipelineLocation()));
 
+            log.debug("slotProfiles: {}", slotProfiles);
+
             // To ensure release pipeline resource after new master node active, we need store slotProfiles first and then deploy tasks.
             jobMaster.setOwnedSlotProfiles(pipeline.getPipelineLocation(), slotProfiles);
             // deploy pipeline
@@ -125,14 +126,22 @@ public class PipelineBaseScheduler implements JobScheduler {
     private SlotProfile getOrApplyResourceForTask(@NonNull PhysicalVertex task,
                                                   Map<TaskGroupLocation, SlotProfile> ownedSlotProfiles) {
 
+        SlotProfile oldProfile;
         if (ownedSlotProfiles == null
             || ownedSlotProfiles.isEmpty()
-            || ownedSlotProfiles.get(task.getTaskGroupLocation()) == null
-            || !resourceManager.slotActiveCheck(ownedSlotProfiles.get(task.getTaskGroupLocation()))) {
-            return applyResourceForTask(task).join();
+            || ownedSlotProfiles.get(task.getTaskGroupLocation()) == null) {
+            oldProfile = null;
+        } else {
+            oldProfile = ownedSlotProfiles.get(task.getTaskGroupLocation());
         }
+        if (oldProfile == null || !resourceManager.slotActiveCheck(oldProfile)) {
+            SlotProfile newProfile = applyResourceForTask(task).join();
+            log.info(String.format("use new profile: %s to replace not active profile: %s for task %s", newProfile, oldProfile, task));
+            return newProfile;
+        }
+        log.info(String.format("use active old profile: %s for task %s", oldProfile, task));
         task.updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED);
-        return ownedSlotProfiles.get(task.getTaskGroupLocation());
+        return oldProfile;
     }
 
     private Map<TaskGroupLocation, SlotProfile> applyResourceForPipeline(@NonNull SubPlan subPlan) {
@@ -160,9 +169,7 @@ public class PipelineBaseScheduler implements JobScheduler {
                 return resourceManager.applyResource(jobId, new ResourceProfile());
             } else if (ExecutionState.CANCELING.equals(task.getExecutionState()) ||
                 ExecutionState.CANCELED.equals(task.getExecutionState())) {
-                LOGGER.info(
-                    String.format("%s be canceled, skip %s this task.", task.getTaskFullName(),
-                        ExecutionState.SCHEDULED));
+                log.info("{} be canceled, skip {} this task.", task.getTaskFullName(), ExecutionState.SCHEDULED);
                 return null;
             } else {
                 makeTaskFailed(task.getTaskGroupLocation(),
@@ -184,8 +191,7 @@ public class PipelineBaseScheduler implements JobScheduler {
             });
         } else if (ExecutionState.CANCELING.equals(task.getExecutionState()) ||
             ExecutionState.CANCELED.equals(task.getExecutionState())) {
-            LOGGER.info(
-                String.format("%s be canceled, skip %s this task.", task.getTaskFullName(), ExecutionState.DEPLOYING));
+            log.info("{} be canceled, skip {} this task.", task.getTaskFullName(), ExecutionState.DEPLOYING);
             return null;
         } else {
             jobMaster.updateTaskExecutionState(
@@ -218,9 +224,7 @@ public class PipelineBaseScheduler implements JobScheduler {
                     deployCoordinatorFuture.toArray(new CompletableFuture[0]));
                 voidCompletableFuture.get();
                 if (!pipeline.updatePipelineState(PipelineStatus.DEPLOYING, PipelineStatus.RUNNING)) {
-                    LOGGER.info(
-                        String.format("%s turn to state %s, skip the running state.", pipeline.getPipelineFullName(),
-                            pipeline.getPipelineState()));
+                    log.info("{} turn to state {}, skip the running state.", pipeline.getPipelineFullName(), pipeline.getPipelineState());
                 }
             } catch (Exception e) {
                 makePipelineFailed(pipeline, e);
@@ -228,8 +232,8 @@ public class PipelineBaseScheduler implements JobScheduler {
         } else if (PipelineStatus.CANCELING.equals(pipeline.getPipelineState()) ||
             PipelineStatus.CANCELED.equals(pipeline.getPipelineState())) {
             // may be canceled
-            LOGGER.info(String.format("%s turn to state %s, skip %s this pipeline.", pipeline.getPipelineFullName(),
-                pipeline.getPipelineState(), PipelineStatus.DEPLOYING));
+            log.info("{} turn to state {}, skip {} this pipeline.", pipeline.getPipelineFullName(),
+                pipeline.getPipelineState(), PipelineStatus.DEPLOYING);
         } else {
             makePipelineFailed(pipeline, new JobException(
                 String.format("%s turn to a unexpected state: %s, stop scheduler job", pipeline.getPipelineFullName(),
@@ -246,9 +250,8 @@ public class PipelineBaseScheduler implements JobScheduler {
         if (PipelineStatus.CANCELING.equals(pipeline.getPipelineState()) ||
             PipelineStatus.CANCELED.equals(pipeline.getPipelineState())) {
             // may be canceled
-            LOGGER.info(
-                String.format("%s turn to state %s, skip %s this pipeline.", pipeline.getPipelineFullName(),
-                    pipeline.getPipelineState(), targetState));
+            log.info("{} turn to state {}, skip {} this pipeline.", pipeline.getPipelineFullName(),
+                pipeline.getPipelineState(), targetState);
         } else {
             throw new JobException(
                 String.format("%s turn to a unexpected state: %s, stop scheduler job",

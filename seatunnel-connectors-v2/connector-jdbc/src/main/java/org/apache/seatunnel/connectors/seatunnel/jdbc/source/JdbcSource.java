@@ -44,7 +44,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -75,10 +74,10 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
     public void prepare(Config pluginConfig) throws PrepareFailException {
         jdbcSourceOptions = new JdbcSourceOptions(pluginConfig);
         jdbcConnectionProvider = new SimpleJdbcConnectionProvider(jdbcSourceOptions.getJdbcConnectionOptions());
-        query = jdbcSourceOptions.getJdbcConnectionOptions().query;
+        query = jdbcSourceOptions.getQuery();
         jdbcDialect = JdbcDialectLoader.load(jdbcSourceOptions.getJdbcConnectionOptions().getUrl());
-        try {
-            typeInfo = initTableField(jdbcConnectionProvider.getOrEstablishConnection());
+        try (Connection connection = jdbcConnectionProvider.getOrEstablishConnection()) {
+            typeInfo = initTableField(connection);
             partitionParameter = initPartitionParameterAndExtendSql(jdbcConnectionProvider.getOrEstablishConnection());
         } catch (Exception e) {
             throw new PrepareFailException("jdbc", PluginType.SOURCE, e.toString());
@@ -86,11 +85,11 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
 
         inputFormat = new JdbcInputFormat(
             jdbcConnectionProvider,
-            jdbcDialect.getRowConverter(),
+            jdbcDialect,
             typeInfo,
             query,
-            0,
-            true
+            jdbcSourceOptions.getFetchSize(),
+            jdbcSourceOptions.getJdbcConnectionOptions().isAutoCommit()
         );
     }
 
@@ -101,16 +100,7 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
 
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        Connection conn;
-        SeaTunnelRowType seaTunnelDataType = null;
-        try {
-            conn = jdbcConnectionProvider.getOrEstablishConnection();
-            seaTunnelDataType = initTableField(conn);
-        } catch (Exception e) {
-            LOG.warn("get row type info exception", e);
-        }
-        this.typeInfo = seaTunnelDataType;
-        return seaTunnelDataType;
+        return typeInfo;
     }
 
     @Override
@@ -138,8 +128,7 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
         ArrayList<SeaTunnelDataType<?>> seaTunnelDataTypes = new ArrayList<>();
         ArrayList<String> fieldNames = new ArrayList<>();
         try {
-            PreparedStatement ps = conn.prepareStatement(jdbcSourceOptions.getJdbcConnectionOptions().getQuery());
-            ResultSetMetaData resultSetMetaData = ps.getMetaData();
+            ResultSetMetaData resultSetMetaData = jdbcDialect.getResultSetMetaData(conn, jdbcSourceOptions);
             for (int i = 1; i <= resultSetMetaData.getColumnCount(); i++) {
                 fieldNames.add(resultSetMetaData.getColumnName(i));
                 seaTunnelDataTypes.add(jdbcDialectTypeMapper.mapping(resultSetMetaData, i));
@@ -147,7 +136,7 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
         } catch (Exception e) {
             LOG.warn("get row type info exception", e);
         }
-        return new SeaTunnelRowType(fieldNames.toArray(new String[fieldNames.size()]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));
+        return new SeaTunnelRowType(fieldNames.toArray(new String[0]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[0]));
     }
 
     private PartitionParameter initPartitionParameter(String columnName, Connection connection) throws SQLException {

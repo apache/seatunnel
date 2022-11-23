@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
@@ -63,8 +64,10 @@ public class CoordinatorService {
 
     private volatile ResourceManager resourceManager;
 
+    private JobHistoryService jobHistoryService;
+
     /**
-     * IMap key is jobId and value is a Tuple2.
+     * IMap key is jobId and value is {@link RunningJobInfo}.
      * Tuple2 key is JobMaster init timestamp and value is the jobImmutableInformation which is sent by client when submit job
      * <p>
      * This IMap is used to recovery runningJobInfoIMap in JobMaster when a new master node active
@@ -135,6 +138,10 @@ public class CoordinatorService {
         masterActiveListener.scheduleAtFixedRate(this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
     }
 
+    public JobHistoryService getJobHistoryService() {
+        return jobHistoryService;
+    }
+
     public JobMaster getJobMaster(Long jobId) {
         return runningJobMasterMap.get(jobId);
     }
@@ -157,6 +164,13 @@ public class CoordinatorService {
         runningJobStateIMap = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
         runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
         ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+
+        jobHistoryService = new JobHistoryService(
+            runningJobStateIMap,
+            logger,
+            runningJobMasterMap,
+            nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE)
+        );
 
         List<CompletableFuture<Void>> collect = runningJobInfoIMap.entrySet().stream().map(entry -> {
             return CompletableFuture.runAsync(() -> {
@@ -195,7 +209,7 @@ public class CoordinatorService {
         try {
             jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp());
         } catch (Exception e) {
-            throw new SeaTunnelEngineException(String.format("Job id %s init JobMaster failed", jobId));
+            throw new SeaTunnelEngineException(String.format("Job id %s init JobMaster failed", jobId), e);
         }
 
         String jobFullName = jobMaster.getPhysicalPlan().getJobFullName();
@@ -243,6 +257,7 @@ public class CoordinatorService {
                     jobMaster.run();
                 } finally {
                     // storage job state info to HistoryStorage
+                    jobHistoryService.storeFinishedJobState(jobMaster);
                     removeJobIMap(jobMaster);
                     runningJobMasterMap.remove(jobId);
                 }
@@ -265,7 +280,7 @@ public class CoordinatorService {
         } catch (Exception e) {
             isActive = false;
             logger.severe(ExceptionUtils.getMessage(e));
-            throw new SeaTunnelEngineException("check new active master error, stop loop");
+            throw new SeaTunnelEngineException("check new active master error, stop loop", e);
         }
     }
 
@@ -279,7 +294,7 @@ public class CoordinatorService {
             executorService.awaitTermination(20, TimeUnit.SECONDS);
             runningJobMasterMap = new ConcurrentHashMap<>();
         } catch (InterruptedException e) {
-            throw new SeaTunnelEngineException("wait clean executor service error");
+            throw new SeaTunnelEngineException("wait clean executor service error", e);
         }
 
         if (resourceManager != null) {
@@ -332,6 +347,7 @@ public class CoordinatorService {
                 jobMaster.run();
             } finally {
                 // storage job state info to HistoryStorage
+                jobHistoryService.storeFinishedJobState(jobMaster);
                 removeJobIMap(jobMaster);
                 runningJobMasterMap.remove(jobId);
             }
@@ -365,9 +381,9 @@ public class CoordinatorService {
     public PassiveCompletableFuture<JobStatus> waitForJobComplete(long jobId) {
         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
         if (runningJobMaster == null) {
-            // TODO Get Job Status from JobHistoryStorage
+            JobStatus jobStatus = jobHistoryService.getJobStatus(jobId).getJobStatus();
             CompletableFuture<JobStatus> future = new CompletableFuture<>();
-            future.complete(JobStatus.FINISHED);
+            future.complete(jobStatus);
             return new PassiveCompletableFuture<>(future);
         } else {
             return runningJobMaster.getJobMasterCompleteFuture();
@@ -391,8 +407,7 @@ public class CoordinatorService {
     public JobStatus getJobStatus(long jobId) {
         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
         if (runningJobMaster == null) {
-            // TODO Get Job Status from JobHistoryStorage
-            return JobStatus.FINISHED;
+            return jobHistoryService.getJobStatus(jobId).getJobStatus();
         }
         return runningJobMaster.getJobStatus();
     }
@@ -464,24 +479,30 @@ public class CoordinatorService {
         int poolSize = threadPoolExecutor.getPoolSize();
         long completedTaskCount = threadPoolExecutor.getCompletedTaskCount();
         long taskCount = threadPoolExecutor.getTaskCount();
-        StringBuffer sbf = new StringBuffer();
-        sbf.append("activeCount=")
-            .append(activeCount)
-            .append("\n")
-            .append("corePoolSize=")
-            .append(corePoolSize)
-            .append("\n")
-            .append("maximumPoolSize=")
-            .append(maximumPoolSize)
-            .append("\n")
-            .append("poolSize=")
-            .append(poolSize)
-            .append("\n")
-            .append("completedTaskCount=")
-            .append(completedTaskCount)
-            .append("\n")
-            .append("taskCount=")
-            .append(taskCount);
-        logger.info(sbf.toString());
+        logger.info(String.format(
+                "\n" + "***********************************************" +
+                "\n" + "     %s" +
+                "\n" + "***********************************************" +
+                "\n" + "%-26s: %19s\n" + "%-26s: %19s\n" + "%-26s: %19s\n"
+                        + "%-26s: %19s\n" + "%-26s: %19s\n" + "%-26s: %19s\n"
+                + "***********************************************\n",
+                "CoordinatorService Thread Pool Status",
+                "activeCount",
+                activeCount,
+
+                "corePoolSize",
+                corePoolSize,
+
+                "maximumPoolSize",
+                maximumPoolSize,
+
+                "poolSize",
+                poolSize,
+
+                "completedTaskCount",
+                completedTaskCount,
+
+                "taskCount",
+                taskCount));
     }
 }

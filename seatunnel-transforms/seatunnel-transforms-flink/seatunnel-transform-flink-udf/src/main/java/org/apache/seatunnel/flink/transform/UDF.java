@@ -98,7 +98,7 @@ public class UDF implements FlinkStreamTransform, FlinkBatchTransform {
         functionNames = new ArrayList<>(properties.size());
 
         properties.forEach((k, v) -> {
-            classNames.add(String.valueOf(k));
+            classNames.add(String.valueOf(v));
             functionNames.add(String.valueOf(k));
         });
     }

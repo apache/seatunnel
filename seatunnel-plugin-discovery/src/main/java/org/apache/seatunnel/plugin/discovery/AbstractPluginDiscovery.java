@@ -23,6 +23,8 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
 import lombok.extern.slf4j.Slf4j;
@@ -50,13 +52,13 @@ import java.util.stream.Collectors;
 @Slf4j
 public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
-    private final Path pluginDir;
+    private static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
 
     /**
      * Add jar url to classloader. The different engine should have different logic to add url into
      * their own classloader
      */
-    private BiConsumer<ClassLoader, URL> addURLToClassLoader = (classLoader, url) -> {
+    private static final BiConsumer DEFAULT_URL_TO_CLASSLOADER = (classLoader, url) -> {
         if (classLoader instanceof URLClassLoader) {
             ReflectionUtils.invoke(classLoader, "addURL", url);
         } else {
@@ -64,18 +66,39 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         }
     };
 
+    private final Path pluginDir;
+    private final Config pluginConfig;
+    private final BiConsumer<ClassLoader, URL> addURLToClassLoaderConsumer;
     protected final ConcurrentHashMap<PluginIdentifier, Optional<URL>> pluginJarPath =
         new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
 
     public AbstractPluginDiscovery(String pluginSubDir, BiConsumer<ClassLoader, URL> addURLToClassloader) {
-        this.pluginDir = Common.connectorJarDir(pluginSubDir);
-        this.addURLToClassLoader = addURLToClassloader;
-        log.info("Load {} Plugin from {}", getPluginBaseClass().getSimpleName(), pluginDir);
+        this(Common.connectorJarDir(pluginSubDir), loadConnectorPluginConfig(), addURLToClassloader);
     }
 
     public AbstractPluginDiscovery(String pluginSubDir) {
-        this.pluginDir = Common.connectorJarDir(pluginSubDir);
+        this(Common.connectorJarDir(pluginSubDir), loadConnectorPluginConfig());
+    }
+
+    public AbstractPluginDiscovery(Path pluginDir,
+                                   Config pluginConfig) {
+        this(pluginDir, pluginConfig, DEFAULT_URL_TO_CLASSLOADER);
+    }
+
+    public AbstractPluginDiscovery(Path pluginDir,
+                                   Config pluginConfig,
+                                   BiConsumer<ClassLoader, URL> addURLToClassLoaderConsumer) {
+        this.pluginDir = pluginDir;
+        this.pluginConfig = pluginConfig;
+        this.addURLToClassLoaderConsumer = addURLToClassLoaderConsumer;
         log.info("Load {} Plugin from {}", getPluginBaseClass().getSimpleName(), pluginDir);
+    }
+
+    protected static Config loadConnectorPluginConfig() {
+        return ConfigFactory
+            .parseFile(Common.connectorDir().resolve(PLUGIN_MAPPING_FILE).toFile())
+            .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+            .resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
     }
 
     @Override
@@ -112,9 +135,9 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         if (pluginJarPath.isPresent()) {
             try {
                 // use current thread classloader to avoid different classloader load same class error.
-                this.addURLToClassLoader.accept(classLoader, pluginJarPath.get());
+                this.addURLToClassLoaderConsumer.accept(classLoader, pluginJarPath.get());
                 for (URL jar : pluginJars) {
-                    addURLToClassLoader.accept(classLoader, jar);
+                    addURLToClassLoaderConsumer.accept(classLoader, jar);
                 }
             } catch (Exception e) {
                 log.warn("can't load jar use current thread classloader, use URLClassLoader instead now." +
@@ -184,16 +207,16 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
      * @return plugin jar path.
      */
     private Optional<URL> findPluginJarPath(PluginIdentifier pluginIdentifier) {
-        if (PLUGIN_JAR_MAPPING.isEmpty()) {
+        if (pluginConfig.isEmpty()) {
             return Optional.empty();
         }
         final String engineType = pluginIdentifier.getEngineType().toLowerCase();
         final String pluginType = pluginIdentifier.getPluginType().toLowerCase();
         final String pluginName = pluginIdentifier.getPluginName().toLowerCase();
-        if (!PLUGIN_JAR_MAPPING.hasPath(engineType)) {
+        if (!pluginConfig.hasPath(engineType)) {
             return Optional.empty();
         }
-        Config engineConfig = PLUGIN_JAR_MAPPING.getConfig(engineType);
+        Config engineConfig = pluginConfig.getConfig(engineType);
         if (!engineConfig.hasPath(pluginType)) {
             return Optional.empty();
         }

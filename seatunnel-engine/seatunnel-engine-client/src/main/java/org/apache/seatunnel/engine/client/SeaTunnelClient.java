@@ -20,6 +20,8 @@ package org.apache.seatunnel.engine.client;
 import org.apache.seatunnel.engine.client.job.JobClient;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStateCodec;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelListJobStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
 
 import com.hazelcast.client.config.ClientConfig;
@@ -56,6 +58,26 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
             SeaTunnelPrintMessageCodec.encodeRequest(msg),
             SeaTunnelPrintMessageCodec::decodeResponse
+        );
+    }
+
+    public void shutdown() {
+        if (hazelcastClient != null) {
+            hazelcastClient.shutdown();
+        }
+    }
+
+    public String getJobState(Long jobId){
+        return hazelcastClient.requestOnMasterAndDecodeResponse(
+            SeaTunnelGetJobStateCodec.encodeRequest(jobId),
+            SeaTunnelGetJobStateCodec::decodeResponse
+        );
+    }
+
+    public String listJobStatus(){
+        return hazelcastClient.requestOnMasterAndDecodeResponse(
+            SeaTunnelListJobStatusCodec.encodeRequest(),
+            SeaTunnelListJobStatusCodec::decodeResponse
         );
     }
 }

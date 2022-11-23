@@ -30,62 +30,37 @@
     <artifactId>seatunnel-core</artifactId>
     <packaging>pom</packaging>
 
+    <modules>
+        <module>seatunnel-core-base</module>
+        <module>seatunnel-core-starter</module>
+        <module>seatunnel-flink-starter</module>
+        <module>seatunnel-spark-starter</module>
+        <module>seatunnel-starter</module>
+    </modules>
+
     <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <configuration>
-                    <shadedArtifactAttached>false</shadedArtifactAttached>
-                    <createDependencyReducedPom>true</createDependencyReducedPom>
-                    <!-- Make sure the transitive dependencies are written to the generated pom under <dependencies> -->
-                    <promoteTransitiveDependencies>true</promoteTransitiveDependencies>
-                    <artifactSet>
-                        <excludes>
-                            <exclude>ch.qos.logback:*</exclude>
-                        </excludes>
-                    </artifactSet>
-                </configuration>
-            </plugin>
-        </plugins>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <executions>
+                        <execution>
+                            <id>copy-starter-logging-package-for-e2e</id>
+                            <phase>package</phase>
+                            <goals>
+                                <goal>copy-dependencies</goal>
+                            </goals>
+                            <configuration>
+                                <excludeTransitive>false</excludeTransitive>
+                                <includeGroupIds>org.slf4j,org.apache.logging.log4j</includeGroupIds>
+                                <includeArtifactIds>slf4j-api,jcl-over-slf4j,log4j-slf4j-impl,log4j-api,log4j-core</includeArtifactIds>
+                                <outputDirectory>${project.build.directory}/logging-e2e</outputDirectory>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
     </build>
-    <profiles>
-        <profile>
-            <id>all</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
-            <modules>
-                <module>seatunnel-core-base</module>
-                <module>seatunnel-core-flink</module>
-                <module>seatunnel-core-spark</module>
-                <module>seatunnel-core-flink-sql</module>
-                <module>seatunnel-core-starter</module>
-                <module>seatunnel-flink-starter</module>
-                <module>seatunnel-spark-starter</module>
-                <module>seatunnel-starter</module>
-            </modules>
-        </profile>
-        <profile>
-            <id>engine-all</id>
-            <modules>
-                <module>seatunnel-core-base</module>
-                <module>seatunnel-core-starter</module>
-                <module>seatunnel-starter</module>
-            </modules>
-        </profile>
-        <profile>
-            <id>release</id>
-            <modules>
-                <module>seatunnel-core-base</module>
-                <module>seatunnel-core-flink</module>
-                <module>seatunnel-core-spark</module>
-                <module>seatunnel-core-flink-sql</module>
-                <module>seatunnel-core-starter</module>
-                <module>seatunnel-flink-starter</module>
-                <module>seatunnel-spark-starter</module>
-                <module>seatunnel-starter</module>
-            </modules>
-        </profile>
-    </profiles>
 </project>

@@ -55,7 +55,20 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
     @Override
     public void virtualCheckpoint() {
         try {
-            internalCheckpoint(collectorMap.values().iterator(), 0);
+            int checkpointRetries = Math.max(1, CHECKPOINT_RETRIES);
+            do {
+                checkpointRetries--;
+                long collectedReader = collectorMap.values().stream().mapToLong(e -> e.collectTotalCount() > 0 ? 1 : 0).sum();
+                if (collectedReader == 0) {
+                    Thread.sleep(CHECKPOINT_SLEEP_INTERVAL);
+                }
+
+                collectedReader = collectorMap.values().stream().mapToLong(e -> e.collectTotalCount() > 0 ? 1 : 0).sum();
+                if (collectedReader != 0 || checkpointRetries == 0) {
+                    checkpointRetries = 0;
+                    internalCheckpoint(collectorMap.values().iterator(), 0);
+                }
+            } while (checkpointRetries > 0);
         } catch (Exception e) {
             throw new RuntimeException("An error occurred in virtual checkpoint execution.", e);
         }

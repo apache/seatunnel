@@ -44,7 +44,7 @@ public class KuduSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public String getPluginName() {
-        return "kuduSink";
+        return "kudu";
     }
 
     @Override

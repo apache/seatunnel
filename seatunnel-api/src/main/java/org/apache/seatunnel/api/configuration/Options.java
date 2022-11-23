@@ -145,12 +145,30 @@ public class Options {
         }
 
         /**
+         * Defines that the value of the option should be a list of properties, which can be
+         * represented as {@code List<T>}.
+         */
+        public <T> TypedOptionBuilder<List<T>> listType(Class<T> option) {
+            return new TypedOptionBuilder<>(key, new TypeReference<List<T>>() {
+            });
+        }
+
+        public <T> TypedOptionBuilder<T> objectType(Class<T> option) {
+            return new TypedOptionBuilder<>(key, new TypeReference<T>() {
+                @Override
+                public Type getType() {
+                    return option;
+                }
+            });
+        }
+
+        /**
          * The value of the definition option should be represented as T.
          *
          * @param typeReference complex type reference
          */
         public <T> TypedOptionBuilder<T> type(TypeReference<T> typeReference) {
-            return new TypedOptionBuilder<T>(key, typeReference);
+            return new TypedOptionBuilder<>(key, typeReference);
         }
     }
 

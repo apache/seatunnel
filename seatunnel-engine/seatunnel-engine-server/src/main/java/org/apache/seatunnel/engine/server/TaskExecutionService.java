@@ -61,6 +61,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -176,6 +177,7 @@ public class TaskExecutionService {
         return new PassiveCompletableFuture<>(resultFuture);
     }
 
+    @Deprecated
     public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
         @NonNull TaskGroup taskGroup,
         @NonNull CompletableFuture<TaskExecutionState> resultFuture) {
@@ -214,24 +216,30 @@ public class TaskExecutionService {
         resultFuture.whenComplete(withTryCatch(logger, (r, s) -> {
             logger.info(
                 String.format("Task %s complete with state %s", r.getTaskGroupLocation(), r.getExecutionState()));
-            InvocationFuture<Object> invoke = null;
             long sleepTime = 1000;
-            while (isRunning && (invoke == null || !invoke.isDone())) {
-                if (null != invoke) {
+            boolean notifyStateSuccess = false;
+            while (isRunning && !notifyStateSuccess) {
+                InvocationFuture<Object> invoke = nodeEngine.getOperationService().createInvocationBuilder(
+                    SeaTunnelServer.SERVICE_NAME,
+                    new NotifyTaskStatusOperation(taskGroup.getTaskGroupLocation(), r),
+                    nodeEngine.getMasterAddress()).invoke();
+                try {
+                    invoke.get();
+                    notifyStateSuccess = true;
+                } catch (InterruptedException e) {
+                    logger.severe(e);
+                    Thread.interrupted();
+                } catch (ExecutionException e) {
+                    logger.warning(ExceptionUtils.getMessage(e));
                     logger.warning(String.format("notify the job of the task(%s) status failed, retry in %s millis",
                         taskGroup.getTaskGroupLocation(), sleepTime));
                     try {
-                        Thread.sleep(sleepTime += 1000);
-                    } catch (InterruptedException e) {
+                        Thread.sleep(sleepTime);
+                    } catch (InterruptedException ex) {
                         logger.severe(e);
                         Thread.interrupted();
                     }
                 }
-                invoke = nodeEngine.getOperationService().createInvocationBuilder(
-                    SeaTunnelServer.SERVICE_NAME,
-                    new NotifyTaskStatusOperation(taskGroup.getTaskGroupLocation(), r),
-                    nodeEngine.getMasterAddress()).invoke();
-                invoke.join();
             }
         }));
         return new PassiveCompletableFuture<>(resultFuture);
@@ -265,7 +273,8 @@ public class TaskExecutionService {
 
         @Override
         public void run() {
-            ClassLoader classLoader = executionContexts.get(tracker.taskGroupExecutionTracker.taskGroup.getTaskGroupLocation()).getClassLoader();
+            TaskExecutionService.TaskGroupExecutionTracker taskGroupExecutionTracker = tracker.taskGroupExecutionTracker;
+            ClassLoader classLoader = executionContexts.get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation()).getClassLoader();
             ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
             Thread.currentThread().setContextClassLoader(classLoader);
             final Task t = tracker.task;
@@ -276,12 +285,12 @@ public class TaskExecutionService {
                 do {
                     result = t.call();
                 } while (!result.isDone() && isRunning &&
-                    !tracker.taskGroupExecutionTracker.executionCompletedExceptionally());
+                    !taskGroupExecutionTracker.executionCompletedExceptionally());
             } catch (Throwable e) {
                 logger.warning("Exception in " + t, e);
-                tracker.taskGroupExecutionTracker.exception(e);
+                taskGroupExecutionTracker.exception(e);
             } finally {
-                tracker.taskGroupExecutionTracker.taskDone();
+                taskGroupExecutionTracker.taskDone();
             }
             Thread.currentThread().setContextClassLoader(oldClassLoader);
         }

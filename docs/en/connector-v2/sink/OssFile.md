@@ -7,7 +7,7 @@
 Output data to oss file system.
 
 > Tips: We made some trade-offs in order to support more file types, so we used the HDFS protocol for internal access to OSS and this connector need some hadoop dependencies.
-> It's only support hadoop version **2.9.X+**.
+> It only supports hadoop version **2.9.X+**.
 
 ## Key features
 
@@ -219,3 +219,9 @@ For orc file format
 - [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/incubator-seatunnel/pull/2980))
 - [BugFix] Fix filesystem get error ([3117](https://github.com/apache/incubator-seatunnel/pull/3117))
 - [BugFix] Solved the bug of can not parse '\t' as delimiter from config file ([3083](https://github.com/apache/incubator-seatunnel/pull/3083))
+
+### Next version
+- [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/incubator-seatunnel/pull/3258))
+  - When field from upstream is null it will throw NullPointerException
+  - Sink columns mapping failed
+  - When restore writer from states getting transaction directly failed

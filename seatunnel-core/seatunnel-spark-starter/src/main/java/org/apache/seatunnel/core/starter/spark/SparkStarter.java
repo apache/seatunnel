@@ -122,6 +122,7 @@ public class SparkStarter implements Starter {
         Common.setDeployMode(commandArgs.getDeployMode());
         Common.setStarter(true);
         this.jars.addAll(Common.getPluginsJarDependencies());
+        this.jars.addAll(Common.getLibJars());
         this.jars.addAll(getConnectorJarDependencies());
         return buildFinal();
     }
@@ -200,7 +201,9 @@ public class SparkStarter implements Starter {
         appendFiles(commands, this.files);
         appendSparkConf(commands, this.sparkConf);
         appendAppJar(commands);
-        appendArgs(commands, args);
+        appendOption(commands, "--config", this.commandArgs.getConfigFile());
+        appendOption(commands, "--master", this.commandArgs.getMaster());
+        appendOption(commands, "--deploy-mode", this.commandArgs.getDeployMode().getName());
         return commands;
     }
 
@@ -250,17 +253,10 @@ public class SparkStarter implements Starter {
     }
 
     /**
-     * append original commandline args to StringBuilder
-     */
-    protected void appendArgs(List<String> commands, String[] args) {
-        commands.addAll(Arrays.asList(args));
-    }
-
-    /**
      * append appJar to StringBuilder
      */
     protected void appendAppJar(List<String> commands) {
-        commands.add(Common.appLibDir().resolve("seatunnel-spark-starter.jar").toString());
+        commands.add(Common.appStarterDir().resolve("seatunnel-spark-starter.jar").toString());
     }
 
     @SuppressWarnings("checkstyle:Indentation")

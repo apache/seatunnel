@@ -18,6 +18,11 @@
 hazelcast:
   cluster-name: seatunnel
   network:
+    rest-api:
+      enabled: true
+      endpoint-groups:
+        CLUSTER_WRITE:
+          enabled: true
     join:
       tcp-ip:
         enabled: true
@@ -27,11 +32,7 @@ hazelcast:
       auto-increment: true
       port-count: 100
       port: 5801
-  map:
-    map-name-template:
-      map-store:
-        enabled: true
-        initial-mode: EAGER
-        class-name: org.apache.seatunnel.engine.server.persistence.FileMapStore
-        properties:
-          path: /tmp/file-store-map
+  properties:
+    hazelcast.invocation.max.retry.count: 20
+    hazelcast.tcp.join.port.try.count: 30
+    hazelcast.logging.type: log4j2

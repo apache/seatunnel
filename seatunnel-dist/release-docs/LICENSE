@@ -218,54 +218,21 @@ The following components are provided under the Apache License. See project link
 The text of each license is the standard Apache 2.0 license.
 
      (Apache License 2.0) aircompressor (io.airlift:aircompressor:0.10 - http://github.com/airlift/aircompressor)
-     (Apache License, Version 2.0) akka-actor (com.typesafe.akka:akka-actor_2.11:2.5.21 - http://akka.io/)
-     (Apache License, Version 2.0) akka-protobuf (com.typesafe.akka:akka-protobuf_2.11:2.5.21 - http://akka.io/)
-     (Apache License, Version 2.0) akka-slf4j (com.typesafe.akka:akka-slf4j_2.11:2.5.21 - http://akka.io/)
-     (Apache License, Version 2.0) akka-stream (com.typesafe.akka:akka-stream_2.11:2.5.21 - http://akka.io/)
      (Apache License, Version 2.0) Apache Yetus - Audience Annotations (org.apache.yetus:audience-annotations:0.11.0 - https://yetus.apache.org/audience-annotations)
      (The Apache Software License, Version 2.0) Apache Avro (org.apache.avro:avro:1.8.2 - http://avro.apache.org)
-     (Apache 2) chill-java (com.twitter:chill-java:0.7.6 - https://github.com/twitter/chill)
-     (Apache 2) chill (com.twitter:chill_2.11:0.7.6 - https://github.com/twitter/chill)
-     (Apache License, Version 2.0) Apache Commons Codec (commons-codec:commons-codec:1.13 - https://commons.apache.org/proper/commons-codec/)
-     (Apache License, Version 2.0) Apache Commons CLI (commons-cli:commons-cli:1.3.1 - http://commons.apache.org/proper/commons-cli/)     
+     (Apache License, Version 2.0) Apache Commons Codec (commons-codec:commons-codec:1.13 - https://commons.apache.org/proper/commons-codec/)    
      (Apache License, Version 2.0) Apache Commons Collections (org.apache.commons:commons-collections4:4.4 - https://commons.apache.org/proper/commons-collections/)
-     (Apache License, Version 2.0) Apache Commons Collections (org.apache.commons:commons-collections:3.2.2 - https://commons.apache.org/proper/commons-collections/)
      (Apache License, Version 2.0) Apache Commons Compress (org.apache.commons:commons-compress:1.20 - https://commons.apache.org/proper/commons-compress/)
      (The Apache Software License, Version 2.0) Commons Lang (commons-lang:commons-lang:2.6 - http://commons.apache.org/lang/)
      (Apache License, Version 2.0) Apache Commons IO (commons-io:commons-io:2.11.0 - http://commons.apache.org/proper/commons-io/)    
      (Apache License, Version 2.0) Apache Commons Lang (org.apache.commons:commons-lang3:3.4 - http://commons.apache.org/proper/commons-lang/)
-     (The Apache Software License, Version 2.0) Apache Commons Math (org.apache.commons:commons-math3:3.5 - http://commons.apache.org/proper/commons-math/)
      (The Apache Software License, Version 2.0) Commons Pool (commons-pool:commons-pool:1.6 - http://commons.apache.org/pool/)
      (Apache License, Version 2.0) config (com.typesafe:config:1.3.3 - https://github.com/lightbend/config)
-     (The Apache Software License, Version 2.0) Flink : Annotations (org.apache.flink:flink-annotations:1.13.6 - https://flink.apache.org/flink-annotations)
      (The Apache Software License, Version 2.0) Flink : Formats : Avro (org.apache.flink:flink-avro:1.13.6 - https://flink.apache.org/flink-formats/flink-avro)
-     (The Apache Software License, Version 2.0) Flink : Connectors : Base (org.apache.flink:flink-connector-base:1.13.6 - https://flink.apache.org/flink-connectors/flink-connector-base)
-     (The Apache Software License, Version 2.0) Flink : Connectors : Files (org.apache.flink:flink-connector-files:1.13.6 - https://flink.apache.org/flink-connectors/flink-connector-files)
-     (The Apache Software License, Version 2.0) Flink : Core (org.apache.flink:flink-core:1.13.6 - https://flink.apache.org/flink-core)
      (The Apache Software License, Version 2.0) Flink : Formats : Csv (org.apache.flink:flink-csv:1.13.6 - https://flink.apache.org/flink-formats/flink-csv)
-     (The Apache Software License, Version 2.0) Flink : Connectors : File Sink Common (org.apache.flink:flink-file-sink-common:1.13.6 - https://flink.apache.org/flink-connectors/flink-file-sink-common)
-     (The Apache Software License, Version 2.0) Flink : FileSystems : Hadoop FS (org.apache.flink:flink-hadoop-fs:1.13.6 - https://flink.apache.org/flink-filesystems/flink-hadoop-fs)
-     (The Apache Software License, Version 2.0) Flink : Java (org.apache.flink:flink-java:1.13.6 - https://flink.apache.org/flink-java)
      (The Apache Software License, Version 2.0) Flink : Formats : Json (org.apache.flink:flink-json:1.13.6 - https://flink.apache.org/flink-formats/flink-json)
-     (The Apache Software License, Version 2.0) Flink : Metrics : Core (org.apache.flink:flink-metrics-core:1.13.6 - https://flink.apache.org/flink-metrics/flink-metrics-core)
      (The Apache Software License, Version 2.0) Flink : Formats : Orc (org.apache.flink:flink-orc_2.11:1.13.6 - https://flink.apache.org/flink-formats/flink-orc_2.11)
      (The Apache Software License, Version 2.0) Flink : Formats : Parquet (org.apache.flink:flink-parquet_2.11:1.13.6 - https://flink.apache.org/flink-formats/flink-parquet_2.11)
-     (The Apache Software License, Version 2.0) Flink : Queryable state : Client Java (org.apache.flink:flink-queryable-state-client-java:1.13.6 - https://flink.apache.org/flink-queryable-state/flink-queryable-state-client-java)
-     (The Apache Software License, Version 2.0) Flink : Runtime (org.apache.flink:flink-runtime_2.11:1.13.6 - https://flink.apache.org/flink-runtime_2.11)
-     (The Apache Software License, Version 2.0) Flink : Scala (org.apache.flink:flink-scala_2.11:1.13.6 - https://flink.apache.org/flink-scala_2.11)
-     (The Apache Software License, Version 2.0) Flink : Streaming Java (org.apache.flink:flink-streaming-java_2.11:1.13.6 - https://flink.apache.org/flink-streaming-java_2.11)
-     (The Apache Software License, Version 2.0) Flink : Streaming Scala (org.apache.flink:flink-streaming-scala_2.11:1.13.6 - https://flink.apache.org/flink-streaming-scala_2.11)
-     (The Apache Software License, Version 2.0) Flink : Table : API Java (org.apache.flink:flink-table-api-java:1.13.6 - https://flink.apache.org/flink-table/flink-table-api-java)
-     (The Apache Software License, Version 2.0) Flink : Table : API Java bridge (org.apache.flink:flink-table-api-java-bridge_2.11:1.13.6 - https://flink.apache.org/flink-table/flink-table-api-java-bridge_2.11)
-     (The Apache Software License, Version 2.0) Flink : Table : API Scala bridge (org.apache.flink:flink-table-api-scala-bridge_2.11:1.13.6 - https://flink.apache.org/flink-table/flink-table-api-scala-bridge_2.11)
-     (The Apache Software License, Version 2.0) Flink : Table : API Scala (org.apache.flink:flink-table-api-scala_2.11:1.13.6 - https://flink.apache.org/flink-table/flink-table-api-scala_2.11)
-     (The Apache Software License, Version 2.0) Flink : Table : Common (org.apache.flink:flink-table-common:1.13.6 - https://flink.apache.org/flink-table/flink-table-common)
-     (The Apache Software License, Version 2.0) Flink : Table : Planner (org.apache.flink:flink-table-planner_2.11:1.13.6 - https://flink.apache.org/flink-table/flink-table-planner_2.11)
-     (The Apache Software License, Version 2.0) flink-shaded-asm-7 (org.apache.flink:flink-shaded-asm-7:7.1-13.0 - http://flink.apache.org/flink-shaded-asm-7)
-     (The Apache Software License, Version 2.0) flink-shaded-guava-18 (org.apache.flink:flink-shaded-guava:18.0-13.0 - http://flink.apache.org/flink-shaded-guava)
-     (The Apache Software License, Version 2.0) flink-shaded-jackson-2 (org.apache.flink:flink-shaded-jackson:2.12.1-13.0 - http://flink.apache.org/flink-shaded-jackson-parent/flink-shaded-jackson)
-     (The Apache Software License, Version 2.0) flink-shaded-netty-4 (org.apache.flink:flink-shaded-netty:4.1.49.Final-13.0 - http://flink.apache.org/flink-shaded-netty)
-     (The Apache Software License, Version 2.0) flink-shaded-zookeeper-3.4 (org.apache.flink:flink-shaded-zookeeper-3:3.4.14-13.0 - http://flink.apache.org/flink-shaded-zookeeper-parent/flink-shaded-zookeeper-3)
      (Apache License, Version 2.0) Flink : Tools : Force Shading (org.apache.flink:force-shading:1.13.6 - https://www.apache.org/force-shading/)
      (The Apache Software License, Version 2.0) Guava: Google Core Libraries for Java (com.google.guava:guava:19.0 - https://github.com/google/guava/guava)
      (Apache License, Version 2.0) Hive Storage API (org.apache.hive:hive-storage-api:2.6.0 - https://www.apache.org/hive-storage-api/)
@@ -277,36 +244,30 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) Data Mapper for Jackson (org.codehaus.jackson:jackson-mapper-asl:1.9.13 - http://jackson.codehaus.org)
      (Apache License, Version 2.0) jcommander (com.beust:jcommander:1.81 - https://jcommander.org)
      (The Apache Software License, Version 2.0) FindBugs-jsr305 (com.google.code.findbugs:jsr305:1.3.9 - http://findbugs.sourceforge.net/)
-     (The Apache Software License, Version 2.0) Apache Log4j (log4j:log4j:1.2.17 - http://logging.apache.org/log4j/1.2/)
+     (The Apache Software License, Version 2.0) Apache Log4j (org.apache.logging.log4j:log4j-api:2.17.1 - https://logging.apache.org/log4j/2.x/)
+     (The Apache Software License, Version 2.0) Apache Log4j (org.apache.logging.log4j:log4j-core:2.17.1 - https://logging.apache.org/log4j/2.x/)
+     (The Apache Software License, Version 2.0) Apache Log4j (org.apache.logging.log4j:log4j-slf4j-impl:2.17.1 - https://logging.apache.org/log4j/2.x/)
+     (The Apache Software License, Version 2.0) Apache Log4j (org.apache.logging.log4j:log4j-1.2-api:2.17.1 - https://logging.apache.org/log4j/2.x/)
      (The Apache Software License, Version 2.0) LZ4 and xxHash (net.jpountz.lz4:lz4:1.3.0 - https://github.com/jpountz/lz4-java)
-     (The Apache Software License, Version 2.0) LZ4 and xxHash (org.lz4:lz4-java:1.6.0 - https://github.com/lz4/lz4-java)
-     (Apache 2) Objenesis (org.objenesis:objenesis:2.1 - http://objenesis.org)
      (Apache License, Version 2.0) ORC Core (org.apache.orc:orc-core:1.5.6 - http://orc.apache.org/orc-core)
-     (Apache License, Version 2.0) ORC Shims (org.apache.orc:orc-shims:1.5.2 - http://orc.apache.org/orc-shims)
      (Apache License, Version 2.0) ORC Shims (org.apache.orc:orc-shims:1.5.6 - http://orc.apache.org/orc-shims)
      (The Apache Software License, Version 2.0) Jackson module: Paranamer (com.fasterxml.jackson.module:jackson-module-paranamer:2.7.9 - https://github.com/FasterXML/jackson-modules-base)
-     (The Apache Software License, Version 2.0) Apache Parquet Column (org.apache.parquet:parquet-column:1.10.0 - https://parquet.apache.org)
      (The Apache Software License, Version 2.0) Apache Parquet Column (org.apache.parquet:parquet-column:1.11.1 - https://parquet.apache.org)
-     (The Apache Software License, Version 2.0) Apache Parquet Common (org.apache.parquet:parquet-common:1.10.0 - https://parquet.apache.org)
      (The Apache Software License, Version 2.0) Apache Parquet Common (org.apache.parquet:parquet-common:1.11.1 - https://parquet.apache.org)
-     (The Apache Software License, Version 2.0) Apache Parquet Encodings (org.apache.parquet:parquet-encoding:1.10.0 - https://parquet.apache.org)
      (The Apache Software License, Version 2.0) Apache Parquet Encodings (org.apache.parquet:parquet-encoding:1.11.1 - https://parquet.apache.org)
-     (The Apache Software License, Version 2.0) Apache Parquet Format (org.apache.parquet:parquet-format:2.4.0 - http://parquet.apache.org/)
      (The Apache Software License, Version 2.0) Apache Parquet Format Structures (org.apache.parquet:parquet-format-structures:1.11.1 - https://parquet.apache.org/)
-     (The Apache Software License, Version 2.0) Apache Parquet Hadoop (org.apache.parquet:parquet-hadoop:1.10.0 - https://parquet.apache.org)
      (The Apache Software License, Version 2.0) Apache Parquet Hadoop (org.apache.parquet:parquet-hadoop:1.11.1 - https://parquet.apache.org)
-     (The Apache Software License, Version 2.0) Apache Parquet Jackson (org.apache.parquet:parquet-jackson:1.10.0 - https://parquet.apache.org)
      (The Apache Software License, Version 2.0) Apache Parquet Jackson (org.apache.parquet:parquet-jackson:1.11.1 - https://parquet.apache.org)
-     (The Apache Software License, Version 2.0) snappy-java (org.xerial.snappy:snappy-java:1.1.7.1 - https://github.com/xerial/snappy-java)
      (Apache-2.0) snappy-java (org.xerial.snappy:snappy-java:1.1.8.3 - https://github.com/xerial/snappy-java)
      (Apache-2.0) snappy-java (org.xerial.snappy:snappy-java:1.1.1.3 - https://github.com/xerial/snappy-java)
      (Apache-2.0) maven-wrapper (org.apache.maven:maven-wrapper:3.8.4 https://maven.apache.org/wrapper/)
-     (The Apache Software License, Version 2.0) protostuff (io.protostuff:protostuff-collectionschema:1.8.0 - https://github.com/protostuff/protostuff)     
+     (The Apache Software License, Version 2.0) protostuff (io.protostuff:protostuff-collectionschema:1.8.0 - https://github.com/protostuff/protostuff)
      (The Apache Software License, Version 2.0) protostuff (io.protostuff:protostuff-core:1.8.0 - https://github.com/protostuff/protostuff)
      (The Apache Software License, Version 2.0) protostuff (io.protostuff:protostuff-api:1.8.0 - https://github.com/protostuff/protostuff)
      (The Apache Software License, Version 2.0) protostuff (io.protostuff:protostuff-runtime:1.8.0 - https://github.com/protostuff/protostuff)     
      (The Apache Software License, Version 2.0) hazelcast (com.hazelcast:hazelcast:5.1 - https://github.com/hazelcast/hazelcast)
-     
+     (Apache-2.0) disruptor (com.lmax:disruptor:3.4.4 https://lmax-exchange.github.io/disruptor/)
+
 ========================================================================
 MOZILLA PUBLIC LICENSE License
 ========================================================================
@@ -314,34 +275,17 @@ MOZILLA PUBLIC LICENSE License
 The following components are provided under the MOZILLA PUBLIC LICENSE License. See project link for details.
 The text of each license is also included at licenses/LICENSE-[project].txt.
 
-     (MOZILLA PUBLIC LICENSE 1.0) Javassist (org.javassist:javassist:3.24.0-GA - http://www.javassist.org/)
 
-========================================================================
-CC0-1.0 License
-========================================================================
-
-The following components are provided under the CC0-1.0 License. See project link for details.
-The text of each license is also included at licenses/LICENSE-[project].txt.
-
-     (CC0) reactive-streams (org.reactivestreams:reactive-streams:1.0.2 - http://www.reactive-streams.org/)
-     
 ========================================================================
 BSD License
 ========================================================================
 
 The following components are provided under a BSD license. See project link for details.
 The text of each license is also included at licenses/LICENSE-[project].txt.  
-
-     (BSD) grizzled-slf4j (org.clapper:grizzled-slf4j_2.11:1.3.2 - http://software.clapper.org/grizzled-slf4j/)   
-     (New BSD License) Kryo (com.esotericsoftware.kryo:kryo:2.24.0 - https://github.com/EsotericSoftware/kryo)     
-     (New BSD License) MinLog (com.esotericsoftware.minlog:minlog:1.2 - http://code.google.com/p/minlog/)        
+    
      (New BSD license) Protocol Buffer Java API (com.google.protobuf:protobuf-java:2.5.0 - http://code.google.com/p/protobuf)
-     (BSD 3-Clause) Scala Compiler (org.scala-lang:scala-compiler:2.11.12 - http://www.scala-lang.org/)
-     (BSD 3-clause) scala-java8-compat (org.scala-lang.modules:scala-java8-compat_2.11:0.7.0 - http://www.scala-lang.org/)
      (BSD 3-Clause) Scala Library (org.scala-lang:scala-library:2.11.12 - http://www.scala-lang.org/)
-     (BSD 3-clause) scala-parser-combinators (org.scala-lang.modules:scala-parser-combinators_2.11:1.1.1 - http://www.scala-lang.org/)
-     (BSD 3-Clause) Scala Compiler (org.scala-lang:scala-reflect:2.11.12 - http://www.scala-lang.org/)
-     (BSD 3-clause) scala-xml (org.scala-lang.modules:scala-xml_2.11:1.0.5 - http://www.scala-lang.org/)     
+     
 ========================================================================
 CDDL License
 ========================================================================
@@ -358,9 +302,8 @@ MIT License
 The following components are provided under the MIT License. See project link for details.
 The text of each license is also included at licenses/LICENSE-[project].txt. 
 
-     (MIT License) scopt (com.github.scopt:scopt_2.11:3.5.0 - https://github.com/scopt/scopt)
-     (MIT License) SLF4J API Module (org.slf4j:slf4j-api:1.7.25 - http://www.slf4j.org)
-     (MIT License) SLF4J LOG4J-12 Binding (org.slf4j:slf4j-log4j12:1.7.25 - http://www.slf4j.org)       
+     (MIT License) slf4j-api (org.slf4j:slf4j-api:1.7.25 - http://www.slf4j.org)
+     (MIT License) jcl-over-slf4j (org.slf4j:jcl-over-slf4j:1.7.25 - http://www.slf4j.org)
 ========================================================================
 Public Domain License
 ========================================================================
