@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
+import static org.apache.seatunnel.engine.core.checkpoint.CheckpointType.CHECKPOINT_TYPE;
 import static org.apache.seatunnel.engine.core.checkpoint.CheckpointType.COMPLETED_POINT_TYPE;
 import static org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan.COORDINATOR_INDEX;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.READY_START;
@@ -29,6 +30,7 @@ import org.apache.seatunnel.engine.checkpoint.storage.common.ProtoStuffSerialize
 import org.apache.seatunnel.engine.checkpoint.storage.common.Serializer;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
@@ -232,22 +234,39 @@ public class CheckpointCoordinator {
     }
 
     protected void tryTriggerPendingCheckpoint() {
-        tryTriggerPendingCheckpoint(CheckpointType.CHECKPOINT_TYPE);
+        tryTriggerPendingCheckpoint(CHECKPOINT_TYPE);
     }
 
     protected void tryTriggerPendingCheckpoint(CheckpointType checkpointType) {
         synchronized (lock) {
-            if (isCompleted()) {
+            if (isCompleted() || isShutdown()) {
                 LOG.warn(String.format("can't trigger checkpoint with type: %s, because checkpoint coordinator already have completed checkpoint", checkpointType));
                 return;
             }
             final long currentTimestamp = Instant.now().toEpochMilli();
-            if (currentTimestamp - latestTriggerTimestamp.get() >= coordinatorConfig.getCheckpointInterval() &&
-                pendingCounter.get() < coordinatorConfig.getMaxConcurrentCheckpoints() && isAllTaskReady) {
-                CompletableFuture<PendingCheckpoint> pendingCheckpoint = createPendingCheckpoint(currentTimestamp, checkpointType);
-                startTriggerPendingCheckpoint(pendingCheckpoint);
-                pendingCounter.incrementAndGet();
-                scheduleTriggerPendingCheckpoint(coordinatorConfig.getCheckpointInterval());
+            if (checkpointType.equals(CHECKPOINT_TYPE)) {
+                if (currentTimestamp - latestTriggerTimestamp.get() < coordinatorConfig.getCheckpointInterval() ||
+                    pendingCounter.get() >= coordinatorConfig.getMaxConcurrentCheckpoints() || !isAllTaskReady) {
+                    return;
+                }
+            } else {
+                shutdown = true;
+                waitingPendingCheckpointDone();
+            }
+            CompletableFuture<PendingCheckpoint> pendingCheckpoint = createPendingCheckpoint(currentTimestamp, checkpointType);
+            startTriggerPendingCheckpoint(pendingCheckpoint);
+            pendingCounter.incrementAndGet();
+            scheduleTriggerPendingCheckpoint(coordinatorConfig.getCheckpointInterval());
+        }
+    }
+
+    @SuppressWarnings("checkstyle:MagicNumber")
+    private void waitingPendingCheckpointDone() {
+        while (pendingCounter.get() != 0) {
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                throw new SeaTunnelEngineException(e);
             }
         }
     }
