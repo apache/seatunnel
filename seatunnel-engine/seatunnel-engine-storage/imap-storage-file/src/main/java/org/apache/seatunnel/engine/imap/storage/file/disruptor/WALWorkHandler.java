@@ -20,14 +20,15 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.disruptor;
 
+import org.apache.seatunnel.engine.imap.storage.api.common.Serializer;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
+import org.apache.seatunnel.engine.imap.storage.file.common.WALWriter;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFutureCache;
-import org.apache.seatunnel.engine.imap.storage.file.orc.OrcWriter;
 
 import com.lmax.disruptor.WorkHandler;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
@@ -39,51 +40,14 @@ import java.io.IOException;
 @Slf4j
 public class WALWorkHandler implements WorkHandler<FileWALEvent> {
 
-    /**
-     * we used the "current-${System.System.nanoTime()}" for the current orc file name
-     */
-    private static final String CURRENT_FILE_NAME_PREFIX = "/current/";
+    private WALWriter writer;
 
-    private OrcWriter currentWriter;
-
-    private Configuration configuration;
-
-    private String parentPath;
-
-    private long lastDataWriterTime = System.currentTimeMillis();
-
-    private static final long MINIMUM_INTERVAL_SINCE_LAST_WRITE_SECONDS_TIME = 1000 * 60;
-
-    public WALWorkHandler(Configuration configuration, String parentPath) {
-        this.configuration = configuration;
-        this.parentPath = parentPath;
-        createNewCurrentWriter();
-    }
-
-    private void createNewCurrentWriter() {
-        String currentFileName = parentPath + CURRENT_FILE_NAME_PREFIX + System.nanoTime();
+    public WALWorkHandler(FileSystem fs, String parentPath, Serializer serializer) {
         try {
-            currentWriter = new OrcWriter(new Path(currentFileName), configuration);
+            writer = new WALWriter(fs, new Path(parentPath), serializer);
         } catch (IOException e) {
-            throw new IMapStorageException(e, "create new current writer failed, parent path is s%", parentPath);
+            throw new IMapStorageException(e, "create new current writer failed, parent path is %s", parentPath);
         }
-    }
-
-    /**
-     * closed the current writer
-     * and create a new writer and set it to current writer
-     */
-    private void archiveAndCreateNewFile() {
-        // should config
-        if (System.currentTimeMillis() - lastDataWriterTime < MINIMUM_INTERVAL_SINCE_LAST_WRITE_SECONDS_TIME) {
-            return;
-        }
-        try {
-            currentWriter.archive(parentPath);
-        } catch (IOException e) {
-            log.error("archive file failed, current file parent path is {} ", parentPath, e);
-        }
-        createNewCurrentWriter();
     }
 
     @Override
@@ -92,37 +56,24 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
         walEvent(fileWALEvent.getData(), fileWALEvent.getType(), fileWALEvent.getRequestId());
     }
 
-    private void walEvent(IMapFileData iMapFileData, WALEventType type, long requestId) throws IOException {
+    private void walEvent(IMapFileData iMapFileData, WALEventType type, long requestId) throws Exception {
         if (type == WALEventType.APPEND) {
             boolean writeSuccess = true;
             // write to current writer
             try {
-                currentWriter.write(iMapFileData);
+                writer.write(iMapFileData);
             } catch (IOException e) {
                 writeSuccess = false;
                 log.error("write orc file error, walEventBean is {} ", iMapFileData, e);
             }
-            lastDataWriterTime = System.currentTimeMillis();
             // return the result to the client
             executeResponse(requestId, writeSuccess);
             return;
         }
 
-        if (type == WALEventType.SCHEDULER_ARCHIVE) {
-            // archive current writer
-            archiveAndCreateNewFile();
-            return;
-        }
-        if (type == WALEventType.IMMEDIATE_ARCHIVE) {
-            //close writer and archive
-            currentWriter.archive(parentPath);
-            executeResponse(requestId, true);
-            createNewCurrentWriter();
-            return;
-        }
         if (type == WALEventType.CLOSED) {
             //close writer and archive
-            currentWriter.archive(parentPath);
+            writer.close();
         }
     }
 

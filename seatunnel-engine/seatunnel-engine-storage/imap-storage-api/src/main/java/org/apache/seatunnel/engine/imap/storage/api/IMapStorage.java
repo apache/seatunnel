@@ -20,8 +20,8 @@
 
 package org.apache.seatunnel.engine.imap.storage.api;
 
+import java.io.IOException;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -60,9 +60,9 @@ public interface IMapStorage {
      */
     public Set<Object> deleteAll(Collection<Object> keys);
 
-    public Map<Object, Object> loadAll();
+    public Map<Object, Object> loadAll() throws IOException;
 
-    public List<Object> loadAllKeys();
+    public Set<Object> loadAllKeys();
 
     public void destroy();
 }

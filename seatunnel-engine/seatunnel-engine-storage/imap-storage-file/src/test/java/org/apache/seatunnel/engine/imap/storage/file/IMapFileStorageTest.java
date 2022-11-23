@@ -20,7 +20,6 @@
 
 package org.apache.seatunnel.engine.imap.storage.file;
 
-import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.ARCHIVE_SCHEDULER_TIME_IN_SECONDS_KEY;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.condition.OS.LINUX;
 import static org.junit.jupiter.api.condition.OS.MAC;
@@ -28,50 +27,74 @@ import static org.junit.jupiter.api.condition.OS.MAC;
 import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @EnabledOnOs({LINUX, MAC})
 public class IMapFileStorageTest {
 
+    private static final Configuration CONF;
+
+    static {
+        CONF = new Configuration();
+        CONF.set("fs.defaultFS", "file:///");
+        CONF.set("fs.file.impl", "org.apache.hadoop.fs.LocalFileSystem");
+    }
+
     @Test
-    void testAll() throws InterruptedException {
+    void testAll() {
         IMapFileStorage storage = new IMapFileStorage();
         Map<String, Object> properties = new HashMap<>();
-        properties.put(FileConstants.FileInitProperties.BUSINESS_KEY, "kris");
-        properties.put(FileConstants.FileInitProperties.NAMESPACE_KEY, "file//imap-seatunnel/test/");
-        properties.put(FileConstants.FileInitProperties.CLUSTER_NAME, "cluster1");
-        Configuration configuration = new Configuration();
-        properties.put(FileConstants.FileInitProperties.HDFS_CONFIG_KEY, configuration);
-        properties.put(ARCHIVE_SCHEDULER_TIME_IN_SECONDS_KEY, 1000 * 60 * 60L);
+        properties.put(FileConstants.FileInitProperties.BUSINESS_KEY, "random");
+        properties.put(FileConstants.FileInitProperties.NAMESPACE_KEY, "/tmp/imap-kris-test/2");
+        properties.put(FileConstants.FileInitProperties.CLUSTER_NAME, "test-one");
+        properties.put(FileConstants.FileInitProperties.HDFS_CONFIG_KEY, CONF);
+
         storage.initialize(properties);
 
-        Map<Object, Object> datas = new HashMap<>();
+        String key1Index = "key1";
+        String key2Index = "key2";
+        String key50Index = "key50";
+
+        AtomicInteger dataSize = new AtomicInteger();
+        Long keyValue = 123456789L;
         for (int i = 0; i < 100; i++) {
             String key = "key" + i;
             Long value = System.currentTimeMillis();
-            datas.put(key, value);
+
+            if (i == 50) {
+                // delete
+                storage.delete(key1Index);
+                //update
+                storage.store(key2Index, keyValue);
+                value = keyValue;
+                new Thread(() -> dataSize.set(storage.loadAll().size())).start();
+            }
+            storage.store(key, value);
+            storage.delete(key1Index);
         }
 
-        storage.storeAll(datas);
-        String key900 = "key900";
-        String key0 = "key0";
-        String key2 = "key2";
-        Long keyValue = 123456789L;
-        await().atMost(1, TimeUnit.SECONDS).await();
-        storage.store(key900, keyValue);
-        storage.delete(key2);
-        storage.store(key0, keyValue);
-        storage.archive();
+        await().atMost(1, TimeUnit.SECONDS).until(dataSize::get, size -> size > 0);
         Map<Object, Object> loadAllDatas = storage.loadAll();
-        Assertions.assertEquals(100, loadAllDatas.size());
-        Assertions.assertNotNull(loadAllDatas.get(key900));
-        Assertions.assertNull(loadAllDatas.get(key2));
+        Assertions.assertTrue(dataSize.get() >= 50);
+        Assertions.assertEquals(keyValue, loadAllDatas.get(key50Index));
+        Assertions.assertEquals(keyValue, loadAllDatas.get(key2Index));
+        Assertions.assertNull(loadAllDatas.get(key1Index));
         storage.destroy();
+    }
+
+    @AfterAll
+    static void afterAll() throws IOException {
+        FileSystem.get(CONF).delete(new Path("/tmp/imap-kris-test/2"), true);
     }
 }

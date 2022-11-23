@@ -26,14 +26,6 @@ public enum WALEventType {
      */
     APPEND,
     /**
-     * immediate archive wal file
-     */
-    IMMEDIATE_ARCHIVE,
-    /**
-     * scheduler archive wal file
-     */
-    SCHEDULER_ARCHIVE,
-    /**
      * delete all wal file in this namespace
      */
     CLEAR,

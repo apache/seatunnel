@@ -20,6 +20,7 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.disruptor;
 
+import org.apache.seatunnel.engine.imap.storage.api.common.Serializer;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 
@@ -30,7 +31,7 @@ import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import com.lmax.disruptor.util.DaemonThreadFactory;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -55,7 +56,7 @@ public class WALDisruptor implements Closeable {
             event.setRequestId(requestId);
         };
 
-    public WALDisruptor(Configuration configuration, String parentPath) {
+    public WALDisruptor(FileSystem fs, String parentPath, Serializer serializer) {
         //todo should support multi thread producer
         ThreadFactory threadFactory = DaemonThreadFactory.INSTANCE;
         this.disruptor = new Disruptor<>(FileWALEvent.FACTORY,
@@ -63,7 +64,7 @@ public class WALDisruptor implements Closeable {
             ProducerType.SINGLE,
             new BlockingWaitStrategy());
 
-        disruptor.handleEventsWithWorkerPool(new WALWorkHandler(configuration, parentPath));
+        disruptor.handleEventsWithWorkerPool(new WALWorkHandler(fs, parentPath, serializer));
 
         disruptor.start();
     }
@@ -74,13 +75,6 @@ public class WALDisruptor implements Closeable {
         }
         disruptor.getRingBuffer().publishEvent(TRANSLATOR, message, status, requestId);
         return true;
-    }
-
-    public void tryPublishSchedulerArchive() {
-        if (isClosed()) {
-            return;
-        }
-        tryPublish(null, WALEventType.SCHEDULER_ARCHIVE, 0L);
     }
 
     public boolean tryAppendPublish(IMapFileData message, long requestId) {

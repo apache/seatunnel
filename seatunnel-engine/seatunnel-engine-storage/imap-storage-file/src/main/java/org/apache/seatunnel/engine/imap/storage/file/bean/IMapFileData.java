@@ -25,11 +25,13 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
+
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class IMapFileData {
+public class IMapFileData implements Serializable, Comparable<IMapFileData> {
     private boolean deleted;
 
     private byte[] key;
@@ -41,4 +43,9 @@ public class IMapFileData {
     private String valueClassName;
 
     private long timestamp;
+
+    @Override
+    public int compareTo(IMapFileData o) {
+        return o.timestamp - this.timestamp > 0 ? 1 : -1;
+    }
 }

@@ -20,44 +20,33 @@
 
 package org.apache.seatunnel.engine.imap.storage.file;
 
-import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.DEFAULT_ARCHIVE_SCHEDULER_TIME_IN_SECONDS;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.DEFAULT_IMAP_FILE_PATH_SPLIT;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.DEFAULT_IMAP_NAMESPACE;
-import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.ARCHIVE_SCHEDULER_TIME_IN_SECONDS_KEY;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.BUSINESS_KEY;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.CLUSTER_NAME;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.HDFS_CONFIG_KEY;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.NAMESPACE_KEY;
-import static org.apache.seatunnel.engine.imap.storage.file.common.OrcConstants.ORC_FILE_ARCHIVE_PATH;
 
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
 import org.apache.seatunnel.engine.imap.storage.api.common.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.imap.storage.api.common.Serializer;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
-import org.apache.seatunnel.engine.imap.storage.file.bean.IMapData;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
+import org.apache.seatunnel.engine.imap.storage.file.common.WALReader;
 import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALDisruptor;
 import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALEventType;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFuture;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFutureCache;
-import org.apache.seatunnel.engine.imap.storage.file.orc.OrcReader;
-import org.apache.seatunnel.engine.imap.storage.file.scheduler.ArchiveFileTask;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.ClassUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
-import org.apache.hadoop.mapred.JobConf;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -139,18 +128,14 @@ public class IMapFileStorage implements IMapStorage {
         this.clusterName = (String) configuration.get(CLUSTER_NAME);
 
         this.region = String.valueOf(System.nanoTime());
-        JobConf jobConf = new JobConf(hadoopConf);
         this.businessRootPath = namespace + DEFAULT_IMAP_FILE_PATH_SPLIT + clusterName + DEFAULT_IMAP_FILE_PATH_SPLIT + businessName + DEFAULT_IMAP_FILE_PATH_SPLIT;
         try {
-            fs = FileSystem.get(jobConf);
+            this.fs = FileSystem.get(hadoopConf);
         } catch (IOException e) {
             throw new IMapStorageException("Failed to get file system", e);
         }
-        walDisruptor = new WALDisruptor(hadoopConf, businessRootPath + region);
-        serializer = new ProtoStuffSerializer();
-        //schedule archive file
-        long archiveSchedulerTime = (long) configuration.getOrDefault(ARCHIVE_SCHEDULER_TIME_IN_SECONDS_KEY, DEFAULT_ARCHIVE_SCHEDULER_TIME_IN_SECONDS);
-        ArchiveFileTask.addTask(walDisruptor, archiveSchedulerTime);
+        this.serializer = new ProtoStuffSerializer();
+        this.walDisruptor = new WALDisruptor(fs, businessRootPath + region + DEFAULT_IMAP_FILE_PATH_SPLIT, serializer);
     }
 
     @Override
@@ -217,76 +202,22 @@ public class IMapFileStorage implements IMapStorage {
 
     @Override
     public Map<Object, Object> loadAll() {
-        List<IMapData> imapDataList = new ArrayList<>(DEFAULT_QUERY_LIST_SIZE);
-        List<String> fileNames = getFileNames(businessRootPath);
-        fileNames.forEach(fileName -> {
-            try {
-                OrcReader orcReader = new OrcReader(new Path(fileName), conf);
-                List<IMapData> dataList = orcReader.queryAll();
-                imapDataList.addAll(dataList);
-            } catch (IOException e) {
-                log.error("read file error, fileName is {}", fileName, e);
-            }
-        });
-        Collections.sort(imapDataList);
-        Map<byte[], IMapData> fileDataMaps = new HashMap<>(imapDataList.size());
-        Map<String, Long> deleteMap = new HashMap<>();
-        for (int i = 0; i < imapDataList.size(); i++) {
-            IMapData imapData = imapDataList.get(i);
-            if (deleteMap.containsKey(Arrays.toString(imapData.getKey()))) {
-                continue;
-            }
-            if (imapData.isDeleted()) {
-                deleteMap.put(Arrays.toString(imapData.getKey()), imapData.getTimestamp());
-                continue;
-            }
-            if (fileDataMaps.containsKey(imapData.getKey())) {
-                continue;
-            }
-            fileDataMaps.put(imapData.getKey(), imapData);
+        try {
+            WALReader reader = new WALReader(fs, serializer);
+            return reader.loadAllData(new Path(businessRootPath), new HashSet<>());
+        } catch (IOException e) {
+            throw new IMapStorageException("load all data error", e);
         }
-        return parseIMapDataToMap(fileDataMaps);
     }
 
     @Override
-    public List<Object> loadAllKeys() {
-        List<IMapData> imapDataList = new ArrayList<>(DEFAULT_QUERY_LIST_SIZE);
-        List<String> fileNames = getFileNames(businessRootPath);
-        fileNames.forEach(fileName -> {
-            try {
-                OrcReader orcReader = new OrcReader(new Path(fileName), conf);
-                List<IMapData> dataList = orcReader.queryAllKeys();
-                imapDataList.addAll(dataList);
-            } catch (IOException e) {
-                log.error("read file error, fileName is {}", fileName, e);
-            }
-        });
-        Collections.sort(imapDataList);
-        Map<byte[], IMapData> fileDataMaps = new HashMap<>(imapDataList.size());
-        Map<byte[], Long> deleteMap = new HashMap<>();
-        for (IMapData imapData : imapDataList) {
-            if (deleteMap.containsKey(imapData.getKey())) {
-                continue;
-            }
-            if (imapData.isDeleted()) {
-                deleteMap.put(imapData.getKey(), imapData.getTimestamp());
-                continue;
-            }
-            if (fileDataMaps.containsKey(imapData.getKey())) {
-                continue;
-            }
-            fileDataMaps.put(imapData.getKey(), imapData);
+    public Set<Object> loadAllKeys() {
+        try {
+            WALReader reader = new WALReader(fs, serializer);
+            return reader.loadAllKeys(new Path(businessRootPath));
+        } catch (IOException e) {
+            throw new IMapStorageException(e, "load all keys error parent path is {}", e, businessRootPath);
         }
-        if (fileDataMaps.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<Object> result = new ArrayList<>(fileDataMaps.size());
-
-        fileDataMaps.forEach((k, v) -> {
-            Object keyData = deserializeData(v.getKey(), v.getValueClassName());
-            result.add(keyData);
-        });
-        return result;
     }
 
     @Override
@@ -310,13 +241,7 @@ public class IMapFileStorage implements IMapStorage {
         } catch (IOException e) {
             log.error("destroy IMapFileStorage error,businessName is {}, cluster name is {}", businessName, region, e);
         }
-        ArchiveFileTask.removeTask(walDisruptor);
 
-    }
-
-    public boolean archive() {
-        long requestId = sendToDisruptorQueue(null, WALEventType.IMMEDIATE_ARCHIVE);
-        return queryExecuteStatus(requestId, DEFAULT_ARCHIVE_WAIT_TIME_MILLISECONDS);
     }
 
     private IMapFileData parseToIMapFileData(Object key, Object value) throws IOException {
@@ -383,48 +308,6 @@ public class IMapFileStorage implements IMapStorage {
             }
         }
         return failures;
-    }
-
-    private Map<Object, Object> parseIMapDataToMap(Map<byte[], IMapData> fileDataMaps) {
-        Map<Object, Object> map = new HashMap<>(fileDataMaps.size());
-        fileDataMaps.forEach((key, value) -> {
-            Object k = deserializeData(value.getKey(), value.getKeyClassName());
-            Object v = deserializeData(value.getValue(), value.getValueClassName());
-            map.put(k, v);
-        });
-        return map;
-    }
-
-    private Object deserializeData(byte[] data, String className) {
-        try {
-            Class<?> clazz = ClassUtils.getClass(className);
-            try {
-                return serializer.deserialize(data, clazz);
-            } catch (IOException e) {
-                log.error("deserialize data error, data is {}, className is {}", data, className, e);
-                throw new IMapStorageException(e, "deserialize data error: data is s%, className is s%", data, className);
-            }
-        } catch (ClassNotFoundException e) {
-            log.error("deserialize data error, class name is {}", className, e);
-            throw new IMapStorageException(e, "deserialize data error, class name is {}", className);
-        }
-    }
-
-    private List<String> getFileNames(String path) {
-        try {
-
-            RemoteIterator<LocatedFileStatus> fileStatusRemoteIterator = fs.listFiles(new Path(path), true);
-            List<String> fileNames = new ArrayList<>();
-            while (fileStatusRemoteIterator.hasNext()) {
-                LocatedFileStatus fileStatus = fileStatusRemoteIterator.next();
-                if (fileStatus.getPath().getName().startsWith(ORC_FILE_ARCHIVE_PATH)) {
-                    fileNames.add(fileStatus.getPath().toString());
-                }
-            }
-            return fileNames;
-        } catch (IOException e) {
-            throw new IMapStorageException(e, "get file names error,path is s%", path);
-        }
     }
 
     private void checkInitStorageProperties(Map<String, Object> properties) {

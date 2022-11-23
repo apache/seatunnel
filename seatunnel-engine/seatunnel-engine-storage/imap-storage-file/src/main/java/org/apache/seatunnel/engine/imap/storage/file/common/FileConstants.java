@@ -28,7 +28,7 @@ public class FileConstants {
 
     public static final String DEFAULT_IMAP_FILE_PATH_SPLIT = "/";
 
-    public static final int DEFAULT_ARCHIVE_SCHEDULER_TIME_IN_SECONDS = 1000 * 60 * 5;
+    public static final byte FILE_DATA_DELIMITER =  28;
 
     /**
      * init file storage
@@ -64,14 +64,6 @@ public class FileConstants {
          * @see Configuration
          */
         String HDFS_CONFIG_KEY = "hdfsConfig";
-
-        /****************** The following are optional parameters for initialization **************/
-
-        /**
-         * The path of the archive file
-         * Type: int
-         */
-        String ARCHIVE_SCHEDULER_TIME_IN_SECONDS_KEY = "archiveSchedulerTimeInSeconds";
 
     }
 }

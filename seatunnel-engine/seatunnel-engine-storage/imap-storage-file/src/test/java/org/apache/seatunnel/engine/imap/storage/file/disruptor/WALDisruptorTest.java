@@ -23,11 +23,13 @@ package org.apache.seatunnel.engine.imap.storage.file.disruptor;
 import static org.junit.jupiter.api.condition.OS.LINUX;
 import static org.junit.jupiter.api.condition.OS.MAC;
 
+import org.apache.seatunnel.engine.imap.storage.api.common.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFuture;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFutureCache;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -39,15 +41,24 @@ import java.io.IOException;
 @EnabledOnOs({LINUX, MAC})
 public class WALDisruptorTest {
 
-    private static final Configuration CONF = new Configuration();
-
-    private static final String FILEPATH = "/tmp/orc/WALDisruptorTest/";
+    private static final String FILEPATH = "/tmp/WALDisruptorTest/";
 
     private static WALDisruptor DISRUPTOR;
 
+    private static FileSystem FS;
+
+    private static final Configuration CONF;
+
+    static {
+        CONF = new Configuration();
+        CONF.set("fs.defaultFS", "file:///");
+        CONF.set("fs.file.impl", "org.apache.hadoop.fs.LocalFileSystem");
+    }
+
     @Test
     void testProducerAndConsumer() throws IOException {
-        DISRUPTOR = new WALDisruptor(CONF, FILEPATH);
+        FS = FileSystem.get(CONF);
+        DISRUPTOR = new WALDisruptor(FS, FILEPATH, new ProtoStuffSerializer());
         IMapFileData data;
         for (int i = 0; i < 100; i++) {
             data = IMapFileData.builder()
@@ -63,12 +74,11 @@ public class WALDisruptorTest {
             DISRUPTOR.tryAppendPublish(data, requestId);
         }
         DISRUPTOR.close();
-        int archiveFiles = new Path(FILEPATH).getFileSystem(CONF).listStatus(new Path(FILEPATH + "/archive/")).length;
-        Assertions.assertEquals(1, archiveFiles);
+
     }
 
     @AfterAll
     public static void afterAll() throws IOException {
-        Assertions.assertTrue(new Path(FILEPATH).getFileSystem(CONF).delete(new Path(FILEPATH), true));
+        Assertions.assertTrue(FS.delete(new Path(FILEPATH), true));
     }
 }
