@@ -21,6 +21,8 @@
 package org.apache.seatunnel.engine.imap.storage.file.common;
 
 import static org.awaitility.Awaitility.await;
+import static org.junit.jupiter.api.condition.OS.LINUX;
+import static org.junit.jupiter.api.condition.OS.MAC;
 
 import org.apache.seatunnel.engine.imap.storage.api.common.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.imap.storage.api.common.Serializer;
@@ -33,11 +35,13 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
 
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Map;
 
+@EnabledOnOs({LINUX, MAC})
 public class WALReaderAndWriterTest {
 
     private static FileSystem FS;
