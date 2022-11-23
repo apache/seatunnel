@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 ######
-###### This config file is a demonstration of streaming processing in seatunnel config
+###### This config file is a demonstration of streaming processing in Seatunnel config
 ######
 
 env {
@@ -40,7 +40,7 @@ source {
     }
   }
 
-  # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
+  # If you would like to get more information about how to configure Seatunnel and see full list of source plugins,
   # please go to https://seatunnel.apache.org/docs/category/source-v2
 }
 
@@ -49,7 +49,7 @@ transform {
     sql = "select name,age from fake"
   }
 
-  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+  # If you would like to get more information about how to configure Seatunnel and see full list of transform plugins,
   # please go to https://seatunnel.apache.org/docs/category/transform
 }
 
@@ -58,6 +58,6 @@ sink {
     parallelism = 3
   }
 
-  # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
+  # If you would like to get more information about how to configure Seatunnel and see full list of sink plugins,
   # please go to https://seatunnel.apache.org/docs/category/sink-v2
 }
