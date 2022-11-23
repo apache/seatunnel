@@ -95,7 +95,7 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
 
     @Override
     public String getPluginName() {
-        return "KuduSource";
+        return "Kudu";
     }
 
     @Override
