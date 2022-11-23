@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.configuration.Option;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 
@@ -185,7 +184,7 @@ public class OptionRule {
                 verifyRequiredOptionDefaultValue(o);
             }
             this.requiredOptions.add(RequiredOption.ConditionalRequiredOptions.of(expression,
-                new HashSet<>(Arrays.asList(requiredOptions))));
+                new ArrayList<>(Arrays.asList(requiredOptions))));
             return this;
         }
 

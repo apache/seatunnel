@@ -26,16 +26,14 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 public class OptionUtil {
 
     private OptionUtil() {
     }
 
-    public static String getOptionKeys(Set<Option<?>> options) {
+    public static String getOptionKeys(List<Option<?>> options) {
         StringBuilder builder = new StringBuilder();
         boolean flag = false;
         for (Option<?> option : options) {
@@ -50,17 +48,18 @@ public class OptionUtil {
         return builder.toString();
     }
 
-    public static String getOptionKeys(Set<Option<?>> options, Set<RequiredOption.BundledRequiredOptions> bundledOptions) {
-        Set<Set<Option<?>>> optionSets = new HashSet<>();
+    public static String getOptionKeys(List<Option<?>> options,
+                                       List<RequiredOption.BundledRequiredOptions> bundledOptions) {
+        List<List<Option<?>>> optionList = new ArrayList<>();
         for (Option<?> option : options) {
-            optionSets.add(Collections.singleton(option));
+            optionList.add(Collections.singletonList(option));
         }
         for (RequiredOption.BundledRequiredOptions bundledOption : bundledOptions) {
-            optionSets.add(bundledOption.getRequiredOption());
+            optionList.add(bundledOption.getRequiredOption());
         }
         boolean flag = false;
         StringBuilder builder = new StringBuilder();
-        for (Set<Option<?>> optionSet : optionSets) {
+        for (List<Option<?>> optionSet : optionList) {
             if (flag) {
                 builder.append(", ");
             }
@@ -80,7 +79,8 @@ public class OptionUtil {
             field.setAccessible(true);
             OptionMark option = field.getAnnotation(OptionMark.class);
             if (option != null) {
-                options.add(new Option<>(!StringUtils.isNotBlank(option.name()) ? formatUnderScoreCase(field.getName()) : option.name(),
+                options.add(new Option<>(
+                    !StringUtils.isNotBlank(option.name()) ? formatUnderScoreCase(field.getName()) : option.name(),
                     new TypeReference<Object>() {
                         @Override
                         public Type getType() {
