@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -38,7 +39,7 @@ public class ConfigValidator {
     }
 
     public void validate(OptionRule rule) {
-        Set<RequiredOption> requiredOptions = rule.getRequiredOptions();
+        List<RequiredOption> requiredOptions = rule.getRequiredOptions();
         for (RequiredOption requiredOption : requiredOptions) {
             validate(requiredOption);
         }
