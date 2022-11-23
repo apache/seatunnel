@@ -82,11 +82,12 @@ This document records some common error codes and corresponding solutions of Sea
 | SOCKET-02 | Failed to send message to socket server                  | When the user encounters this error code, it means that there is a problem sending data and retry is not enabled, please check |
 | SOCKET-03 | Unable to write; interrupted while doing another attempt | When the user encounters this error code, it means that the data writing is interrupted abnormally, please check               |
 
-## Tablestore Connector Error Codes
+## TableStore Connector Error Codes
 
 | code           | description                           | solution                                                                                                                            |
 |----------------|---------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
 | TABLESTORE-01  | Failed to send these rows of data     | When users encounter this error code, it means that failed to write these rows of data, please check the rows that failed to import |
+
 
 ## Hive Connector Error Codes
 
@@ -122,3 +123,12 @@ This document records some common error codes and corresponding solutions of Sea
 | IOTDB-01 | Close IoTDB session failed                               | When the user encounters this error code, it indicates that closing the session failed. Please check         |
 | IOTDB-02 | Initialize IoTDB client failed                           | When the user encounters this error code, it indicates that the client initialization failed. Please check   |
 | IOTDB-03 | Close IoTDB client failed                                | When the user encounters this error code, it indicates that closing the client failed. Please check          |
+
+
+## File Connector Error Codes
+
+| code    | description                 | solution                                                                                                                                                         |
+|---------|-----------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| FILE-01 | File type is invalid        | When users encounter this error code, it means that the this file is not the format that user assigned, please check it                                          |
+| FILE-02 | Data deserialization failed | When users encounter this error code, it means that data from files not satisfied the schema that user assigned, please check data from files whether is correct |
+| FILE-03 | Get file list failed        | When users encounter this error code, it means that connector try to traverse the path and get file list failed, please check file system whether is work        |
