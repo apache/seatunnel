@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.apache.hadoop.conf.Configuration;
 
@@ -44,9 +45,9 @@ public interface WriteStrategy extends Transaction, Serializable {
     /**
      * write seaTunnelRow to target datasource
      * @param seaTunnelRow seaTunnelRow
-     * @throws Exception Exceptions
+     * @throws FileConnectorException Exceptions
      */
-    void write(SeaTunnelRow seaTunnelRow) throws Exception;
+    void write(SeaTunnelRow seaTunnelRow) throws FileConnectorException;
 
     /**
      * set seaTunnelRowTypeInfo in writer

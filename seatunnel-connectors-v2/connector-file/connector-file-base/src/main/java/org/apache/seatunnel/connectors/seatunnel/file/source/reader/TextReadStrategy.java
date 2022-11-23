@@ -28,7 +28,8 @@ import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 
 import org.apache.hadoop.conf.Configuration;
@@ -49,7 +50,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
     private TimeUtils.Formatter timeFormat = TimeUtils.Formatter.HH_MM_SS;
 
     @Override
-    public void read(String path, Collector<SeaTunnelRow> output) throws IOException, FilePluginException {
+    public void read(String path, Collector<SeaTunnelRow> output) throws FileConnectorException, IOException {
         Configuration conf = getConfiguration();
         FileSystem fs = FileSystem.get(conf);
         Path filePath = new Path(path);
@@ -66,8 +67,8 @@ public class TextReadStrategy extends AbstractReadStrategy {
                     }
                     output.collect(seaTunnelRow);
                 } catch (IOException e) {
-                    String errorMsg = String.format("Deserialize this data [%s] error, please check the origin data", line);
-                    throw new RuntimeException(errorMsg);
+                    String errorMsg = String.format("Deserialize this data [%s] failed, please check the origin data", line);
+                    throw new FileConnectorException(FileConnectorErrorCode.DATA_DESERIALIZE_FAILED, errorMsg, e);
                 }
             });
         }
