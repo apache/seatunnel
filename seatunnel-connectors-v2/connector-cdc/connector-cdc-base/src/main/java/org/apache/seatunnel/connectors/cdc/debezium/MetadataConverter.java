@@ -15,9 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.sentry.sink;
+package org.apache.seatunnel.connectors.cdc.debezium;
+
+import org.apache.kafka.connect.source.SourceRecord;
 
 import java.io.Serializable;
 
-public class SentrySinkState implements Serializable {
+/**
+ * {@link SourceRecord} metadata info converter.
+ */
+@FunctionalInterface
+public interface MetadataConverter extends Serializable {
+    Object read(SourceRecord record);
 }
