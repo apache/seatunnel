@@ -35,6 +35,8 @@
         <module>connector-http-wechat</module>
         <module>connector-http-myhours</module>
         <module>connector-http-lemlist</module>
+        <module>connector-http-klaviyo</module>
+        <module>connector-http-onesignal</module>
     </modules>
 
 </project>

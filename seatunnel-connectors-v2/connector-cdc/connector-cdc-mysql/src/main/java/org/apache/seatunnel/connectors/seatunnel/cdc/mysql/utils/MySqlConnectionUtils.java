@@ -80,36 +80,58 @@ public class MySqlConnectionUtils {
             isTableIdCaseSensitive);
     }
 
+
+    /**
+     * Fetch earliest binlog offsets in MySql Server.
+     */
+    @SuppressWarnings("checkstyle:MagicNumber")
+    public static BinlogOffset earliestBinlogOffset(JdbcConnection jdbc) {
+        final String showMasterStmt = "SHOW MASTER LOGS";
+        JdbcConnection.ResultSetMapper<BinlogOffset> getCurrentBinlogOffset = rs -> {
+            final String binlogFilename = rs.getString(1);
+            // default binlog position
+            final long binlogPosition = 4L;
+            return new BinlogOffset(
+                    binlogFilename, binlogPosition, 0L, 0, 0, null, null);
+        };
+        return getBinlogOffset(jdbc, showMasterStmt, getCurrentBinlogOffset);
+    }
+
     /**
      * Fetch current binlog offsets in MySql Server.
      */
     @SuppressWarnings("checkstyle:MagicNumber")
     public static BinlogOffset currentBinlogOffset(JdbcConnection jdbc) {
         final String showMasterStmt = "SHOW MASTER STATUS";
+        JdbcConnection.ResultSetMapper<BinlogOffset> getCurrentBinlogOffset = rs -> {
+            final String binlogFilename = rs.getString(1);
+            final long binlogPosition = rs.getLong(2);
+            final String gtidSet =
+                    rs.getMetaData().getColumnCount() > 4 ? rs.getString(5) : null;
+            return new BinlogOffset(
+                    binlogFilename, binlogPosition, 0L, 0, 0, gtidSet, null);
+        };
+        return getBinlogOffset(jdbc, showMasterStmt, getCurrentBinlogOffset);
+    }
+
+    private static BinlogOffset getBinlogOffset(JdbcConnection jdbc, String showMasterStmt, JdbcConnection.ResultSetMapper<BinlogOffset> function) {
         try {
-            return jdbc.queryAndMap(
-                showMasterStmt,
-                rs -> {
-                    if (rs.next()) {
-                        final String binlogFilename = rs.getString(1);
-                        final long binlogPosition = rs.getLong(2);
-                        final String gtidSet =
-                            rs.getMetaData().getColumnCount() > 4 ? rs.getString(5) : null;
-                        return new BinlogOffset(
-                            binlogFilename, binlogPosition, 0L, 0, 0, gtidSet, null);
-                    } else {
-                        throw new SeaTunnelException(
+            return jdbc.queryAndMap(showMasterStmt, rs -> {
+                if (rs.next()) {
+                    return function.apply(rs);
+                } else {
+                    throw new SeaTunnelException(
                             "Cannot read the binlog filename and position via '"
-                                + showMasterStmt
-                                + "'. Make sure your server is correctly configured");
-                    }
-                });
+                                    + showMasterStmt
+                                    + "'. Make sure your server is correctly configured");
+                }
+            });
         } catch (SQLException e) {
             throw new SeaTunnelException(
-                "Cannot read the binlog filename and position via '"
-                    + showMasterStmt
-                    + "'. Make sure your server is correctly configured",
-                e);
+                    "Cannot read the binlog filename and position via '"
+                            + showMasterStmt
+                            + "'. Make sure your server is correctly configured",
+                    e);
         }
     }
 

@@ -19,9 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
+
 import io.debezium.config.Configuration;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
-import org.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
 
 import java.util.Properties;
 

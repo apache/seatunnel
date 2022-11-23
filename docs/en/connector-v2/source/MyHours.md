@@ -23,6 +23,7 @@ Used to read data from My Hours.
 | email                       | String | Yes      | -             |
 | password                    | String | Yes      | -             |
 | method                      | String | No       | get           |
+| schema                      | Config | No       | -             |
 | schema.fields               | Config | No       | -             |
 | format                      | String | No       | json          |
 | params                      | Map    | No       | -             |

@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.influxdb.config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.Getter;
@@ -24,14 +27,39 @@ import lombok.Getter;
 import java.util.List;
 
 @Getter
-public class SourceConfig extends InfluxDBConfig{
-    public static final String SQL = "sql";
-    public static final String SQL_WHERE = "where";
-    public static final String SPLIT_COLUMN = "split_column";
-    private static final String PARTITION_NUM = "partition_num";
-    private static final String UPPER_BOUND = "upper_bound";
-    private static final String LOWER_BOUND = "lower_bound";
-    public static final String DEFAULT_PARTITIONS = "0";
+public class SourceConfig extends InfluxDBConfig {
+
+    public static final Option<String> SQL = Options.key("sql")
+        .stringType()
+        .noDefaultValue()
+        .withDescription("the influxdb server query sql");
+
+    public static final Option<String> SQL_WHERE = Options.key("where")
+        .stringType()
+        .noDefaultValue()
+        .withDescription("the influxdb server query sql where condition");
+
+    public static final Option<String> SPLIT_COLUMN = Options.key("split_column")
+        .stringType()
+        .noDefaultValue()
+        .withDescription("the influxdb column which is used as split key");
+
+    public static final Option<String> PARTITION_NUM = Options.key("partition_num")
+        .stringType()
+        .defaultValue("0")
+        .withDescription("the influxdb server partition num");
+
+    public static final Option<String> UPPER_BOUND = Options.key("upper_bound")
+        .stringType()
+        .noDefaultValue()
+        .withDescription("the influxdb server upper bound");
+
+    public static final Option<String> LOWER_BOUND = Options.key("lower_bound")
+        .stringType()
+        .noDefaultValue()
+        .withDescription("the influxdb server lower bound");
+
+    public static final String DEFAULT_PARTITIONS = PARTITION_NUM.defaultValue();
     private String sql;
     private int partitionNum = 0;
     private String splitKey;
@@ -47,19 +75,19 @@ public class SourceConfig extends InfluxDBConfig{
     public static SourceConfig loadConfig(Config config) {
         SourceConfig sourceConfig = new SourceConfig(config);
 
-        sourceConfig.sql = config.getString(SQL);
+        sourceConfig.sql = config.getString(SQL.key());
 
-        if (config.hasPath(PARTITION_NUM)) {
-            sourceConfig.partitionNum = config.getInt(PARTITION_NUM);
+        if (config.hasPath(PARTITION_NUM.key())) {
+            sourceConfig.partitionNum = config.getInt(PARTITION_NUM.key());
         }
-        if (config.hasPath(UPPER_BOUND)) {
-            sourceConfig.upperBound = config.getInt(UPPER_BOUND);
+        if (config.hasPath(UPPER_BOUND.key())) {
+            sourceConfig.upperBound = config.getInt(UPPER_BOUND.key());
         }
-        if (config.hasPath(LOWER_BOUND)) {
-            sourceConfig.lowerBound = config.getInt(LOWER_BOUND);
+        if (config.hasPath(LOWER_BOUND.key())) {
+            sourceConfig.lowerBound = config.getInt(LOWER_BOUND.key());
         }
-        if (config.hasPath(SPLIT_COLUMN)) {
-            sourceConfig.splitKey = config.getString(SPLIT_COLUMN);
+        if (config.hasPath(SPLIT_COLUMN.key())) {
+            sourceConfig.splitKey = config.getString(SPLIT_COLUMN.key());
         }
         return sourceConfig;
     }
