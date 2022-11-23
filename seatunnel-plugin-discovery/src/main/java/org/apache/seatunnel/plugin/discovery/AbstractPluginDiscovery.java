@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.apis.base.plugin.Plugin;
 import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
@@ -133,22 +134,21 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     }
 
     /**
-     * Get all support plugin by engine type
+     * Get all support plugin by plugin type
      *
-     * @param engineType engine type
      * @param pluginType plugin type, not support transform
      * @return the all plugin identifier of the engine with artifactId
      */
-    public static @Nonnull Map<PluginIdentifier, String> getAllSupportedPlugins(String engineType, PluginType pluginType) {
+    public static @Nonnull Map<PluginIdentifier, String> getAllSupportedPlugins(PluginType pluginType) {
         Config config = loadConnectorPluginConfig();
         Map<PluginIdentifier, String> pluginIdentifiers = new HashMap<>();
-        if (config.isEmpty() || !config.hasPath(engineType)) {
+        if (config.isEmpty() || !config.hasPath(CollectionConstants.SEATUNNEL_PLUGIN)) {
             return pluginIdentifiers;
         }
-        Config engineConfig = config.getConfig(engineType);
+        Config engineConfig = config.getConfig(CollectionConstants.SEATUNNEL_PLUGIN);
         if (engineConfig.hasPath(pluginType.getType())) {
             engineConfig.getConfig(pluginType.getType()).entrySet().forEach(entry -> {
-                pluginIdentifiers.put(PluginIdentifier.of(engineType, pluginType.getType(), entry.getKey()),
+                pluginIdentifiers.put(PluginIdentifier.of(CollectionConstants.SEATUNNEL_PLUGIN, pluginType.getType(), entry.getKey()),
                     entry.getValue().unwrapped().toString());
             });
         }
