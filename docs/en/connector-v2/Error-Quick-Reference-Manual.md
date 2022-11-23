@@ -102,3 +102,13 @@ This document records some common error codes and corresponding solutions of Sea
 | KUDU-05 | Insert data to Kudu failed                               | When users encounter this error code, it means that Kudu has some problems, please check it whether is work                                                                                       |
 | KUDU-06 | Initialize the Kudu client failed                        | When users encounter this error code, it is usually there are some problems with initializing the Kudu client, please check your configuration whether correct and connector is work              |
 | KUDU-07 | Generate Kudu Parameters in the preparation phase failed | When users encounter this error code, it means that there are some problems on Kudu parameters generation, please check your configuration                                                        |
+
+## IotDB Connector Error Codes
+
+| code     | description                                              | solution                                                                                                     |
+|----------|----------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| IOTDB-01 | Close IoTDB session failed                               | When the user encounters this error code, it indicates that closing the session failed. Please check         |
+| IOTDB-02 | Initialize IoTDB client failed                           | When the user encounters this error code, it indicates that the client initialization failed. Please check   |
+| IOTDB-03 | Close IoTDB client failed                                | When the user encounters this error code, it indicates that closing the client failed. Please check          |
+| IOTDB-04 | Writing records to IoTDB failed                          | When the user encounters this error code, it indicates that the record writing failed. Please check          |
+| IOTDB-05 | Unable to flush; interrupted while doing another attempt | When the user encounters this error code, it indicates that the record flushing failed. Please check         |
