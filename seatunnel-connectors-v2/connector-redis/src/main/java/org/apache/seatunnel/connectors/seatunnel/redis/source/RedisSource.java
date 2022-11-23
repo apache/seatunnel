@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -27,12 +28,14 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -54,14 +57,18 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, RedisConfig.HOST.key(), RedisConfig.PORT.key(), RedisConfig.KEY_PATTERN.key(), RedisConfig.DATA_TYPE.key());
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
+            throw new RedisConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                    getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         this.redisParameters.buildWithConfig(pluginConfig);
         // TODO: use format SPI
         // default use json format
         if (pluginConfig.hasPath(RedisConfig.FORMAT.key())) {
             if (!pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
-                throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Must config schema when format parameter been config");
+                throw new RedisConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        String.format("PluginName: %s, PluginType: %s, Message: %s",
+                        getPluginName(), PluginType.SOURCE, "Must config schema when format parameter been config"));
             }
             Config schema = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
 
