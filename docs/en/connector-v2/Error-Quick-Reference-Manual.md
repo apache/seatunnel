@@ -53,3 +53,12 @@ This document records some common error codes and corresponding solutions of Sea
 |-----------|---------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
 | SLACK-01  | Conversation can not be founded in channels | When users encounter this error code, it means that the channel is not existed in slack workspace, please check it |
 | SLACK-02  | Write to slack channel failed               | When users encounter this error code, it means that slack has some problems, please check it whether is work       |
+
+## Tablestore Connector Error Codes
+
+| code           | description                           | solution                                                                                                                         |
+|----------------|---------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| TABLESTORE-01  | Writing items to Tablestore failed    | When users encounter this error code, it means that failed to write data to tablestore, please check your conf and retry it      |
+| TABLESTORE-02  | Failed to send this row of data       | When users encounter this error code, it means that failed to write this row of data, please read error code and error message   |
+| TABLESTORE-03  | Unsupported primaryKeyType            | When users encounter this error code, it means that this primaryKeyType is not supported, please check your it                   |
+| TABLESTORE-04  | Unsupported columnType                | When users encounter this error code, it means that this columnType is not supported, please check your it                       |
