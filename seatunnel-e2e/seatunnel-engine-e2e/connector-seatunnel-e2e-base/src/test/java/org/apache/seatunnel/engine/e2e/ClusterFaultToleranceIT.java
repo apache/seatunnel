@@ -683,7 +683,11 @@ public class ClusterFaultToleranceIT {
             node3 = SeaTunnelServerStarter.createHazelcastInstance(
                     TestUtils.getClusterName(testClusterName));
 
-            Thread.sleep(360000);
+            // waiting all node added to cluster
+            HazelcastInstanceImpl restoreFinalNode = node1;
+            Awaitility.await().atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(() -> Assertions.assertEquals(3, restoreFinalNode.getCluster().getMembers().size()));
+
             Awaitility.await().atMost(360000, TimeUnit.MILLISECONDS)
                     .untilAsserted(() -> {
                         // Wait job write all rows in file
