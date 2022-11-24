@@ -21,7 +21,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum GoogleSheetsConnectorErrorCode implements SeaTunnelErrorCode {
 
-    OBJECT_JSON_DESERIALIZATION_FAILD("GOOGLESHEETS-01", "Object json deserialization faild");
+    OBJECT_JSON_DESERIALIZATION_FAILD("GOOGLESHEETS-01", "Object json deserialization failed");
 
     private final String code;
 

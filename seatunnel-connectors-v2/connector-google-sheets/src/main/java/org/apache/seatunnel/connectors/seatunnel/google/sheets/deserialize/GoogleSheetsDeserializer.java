@@ -31,7 +31,7 @@ import java.util.Map;
 
 public class GoogleSheetsDeserializer implements SeaTunnelRowDeserializer {
 
-    private DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final String[] fields;
 
@@ -53,7 +53,7 @@ public class GoogleSheetsDeserializer implements SeaTunnelRowDeserializer {
             return deserializationSchema.deserialize(rowStr.getBytes());
         } catch (IOException e) {
             throw new GoogleSheetsConnectorException(GoogleSheetsConnectorErrorCode.OBJECT_JSON_DESERIALIZATION_FAILD,
-                "Object json deserialization exception.", e);
+                "Object json deserialization failed.", e);
         }
     }
 }
