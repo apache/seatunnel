@@ -36,6 +36,7 @@ import org.neo4j.driver.Result;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.SessionConfig;
 import org.neo4j.driver.Value;
+import org.neo4j.driver.exceptions.value.LossyCoercion;
 
 import java.io.IOException;
 import java.lang.reflect.Array;
@@ -93,10 +94,11 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     /**
      * convert {@link SeaTunnelDataType} to java data type
      *
-     * @throws Neo4jConnectorException when not supported data type, when conversion cannot be achieved without losing precision.
+     * @throws Neo4jConnectorException when not supported data type
+     * @throws LossyCoercion           when conversion cannot be achieved without losing precision.
      */
     public static Object convertType(SeaTunnelDataType<?> dataType, Value value)
-        throws Neo4jConnectorException {
+        throws Neo4jConnectorException, LossyCoercion {
         Objects.requireNonNull(dataType);
         Objects.requireNonNull(value);
 
