@@ -47,6 +47,7 @@ public class DefaultSerializer implements Serializer {
         this.rowType = rowType;
     }
 
+    @Override
     public Document serialize(@NonNull SeaTunnelRow row) {
         return convert(rowType, row);
     }

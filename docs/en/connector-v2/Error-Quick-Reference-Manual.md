@@ -53,3 +53,34 @@ This document records some common error codes and corresponding solutions of Sea
 |-----------|---------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
 | SLACK-01  | Conversation can not be founded in channels | When users encounter this error code, it means that the channel is not existed in slack workspace, please check it |
 | SLACK-02  | Write to slack channel failed               | When users encounter this error code, it means that slack has some problems, please check it whether is work       |
+
+## Rabbitmq Connector Error Codes
+
+| code        | description                                                   | solution                                                                                                        |
+|-------------|---------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
+| RABBITMQ-01 | handle queue consumer shutdown signal failed                  | When users encounter this error code, it means that job has some problems, please check it whether is work well |
+| RABBITMQ-02 | create rabbitmq client failed                                 | When users encounter this error code, it means that rabbitmq has some problems, please check it whether is work |
+| RABBITMQ-03 | close connection failed                                       | When users encounter this error code, it means that rabbitmq has some problems, please check it whether is work |
+| RABBITMQ-04 | send messages failed                                          | When users encounter this error code, it means that rabbitmq has some problems, please check it whether is work |
+| RABBITMQ-05 | messages could not be acknowledged during checkpoint creation | When users encounter this error code, it means that job has some problems, please check it whether is work well |
+| RABBITMQ-06 | messages could not be acknowledged with basicReject           | When users encounter this error code, it means that job has some problems, please check it whether is work well |
+| RABBITMQ-07 | parse uri failed                                              | When users encounter this error code, it means that rabbitmq connect uri incorrect, please check it             |
+| RABBITMQ-08 | initialize ssl context failed                                 | When users encounter this error code, it means that rabbitmq has some problems, please check it whether is work |
+| RABBITMQ-09 | setup ssl factory failed                                      | When users encounter this error code, it means that rabbitmq has some problems, please check it whether is work |
+
+## Socket Connector Error Codes
+
+| code      | description                                              | solution                                                                                                                       |
+|-----------|----------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| SOCKET-01 | Cannot connect to socket server                          | When the user encounters this error code, it means that the connection address may not match, please check                     |
+| SOCKET-02 | Failed to send message to socket server                  | When the user encounters this error code, it means that there is a problem sending data and retry is not enabled, please check |
+| SOCKET-03 | Unable to write; interrupted while doing another attempt | When the user encounters this error code, it means that the data writing is interrupted abnormally, please check               |
+
+
+## Hive Connector Error Codes
+
+| code    | description                                                   | solution                                                                                                                      |
+|---------|---------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
+| HIVE-01 | Get name node host from table location failed                 | When users encounter this error code, it means that the metastore inforamtion has some problems, please check it              |
+| HIVE-02 | Initialize hive metastore client failed                       | When users encounter this error code, it means that connect to hive metastore service failed, please check it whether is work |
+| HIVE-03 | Get hive table information from hive metastore service failed | When users encounter this error code, it means that hive metastore service has some problems, please check it whether is work |
