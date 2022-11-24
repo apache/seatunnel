@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.commit;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +31,13 @@ import java.util.Map;
 
 @Slf4j
 public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo> {
+    protected final HadoopConf hadoopConf;
+
+    public FileSinkAggregatedCommitter(HadoopConf hadoopConf) {
+        this.hadoopConf = hadoopConf;
+        FileSystemUtils.CONF = FileSystemUtils.getConfiguration(hadoopConf);
+        log.info("Hadoop configuration initial done, [{}]", hadoopConf);
+    }
 
     @Override
     public List<FileAggregatedCommitInfo> commit(List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
