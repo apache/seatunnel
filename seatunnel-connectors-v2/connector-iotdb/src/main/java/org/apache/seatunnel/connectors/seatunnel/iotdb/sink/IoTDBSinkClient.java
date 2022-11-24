@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.sink;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
@@ -161,7 +162,7 @@ public class IoTDBSinkClient {
             } catch (IoTDBConnectionException | StatementExecutionException e) {
                 log.error("Writing records to IoTDB failed, retry times = {}", i, e);
                 if (i >= sinkConfig.getMaxRetries()) {
-                    throw new IotdbConnectorException(IotdbConnectorErrorCode.WRITING_RECORDS_FAILED,
+                    throw new IotdbConnectorException(CommonErrorCode.FLUSH_DATA_FAILED,
                         "Writing records to IoTDB failed.", e);
                 }
 
@@ -171,7 +172,7 @@ public class IoTDBSinkClient {
                     Thread.sleep(backoff);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
-                    throw new IotdbConnectorException(IotdbConnectorErrorCode.FLUSH_RECORDS_FAILED,
+                    throw new IotdbConnectorException(CommonErrorCode.FLUSH_DATA_FAILED,
                         "Unable to flush; interrupted while doing another attempt.", e);
                 }
             }
@@ -182,7 +183,7 @@ public class IoTDBSinkClient {
 
     private void checkFlushException() {
         if (flushException != null) {
-            throw new IotdbConnectorException(IotdbConnectorErrorCode.WRITING_RECORDS_FAILED,
+            throw new IotdbConnectorException(CommonErrorCode.FLUSH_DATA_FAILED,
                 "Writing records to IoTDB failed.", flushException);
         }
     }

@@ -110,5 +110,3 @@ This document records some common error codes and corresponding solutions of Sea
 | IOTDB-01 | Close IoTDB session failed                               | When the user encounters this error code, it indicates that closing the session failed. Please check         |
 | IOTDB-02 | Initialize IoTDB client failed                           | When the user encounters this error code, it indicates that the client initialization failed. Please check   |
 | IOTDB-03 | Close IoTDB client failed                                | When the user encounters this error code, it indicates that closing the client failed. Please check          |
-| IOTDB-04 | Writing records to IoTDB failed                          | When the user encounters this error code, it indicates that the record writing failed. Please check          |
-| IOTDB-05 | Unable to flush; interrupted while doing another attempt | When the user encounters this error code, it indicates that the record flushing failed. Please check         |
