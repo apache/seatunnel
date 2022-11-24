@@ -118,7 +118,7 @@ public class Neo4jSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
         if (config.hasPath(KEY_USERNAME.key())) {
             final CheckResult pwParamCheck = CheckConfigUtil.checkAllExists(config, KEY_PASSWORD.key());
-            if (!mergedConfigCheck.isSuccess()) {
+            if (!pwParamCheck.isSuccess()) {
                 throw new Neo4jConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format("PluginName: %s, PluginType: %s, Message: %s",
                         Neo4jSourceConfig.PLUGIN_NAME, PluginType.SOURCE, pwParamCheck.getMsg()));
