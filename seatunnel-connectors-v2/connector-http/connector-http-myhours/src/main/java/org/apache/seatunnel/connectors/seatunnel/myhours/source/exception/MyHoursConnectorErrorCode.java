@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.myhours.source.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum MyHoursConnectorErrorCode implements SeaTunnelErrorCode {
-    LOGIN_MYHOURS_EXCEPTION("MYHOURS-01",  "Login http client execute exception");
+    GET_MYHOURS_TOKEN_FAILE("MYHOURS-01",  "Get myhours token failed");
 
     private final String code;
 

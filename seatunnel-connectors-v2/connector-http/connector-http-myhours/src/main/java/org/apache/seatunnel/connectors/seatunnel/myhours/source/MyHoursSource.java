@@ -88,12 +88,12 @@ public class MyHoursSource extends HttpSource {
                     return contentMap.get(MyHoursSourceConfig.ACCESS_TOKEN);
                 }
             }
-            throw new MyHoursConnectorException(MyHoursConnectorErrorCode.LOGIN_MYHOURS_EXCEPTION,
+            throw new MyHoursConnectorException(MyHoursConnectorErrorCode.GET_MYHOURS_TOKEN_FAILE,
                     String.format("Login http client execute exception, http response status code:[%d], content:[%s]",
                             response.getCode(),
                             response.getContent()));
         } catch (Exception e) {
-            throw new MyHoursConnectorException(MyHoursConnectorErrorCode.LOGIN_MYHOURS_EXCEPTION,
+            throw new MyHoursConnectorException(MyHoursConnectorErrorCode.GET_MYHOURS_TOKEN_FAILE,
                     "Login http client execute exception");
         } finally {
             try {
