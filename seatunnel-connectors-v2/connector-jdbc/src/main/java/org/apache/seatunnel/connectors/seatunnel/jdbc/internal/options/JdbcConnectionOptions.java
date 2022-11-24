@@ -39,6 +39,7 @@ public class JdbcConnectionOptions
     public int maxRetries = DEFAULT_MAX_RETRIES;
     public String username;
     public String password;
+    public String query;
 
     public boolean autoCommit = JdbcConfig.AUTO_COMMIT.defaultValue();
 

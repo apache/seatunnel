@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.config;
 
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.Config.ARRAY_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.Config.BYTES_LENGTH;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.Config.MAP_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.Config.ROW_NUM;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.Config.SPLIT_NUM;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.Config.SPLIT_READ_INTERVAL;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.Config.STRING_LENGTH;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ARRAY_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BYTES_LENGTH;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.MAP_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ROW_NUM;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.SPLIT_NUM;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.SPLIT_READ_INTERVAL;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.STRING_LENGTH;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
