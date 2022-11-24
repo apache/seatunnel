@@ -90,7 +90,7 @@ public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> 
 
         if (config.hasPath(KEY_USERNAME.key())) {
             final CheckResult pwParamCheck = CheckConfigUtil.checkAllExists(config, KEY_PASSWORD.key());
-            if (!mergedConfigCheck.isSuccess()) {
+            if (!pwParamCheck.isSuccess()) {
                 throw new PrepareFailException(PLUGIN_NAME, PluginType.SINK, pwParamCheck.getMsg());
             }
             final String username = config.getString(KEY_USERNAME.key());

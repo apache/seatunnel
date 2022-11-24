@@ -113,7 +113,7 @@ public class Neo4jSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
         if (config.hasPath(KEY_USERNAME.key())) {
             final CheckResult pwParamCheck = CheckConfigUtil.checkAllExists(config, KEY_PASSWORD.key());
-            if (!mergedConfigCheck.isSuccess()) {
+            if (!pwParamCheck.isSuccess()) {
                 throw new PrepareFailException(Neo4jSourceConfig.PLUGIN_NAME, PluginType.SOURCE, pwParamCheck.getMsg());
             }
             final String username = config.getString(KEY_USERNAME.key());
