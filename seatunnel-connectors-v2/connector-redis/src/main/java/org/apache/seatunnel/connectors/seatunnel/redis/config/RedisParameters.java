@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.Data;
@@ -88,7 +91,8 @@ public class RedisParameters implements Serializable {
             String dataType = config.getString(RedisConfig.DATA_TYPE.key());
             this.redisDataType = RedisDataType.valueOf(dataType.toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new RuntimeException("Redis source connector only support these data types [key, hash, list, set, zset]", e);
+            throw new RedisConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                    "Redis source connector only support these data types [key, hash, list, set, zset]", e);
         }
     }
 
@@ -111,7 +115,8 @@ public class RedisParameters implements Serializable {
                     for (String redisNode : redisNodes) {
                         String[] splits = redisNode.split(":");
                         if (splits.length != 2) {
-                            throw new IllegalArgumentException("Invalid redis node information," +
+                            throw new RedisConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                                    "Invalid redis node information," +
                                     "redis node information must like as the following: [host:port]");
                         }
                         HostAndPort hostAndPort = new HostAndPort(splits[0], Integer.parseInt(splits[1]));
@@ -130,7 +135,8 @@ public class RedisParameters implements Serializable {
                 return new JedisWrapper(jedisCluster);
             default:
                 // do nothing
-                throw new IllegalArgumentException("Not support this redis mode");
+                throw new RedisConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+                        "Not support this redis mode");
         }
     }
 }
