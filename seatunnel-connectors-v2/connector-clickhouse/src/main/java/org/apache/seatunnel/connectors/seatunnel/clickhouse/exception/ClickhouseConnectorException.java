@@ -21,7 +21,6 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 public class ClickhouseConnectorException extends SeaTunnelRuntimeException {
-    
     public ClickhouseConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
         super(seaTunnelErrorCode, errorMessage);
     }
