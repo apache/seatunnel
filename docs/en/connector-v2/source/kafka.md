@@ -167,3 +167,4 @@ source {
 ### Next Version
 
 - [Improve] Support setting read starting offset or time at startup config ([3157](https://github.com/apache/incubator-seatunnel/pull/3157))
+- [Improve] Support read message metadata(key、timestamp、headers) ([3570](https://github.com/apache/incubator-seatunnel/pull/3570))
