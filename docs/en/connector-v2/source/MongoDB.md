@@ -1,6 +1,6 @@
-# MongoDb
+# MongoDB
 
-> MongoDb source connector
+> MongoDB source connector
 
 ## Description
 

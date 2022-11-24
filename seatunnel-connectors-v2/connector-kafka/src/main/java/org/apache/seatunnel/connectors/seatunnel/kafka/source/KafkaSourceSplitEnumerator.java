@@ -38,6 +38,10 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -48,10 +52,13 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
 
     private final ConsumerMetadata metadata;
     private final Context<KafkaSourceSplit> context;
+    private long discoveryIntervalMillis;
     private AdminClient adminClient;
 
     private Map<TopicPartition, KafkaSourceSplit> pendingSplit;
     private final Map<TopicPartition, KafkaSourceSplit> assignedSplit;
+    private ScheduledExecutorService executor;
+    private ScheduledFuture scheduledFuture;
 
     KafkaSourceSplitEnumerator(ConsumerMetadata metadata, Context<KafkaSourceSplit> context) {
         this.metadata = metadata;
@@ -65,20 +72,43 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
         this(metadata, context);
     }
 
+    KafkaSourceSplitEnumerator(ConsumerMetadata metadata, Context<KafkaSourceSplit> context,
+                               long discoveryIntervalMillis) {
+        this(metadata, context);
+        this.discoveryIntervalMillis = discoveryIntervalMillis;
+    }
+
+    KafkaSourceSplitEnumerator(ConsumerMetadata metadata, Context<KafkaSourceSplit> context,
+                               KafkaSourceState sourceState, long discoveryIntervalMillis) {
+        this(metadata, context, sourceState);
+        this.discoveryIntervalMillis = discoveryIntervalMillis;
+    }
+
     @Override
     public void open() {
         this.adminClient = initAdminClient(this.metadata.getProperties());
+        if (discoveryIntervalMillis > 0) {
+            this.executor = Executors.newScheduledThreadPool(1, runnable -> {
+                Thread thread = new Thread(runnable);
+                thread.setDaemon(true);
+                thread.setName("kafka-partition-dynamic-discovery");
+                return thread;
+            });
+            this.scheduledFuture = executor.scheduleWithFixedDelay(
+                () -> {
+                    try {
+                        discoverySplits();
+                    } catch (Exception e) {
+                        log.error("Dynamic discovery failure:", e);
+                    }
+                }, discoveryIntervalMillis, discoveryIntervalMillis, TimeUnit.MILLISECONDS
+            );
+        }
     }
 
     @Override
     public void run() throws ExecutionException, InterruptedException {
-        getTopicInfo().forEach(split -> {
-            if (!assignedSplit.containsKey(split.getTopicPartition())) {
-                if (!pendingSplit.containsKey(split.getTopicPartition())) {
-                    pendingSplit.put(split.getTopicPartition(), split);
-                }
-            }
-        });
+        fetchPendingPartitionSplit();
         setPartitionStartOffset();
         assignSplit();
     }
@@ -116,6 +146,12 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
     public void close() throws IOException {
         if (this.adminClient != null) {
             adminClient.close();
+        }
+        if (scheduledFuture != null) {
+            scheduledFuture.cancel(false);
+            if (executor != null) {
+                executor.shutdownNow();
+            }
         }
     }
 
@@ -197,7 +233,7 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
         }).collect(Collectors.toSet());
     }
 
-    private void assignSplit() {
+    private synchronized void assignSplit() {
         Map<Integer, List<KafkaSourceSplit>> readySplit = new HashMap<>(Common.COLLECTION_SIZE);
         for (int taskID = 0; taskID < context.currentParallelism(); taskID++) {
             readySplit.computeIfAbsent(taskID, id -> new ArrayList<>());
@@ -260,4 +296,18 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
             .get();
     }
 
+    private void discoverySplits() throws ExecutionException, InterruptedException {
+        fetchPendingPartitionSplit();
+        assignSplit();
+    }
+
+    private void fetchPendingPartitionSplit() throws ExecutionException, InterruptedException {
+        getTopicInfo().forEach(split -> {
+            if (!assignedSplit.containsKey(split.getTopicPartition())) {
+                if (!pendingSplit.containsKey(split.getTopicPartition())) {
+                    pendingSplit.put(split.getTopicPartition(), split);
+                }
+            }
+        });
+    }
 }

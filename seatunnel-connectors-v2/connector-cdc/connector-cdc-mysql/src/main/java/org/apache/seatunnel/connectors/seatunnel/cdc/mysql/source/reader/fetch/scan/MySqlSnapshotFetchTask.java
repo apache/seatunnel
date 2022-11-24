@@ -17,11 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.scan;
 
+import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.MySqlSourceFetchTaskContext;
-
-import org.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
-import org.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
-import org.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
 public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
 
