@@ -24,8 +24,10 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
+import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorException;
 
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.RandomUtils;
@@ -131,7 +133,8 @@ public class FakeDataGenerator {
                 return new SeaTunnelRow(objects);
             default:
                 // never got in there
-                throw new UnsupportedOperationException("SeaTunnel Fake source connector not support this data type");
+                throw new FakeConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "SeaTunnel Fake source connector not support this data type");
         }
     }
 

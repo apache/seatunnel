@@ -25,13 +25,32 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 public class FileUtils {
+
+    public static List<URL> searchJarFiles(@NonNull Path directory) throws IOException {
+        try (Stream<Path> paths = Files.walk(directory, FileVisitOption.FOLLOW_LINKS)) {
+            return paths.filter(path -> path.toString().endsWith(".jar"))
+                .map(path -> {
+                    try {
+                        return path.toUri().toURL();
+                    } catch (MalformedURLException e) {
+                        throw new SeaTunnelException(e);
+                    }
+                }).collect(Collectors.toList());
+        }
+    }
 
     public static String readFileToStr(Path path) {
         try {
@@ -87,7 +106,7 @@ public class FileUtils {
      * return the line number of file
      *
      * @param filePath The file need be read
-     * @return
+     * @return The file line number
      */
     public static Long getFileLineNumber(@NonNull String filePath) {
         try {
@@ -101,7 +120,7 @@ public class FileUtils {
      * return the line number of all files in the dirPath
      *
      * @param dirPath dirPath
-     * @return
+     * @return The file line number of dirPath
      */
     public static Long getFileLineNumberFromDir(@NonNull String dirPath) {
         File file = new File(dirPath);
@@ -135,7 +154,6 @@ public class FileUtils {
      * clear dir and the sub dir
      *
      * @param filePath filePath
-     * @return
      */
     public static void deleteFile(@NonNull String filePath) {
         File file = new File(filePath);

@@ -18,8 +18,16 @@
 package org.apache.seatunnel.plugin.discovery;
 
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.apis.base.plugin.Plugin;
 import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.constants.CollectionConstants;
+import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -31,16 +39,20 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.File;
 import java.io.FileFilter;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -80,6 +92,10 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         this(Common.connectorJarDir(pluginSubDir), loadConnectorPluginConfig());
     }
 
+    public AbstractPluginDiscovery(Path pluginDir) {
+        this(pluginDir, loadConnectorPluginConfig());
+    }
+
     public AbstractPluginDiscovery(Path pluginDir,
                                    Config pluginConfig) {
         this(pluginDir, pluginConfig, DEFAULT_URL_TO_CLASSLOADER);
@@ -115,6 +131,28 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         return pluginIdentifiers.stream()
             .map(this::createPluginInstance).distinct()
             .collect(Collectors.toList());
+    }
+
+    /**
+     * Get all support plugin by plugin type
+     *
+     * @param pluginType plugin type, not support transform
+     * @return the all plugin identifier of the engine with artifactId
+     */
+    public static @Nonnull Map<PluginIdentifier, String> getAllSupportedPlugins(PluginType pluginType) {
+        Config config = loadConnectorPluginConfig();
+        Map<PluginIdentifier, String> pluginIdentifiers = new HashMap<>();
+        if (config.isEmpty() || !config.hasPath(CollectionConstants.SEATUNNEL_PLUGIN)) {
+            return pluginIdentifiers;
+        }
+        Config engineConfig = config.getConfig(CollectionConstants.SEATUNNEL_PLUGIN);
+        if (engineConfig.hasPath(pluginType.getType())) {
+            engineConfig.getConfig(pluginType.getType()).entrySet().forEach(entry -> {
+                pluginIdentifiers.put(PluginIdentifier.of(CollectionConstants.SEATUNNEL_PLUGIN, pluginType.getType(), entry.getKey()),
+                    entry.getValue().unwrapped().toString());
+            });
+        }
+        return pluginIdentifiers;
     }
 
     @Override
@@ -158,6 +196,32 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             }
         }
         throw new RuntimeException("Plugin " + pluginIdentifier + " not found.");
+    }
+
+    /**
+     * Get all support plugin already in SEATUNNEL_HOME, only support connector-v2
+     *
+     * @param pluginType choose which type plugin should be returned
+     * @return the all plugin identifier of the engine
+     */
+    @SuppressWarnings("unchecked")
+    public @Nonnull List<PluginIdentifier> getAllPlugin(PluginType pluginType) throws IOException {
+        List<URL> files = FileUtils.searchJarFiles(pluginDir);
+        List<PluginIdentifier> plugins = new ArrayList<>();
+        List factories;
+        if (pluginType.equals(PluginType.SOURCE)) {
+            factories = FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])), TableSourceFactory.class);
+        } else if (pluginType.equals(PluginType.SINK)) {
+            factories = FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])), TableSinkFactory.class);
+        } else if (pluginType.equals(PluginType.TRANSFORM)) {
+            factories = FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])), TableTransformFactory.class);
+        } else {
+            throw new IllegalArgumentException("Unsupported plugin type: " + pluginType);
+        }
+        factories.forEach(plugin -> {
+            plugins.add(PluginIdentifier.of("seatunnel", pluginType.getType(), ((Factory) plugin).factoryIdentifier()));
+        });
+        return plugins;
     }
 
     @Nullable
