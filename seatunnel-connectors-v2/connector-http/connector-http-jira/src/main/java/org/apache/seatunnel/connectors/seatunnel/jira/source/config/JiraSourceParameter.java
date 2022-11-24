@@ -15,9 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.sentry.sink;
+package org.apache.seatunnel.connectors.seatunnel.jira.source.config;
 
-import java.io.Serializable;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
-public class SentrySinkState implements Serializable {
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import java.util.HashMap;
+
+public class JiraSourceParameter extends HttpParameter {
+    public void buildWithConfig(Config pluginConfig, String accessToken) {
+        super.buildWithConfig(pluginConfig);
+        // put authorization in headers
+        this.headers = this.getHeaders() == null ? new HashMap<>() : this.getHeaders();
+        this.headers.put(JiraSourceConfig.AUTHORIZATION, accessToken);
+        this.setHeaders(this.headers);
+    }
 }

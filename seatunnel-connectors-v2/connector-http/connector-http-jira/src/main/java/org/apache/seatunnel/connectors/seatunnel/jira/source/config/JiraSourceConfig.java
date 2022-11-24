@@ -15,22 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config;
+package org.apache.seatunnel.connectors.seatunnel.jira.source.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 
-public class MySqlSourceOptions {
-    public static final Option<String> SERVER_ID =
-        Options.key("server-id")
+public class JiraSourceConfig extends HttpConfig {
+    public static final String AUTHORIZATION = "Authorization";
+    public static final Option<String> EMAIL = Options.key("email")
             .stringType()
             .noDefaultValue()
-            .withDescription("A numeric ID or a numeric ID range of this database client, "
-                + "The numeric ID syntax is like '5400', the numeric ID range syntax "
-                + "is like '5400-5408', The numeric ID range syntax is recommended when "
-                + "'scan.incremental.snapshot.enabled' enabled. Every ID must be unique across all "
-                + "currently-running database processes in the MySQL cluster. This connector"
-                + " joins the MySQL  cluster as another server (with this unique ID) "
-                + "so it can read the binlog. By default, a random number is generated between"
-                + " 5400 and 6400, though we recommend setting an explicit value.");
+            .withDescription("Jira email");
+
+    public static final Option<String> API_TOKEN = Options.key("api_token")
+        .stringType()
+        .noDefaultValue()
+        .withDescription("Jira API Token");
 }

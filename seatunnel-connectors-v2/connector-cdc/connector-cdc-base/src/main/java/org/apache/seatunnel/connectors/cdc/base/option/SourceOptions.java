@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 
+import java.util.Map;
+
 @SuppressWarnings("MagicNumber")
 public class SourceOptions {
 
@@ -83,10 +85,16 @@ public class SourceOptions {
         .noDefaultValue()
         .withDescription("Optional offsets used in case of \"specific\" stop mode");
 
+    public static final Option<Map<String, String>> DEBEZIUM_PROPERTIES = Options.key("debezium")
+        .mapType()
+        .noDefaultValue()
+        .withDescription("Decides if the table options contains Debezium client properties that start with prefix 'debezium'.");
+
     public static final OptionRule.Builder BASE_RULE = OptionRule.builder()
         .optional(SNAPSHOT_SPLIT_SIZE, SNAPSHOT_FETCH_SIZE)
         .optional(INCREMENTAL_PARALLELISM)
         .optional(STARTUP_MODE, STOP_MODE)
+        .optional(DEBEZIUM_PROPERTIES)
         .conditional(STARTUP_MODE, StartupMode.TIMESTAMP, STARTUP_TIMESTAMP)
         .conditional(STARTUP_MODE, StartupMode.SPECIFIC, STARTUP_SPECIFIC_OFFSET_FILE, STARTUP_SPECIFIC_OFFSET_POS)
         .conditional(STOP_MODE, StopMode.TIMESTAMP, STOP_TIMESTAMP)
