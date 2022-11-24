@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
 @SuppressWarnings("checkstyle:MagicNumber")
-public class Config {
+public class FakeOption {
 
     public static final Option<Integer> ROW_NUM = Options.key("row.num").intType().defaultValue(5)
         .withDescription("The total number of data generated per degree of parallelism");
