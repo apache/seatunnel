@@ -54,6 +54,20 @@ This document records some common error codes and corresponding solutions of Sea
 | SLACK-01  | Conversation can not be founded in channels | When users encounter this error code, it means that the channel is not existed in slack workspace, please check it |
 | SLACK-02  | Write to slack channel failed               | When users encounter this error code, it means that slack has some problems, please check it whether is work       |
 
+## Rabbitmq Connector Error Codes
+
+| code        | description                                                   | solution                                                                                                        |
+|-------------|---------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
+| RABBITMQ-01 | handle queue consumer shutdown signal failed                  | When users encounter this error code, it means that job has some problems, please check it whether is work well |
+| RABBITMQ-02 | create rabbitmq client failed                                 | When users encounter this error code, it means that rabbitmq has some problems, please check it whether is work |
+| RABBITMQ-03 | close connection failed                                       | When users encounter this error code, it means that rabbitmq has some problems, please check it whether is work |
+| RABBITMQ-04 | send messages failed                                          | When users encounter this error code, it means that rabbitmq has some problems, please check it whether is work |
+| RABBITMQ-05 | messages could not be acknowledged during checkpoint creation | When users encounter this error code, it means that job has some problems, please check it whether is work well |
+| RABBITMQ-06 | messages could not be acknowledged with basicReject           | When users encounter this error code, it means that job has some problems, please check it whether is work well |
+| RABBITMQ-07 | parse uri failed                                              | When users encounter this error code, it means that rabbitmq connect uri incorrect, please check it             |
+| RABBITMQ-08 | initialize ssl context failed                                 | When users encounter this error code, it means that rabbitmq has some problems, please check it whether is work |
+| RABBITMQ-09 | setup ssl factory failed                                      | When users encounter this error code, it means that rabbitmq has some problems, please check it whether is work |
+
 ## Socket Connector Error Codes
 
 | code      | description                                              | solution                                                                                                                       |
