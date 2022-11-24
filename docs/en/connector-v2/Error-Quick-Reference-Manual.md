@@ -84,3 +84,15 @@ This document records some common error codes and corresponding solutions of Sea
 | HIVE-01 | Get name node host from table location failed                 | When users encounter this error code, it means that the metastore inforamtion has some problems, please check it              |
 | HIVE-02 | Initialize hive metastore client failed                       | When users encounter this error code, it means that connect to hive metastore service failed, please check it whether is work |
 | HIVE-03 | Get hive table information from hive metastore service failed | When users encounter this error code, it means that hive metastore service has some problems, please check it whether is work |
+
+## Kafka Connector Error Codes
+
+| code     | description                                                                               | solution                                                                                                                          |
+|----------|-------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| Kafka-01 | Incompatible KafkaProducer version                                                        | When users encounter this error code, it means that KafkaProducer version is incompatible, please check it                        |
+| Kafka-02 | Get transactionManager in KafkaProducer exception                                         | When users encounter this error code, it means that can not get transactionManager in KafkaProducer, please check it              |
+| Kafka-03 | Close kafka sink writer failed                                                            | When users encounter this error code, it means that can not close kafka sink writer, please check config and retry it             |
+| Kafka-04 | Add the split checkpoint state to reader failed                                           | When users encounter this error code, it means that add the split checkpoint state to reader failed, please retry it              |
+| Kafka-05 | Add a split back to the split enumerator,it will only happen when a SourceReader failed   | When users encounter this error code, it means that add a split back to the split enumerator failed, please check it              | 
+| Kafka-06 | Error occurred when the kafka consumer thread was running                                 | When users encounter this error code, it means that an error occurred when the kafka consumer thread was running, please check it |
+| Kafka-07 | Kafka failed to consume data                                                              | When users encounter this error code, it means that Kafka failed to consume data, please check config and retry it                |
