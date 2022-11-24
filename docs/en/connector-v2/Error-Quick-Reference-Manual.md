@@ -77,7 +77,6 @@ problems encountered by users.
 | SOCKET-02 | Failed to send message to socket server                  | When the user encounters this error code, it means that there is a problem sending data and retry is not enabled, please check |
 | SOCKET-03 | Unable to write; interrupted while doing another attempt | When the user encounters this error code, it means that the data writing is interrupted abnormally, please check               |
 
-
 ## Hive Connector Error Codes
 
 | code    | description                                                   | solution                                                                                                                      |
@@ -85,3 +84,12 @@ problems encountered by users.
 | HIVE-01 | Get name node host from table location failed                 | When users encounter this error code, it means that the metastore inforamtion has some problems, please check it              |
 | HIVE-02 | Initialize hive metastore client failed                       | When users encounter this error code, it means that connect to hive metastore service failed, please check it whether is work |
 | HIVE-03 | Get hive table information from hive metastore service failed | When users encounter this error code, it means that hive metastore service has some problems, please check it whether is work |
+
+## Elasticsearch Connector Error Codes
+
+| code              | description                                   | solution                                                                                                                       |
+|-------------------|-----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| ELASTICSEARCH-01  | Bulk es response error                        | When the user encounters this error code, it means that the connection was aborted, please check it whether is work            |
+| ELASTICSEARCH-02  | Get elasticsearch version failed              | When the user encounters this error code, it means that the connection was aborted, please check it whether is work            |
+| ELASTICSEARCH-03  | Fail to scroll request                        | When the user encounters this error code, it means that the connection was aborted, please check it whether is work            |
+| ELASTICSEARCH-04  | Get elasticsearch document index count failed | When the user encounters this error code, it means that the es index may not wrong or the connection was aborted, please check |
