@@ -75,9 +75,3 @@ This document records some common error codes and corresponding solutions of Sea
 | SOCKET-01 | Cannot connect to socket server                          | When the user encounters this error code, it means that the connection address may not match, please check                     |
 | SOCKET-02 | Failed to send message to socket server                  | When the user encounters this error code, it means that there is a problem sending data and retry is not enabled, please check |
 | SOCKET-03 | Unable to write; interrupted while doing another attempt | When the user encounters this error code, it means that the data writing is interrupted abnormally, please check               |
-
-## GoogleSheets Connector Error Codes
-
-| code            | description                        | solution                                                                                                         |
-|-----------------|------------------------------------|------------------------------------------------------------------------------------------------------------------|
-| GOOGLESHEETS-01 | Object json deserialization failed | When the user encounters this error code, it indicates that the json object deserialization failed. Please check |
