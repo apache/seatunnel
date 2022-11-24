@@ -1,6 +1,7 @@
 # Error Quick Reference Manual
 
-This document records some common error codes and corresponding solutions of SeaTunnel, aiming to quickly solve the problems encountered by users.
+This document records some common error codes and corresponding solutions of SeaTunnel, aiming to quickly solve the
+problems encountered by users.
 
 ## SeaTunnel API Error Codes
 
@@ -45,7 +46,7 @@ This document records some common error codes and corresponding solutions of Sea
 | CASSANDRA-02 | Add batch SeaTunnelRow data into a batch failed | When users encounter this error code, it means that cassandra has some problems, please check it whether is work                                                      |
 | CASSANDRA-03 | Close cql session of cassandra failed           | When users encounter this error code, it means that cassandra has some problems, please check it whether is work                                                      |
 | CASSANDRA-04 | No data in source table                         | When users encounter this error code, it means that source cassandra table has no data, please check it                                                               |
-| CASSANDRA-05 | Parse ip address from string field field        | When users encounter this error code, it means that upstream data does not match ip address format, please check it                                                   |
+| CASSANDRA-05 | Parse ip address from string field failed       | When users encounter this error code, it means that upstream data does not match ip address format, please check it                                                   |
 
 ## Slack Connector Error Codes
 
@@ -76,7 +77,6 @@ This document records some common error codes and corresponding solutions of Sea
 | SOCKET-02 | Failed to send message to socket server                  | When the user encounters this error code, it means that there is a problem sending data and retry is not enabled, please check |
 | SOCKET-03 | Unable to write; interrupted while doing another attempt | When the user encounters this error code, it means that the data writing is interrupted abnormally, please check               |
 
-
 ## Hive Connector Error Codes
 
 | code    | description                                                   | solution                                                                                                                      |
@@ -84,3 +84,15 @@ This document records some common error codes and corresponding solutions of Sea
 | HIVE-01 | Get name node host from table location failed                 | When users encounter this error code, it means that the metastore inforamtion has some problems, please check it              |
 | HIVE-02 | Initialize hive metastore client failed                       | When users encounter this error code, it means that connect to hive metastore service failed, please check it whether is work |
 | HIVE-03 | Get hive table information from hive metastore service failed | When users encounter this error code, it means that hive metastore service has some problems, please check it whether is work |
+
+## Clickhouse Connector Error Codes
+
+| code          | description                                                               | solution                                                                                                                                                                |
+|---------------|---------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| CLICKHOUSE-01 | Field is not existed in target table                                      | When users encounter this error code, it means that the fields of upstream data don't meet with target clickhouse table, please check target clickhouse table structure |
+| CLICKHOUSE-02 | Can’t find password of shard node                                         | When users encounter this error code, it means that no password is configured for each node, please check                                                               |
+| CLICKHOUSE-03 | Can’t delete directory                                                    | When users encounter this error code, it means that the directory does not exist or does not have permission, please check                                              |
+| CLICKHOUSE-04 | Ssh operation failed, such as (login,connect,authentication,close) etc... | When users encounter this error code, it means that the ssh request failed, please check your network environment                                                       |
+| CLICKHOUSE-05 | Get cluster list from clickhouse failed                                   | When users encounter this error code, it means that the clickhouse cluster is not configured correctly, please check                                                    |
+| CLICKHOUSE-06 | Shard key not found in table                                              | When users encounter this error code, it means that the shard key of the clickhouse distributed table is incorrectly configured, please check                           |
+| CLICKHOUSE-07 | Clickhouse local file not exists                                          | When users encounter this error code, it means that the clickhouse local file does not exist, please check if the file exists                                           |

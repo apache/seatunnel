@@ -124,7 +124,7 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
                     intHolder.setValue(0);
                 }
             } catch (SQLException e) {
-                throw new ClickhouseConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, "Failed to close prepared statement.", e);
+                throw new ClickhouseConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, "Failed to close prepared statement.", e);
             }
         }
     }
