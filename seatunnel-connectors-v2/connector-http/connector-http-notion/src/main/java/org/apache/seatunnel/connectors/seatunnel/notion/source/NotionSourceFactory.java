@@ -40,6 +40,7 @@ public class NotionSourceFactory implements TableSourceFactory {
         return OptionRule.builder()
                 .required(NotionSourceConfig.URL)
                 .required(NotionSourceConfig.PASSWORD)
+                .required(NotionSourceConfig.VERSION)
                 .optional(NotionSourceConfig.METHOD)
                 .optional(NotionSourceConfig.HEADERS)
                 .optional(NotionSourceConfig.PARAMS)
