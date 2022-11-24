@@ -21,6 +21,7 @@ import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSink
 import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.PORT;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -31,6 +32,8 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.socket.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.socket.exception.SocketConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -54,7 +57,10 @@ public class SocketSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
         this.pluginConfig = pluginConfig;
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, PORT.key(), HOST.key());
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
+            throw new SocketConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                String.format("PluginName: %s, PluginType: %s, Message: %s",
+                    getPluginName(), PluginType.SINK, result.getMsg())
+            );
         }
         sinkConfig = new SinkConfig(pluginConfig);
     }
@@ -65,12 +71,12 @@ public class SocketSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public SeaTunnelDataType getConsumedType() {
+    public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
         return seaTunnelRowType;
     }
 
     @Override
-    public AbstractSinkWriter createWriter(SinkWriter.Context context) throws IOException {
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
         return new SocketSinkWriter(sinkConfig, seaTunnelRowType);
     }
 }
