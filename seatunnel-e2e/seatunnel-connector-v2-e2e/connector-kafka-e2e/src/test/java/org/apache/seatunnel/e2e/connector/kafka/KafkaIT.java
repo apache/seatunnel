@@ -176,6 +176,14 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testSourceKafkaMeta(TestContainer container) throws IOException, InterruptedException {
+        DefaultSeaTunnelRowSerializer serializer = new DefaultSeaTunnelRowSerializer("test_topic_json", SEATUNNEL_ROW_TYPE);
+        generateTestData(row -> serializer.serializeRow(row), 0, 100);
+        Container.ExecResult execResult = container.executeJob("/kafkasource_meta_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
     public void testSourceKafkaStartConfig(TestContainer container) throws IOException, InterruptedException {
         DefaultSeaTunnelRowSerializer serializer = new DefaultSeaTunnelRowSerializer("test_topic_group", SEATUNNEL_ROW_TYPE);
         generateTestData(row -> serializer.serializeRow(row), 100, 150);
