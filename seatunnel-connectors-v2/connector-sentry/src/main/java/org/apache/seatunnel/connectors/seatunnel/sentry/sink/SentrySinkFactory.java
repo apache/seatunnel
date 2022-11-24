@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.sentry.sink;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.sentry.config.SentryConfig;
 
 import com.google.auto.service.AutoService;
 

@@ -67,3 +67,11 @@ This document records some common error codes and corresponding solutions of Sea
 | RABBITMQ-07 | parse uri failed                                              | When users encounter this error code, it means that rabbitmq connect uri incorrect, please check it             |
 | RABBITMQ-08 | initialize ssl context failed                                 | When users encounter this error code, it means that rabbitmq has some problems, please check it whether is work |
 | RABBITMQ-09 | setup ssl factory failed                                      | When users encounter this error code, it means that rabbitmq has some problems, please check it whether is work |
+
+## Socket Connector Error Codes
+
+| code      | description                                              | solution                                                                                                                       |
+|-----------|----------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| SOCKET-01 | Cannot connect to socket server                          | When the user encounters this error code, it means that the connection address may not match, please check                     |
+| SOCKET-02 | Failed to send message to socket server                  | When the user encounters this error code, it means that there is a problem sending data and retry is not enabled, please check |
+| SOCKET-03 | Unable to write; interrupted while doing another attempt | When the user encounters this error code, it means that the data writing is interrupted abnormally, please check               |

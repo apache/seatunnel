@@ -18,12 +18,13 @@
 package org.apache.seatunnel.plugin.discovery.seatunnel;
 
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
 
 public class SeaTunnelTransformPluginDiscovery extends AbstractPluginDiscovery<SeaTunnelTransform> {
 
     public SeaTunnelTransformPluginDiscovery() {
-        super("seatunnel");
+        super(Common.libDir());
     }
 
     @Override
