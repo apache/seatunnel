@@ -29,6 +29,7 @@ import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSource
 import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig.PLUGIN_NAME;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -44,6 +45,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReader
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.DriverBuilder;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceQueryInfo;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.exception.Neo4jConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -71,7 +73,9 @@ public class Neo4jSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             CheckConfigUtil.checkAllExists(pluginConfig, KEY_QUERY.key(), SeaTunnelSchema.SCHEMA.key());
 
         if (!configCheck.isSuccess()) {
-            throw new PrepareFailException(Neo4jSourceConfig.PLUGIN_NAME, PluginType.SOURCE, configCheck.getMsg());
+            throw new Neo4jConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                String.format("PluginName: %s, PluginType: %s, Message: %s",
+                    Neo4jSourceConfig.PLUGIN_NAME, PluginType.SOURCE, configCheck.getMsg()));
         }
         neo4jSourceQueryInfo.setQuery(pluginConfig.getString(KEY_QUERY.key()));
 
@@ -103,8 +107,9 @@ public class Neo4jSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                 KEY_KERBEROS_TICKET.key());
         final CheckResult mergedConfigCheck = CheckConfigUtil.mergeCheckResults(uriConfigCheck, authConfigCheck);
         if (!mergedConfigCheck.isSuccess()) {
-            throw new PrepareFailException(Neo4jSourceConfig.PLUGIN_NAME, PluginType.SOURCE,
-                mergedConfigCheck.getMsg());
+            throw new Neo4jConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                String.format("PluginName: %s, PluginType: %s, Message: %s",
+                    Neo4jSourceConfig.PLUGIN_NAME, PluginType.SOURCE, mergedConfigCheck.getMsg()));
         }
 
         final URI uri = URI.create(config.getString(KEY_NEO4J_URI.key()));
@@ -114,7 +119,9 @@ public class Neo4jSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         if (config.hasPath(KEY_USERNAME.key())) {
             final CheckResult pwParamCheck = CheckConfigUtil.checkAllExists(config, KEY_PASSWORD.key());
             if (!mergedConfigCheck.isSuccess()) {
-                throw new PrepareFailException(Neo4jSourceConfig.PLUGIN_NAME, PluginType.SOURCE, pwParamCheck.getMsg());
+                throw new Neo4jConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                        Neo4jSourceConfig.PLUGIN_NAME, PluginType.SOURCE, pwParamCheck.getMsg()));
             }
             final String username = config.getString(KEY_USERNAME.key());
             final String password = config.getString(KEY_PASSWORD.key());
