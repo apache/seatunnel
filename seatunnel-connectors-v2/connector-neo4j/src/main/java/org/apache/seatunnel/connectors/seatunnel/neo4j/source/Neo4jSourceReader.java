@@ -24,9 +24,11 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceQueryInfo;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.exception.Neo4jConnectorException;
 
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.Query;
@@ -92,11 +94,11 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     /**
      * convert {@link SeaTunnelDataType} to java data type
      *
-     * @throws IllegalArgumentException when not supported data type
-     * @throws LossyCoercion            when conversion cannot be achieved without losing precision.
+     * @throws Neo4jConnectorException when not supported data type
+     * @throws LossyCoercion           when conversion cannot be achieved without losing precision.
      */
     public static Object convertType(SeaTunnelDataType<?> dataType, Value value)
-        throws IllegalArgumentException, LossyCoercion {
+        throws Neo4jConnectorException, LossyCoercion {
         Objects.requireNonNull(dataType);
         Objects.requireNonNull(value);
 
@@ -121,7 +123,7 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 return value.asLocalDateTime();
             case MAP:
                 if (!((MapType<?, ?>) dataType).getKeyType().equals(BasicType.STRING_TYPE)) {
-                    throw new IllegalArgumentException("Key Type of MapType must String type");
+                    throw new Neo4jConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, "Key Type of MapType must String type");
                 }
                 final SeaTunnelDataType<?> valueType = ((MapType<?, ?>) dataType).getValueType();
                 return value.asMap(v -> valueType.getTypeClass().cast(convertType(valueType, v)));
@@ -138,7 +140,7 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             case FLOAT:
                 return value.asFloat();
             default:
-                throw new IllegalArgumentException("not supported data type: " + dataType);
+                throw new Neo4jConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "not supported data type: " + dataType);
         }
 
     }
