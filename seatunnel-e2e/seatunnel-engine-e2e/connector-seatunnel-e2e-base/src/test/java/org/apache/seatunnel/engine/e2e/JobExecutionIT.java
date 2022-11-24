@@ -25,11 +25,13 @@ import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import com.hazelcast.client.config.ClientConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CompletableFuture;
@@ -37,6 +39,10 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class JobExecutionIT {
+    @BeforeAll
+    public static void beforeClass() throws Exception {
+        SeaTunnelServerStarter.createHazelcastInstance(TestUtils.getClusterName("JobExecutionIT"));
+    }
 
     @Test
     public void testSayHello() {
