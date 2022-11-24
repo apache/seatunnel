@@ -17,13 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.source;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig;
 
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.*;
-
+import com.google.auto.service.AutoService;
 
 @AutoService(SeaTunnelSource.class)
 public class HudiSourceFactory implements TableSourceFactory {
@@ -36,9 +35,9 @@ public class HudiSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(TABLE_PATH,TABLE_TYPE,CONF_FILES)
-                .optional(USE_KERBEROS)
-                .conditional(USE_KERBEROS,true,KERBEROS_PRINCIPAL,KERBEROS_PRINCIPAL_FILE)
+                .required(HudiSourceConfig.TABLE_PATH, HudiSourceConfig.TABLE_TYPE, HudiSourceConfig.CONF_FILES)
+                .optional(HudiSourceConfig.USE_KERBEROS)
+                .conditional(HudiSourceConfig.USE_KERBEROS, true, HudiSourceConfig.KERBEROS_PRINCIPAL, HudiSourceConfig.KERBEROS_PRINCIPAL_FILE)
                 .build();
     }
 }
