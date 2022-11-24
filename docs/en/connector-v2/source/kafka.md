@@ -66,6 +66,21 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 The structure of the data, including field names and field types.
 
+for example:
+
+```hocon
+   schema = {
+      fields {
+        name = "string"
+        age = "int"
+      }
+      meta.fields {
+        topicAlias = topic
+        partitionAlias = partition
+      }
+    }
+```
+
 ## format
 
 Data format. The default format is json. Optional text format. The default field separator is ", ".
@@ -111,6 +126,10 @@ source {
       fields {
         name = "string"
         age = "int"
+      }
+      meta.fields {
+       topicAlias = topic
+       partitionAlias = partition
       }
     }
     format = text

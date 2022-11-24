@@ -38,6 +38,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -56,21 +57,25 @@ import org.apache.seatunnel.format.text.TextDeserializationSchema;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.auto.service.AutoService;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.TopicPartition;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 @AutoService(SeaTunnelSource.class)
 public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSplit, KafkaSourceState> {
 
     private static final String DEFAULT_CONSUMER_GROUP = "SeaTunnel-Consumer-Group";
+    private static final String META_FIELDS = "meta.fields";
+    private static final String TEXT = "text";
 
     private final ConsumerMetadata metadata = new ConsumerMetadata();
     private KafkaDeserializationSchema<SeaTunnelRow> deserializationSchema;
@@ -178,35 +183,89 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
 
     private void setDeserialization(Config config) {
         DeserializationSchema valueDeserialization;
+        boolean hasMetadata = false;
+        MetadataKafkaDeserializationSchema.MetadataConverter[] metadataConverters = null;
         if (config.hasPath(SCHEMA.key())) {
             Config schema = config.getConfig(SCHEMA.key());
-            typeInfo = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
+            SeaTunnelRowType valueTypeInfo = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
+            typeInfo = valueTypeInfo;
+            if (schema.hasPath(META_FIELDS)) {
+                LinkedHashMap<String, String> metaMap = new LinkedHashMap<>();
+                for (Map.Entry<String, ConfigValue> entry : schema.getConfig(META_FIELDS).entrySet()) {
+                    metaMap.put(entry.getKey(), entry.getValue().render().replaceAll("\"", ""));
+                }
+                LinkedHashMap<String, SeaTunnelDataType> metaDataTypeMap = new LinkedHashMap<>();
+                metadataConverters = getMetadataConverters(metaMap, metaDataTypeMap);
+                hasMetadata = metaDataTypeMap.size() > 0;
+                withMetaType(valueTypeInfo, metaDataTypeMap);
+            }
             String format = DEFAULT_FORMAT;
             if (config.hasPath(FORMAT.key())) {
                 format = config.getString(FORMAT.key());
             }
-            if (DEFAULT_FORMAT.equals(format)) {
-                valueDeserialization = new JsonDeserializationSchema(false, false, typeInfo);
-            } else if ("text".equals(format)) {
-                String delimiter = DEFAULT_FIELD_DELIMITER;
-                if (config.hasPath(FIELD_DELIMITER.key())) {
-                    delimiter = config.getString(FIELD_DELIMITER.key());
-                }
-                valueDeserialization = TextDeserializationSchema.builder()
-                        .seaTunnelRowType(typeInfo)
+
+            switch (format) {
+                case TEXT:
+                    String delimiter = DEFAULT_FIELD_DELIMITER;
+                    if (config.hasPath(FIELD_DELIMITER.key())) {
+                        delimiter = config.getString(FIELD_DELIMITER.key());
+                    }
+                    valueDeserialization = TextDeserializationSchema.builder()
+                        .seaTunnelRowType(valueTypeInfo)
                         .delimiter(delimiter)
                         .build();
-            } else {
-                // TODO: use format SPI
-                throw new UnsupportedOperationException("Unsupported format: " + format);
+                    break;
+                case DEFAULT_FORMAT:
+                    valueDeserialization = new JsonDeserializationSchema(false, false, valueTypeInfo);
+                    break;
+                default:
+                    // TODO: use format SPI
+                    throw new UnsupportedOperationException("Unsupported format: " + format);
             }
+            deserializationSchema = new MetadataKafkaDeserializationSchema(null,
+                valueDeserialization, hasMetadata, metadataConverters, valueTypeInfo.getTotalFields(), null,
+                IntStream.range(0, valueTypeInfo.getTotalFields()).toArray());
         } else {
             typeInfo = SeaTunnelSchema.buildSimpleTextSchema();
             valueDeserialization = TextDeserializationSchema.builder()
-                    .seaTunnelRowType(typeInfo)
-                    .delimiter(String.valueOf('\002'))
-                    .build();
+                .seaTunnelRowType(typeInfo)
+                .delimiter(String.valueOf('\002'))
+                .build();
+            deserializationSchema = new MetadataKafkaDeserializationSchema(null,
+                valueDeserialization, hasMetadata, null, 0, null, null);
+        }
+    }
+
+    private void withMetaType(SeaTunnelRowType valueTypeInfo, LinkedHashMap<String, SeaTunnelDataType> metaDataTypeMap) {
+        String[] fieldsName = new String[valueTypeInfo.getTotalFields() + metaDataTypeMap.size()];
+        SeaTunnelDataType<?>[] seaTunnelDataTypes = new SeaTunnelDataType<?>[valueTypeInfo.getTotalFields() + metaDataTypeMap.size()];
+
+        for (int i = 0; i < valueTypeInfo.getTotalFields(); i++) {
+            fieldsName[i] = valueTypeInfo.getFieldName(i);
+            seaTunnelDataTypes[i] = valueTypeInfo.getFieldType(i);
         }
 
+        int i = valueTypeInfo.getTotalFields();
+        for (Map.Entry<String, SeaTunnelDataType> stringSeaTunnelDataTypeEntry : metaDataTypeMap.entrySet()) {
+            fieldsName[i] = stringSeaTunnelDataTypeEntry.getKey();
+            seaTunnelDataTypes[i] = stringSeaTunnelDataTypeEntry.getValue();
+            i++;
+        }
+        typeInfo = new SeaTunnelRowType(fieldsName, seaTunnelDataTypes);
+    }
+
+    private MetadataKafkaDeserializationSchema.MetadataConverter[] getMetadataConverters(LinkedHashMap<String, String> metaMap, LinkedHashMap<String, SeaTunnelDataType> metaDataTypeMap) {
+        MetadataKafkaDeserializationSchema.MetadataConverter[] metadataConverters = metaMap.entrySet().stream()
+            .map(k -> {
+                MetadataKafkaDeserializationSchema.ReadableMetadata readableMetadata = Stream.of(MetadataKafkaDeserializationSchema.ReadableMetadata.values())
+                    .filter(rm -> rm.getKey().equals(k.getValue()))
+                    .findFirst()
+                    .orElseThrow(IllegalStateException::new);
+                metaDataTypeMap.put(k.getKey(), readableMetadata.getDataType());
+                return readableMetadata;
+            })
+            .map(m -> m.getConverter())
+            .toArray(MetadataKafkaDeserializationSchema.MetadataConverter[]::new);
+        return metadataConverters;
     }
 }
