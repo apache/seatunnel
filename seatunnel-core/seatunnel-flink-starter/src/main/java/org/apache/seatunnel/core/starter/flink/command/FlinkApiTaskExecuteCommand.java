@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.flink.command;
 
+import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist;
+
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.config.ConfigBuilder;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
@@ -46,7 +48,7 @@ public class FlinkApiTaskExecuteCommand implements Command<FlinkCommandArgs> {
     @Override
     public void execute() throws CommandExecuteException {
         Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
-
+        checkConfigExist(configFile);
         Config config = new ConfigBuilder(configFile).getConfig();
         FlinkExecution seaTunnelTaskExecution = new FlinkExecution(config);
         try {
