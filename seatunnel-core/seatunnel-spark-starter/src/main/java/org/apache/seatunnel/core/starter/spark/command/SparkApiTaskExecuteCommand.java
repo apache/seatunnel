@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.spark.command;
 
+import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist;
+
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.config.ConfigBuilder;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
@@ -46,6 +48,7 @@ public class SparkApiTaskExecuteCommand implements Command<SparkCommandArgs> {
     @Override
     public void execute() throws CommandExecuteException {
         Path configFile = FileUtils.getConfigPath(sparkCommandArgs);
+        checkConfigExist(configFile);
         Config config = new ConfigBuilder(configFile).getConfig();
         try {
             SparkExecution seaTunnelTaskExecution = new SparkExecution(config);
