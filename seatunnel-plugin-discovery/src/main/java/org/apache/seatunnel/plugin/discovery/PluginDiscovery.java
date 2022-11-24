@@ -17,12 +17,6 @@
 
 package org.apache.seatunnel.plugin.discovery;
 
-import org.apache.seatunnel.common.config.Common;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
-
 import java.net.URL;
 import java.util.Collection;
 import java.util.List;
@@ -33,18 +27,6 @@ import java.util.List;
  * @param <T> plugin type
  */
 public interface PluginDiscovery<T> {
-
-    String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
-    /**
-     * The plugin mapping config.
-     * e,g.flink.source.DruidSource=seatunnel-connector-flink-druid
-     */
-    Config PLUGIN_JAR_MAPPING =
-        ConfigFactory
-            // todo: rename to plugin dir
-            .parseFile(Common.connectorDir().resolve(PLUGIN_MAPPING_FILE).toFile())
-            .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-            .resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
     /**
      * Get all plugin jar paths.

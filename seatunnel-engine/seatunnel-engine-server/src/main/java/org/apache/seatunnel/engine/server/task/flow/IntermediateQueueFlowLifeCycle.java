@@ -19,13 +19,14 @@ package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
-import org.apache.seatunnel.engine.common.utils.ConsumerWithException;
+import org.apache.seatunnel.common.utils.function.ConsumerWithException;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 public class IntermediateQueueFlowLifeCycle extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>>,
         OneOutputFlowLifeCycle<Record<?>> {
@@ -48,10 +49,11 @@ public class IntermediateQueueFlowLifeCycle extends AbstractFlowLifeCycle implem
         }
     }
 
+    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void collect(Collector<Record<?>> collector) throws Exception {
         while (true) {
-            Record<?> record = queue.poll();
+            Record<?> record = queue.poll(100, TimeUnit.MILLISECONDS);
             if (record != null) {
                 handleRecord(record, collector::collect);
             } else {

@@ -46,21 +46,6 @@
 
         <!-- ============ Starter Bin ============  -->
         <fileSet>
-            <directory>../seatunnel-core/seatunnel-core-flink/src/main/bin</directory>
-            <outputDirectory>/bin</outputDirectory>
-            <fileMode>0755</fileMode>
-        </fileSet>
-        <fileSet>
-            <directory>../seatunnel-core/seatunnel-core-flink-sql/src/main/bin</directory>
-            <outputDirectory>/bin</outputDirectory>
-            <fileMode>0755</fileMode>
-        </fileSet>
-        <fileSet>
-            <directory>../seatunnel-core/seatunnel-core-spark/src/main/bin</directory>
-            <outputDirectory>/bin</outputDirectory>
-            <fileMode>0755</fileMode>
-        </fileSet>
-        <fileSet>
             <directory>../seatunnel-core/seatunnel-flink-starter/src/main/bin</directory>
             <outputDirectory>/bin</outputDirectory>
             <fileMode>0755</fileMode>
@@ -115,6 +100,21 @@
         </file>
     </files>
     <dependencySets>
+        <!-- ============ Logging Jars ============  -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <outputDirectory>/starter/logging</outputDirectory>
+            <includes>
+                <include>org.slf4j:slf4j-api:jar</include>
+                <include>org.slf4j:jcl-over-slf4j:jar</include>
+                <include>org.apache.logging.log4j:log4j-api:jar</include>
+                <include>org.apache.logging.log4j:log4j-core:jar</include>
+                <include>org.apache.logging.log4j:log4j-slf4j-impl:jar</include>
+            </includes>
+        </dependencySet>
+
         <!-- ============ Starter Jars ============  -->
         <dependencySet>
             <useProjectArtifact>false</useProjectArtifact>
@@ -125,17 +125,11 @@
                 <include>org.apache.seatunnel:seatunnel-flink-starter:jar</include>
                 <!-- Spark V2 starter -->
                 <include>org.apache.seatunnel:seatunnel-spark-starter:jar</include>
-                <!-- Flink starter -->
-                <include>org.apache.seatunnel:seatunnel-core-flink:jar</include>
-                <!-- Flink SQL starter -->
-                <include>org.apache.seatunnel:seatunnel-core-flink-sql:jar</include>
-                <!-- Spark starter -->
-                <include>org.apache.seatunnel:seatunnel-core-spark:jar</include>
                 <!-- SeaTunnel Engine starter -->
                 <include>org.apache.seatunnel:seatunnel-starter:jar</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
-            <outputDirectory>/lib</outputDirectory>
+            <outputDirectory>/starter</outputDirectory>
             <scope>provided</scope>
         </dependencySet>
 
@@ -156,37 +150,17 @@
             <outputDirectory>/connectors/seatunnel</outputDirectory>
             <scope>provided</scope>
         </dependencySet>
-        <!-- Flink connectors -->
+
+        <!-- ============ SeaTunnel Transforms V2 Jars ============  -->
         <dependencySet>
             <useProjectArtifact>false</useProjectArtifact>
             <useTransitiveDependencies>true</useTransitiveDependencies>
             <unpack>false</unpack>
             <includes>
-                <include>org.apache.seatunnel:seatunnel-connector-flink-*:jar</include>
+                <include>org.apache.seatunnel:seatunnel-transforms-v2:jar</include>
             </includes>
-            <outputDirectory>/connectors/flink</outputDirectory>
-            <scope>provided</scope>
-        </dependencySet>
-        <!-- Flink SQL connectors -->
-        <dependencySet>
-            <useProjectArtifact>false</useProjectArtifact>
-            <useTransitiveDependencies>true</useTransitiveDependencies>
-            <unpack>false</unpack>
-            <includes>
-                <include>org.apache.seatunnel:flink-sql-connector-*:jar</include>
-            </includes>
-            <outputDirectory>/connectors/flink-sql</outputDirectory>
-            <scope>provided</scope>
-        </dependencySet>
-        <!-- Spark connectors -->
-        <dependencySet>
-            <useProjectArtifact>false</useProjectArtifact>
-            <useTransitiveDependencies>true</useTransitiveDependencies>
-            <unpack>false</unpack>
-            <includes>
-                <include>org.apache.seatunnel:seatunnel-connector-spark-*:jar</include>
-            </includes>
-            <outputDirectory>/connectors/spark</outputDirectory>
+            <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
+            <outputDirectory>/lib</outputDirectory>
             <scope>provided</scope>
         </dependencySet>
     </dependencySets>

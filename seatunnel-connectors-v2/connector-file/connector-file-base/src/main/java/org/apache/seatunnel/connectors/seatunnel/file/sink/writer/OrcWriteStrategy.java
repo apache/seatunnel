@@ -99,6 +99,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             }
             needMoveFiles.put(k, getTargetLocation(k));
         });
+        this.beingWrittenWriter.clear();
     }
 
     private Writer getOrCreateWriter(@NonNull String filePath) {
@@ -165,7 +166,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                 TypeDescription struct = TypeDescription.createStruct();
                 SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) type).getFieldTypes();
                 for (int i = 0; i < fieldTypes.length; i++) {
-                    struct.addField(((SeaTunnelRowType) type).getFieldName(i), buildFieldWithRowType(fieldTypes[i]));
+                    struct.addField(((SeaTunnelRowType) type).getFieldName(i).toLowerCase(), buildFieldWithRowType(fieldTypes[i]));
                 }
                 return struct;
             case NULL:
@@ -179,7 +180,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         TypeDescription schema = TypeDescription.createStruct();
         for (Integer i : sinkColumnsIndexInRow) {
             TypeDescription fieldType = buildFieldWithRowType(seaTunnelRowType.getFieldType(i));
-            schema.addField(seaTunnelRowType.getFieldName(i), fieldType);
+            schema.addField(seaTunnelRowType.getFieldName(i).toLowerCase(), fieldType);
         }
         return schema;
     }

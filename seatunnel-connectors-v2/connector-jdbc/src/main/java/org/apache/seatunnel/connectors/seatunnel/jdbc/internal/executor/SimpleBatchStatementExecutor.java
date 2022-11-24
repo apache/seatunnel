@@ -17,63 +17,48 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
 
-/**
- * A {@link JdbcBatchStatementExecutor} that executes supplied statement for given the records
- * (without any pre-processing).
- */
-public class SimpleBatchStatementExecutor<T> implements JdbcBatchStatementExecutor<T> {
-
-    private static final Logger LOG = LoggerFactory.getLogger(SimpleBatchStatementExecutor.class);
-
-    private final String sql;
-    private final JdbcStatementBuilder<T> parameterSetter;
-    private final List<T> batch;
-
-    private transient PreparedStatement st;
-
-    public SimpleBatchStatementExecutor(
-        String sql, JdbcStatementBuilder<T> statementBuilder) {
-        this.sql = sql;
-        this.parameterSetter = statementBuilder;
-        this.batch = new ArrayList<T>();
-    }
+@RequiredArgsConstructor
+public class SimpleBatchStatementExecutor implements JdbcBatchStatementExecutor<SeaTunnelRow> {
+    @NonNull
+    private final StatementFactory statementFactory;
+    @NonNull
+    private final SeaTunnelRowType rowType;
+    @NonNull
+    private final JdbcRowConverter converter;
+    private transient PreparedStatement statement;
 
     @Override
     public void prepareStatements(Connection connection) throws SQLException {
-        this.st = connection.prepareStatement(sql);
+        statement = statementFactory.createStatement(connection);
     }
 
     @Override
-    public void addToBatch(T record) {
-        batch.add(record);
+    public void addToBatch(SeaTunnelRow record) throws SQLException {
+        converter.toExternal(rowType, record, statement);
+        statement.addBatch();
     }
 
     @Override
     public void executeBatch() throws SQLException {
-        if (!batch.isEmpty()) {
-            for (T r : batch) {
-                parameterSetter.accept(st, r);
-                st.addBatch();
-            }
-            st.executeBatch();
-            batch.clear();
-        }
+        statement.executeBatch();
+        statement.clearBatch();
     }
 
     @Override
     public void closeStatements() throws SQLException {
-        if (st != null) {
-            st.close();
-            st = null;
+        if (statement != null) {
+            statement.close();
         }
     }
 }

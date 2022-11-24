@@ -42,8 +42,8 @@ public class S3FileSink extends BaseFileSink {
     public void prepare(Config pluginConfig) throws PrepareFailException {
         super.prepare(pluginConfig);
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
-                S3Config.FILE_PATH, S3Config.S3_BUCKET,
-                S3Config.S3_ACCESS_KEY, S3Config.S3_SECRET_KEY);
+                S3Config.FILE_PATH.key(), S3Config.S3_BUCKET.key(),
+                S3Config.S3_ACCESS_KEY.key(), S3Config.S3_SECRET_KEY.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
         }

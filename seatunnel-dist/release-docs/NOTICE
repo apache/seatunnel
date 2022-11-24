@@ -157,17 +157,6 @@ Copyright (c) 2008 Alexander Beider & Stephen P. Morse.
 
 ========================================================================
 
-Apache Commons CLI NOTICE
-
-========================================================================
-Apache Commons CLI
-Copyright 2001-2015 The Apache Software Foundation
-
-This product includes software developed at
-The Apache Software Foundation (http://www.apache.org/).
-
-========================================================================
-
 Apache Commons Collections NOTICE
 
 ========================================================================
@@ -260,17 +249,6 @@ This product includes software developed at
 The Apache Software Foundation (https://www.apache.org/).
 
 ========================================================================
-
-Apache Commons Math NOTICE
-
-========================================================================
-Apache Commons Math
-Copyright 2001-2014 The Apache Software Foundation
-
-This product includes software developed at
-The Apache Software Foundation (http://www.apache.org/).
-
-===============================================================================
 
 The inverse error function implementation in the Erf class is based on CUDA
 code developed by Mike Giles, Oxford-Man Institute of Quantitative Finance,
@@ -464,11 +442,26 @@ from the source code management (SCM) system project uses.
 Apache log4j NOTICE
 
 ========================================================================
-Apache log4j
-Copyright 2010 The Apache Software Foundation
+Apache Log4j
+Copyright 1999-2021 Apache Software Foundation
 
 This product includes software developed at
 The Apache Software Foundation (http://www.apache.org/).
+
+ResolverUtil.java
+Copyright 2005-2006 Tim Fennell
+
+Dumbster SMTP test server
+Copyright 2004 Jason Paul Kitchen
+
+TypeUtil.java
+Copyright 2002-2012 Ramnivas Laddad, Juergen Hoeller, Chris Beams
+
+picocli (http://picocli.info)
+Copyright 2017 Remko Popma
+
+TimeoutBlockingWaitStrategy.java and parts of Util.java
+Copyright 2011 LMAX Ltd.
 ========================================================================
 
 Apache ORC NOTICE

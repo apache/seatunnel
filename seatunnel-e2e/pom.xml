@@ -30,11 +30,9 @@
         <module>seatunnel-e2e-common</module>
         <module>seatunnel-connector-v2-e2e</module>
         <module>seatunnel-flink-connector-v2-e2e</module>
-        <module>seatunnel-flink-e2e</module>
-        <module>seatunnel-flink-sql-e2e</module>
         <module>seatunnel-spark-connector-v2-e2e</module>
-        <module>seatunnel-spark-e2e</module>
         <module>seatunnel-engine-e2e</module>
+        <module>seatunnel-transforms-v2-e2e</module>
     </modules>
 
     <properties>
@@ -45,11 +43,6 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-log4j12</artifactId>
-            <scope>test</scope>
         </dependency>
         <!-- Testcontainers 1.x is tightly coupled with the JUnit 4.x rule API-->
         <dependency>

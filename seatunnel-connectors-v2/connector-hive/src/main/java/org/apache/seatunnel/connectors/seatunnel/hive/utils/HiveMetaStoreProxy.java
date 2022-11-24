@@ -49,7 +49,7 @@ public class HiveMetaStoreProxy {
         if (INSTANCE == null) {
             synchronized (HiveMetaStoreProxy.class) {
                 if (INSTANCE == null) {
-                    String metastoreUri = config.getString(HiveConfig.METASTORE_URI);
+                    String metastoreUri = config.getString(HiveConfig.METASTORE_URI.key());
                     INSTANCE = new HiveMetaStoreProxy(metastoreUri);
                 }
             }

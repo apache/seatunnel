@@ -48,14 +48,14 @@ public class S3FileSource extends BaseFileSource {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
-                S3Config.FILE_PATH, S3Config.FILE_TYPE, S3Config.S3_BUCKET,
-                S3Config.S3_ACCESS_KEY, S3Config.S3_SECRET_KEY);
+                S3Config.FILE_PATH.key(), S3Config.FILE_TYPE.key(), S3Config.S3_BUCKET.key(),
+                S3Config.S3_ACCESS_KEY.key(), S3Config.S3_SECRET_KEY.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
-        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(S3Config.FILE_TYPE));
+        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(S3Config.FILE_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
-        String path = pluginConfig.getString(S3Config.FILE_PATH);
+        String path = pluginConfig.getString(S3Config.FILE_PATH.key());
         hadoopConf = S3Conf.buildWithConfig(pluginConfig);
         try {
             filePaths = readStrategy.getFileNamesByPath(hadoopConf, path);
@@ -63,14 +63,14 @@ public class S3FileSource extends BaseFileSource {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Check file path fail.");
         }
         // support user-defined schema
-        FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(S3Config.FILE_TYPE).toUpperCase());
+        FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(S3Config.FILE_TYPE.key()).toUpperCase());
         // only json text csv type support user-defined schema now
-        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA)) {
+        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
             switch (fileFormat) {
                 case CSV:
                 case TEXT:
                 case JSON:
-                    Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA);
+                    Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
                     SeaTunnelRowType userDefinedSchema = SeaTunnelSchema
                             .buildWithConfig(schemaConfig)
                             .getSeaTunnelRowType();

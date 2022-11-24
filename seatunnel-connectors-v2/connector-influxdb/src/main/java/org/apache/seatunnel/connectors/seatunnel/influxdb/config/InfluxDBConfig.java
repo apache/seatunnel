@@ -17,93 +17,85 @@
 
 package org.apache.seatunnel.connectors.seatunnel.influxdb.config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.common.annotations.VisibleForTesting;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.util.List;
 
 @Data
+@SuppressWarnings("checkstyle:MagicNumber")
 public class InfluxDBConfig implements Serializable {
 
-    public static final String USERNAME = "username";
-    public static final String PASSWORD = "password";
-    public static final String URL = "url";
-    private static final String CONNECT_TIMEOUT_MS = "connect_timeout_ms";
-    private static final String QUERY_TIMEOUT_SEC = "query_timeout_sec";
+    public static final Option<String> USERNAME = Options.key("username")
+        .stringType()
+        .noDefaultValue()
+        .withDescription("the influxdb server username");
 
-    public static final String SQL = "sql";
-    public static final String SQL_WHERE = "where";
+    public static final Option<String> PASSWORD = Options.key("password")
+        .stringType()
+        .noDefaultValue()
+        .withDescription("the influxdb server password");
 
-    public static final String DATABASES = "database";
-    public static final String SPLIT_COLUMN = "split_column";
-    private static final String PARTITION_NUM = "partition_num";
-    private static final String UPPER_BOUND = "upper_bound";
-    private static final String LOWER_BOUND = "lower_bound";
+    public static final Option<String> URL = Options.key("url")
+        .stringType()
+        .noDefaultValue()
+        .withDescription("the influxdb server url");
 
+    public static final Option<Long> CONNECT_TIMEOUT_MS = Options.key("connect_timeout_ms")
+        .longType()
+        .defaultValue(15000L)
+        .withDescription("the influxdb client connect timeout ms");
+
+    public static final Option<Integer> QUERY_TIMEOUT_SEC = Options.key("query_timeout_sec")
+        .intType()
+        .defaultValue(3)
+        .withDescription("the influxdb client query timeout ms");
+
+    public static final Option<String> DATABASES = Options.key("database")
+        .stringType()
+        .noDefaultValue()
+        .withDescription("the influxdb server database");
+
+    public static final Option<String> EPOCH = Options.key("epoch")
+        .stringType()
+        .defaultValue("n")
+        .withDescription("the influxdb server query epoch");
 
     private static final String DEFAULT_FORMAT = "MSGPACK";
-    private static final String EPOCH = "epoch";
-
-    public static final String DEFAULT_PARTITIONS = "0";
-    private static final int DEFAULT_QUERY_TIMEOUT_SEC = 3;
-    private static final long DEFAULT_CONNECT_TIMEOUT_MS = 15000;
-
-    private static final String DEFAULT_EPOCH = "n";
-
     private String url;
     private String username;
     private String password;
-    private String sql;
-    private int partitionNum = 0;
-    private String splitKey;
-    private long lowerBound;
-    private long upperBound;
     private String database;
-
     private String format = DEFAULT_FORMAT;
-    private int queryTimeOut = DEFAULT_QUERY_TIMEOUT_SEC;
-    private long connectTimeOut = DEFAULT_CONNECT_TIMEOUT_MS;
-
-    private String epoch = DEFAULT_EPOCH;
-
-    List<Integer> columnsIndex;
+    private int queryTimeOut = QUERY_TIMEOUT_SEC.defaultValue();
+    private long connectTimeOut = CONNECT_TIMEOUT_MS.defaultValue();
+    private String epoch = EPOCH.defaultValue();
 
     public InfluxDBConfig(Config config) {
-        this.url = config.getString(URL);
-        this.sql = config.getString(SQL);
+        this.url = config.getString(URL.key());
 
-        if (config.hasPath(USERNAME)) {
-            this.username = config.getString(USERNAME);
+        if (config.hasPath(USERNAME.key())) {
+            this.username = config.getString(USERNAME.key());
         }
-        if (config.hasPath(PASSWORD)) {
-            this.password = config.getString(PASSWORD);
+        if (config.hasPath(PASSWORD.key())) {
+            this.password = config.getString(PASSWORD.key());
         }
-        if (config.hasPath(PARTITION_NUM)) {
-            this.partitionNum = config.getInt(PARTITION_NUM);
+        if (config.hasPath(DATABASES.key())) {
+            this.database = config.getString(DATABASES.key());
         }
-        if (config.hasPath(UPPER_BOUND)) {
-            this.upperBound = config.getInt(UPPER_BOUND);
+        if (config.hasPath(EPOCH.key())) {
+            this.epoch = config.getString(EPOCH.key());
         }
-        if (config.hasPath(LOWER_BOUND)) {
-            this.lowerBound = config.getInt(LOWER_BOUND);
+        if (config.hasPath(CONNECT_TIMEOUT_MS.key())) {
+            this.connectTimeOut = config.getLong(CONNECT_TIMEOUT_MS.key());
         }
-        if (config.hasPath(SPLIT_COLUMN)) {
-            this.splitKey = config.getString(SPLIT_COLUMN);
-        }
-        if (config.hasPath(DATABASES)) {
-            this.database = config.getString(DATABASES);
-        }
-        if (config.hasPath(EPOCH)) {
-            this.epoch = config.getString(EPOCH);
-        }
-        if (config.hasPath(CONNECT_TIMEOUT_MS)) {
-            this.connectTimeOut = config.getLong(CONNECT_TIMEOUT_MS);
-        }
-        if (config.hasPath(QUERY_TIMEOUT_SEC)) {
-            this.queryTimeOut = config.getInt(QUERY_TIMEOUT_SEC);
+        if (config.hasPath(QUERY_TIMEOUT_SEC.key())) {
+            this.queryTimeOut = config.getInt(QUERY_TIMEOUT_SEC.key());
         }
     }
 

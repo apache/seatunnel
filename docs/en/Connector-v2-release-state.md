@@ -17,7 +17,7 @@ SeaTunnel uses a grading system for connectors to help you understand what to ex
 | [ClickHouseFile](connector-v2/sink/ClickhouseFile.md)       | Sink   | Beta   | 2.2.0-beta      |
 | [Console](connector-v2/sink/Console.md)                     | Sink   | Beta   | 2.2.0-beta      |
 | [DataHub](connector-v2/sink/Datahub.md)                     | Sink   | Alpha  | 2.2.0-beta      |
-| [DingTalk](connector-v2/sink/dingtalk.md)                   | Sink   | Alpha  | 2.2.0-beta      |
+| [DingTalk](connector-v2/sink/DingTalk.md)                   | Sink   | Alpha  | 2.2.0-beta      |
 | [Elasticsearch](connector-v2/sink/Elasticsearch.md)         | Sink   | Beta   | 2.2.0-beta      |
 | [Email](connector-v2/sink/Email.md)                         | Sink   | Alpha  | 2.2.0-beta      |
 | [Enterprise WeChat](connector-v2/sink/Enterprise-WeChat.md) | Sink   | Alpha  | 2.2.0-beta      |
@@ -40,10 +40,12 @@ SeaTunnel uses a grading system for connectors to help you understand what to ex
 | [Jdbc](connector-v2/sink/Jdbc.md)                           | Sink   | Beta   | 2.2.0-beta      |
 | [Kudu](connector-v2/source/Kudu.md)                         | Source | Alpha  | 2.2.0-beta      |
 | [Kudu](connector-v2/sink/Kudu.md)                           | Sink   | Alpha  | 2.2.0-beta      |
+| [Lemlist](connector-v2/source/Lemlist.md)                   | Source | Alpha  | 2.2.0-beta      |
 | [LocalFile](connector-v2/sink/LocalFile.md)                 | Sink   | Beta   | 2.2.0-beta      |
 | [LocalFile](connector-v2/source/LocalFile.md)               | Source | Beta   | 2.2.0-beta      |
 | [MongoDB](connector-v2/source/MongoDB.md)                   | Source | Beta   | 2.2.0-beta      |
 | [MongoDB](connector-v2/sink/MongoDB.md)                     | Sink   | Beta   | 2.2.0-beta      |
+| [MyHours](connector-v2/source/MyHours.md)                   | Source | Alpha  | 2.2.0-beta      |
 | [Neo4j](connector-v2/sink/Neo4j.md)                         | Sink   | Alpha  | 2.2.0-beta      |
 | [OssFile](connector-v2/sink/OssFile.md)                     | Sink   | Alpha  | 2.2.0-beta      |
 | [OssFile](connector-v2/source/OssFile.md)                   | Source | Beta   | 2.2.0-beta      |
@@ -59,3 +61,5 @@ SeaTunnel uses a grading system for connectors to help you understand what to ex
 | [Kafka](connector-v2/sink/Kafka.md)                         | Sink   | Alpha  | 2.3.0-beta      |
 | [S3File](connector-v2/source/S3File.md)                     | Source | Alpha  | 2.3.0-beta      |
 | [S3File](connector-v2/sink/S3File.md)                       | Sink   | Alpha  | 2.3.0-beta      |
+| [Cassandra](connector-v2/source/Cassandra.md)               | Source | Alpha  | 2.3.0-beta      |
+| [Cassandra](connector-v2/sink/Cassandra.md)                 | Sink   | Alpha  | 2.3.0-beta      |
