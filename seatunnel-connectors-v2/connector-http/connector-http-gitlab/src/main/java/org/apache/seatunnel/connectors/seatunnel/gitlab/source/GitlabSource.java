@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.gitlab.source;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -29,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSpl
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.gitlab.source.config.GitlabSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.gitlab.source.config.GitlabSourceParameter;
+import org.apache.seatunnel.connectors.seatunnel.gitlab.source.exception.GitlabConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
 
@@ -60,7 +62,9 @@ public class GitlabSource extends HttpSource {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, GitlabSourceConfig.URL.key(),
             GitlabSourceConfig.ACCESS_TOKEN.key());
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
+            throw new GitlabConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         this.gitlabSourceParameter.buildWithConfig(pluginConfig);
         buildSchemaWithConfig(pluginConfig);
