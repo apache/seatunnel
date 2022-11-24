@@ -244,6 +244,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             case PREPARE_CLOSE:
                 if (closeCalled) {
                     currState = CLOSED;
+                } else {
+                    Thread.sleep(100);
                 }
                 break;
             case CLOSED:

@@ -103,6 +103,7 @@ public class CheckpointCoordinator {
 
     private final CheckpointPlan plan;
 
+    private final Set<TaskLocation> readyToCloseStartingTask;
     private final ConcurrentHashMap<Long, PendingCheckpoint> pendingCheckpoints;
 
     private final ArrayDeque<CompletedCheckpoint> completedCheckpoints;
@@ -155,6 +156,7 @@ public class CheckpointCoordinator {
         this.pipelineTasks = getPipelineTasks(plan.getPipelineSubtasks());
         this.pipelineTaskStatus = new ConcurrentHashMap<>();
         this.checkpointIdCounter = checkpointIdCounter;
+        this.readyToCloseStartingTask = new CopyOnWriteArraySet<>();
         if (pipelineState != null) {
             this.latestCompletedCheckpoint = serializer.deserialize(pipelineState.getStates(), CompletedCheckpoint.class);
         }
@@ -235,6 +237,13 @@ public class CheckpointCoordinator {
 
     protected void tryTriggerPendingCheckpoint() {
         tryTriggerPendingCheckpoint(CHECKPOINT_TYPE);
+    }
+
+    protected void readyToClose(TaskLocation taskLocation) {
+        readyToCloseStartingTask.add(taskLocation);
+        if (readyToCloseStartingTask.size() == plan.getStartingSubtasks().size()) {
+            tryTriggerPendingCheckpoint(CheckpointType.COMPLETED_POINT_TYPE);
+        }
     }
 
     protected void tryTriggerPendingCheckpoint(CheckpointType checkpointType) {
