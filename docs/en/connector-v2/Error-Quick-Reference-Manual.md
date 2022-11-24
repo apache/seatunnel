@@ -84,3 +84,11 @@ This document records some common error codes and corresponding solutions of Sea
 | TABLESTORE-02  | Failed to send this row of data       | When users encounter this error code, it means that failed to write this row of data, please read error code and error message   |
 | TABLESTORE-03  | Unsupported primaryKeyType            | When users encounter this error code, it means that this primaryKeyType is not supported, please check your it                   |
 | TABLESTORE-04  | Unsupported columnType                | When users encounter this error code, it means that this columnType is not supported, please check your it                       |
+
+## Hive Connector Error Codes
+
+| code    | description                                                   | solution                                                                                                                      |
+|---------|---------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
+| HIVE-01 | Get name node host from table location failed                 | When users encounter this error code, it means that the metastore inforamtion has some problems, please check it              |
+| HIVE-02 | Initialize hive metastore client failed                       | When users encounter this error code, it means that connect to hive metastore service failed, please check it whether is work |
+| HIVE-03 | Get hive table information from hive metastore service failed | When users encounter this error code, it means that hive metastore service has some problems, please check it whether is work |

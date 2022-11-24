@@ -30,6 +30,7 @@ import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkCo
 import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkConfig.QUERY_PARAM_POSITION;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -40,6 +41,7 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.DriverBuilder;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkQueryInfo;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.exception.Neo4jConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -67,7 +69,9 @@ public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> 
         final CheckResult queryConfigCheck =
             CheckConfigUtil.checkAllExists(config, KEY_QUERY.key(), QUERY_PARAM_POSITION.key());
         if (!queryConfigCheck.isSuccess()) {
-            throw new PrepareFailException(PLUGIN_NAME, PluginType.SINK, queryConfigCheck.getMsg());
+            throw new Neo4jConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                String.format("PluginName: %s, PluginType: %s, Message: %s",
+                    PLUGIN_NAME, PluginType.SINK, queryConfigCheck.getMsg()));
         }
         neo4JSinkQueryInfo.setQuery(config.getString(KEY_QUERY.key()));
         neo4JSinkQueryInfo.setQueryParamPosition(config.getObject(QUERY_PARAM_POSITION.key()).unwrapped());
@@ -81,7 +85,9 @@ public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> 
                 KEY_KERBEROS_TICKET.key());
         final CheckResult mergedConfigCheck = CheckConfigUtil.mergeCheckResults(uriConfigCheck, authConfigCheck);
         if (!mergedConfigCheck.isSuccess()) {
-            throw new PrepareFailException(PLUGIN_NAME, PluginType.SINK, mergedConfigCheck.getMsg());
+            throw new Neo4jConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                String.format("PluginName: %s, PluginType: %s, Message: %s",
+                    PLUGIN_NAME, PluginType.SINK, mergedConfigCheck.getMsg()));
         }
 
         final URI uri = URI.create(config.getString(KEY_NEO4J_URI.key()));
@@ -90,8 +96,10 @@ public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> 
 
         if (config.hasPath(KEY_USERNAME.key())) {
             final CheckResult pwParamCheck = CheckConfigUtil.checkAllExists(config, KEY_PASSWORD.key());
-            if (!mergedConfigCheck.isSuccess()) {
-                throw new PrepareFailException(PLUGIN_NAME, PluginType.SINK, pwParamCheck.getMsg());
+            if (!pwParamCheck.isSuccess()) {
+                throw new Neo4jConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                        PLUGIN_NAME, PluginType.SINK, pwParamCheck.getMsg()));
             }
             final String username = config.getString(KEY_USERNAME.key());
             final String password = config.getString(KEY_PASSWORD.key());
