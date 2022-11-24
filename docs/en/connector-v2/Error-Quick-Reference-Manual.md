@@ -1,6 +1,7 @@
 # Error Quick Reference Manual
 
-This document records some common error codes and corresponding solutions of SeaTunnel, aiming to quickly solve the problems encountered by users.
+This document records some common error codes and corresponding solutions of SeaTunnel, aiming to quickly solve the
+problems encountered by users.
 
 ## SeaTunnel API Error Codes
 
@@ -58,6 +59,15 @@ This document records some common error codes and corresponding solutions of Sea
 
 | code      | description                                              | solution                                                                                                                       |
 |-----------|----------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
-| SOCKET-01 | Cannot connect to socket server                          | When the user encounters this error code, it means that the connection address may not match, please check                     |
+| SOCKET-01 | Cannot connect to socket server                          | When the user encounters this error code, it means that the connection for address may not match, please check                 |
 | SOCKET-02 | Failed to send message to socket server                  | When the user encounters this error code, it means that there is a problem sending data and retry is not enabled, please check |
 | SOCKET-03 | Unable to write; interrupted while doing another attempt | When the user encounters this error code, it means that the data writing is interrupted abnormally, please check               |
+
+## Elasticsearch Connector Error Codes
+
+| code              | description                                   | solution                                                                                                                                 |
+|-------------------|-----------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| ELASTICSEARCH-01  | Bulk es response error                        | When the user encounters this error code, it means that the connection address may not match or the connection was aborted, please check |
+| ELASTICSEARCH-02  | Get elasticsearch version failed              | When the user encounters this error code, it means that the connection address may not match or the connection was aborted, please check |
+| ELASTICSEARCH-03  | Fail to scroll request                        | When the user encounters this error code, it means that the connection address may not match or the connection was aborted, please check |
+| ELASTICSEARCH-04  | Get elasticsearch document index count failed | When the user encounters this error code, it means that the connection address may not match or the connection was aborted, please check |
