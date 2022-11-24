@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.tablestore.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreOptions;
 import org.apache.seatunnel.connectors.seatunnel.tablestore.exception.TablestoreConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.tablestore.exception.TablestoreConnectorException;
@@ -110,11 +111,8 @@ public class TablestoreSinkClient {
         BatchWriteRowResponse response = syncClient.batchWriteRow(batchWriteRowRequest);
 
         if (!response.isAllSucceed()) {
-            for (BatchWriteRowResponse.RowResult rowResult : response.getFailedRows()) {
-                throw new TablestoreConnectorException(TablestoreConnectorErrorCode.WRITE_ROW_FAILED,
-                        String.format("Failed to send '%s' row of data, Code: '%s' Message: '%s'.",
-                                rowResult.getRow(), rowResult.getError().getCode(), rowResult.getError().getMessage()));
-            }
+            throw new TablestoreConnectorException(TablestoreConnectorErrorCode.WRITE_ROW_FAILED,
+                String.format("Failed to send these rows of data: '%s'.", response.getFailedRows()));
         }
 
         batchList.clear();
@@ -122,7 +120,7 @@ public class TablestoreSinkClient {
 
     private void checkFlushException() {
         if (flushException != null) {
-            throw new TablestoreConnectorException(TablestoreConnectorErrorCode.FLUSH_DATA_FAILED,
+            throw new TablestoreConnectorException(CommonErrorCode.FLUSH_DATA_FAILED,
                     "Writing items to Tablestore failed.", flushException);
         }
     }

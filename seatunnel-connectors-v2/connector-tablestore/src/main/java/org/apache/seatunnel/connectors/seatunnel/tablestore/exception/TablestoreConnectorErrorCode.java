@@ -20,10 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.tablestore.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum TablestoreConnectorErrorCode implements SeaTunnelErrorCode {
-    FLUSH_DATA_FAILED("TABLESTORE-01", "Writing items to Tablestore failed"),
-    WRITE_ROW_FAILED("TABLESTORE-02", "Failed to send this row of data"),
-    UNSUPPORTED_PRIMARY_KEY_TYPE("TABLESTORE-03", "Unsupported primaryKeyType"),
-    UNSUPPORTED_COLUMN_TYPE("TABLESTORE-04", "Unsupported columnType");
+    WRITE_ROW_FAILED("TABLESTORE-01", "Failed to send these rows of data");
 
     private final String code;
 
