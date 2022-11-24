@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.influxdb.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.client.InfluxDBClient;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig;
@@ -137,7 +138,7 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             } catch (Exception e) {
                 log.error("Writing records to influxdb failed, retry times = {}", i, e);
                 if (i >= sinkConfig.getMaxRetries()) {
-                    throw new InfluxdbConnectorException(InfluxdbConnectorErrorCode.WRITING_RECORDS_FAILED,
+                    throw new InfluxdbConnectorException(CommonErrorCode.FLUSH_DATA_FAILED,
                         "Writing records to InfluxDB failed.", e);
                 }
 
@@ -147,7 +148,7 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                     Thread.sleep(backoff);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
-                    throw new InfluxdbConnectorException(InfluxdbConnectorErrorCode.FLUSH_FAILED,
+                    throw new InfluxdbConnectorException(CommonErrorCode.FLUSH_DATA_FAILED,
                         "Unable to flush; interrupted while doing another attempt.", e);
                 }
             }
@@ -158,7 +159,7 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private void checkFlushException() {
         if (flushException != null) {
-            throw new InfluxdbConnectorException(InfluxdbConnectorErrorCode.WRITING_RECORDS_FAILED,
+            throw new InfluxdbConnectorException(CommonErrorCode.FLUSH_DATA_FAILED,
                 "Writing records to InfluxDB failed.", flushException);
         }
     }

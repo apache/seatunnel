@@ -22,9 +22,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 public enum InfluxdbConnectorErrorCode implements SeaTunnelErrorCode {
 
     CONNECT_FAILED("INFLUXDB-01", "Connect influxdb failed, due to influxdb version info is unknown"),
-    GET_COLUMN_INDEX_FAILED("INFLUXDB-02", "Get column index of query result exception"),
-    WRITING_RECORDS_FAILED("INFLUXDB-03", "Writing records to InfluxDB failed"),
-    FLUSH_FAILED("INFLUXDB-04", "Unable to flush; interrupted while doing another attempt");
+    GET_COLUMN_INDEX_FAILED("INFLUXDB-02", "Get column index of query result exception");
 
     private final String code;
     private final String description;
