@@ -30,7 +30,6 @@ import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProp
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.POLL_INTERVAL;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.POLL_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.SUBSCRIPTION_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.StartMode.SUBSCRIPTION;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.TOPIC;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.TOPIC_DISCOVERY_INTERVAL;
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.TOPIC_PATTERN;
@@ -57,10 +56,12 @@ public class PulsarSourceFactory implements TableSourceFactory {
             .required(SUBSCRIPTION_NAME, CLIENT_SERVICE_URL, ADMIN_SERVICE_URL)
             .exclusive(TOPIC, TOPIC_PATTERN)
             .conditional(CURSOR_STARTUP_MODE, SourceProperties.StartMode.TIMESTAMP, CURSOR_STARTUP_TIMESTAMP)
-            .conditional(CURSOR_STARTUP_MODE, SUBSCRIPTION, CURSOR_RESET_MODE)
+            .conditional(CURSOR_STARTUP_MODE, SourceProperties.StartMode.SUBSCRIPTION, CURSOR_RESET_MODE)
             .conditional(CURSOR_STOP_MODE, SourceProperties.StopMode.TIMESTAMP, CURSOR_STOP_TIMESTAMP)
-            .optional(TOPIC_DISCOVERY_INTERVAL, AUTH_PLUGIN_CLASS, AUTH_PARAMS, POLL_TIMEOUT, POLL_INTERVAL,
+            .optional(CURSOR_STARTUP_MODE, CURSOR_STOP_MODE, TOPIC_DISCOVERY_INTERVAL,
+                POLL_TIMEOUT, POLL_INTERVAL,
                 POLL_BATCH_SIZE, SeaTunnelSchema.SCHEMA)
+            .bundled(AUTH_PLUGIN_CLASS, AUTH_PARAMS)
             .build();
     }
 }
