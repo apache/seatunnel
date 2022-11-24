@@ -41,9 +41,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -56,10 +56,13 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     private final ConsumerMetadata metadata;
     private final Set<KafkaSourceSplit> sourceSplits;
     private final Map<Long, Map<TopicPartition, Long>> checkpointOffsetMap;
-    private final ConcurrentMap<TopicPartition, KafkaSourceSplit> sourceSplitMap;
     private final Map<TopicPartition, KafkaConsumerThread> consumerThreadMap;
     private final ExecutorService executorService;
     private final KafkaDeserializationSchema<SeaTunnelRow> deserializationSchema;
+
+    private final LinkedBlockingQueue<KafkaSourceSplit> pendingPartitionsQueue;
+
+    private volatile boolean running = false;
 
     KafkaSourceReader(ConsumerMetadata metadata,
                       KafkaDeserializationSchema<SeaTunnelRow> deserializationSchema,
@@ -69,10 +72,10 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
         this.sourceSplits = new HashSet<>();
         this.deserializationSchema = deserializationSchema;
         this.consumerThreadMap = new ConcurrentHashMap<>();
-        this.sourceSplitMap = new ConcurrentHashMap<>();
         this.checkpointOffsetMap = new ConcurrentHashMap<>();
         this.executorService = Executors.newCachedThreadPool(
             r -> new Thread(r, "Kafka Source Data Consumer"));
+        pendingPartitionsQueue = new LinkedBlockingQueue<>();
     }
 
     @Override
@@ -88,9 +91,13 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        if (sourceSplitMap.isEmpty()) {
+        if (!running) {
             Thread.sleep(THREAD_WAIT_TIME);
             return;
+        }
+
+        while (pendingPartitionsQueue.size() != 0) {
+            sourceSplits.add(pendingPartitionsQueue.poll());
         }
         sourceSplits.forEach(sourceSplit -> consumerThreadMap.computeIfAbsent(sourceSplit.getTopicPartition(), s -> {
             KafkaConsumerThread thread = new KafkaConsumerThread(metadata);
@@ -157,9 +164,13 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
 
     @Override
     public void addSplits(List<KafkaSourceSplit> splits) {
-        sourceSplits.addAll(splits);
-        sourceSplits.forEach(split -> {
-            sourceSplitMap.put(split.getTopicPartition(), split);
+        running = true;
+        splits.forEach(s -> {
+            try {
+                pendingPartitionsQueue.put(s);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         });
     }
 

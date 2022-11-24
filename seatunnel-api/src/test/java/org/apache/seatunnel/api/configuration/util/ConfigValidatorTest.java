@@ -34,10 +34,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class ConfigValidatorTest {
     public static final Option<String> KEY_USERNAME =
@@ -78,7 +78,7 @@ public class ConfigValidatorTest {
 
         // absent
         config.put(TEST_PORTS.key(), "[9090]");
-        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('password', 'username') are required.",
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('username', 'password') are required.",
             assertThrows(OptionValidationException.class, executable).getMessage());
 
         config.put(KEY_USERNAME.key(), "asuka");
@@ -102,7 +102,7 @@ public class ConfigValidatorTest {
 
         // case2: some present
         config.put(KEY_USERNAME.key(), "asuka");
-        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('password', 'username') are bundled, must be present or absent together." +
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('username', 'password') are bundled, must be present or absent together." +
                 " The options present are: 'username'. The options absent are 'password'.",
             assertThrows(OptionValidationException.class, executable).getMessage());
 
@@ -137,7 +137,7 @@ public class ConfigValidatorTest {
 
     @Test
     public void testComplexExclusiveRequiredOptions() {
-        Set<RequiredOption.BundledRequiredOptions> exclusiveBundledOptions  = new HashSet<>();
+        List<RequiredOption.BundledRequiredOptions> exclusiveBundledOptions  = new ArrayList<>();
         exclusiveBundledOptions.add(RequiredOption.BundledRequiredOptions.of(KEY_USERNAME, KEY_PASSWORD));
         OptionRule rule = OptionRule.builder()
             .exclusive(RequiredOption.ExclusiveRequiredOptions.of(exclusiveBundledOptions, KEY_BEARER_TOKEN, KEY_KERBEROS_TICKET))
@@ -147,13 +147,13 @@ public class ConfigValidatorTest {
         Executable executable = () -> validate(config, rule);
 
         // all absent
-        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, these options(['kerberos-ticket'], ['password', 'username'], ['bearer-token']) are mutually exclusive," +
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, these options(['bearer-token'], ['kerberos-ticket'], ['username', 'password']) are mutually exclusive," +
                 " allowing only one set(\"[] for a set\") of options to be configured.",
             assertThrows(OptionValidationException.class, executable).getMessage());
 
         // bundled option some present
         config.put(KEY_USERNAME.key(), "asuka");
-        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('password', 'username') are bundled, must be present or absent together." +
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('username', 'password') are bundled, must be present or absent together." +
                 " The options present are: 'username'. The options absent are 'password'.",
             assertThrows(OptionValidationException.class, executable).getMessage());
 
@@ -163,13 +163,13 @@ public class ConfigValidatorTest {
 
         // tow set options present
         config.put(KEY_BEARER_TOKEN.key(), "ashulin");
-        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options(['password', 'username'], ['bearer-token']) are mutually exclusive," +
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options(['bearer-token'], ['username', 'password']) are mutually exclusive," +
                 " allowing only one set(\"[] for a set\") of options to be configured.",
             assertThrows(OptionValidationException.class, executable).getMessage());
 
         // three set options present
         config.put(KEY_KERBEROS_TICKET.key(), "zongwen");
-        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options(['kerberos-ticket'], ['password', 'username'], ['bearer-token']) are mutually exclusive," +
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options(['bearer-token'], ['kerberos-ticket'], ['username', 'password']) are mutually exclusive," +
                 " allowing only one set(\"[] for a set\") of options to be configured.",
             assertThrows(OptionValidationException.class, executable).getMessage());
     }

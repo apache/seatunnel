@@ -32,7 +32,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -63,7 +62,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
-@Disabled("disable because it can not success")
 public class StarRocksIT extends TestSuiteBase implements TestResource {
     private static final String DOCKER_IMAGE = "d87904488/starrocks-starter:2.2.1";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
@@ -101,7 +99,6 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             "PROPERTIES (\n" +
             "\"replication_num\" = \"1\",\n" +
             "\"in_memory\" = \"false\"," +
-            "\"in_memory\" = \"false\"," +
             "\"storage_format\" = \"DEFAULT\"" +
             ")";
 
@@ -125,7 +122,6 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 1\n" +
             "PROPERTIES (\n" +
             "\"replication_num\" = \"1\",\n" +
-            "\"in_memory\" = \"false\"," +
             "\"in_memory\" = \"false\"," +
             "\"storage_format\" = \"DEFAULT\"" +
             ")";
@@ -245,6 +241,11 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     }
                 }
             }
+            //Check the row numbers is equal
+            sourceResultSet.last();
+            sinkResultSet.last();
+            Assertions.assertEquals(sourceResultSet.getRow(), sinkResultSet.getRow());
+            clearSinkTable();
         } catch (Exception e) {
             throw new RuntimeException("get starRocks connection error", e);
         }
@@ -299,6 +300,14 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             ResultSet source = statement.executeQuery(sql);
             Assertions.assertTrue(source.next());
         } catch (Exception e) {
+            throw new RuntimeException("test starrocks server image error", e);
+        }
+    }
+
+    private void clearSinkTable() {
+        try (Statement statement = jdbcConnection.createStatement()) {
+            statement.execute(String.format("TRUNCATE TABLE %s.%s", DATABASE, SINK_TABLE));
+        } catch (SQLException e) {
             throw new RuntimeException("test starrocks server image error", e);
         }
     }

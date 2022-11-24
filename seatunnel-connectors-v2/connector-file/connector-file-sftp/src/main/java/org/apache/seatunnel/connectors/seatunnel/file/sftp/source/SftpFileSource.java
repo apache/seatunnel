@@ -47,19 +47,20 @@ public class SftpFileSource extends BaseFileSource {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, SftpConfig.FILE_PATH, SftpConfig.FILE_TYPE,
-                SftpConfig.SFTP_HOST, SftpConfig.SFTP_PORT,
-                SftpConfig.SFTP_USERNAME, SftpConfig.SFTP_PASSWORD);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
+                SftpConfig.FILE_PATH.key(), SftpConfig.FILE_TYPE.key(),
+                SftpConfig.SFTP_HOST.key(), SftpConfig.SFTP_PORT.key(),
+                SftpConfig.SFTP_USERNAME.key(), SftpConfig.SFTP_PASSWORD.key());
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
-        FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(SftpConfig.FILE_TYPE).toUpperCase());
+        FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(SftpConfig.FILE_TYPE.key()).toUpperCase());
         if (fileFormat == FileFormat.ORC || fileFormat == FileFormat.PARQUET) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Sftp file source connector only support read [text, csv, json] files");
         }
-        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(SftpConfig.FILE_TYPE));
+        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(SftpConfig.FILE_TYPE.key()));
         readStrategy.setPluginConfig(pluginConfig);
-        String path = pluginConfig.getString(SftpConfig.FILE_PATH);
+        String path = pluginConfig.getString(SftpConfig.FILE_PATH.key());
         hadoopConf = SftpConf.buildWithConfig(pluginConfig);
         try {
             filePaths = readStrategy.getFileNamesByPath(hadoopConf, path);

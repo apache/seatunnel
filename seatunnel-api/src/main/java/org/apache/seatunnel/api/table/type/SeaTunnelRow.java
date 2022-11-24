@@ -75,6 +75,26 @@ public final class SeaTunnelRow implements Serializable {
         return this.fields[pos];
     }
 
+    public SeaTunnelRow copy() {
+        Object[] newFields = new Object[this.getArity()];
+        System.arraycopy(this.getFields(), 0, newFields, 0, newFields.length);
+        SeaTunnelRow newRow = new SeaTunnelRow(newFields);
+        newRow.setRowKind(this.getRowKind());
+        newRow.setTableId(this.getTableId());
+        return newRow;
+    }
+
+    public SeaTunnelRow copy(int[] indexMapping) {
+        Object[] newFields = new Object[indexMapping.length];
+        for (int i = 0; i < indexMapping.length; i++) {
+            newFields[i] = this.fields[indexMapping[i]];
+        }
+        SeaTunnelRow newRow = new SeaTunnelRow(newFields);
+        newRow.setRowKind(this.getRowKind());
+        newRow.setTableId(this.getTableId());
+        return newRow;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {

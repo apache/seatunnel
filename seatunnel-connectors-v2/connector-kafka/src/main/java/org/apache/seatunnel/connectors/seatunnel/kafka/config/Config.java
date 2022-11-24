@@ -101,10 +101,10 @@ public class Config {
             .withDescription("We can decide which partition to send based on the content of the message. " +
                     "The function of this parameter is to distribute information.");
 
-    public static final Option<String> PARTITION_KEY = Options.key("partition_key")
-            .stringType()
+    public static final Option<List<String>> PARTITION_KEY_FIELDS = Options.key("partition_key_fields")
+            .listType()
             .noDefaultValue()
-            .withDescription("Configure which field is used as the key of the kafka message.");
+            .withDescription("Configure which fields are used as the key of the kafka message.");
 
     public static final Option<StartMode> START_MODE = Options.key("start_mode")
             .objectType(StartMode.class)
@@ -121,5 +121,13 @@ public class Config {
             .objectType(Config.class)
             .noDefaultValue()
             .withDescription("The offset required for consumption mode to be specific_offsets.");
+
+    /**
+     * Configuration key to define the consumer's partition discovery interval, in milliseconds.
+     */
+    public static final Option<Long> KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS = Options.key("partition-discovery.interval-millis")
+        .longType()
+        .defaultValue(-1L)
+        .withDescription("The interval for dynamically discovering topics and partitions.");
 
 }

@@ -24,7 +24,9 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | driver                       | String  | Yes      | -             |
 | user                         | String  | No       | -             |
 | password                     | String  | No       | -             |
-| query                        | String  | Yes      | -             |
+| query                        | String  | No       | -             |
+| table                        | String  | No       | -             |
+| primary_keys                 | Array   | No       | -             |
 | connection_check_timeout_sec | Int     | No       | 30            |
 | max_retries                  | Int     | No       | 3             |
 | batch_size                   | Int     | No       | 300           |
@@ -55,7 +57,17 @@ The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost/tes
 
 ### query [string]
 
-Query statement
+Use this sql write upstream input datas to database. e.g `INSERT ...`
+
+### table [string]
+
+Use this `table-name` auto-generate sql and receive upstream input datas write to database.
+
+This option is mutually exclusive with `query` and has a higher priority.
+
+### primary_keys [array]
+
+This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.
 
 ### connection_check_timeout_sec [int]
 
@@ -114,8 +126,9 @@ there are some reference value for params above.
 | PostgreSQL | org.postgresql.Driver                        | jdbc:postgresql://localhost:5432/postgres                          | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                |
 | DM         | dm.jdbc.driver.DmDriver                      | jdbc:dm://localhost:5236                                           | dm.jdbc.driver.DmdbXADataSource                    | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18                                                |
 | Phoenix    | org.apache.phoenix.queryserver.client.Driver | jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF | /                                                  | https://mvnrepository.com/artifact/com.aliyun.phoenix/ali-phoenix-shaded-thin-client                        |
-| SQL Server | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:microsoft:sqlserver://localhost:1433                          | com.microsoft.sqlserver.jdbc.SQLServerXADataSource | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc                                       |
+| SQL Server | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:sqlserver://localhost:1433                                    | com.microsoft.sqlserver.jdbc.SQLServerXADataSource | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc                                       |
 | Oracle     | oracle.jdbc.OracleDriver                     | jdbc:oracle:thin:@localhost:1521/xepdb1                            | oracle.jdbc.xa.OracleXADataSource                  | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8                                          |
+| sqlite     | org.sqlite.JDBC                              | jdbc:sqlite:test.db                                                | /                                                  | https://mvnrepository.com/artifact/org.xerial/sqlite-jdbc                                                   |
 | GBase8a    | com.gbase.jdbc.Driver                        | jdbc:gbase://e2e_gbase8aDb:5258/test                               | /                                                  | https://www.gbase8.cn/wp-content/uploads/2020/10/gbase-connector-java-8.3.81.53-build55.5.7-bin_min_mix.jar |
 | StarRocks  | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
 | db2        | com.ibm.db2.jcc.DB2Driver                    | jdbc:db2://localhost:50000/testdb                                  | com.ibm.db2.jcc.DB2XADataSource                    | https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc/db2jcc4                                           |
@@ -154,6 +167,22 @@ jdbc {
 }
 ```
 
+CDC(Change data capture) event
+
+```
+sink {
+    jdbc {
+        url = "jdbc:mysql://localhost/test"
+        driver = "com.mysql.cj.jdbc.Driver"
+        user = "root"
+        password = "123456"
+        
+        table = sink_table
+        primary_keys = ["key1", "key2", ...]
+    }
+}
+```
+
 ## Changelog
 
 ### 2.2.0-beta 2022-09-26
@@ -168,3 +197,8 @@ jdbc {
 - [Feature] Support Oracle JDBC Source ([2550](https://github.com/apache/incubator-seatunnel/pull/2550))
 - [Feature] Support StarRocks JDBC Source ([3060](https://github.com/apache/incubator-seatunnel/pull/3060))
 - [Feature] Support DB2 JDBC Sink ([2410](https://github.com/apache/incubator-seatunnel/pull/2410))
+
+### next version
+
+- [Feature] Support Sqlite JDBC Sink ([3089](https://github.com/apache/incubator-seatunnel/pull/3089))
+- [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3378](https://github.com/apache/incubator-seatunnel/issues/3378))
