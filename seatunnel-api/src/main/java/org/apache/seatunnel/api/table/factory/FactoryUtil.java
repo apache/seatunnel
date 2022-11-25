@@ -19,7 +19,6 @@ package org.apache.seatunnel.api.table.factory;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -162,7 +161,6 @@ public final class FactoryUtil {
 
     /**
      * This method is called by SeaTunnel Web to get the full option rule of a source.
-     * Please don't overwrite this method.
      * @return
      */
     public static OptionRule sourceFullOptionRule(@NonNull Factory factory) {
