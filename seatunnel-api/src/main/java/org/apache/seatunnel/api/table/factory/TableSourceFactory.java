@@ -31,26 +31,11 @@ public interface TableSourceFactory extends Factory {
 
     /**
      * We will never use this method now. So gave a default implement and return null.
+     *
      * @param context TableFactoryContext
      */
-    default <T, SplitT extends SourceSplit, StateT extends Serializable> TableSource<T, SplitT, StateT> createSource(TableFactoryContext context) {
+    default <T, SplitT extends SourceSplit, StateT extends Serializable> TableSource<T, SplitT, StateT> createSource(
+        TableFactoryContext context) {
         throw new UnsupportedOperationException("unsupported now");
-    }
-
-    /**
-     * This method is called by SeaTunnel Web to get the full option rule of a source connector.
-     * Please don't overwrite this method.
-     * @return
-     */
-    default OptionRule fullOptionRule() {
-        OptionRule optionRule = optionRule();
-        if (optionRule == null) {
-            throw new FactoryException("OptionRule can not be null");
-        }
-
-        OptionRule sourceCommonOptionRule =
-            OptionRule.builder().optional(SourceCommonOptions.RESULT_TABLE_NAME, SourceCommonOptions.PARALLELISM).build();
-        optionRule.getOptionalOptions().addAll(sourceCommonOptionRule.getOptionalOptions());
-        return optionRule;
     }
 }
