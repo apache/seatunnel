@@ -22,6 +22,7 @@ import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.core.starter.constants.EnvConstants;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.TaskExecution;
 import org.apache.seatunnel.core.starter.flink.FlinkStarter;
@@ -69,7 +70,7 @@ public class FlinkExecution implements TaskExecution {
         } catch (MalformedURLException e) {
             throw new SeaTunnelException("load flink starter error.", e);
         }
-        registerPlugin();
+        registerPlugin(config.getConfig("env"));
         JobContext jobContext = new JobContext();
         jobContext.setJobMode(FlinkEnvironmentFactory.getJobMode(config));
 
@@ -100,8 +101,10 @@ public class FlinkExecution implements TaskExecution {
         }
     }
 
-    private void registerPlugin() {
-        List<URL> jarDependencies = Stream.concat(Common.getPluginsJarDependencies().stream(), Common.getLibJars().stream())
+    private void registerPlugin(Config envConfig) {
+        List<Path> pluginsJarDependencies = Common.getPluginsJarDependencies();
+        pluginsJarDependencies.addAll(Common.getThirdPartyJars(envConfig.getString(EnvConstants.JARS)));
+        List<URL> jarDependencies = Stream.concat(pluginsJarDependencies.stream(), Common.getLibJars().stream())
             .map(Path::toUri)
             .map(uri -> {
                 try {
