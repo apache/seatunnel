@@ -18,6 +18,7 @@
 package org.apache.seatunnel.plugin.discovery;
 
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -205,9 +206,9 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
      * @return the all plugin identifier of the engine
      */
     @SuppressWarnings("unchecked")
-    public @Nonnull List<PluginIdentifier> getAllPlugin(PluginType pluginType) throws IOException {
+    public @Nonnull Map<PluginIdentifier, OptionRule> getAllPlugin(PluginType pluginType) throws IOException {
         List<URL> files = FileUtils.searchJarFiles(pluginDir);
-        List<PluginIdentifier> plugins = new ArrayList<>();
+        Map<PluginIdentifier, OptionRule> plugins = new HashMap<>();
         List factories;
         if (pluginType.equals(PluginType.SOURCE)) {
             factories = FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])), TableSourceFactory.class);
@@ -219,7 +220,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             throw new IllegalArgumentException("Unsupported plugin type: " + pluginType);
         }
         factories.forEach(plugin -> {
-            plugins.add(PluginIdentifier.of("seatunnel", pluginType.getType(), ((Factory) plugin).factoryIdentifier()));
+            plugins.put(PluginIdentifier.of("seatunnel", pluginType.getType(), ((Factory) plugin).factoryIdentifier()), FactoryUtil);
         });
         return plugins;
     }
