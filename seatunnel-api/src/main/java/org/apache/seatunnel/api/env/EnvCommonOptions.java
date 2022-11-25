@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.common.constants.JobMode;
 
+import java.util.Map;
+
 public class EnvCommonOptions {
     public static final Option<Integer> PARALLELISM =
         Options.key("parallelism")
@@ -46,4 +48,10 @@ public class EnvCommonOptions {
             .longType()
             .noDefaultValue()
             .withDescription("The interval (in milliseconds) between two consecutive checkpoints.");
+
+    public static final Option<Map<String, String>> CUSTOM_PARAMETERS =
+        Options.key("custom_parameters")
+            .mapType()
+            .noDefaultValue()
+            .withDescription("custom parameters for run engine");
 }
