@@ -17,13 +17,17 @@
 
 package org.apache.seatunnel.api.table.factory;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSource;
 
+import lombok.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -154,5 +158,37 @@ public final class FactoryUtil {
             LOG.error("Could not load service provider for factories.", e);
             throw new FactoryException("Could not load service provider for factories.", e);
         }
+    }
+
+    /**
+     * This method is called by SeaTunnel Web to get the full option rule of a source.
+     * Please don't overwrite this method.
+     * @return
+     */
+    public static OptionRule sourceFullOptionRule(@NonNull OptionRule sourceOptionRule) {
+        if (sourceOptionRule == null) {
+            throw new FactoryException("sourceOptionRule can not be null");
+        }
+
+        OptionRule sourceCommonOptionRule =
+            OptionRule.builder().optional(SourceCommonOptions.RESULT_TABLE_NAME, SourceCommonOptions.PARALLELISM).build();
+        sourceOptionRule.getOptionalOptions().addAll(sourceCommonOptionRule.getOptionalOptions());
+        return sourceOptionRule;
+    }
+
+    /**
+     * This method is called by SeaTunnel Web to get the full option rule of a sink.
+     * Please don't overwrite this method.
+     * @return
+     */
+    public static OptionRule sinkFullOptionRule(@NonNull OptionRule sinkOptionRule) {
+        if (sinkOptionRule == null) {
+            throw new FactoryException("sinkOptionRule can not be null");
+        }
+
+        OptionRule sinkCommonOptionRule =
+            OptionRule.builder().optional(SinkCommonOptions.SOURCE_TABLE_NAME, SinkCommonOptions.PARALLELISM).build();
+        sinkOptionRule.getOptionalOptions().addAll(sinkCommonOptionRule.getOptionalOptions());
+        return sinkOptionRule;
     }
 }

@@ -18,9 +18,10 @@
 package org.apache.seatunnel.core.starter.spark.execution;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
@@ -73,12 +74,12 @@ public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunn
             SeaTunnelSink<?, ?, ?, ?> seaTunnelSink = plugins.get(i);
             Dataset<Row> dataset = fromSourceTable(sinkConfig, sparkEnvironment).orElse(input);
             int parallelism;
-            if (sinkConfig.hasPath(CollectionConstants.PARALLELISM)) {
-                parallelism = sinkConfig.getInt(CollectionConstants.PARALLELISM);
+            if (sinkConfig.hasPath(SinkCommonOptions.PARALLELISM.key())) {
+                parallelism = sinkConfig.getInt(SinkCommonOptions.PARALLELISM.key());
             } else {
-                parallelism = sparkEnvironment.getSparkConf().getInt(CollectionConstants.PARALLELISM, 1);
+                parallelism = sparkEnvironment.getSparkConf().getInt(EnvCommonOptions.PARALLELISM.key(), EnvCommonOptions.PARALLELISM.defaultValue());
             }
-            dataset.sparkSession().read().option(CollectionConstants.PARALLELISM, parallelism);
+            dataset.sparkSession().read().option(SinkCommonOptions.PARALLELISM.key(), parallelism);
             // TODO modify checkpoint location
             seaTunnelSink.setTypeInfo((SeaTunnelRowType) TypeConverterUtils.convert(dataset.schema()));
             SparkSinkInjector.inject(dataset.write(), seaTunnelSink).option("checkpointLocation", "/tmp").save();

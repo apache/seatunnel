@@ -18,6 +18,8 @@
 package org.apache.seatunnel.transform.common;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
+import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -29,8 +31,8 @@ import java.util.Objects;
 
 public abstract class AbstractSeaTunnelTransform implements SeaTunnelTransform<SeaTunnelRow> {
 
-    private static final String RESULT_TABLE_NAME = "result_table_name";
-    private static final String SOURCE_TABLE_NAME = "source_table_name";
+    private static final String RESULT_TABLE_NAME = SourceCommonOptions.RESULT_TABLE_NAME.key();
+    private static final String SOURCE_TABLE_NAME = SinkCommonOptions.SOURCE_TABLE_NAME.key();
 
     private String inputTableName;
     private SeaTunnelRowType inputRowType;

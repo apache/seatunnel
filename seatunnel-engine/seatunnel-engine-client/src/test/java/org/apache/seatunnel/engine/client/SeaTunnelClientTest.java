@@ -47,13 +47,13 @@ import java.util.concurrent.TimeUnit;
 @DisabledOnOs(OS.WINDOWS)
 public class SeaTunnelClientTest {
 
+    private static SeaTunnelConfig SEATUNNEL_CONFIG = ConfigProvider.locateAndGetSeaTunnelConfig();
     private static HazelcastInstance INSTANCE;
 
     @BeforeAll
     public static void beforeClass() throws Exception {
-        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        seaTunnelConfig.getHazelcastConfig().setClusterName(TestUtils.getClusterName("SeaTunnelClientTest"));
-        INSTANCE = HazelcastInstanceFactory.newHazelcastInstance(seaTunnelConfig.getHazelcastConfig(),
+        SEATUNNEL_CONFIG.getHazelcastConfig().setClusterName(TestUtils.getClusterName("SeaTunnelClientTest"));
+        INSTANCE = HazelcastInstanceFactory.newHazelcastInstance(SEATUNNEL_CONFIG.getHazelcastConfig(),
             Thread.currentThread().getName(),
             new SeaTunnelNodeContext(ConfigProvider.locateAndGetSeaTunnelConfig()));
     }
