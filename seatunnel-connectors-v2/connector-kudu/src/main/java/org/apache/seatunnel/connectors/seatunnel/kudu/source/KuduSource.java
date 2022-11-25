@@ -177,6 +177,6 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
             log.warn("get row type info exception", e);
             throw new PrepareFailException("kudu", PluginType.SOURCE, e.toString());
         }
-        return new SeaTunnelRowType(fieldNames.toArray(new String[fieldNames.size()]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));
+        return new SeaTunnelRowType(fieldNames.toArray(new String[0]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[0]));
     }
 }
