@@ -59,9 +59,9 @@ public class IoTDBSource implements SeaTunnelSource<SeaTunnelRow, IoTDBSourceSpl
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HOST, PORT);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HOST.key(), PORT.key());
         if (!result.isSuccess()) {
-            result = CheckConfigUtil.checkAllExists(pluginConfig, NODE_URLS);
+            result = CheckConfigUtil.checkAllExists(pluginConfig, NODE_URLS.key());
 
             if (!result.isSuccess()) {
                 throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "host and port and node urls are both empty");

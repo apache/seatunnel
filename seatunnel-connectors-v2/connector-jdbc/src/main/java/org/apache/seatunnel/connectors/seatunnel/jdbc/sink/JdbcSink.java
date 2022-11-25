@@ -28,11 +28,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcStatementBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -55,6 +55,8 @@ public class JdbcSink
 
     private JdbcSinkOptions jdbcSinkOptions;
 
+    private JdbcDialect dialect;
+
     @Override
     public String getPluginName() {
         return "Jdbc";
@@ -65,27 +67,28 @@ public class JdbcSink
         throws PrepareFailException {
         this.pluginConfig = pluginConfig;
         this.jdbcSinkOptions = new JdbcSinkOptions(this.pluginConfig);
+        this.dialect = JdbcDialectLoader.load(jdbcSinkOptions.getJdbcConnectionOptions().getUrl());
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> createWriter(SinkWriter.Context context)
         throws IOException {
         SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> sinkWriter;
-        // TODO SeatunnelTyoeInfo is not good enough to get typesArray
-        JdbcStatementBuilder<SeaTunnelRow> statementBuilder = (st, row) -> JdbcUtils.setRecordToStatement(st, null, row);
         if (jdbcSinkOptions.isExactlyOnce()) {
             sinkWriter = new JdbcExactlyOnceSinkWriter(
                 context,
                 jobContext,
-                statementBuilder,
+                dialect,
                 jdbcSinkOptions,
+                seaTunnelRowType,
                 new ArrayList<>()
             );
         } else {
             sinkWriter = new JdbcSinkWriter(
                 context,
-                statementBuilder,
-                jdbcSinkOptions);
+                dialect,
+                jdbcSinkOptions,
+                seaTunnelRowType);
         }
 
         return sinkWriter;
@@ -95,12 +98,12 @@ public class JdbcSink
     public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> restoreWriter(SinkWriter.Context context, List<JdbcSinkState> states)
         throws IOException {
         if (jdbcSinkOptions.isExactlyOnce()) {
-            JdbcStatementBuilder<SeaTunnelRow> statementBuilder = (st, row) -> JdbcUtils.setRecordToStatement(st, null, row);
             return new JdbcExactlyOnceSinkWriter(
                 context,
                 jobContext,
-                statementBuilder,
+                dialect,
                 jdbcSinkOptions,
+                seaTunnelRowType,
                 states
             );
         }

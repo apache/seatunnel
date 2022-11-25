@@ -117,6 +117,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
         return progress.toState();
     }
 
+    @SuppressWarnings("checkstyle:MagicNumber")
     protected void stateProcess() throws Exception {
         switch (currState) {
             case INIT:
@@ -142,6 +143,8 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT> ex
             case RUNNING:
                 if (prepareCloseStatus) {
                     currState = PREPARE_CLOSE;
+                } else {
+                    Thread.sleep(100);
                 }
                 break;
             case PREPARE_CLOSE:

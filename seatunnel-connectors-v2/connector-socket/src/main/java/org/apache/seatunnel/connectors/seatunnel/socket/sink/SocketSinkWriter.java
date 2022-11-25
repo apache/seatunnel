@@ -40,7 +40,7 @@ public class SocketSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        socketClient.wirte(element);
+        socketClient.write(element);
     }
 
     @Override

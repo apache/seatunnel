@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.seatunnel.command;
 
+import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist;
+
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
@@ -33,6 +35,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 import java.util.Random;
@@ -41,6 +44,7 @@ import java.util.concurrent.ExecutionException;
 /**
  * This command is used to execute the SeaTunnel engine job by SeaTunnel API.
  */
+@Slf4j
 public class ClientExecuteCommand implements Command<ClientCommandArgs> {
 
     private final ClientCommandArgs clientCommandArgs;
@@ -49,12 +53,9 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         this.clientCommandArgs = clientCommandArgs;
     }
 
+    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Override
     public void execute() throws CommandExecuteException {
-        Path configFile = FileUtils.getConfigPath(clientCommandArgs);
-
-        JobConfig jobConfig = new JobConfig();
-        jobConfig.setName(clientCommandArgs.getJobName());
         HazelcastInstance instance = null;
         SeaTunnelClient engineClient = null;
         try {
@@ -66,10 +67,23 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(clusterName);
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(configFile.toString(), jobConfig);
+            if (clientCommandArgs.isListJob()) {
+                String jobstatus = engineClient.listJobStatus();
+                System.out.println(jobstatus);
+            } else if (null != clientCommandArgs.getJobId()) {
+                String jobState = engineClient.getJobState(Long.parseLong(clientCommandArgs.getJobId()));
+                System.out.println(jobState);
+            } else {
+                Path configFile = FileUtils.getConfigPath(clientCommandArgs);
+                checkConfigExist(configFile);
+                JobConfig jobConfig = new JobConfig();
+                jobConfig.setName(clientCommandArgs.getJobName());
+                JobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(configFile.toString(), jobConfig);
 
-            ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            clientJobProxy.waitForJobComplete();
+                ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+                clientJobProxy.waitForJobComplete();
+            }
         } catch (ExecutionException | InterruptedException e) {
             throw new CommandExecuteException("SeaTunnel job executed failed", e);
         } finally {

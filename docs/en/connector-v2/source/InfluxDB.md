@@ -36,6 +36,7 @@ supports query SQL and can achieve projection effect.
 | epoch              | string | no       | n             |
 | connect_timeout_ms | long   | no       | 15000         |
 | query_timeout_sec  | int    | no       | 3             |
+| common-options     | config | no       | -             |
 
 ### url
 the url to connect to influxDB e.g.
@@ -124,7 +125,11 @@ returned time precision
 the `query_timeout` of the InfluxDB when you select, in seconds
 
 ### connect_timeout_ms [long]
-the timeout for connecting to InfluxDB, in milliseconds 
+the timeout for connecting to InfluxDB, in milliseconds
+
+### common options
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
 ## Examples
 Example of multi parallelism and multi partition scanning 

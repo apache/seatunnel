@@ -27,15 +27,12 @@ public class DoubleInjectFunction implements ClickhouseFieldInjectFunction {
         if (value instanceof BigDecimal) {
             statement.setDouble(index, ((BigDecimal) value).doubleValue());
         } else {
-            statement.setDouble(index, (Double) value);
+            statement.setDouble(index, Double.parseDouble(value.toString()));
         }
     }
 
     @Override
     public boolean isCurrentFieldType(String fieldType) {
-        return "UInt32".equals(fieldType)
-            || "UInt64".equals(fieldType)
-            || "Int64".equals(fieldType)
-            || "Float64".equals(fieldType);
+        return "Float64".equals(fieldType);
     }
 }

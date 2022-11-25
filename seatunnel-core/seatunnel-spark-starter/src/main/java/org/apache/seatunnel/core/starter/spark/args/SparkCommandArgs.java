@@ -26,6 +26,11 @@ import com.beust.jcommander.Parameter;
 
 public class SparkCommandArgs extends AbstractCommandArgs {
 
+    @Parameter(names = {"-c", "--config"},
+        description = "Config file",
+        required = true)
+    private String configFile;
+
     @Parameter(names = {"-e", "--deploy-mode"},
         description = "Spark deploy mode",
         required = true,
@@ -57,6 +62,16 @@ public class SparkCommandArgs extends AbstractCommandArgs {
 
     public void setMaster(String master) {
         this.master = master;
+    }
+
+    @Override
+    public String getConfigFile() {
+        return this.configFile;
+    }
+
+    @Override
+    public void setConfigFile(String configFile) {
+        this.configFile = configFile;
     }
 
 }

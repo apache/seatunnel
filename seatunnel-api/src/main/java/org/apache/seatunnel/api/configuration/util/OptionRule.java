@@ -19,10 +19,10 @@ package org.apache.seatunnel.api.configuration.util;
 
 import org.apache.seatunnel.api.configuration.Option;
 
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * Validation rule for {@link Option}.
@@ -67,25 +67,25 @@ public class OptionRule {
      * <p> This options will not be validated.
      * <p> This is used by the web-UI to show what options are available.
      */
-    private final Set<Option<?>> optionalOptions;
+    private final List<Option<?>> optionalOptions;
 
     /**
      * Required options with no default value.
      *
      * <p> Verify that the option is valid through the defined rules.
      */
-    private final Set<RequiredOption> requiredOptions;
+    private final List<RequiredOption> requiredOptions;
 
-    OptionRule(Set<Option<?>> optionalOptions, Set<RequiredOption> requiredOptions) {
+    OptionRule(List<Option<?>> optionalOptions, List<RequiredOption> requiredOptions) {
         this.optionalOptions = optionalOptions;
         this.requiredOptions = requiredOptions;
     }
 
-    public Set<Option<?>> getOptionalOptions() {
+    public List<Option<?>> getOptionalOptions() {
         return optionalOptions;
     }
 
-    public Set<RequiredOption> getRequiredOptions() {
+    public List<RequiredOption> getRequiredOptions() {
         return requiredOptions;
     }
 
@@ -115,24 +115,19 @@ public class OptionRule {
      * Builder for {@link OptionRule}.
      */
     public static class Builder {
-        private final Set<Option<?>> optionalOptions = new HashSet<>();
-        private final Set<RequiredOption> requiredOptions = new HashSet<>();
+        private final List<Option<?>> optionalOptions = new ArrayList<>();
+        private final List<RequiredOption> requiredOptions = new ArrayList<>();
 
         private Builder() {
         }
 
         /**
-         * Optional options with default value.
+         * Optional options
          *
          * <p> This options will not be validated.
          * <p> This is used by the web-UI to show what options are available.
          */
         public Builder optional(Option<?>... options) {
-            for (Option<?> option : options) {
-                if (option.defaultValue() == null) {
-                    throw new OptionValidationException(String.format("Optional option '%s' should have default value.", option.key()));
-                }
-            }
             this.optionalOptions.addAll(Arrays.asList(options));
             return this;
         }
@@ -143,8 +138,8 @@ public class OptionRule {
         public Builder required(Option<?>... options) {
             for (Option<?> option : options) {
                 verifyRequiredOptionDefaultValue(option);
-                this.requiredOptions.add(RequiredOption.AbsolutelyRequiredOption.of(option));
             }
+            this.requiredOptions.add(RequiredOption.AbsolutelyRequiredOptions.of(options));
             return this;
         }
 
@@ -159,6 +154,11 @@ public class OptionRule {
                 verifyRequiredOptionDefaultValue(option);
             }
             this.requiredOptions.add(RequiredOption.ExclusiveRequiredOptions.of(options));
+            return this;
+        }
+
+        public Builder exclusive(RequiredOption.ExclusiveRequiredOptions exclusiveRequiredOptions) {
+            this.requiredOptions.add(exclusiveRequiredOptions);
             return this;
         }
 
@@ -183,7 +183,16 @@ public class OptionRule {
             for (Option<?> o : requiredOptions) {
                 verifyRequiredOptionDefaultValue(o);
             }
-            this.requiredOptions.add(RequiredOption.ConditionalRequiredOptions.of(expression, new HashSet<>(Arrays.asList(requiredOptions))));
+            this.requiredOptions.add(RequiredOption.ConditionalRequiredOptions.of(expression,
+                new ArrayList<>(Arrays.asList(requiredOptions))));
+            return this;
+        }
+
+        /**
+         * Bundled options, must be present or absent together.
+         */
+        public Builder bundled(Option<?>... requiredOptions) {
+            this.requiredOptions.add(RequiredOption.BundledRequiredOptions.of(requiredOptions));
             return this;
         }
 
@@ -193,7 +202,8 @@ public class OptionRule {
 
         private void verifyRequiredOptionDefaultValue(Option<?> option) {
             if (option.defaultValue() != null) {
-                throw new OptionValidationException(String.format("Required option '%s' should have no default value.", option.key()));
+                throw new OptionValidationException(
+                    String.format("Required option '%s' should have no default value.", option.key()));
             }
         }
     }

@@ -343,11 +343,9 @@ spark-submit --verbose
 
 Just configure hdfs-site.xml properly, refer to: https://www.cnblogs.com/suanec/p/7828139.html
 
-There is an article on how to modify the spark code to complete the configuration(SeaTunnel does not need to do this): https://www.jianshu.com/p/3e84c4c97610
-
 ## I want to learn the source code of SeaTunnel, where should I start?
 
-SeaTunnel has a completely abstract and structured code implementation, and many people have chosen  SeaTunnel As a way to learn Spark, you can learn the source code from the main program entry: [Seatunnel.java](https://github.com/apache/incubator-seatunnel/blob/72b57b22688f17376fe7e5cf522b4bdd3f62cce0/seatunnel-core/seatunnel-core-base/src/main/java/org/apache/seatunnel/Seatunnel.java)
+SeaTunnel has a completely abstract and structured code implementation, and many people have chosen  SeaTunnel As a way to learn Spark, you can learn the source code from the main program entry: Seatunnel.java
 
 ## When SeaTunnel developers develop their own plugins, do they need to understand the SeaTunnel code? Should these code integrated into the SeaTunnel project?
 
