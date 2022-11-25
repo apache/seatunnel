@@ -79,8 +79,8 @@ public class JobExecutionEnvironment {
         this.jobClient = new JobClient(seaTunnelHazelcastClient);
         this.jobConfig.setJobContext(new JobContext(jobClient.getNewJobId()));
         this.commonPluginJars.addAll(searchPluginJars());
-        this.commonPluginJars.addAll(Common.getThirdPartyJars(jobConfig.getEnvOptions()
-            .getOrDefault(EnvConstants.JARS, "").toString()).stream().map(Path::toUri)
+        this.commonPluginJars.addAll(new ArrayList<>(Common.getThirdPartyJars(jobConfig.getEnvOptions()
+                .getOrDefault(EnvConstants.JARS, "").toString()).stream().map(Path::toUri)
             .map(uri -> {
                 try {
                     return uri.toURL();
@@ -88,7 +88,7 @@ public class JobExecutionEnvironment {
                     throw new RuntimeException("the uri of jar illegal:" + uri, e);
                 }
             })
-            .collect(Collectors.toList()));
+            .collect(Collectors.toList())));
         LOGGER.info("add common jar in plugins :" + commonPluginJars);
     }
 

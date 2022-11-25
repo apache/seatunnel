@@ -102,9 +102,9 @@ public class FlinkExecution implements TaskExecution {
     }
 
     private void registerPlugin(Config envConfig) {
-        List<Path> pluginsJarDependencies = Common.getPluginsJarDependencies();
-        pluginsJarDependencies.addAll(Common.getThirdPartyJars(envConfig.getString(EnvConstants.JARS)));
-        List<URL> jarDependencies = Stream.concat(pluginsJarDependencies.stream(), Common.getLibJars().stream())
+        List<Path> thirdPartyJars = new ArrayList<>(Common.getThirdPartyJars(envConfig.getString(EnvConstants.JARS)));
+        thirdPartyJars.addAll(Common.getPluginsJarDependencies());
+        List<URL> jarDependencies = Stream.concat(thirdPartyJars.stream(), Common.getLibJars().stream())
             .map(Path::toUri)
             .map(uri -> {
                 try {

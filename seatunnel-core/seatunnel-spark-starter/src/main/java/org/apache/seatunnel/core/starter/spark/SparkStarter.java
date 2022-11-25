@@ -125,7 +125,7 @@ public class SparkStarter implements Starter {
         this.jars.addAll(Common.getPluginsJarDependencies());
         this.jars.addAll(Common.getLibJars());
         this.jars.addAll(getConnectorJarDependencies());
-        this.jars.addAll(Common.getThirdPartyJars(sparkConf.getOrDefault(EnvConstants.JARS, "")));
+        this.jars.addAll(new ArrayList<>(Common.getThirdPartyJars(sparkConf.getOrDefault(EnvConstants.JARS, ""))));
         return buildFinal();
     }
 
