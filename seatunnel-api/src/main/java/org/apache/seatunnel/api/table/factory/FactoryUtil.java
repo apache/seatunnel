@@ -165,30 +165,15 @@ public final class FactoryUtil {
      * Please don't overwrite this method.
      * @return
      */
-    public static OptionRule sourceFullOptionRule(@NonNull OptionRule sourceOptionRule) {
+    public static OptionRule sourceFullOptionRule(@NonNull Factory factory) {
+        OptionRule sourceOptionRule = factory.optionRule();
         if (sourceOptionRule == null) {
             throw new FactoryException("sourceOptionRule can not be null");
         }
 
         OptionRule sourceCommonOptionRule =
-            OptionRule.builder().optional(SourceCommonOptions.RESULT_TABLE_NAME, SourceCommonOptions.PARALLELISM).build();
+            OptionRule.builder().optional(SourceCommonOptions.PARALLELISM).build();
         sourceOptionRule.getOptionalOptions().addAll(sourceCommonOptionRule.getOptionalOptions());
         return sourceOptionRule;
-    }
-
-    /**
-     * This method is called by SeaTunnel Web to get the full option rule of a sink.
-     * Please don't overwrite this method.
-     * @return
-     */
-    public static OptionRule sinkFullOptionRule(@NonNull OptionRule sinkOptionRule) {
-        if (sinkOptionRule == null) {
-            throw new FactoryException("sinkOptionRule can not be null");
-        }
-
-        OptionRule sinkCommonOptionRule =
-            OptionRule.builder().optional(SinkCommonOptions.SOURCE_TABLE_NAME, SinkCommonOptions.PARALLELISM).build();
-        sinkOptionRule.getOptionalOptions().addAll(sinkCommonOptionRule.getOptionalOptions());
-        return sinkOptionRule;
     }
 }
