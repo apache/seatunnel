@@ -34,10 +34,7 @@ public class SeaTunnelServerStarter {
     public static HazelcastInstanceImpl createHazelcastInstance(String clusterName) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
-        return ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(
-            seaTunnelConfig.getHazelcastConfig(),
-            HazelcastInstanceFactory.createInstanceName(seaTunnelConfig.getHazelcastConfig()),
-            new SeaTunnelNodeContext(seaTunnelConfig))).getOriginal();
+        return createHazelcastInstance(seaTunnelConfig);
     }
 
     public static HazelcastInstanceImpl createHazelcastInstance(@NonNull SeaTunnelConfig seaTunnelConfig) {
@@ -49,9 +46,6 @@ public class SeaTunnelServerStarter {
 
     public static HazelcastInstanceImpl createHazelcastInstance() {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        return ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(
-            seaTunnelConfig.getHazelcastConfig(),
-            HazelcastInstanceFactory.createInstanceName(seaTunnelConfig.getHazelcastConfig()),
-            new SeaTunnelNodeContext(seaTunnelConfig))).getOriginal();
+        return createHazelcastInstance(seaTunnelConfig);
     }
 }
