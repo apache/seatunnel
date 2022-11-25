@@ -81,7 +81,6 @@ public class KuduInputFormat implements Serializable {
             keyColumn = schema.getPrimaryKeyColumns().get(0).getName();
             columns = schema.getColumns();
         } catch (KuduException e) {
-            log.error("get table Columns Schemas Failed.", e);
             throw new KuduConnectorException(CommonErrorCode.TABLE_SCHEMA_GET_FAILED, "get table Columns Schemas Failed");
         }
         return columns;
@@ -118,7 +117,8 @@ public class KuduInputFormat implements Serializable {
             } else if (BasicType.STRING_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getString(i);
             } else {
-                throw new KuduConnectorException(KuduConnectorErrorCode.GET_KUDU_VALUE_FAILED, "Unexpected value: " + seaTunnelDataType);
+                throw new KuduConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported data type: " + seaTunnelDataType);
             }
             fields.add(seatunnelField);
         }
@@ -137,8 +137,7 @@ public class KuduInputFormat implements Serializable {
                 seaTunnelDataTypes.add(KuduTypeMapper.mapping(columnSchemaList, i));
             }
         } catch (Exception e) {
-            log.warn("get row type info exception.", e);
-            throw new KuduConnectorException(KuduConnectorErrorCode.GET_ROW_TYPE_INFO_FAILD, String.format("PluginName: %s, PluginType: %s, Message: %s",
+            throw new KuduConnectorException(CommonErrorCode.TABLE_SCHEMA_GET_FAILED, String.format("PluginName: %s, PluginType: %s, Message: %s",
                     "Kudu", PluginType.SOURCE, ExceptionUtils.getMessage(e)));
         }
         return new SeaTunnelRowType(fieldNames.toArray(new String[fieldNames.size()]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));
@@ -182,7 +181,6 @@ public class KuduInputFormat implements Serializable {
             kuduScanner = kuduScannerBuilder.addPredicate(lowerPred)
                     .addPredicate(upperPred).build();
         } catch (KuduException e) {
-            log.warn("get the Kuduscan object for each splice exception", e);
             throw new KuduConnectorException(KuduConnectorErrorCode.GET_KUDUSCAN_OBJECT_FAILED, e);
         }
         return kuduScanner;
@@ -193,7 +191,6 @@ public class KuduInputFormat implements Serializable {
             try {
                 kuduClient.close();
             } catch (KuduException e) {
-                log.warn("Kudu Client close failed.", e);
                 throw new KuduConnectorException(KuduConnectorErrorCode.CLOSE_KUDU_CLIENT_FAILED, e);
             } finally {
                 kuduClient = null;
