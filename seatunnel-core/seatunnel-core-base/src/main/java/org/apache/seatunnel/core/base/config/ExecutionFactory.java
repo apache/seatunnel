@@ -27,7 +27,6 @@ import org.apache.seatunnel.flink.batch.FlinkBatchExecution;
 import org.apache.seatunnel.flink.stream.FlinkStreamExecution;
 import org.apache.seatunnel.spark.SparkEnvironment;
 import org.apache.seatunnel.spark.batch.SparkBatchExecution;
-import org.apache.seatunnel.spark.stream.SparkStreamingExecution;
 import org.apache.seatunnel.spark.structuredstream.StructuredStreamingExecution;
 
 import lombok.extern.slf4j.Slf4j;
@@ -53,9 +52,6 @@ public class ExecutionFactory<ENVIRONMENT extends RuntimeEnv> {
                 SparkEnvironment sparkEnvironment = (SparkEnvironment) executionContext.getEnvironment();
                 switch (executionContext.getJobMode()) {
                     case STREAMING:
-                        execution = new SparkStreamingExecution(sparkEnvironment);
-                        break;
-                    case STRUCTURED_STREAMING:
                         execution = new StructuredStreamingExecution(sparkEnvironment);
                         break;
                     default:
