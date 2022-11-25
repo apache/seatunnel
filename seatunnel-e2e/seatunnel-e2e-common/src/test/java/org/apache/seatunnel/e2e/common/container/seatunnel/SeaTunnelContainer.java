@@ -47,6 +47,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     private static final String JDK_DOCKER_IMAGE = "openjdk:8";
     private static final String CLIENT_SHELL = "seatunnel.sh";
     private static final String SERVER_SHELL = "seatunnel-cluster.sh";
+    private static final String HADOOP_SHADE = "https://repo1.maven.org/maven2/org/apache/flink/flink-shaded-hadoop2-uber/2.8.3-1.8.3/flink-shaded-hadoop2-uber-2.8.3-1.8.3.jar";
     private GenericContainer<?> server;
 
     @Override
@@ -62,6 +63,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         server.withCopyFileToContainer(MountableFile.forHostPath(PROJECT_ROOT_PATH + "/seatunnel-engine/seatunnel-engine-common/src/main/resources/"),
             Paths.get(SEATUNNEL_HOME, "config").toString());
         server.start();
+        server.execInContainer("bash", "-c", "cd /tmp/seatunnel/lib && curl -O " + HADOOP_SHADE);
         // execute extra commands
         executeExtraCommands(server);
     }

@@ -28,7 +28,7 @@ import lombok.Getter;
 public enum TestContainerId {
     FLINK_1_13(FLINK, "1.13.6"),
     SPARK_2_4(SPARK, "2.4.6"),
-    SEATUNNEL(EngineType.SEATUNNEL, "2.2.0");
+    SEATUNNEL(EngineType.SEATUNNEL, "dev");
 
     private final EngineType engineType;
     private final String version;
