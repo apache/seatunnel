@@ -17,14 +17,26 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+
 import java.io.Serializable;
 
 public class AmazonDynamoDBConfig implements Serializable {
-    public static final String URL = "url";
-    public static final String REGION = "region";
-    public static final String ACCESS_KEY_ID = "access_key_id";
-    public static final String SECRET_ACCESS_KEY = "secret_access_key";
-    public static final String TABLE = "table";
-    public static final String BATCH_SIZE = "batch_size";
-    public static final String DEFAULT_BATCH_INTERVAL_MS = "batch_interval_ms";
+    public static final Option<String> URL = Options.key("url").stringType()
+        .noDefaultValue().withDescription("url to read to Amazon DynamoDB");
+    public static final Option<String> REGION = Options.key("region").stringType()
+        .noDefaultValue().withDescription("The region of Amazon DynamoDB");
+    public static final Option<String> ACCESS_KEY_ID = Options.key("access_key_id").stringType()
+        .noDefaultValue().withDescription("The access id of Amazon DynamoDB");
+    public static final Option<String> SECRET_ACCESS_KEY = Options.key("secret_access_key").stringType()
+        .noDefaultValue().withDescription("The access secret key of Amazon DynamoDB");
+    public static final Option<String> TABLE = Options.key("table").stringType()
+        .noDefaultValue().withDescription("The table of Amazon DynamoDB");
+    @SuppressWarnings("checkstyle:MagicNumber")
+    public static final Option<Integer> BATCH_SIZE = Options.key("batch_size").intType().defaultValue(25)
+        .withDescription("The batch size of Amazon DynamoDB");
+    @SuppressWarnings("checkstyle:MagicNumber")
+    public static final Option<Integer> BATCH_INTERVAL_MS = Options.key("batch_interval_ms").intType()
+        .defaultValue(1000).withDescription("The batch interval of Amazon DynamoDB");
 }

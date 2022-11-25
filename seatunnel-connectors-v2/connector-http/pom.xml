@@ -36,6 +36,9 @@
         <module>connector-http-myhours</module>
         <module>connector-http-lemlist</module>
         <module>connector-http-klaviyo</module>
+        <module>connector-http-onesignal</module>
+        <module>connector-http-jira</module>
+        <module>connector-http-gitlab</module>
     </modules>
 
 </project>

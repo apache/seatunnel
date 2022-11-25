@@ -28,7 +28,7 @@ Read data from Neo4j.
 | kerberos_ticket            | String | No       | -             |
 | database                   | String | Yes      | -             |
 | query                      | String | Yes      | -             |
-| schema.fields              | Object | Yes      | -             |
+| schema                     | Object | Yes      | -             |
 | max_transaction_retry_time | Long   | No       | 30            |
 | max_connection_timeout     | Long   | No       | 30            |
 

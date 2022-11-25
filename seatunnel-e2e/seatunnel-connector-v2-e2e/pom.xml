@@ -33,7 +33,9 @@
         <module>connector-amazondynamodb-e2e</module>
         <module>connector-file-local-e2e</module>
         <module>connector-cassandra-e2e</module>
+        <module>connector-neo4j-e2e</module>
         <module>connector-http-e2e</module>
+        <module>connector-rabbitmq-e2e</module>
         <module>connector-kafka-e2e</module>
     </modules>
 
