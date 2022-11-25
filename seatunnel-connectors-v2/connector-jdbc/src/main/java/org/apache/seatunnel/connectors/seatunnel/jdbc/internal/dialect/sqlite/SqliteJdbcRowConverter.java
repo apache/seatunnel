@@ -15,26 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlite;
 
-import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 
-public class InfluxDBSourceSplit implements SourceSplit {
-    private final String splitId;
-
-    private final String query;
-
-    public InfluxDBSourceSplit(String splitId, String query) {
-        this.query = query;
-        this.splitId = splitId;
-    }
+public class SqliteJdbcRowConverter extends AbstractJdbcRowConverter {
 
     @Override
-    public String splitId() {
-        return splitId;
+    public String converterName() {
+        return "Sqlite";
     }
 
-    public String getQuery() {
-        return query;
-    }
 }

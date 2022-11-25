@@ -15,26 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlite;
 
-import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
-public class InfluxDBSourceSplit implements SourceSplit {
-    private final String splitId;
+import com.google.auto.service.AutoService;
 
-    private final String query;
+/**
+ * Factory for {@link SqliteDialect}.
+ */
 
-    public InfluxDBSourceSplit(String splitId, String query) {
-        this.query = query;
-        this.splitId = splitId;
+@AutoService(JdbcDialectFactory.class)
+public class SqliteDialectFactory implements JdbcDialectFactory {
+    @Override
+    public boolean acceptsURL(String url) {
+        return url.startsWith("jdbc:sqlite:");
     }
 
     @Override
-    public String splitId() {
-        return splitId;
-    }
-
-    public String getQuery() {
-        return query;
+    public JdbcDialect create() {
+        return new SqliteDialect();
     }
 }

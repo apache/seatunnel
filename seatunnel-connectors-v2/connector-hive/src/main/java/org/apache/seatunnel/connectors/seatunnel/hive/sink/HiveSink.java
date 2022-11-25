@@ -130,6 +130,6 @@ public class HiveSink extends BaseHdfsFileSink {
 
     @Override
     public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>> createAggregatedCommitter() throws IOException {
-        return Optional.of(new HiveSinkAggregatedCommitter(pluginConfig, dbName, tableName));
+        return Optional.of(new HiveSinkAggregatedCommitter(pluginConfig, dbName, tableName, hadoopConf));
     }
 }

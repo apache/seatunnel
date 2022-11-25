@@ -93,3 +93,11 @@ problems encountered by users.
 | ELASTICSEARCH-02  | Get elasticsearch version failed              | When the user encounters this error code, it means that the connection was aborted, please check it whether is work            |
 | ELASTICSEARCH-03  | Fail to scroll request                        | When the user encounters this error code, it means that the connection was aborted, please check it whether is work            |
 | ELASTICSEARCH-04  | Get elasticsearch document index count failed | When the user encounters this error code, it means that the es index may not wrong or the connection was aborted, please check |
+
+## InfluxDB Connector Error Codes
+
+| code        | description                                                      | solution                                                                                                    |
+|-------------|------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
+| INFLUXDB-01 | Connect influxdb failed, due to influxdb version info is unknown | When the user encounters this error code, it indicates that the connection to influxdb failed. Please check |
+| INFLUXDB-02 | Get column index of query result exception                       | When the user encounters this error code, it indicates that obtaining the column index failed. Please check |
+
