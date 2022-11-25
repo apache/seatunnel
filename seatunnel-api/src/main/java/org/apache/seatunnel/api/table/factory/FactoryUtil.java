@@ -161,7 +161,6 @@ public final class FactoryUtil {
 
     /**
      * This method is called by SeaTunnel Web to get the full option rule of a source.
-     * Please don't overwrite this method.
      * @return
      */
     public static OptionRule sourceFullOptionRule(@NonNull Factory factory) {
