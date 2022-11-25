@@ -19,7 +19,6 @@ package org.apache.seatunnel.plugin.discovery;
 
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -228,19 +227,23 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                 TableTransformFactory.class);
         }
 
-        factories.forEach((plugin) -> {
+        factories.forEach(plugin -> {
             plugins.add(PluginIdentifier.of("seatunnel", pluginType.getType(), ((Factory) plugin).factoryIdentifier()));
         });
         return plugins;
     }
 
+    /**
+     * Get all support plugin already in SEATUNNEL_HOME, only support connector-v2
+     * @return the all plugin identifier of the engine
+     */
     @SuppressWarnings("checkstyle:WhitespaceAfter")
     public Map<PluginType, LinkedHashMap<PluginIdentifier, OptionRule>> getAllPlugin() throws IOException {
         List<URL> files = FileUtils.searchJarFiles(this.pluginDir);
         Map<PluginType, LinkedHashMap<PluginIdentifier, OptionRule>> plugins = new HashMap<>();
         List<Factory> factories = FactoryUtil.discoverFactories(new URLClassLoader((URL[]) files.toArray(new URL[0])));
 
-        factories.forEach((plugin) -> {
+        factories.forEach(plugin -> {
             if (TableSourceFactory.class.isAssignableFrom(plugin.getClass())) {
                 if (plugins.get(PluginType.SOURCE) == null) {
                     plugins.put(PluginType.SOURCE, new LinkedHashMap());
@@ -251,7 +254,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                         PluginType.SOURCE.getType(),
                         plugin.factoryIdentifier()
                     ),
-                    FactoryUtil.sourceFullOptionRule(plugin.optionRule()));
+                    FactoryUtil.sourceFullOptionRule(plugin));
                 return;
             }
 
@@ -265,7 +268,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                         PluginType.SINK.getType(),
                         plugin.factoryIdentifier()
                     ),
-                    FactoryUtil.sinkFullOptionRule(plugin.optionRule()));
+                    plugin.optionRule());
                 return;
             }
 
@@ -279,7 +282,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                         PluginType.TRANSFORM.getType(),
                         plugin.factoryIdentifier()
                     ),
-                    FactoryUtil.transformFullOptionRule(plugin.optionRule()));
+                    plugin.optionRule());
                 return;
             }
         });
