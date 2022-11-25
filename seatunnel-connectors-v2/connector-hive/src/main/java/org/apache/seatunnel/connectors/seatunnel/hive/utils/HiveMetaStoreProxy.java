@@ -18,6 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
+import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -41,7 +43,8 @@ public class HiveMetaStoreProxy {
         try {
             hiveMetaStoreClient = new HiveMetaStoreClient(hiveConf);
         } catch (MetaException e) {
-            throw new RuntimeException(e);
+            String errorMsg = String.format("Using this hive uris [%s] to initialize hive metastore client instance failed", uris);
+            throw new HiveConnectorException(HiveConnectorErrorCode.INITIALIZE_HIVE_METASTORE_CLIENT_FAILED, errorMsg, e);
         }
     }
 
@@ -62,7 +65,7 @@ public class HiveMetaStoreProxy {
             return hiveMetaStoreClient.getTable(dbName, tableName);
         } catch (TException e) {
             String errorMsg = String.format("Get table [%s.%s] information failed", dbName, tableName);
-            throw new RuntimeException(errorMsg, e);
+            throw new HiveConnectorException(HiveConnectorErrorCode.GET_HIVE_TABLE_INFORMATION_FAILED, errorMsg, e);
         }
     }
 
