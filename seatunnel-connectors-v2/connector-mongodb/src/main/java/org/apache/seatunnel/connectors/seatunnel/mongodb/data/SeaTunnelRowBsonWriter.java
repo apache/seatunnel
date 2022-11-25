@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
 
 import lombok.Getter;
 import lombok.SneakyThrows;
@@ -225,27 +227,32 @@ public class SeaTunnelRowBsonWriter extends AbstractBsonWriter {
 
     @Override
     protected void doWriteJavaScriptWithScope(String value) {
-        throw new UnsupportedOperationException("Unsupported JavaScriptWithScope");
+        throw new MongodbConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+            "Unsupported JavaScriptWithScope");
     }
 
     @Override
     protected void doWriteMaxKey() {
-        throw new UnsupportedOperationException("Unsupported MaxKey");
+        throw new MongodbConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+            "Unsupported MaxKey");
     }
 
     @Override
     protected void doWriteMinKey() {
-        throw new UnsupportedOperationException("Unsupported MinKey");
+        throw new MongodbConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+            "Unsupported MinKey");
     }
 
     @Override
     protected void doWriteRegularExpression(BsonRegularExpression value) {
-        throw new UnsupportedOperationException("Unsupported BsonRegularExpression");
+        throw new MongodbConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+            "Unsupported BsonRegularExpression");
     }
 
     @Override
     protected void doWriteDBPointer(BsonDbPointer value) {
-        throw new UnsupportedOperationException("Unsupported BsonDbPointer");
+        throw new MongodbConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+            "Unsupported BsonDbPointer");
     }
 
     @Override
