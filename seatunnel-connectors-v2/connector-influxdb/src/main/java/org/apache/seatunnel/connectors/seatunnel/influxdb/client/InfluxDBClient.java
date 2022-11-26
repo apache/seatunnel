@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.influxdb.client;
 
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
 
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.HttpUrl;
@@ -38,56 +40,56 @@ import java.util.concurrent.TimeUnit;
 public class InfluxDBClient {
     public static InfluxDB getInfluxDB(InfluxDBConfig config) throws ConnectException {
         OkHttpClient.Builder clientBuilder =
-                new OkHttpClient.Builder()
-                        .connectTimeout(config.getConnectTimeOut(), TimeUnit.MILLISECONDS)
-                        .readTimeout(config.getQueryTimeOut(), TimeUnit.SECONDS);
+            new OkHttpClient.Builder()
+                .connectTimeout(config.getConnectTimeOut(), TimeUnit.MILLISECONDS)
+                .readTimeout(config.getQueryTimeOut(), TimeUnit.SECONDS);
         InfluxDB.ResponseFormat format = InfluxDB.ResponseFormat.valueOf(config.getFormat());
         clientBuilder.addInterceptor(
-                new Interceptor() {
-                    @Override
-                    public Response intercept(Chain chain) throws IOException {
-                        Request request = chain.request();
-                        HttpUrl httpUrl =
-                                request.url()
-                                        .newBuilder()
-                                        //set epoch
-                                        .addQueryParameter("epoch", config.getEpoch())
-                                        .build();
-                        Request build = request.newBuilder().url(httpUrl).build();
-                        Response response = chain.proceed(build);
-                        return response;
-                    }
-                });
-        InfluxDB influxDB =
-                new InfluxDBImpl(
-                        config.getUrl(),
-                        StringUtils.isEmpty(config.getUsername()) ? StringUtils.EMPTY : config.getUsername(),
-                        StringUtils.isEmpty(config.getPassword()) ? StringUtils.EMPTY : config.getPassword(),
-                        clientBuilder,
-                        format);
-        String version = influxDB.version();
-        if (!influxDB.ping().isGood()) {
-            String errorMessage =
-                    String.format(
-                            "connect influxdb failed, the url is: {%s}",
-                            config.getUrl());
-            throw new ConnectException(errorMessage);
+            new Interceptor() {
+                @Override
+                public Response intercept(Chain chain) throws IOException {
+                    Request request = chain.request();
+                    HttpUrl httpUrl =
+                        request.url()
+                            .newBuilder()
+                            //set epoch
+                            .addQueryParameter("epoch", config.getEpoch())
+                            .build();
+                    Request build = request.newBuilder().url(httpUrl).build();
+                    return chain.proceed(build);
+                }
+            });
+        InfluxDB influxdb =
+            new InfluxDBImpl(
+                config.getUrl(),
+                StringUtils.isEmpty(config.getUsername()) ? StringUtils.EMPTY : config.getUsername(),
+                StringUtils.isEmpty(config.getPassword()) ? StringUtils.EMPTY : config.getPassword(),
+                clientBuilder,
+                format);
+        String version = influxdb.version();
+        if (!influxdb.ping().isGood()) {
+            throw new InfluxdbConnectorException(InfluxdbConnectorErrorCode.CONNECT_FAILED,
+                String.format(
+                    "Connect influxdb failed, the url is: {%s}",
+                    config.getUrl()
+                )
+            );
         }
         log.info("connect influxdb successful. sever version :{}.", version);
-        return influxDB;
+        return influxdb;
     }
 
-    public static void setWriteProperty(InfluxDB influxDB, SinkConfig sinkConfig) {
+    public static void setWriteProperty(InfluxDB influxdb, SinkConfig sinkConfig) {
         String rp = sinkConfig.getRp();
         if (!StringUtils.isEmpty(rp)) {
-            influxDB.setRetentionPolicy(rp);
+            influxdb.setRetentionPolicy(rp);
         }
     }
 
     public static InfluxDB getWriteClient(SinkConfig sinkConfig) throws ConnectException {
-        InfluxDB influxDB = getInfluxDB(sinkConfig);
-        influxDB.setDatabase(sinkConfig.getDatabase());
+        InfluxDB influxdb = getInfluxDB(sinkConfig);
+        influxdb.setDatabase(sinkConfig.getDatabase());
         setWriteProperty(getInfluxDB(sinkConfig), sinkConfig);
-        return  influxDB;
+        return influxdb;
     }
 }

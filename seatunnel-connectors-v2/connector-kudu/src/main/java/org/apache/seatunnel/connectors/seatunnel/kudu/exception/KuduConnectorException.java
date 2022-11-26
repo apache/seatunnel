@@ -15,26 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
+package org.apache.seatunnel.connectors.seatunnel.kudu.exception;
 
-import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-public class InfluxDBSourceSplit implements SourceSplit {
-    private final String splitId;
-
-    private final String query;
-
-    public InfluxDBSourceSplit(String splitId, String query) {
-        this.query = query;
-        this.splitId = splitId;
+public class KuduConnectorException extends SeaTunnelRuntimeException {
+    public KuduConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+        super(seaTunnelErrorCode, errorMessage);
     }
 
-    @Override
-    public String splitId() {
-        return splitId;
+    public KuduConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+        super(seaTunnelErrorCode, errorMessage, cause);
     }
 
-    public String getQuery() {
-        return query;
+    public KuduConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+        super(seaTunnelErrorCode, cause);
     }
 }

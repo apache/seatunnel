@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
 
 import org.apache.kudu.ColumnSchema;
 import org.slf4j.Logger;
@@ -94,7 +96,7 @@ public class KuduTypeMapper {
 
             case KUDU_UNKNOWN:
             default:
-                throw new UnsupportedOperationException(
+                throw new KuduConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                     String.format(
                         "Doesn't support KUDU type '%s' .",
                         kuduType));
