@@ -54,6 +54,12 @@ This document records some common error codes and corresponding solutions of Sea
 | SLACK-01  | Conversation can not be founded in channels | When users encounter this error code, it means that the channel is not existed in slack workspace, please check it |
 | SLACK-02  | Write to slack channel failed               | When users encounter this error code, it means that slack has some problems, please check it whether is work       |
 
+## MyHours Connector Error Codes
+
+| code        | description                      | solution                                                                                                                 | 
+|-------------|----------------------------------|--------------------------------------------------------------------------------------------------------------------------|
+| MYHOURS-01  | Get myhours token failed         | When users encounter this error code, it means that login to the MyHours Failed, please check your network and try again |
+
 ## Rabbitmq Connector Error Codes
 
 | code        | description                                                   | solution                                                                                                        |
