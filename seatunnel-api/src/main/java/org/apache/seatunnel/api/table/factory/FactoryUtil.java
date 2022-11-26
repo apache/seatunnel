@@ -146,7 +146,7 @@ public final class FactoryUtil {
                 .collect(Collectors.toList());
     }
 
-    private static List<Factory> discoverFactories(ClassLoader classLoader) {
+    public static List<Factory> discoverFactories(ClassLoader classLoader) {
         try {
             final List<Factory> result = new LinkedList<>();
             ServiceLoader.load(Factory.class, classLoader)
