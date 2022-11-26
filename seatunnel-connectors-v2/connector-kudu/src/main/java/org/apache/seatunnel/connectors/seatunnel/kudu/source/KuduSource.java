@@ -186,6 +186,6 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
             throw new KuduConnectorException(CommonErrorCode.TABLE_SCHEMA_GET_FAILED, String.format("PluginName: %s, PluginType: %s, Message: %s",
                     "Kudu", PluginType.SOURCE, ExceptionUtils.getMessage(e)));
         }
-        return new SeaTunnelRowType(fieldNames.toArray(new String[fieldNames.size()]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));
+        return new SeaTunnelRowType(fieldNames.toArray(new String[0]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[0]));
     }
 }
