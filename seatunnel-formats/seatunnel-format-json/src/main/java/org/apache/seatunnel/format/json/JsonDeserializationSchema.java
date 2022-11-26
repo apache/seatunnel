@@ -29,6 +29,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatErrorCode;
+import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -71,7 +73,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
                                      boolean ignoreParseErrors,
                                      SeaTunnelRowType rowType) {
         if (ignoreParseErrors && failOnMissingField) {
-            throw new SeaTunnelRuntimeException(CommonErrorCode.ILLEGAL_ARGUMENT,
+            throw new SeaTunnelJsonFormatException(CommonErrorCode.ILLEGAL_ARGUMENT,
                 "JSON format doesn't support failOnMissingField and ignoreParseErrors are both enabled.");
         }
         this.rowType = checkNotNull(rowType);
@@ -131,7 +133,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
             if (ignoreParseErrors) {
                 return null;
             }
-            throw new SeaTunnelRuntimeException(CommonErrorCode.JSON_OPERATION_FAILED,
+            throw new SeaTunnelJsonFormatException(SeaTunnelJsonFormatErrorCode.JSON_DESERIALIZE_FAILED,
                     String.format("Failed to deserialize JSON '%s'.", jsonNode.asText()), t);
         }
     }
@@ -143,7 +145,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
             if (ignoreParseErrors) {
                 return null;
             }
-            throw new SeaTunnelRuntimeException(CommonErrorCode.JSON_OPERATION_FAILED,
+            throw new SeaTunnelJsonFormatException(SeaTunnelJsonFormatErrorCode.JSON_DESERIALIZE_FAILED,
                     String.format("Failed to deserialize JSON '%s'.", new String(message)), t);
         }
     }

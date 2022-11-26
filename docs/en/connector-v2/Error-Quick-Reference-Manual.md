@@ -31,6 +31,13 @@ This document records some common error codes and corresponding solutions of Sea
 | COMMON-12 | Source reader operation failed, such as (open, close) etc...           | When users encounter this error code, it maybe some operation of reader such as Parquet,Orc,IceBerg failed, you need to check if the corresponding file or resource has read and write permissions |
 | COMMON-13 | Http operation failed, such as (open, close, response) etc...          | When users encounter this error code, it maybe some http requests failed, please check your network environment                                                                                    |
 
+## SeaTunnel JSON Format Error Codes
+
+| code           | description                           | solution                                                                                                       |
+|----------------|---------------------------------------|----------------------------------------------------------------------------------------------------------------|
+| JSON_FORMAT-01 | Failed to deserialize JSON format     | When the user encounters this error code, it indicates that JSON format is incorrect. Please check it          |
+| JSON_FORMAT-02 | Could not find the field              | When the user encounters this error code, it indicates that could not find the field. Please check data type   |
+
 ## Assert Connector Error Codes
 
 | code      | description          | solution                                                                                  |
