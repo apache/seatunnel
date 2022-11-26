@@ -15,35 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
+package org.apache.seatunnel.connectors.seatunnel.tablestore.exception;
 
-import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-import lombok.ToString;
-
-@ToString
-public class IoTDBSourceSplit implements SourceSplit {
-
-    private static final long serialVersionUID = -1L;
-
-    private final String splitId;
-
-    /**
-     * final query statement
-     */
-    private final String query;
-
-    @Override
-    public String splitId() {
-        return splitId;
+public class TablestoreConnectorException extends SeaTunnelRuntimeException {
+    public TablestoreConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+        super(seaTunnelErrorCode, errorMessage);
     }
 
-    public String getQuery() {
-        return query;
+    public TablestoreConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+        super(seaTunnelErrorCode, errorMessage, cause);
     }
 
-    public IoTDBSourceSplit(String splitId, String query) {
-        this.splitId = splitId;
-        this.query = query;
+    public TablestoreConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+        super(seaTunnelErrorCode, cause);
     }
 }

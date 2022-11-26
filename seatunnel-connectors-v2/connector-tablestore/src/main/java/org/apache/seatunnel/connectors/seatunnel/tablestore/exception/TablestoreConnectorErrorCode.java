@@ -15,35 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
+package org.apache.seatunnel.connectors.seatunnel.tablestore.exception;
 
-import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
-import lombok.ToString;
+public enum TablestoreConnectorErrorCode implements SeaTunnelErrorCode {
+    WRITE_ROW_FAILED("TABLESTORE-01", "Failed to send these rows of data");
 
-@ToString
-public class IoTDBSourceSplit implements SourceSplit {
+    private final String code;
 
-    private static final long serialVersionUID = -1L;
+    private final String description;
 
-    private final String splitId;
-
-    /**
-     * final query statement
-     */
-    private final String query;
+    TablestoreConnectorErrorCode(String code, String description) {
+        this.code = code;
+        this.description = description;
+    }
 
     @Override
-    public String splitId() {
-        return splitId;
+    public String getCode() {
+        return this.code;
     }
 
-    public String getQuery() {
-        return query;
+    @Override
+    public String getDescription() {
+        return this.description;
     }
 
-    public IoTDBSourceSplit(String splitId, String query) {
-        this.splitId = splitId;
-        this.query = query;
+    @Override
+    public String getErrorMessage() {
+        return SeaTunnelErrorCode.super.getErrorMessage();
     }
 }
