@@ -208,25 +208,19 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
      * @return the all plugin identifier of the engine
      */
     @SuppressWarnings("unchecked")
-    public List<PluginIdentifier> getAllPlugin(PluginType pluginType) throws IOException {
-        List<URL> files = FileUtils.searchJarFiles(this.pluginDir);
-        List<PluginIdentifier> plugins = new ArrayList();
+    public @Nonnull List<PluginIdentifier> getAllPlugin(PluginType pluginType) throws IOException {
+        List<URL> files = FileUtils.searchJarFiles(pluginDir);
+        List<PluginIdentifier> plugins = new ArrayList<>();
         List factories;
         if (pluginType.equals(PluginType.SOURCE)) {
-            factories = FactoryUtil.discoverFactories(new URLClassLoader((URL[]) files.toArray(new URL[0])),
-                TableSourceFactory.class);
+            factories = FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])), TableSourceFactory.class);
         } else if (pluginType.equals(PluginType.SINK)) {
-            factories = FactoryUtil.discoverFactories(new URLClassLoader((URL[]) files.toArray(new URL[0])),
-                TableSinkFactory.class);
+            factories = FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])), TableSinkFactory.class);
+        } else if (pluginType.equals(PluginType.TRANSFORM)) {
+            factories = FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])), TableTransformFactory.class);
         } else {
-            if (!pluginType.equals(PluginType.TRANSFORM)) {
-                throw new IllegalArgumentException("Unsupported plugin type: " + pluginType);
-            }
-
-            factories = FactoryUtil.discoverFactories(new URLClassLoader((URL[]) files.toArray(new URL[0])),
-                TableTransformFactory.class);
+            throw new IllegalArgumentException("Unsupported plugin type: " + pluginType);
         }
-
         factories.forEach(plugin -> {
             plugins.add(PluginIdentifier.of("seatunnel", pluginType.getType(), ((Factory) plugin).factoryIdentifier()));
         });
