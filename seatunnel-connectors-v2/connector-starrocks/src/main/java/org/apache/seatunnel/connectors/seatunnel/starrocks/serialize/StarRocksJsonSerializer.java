@@ -30,7 +30,6 @@ public class StarRocksJsonSerializer extends StarRocksBaseSerializer implements 
 
     private static final long serialVersionUID = 1L;
     private final SeaTunnelRowType seaTunnelRowType;
-    private final ObjectMapper mapper = new ObjectMapper();
 
     public StarRocksJsonSerializer(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
