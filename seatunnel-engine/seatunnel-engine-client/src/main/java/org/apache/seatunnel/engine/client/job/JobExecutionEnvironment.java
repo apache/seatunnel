@@ -66,7 +66,8 @@ public class JobExecutionEnvironment {
 
     private final JobClient jobClient;
 
-    public JobExecutionEnvironment(JobConfig jobConfig, String jobFilePath,
+    public JobExecutionEnvironment(JobConfig jobConfig,
+                                   String jobFilePath,
                                    SeaTunnelHazelcastClient seaTunnelHazelcastClient) {
         this.jobConfig = jobConfig;
         this.jobFilePath = jobFilePath;
