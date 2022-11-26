@@ -27,7 +27,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -93,7 +92,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         return configuration;
     }
 
-    Configuration getConfiguration() throws FilePluginException {
+    Configuration getConfiguration() {
         return getConfiguration(hadoopConf);
     }
 

@@ -19,9 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.influxdb.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.client.InfluxDBClient;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.serialize.DefaultSerializer;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.serialize.Serializer;
 
@@ -48,8 +51,8 @@ import java.util.concurrent.TimeUnit;
 public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final Serializer serializer;
-    private InfluxDB influxDB;
-    private SinkConfig sinkConfig;
+    private InfluxDB influxdb;
+    private final SinkConfig sinkConfig;
     private final List<Point> batchList;
     private ScheduledExecutorService scheduler;
     private ScheduledFuture<?> scheduledFuture;
@@ -61,12 +64,12 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         this.sinkConfig = SinkConfig.loadConfig(pluginConfig);
         this.batchIntervalMs = sinkConfig.getBatchIntervalMs();
         this.serializer = new DefaultSerializer(
-                seaTunnelRowType, sinkConfig.getPrecision().getTimeUnit(), sinkConfig.getKeyTags(), sinkConfig.getKeyTime(), sinkConfig.getMeasurement());
+            seaTunnelRowType, sinkConfig.getPrecision().getTimeUnit(), sinkConfig.getKeyTags(), sinkConfig.getKeyTime(), sinkConfig.getMeasurement());
         this.batchList = new ArrayList<>();
 
         if (batchIntervalMs != null) {
             scheduler = Executors.newSingleThreadScheduledExecutor(
-                    new ThreadFactoryBuilder().setNameFormat("influxDB-sink-output-%s").build());
+                new ThreadFactoryBuilder().setNameFormat("influxDB-sink-output-%s").build());
             scheduledFuture = scheduler.scheduleAtFixedRate(
                 () -> {
                     try {
@@ -106,9 +109,9 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
         flush();
 
-        if (influxDB != null) {
-            influxDB.close();
-            influxDB = null;
+        if (influxdb != null) {
+            influxdb.close();
+            influxdb = null;
         }
     }
 
@@ -117,7 +120,7 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
         batchList.add(record);
         if (sinkConfig.getBatchSize() > 0
-                && batchList.size() >= sinkConfig.getBatchSize()) {
+            && batchList.size() >= sinkConfig.getBatchSize()) {
             flush();
         }
     }
@@ -131,21 +134,22 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         for (int i = 0; i <= sinkConfig.getMaxRetries(); i++) {
             try {
                 batchPoints.points(batchList);
-                influxDB.write(batchPoints.build());
+                influxdb.write(batchPoints.build());
             } catch (Exception e) {
                 log.error("Writing records to influxdb failed, retry times = {}", i, e);
                 if (i >= sinkConfig.getMaxRetries()) {
-                    throw new IOException("Writing records to InfluxDB failed.", e);
+                    throw new InfluxdbConnectorException(CommonErrorCode.FLUSH_DATA_FAILED,
+                        "Writing records to InfluxDB failed.", e);
                 }
 
                 try {
                     long backoff = Math.min(sinkConfig.getRetryBackoffMultiplierMs() * i,
-                            sinkConfig.getMaxRetryBackoffMs());
+                        sinkConfig.getMaxRetryBackoffMs());
                     Thread.sleep(backoff);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
-                    throw new IOException(
-                            "Unable to flush; interrupted while doing another attempt.", e);
+                    throw new InfluxdbConnectorException(CommonErrorCode.FLUSH_DATA_FAILED,
+                        "Unable to flush; interrupted while doing another attempt.", e);
                 }
             }
         }
@@ -155,20 +159,22 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private void checkFlushException() {
         if (flushException != null) {
-            throw new RuntimeException("Writing records to InfluxDB failed.", flushException);
+            throw new InfluxdbConnectorException(CommonErrorCode.FLUSH_DATA_FAILED,
+                "Writing records to InfluxDB failed.", flushException);
         }
     }
 
     public void connect() throws ConnectException {
-        if (influxDB == null) {
-            influxDB = InfluxDBClient.getWriteClient(sinkConfig);
-            String version = influxDB.version();
-            if (!influxDB.ping().isGood()) {
-                String errorMessage =
-                        String.format(
-                                "connect influxdb failed, due to influxdb version info is unknown, the url is: {%s}",
-                                sinkConfig.getUrl());
-                throw new ConnectException(errorMessage);
+        if (influxdb == null) {
+            influxdb = InfluxDBClient.getWriteClient(sinkConfig);
+            String version = influxdb.version();
+            if (!influxdb.ping().isGood()) {
+                throw new InfluxdbConnectorException(InfluxdbConnectorErrorCode.CONNECT_FAILED,
+                    String.format(
+                        "connect influxdb failed, due to influxdb version info is unknown, the url is: {%s}",
+                        sinkConfig.getUrl()
+                    )
+                );
             }
             log.info("connect influxdb successful. sever version :{}.", version);
         }

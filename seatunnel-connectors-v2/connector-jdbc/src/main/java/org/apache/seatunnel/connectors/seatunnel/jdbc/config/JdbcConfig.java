@@ -111,6 +111,7 @@ public class JdbcConfig implements Serializable {
                 jdbcOptions.transactionTimeoutSec = config.getInt(JdbcConfig.TRANSACTION_TIMEOUT_SEC.key());
             }
         }
+
         return jdbcOptions;
     }
 }

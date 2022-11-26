@@ -37,7 +37,7 @@ public class SocketSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
     private final SocketSourceParameter parameter;
     private final SingleSplitReaderContext context;
     private Socket socket;
-    private String delimiter = "\n";
+    private final String delimiter = "\n";
 
     SocketSourceReader(SocketSourceParameter parameter, SingleSplitReaderContext context) {
         this.parameter = parameter;
@@ -70,10 +70,10 @@ public class SocketSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
                 int delimPos;
                 while (buffer.length() >= this.delimiter.length() && (delimPos = buffer.indexOf(this.delimiter)) != -1) {
                     String record = buffer.substring(0, delimPos);
-                    if (this.delimiter.equals("\n") && record.endsWith("\r")) {
+                    if (record.endsWith("\r")) {
                         record = record.substring(0, record.length() - 1);
                     }
-                    output.collect(new SeaTunnelRow(new Object[]{record}));
+                    output.collect(new SeaTunnelRow(new Object[] {record}));
                     buffer.delete(0, delimPos + this.delimiter.length());
                 }
                 if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
@@ -84,7 +84,7 @@ public class SocketSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
             }
         }
         if (buffer.length() > 0) {
-            output.collect(new SeaTunnelRow(new Object[]{buffer.toString()}));
+            output.collect(new SeaTunnelRow(new Object[] {buffer.toString()}));
         }
     }
 }

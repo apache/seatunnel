@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.seatunnel.command;
 
+import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist;
+
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
@@ -56,12 +58,14 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
     public void execute() throws CommandExecuteException {
         HazelcastInstance instance = null;
         SeaTunnelClient engineClient = null;
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         try {
             String clusterName = clientCommandArgs.getClusterName();
             if (clientCommandArgs.getExecutionMode().equals(ExecutionMode.LOCAL)) {
                 clusterName = creatRandomClusterName(clusterName);
                 instance = createServerInLocal(clusterName);
             }
+            seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(clusterName);
             engineClient = new SeaTunnelClient(clientConfig);
@@ -73,6 +77,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 System.out.println(jobState);
             } else {
                 Path configFile = FileUtils.getConfigPath(clientCommandArgs);
+                checkConfigExist(configFile);
                 JobConfig jobConfig = new JobConfig();
                 jobConfig.setName(clientCommandArgs.getJobName());
                 JobExecutionEnvironment jobExecutionEnv =
