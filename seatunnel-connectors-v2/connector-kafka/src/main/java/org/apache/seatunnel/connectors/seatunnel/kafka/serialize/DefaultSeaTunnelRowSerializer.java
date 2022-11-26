@@ -30,7 +30,7 @@ import java.util.function.Function;
 
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byte[], byte[]> {
 
-    private Integer partition;
+    private Integer partition = -1;
     private final String topic;
     private final SerializationSchema keySerialization;
     private final SerializationSchema valueSerialization;
@@ -61,7 +61,11 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<byt
 
     @Override
     public ProducerRecord<byte[], byte[]> serializeRow(SeaTunnelRow row) {
-        return new ProducerRecord<>(topic, partition,
+        if (partition != -1) {
+            return new ProducerRecord<>(topic, partition,
+                    keySerialization.serialize(row), valueSerialization.serialize(row));
+        }
+        return new ProducerRecord<>(topic,
                 keySerialization.serialize(row), valueSerialization.serialize(row));
     }
 
