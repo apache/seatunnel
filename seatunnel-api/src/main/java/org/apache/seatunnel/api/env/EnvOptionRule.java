@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client;
+package org.apache.seatunnel.api.env;
 
-import org.apache.seatunnel.engine.client.job.JobClient;
-import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
-import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 
-import lombok.NonNull;
+public class EnvOptionRule {
 
-public interface SeaTunnelClientInstance {
-
-    JobExecutionEnvironment createExecutionContext(@NonNull String filePath, @NonNull JobConfig config);
-
-    JobClient createJobClient();
-
-    void close();
+    public static OptionRule getEnvOptionRules() {
+        return OptionRule.builder()
+            .required(EnvCommonOptions.JOB_MODE)
+            .optional(EnvCommonOptions.JOB_NAME,
+                EnvCommonOptions.PARALLELISM,
+                EnvCommonOptions.CHECKPOINT_INTERVAL,
+                EnvCommonOptions.CUSTOM_PARAMETERS)
+            .build();
+    }
 }

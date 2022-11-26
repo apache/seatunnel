@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
@@ -74,15 +75,15 @@ public class ClusterFaultToleranceIT {
         HazelcastInstanceImpl node3 = null;
         SeaTunnelClient engineClient = null;
 
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.getHazelcastConfig().setClusterName(TestUtils.getClusterName(testClusterName));
+
         try {
-            node1 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node2 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node3 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node3 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
             // waiting all node added to cluster
             HazelcastInstanceImpl finalNode = node1;
@@ -182,15 +183,14 @@ public class ClusterFaultToleranceIT {
         HazelcastInstanceImpl node3 = null;
         SeaTunnelClient engineClient = null;
 
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.getHazelcastConfig().setClusterName(TestUtils.getClusterName(testClusterName));
         try {
-            node1 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node2 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node3 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node3 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
             // waiting all node added to cluster
             HazelcastInstanceImpl finalNode = node1;
@@ -263,15 +263,14 @@ public class ClusterFaultToleranceIT {
         HazelcastInstanceImpl node3 = null;
         SeaTunnelClient engineClient = null;
 
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.getHazelcastConfig().setClusterName(TestUtils.getClusterName(testClusterName));
         try {
-            node1 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node2 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node3 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node3 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
             // waiting all node added to cluster
             HazelcastInstanceImpl finalNode = node1;
@@ -346,15 +345,14 @@ public class ClusterFaultToleranceIT {
         HazelcastInstanceImpl node3 = null;
         SeaTunnelClient engineClient = null;
 
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.getHazelcastConfig().setClusterName(TestUtils.getClusterName(testClusterName));
         try {
-            node1 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node2 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node3 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node3 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
             // waiting all node added to cluster
             HazelcastInstanceImpl finalNode = node1;
@@ -444,15 +442,14 @@ public class ClusterFaultToleranceIT {
         HazelcastInstanceImpl node3 = null;
         SeaTunnelClient engineClient = null;
 
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.getHazelcastConfig().setClusterName(TestUtils.getClusterName(testClusterName));
         try {
-            node1 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node2 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node3 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node3 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
             // waiting all node added to cluster
             HazelcastInstanceImpl finalNode = node1;
@@ -527,15 +524,14 @@ public class ClusterFaultToleranceIT {
         HazelcastInstanceImpl node3 = null;
         SeaTunnelClient engineClient = null;
 
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.getHazelcastConfig().setClusterName(TestUtils.getClusterName(testClusterName));
         try {
-            node1 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node2 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node3 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node3 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
             // waiting all node added to cluster
             HazelcastInstanceImpl finalNode = node1;
