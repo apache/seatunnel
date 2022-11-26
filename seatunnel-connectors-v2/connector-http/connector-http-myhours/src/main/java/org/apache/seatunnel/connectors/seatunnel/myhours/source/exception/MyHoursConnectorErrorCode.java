@@ -15,19 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client;
+package org.apache.seatunnel.connectors.seatunnel.myhours.source.exception;
 
-import org.apache.seatunnel.engine.client.job.JobClient;
-import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
-import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
-import lombok.NonNull;
+public enum MyHoursConnectorErrorCode implements SeaTunnelErrorCode {
+    GET_MYHOURS_TOKEN_FAILE("MYHOURS-01",  "Get myhours token failed");
 
-public interface SeaTunnelClientInstance {
+    private final String code;
 
-    JobExecutionEnvironment createExecutionContext(@NonNull String filePath, @NonNull JobConfig config);
+    private final String description;
 
-    JobClient createJobClient();
+    MyHoursConnectorErrorCode(String code, String description) {
+        this.code = code;
+        this.description = description;
+    }
 
-    void close();
+    @Override
+    public String getCode() {
+        return this.code;
+    }
+
+    @Override
+    public String getDescription() {
+        return this.description;
+    }
+
+    @Override
+    public String getErrorMessage() {
+        return SeaTunnelErrorCode.super.getErrorMessage();
+    }
 }

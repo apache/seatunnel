@@ -54,6 +54,12 @@ This document records some common error codes and corresponding solutions of Sea
 | SLACK-01  | Conversation can not be founded in channels | When users encounter this error code, it means that the channel is not existed in slack workspace, please check it |
 | SLACK-02  | Write to slack channel failed               | When users encounter this error code, it means that slack has some problems, please check it whether is work       |
 
+## MyHours Connector Error Codes
+
+| code        | description                      | solution                                                                                                                 | 
+|-------------|----------------------------------|--------------------------------------------------------------------------------------------------------------------------|
+| MYHOURS-01  | Get myhours token failed         | When users encounter this error code, it means that login to the MyHours Failed, please check your network and try again |
+
 ## Rabbitmq Connector Error Codes
 
 | code        | description                                                   | solution                                                                                                        |
@@ -75,6 +81,12 @@ This document records some common error codes and corresponding solutions of Sea
 | SOCKET-01 | Cannot connect to socket server                          | When the user encounters this error code, it means that the connection address may not match, please check                     |
 | SOCKET-02 | Failed to send message to socket server                  | When the user encounters this error code, it means that there is a problem sending data and retry is not enabled, please check |
 | SOCKET-03 | Unable to write; interrupted while doing another attempt | When the user encounters this error code, it means that the data writing is interrupted abnormally, please check               |
+
+## Tablestore Connector Error Codes
+
+| code           | description                           | solution                                                                                                                            |
+|----------------|---------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
+| TABLESTORE-01  | Failed to send these rows of data     | When users encounter this error code, it means that failed to write these rows of data, please check the rows that failed to import |
 
 ## Hive Connector Error Codes
 
@@ -103,3 +115,22 @@ This document records some common error codes and corresponding solutions of Sea
 | INFLUXDB-01 | Connect influxdb failed, due to influxdb version info is unknown | When the user encounters this error code, it indicates that the connection to influxdb failed. Please check |
 | INFLUXDB-02 | Get column index of query result exception                       | When the user encounters this error code, it indicates that obtaining the column index failed. Please check |
 
+## Kudu Connector Error Codes
+
+| code    | description                                              | solution                                                                                                                                                                                          |
+|---------|----------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| KUDU-01 | Get the Kuduscan object for each splice failed           | When users encounter this error code, it is usually there are some problems with getting the KuduScan Object for each splice, please check your configuration whether correct and Kudu is work    |
+| KUDU-02 | Close Kudu client failed                                 | When users encounter this error code, it is usually there are some problems with closing the Kudu client, please check the Kudu is work                                                           |                                                                |
+| KUDU-03 | Value type does not match column type                    | When users encounter this error code, it is usually there are some problems on matching the Type between value type and colum type, please check if the data type is supported                    |
+| KUDU-04 | Upsert data to Kudu failed                               | When users encounter this error code, it means that Kudu has some problems, please check it whether is work                                                                                       |
+| KUDU-05 | Insert data to Kudu failed                               | When users encounter this error code, it means that Kudu has some problems, please check it whether is work                                                                                       |
+| KUDU-06 | Initialize the Kudu client failed                        | When users encounter this error code, it is usually there are some problems with initializing the Kudu client, please check your configuration whether correct and connector is work              |
+| KUDU-07 | Generate Kudu Parameters in the preparation phase failed | When users encounter this error code, it means that there are some problems on Kudu parameters generation, please check your configuration                                                        |
+
+## IotDB Connector Error Codes
+
+| code     | description                                              | solution                                                                                                     |
+|----------|----------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| IOTDB-01 | Close IoTDB session failed                               | When the user encounters this error code, it indicates that closing the session failed. Please check         |
+| IOTDB-02 | Initialize IoTDB client failed                           | When the user encounters this error code, it indicates that the client initialization failed. Please check   |
+| IOTDB-03 | Close IoTDB client failed                                | When the user encounters this error code, it indicates that closing the client failed. Please check          |
