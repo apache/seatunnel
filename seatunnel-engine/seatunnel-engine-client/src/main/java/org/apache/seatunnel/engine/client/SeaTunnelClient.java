@@ -36,7 +36,7 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
     }
 
     @Override
-    public JobExecutionEnvironment createExecutionContext(@NonNull String filePath, JobConfig jobConfig) {
+    public JobExecutionEnvironment createExecutionContext(@NonNull String filePath, @NonNull JobConfig jobConfig) {
         return new JobExecutionEnvironment(jobConfig, filePath, hazelcastClient);
     }
 
@@ -67,14 +67,14 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
         }
     }
 
-    public String getJobState(Long jobId){
+    public String getJobState(Long jobId) {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
             SeaTunnelGetJobStateCodec.encodeRequest(jobId),
             SeaTunnelGetJobStateCodec::decodeResponse
         );
     }
 
-    public String listJobStatus(){
+    public String listJobStatus() {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
             SeaTunnelListJobStatusCodec.encodeRequest(),
             SeaTunnelListJobStatusCodec::decodeResponse
