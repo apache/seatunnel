@@ -18,6 +18,7 @@
 package org.apache.seatunnel.plugin.discovery;
 
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -53,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -148,7 +150,8 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         Config engineConfig = config.getConfig(CollectionConstants.SEATUNNEL_PLUGIN);
         if (engineConfig.hasPath(pluginType.getType())) {
             engineConfig.getConfig(pluginType.getType()).entrySet().forEach(entry -> {
-                pluginIdentifiers.put(PluginIdentifier.of(CollectionConstants.SEATUNNEL_PLUGIN, pluginType.getType(), entry.getKey()),
+                pluginIdentifiers.put(
+                    PluginIdentifier.of(CollectionConstants.SEATUNNEL_PLUGIN, pluginType.getType(), entry.getKey()),
                     entry.getValue().unwrapped().toString());
             });
         }
@@ -224,6 +227,62 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         return plugins;
     }
 
+    /**
+     * Get all support plugin already in SEATUNNEL_HOME, only support connector-v2
+     * @return the all plugin identifier of the engine
+     */
+    @SuppressWarnings("checkstyle:WhitespaceAfter")
+    public Map<PluginType, LinkedHashMap<PluginIdentifier, OptionRule>> getAllPlugin() throws IOException {
+        List<URL> files = FileUtils.searchJarFiles(this.pluginDir);
+        Map<PluginType, LinkedHashMap<PluginIdentifier, OptionRule>> plugins = new HashMap<>();
+        List<Factory> factories = FactoryUtil.discoverFactories(new URLClassLoader((URL[]) files.toArray(new URL[0])));
+
+        factories.forEach(plugin -> {
+            if (TableSourceFactory.class.isAssignableFrom(plugin.getClass())) {
+                if (plugins.get(PluginType.SOURCE) == null) {
+                    plugins.put(PluginType.SOURCE, new LinkedHashMap());
+                }
+
+                plugins.get(PluginType.SOURCE).put(PluginIdentifier.of(
+                        "seatunnel",
+                        PluginType.SOURCE.getType(),
+                        plugin.factoryIdentifier()
+                    ),
+                    FactoryUtil.sourceFullOptionRule(plugin));
+                return;
+            }
+
+            if (TableSinkFactory.class.isAssignableFrom(plugin.getClass())) {
+                if (plugins.get(PluginType.SINK) == null) {
+                    plugins.put(PluginType.SINK, new LinkedHashMap());
+                }
+
+                plugins.get(PluginType.SINK).put(PluginIdentifier.of(
+                        "seatunnel",
+                        PluginType.SINK.getType(),
+                        plugin.factoryIdentifier()
+                    ),
+                    plugin.optionRule());
+                return;
+            }
+
+            if (TableTransformFactory.class.isAssignableFrom(plugin.getClass())) {
+                if (plugins.get(PluginType.TRANSFORM) == null) {
+                    plugins.put(PluginType.TRANSFORM, new LinkedHashMap());
+                }
+
+                plugins.get(PluginType.TRANSFORM).put(PluginIdentifier.of(
+                        "seatunnel",
+                        PluginType.TRANSFORM.getType(),
+                        plugin.factoryIdentifier()
+                    ),
+                    plugin.optionRule());
+                return;
+            }
+        });
+        return plugins;
+    }
+
     @Nullable
     private T loadPluginInstance(PluginIdentifier pluginIdentifier, ClassLoader classLoader) {
         ServiceLoader<T> serviceLoader = ServiceLoader.load(getPluginBaseClass(), classLoader);
@@ -237,7 +296,8 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             } else if (t instanceof PluginIdentifierInterface) {
                 // new api
                 PluginIdentifierInterface pluginIdentifierInstance = (PluginIdentifierInterface) t;
-                if (StringUtils.equalsIgnoreCase(pluginIdentifierInstance.getPluginName(), pluginIdentifier.getPluginName())) {
+                if (StringUtils.equalsIgnoreCase(pluginIdentifierInstance.getPluginName(),
+                    pluginIdentifier.getPluginName())) {
                     return (T) pluginIdentifierInstance;
                 }
             } else {
@@ -295,7 +355,8 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         File[] targetPluginFiles = pluginDir.toFile().listFiles(new FileFilter() {
             @Override
             public boolean accept(File pathname) {
-                return pathname.getName().endsWith(".jar") && StringUtils.startsWithIgnoreCase(pathname.getName(), pluginJarPrefix);
+                return pathname.getName().endsWith(".jar") &&
+                    StringUtils.startsWithIgnoreCase(pathname.getName(), pluginJarPrefix);
             }
         });
         if (ArrayUtils.isEmpty(targetPluginFiles)) {
