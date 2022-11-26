@@ -17,12 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.exception;
 
-public class FilePluginException extends Exception {
-    public FilePluginException(String message) {
-        super(message);
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+
+public class FileConnectorException extends SeaTunnelRuntimeException {
+    public FileConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+        super(seaTunnelErrorCode, errorMessage);
     }
 
-    public FilePluginException(String message, Throwable cause) {
-        super(message, cause);
+    public FileConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+        super(seaTunnelErrorCode, errorMessage, cause);
+    }
+
+    public FileConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+        super(seaTunnelErrorCode, cause);
     }
 }
