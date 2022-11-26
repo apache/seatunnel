@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *    https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,20 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hudi.source;
+package org.apache.seatunnel.connectors.seatunnel.hudi.exception;
 
-import java.io.Serializable;
-import java.util.Set;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
-public class HudiSourceState implements Serializable {
+public enum HudiConnectorErrorCode implements SeaTunnelErrorCode {
 
-    private final Set<HudiSourceSplit> assignedSplit;
+    CREATE_PARQUET_METADATA_FAILED("HUDI-01", "Create ParquetMetadata failed."),
+    KERBEROS_AUTHORIZED_FAILED("HUDI-02", "Kerberos Authorized failed");
 
-    public HudiSourceState(Set<HudiSourceSplit> assignedSplit) {
-        this.assignedSplit = assignedSplit;
+    private final String code;
+    private final String description;
+
+    HudiConnectorErrorCode(String code, String description) {
+        this.code = code;
+        this.description = description;
     }
 
-    public Set<HudiSourceSplit> getAssignedSplit() {
-        return assignedSplit;
+    @Override
+    public String getCode() {
+        return this.code;
+    }
+
+    @Override
+    public String getDescription() {
+        return this.description;
     }
 }

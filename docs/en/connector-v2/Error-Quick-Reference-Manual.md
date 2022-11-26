@@ -88,7 +88,6 @@ This document records some common error codes and corresponding solutions of Sea
 |----------------|---------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
 | TABLESTORE-01  | Failed to send these rows of data     | When users encounter this error code, it means that failed to write these rows of data, please check the rows that failed to import |
 
-
 ## Hive Connector Error Codes
 
 | code    | description                                                   | solution                                                                                                                      |
@@ -135,7 +134,6 @@ This document records some common error codes and corresponding solutions of Sea
 | IOTDB-02 | Initialize IoTDB client failed                           | When the user encounters this error code, it indicates that the client initialization failed. Please check   |
 | IOTDB-03 | Close IoTDB client failed                                | When the user encounters this error code, it indicates that closing the client failed. Please check          |
 
-
 ## File Connector Error Codes
 
 | code    | description                 | solution                                                                                                                                                         |
@@ -143,3 +141,10 @@ This document records some common error codes and corresponding solutions of Sea
 | FILE-01 | File type is invalid        | When users encounter this error code, it means that the this file is not the format that user assigned, please check it                                          |
 | FILE-02 | Data deserialization failed | When users encounter this error code, it means that data from files not satisfied the schema that user assigned, please check data from files whether is correct |
 | FILE-03 | Get file list failed        | When users encounter this error code, it means that connector try to traverse the path and get file list failed, please check file system whether is work        |
+
+## Hudi Connector Error Codes
+
+| code    | description                   | solution                                                                                                  |
+|---------|-------------------------------|-----------------------------------------------------------------------------------------------------------|
+| HUDI-01 | Create ParquetMetadata failed | When the user encounters this error code, it indicates that ParquetMetadata creation failed. Please check |
+| HUDI-02 | Kerberos Authorized failed    | When the user encounters this error code, it indicates that Kerberos authorization failed. Please check   |
