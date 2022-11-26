@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.e2e.flink.v2.icegerg.hadoop3;
 
+import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HADOOP;
+
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergCatalogFactory;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType;
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
 import lombok.extern.slf4j.Slf4j;
@@ -86,7 +89,7 @@ public class IcebergSourceIT extends FlinkContainer {
     );
 
     private static final String CATALOG_NAME = "seatunnel";
-    private static final String CATALOG_TYPE = "hadoop";
+    private static final IcebergCatalogType CATALOG_TYPE = HADOOP;
     private static final String CATALOG_DIR = "/tmp/seatunnel/iceberg/flink/";
     private static final String WAREHOUSE = "file://" + CATALOG_DIR;
     private static Catalog CATALOG;
