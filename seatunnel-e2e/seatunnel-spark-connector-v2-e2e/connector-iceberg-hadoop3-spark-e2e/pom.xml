@@ -26,7 +26,7 @@
     <artifactId>connector-iceberg-hadoop3-spark-e2e</artifactId>
 
     <properties>
-        <hadoop-client.version>3.1.3</hadoop-client.version>
+        <hadoop-client.version>3.3.4</hadoop-client.version>
     </properties>
 
     <dependencies>
@@ -49,6 +49,12 @@
             <artifactId>hadoop-client</artifactId>
             <version>${hadoop-client.version}</version>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-reload4j</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 </project>
