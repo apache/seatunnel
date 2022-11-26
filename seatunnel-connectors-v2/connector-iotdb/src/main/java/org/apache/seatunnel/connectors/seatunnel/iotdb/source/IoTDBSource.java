@@ -69,7 +69,7 @@ public class IoTDBSource implements SeaTunnelSource<SeaTunnelRow, IoTDBSourceSpl
                 throw new IotdbConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format("PluginName: %s, PluginType: %s, Message: %s",
                         getPluginName(), PluginType.SOURCE,
-                        "host and port and node urls are both empty")
+                        result.getMsg())
                 );
             }
         }
