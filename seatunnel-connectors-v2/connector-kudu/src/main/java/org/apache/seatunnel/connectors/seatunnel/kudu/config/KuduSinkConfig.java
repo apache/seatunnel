@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.config;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -75,7 +78,9 @@ public class KuduSinkConfig {
             this.kuduMaster = pluginConfig.getString(KUDU_MASTER.key());
             this.kuduTableName = pluginConfig.getString(KUDU_TABLE_NAME.key());
         } else {
-            throw new RuntimeException("Missing Sink configuration parameters");
+            throw new KuduConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            "Kudu", PluginType.SINK, "Missing Sink configuration parameters"));
         }
     }
 }

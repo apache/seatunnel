@@ -17,13 +17,16 @@
 
 package org.apache.seatunnel.api.table.factory;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSource;
 
+import lombok.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -143,7 +146,7 @@ public final class FactoryUtil {
                 .collect(Collectors.toList());
     }
 
-    private static List<Factory> discoverFactories(ClassLoader classLoader) {
+    public static List<Factory> discoverFactories(ClassLoader classLoader) {
         try {
             final List<Factory> result = new LinkedList<>();
             ServiceLoader.load(Factory.class, classLoader)
@@ -154,5 +157,21 @@ public final class FactoryUtil {
             LOG.error("Could not load service provider for factories.", e);
             throw new FactoryException("Could not load service provider for factories.", e);
         }
+    }
+
+    /**
+     * This method is called by SeaTunnel Web to get the full option rule of a source.
+     * @return
+     */
+    public static OptionRule sourceFullOptionRule(@NonNull Factory factory) {
+        OptionRule sourceOptionRule = factory.optionRule();
+        if (sourceOptionRule == null) {
+            throw new FactoryException("sourceOptionRule can not be null");
+        }
+
+        OptionRule sourceCommonOptionRule =
+            OptionRule.builder().optional(SourceCommonOptions.PARALLELISM).build();
+        sourceOptionRule.getOptionalOptions().addAll(sourceCommonOptionRule.getOptionalOptions());
+        return sourceOptionRule;
     }
 }
