@@ -30,7 +30,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSemantics;
-import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.SeaTunnelRowSerializer;
@@ -127,7 +126,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         try (KafkaProduceSender<?, ?> kafkaProduceSender = kafkaProducerSender) {
             // no-opt
         } catch (Exception e) {
-            throw new KafkaConnectorException(KafkaConnectorErrorCode.CLOSE_SINK_WRITER_FAILED,
+            throw new KafkaConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED,
                     "Close kafka sink writer error", e);
         }
     }

@@ -102,11 +102,10 @@ This document records some common error codes and corresponding solutions of Sea
 |----------|-------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
 | KAFKA-01 | Incompatible KafkaProducer version                                                        | When users encounter this error code, it means that KafkaProducer version is incompatible, please check it                        |
 | KAFKA-02 | Get transactionManager in KafkaProducer exception                                         | When users encounter this error code, it means that can not get transactionManager in KafkaProducer, please check it              |
-| KAFKA-03 | Close kafka sink writer failed                                                            | When users encounter this error code, it means that can not close kafka sink writer, please check config and retry it             |
-| KAFKA-04 | Add the split checkpoint state to reader failed                                           | When users encounter this error code, it means that add the split checkpoint state to reader failed, please retry it              |
-| KAFKA-05 | Add a split back to the split enumerator,it will only happen when a SourceReader failed   | When users encounter this error code, it means that add a split back to the split enumerator failed, please check it              | 
-| KAFKA-06 | Error occurred when the kafka consumer thread was running                                 | When users encounter this error code, it means that an error occurred when the kafka consumer thread was running, please check it |
-| KAFKA-07 | Kafka failed to consume data                                                              | When users encounter this error code, it means that Kafka failed to consume data, please check config and retry it                |
+| KAFKA-03 | Add the split checkpoint state to reader failed                                           | When users encounter this error code, it means that add the split checkpoint state to reader failed, please retry it              |
+| KAFKA-04 | Add a split back to the split enumerator,it will only happen when a SourceReader failed   | When users encounter this error code, it means that add a split back to the split enumerator failed, please check it              | 
+| KAFKA-05 | Error occurred when the kafka consumer thread was running                                 | When users encounter this error code, it means that an error occurred when the kafka consumer thread was running, please check it |
+| KAFKA-06 | Kafka failed to consume data                                                              | When users encounter this error code, it means that Kafka failed to consume data, please check config and retry it                |
 
 ## InfluxDB Connector Error Codes
 
