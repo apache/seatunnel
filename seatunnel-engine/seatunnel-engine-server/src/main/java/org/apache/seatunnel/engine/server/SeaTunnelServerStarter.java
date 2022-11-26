@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.instance.impl.HazelcastInstanceProxy;
+import lombok.NonNull;
 
 public class SeaTunnelServerStarter {
 
@@ -33,6 +34,10 @@ public class SeaTunnelServerStarter {
     public static HazelcastInstanceImpl createHazelcastInstance(String clusterName) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
+        return createHazelcastInstance(seaTunnelConfig);
+    }
+
+    public static HazelcastInstanceImpl createHazelcastInstance(@NonNull SeaTunnelConfig seaTunnelConfig) {
         return ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(
             seaTunnelConfig.getHazelcastConfig(),
             HazelcastInstanceFactory.createInstanceName(seaTunnelConfig.getHazelcastConfig()),
@@ -41,9 +46,6 @@ public class SeaTunnelServerStarter {
 
     public static HazelcastInstanceImpl createHazelcastInstance() {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        return ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(
-            seaTunnelConfig.getHazelcastConfig(),
-            HazelcastInstanceFactory.createInstanceName(seaTunnelConfig.getHazelcastConfig()),
-            new SeaTunnelNodeContext(seaTunnelConfig))).getOriginal();
+        return createHazelcastInstance(seaTunnelConfig);
     }
 }

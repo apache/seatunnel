@@ -20,7 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.file.source;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
@@ -59,7 +61,8 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
             try {
                 readStrategy.read(source.splitId(), output);
             } catch (Exception e) {
-                throw new RuntimeException("File source read error", e);
+                String errorMsg = String.format("Read data from this file [%s] failed", source.splitId());
+                throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
             }
         });
         context.signalNoMoreElement();
