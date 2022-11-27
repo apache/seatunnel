@@ -67,4 +67,9 @@ public class HttpConfig {
             .intType()
             .defaultValue(DEFAULT_RETRY_BACKOFF_MAX_MS)
             .withDescription("The maximum retry-backoff times(millis) if request http failed");
+    public static final Option<JsonField> JSON_FIELD = Options.key("json_field")
+            .objectType(JsonField.class)
+            .noDefaultValue()
+            .withDescription("SeaTunnel json field.When partial json data is required, this parameter can be configured to obtain data");
+
 }

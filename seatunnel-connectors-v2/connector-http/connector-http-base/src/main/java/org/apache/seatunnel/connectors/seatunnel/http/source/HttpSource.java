@@ -29,24 +29,30 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+import org.apache.seatunnel.connectors.seatunnel.http.config.JsonField;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import com.google.auto.service.AutoService;
+import com.jayway.jsonpath.JsonPath;
 
 @AutoService(SeaTunnelSource.class)
 public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     protected final HttpParameter httpParameter = new HttpParameter();
     protected SeaTunnelRowType rowType;
+    protected JsonField jsonField;
     protected JobContext jobContext;
     protected DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    protected JsonPath[] jsonPaths;
 
     @Override
     public String getPluginName() {
@@ -80,6 +86,10 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             switch (format) {
                 case HttpConfig.DEFAULT_FORMAT:
                     this.deserializationSchema = new JsonDeserializationSchema(false, false, rowType);
+                    if (pluginConfig.hasPath(HttpConfig.JSON_FIELD.key())) {
+                        jsonField = getJsonField(pluginConfig.getConfig(HttpConfig.JSON_FIELD.key()));
+                        this.initJsonPath(jsonField);
+                    }
                     break;
                 default:
                     // TODO: use format SPI
@@ -103,6 +113,21 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(this.httpParameter, readerContext, this.deserializationSchema);
+        return new HttpSourceReader(this.httpParameter, readerContext, this.deserializationSchema, jsonField, jsonPaths);
+    }
+
+    private JsonField getJsonField(Config jsonFieldConf) {
+        ConfigRenderOptions options = ConfigRenderOptions.concise();
+
+        return JsonField.builder().fields(JsonUtils.toMap(jsonFieldConf.root().render(options))).build();
+    }
+
+    private void initJsonPath(JsonField jsonField) {
+        jsonPaths = new JsonPath[jsonField.getFields().size()];
+        final int[] index = {0};
+        jsonField.getFields().forEach((key, value) -> {
+            jsonPaths[index[0]] = JsonPath.compile(jsonField.getFields().get(key));
+            index[0]++;
+        });
     }
 }
