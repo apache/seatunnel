@@ -178,20 +178,20 @@ public class JdbcDorisdbIT extends TestSuiteBase implements TestResource {
         for (int i = 0; i < 100; i++) {
             SeaTunnelRow row = new SeaTunnelRow(
                     new Object[]{
-                            Long.valueOf(i),
-                            Long.valueOf(1123456),
-                            Short.parseShort("1"),
-                            Byte.parseByte("1"),
-                            Boolean.FALSE,
-                            BigDecimal.valueOf(2222243, 1),
-                            Double.parseDouble("2222243.2222243"),
-                            Float.parseFloat("222224"),
-                            Integer.parseInt("1"),
-                            "a",
-                            "VARCHAR_COL",
-                            "STRING_COL",
-                            "2022-03-02 13:24:45",
-                            "2022-03-02"
+                        Long.valueOf(i),
+                        Long.valueOf(1123456),
+                        Short.parseShort("1"),
+                        Byte.parseByte("1"),
+                        Boolean.FALSE,
+                        BigDecimal.valueOf(2222243, 1),
+                        Double.parseDouble("2222243.2222243"),
+                        Float.parseFloat("222224"),
+                        Integer.parseInt("1"),
+                        "a",
+                        "VARCHAR_COL",
+                        "STRING_COL",
+                        "2022-03-02 13:24:45",
+                        "2022-03-02"
                     });
             rows.add(row);
         }
