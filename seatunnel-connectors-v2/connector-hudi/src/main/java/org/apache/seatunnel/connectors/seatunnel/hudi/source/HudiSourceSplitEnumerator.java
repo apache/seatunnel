@@ -43,8 +43,8 @@ public class HudiSourceSplitEnumerator implements SourceSplitEnumerator<HudiSour
     private final Context<HudiSourceSplit> context;
     private Set<HudiSourceSplit> pendingSplit;
     private Set<HudiSourceSplit> assignedSplit;
-    private String tablePath;
-    private String confPaths;
+    private final String tablePath;
+    private final String confPaths;
 
     public HudiSourceSplitEnumerator(SourceSplitEnumerator.Context<HudiSourceSplit> context, String tablePath, String confPaths) {
         this.context = context;
@@ -79,7 +79,7 @@ public class HudiSourceSplitEnumerator implements SourceSplitEnumerator<HudiSour
         FileInputFormat.setInputPaths(jobConf, path);
         HoodieParquetInputFormat inputFormat = new HoodieParquetInputFormat();
         inputFormat.setConf(jobConf);
-        for (InputSplit split: inputFormat.getSplits(jobConf, 0)) {
+        for (InputSplit split : inputFormat.getSplits(jobConf, 0)) {
             hudiSourceSplits.add(new HudiSourceSplit(split.toString(), split));
         }
         return hudiSourceSplits;
@@ -98,14 +98,13 @@ public class HudiSourceSplitEnumerator implements SourceSplitEnumerator<HudiSour
         }
     }
 
-    private void assignSplit(Collection<Integer> taskIDList) {
+    private void assignSplit(Collection<Integer> taskIdList) {
         Map<Integer, List<HudiSourceSplit>> readySplit = new HashMap<>(Common.COLLECTION_SIZE);
-        for (int taskID : taskIDList) {
-            readySplit.computeIfAbsent(taskID, id -> new ArrayList<>());
+        for (int taskId : taskIdList) {
+            readySplit.computeIfAbsent(taskId, id -> new ArrayList<>());
         }
 
-        pendingSplit.forEach(s -> readySplit.get(getSplitOwner(s.splitId(), taskIDList.size()))
-                .add(s));
+        pendingSplit.forEach(s -> readySplit.get(getSplitOwner(s.splitId(), taskIdList.size())).add(s));
         readySplit.forEach(context::assignSplit);
         assignedSplit.addAll(pendingSplit);
         pendingSplit.clear();
