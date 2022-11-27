@@ -28,7 +28,8 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConf;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.exception.OssJindoConnectorException;
@@ -66,7 +67,8 @@ public class OssFileSource extends BaseFileSource {
         try {
             filePaths = readStrategy.getFileNamesByPath(hadoopConf, path);
         } catch (IOException e) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Check file path fail.");
+            String errorMsg = String.format("Get file list from this path [%s] failed", path);
+            throw new FileConnectorException(FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg, e);
         }
         // support user-defined schema
         FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(OssConfig.FILE_TYPE.key()).toUpperCase());
@@ -95,9 +97,9 @@ public class OssFileSource extends BaseFileSource {
         } else {
             try {
                 rowType = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filePaths.get(0));
-            } catch (FilePluginException e) {
-                throw new OssJindoConnectorException(CommonErrorCode.TABLE_SCHEMA_GET_FAILED,
-                        "Get data schema information from file failed", e);
+            } catch (FileConnectorException e) {
+                String errorMsg = String.format("Get table schema from file [%s] failed", filePaths.get(0));
+                throw new FileConnectorException(CommonErrorCode.TABLE_SCHEMA_GET_FAILED, errorMsg, e);
             }
         }
     }
