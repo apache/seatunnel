@@ -15,16 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception;
+package org.apache.seatunnel.api.env;
 
-public class GetIndexDocsCountException extends RuntimeException {
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 
-    public GetIndexDocsCountException(String message) {
-        super(message);
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+public class EnvOptionRuleTest {
+    /**
+     * Method: getEnvOptionRules()
+     */
+    @Test
+    public void testGetEnvOptionRules() throws Exception {
+        OptionRule envOptionRules = EnvOptionRule.getEnvOptionRules();
+        Assertions.assertNotNull(envOptionRules);
     }
-
-    public GetIndexDocsCountException(Throwable cause) {
-        super(cause);
-    }
-
 }

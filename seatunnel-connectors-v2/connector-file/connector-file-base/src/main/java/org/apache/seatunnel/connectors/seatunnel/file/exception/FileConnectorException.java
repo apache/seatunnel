@@ -15,16 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception;
+package org.apache.seatunnel.connectors.seatunnel.file.exception;
 
-public class BulkElasticsearchException extends RuntimeException {
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-    public BulkElasticsearchException(String message, Throwable cause) {
-        super(message, cause);
+public class FileConnectorException extends SeaTunnelRuntimeException {
+    public FileConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+        super(seaTunnelErrorCode, errorMessage);
     }
 
-    public BulkElasticsearchException(String message) {
-        super(message);
+    public FileConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+        super(seaTunnelErrorCode, errorMessage, cause);
     }
 
+    public FileConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+        super(seaTunnelErrorCode, cause);
+    }
 }

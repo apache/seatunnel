@@ -18,11 +18,13 @@
 package org.apache.seatunnel.connectors.seatunnel.file.s3.sink;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3Conf;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3Config;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
@@ -45,7 +47,9 @@ public class S3FileSink extends BaseFileSink {
                 S3Config.FILE_PATH.key(), S3Config.S3_BUCKET.key(),
                 S3Config.S3_ACCESS_KEY.key(), S3Config.S3_SECRET_KEY.key());
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
+            throw new FileConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SINK, result.getMsg()));
         }
         hadoopConf = S3Conf.buildWithConfig(pluginConfig);
     }

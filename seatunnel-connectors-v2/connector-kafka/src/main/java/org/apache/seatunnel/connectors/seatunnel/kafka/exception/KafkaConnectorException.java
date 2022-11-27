@@ -15,11 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception;
+package org.apache.seatunnel.connectors.seatunnel.kafka.exception;
 
-public class GetElasticsearchVersionException extends RuntimeException {
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-    public GetElasticsearchVersionException(String message, Throwable cause) {
-        super(message, cause);
+public class KafkaConnectorException extends SeaTunnelRuntimeException {
+    public KafkaConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+        super(seaTunnelErrorCode, errorMessage);
+    }
+
+    public KafkaConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+        super(seaTunnelErrorCode, errorMessage, cause);
+    }
+
+    public KafkaConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+        super(seaTunnelErrorCode, cause);
     }
 }

@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil;
 
 import org.apache.commons.lang3.StringUtils;
@@ -47,13 +49,13 @@ public class HudiSourceReader implements SourceReader<SeaTunnelRow, HudiSourceSp
 
     private static final long THREAD_WAIT_TIME = 500L;
 
-    private String confPaths;
+    private final String confPaths;
 
-    private Set<HudiSourceSplit> sourceSplits;
+    private final Set<HudiSourceSplit> sourceSplits;
 
     private final SourceReader.Context context;
 
-    private SeaTunnelRowType seaTunnelRowType;
+    private final SeaTunnelRowType seaTunnelRowType;
 
     public HudiSourceReader(String confPaths, SourceReader.Context context, SeaTunnelRowType seaTunnelRowType) {
         this.confPaths = confPaths;
@@ -86,7 +88,7 @@ public class HudiSourceReader implements SourceReader<SeaTunnelRow, HudiSourceSp
                 ParquetHiveSerDe serde = new ParquetHiveSerDe();
                 Properties properties = new Properties();
                 List<String> types = new ArrayList<>();
-                for (SeaTunnelDataType<?> type: seaTunnelRowType.getFieldTypes()) {
+                for (SeaTunnelDataType<?> type : seaTunnelRowType.getFieldTypes()) {
                     types.add(type.getSqlType().name());
                 }
                 String columns = StringUtils.join(seaTunnelRowType.getFieldNames(), ",");
@@ -112,9 +114,8 @@ public class HudiSourceReader implements SourceReader<SeaTunnelRow, HudiSourceSp
                 }
                 reader.close();
             } catch (Exception e) {
-                throw new RuntimeException("Hudi source read error", e);
+                throw new HudiConnectorException(CommonErrorCode.READER_OPERATION_FAILED, e);
             }
-
         });
         context.signalNoMoreElement();
     }

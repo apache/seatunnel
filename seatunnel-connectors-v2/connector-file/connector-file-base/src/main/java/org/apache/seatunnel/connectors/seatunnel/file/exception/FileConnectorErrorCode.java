@@ -17,12 +17,28 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.exception;
 
-public class FilePluginException extends Exception {
-    public FilePluginException(String message) {
-        super(message);
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+
+public enum FileConnectorErrorCode implements SeaTunnelErrorCode {
+    FILE_TYPE_INVALID("FILE-01", "File type is invalid"),
+    DATA_DESERIALIZE_FAILED("FILE-02", "Data deserialization failed"),
+    FILE_LIST_GET_FAILED("FILE-03", "Get file list failed");
+
+    private final String code;
+    private final String description;
+
+    FileConnectorErrorCode(String code, String description) {
+        this.code = code;
+        this.description = description;
     }
 
-    public FilePluginException(String message, Throwable cause) {
-        super(message, cause);
+    @Override
+    public String getCode() {
+        return code;
+    }
+
+    @Override
+    public String getDescription() {
+        return description;
     }
 }
