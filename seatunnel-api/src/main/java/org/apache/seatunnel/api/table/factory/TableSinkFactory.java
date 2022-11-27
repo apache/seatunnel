@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 
 /**
  * This is an SPI interface, used to create {@link TableSink}. Each plugin need to have it own implementation.
- * todo: now we have not use this interface, we directly use {@link org.apache.seatunnel.api.sink.SeaTunnelSink} as the SPI interface.
  *
  * @param <IN>                    row type
  * @param <StateT>                state type
@@ -32,11 +31,11 @@ public interface TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT
 
     /**
      * We will never use this method now. So gave a default implement and return null.
+     *
      * @param context TableFactoryContext
      * @return
      */
     default TableSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createSink(TableFactoryContext context) {
         throw new UnsupportedOperationException("unsupported now");
     }
-
 }

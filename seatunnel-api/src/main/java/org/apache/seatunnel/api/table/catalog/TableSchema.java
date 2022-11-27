@@ -18,6 +18,7 @@
 package org.apache.seatunnel.api.table.catalog;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -47,6 +48,18 @@ public final class TableSchema implements Serializable {
      */
     public List<Column> getColumns() {
         return columns;
+    }
+
+    public SeaTunnelRowType toPhysicalRowDataType() {
+        SeaTunnelDataType<?>[] fieldTypes = columns.stream()
+            .filter(Column::isPhysical)
+            .map(Column::getDataType)
+            .toArray(SeaTunnelDataType[]::new);
+        String[] fields = columns.stream()
+            .filter(Column::isPhysical)
+            .map(Column::getName)
+            .toArray(String[]::new);
+        return new SeaTunnelRowType(fields, fieldTypes);
     }
 
     public static final class Builder {

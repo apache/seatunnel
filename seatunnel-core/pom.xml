@@ -31,7 +31,6 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>seatunnel-core-base</module>
         <module>seatunnel-core-starter</module>
         <module>seatunnel-flink-starter</module>
         <module>seatunnel-spark-starter</module>

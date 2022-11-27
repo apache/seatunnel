@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.socket.config.SinkConfig;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import java.io.IOException;
