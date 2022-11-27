@@ -34,6 +34,8 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.DefaultSeaTunnelRowDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.SeaTunnelRowDeserializer;
 
@@ -91,7 +93,8 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
                 session.close();
             }
         } catch (IoTDBConnectionException e) {
-            throw new IOException("close IoTDB session failed", e);
+            throw new IotdbConnectorException(IotdbConnectorErrorCode.CLOSE_SESSION_FAILED,
+                "Close IoTDB session failed", e);
         }
     }
 
@@ -127,9 +130,9 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
         Session.Builder sessionBuilder = new Session.Builder();
         if (conf.containsKey(HOST.key())) {
             sessionBuilder
-                    .host((String) conf.get(HOST.key()))
-                    .port(Integer.parseInt(conf.get(PORT.key()).toString()))
-                    .build();
+                .host((String) conf.get(HOST.key()))
+                .port(Integer.parseInt(conf.get(PORT.key()).toString()))
+                .build();
         } else {
             String nodeUrlsString = (String) conf.get(NODE_URLS.key());
             List<String> nodes = Stream.of(nodeUrlsString.split(NODES_SPLIT)).collect(Collectors.toList());
