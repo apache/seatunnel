@@ -15,11 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception;
+package org.apache.seatunnel.connectors.seatunnel.myhours.source.exception;
 
-public class GetElasticsearchVersionException extends RuntimeException {
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-    public GetElasticsearchVersionException(String message, Throwable cause) {
-        super(message, cause);
+public class MyHoursConnectorException extends SeaTunnelRuntimeException {
+    public MyHoursConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+        super(seaTunnelErrorCode, errorMessage);
+    }
+
+    public MyHoursConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+        super(seaTunnelErrorCode, errorMessage, cause);
+    }
+
+    public MyHoursConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+        super(seaTunnelErrorCode, cause);
     }
 }

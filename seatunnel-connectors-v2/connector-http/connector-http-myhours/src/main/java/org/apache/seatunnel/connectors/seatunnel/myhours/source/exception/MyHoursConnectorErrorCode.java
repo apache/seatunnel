@@ -15,15 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hudi.exception;
+package org.apache.seatunnel.connectors.seatunnel.myhours.source.exception;
 
-public class HudiPluginException extends Exception{
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
-    public HudiPluginException(String message) {
-        super(message);
+public enum MyHoursConnectorErrorCode implements SeaTunnelErrorCode {
+    GET_MYHOURS_TOKEN_FAILE("MYHOURS-01",  "Get myhours token failed");
+
+    private final String code;
+
+    private final String description;
+
+    MyHoursConnectorErrorCode(String code, String description) {
+        this.code = code;
+        this.description = description;
     }
 
-    public HudiPluginException(String message, Throwable cause) {
-        super(message, cause);
+    @Override
+    public String getCode() {
+        return this.code;
+    }
+
+    @Override
+    public String getDescription() {
+        return this.description;
+    }
+
+    @Override
+    public String getErrorMessage() {
+        return SeaTunnelErrorCode.super.getErrorMessage();
     }
 }

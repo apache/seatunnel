@@ -15,14 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.exception;
+package org.apache.seatunnel.api.env;
 
-public class FilePluginException extends Exception {
-    public FilePluginException(String message) {
-        super(message);
-    }
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 
-    public FilePluginException(String message, Throwable cause) {
-        super(message, cause);
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+public class EnvOptionRuleTest {
+    /**
+     * Method: getEnvOptionRules()
+     */
+    @Test
+    public void testGetEnvOptionRules() throws Exception {
+        OptionRule envOptionRules = EnvOptionRule.getEnvOptionRules();
+        Assertions.assertNotNull(envOptionRules);
     }
 }

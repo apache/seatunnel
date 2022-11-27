@@ -77,7 +77,7 @@ public abstract class BaseFileSink implements SeaTunnelSink<SeaTunnelRow, FileSi
 
     @Override
     public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>> createAggregatedCommitter() throws IOException {
-        return Optional.of(new FileSinkAggregatedCommitter());
+        return Optional.of(new FileSinkAggregatedCommitter(hadoopConf));
     }
 
     @Override

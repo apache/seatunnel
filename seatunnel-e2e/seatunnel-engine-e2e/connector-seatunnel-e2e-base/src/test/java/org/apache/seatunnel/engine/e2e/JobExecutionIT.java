@@ -65,7 +65,8 @@ public class JobExecutionIT {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
-        JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
+        JobExecutionEnvironment jobExecutionEnv =
+            engineClient.createExecutionContext(filePath, jobConfig);
 
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
@@ -89,7 +90,8 @@ public class JobExecutionIT {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
-        JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
+        JobExecutionEnvironment jobExecutionEnv =
+            engineClient.createExecutionContext(filePath, jobConfig);
 
         final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
         JobStatus jobStatus1 = clientJobProxy.getJobStatus();

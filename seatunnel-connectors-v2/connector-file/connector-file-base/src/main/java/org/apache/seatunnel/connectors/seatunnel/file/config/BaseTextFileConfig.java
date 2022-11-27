@@ -19,9 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.file.config;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -47,7 +49,8 @@ public class BaseTextFileConfig implements DelimiterConfig, CompressConfig, Seri
 
     public BaseTextFileConfig(@NonNull Config config) {
         if (config.hasPath(BaseSinkConfig.COMPRESS_CODEC.key())) {
-            throw new RuntimeException("compress not support now");
+            throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+                    "Compress not supported by SeaTunnel file connector now");
         }
 
         if (config.hasPath(BaseSinkConfig.FIELD_DELIMITER.key()) &&

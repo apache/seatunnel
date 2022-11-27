@@ -15,16 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception;
+package org.apache.seatunnel.api.env;
 
-public class ScrollRequestException extends RuntimeException {
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 
-    public ScrollRequestException(String message, Throwable cause) {
-        super(message, cause);
+public class EnvOptionRule {
+
+    public static OptionRule getEnvOptionRules() {
+        return OptionRule.builder()
+            .required(EnvCommonOptions.JOB_MODE)
+            .optional(EnvCommonOptions.JOB_NAME,
+                EnvCommonOptions.PARALLELISM,
+                EnvCommonOptions.CHECKPOINT_INTERVAL,
+                EnvCommonOptions.CUSTOM_PARAMETERS)
+            .build();
     }
-
-    public ScrollRequestException(String message) {
-        super(message);
-    }
-
 }
