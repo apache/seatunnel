@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -144,7 +146,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                     completableFuture.complete(null);
                 });
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                throw new KafkaConnectorException(KafkaConnectorErrorCode.CONSUME_DATA_FAILED, e);
             }
             completableFuture.join();
         });
@@ -169,7 +171,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
             try {
                 pendingPartitionsQueue.put(s);
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                throw new KafkaConnectorException(KafkaConnectorErrorCode.ADD_SPLIT_CHECKPOINT_FAILED, e);
             }
         });
     }
