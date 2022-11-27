@@ -162,6 +162,7 @@ public class JdbcDorisdbIT extends TestSuiteBase implements TestResource {
                 String.format("%s:%s", PORT, DOCKER_PORT)));
         Startables.deepStart(Stream.of(dorisServer)).join();
         log.info("Doris container started");
+        // wait to add BE
         Thread.sleep(60000);
         // wait for doris fully start
         given().ignoreExceptions()
