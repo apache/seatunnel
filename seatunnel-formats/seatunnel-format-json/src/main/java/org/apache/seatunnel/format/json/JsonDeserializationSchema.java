@@ -28,7 +28,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatErrorCode;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import com.fasterxml.jackson.core.json.JsonReadFeature;
@@ -132,7 +131,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
             if (ignoreParseErrors) {
                 return null;
             }
-            throw new SeaTunnelJsonFormatException(SeaTunnelJsonFormatErrorCode.JSON_DESERIALIZE_FAILED,
+            throw new SeaTunnelJsonFormatException(CommonErrorCode.JSON_OPERATION_FAILED,
                     String.format("Failed to deserialize JSON '%s'.", jsonNode.asText()), t);
         }
     }
@@ -144,7 +143,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
             if (ignoreParseErrors) {
                 return null;
             }
-            throw new SeaTunnelJsonFormatException(SeaTunnelJsonFormatErrorCode.JSON_DESERIALIZE_FAILED,
+            throw new SeaTunnelJsonFormatException(CommonErrorCode.JSON_OPERATION_FAILED,
                     String.format("Failed to deserialize JSON '%s'.", new String(message)), t);
         }
     }

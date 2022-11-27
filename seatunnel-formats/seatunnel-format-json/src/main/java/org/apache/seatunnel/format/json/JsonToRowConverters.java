@@ -27,7 +27,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatErrorCode;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -269,7 +268,7 @@ public class JsonToRowConverters implements Serializable {
         try {
             return jsonNode.binaryValue();
         } catch (IOException e) {
-            throw new SeaTunnelJsonFormatException(SeaTunnelJsonFormatErrorCode.JSON_DESERIALIZE_FAILED,
+            throw new SeaTunnelJsonFormatException(CommonErrorCode.JSON_OPERATION_FAILED,
                     "Unable to deserialize byte array.", e);
         }
     }
@@ -315,7 +314,7 @@ public class JsonToRowConverters implements Serializable {
                         Object convertedField = convertField(fieldConverters[i], fieldName, field);
                         row.setField(i, convertedField);
                     } catch (Throwable t) {
-                        throw new SeaTunnelJsonFormatException(SeaTunnelJsonFormatErrorCode.JSON_DESERIALIZE_FAILED,
+                        throw new SeaTunnelJsonFormatException(CommonErrorCode.JSON_OPERATION_FAILED,
                                 String.format("Fail to deserialize at field: %s.", fieldName), t);
                     }
                 }
@@ -359,7 +358,7 @@ public class JsonToRowConverters implements Serializable {
         JsonToRowConverter fieldConverter, String fieldName, JsonNode field) {
         if (field == null) {
             if (failOnMissingField) {
-                throw new SeaTunnelJsonFormatException(SeaTunnelJsonFormatErrorCode.MISS_FIELD_EXCEPTION,
+                throw new SeaTunnelJsonFormatException(CommonErrorCode.JSON_OPERATION_FAILED,
                         String.format("Could not find field with name %s .", fieldName));
             } else {
                 return null;

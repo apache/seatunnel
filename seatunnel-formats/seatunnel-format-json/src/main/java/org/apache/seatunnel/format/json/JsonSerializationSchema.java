@@ -23,7 +23,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -62,7 +62,7 @@ public class JsonSerializationSchema implements SerializationSchema {
             runtimeConverter.convert(mapper, node, row);
             return mapper.writeValueAsBytes(node);
         } catch (Throwable e) {
-            throw new SeaTunnelJsonFormatException(SeaTunnelJsonFormatErrorCode.JSON_DESERIALIZE_FAILED,
+            throw new SeaTunnelJsonFormatException(CommonErrorCode.JSON_OPERATION_FAILED,
                     String.format("Failed to deserialize JSON '%s'.", row), e);
         }
     }
