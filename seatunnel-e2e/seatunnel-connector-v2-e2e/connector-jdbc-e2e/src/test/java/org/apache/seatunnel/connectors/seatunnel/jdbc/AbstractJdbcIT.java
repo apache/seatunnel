@@ -90,7 +90,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
         given().ignoreExceptions()
             .await()
-            .atMost(600, TimeUnit.SECONDS)
+            .atMost(1600, TimeUnit.SECONDS)
             .untilAsserted(() -> {
                 this.initializeJdbcConnection(jdbcCase.getJdbcUrl());
             });
