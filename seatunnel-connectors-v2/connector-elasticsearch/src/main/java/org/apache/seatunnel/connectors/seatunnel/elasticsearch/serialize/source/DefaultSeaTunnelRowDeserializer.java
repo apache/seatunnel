@@ -36,7 +36,9 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -57,7 +59,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
 
     private final ObjectMapper mapper = new ObjectMapper();
 
-    private final Map<Integer, DateTimeFormatter> dateTimeFormatterMap = new HashMap<Integer, DateTimeFormatter>(){
+    private final Map<Integer, DateTimeFormatter> dateTimeFormatterMap = new HashMap<Integer, DateTimeFormatter>() {
         {
             put("yyyy-MM-dd HH".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH"));
             put("yyyy-MM-dd HH:mm".length(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
@@ -94,8 +96,9 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                     seaTunnelFields[i] = convertValue(seaTunnelDataType, value.toString());
                 }
             }
-        } catch (Exception ex){
-            throw new RuntimeException(String.format("error fieldName=%s,fieldValue=%s,seaTunnelDataType=%s,rowRecord=%s", fieldName, value, seaTunnelDataType, JsonUtils.toJsonString(rowRecord)), ex);
+        } catch (Exception ex) {
+            throw new ElasticsearchConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+                String.format("error fieldName=%s,fieldValue=%s,seaTunnelDataType=%s,rowRecord=%s", fieldName, value, seaTunnelDataType, JsonUtils.toJsonString(rowRecord)), ex);
         }
         return new SeaTunnelRow(seaTunnelFields);
     }
@@ -132,7 +135,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
             BasicType<?> elementType = arrayType.getElementType();
             List<String> stringList = JsonUtils.toList(fieldValue, String.class);
             Object arr = Array.newInstance(elementType.getTypeClass(), stringList.size());
-            for (int i = 0; i < stringList.size(); i++){
+            for (int i = 0; i < stringList.size(); i++) {
                 Object convertValue = convertValue(elementType, stringList.get(i));
                 Array.set(arr, 0, convertValue);
             }
@@ -142,9 +145,10 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
             SeaTunnelDataType<?> keyType = mapType.getKeyType();
 
             SeaTunnelDataType<?> valueType = mapType.getValueType();
-            Map<String, String> stringMap = mapper.readValue(fieldValue,  new TypeReference<HashMap<String, String>>() {});
+            Map<String, String> stringMap = mapper.readValue(fieldValue, new TypeReference<HashMap<String, String>>() {
+            });
             Map<Object, Object> convertMap = new HashMap<Object, Object>();
-            for (Map.Entry<String, String> entry : stringMap.entrySet()){
+            for (Map.Entry<String, String> entry : stringMap.entrySet()) {
                 Object convertKey = convertValue(keyType, entry.getKey());
                 Object convertValue = convertValue(valueType, entry.getValue());
                 convertMap.put(convertKey, convertValue);
@@ -155,19 +159,19 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
         } else if (VOID_TYPE.equals(fieldType) || fieldType == null) {
             return null;
         } else {
-            throw new UnsupportedOperationException("Unexpected value: " + fieldType);
+            throw new ElasticsearchConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unexpected value: " + fieldType);
         }
 
     }
 
-    private LocalDateTime parseDate(String fieldValue){
+    private LocalDateTime parseDate(String fieldValue) {
         String formatDate = fieldValue.replace("T", " ");
-        if (fieldValue.length() == "yyyyMMdd".length() || fieldValue.length() == "yyyy-MM-dd".length()){
+        if (fieldValue.length() == "yyyyMMdd".length() || fieldValue.length() == "yyyy-MM-dd".length()) {
             formatDate = fieldValue + " 00:00:00";
         }
         DateTimeFormatter dateTimeFormatter = dateTimeFormatterMap.get(formatDate.length());
-        if (dateTimeFormatter == null){
-            throw new UnsupportedOperationException("unsupported date format");
+        if (dateTimeFormatter == null) {
+            throw new ElasticsearchConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION, "unsupported date format");
         }
         return LocalDateTime.parse(formatDate, dateTimeFormatter);
     }

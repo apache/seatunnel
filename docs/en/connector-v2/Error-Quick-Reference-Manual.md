@@ -1,6 +1,7 @@
 # Error Quick Reference Manual
 
-This document records some common error codes and corresponding solutions of SeaTunnel, aiming to quickly solve the problems encountered by users.
+This document records some common error codes and corresponding solutions of SeaTunnel, aiming to quickly solve the
+problems encountered by users.
 
 ## SeaTunnel API Error Codes
 
@@ -95,6 +96,15 @@ This document records some common error codes and corresponding solutions of Sea
 | HIVE-01 | Get name node host from table location failed                 | When users encounter this error code, it means that the metastore inforamtion has some problems, please check it              |
 | HIVE-02 | Initialize hive metastore client failed                       | When users encounter this error code, it means that connect to hive metastore service failed, please check it whether is work |
 | HIVE-03 | Get hive table information from hive metastore service failed | When users encounter this error code, it means that hive metastore service has some problems, please check it whether is work |
+
+## Elasticsearch Connector Error Codes
+
+| code              | description                                   | solution                                                                                                                       |
+|-------------------|-----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| ELASTICSEARCH-01  | Bulk es response error                        | When the user encounters this error code, it means that the connection was aborted, please check it whether is work            |
+| ELASTICSEARCH-02  | Get elasticsearch version failed              | When the user encounters this error code, it means that the connection was aborted, please check it whether is work            |
+| ELASTICSEARCH-03  | Fail to scroll request                        | When the user encounters this error code, it means that the connection was aborted, please check it whether is work            |
+| ELASTICSEARCH-04  | Get elasticsearch document index count failed | When the user encounters this error code, it means that the es index may not wrong or the connection was aborted, please check |
 
 ## Kafka Connector Error Codes
 

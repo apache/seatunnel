@@ -20,14 +20,15 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.sink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.RetryUtils.RetryMaterial;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.ElasticsearchVersion;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.IndexInfo;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.BulkElasticsearchException;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.ElasticsearchRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.SeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchCommitInfo;
@@ -104,14 +105,15 @@ public class ElasticsearchSinkWriter implements SinkWriter<SeaTunnelRow, Elastic
                     String requestBody = String.join("\n", requestEsList) + "\n";
                     BulkResponse bulkResponse = esRestClient.bulk(requestBody);
                     if (bulkResponse.isErrors()) {
-                        throw new BulkElasticsearchException("bulk es error: " + bulkResponse.getResponse());
+                        throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.BULK_RESPONSE_ERROR,
+                            "bulk es error: " + bulkResponse.getResponse());
                     }
                     return bulkResponse;
                 }
                 return null;
             }, retryMaterial);
         } catch (Exception e) {
-            throw new SeaTunnelException("ElasticSearch execute batch statement error", e);
+            throw new ElasticsearchConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, "ElasticSearch execute batch statement error", e);
         }
     }
 
