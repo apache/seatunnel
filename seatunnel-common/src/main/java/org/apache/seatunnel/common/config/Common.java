@@ -168,7 +168,9 @@ public class Common {
      */
     public static Set<Path> getThirdPartyJars(String paths) {
 
-        return Arrays.stream(paths.split(";")).filter(s -> !"".equals(s))
+        return Arrays.stream(paths.split(";"))
+            .filter(s -> !"".equals(s))
+            .filter(it -> it.endsWith(".jar"))
             .map(path -> Paths.get(URI.create(path))).collect(Collectors.toSet());
     }
 
