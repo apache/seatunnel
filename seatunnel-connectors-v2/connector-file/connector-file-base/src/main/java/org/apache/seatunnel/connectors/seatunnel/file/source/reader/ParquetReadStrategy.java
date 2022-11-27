@@ -28,8 +28,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Conversions;
@@ -75,9 +77,10 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
     private static final long JULIAN_DAY_NUMBER_FOR_UNIX_EPOCH = 2440588;
 
     @Override
-    public void read(String path, Collector<SeaTunnelRow> output) throws Exception {
+    public void read(String path, Collector<SeaTunnelRow> output) throws FileConnectorException, IOException {
         if (Boolean.FALSE.equals(checkFileType(path))) {
-            throw new Exception("please check file type");
+            String errorMsg = String.format("This file [%s] is not a parquet file, please check the format of this file", path);
+            throw new FileConnectorException(FileConnectorErrorCode.FILE_TYPE_INVALID, errorMsg);
         }
         Path filePath = new Path(path);
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
@@ -141,7 +144,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                         return origArray.toArray(TYPE_ARRAY_DOUBLE);
                     default:
                         String errorMsg = String.format("SeaTunnel array type not support this type [%s] now", fieldType.getSqlType());
-                        throw new UnsupportedOperationException(errorMsg);
+                        throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
                 }
             case MAP:
                 HashMap<Object, Object> dataMap = new HashMap<>();
@@ -193,12 +196,12 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
             default:
                 // do nothing
                 // never got in there
-                throw new UnsupportedOperationException("SeaTunnel not support this data type now");
+                throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "SeaTunnel not support this data type now");
         }
     }
 
     @Override
-    public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) throws FilePluginException {
+    public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) throws FileConnectorException {
         Path filePath = new Path(path);
         ParquetMetadata metadata;
         try {
@@ -207,7 +210,8 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
             metadata = reader.getFooter();
             reader.close();
         } catch (IOException e) {
-            throw new FilePluginException("Create parquet reader failed", e);
+            String errorMsg = String.format("Create parquet reader for this file [%s] failed", path);
+            throw new FileConnectorException(CommonErrorCode.READER_OPERATION_FAILED, errorMsg, e);
         }
         FileMetaData fileMetaData = metadata.getFileMetaData();
         MessageType schema = fileMetaData.getSchema();
@@ -242,7 +246,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                             return LocalTimeType.LOCAL_DATE_TYPE;
                         default:
                             String errorMsg = String.format("Not support this type [%s]", type);
-                            throw new UnsupportedOperationException(errorMsg);
+                            throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
                     }
                 case INT64:
                     if (type.asPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MILLIS) {
@@ -276,7 +280,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                     return new DecimalType(precision, scale);
                 default:
                     String errorMsg = String.format("Not support this type [%s]", type);
-                    throw new UnsupportedOperationException(errorMsg);
+                    throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
             }
         } else {
             LogicalTypeAnnotation logicalTypeAnnotation = type.asGroupType().getLogicalTypeAnnotation();
@@ -326,10 +330,11 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                                 return ArrayType.DOUBLE_ARRAY_TYPE;
                             default:
                                 String errorMsg = String.format("SeaTunnel array type not supported this genericType [%s] yet", fieldType);
-                                throw new UnsupportedOperationException(errorMsg);
+                                throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
                         }
                     default:
-                        throw new UnsupportedOperationException("SeaTunnel file connector not support this nest type");
+                        throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                "SeaTunnel file connector not support this nest type");
                 }
             }
         }
@@ -350,9 +355,9 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
             checkResult = Arrays.equals(magic, PARQUET_MAGIC);
             in.close();
             return checkResult;
-        } catch (FilePluginException | IOException e) {
-            String errorMsg = String.format("Check parquet file [%s] error", path);
-            throw new RuntimeException(errorMsg, e);
+        } catch (IOException e) {
+            String errorMsg = String.format("Check parquet file [%s] failed", path);
+            throw new FileConnectorException(FileConnectorErrorCode.FILE_TYPE_INVALID, errorMsg);
         }
     }
 }
