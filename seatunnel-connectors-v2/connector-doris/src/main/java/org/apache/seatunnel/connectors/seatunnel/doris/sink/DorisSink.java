@@ -17,7 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.doris.sink;
 
-import com.google.auto.service.AutoService;
+import static org.apache.seatunnel.connectors.seatunnel.doris.config.SinkConfig.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.doris.config.SinkConfig.NODE_URLS;
+import static org.apache.seatunnel.connectors.seatunnel.doris.config.SinkConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.doris.config.SinkConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.doris.config.SinkConfig.USERNAME;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -29,9 +34,10 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import static org.apache.seatunnel.connectors.seatunnel.doris.config.SinkConfig.*;
+import com.google.auto.service.AutoService;
 
 @AutoService(SeaTunnelSink.class)
 public class DorisSink extends AbstractSimpleSink<SeaTunnelRow, Void> {

@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.doris.sink;
 
-import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
@@ -27,7 +25,11 @@ import org.apache.seatunnel.connectors.seatunnel.doris.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.doris.serialize.DorisCsvSerializer;
 import org.apache.seatunnel.connectors.seatunnel.doris.serialize.DorisISerializer;
 import org.apache.seatunnel.connectors.seatunnel.doris.serialize.DorisJsonSerializer;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Arrays;

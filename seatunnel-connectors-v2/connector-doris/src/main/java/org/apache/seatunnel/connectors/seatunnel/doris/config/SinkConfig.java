@@ -17,13 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.doris.config;
 
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
 import java.util.HashMap;
 import java.util.List;

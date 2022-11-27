@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.doris.client;
 
-import org.apache.commons.codec.binary.Base64;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.doris.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.doris.serialize.DorisDelimiterParser;
+
+import org.apache.commons.codec.binary.Base64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
