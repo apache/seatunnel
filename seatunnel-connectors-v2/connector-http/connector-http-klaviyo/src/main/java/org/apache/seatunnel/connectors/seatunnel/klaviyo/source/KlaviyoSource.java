@@ -61,6 +61,6 @@ public class KlaviyoSource extends HttpSource {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(this.klaviyoSourceParameter, readerContext, this.deserializationSchema, jsonField, jsonPaths);
+        return new HttpSourceReader(this.klaviyoSourceParameter, readerContext, this.deserializationSchema, jsonField);
     }
 }

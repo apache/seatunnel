@@ -71,6 +71,6 @@ public class JiraSource extends HttpSource {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(this.jiraSourceParameter, readerContext, this.deserializationSchema, jsonField, jsonPaths);
+        return new HttpSourceReader(this.jiraSourceParameter, readerContext, this.deserializationSchema, jsonField);
     }
 }

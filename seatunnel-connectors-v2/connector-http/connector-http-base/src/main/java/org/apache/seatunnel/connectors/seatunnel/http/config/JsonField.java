@@ -22,11 +22,13 @@ import org.apache.seatunnel.api.configuration.util.OptionMark;
 import lombok.Builder;
 import lombok.Data;
 
+import java.io.Serializable;
 import java.util.Map;
 
 @Data
 @Builder
-public class JsonField {
+public class JsonField implements Serializable {
+    private static final long serialVersionUID = -1L;
 
     @OptionMark(description = "The json fields map")
     private Map<String, String> fields;

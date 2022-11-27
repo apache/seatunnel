@@ -88,7 +88,6 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                     this.deserializationSchema = new JsonDeserializationSchema(false, false, rowType);
                     if (pluginConfig.hasPath(HttpConfig.JSON_FIELD.key())) {
                         jsonField = getJsonField(pluginConfig.getConfig(HttpConfig.JSON_FIELD.key()));
-                        this.initJsonPath(jsonField);
                     }
                     break;
                 default:
@@ -113,21 +112,12 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(this.httpParameter, readerContext, this.deserializationSchema, jsonField, jsonPaths);
+        return new HttpSourceReader(this.httpParameter, readerContext, this.deserializationSchema, jsonField);
     }
 
     private JsonField getJsonField(Config jsonFieldConf) {
         ConfigRenderOptions options = ConfigRenderOptions.concise();
 
         return JsonField.builder().fields(JsonUtils.toMap(jsonFieldConf.root().render(options))).build();
-    }
-
-    private void initJsonPath(JsonField jsonField) {
-        jsonPaths = new JsonPath[jsonField.getFields().size()];
-        final int[] index = {0};
-        jsonField.getFields().forEach((key, value) -> {
-            jsonPaths[index[0]] = JsonPath.compile(jsonField.getFields().get(key));
-            index[0]++;
-        });
     }
 }

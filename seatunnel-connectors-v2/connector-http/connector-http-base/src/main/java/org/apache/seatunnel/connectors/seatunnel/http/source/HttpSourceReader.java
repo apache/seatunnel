@@ -55,11 +55,10 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private JsonPath[] jsonPaths;
     private JsonField jsonField;
 
-    public HttpSourceReader(HttpParameter httpParameter, SingleSplitReaderContext context, DeserializationSchema<SeaTunnelRow> deserializationSchema, JsonField jsonField, JsonPath[] jsonPaths) {
+    public HttpSourceReader(HttpParameter httpParameter, SingleSplitReaderContext context, DeserializationSchema<SeaTunnelRow> deserializationSchema, JsonField jsonField) {
         this.context = context;
         this.httpParameter = httpParameter;
         this.deserializationCollector = new DeserializationCollector(deserializationSchema);
-        this.jsonPaths = jsonPaths;
         this.jsonField = jsonField;
     }
 
@@ -82,7 +81,8 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             if (HttpResponse.STATUS_OK == response.getCode()) {
                 String content = response.getContent();
                 if (!Strings.isNullOrEmpty(content)) {
-                    if (jsonPaths != null) {
+                    if (jsonField != null) {
+                        this.initJsonPath(jsonField);
                         content = JsonUtils.toJsonNode(parseToMap(decodeJSON(content), jsonField)).toString();
                     }
                     deserializationCollector.collect(content.getBytes(), output);
@@ -170,5 +170,14 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             }
         }
         return datas;
+    }
+
+    private void initJsonPath(JsonField jsonField) {
+        jsonPaths = new JsonPath[jsonField.getFields().size()];
+        final int[] index = {0};
+        jsonField.getFields().forEach((key, value) -> {
+            jsonPaths[index[0]] = JsonPath.compile(jsonField.getFields().get(key));
+            index[0]++;
+        });
     }
 }
