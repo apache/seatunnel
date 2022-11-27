@@ -8,7 +8,7 @@ Third-party packages can be loaded via `jars`, like `jars="file://local/jar1.jar
 
 ## job.mode
 
-You can configure whether the task is in batch mode or stream mode through `job.mod`, like `job.mode = "BATCH"`
+You can configure whether the task is in batch mode or stream mode through `job.mode`, like `job.mode = "BATCH"` or `job.mode = "STREAMING"` 
 
 ## execution.checkpoint.interval
 
