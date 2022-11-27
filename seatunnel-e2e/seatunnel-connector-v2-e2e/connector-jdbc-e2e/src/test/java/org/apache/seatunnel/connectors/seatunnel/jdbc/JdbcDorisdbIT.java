@@ -33,10 +33,11 @@ public class JdbcDorisdbIT extends AbstractJdbcIT {
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String NETWORK_ALIASES = "e2e_doris";
     private static final int PORT = 9030;
+    private static final int LOCALPORT = 8960;
     private static final String USERNAME = "root";
     private static final String PASSWORD = "";
     private static final String DATABASE = "test";
-    private static final String URL = "jdbc:mysql://" + HOST + ":" + PORT + "/" + DATABASE + "?createDatabaseIfNotExist=true";
+    private static final String URL = "jdbc:mysql://" + HOST + ":" + LOCALPORT + "/" + DATABASE + "?createDatabaseIfNotExist=true";
 
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SINK_TABLE = "e2e_table_sink";
@@ -111,9 +112,9 @@ public class JdbcDorisdbIT extends AbstractJdbcIT {
     @Override
     JdbcCase getJdbcCase() {
         Map<String, String> containerEnv = new HashMap<>();
-        String jdbcUrl = String.format(URL, PORT);
+        String jdbcUrl = String.format(URL, LOCALPORT);
         return JdbcCase.builder().dockerImage(DOCKER_IMAGE).networkAliases(NETWORK_ALIASES).containerEnv(containerEnv).driverClass(DRIVER_CLASS)
-            .host(HOST).jdbcTemplate(URL).dataBase(DATABASE).port(PORT).jdbcUrl(jdbcUrl).userName(USERNAME).password(PASSWORD).dataBase(DATABASE)
+            .host(HOST).jdbcTemplate(URL).dataBase(DATABASE).port(PORT).localPort(LOCALPORT).jdbcUrl(jdbcUrl).userName(USERNAME).password(PASSWORD).dataBase(DATABASE)
             .sourceTable(SOURCE_TABLE).sinkTable(SINK_TABLE).driverJar(DORIS_DRIVER_JAR)
             .ddlSource(DDL_SOURCE).ddlSink(DDL_SINK).initDataSql(INIT_DATA_SQL).configFile(CONFIG_FILE).seaTunnelRow(initTestData()).build();
     }
