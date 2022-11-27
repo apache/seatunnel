@@ -22,7 +22,7 @@ import static org.apache.parquet.format.converter.ParquetMetadataConverter.NO_FI
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiConnectorErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiConnectorException;
 
 import org.apache.hadoop.conf.Configuration;
@@ -76,7 +76,7 @@ public class HudiUtil {
         try {
             footer = ParquetFileReader.readFooter(configuration, dstDir, NO_FILTER);
         } catch (IOException e) {
-            throw new HudiConnectorException(HudiConnectorErrorCode.CREATE_PARQUET_METADATA_FAILED,
+            throw new HudiConnectorException(CommonErrorCode.TABLE_SCHEMA_GET_FAILED,
                 "Create ParquetMetadata Fail!", e);
         }
         MessageType schema = footer.getFileMetaData().getSchema();
@@ -102,7 +102,7 @@ public class HudiUtil {
             UserGroupInformation.setConfiguration(conf);
             UserGroupInformation.loginUserFromKeytab(principal, principalFile);
         } catch (IOException e) {
-            throw new HudiConnectorException(HudiConnectorErrorCode.KERBEROS_AUTHORIZED_FAILED,
+            throw new HudiConnectorException(CommonErrorCode.KERBEROS_AUTHORIZED_FAILED,
                 "Kerberos Authorized Fail!", e);
         }
     }

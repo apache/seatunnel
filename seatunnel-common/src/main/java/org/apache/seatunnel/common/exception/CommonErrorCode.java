@@ -30,7 +30,8 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
     FLUSH_DATA_FAILED("COMMON-10", "Flush data operation that in sink connector failed"),
     WRITER_OPERATION_FAILED("COMMON-11", "Sink writer operation failed, such as (open, close) etc..."),
     READER_OPERATION_FAILED("COMMON-12", "Source reader operation failed, such as (open, close) etc..."),
-    HTTP_OPERATION_FAILED("COMMON-13", "Http operation failed, such as (open, close, response) etc...");
+    HTTP_OPERATION_FAILED("COMMON-13", "Http operation failed, such as (open, close, response) etc..."),
+    KERBEROS_AUTHORIZED_FAILED("COMMON-14", "Kerberos authorized failed");
 
     private final String code;
     private final String description;
