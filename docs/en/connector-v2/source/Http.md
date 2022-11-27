@@ -22,6 +22,7 @@ Used to read data from Http.
 | url                         | String | Yes      | -             |
 | schema                      | Config | No       | -             |
 | schema.fields               | Config | No       | -             |
+| json_field                  | Config | No       | -             |
 | format                      | String | No       | json          |
 | method                      | String | No       | get           |
 | headers                     | Map    | No       | -             |
@@ -124,6 +125,18 @@ connector will generate data as the following:
 
 the schema fields of upstream data
 
+### json_field [Config]
+
+The Wildcards for jsonpath like
+```hocon
+json_field = {
+      category = "$.store.book[*].category"
+      author = "$.store.book[*].author"
+      title = "$.store.book[*].title"
+      price = "$.store.book[*].price"
+    }
+```
+
 ### common options 
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
@@ -151,3 +164,7 @@ Http {
 ### 2.2.0-beta 2022-09-26
 
 - Add Http Source Connector
+
+### new version
+
+- Increase jsonpath parsing.
