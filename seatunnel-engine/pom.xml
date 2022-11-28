@@ -28,6 +28,7 @@
     <properties>
         <!--  SeaTunnel Engine use     -->
         <hazelcast.version>5.1</hazelcast.version>
+        <disruptor.version>3.4.4</disruptor.version>
     </properties>
 
     <modules>
@@ -45,6 +46,11 @@
                 <groupId>com.hazelcast</groupId>
                 <artifactId>hazelcast</artifactId>
                 <version>${hazelcast.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.lmax</groupId>
+                <artifactId>disruptor</artifactId>
+                <version>${disruptor.version}</version>
             </dependency>
 
             <!-- test dependencies -->

@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.server.task.operation.checkpoint.CloseRequest
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkPrepareCommitOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.LastCheckpointNotifyOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RestoredSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceNoMoreElementOperation;
@@ -71,6 +72,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
     public static final int NOTIFY_TASK_STATUS_OPERATOR = 15;
 
     public static final int BARRIER_FLOW_OPERATOR = 16;
+
+    public static final int LAST_CHECKPOINT_NOTIFY = 17;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -124,6 +127,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new NotifyTaskStatusOperation();
                 case BARRIER_FLOW_OPERATOR:
                     return new BarrierFlowOperation();
+                case LAST_CHECKPOINT_NOTIFY:
+                    return new LastCheckpointNotifyOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }
