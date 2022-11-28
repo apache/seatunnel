@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.source;
 
-import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
@@ -26,6 +25,8 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
 
 import com.google.auto.service.AutoService;
+
+import java.util.Arrays;
 
 @AutoService(Factory.class)
 public class HttpSourceFactory implements TableSourceFactory {
@@ -42,9 +43,9 @@ public class HttpSourceFactory implements TableSourceFactory {
                 .optional(HttpConfig.METHOD)
                 .optional(HttpConfig.HEADERS)
                 .optional(HttpConfig.PARAMS)
-                .conditional(Condition.of(HttpConfig.METHOD, HttpRequestMethod.POST), HttpConfig.BODY)
-                .conditional(Condition.of(HttpConfig.FORMAT, "json"), SeaTunnelSchema.SCHEMA)
                 .optional(HttpConfig.FORMAT)
+                .conditional(HttpConfig.METHOD, Arrays.asList(HttpRequestMethod.POST), HttpConfig.BODY)
+                .conditional(HttpConfig.FORMAT, Arrays.asList("json"), SeaTunnelSchema.SCHEMA)
                 .optional(HttpConfig.POLL_INTERVAL_MILLS)
                 .optional(HttpConfig.RETRY)
                 .optional(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS)

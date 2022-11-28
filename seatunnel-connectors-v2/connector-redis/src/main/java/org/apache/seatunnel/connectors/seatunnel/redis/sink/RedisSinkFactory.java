@@ -24,6 +24,8 @@ import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
 
 import com.google.auto.service.AutoService;
 
+import java.util.Arrays;
+
 @AutoService(Factory.class)
 public class RedisSinkFactory implements TableSinkFactory {
     @Override
@@ -36,7 +38,7 @@ public class RedisSinkFactory implements TableSinkFactory {
         return OptionRule.builder()
             .required(RedisConfig.HOST, RedisConfig.PORT, RedisConfig.KEY, RedisConfig.DATA_TYPE)
             .optional(RedisConfig.MODE, RedisConfig.AUTH, RedisConfig.USER, RedisConfig.KEY_PATTERN, RedisConfig.FORMAT)
-            .conditional(RedisConfig.MODE, RedisConfig.RedisMode.CLUSTER, RedisConfig.NODES)
+            .conditional(RedisConfig.MODE, Arrays.asList(RedisConfig.RedisMode.CLUSTER), RedisConfig.NODES)
             .build();
     }
 }

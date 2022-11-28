@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.klaviyo.source;
 
-import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
@@ -27,6 +26,8 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
 import org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config.KlaviyoSourceConfig;
 
 import com.google.auto.service.AutoService;
+
+import java.util.Arrays;
 
 @AutoService(Factory.class)
 public class KlaviyoSourceFactory implements TableSourceFactory {
@@ -44,9 +45,9 @@ public class KlaviyoSourceFactory implements TableSourceFactory {
                 .optional(KlaviyoSourceConfig.METHOD)
                 .optional(KlaviyoSourceConfig.HEADERS)
                 .optional(KlaviyoSourceConfig.PARAMS)
-                .conditional(Condition.of(HttpConfig.METHOD, HttpRequestMethod.POST), KlaviyoSourceConfig.BODY)
-                .conditional(Condition.of(HttpConfig.FORMAT, "json"), SeaTunnelSchema.SCHEMA)
                 .optional(KlaviyoSourceConfig.FORMAT)
+                .conditional(HttpConfig.METHOD, Arrays.asList(HttpRequestMethod.POST), KlaviyoSourceConfig.BODY)
+                .conditional(HttpConfig.FORMAT, Arrays.asList("json"), SeaTunnelSchema.SCHEMA)
                 .optional(KlaviyoSourceConfig.POLL_INTERVAL_MILLS)
                 .optional(KlaviyoSourceConfig.RETRY)
                 .optional(KlaviyoSourceConfig.RETRY_BACKOFF_MAX_MS)

@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.myhours.source;
 
-import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
@@ -27,6 +26,8 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
 import org.apache.seatunnel.connectors.seatunnel.myhours.source.config.MyHoursSourceConfig;
 
 import com.google.auto.service.AutoService;
+
+import java.util.Arrays;
 
 @AutoService(Factory.class)
 public class MyHoursSourceFactory implements TableSourceFactory {
@@ -44,9 +45,9 @@ public class MyHoursSourceFactory implements TableSourceFactory {
                 .optional(MyHoursSourceConfig.METHOD)
                 .optional(MyHoursSourceConfig.HEADERS)
                 .optional(MyHoursSourceConfig.PARAMS)
-                .conditional(Condition.of(HttpConfig.METHOD, HttpRequestMethod.POST), MyHoursSourceConfig.BODY)
-                .conditional(Condition.of(HttpConfig.FORMAT, "json"), SeaTunnelSchema.SCHEMA)
                 .optional(MyHoursSourceConfig.FORMAT)
+                .conditional(HttpConfig.METHOD, Arrays.asList(HttpRequestMethod.POST), MyHoursSourceConfig.BODY)
+                .conditional(HttpConfig.FORMAT, Arrays.asList("json"), SeaTunnelSchema.SCHEMA)
                 .optional(MyHoursSourceConfig.POLL_INTERVAL_MILLS)
                 .optional(MyHoursSourceConfig.RETRY)
                 .optional(MyHoursSourceConfig.RETRY_BACKOFF_MAX_MS)

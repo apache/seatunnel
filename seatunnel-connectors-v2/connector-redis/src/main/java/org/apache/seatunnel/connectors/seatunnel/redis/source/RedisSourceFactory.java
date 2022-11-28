@@ -25,6 +25,8 @@ import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
 
 import com.google.auto.service.AutoService;
 
+import java.util.Arrays;
+
 @AutoService(Factory.class)
 public class RedisSourceFactory implements TableSourceFactory {
     @Override
@@ -37,7 +39,7 @@ public class RedisSourceFactory implements TableSourceFactory {
         return OptionRule.builder()
             .required(RedisConfig.HOST, RedisConfig.PORT, RedisConfig.KEY, RedisConfig.DATA_TYPE)
             .optional(RedisConfig.MODE, RedisConfig.HASH_KEY_PARSE_MODE, RedisConfig.AUTH, RedisConfig.USER, RedisConfig.KEY_PATTERN)
-            .conditional(RedisConfig.MODE, RedisConfig.RedisMode.CLUSTER, RedisConfig.NODES)
+            .conditional(RedisConfig.MODE, Arrays.asList(RedisConfig.RedisMode.CLUSTER), RedisConfig.NODES)
             .bundled(RedisConfig.FORMAT, SeaTunnelSchema.SCHEMA)
             .build();
     }
