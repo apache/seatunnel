@@ -40,6 +40,7 @@
         <db2.version>db2jcc4</db2.version>
         <sqlite.version>3.39.3.0</sqlite.version>
         <tablestore.version>5.13.9</tablestore.version>
+        <teradata.version>17.20.00.12</teradata.version>
     </properties>
 
     <dependencyManagement>
@@ -98,6 +99,14 @@
                 <version>${tablestore.version}</version>
                 <scope>provided</scope>
             </dependency>
+
+            <dependency>
+                <groupId>com.teradata.jdbc</groupId>
+                <artifactId>terajdbc4</artifactId>
+                <version>${teradata.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
@@ -146,6 +155,10 @@
         <dependency>
             <groupId>com.aliyun.openservices</groupId>
             <artifactId>tablestore-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.teradata.jdbc</groupId>
+            <artifactId>terajdbc4</artifactId>
         </dependency>
     </dependencies>
 
