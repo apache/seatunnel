@@ -18,9 +18,9 @@
 package org.apache.seatunnel.engine.client.job;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.utils.FileUtils;
-import org.apache.seatunnel.core.starter.constants.EnvConstants;
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
@@ -81,7 +81,7 @@ public class JobExecutionEnvironment {
         this.jobConfig.setJobContext(new JobContext(jobClient.getNewJobId()));
         this.commonPluginJars.addAll(searchPluginJars());
         this.commonPluginJars.addAll(new ArrayList<>(Common.getThirdPartyJars(jobConfig.getEnvOptions()
-                .getOrDefault(EnvConstants.JARS, "").toString()).stream().map(Path::toUri)
+                .getOrDefault(EnvCommonOptions.JARS.key(), "").toString()).stream().map(Path::toUri)
             .map(uri -> {
                 try {
                     return uri.toURL();

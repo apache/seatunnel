@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.core.starter.spark;
 
+import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.Starter;
 import org.apache.seatunnel.core.starter.config.ConfigBuilder;
 import org.apache.seatunnel.core.starter.config.PluginType;
-import org.apache.seatunnel.core.starter.constants.EnvConstants;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
 import org.apache.seatunnel.core.starter.spark.config.StarterConstant;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
@@ -125,7 +125,7 @@ public class SparkStarter implements Starter {
         this.jars.addAll(Common.getPluginsJarDependencies());
         this.jars.addAll(Common.getLibJars());
         this.jars.addAll(getConnectorJarDependencies());
-        this.jars.addAll(new ArrayList<>(Common.getThirdPartyJars(sparkConf.getOrDefault(EnvConstants.JARS, ""))));
+        this.jars.addAll(new ArrayList<>(Common.getThirdPartyJars(sparkConf.getOrDefault(EnvCommonOptions.JARS.key(), ""))));
         return buildFinal();
     }
 

@@ -18,11 +18,11 @@
 package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
-import org.apache.seatunnel.core.starter.constants.EnvConstants;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.TaskExecution;
 import org.apache.seatunnel.core.starter.flink.FlinkStarter;
@@ -103,8 +103,8 @@ public class FlinkExecution implements TaskExecution {
 
     private void registerPlugin(Config envConfig) {
         List<Path> thirdPartyJars = new ArrayList<>();
-        if (envConfig.hasPath(EnvConstants.JARS)) {
-            thirdPartyJars = new ArrayList<>(Common.getThirdPartyJars(envConfig.getString(EnvConstants.JARS)));
+        if (envConfig.hasPath(EnvCommonOptions.JARS.key())) {
+            thirdPartyJars = new ArrayList<>(Common.getThirdPartyJars(envConfig.getString(EnvCommonOptions.JARS.key())));
         }
         thirdPartyJars.addAll(Common.getPluginsJarDependencies());
         List<URL> jarDependencies = Stream.concat(thirdPartyJars.stream(), Common.getLibJars().stream())

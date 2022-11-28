@@ -49,6 +49,12 @@ public class EnvCommonOptions {
             .noDefaultValue()
             .withDescription("The interval (in milliseconds) between two consecutive checkpoints.");
 
+    public static final Option<String> JARS =
+        Options.key("jars")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("third-party packages can be loaded via `jars`");
+
     public static final Option<Map<String, String>> CUSTOM_PARAMETERS =
         Options.key("custom_parameters")
             .mapType()
