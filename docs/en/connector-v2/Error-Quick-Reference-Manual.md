@@ -158,3 +158,9 @@ problems encountered by users.
 |---------|-------------------------------|-----------------------------------------------------------------------------------------------------------|
 | HUDI-01 | Create ParquetMetadata failed | When the user encounters this error code, it indicates that ParquetMetadata creation failed. Please check |
 | HUDI-02 | Kerberos Authorized failed    | When the user encounters this error code, it indicates that Kerberos authorization failed. Please check   |
+
+## Http Connector Error Codes
+
+| code    | description             | solution                                                                                                                             |
+|---------|-------------------------|--------------------------------------------------------------------------------------------------------------------------------------|
+| HTTP-01 | Unsupported formats     | When users encounter this error code,it indicates that Unsupported formats cause HttpConnector prepare stage to failed. Please check |
