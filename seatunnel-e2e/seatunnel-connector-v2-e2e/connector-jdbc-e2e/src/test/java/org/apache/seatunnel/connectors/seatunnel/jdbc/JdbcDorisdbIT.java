@@ -163,7 +163,7 @@ public class JdbcDorisdbIT extends TestSuiteBase implements TestResource {
         Startables.deepStart(Stream.of(dorisServer)).join();
         log.info("Doris container started");
         // wait to add BE
-        Thread.sleep(60000);
+        Thread.sleep(10000);
         // wait for doris fully start
         given().ignoreExceptions()
                 .await()
