@@ -127,14 +127,29 @@ the schema fields of upstream data
 
 ### json_field [Config]
 
-The Wildcards for jsonpath like
+The Wildcards for jsonpath. This parameter must be used with schema.
 ```hocon
-json_field = {
+source {
+  Http {
+    url = "http://mockserver:1080/jsonpath/mock"
+    method = "GET"
+    format = "json"
+    json_field = {
       category = "$.store.book[*].category"
       author = "$.store.book[*].author"
       title = "$.store.book[*].title"
       price = "$.store.book[*].price"
     }
+    schema = {
+      fields {
+        category = string
+        author = string
+        title = string
+        price = string
+      }
+    }
+  }
+}
 ```
 
 ### common options 
@@ -167,4 +182,4 @@ Http {
 
 ### new version
 
-- Increase jsonpath parsing.
+- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/incubator-seatunnel/pull/3510))
