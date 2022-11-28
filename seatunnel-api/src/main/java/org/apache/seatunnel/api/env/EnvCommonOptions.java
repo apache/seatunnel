@@ -34,14 +34,14 @@ public class EnvCommonOptions {
     public static final Option<String> JOB_NAME =
         Options.key("job.name")
             .stringType()
-            .defaultValue("SeaTunnel Job")
+            .noDefaultValue()
             .withDescription("The job name of this job");
 
     public static final Option<JobMode> JOB_MODE =
         Options.key("job.mode")
             .enumType(JobMode.class)
-            .defaultValue(JobMode.BATCH)
-            .withDescription("The job mode of this job, support Batch and Stream, Default value is Batch");
+            .noDefaultValue()
+            .withDescription("The job mode of this job, support Batch and Stream");
 
     public static final Option<Long> CHECKPOINT_INTERVAL =
         Options.key("checkpoint.interval")

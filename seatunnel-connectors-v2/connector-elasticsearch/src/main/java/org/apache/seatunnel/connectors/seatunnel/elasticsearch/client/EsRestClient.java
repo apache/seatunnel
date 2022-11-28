@@ -22,10 +22,8 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterC
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.BulkElasticsearchException;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.GetElasticsearchVersionException;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.GetIndexDocsCountException;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ScrollRequestException;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -96,9 +94,9 @@ public class EsRestClient {
         }
 
         RestClientBuilder builder = RestClient.builder(httpHosts)
-                .setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder
-                        .setConnectionRequestTimeout(CONNECTION_REQUEST_TIMEOUT)
-                        .setSocketTimeout(SOCKET_TIMEOUT));
+            .setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder
+                .setConnectionRequestTimeout(CONNECTION_REQUEST_TIMEOUT)
+                .setSocketTimeout(SOCKET_TIMEOUT));
 
         if (StringUtils.isNotEmpty(username)) {
             CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
@@ -114,7 +112,7 @@ public class EsRestClient {
         try {
             Response response = restClient.performRequest(request);
             if (response == null) {
-                throw new BulkElasticsearchException("bulk es Response is null");
+                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.BULK_RESPONSE_ERROR, "bulk es Response is null");
             }
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
                 ObjectMapper objectMapper = new ObjectMapper();
@@ -124,10 +122,10 @@ public class EsRestClient {
                 boolean errors = json.get("errors").asBoolean();
                 return new BulkResponse(errors, took, entity);
             } else {
-                throw new BulkElasticsearchException(String.format("bulk es response status code=%d,request boy=%s", response.getStatusLine().getStatusCode(), requestBody));
+                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.BULK_RESPONSE_ERROR, String.format("bulk es response status code=%d,request boy=%s", response.getStatusLine().getStatusCode(), requestBody));
             }
         } catch (IOException e) {
-            throw new BulkElasticsearchException(String.format("bulk es error,request boy=%s", requestBody), e);
+            throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.BULK_RESPONSE_ERROR, String.format("bulk es error,request boy=%s", requestBody), e);
         }
     }
 
@@ -144,11 +142,11 @@ public class EsRestClient {
             JsonNode versionNode = jsonNode.get("version");
             return versionNode.get("number").asText();
         } catch (IOException e) {
-            throw new GetElasticsearchVersionException("fail to get elasticsearch version.", e);
+            throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.GET_ES_VERSION_FAILED, "fail to get elasticsearch version.", e);
         }
     }
 
-    public void close()  {
+    public void close() {
         try {
             restClient.close();
         } catch (IOException e) {
@@ -199,7 +197,7 @@ public class EsRestClient {
         try {
             Response response = restClient.performRequest(request);
             if (response == null) {
-                throw new ScrollRequestException("POST " + endpoint + " response null");
+                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR, "POST " + endpoint + " response null");
             }
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
                 String entity = EntityUtils.toString(response.getEntity());
@@ -213,10 +211,12 @@ public class EsRestClient {
                 ScrollResult scrollResult = getDocsFromScrollResponse(responseJson);
                 return scrollResult;
             } else {
-                throw new ScrollRequestException(String.format("POST %s response status code=%d,request boy=%s", endpoint, response.getStatusLine().getStatusCode(), requestBody));
+                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR,
+                    String.format("POST %s response status code=%d,request boy=%s", endpoint, response.getStatusLine().getStatusCode(), requestBody));
             }
         } catch (IOException e) {
-            throw new ScrollRequestException(String.format("POST %s error,request boy=%s", endpoint, requestBody), e);
+            throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR,
+                String.format("POST %s error,request boy=%s", endpoint, requestBody), e);
 
         }
     }
@@ -240,7 +240,7 @@ public class EsRestClient {
             for (Iterator<Map.Entry<String, JsonNode>> iterator = source.fields(); iterator.hasNext(); ) {
                 Map.Entry<String, JsonNode> entry = iterator.next();
                 String fieldName = entry.getKey();
-                if (entry.getValue() instanceof TextNode){
+                if (entry.getValue() instanceof TextNode) {
                     doc.put(fieldName, entry.getValue().textValue());
                 } else {
                     doc.put(fieldName, entry.getValue());
@@ -257,17 +257,19 @@ public class EsRestClient {
         try {
             Response response = restClient.performRequest(request);
             if (response == null) {
-                throw new GetIndexDocsCountException("GET " + endpoint + " response null");
+                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED,
+                    "GET " + endpoint + " response null");
             }
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
                 String entity = EntityUtils.toString(response.getEntity());
                 List<IndexDocsCount> indexDocsCounts = JsonUtils.toList(entity, IndexDocsCount.class);
                 return indexDocsCounts;
             } else {
-                throw new GetIndexDocsCountException(String.format("GET %s response status code=%d", endpoint, response.getStatusLine().getStatusCode()));
+                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED,
+                    String.format("GET %s response status code=%d", endpoint, response.getStatusLine().getStatusCode()));
             }
         } catch (IOException ex) {
-            throw new GetIndexDocsCountException(ex);
+            throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED, ex);
         }
     }
 
@@ -284,10 +286,12 @@ public class EsRestClient {
         try {
             Response response = restClient.performRequest(request);
             if (response == null) {
-                throw new GetIndexDocsCountException("GET " + endpoint + " response null");
+                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED,
+                    "GET " + endpoint + " response null");
             }
             if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                throw new GetIndexDocsCountException(String.format("GET %s response status code=%d", endpoint, response.getStatusLine().getStatusCode()));
+                throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED,
+                    String.format("GET %s response status code=%d", endpoint, response.getStatusLine().getStatusCode()));
             }
             String entity = EntityUtils.toString(response.getEntity());
             log.info(String.format("GET %s respnse=%s", endpoint, entity));
@@ -308,7 +312,7 @@ public class EsRestClient {
 
             }
         } catch (IOException ex) {
-            throw new GetIndexDocsCountException(ex);
+            throw new ElasticsearchConnectorException(ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED, ex);
         }
         return mapping;
     }
