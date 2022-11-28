@@ -15,16 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception;
+package org.apache.seatunnel.connectors.seatunnel.file.exception;
 
-public class GetIndexDocsCountException extends RuntimeException {
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-    public GetIndexDocsCountException(String message) {
-        super(message);
+public class FileConnectorException extends SeaTunnelRuntimeException {
+    public FileConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+        super(seaTunnelErrorCode, errorMessage);
     }
 
-    public GetIndexDocsCountException(Throwable cause) {
-        super(cause);
+    public FileConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+        super(seaTunnelErrorCode, errorMessage, cause);
     }
 
+    public FileConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+        super(seaTunnelErrorCode, cause);
+    }
 }

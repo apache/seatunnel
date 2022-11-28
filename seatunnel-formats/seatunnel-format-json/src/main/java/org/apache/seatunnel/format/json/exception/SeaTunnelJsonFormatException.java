@@ -15,14 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.exception;
+package org.apache.seatunnel.format.json.exception;
 
-public class FilePluginException extends Exception {
-    public FilePluginException(String message) {
-        super(message);
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+
+public class SeaTunnelJsonFormatException extends SeaTunnelRuntimeException {
+    public SeaTunnelJsonFormatException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+        super(seaTunnelErrorCode, errorMessage);
     }
 
-    public FilePluginException(String message, Throwable cause) {
-        super(message, cause);
+    public SeaTunnelJsonFormatException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+        super(seaTunnelErrorCode, errorMessage, cause);
+    }
+
+    public SeaTunnelJsonFormatException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+        super(seaTunnelErrorCode, cause);
     }
 }

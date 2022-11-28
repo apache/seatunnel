@@ -19,8 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.constant.ElasticsearchVersion;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.IndexInfo;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.index.IndexSerializer;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.index.IndexSerializerFactory;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type.IndexTypeSerializer;
@@ -51,14 +53,14 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
     }
 
     @Override
-    public String serializeRow(SeaTunnelRow row){
+    public String serializeRow(SeaTunnelRow row) {
         String[] fieldNames = seaTunnelRowType.getFieldNames();
         Map<String, Object> doc = new HashMap<>(fieldNames.length);
         Object[] fields = row.getFields();
         for (int i = 0; i < fieldNames.length; i++) {
-            Object value =  fields[i];
-            if (value instanceof Temporal){
-                //jackson not support jdk8 new time api
+            Object value = fields[i];
+            if (value instanceof Temporal) {
+                // jackson not support jdk8 new time api
                 doc.put(fieldNames[i], value.toString());
             } else {
                 doc.put(fieldNames[i], value);
@@ -80,7 +82,7 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
             String indexDoc = objectMapper.writeValueAsString(doc);
             sb.append(indexDoc);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Object json deserialization exception.", e);
+            throw new ElasticsearchConnectorException(CommonErrorCode.JSON_OPERATION_FAILED, "Object json deserialization exception.", e);
         }
 
         return sb.toString();
