@@ -21,8 +21,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.util.HashMap;
 import java.util.Map;
 
@@ -30,7 +28,6 @@ public class DorisJsonSerializer extends DorisBaseSerializer implements DorisISe
 
     private static final long serialVersionUID = 1L;
     private final SeaTunnelRowType seaTunnelRowType;
-    private final ObjectMapper mapper = new ObjectMapper();
 
     public DorisJsonSerializer(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;

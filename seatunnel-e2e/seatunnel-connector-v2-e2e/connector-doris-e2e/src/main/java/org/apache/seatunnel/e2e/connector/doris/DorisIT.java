@@ -53,11 +53,11 @@ import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class DorisIT extends TestSuiteBase implements TestResource {
-    private static final String DOCKER_IMAGE = "taozex/doris:tagname";
+    private static final String DOCKER_IMAGE = "taozex/doris:1.1.1";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String HOST = "doris_e2e";
     private static final int DOCKER_PORT = 9030;
-    private static final int PORT = 8961;
+    private static final int PORT = 8970;
 
     private static final String URL = "jdbc:mysql://%s:" + PORT;
     private static final String USERNAME = "root";
