@@ -157,6 +157,7 @@ public class JdbcDorisdbIT extends TestSuiteBase implements TestResource {
         dorisServer = new GenericContainer<>(DOCKER_IMAGE)
                 .withNetwork(NETWORK)
                 .withNetworkAliases(HOST)
+                .withExposedPorts(PORT)
                 .withLogConsumer(new Slf4jLogConsumer(log));
         dorisServer.setPortBindings(Lists.newArrayList(
                 String.format("%s:%s", PORT, DOCKER_PORT)));
@@ -167,7 +168,7 @@ public class JdbcDorisdbIT extends TestSuiteBase implements TestResource {
         // wait for doris fully start
         given().ignoreExceptions()
                 .await()
-                .atMost(1200, TimeUnit.SECONDS)
+                .atMost(600, TimeUnit.SECONDS)
                 .untilAsserted(this::initializeJdbcConnection);
         initializeJdbcTable();
         batchInsertData();
