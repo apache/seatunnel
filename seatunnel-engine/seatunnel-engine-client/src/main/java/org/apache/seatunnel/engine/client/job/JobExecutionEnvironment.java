@@ -86,7 +86,7 @@ public class JobExecutionEnvironment {
                 try {
                     return uri.toURL();
                 } catch (MalformedURLException e) {
-                    throw new RuntimeException("the uri of jar illegal:" + uri, e);
+                    throw new SeaTunnelEngineException("the uri of jar illegal:" + uri, e);
                 }
             })
             .collect(Collectors.toList())));
