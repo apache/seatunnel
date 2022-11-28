@@ -17,13 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.openmldb.source;
 
-import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbConfig;
 
 import com.google.auto.service.AutoService;
+
+import java.util.Arrays;
 
 @AutoService(Factory.class)
 public class OpenMldbSourceFactory implements TableSourceFactory {
@@ -40,9 +41,9 @@ public class OpenMldbSourceFactory implements TableSourceFactory {
                 .required(OpenMldbConfig.DATABASE)
                 .optional(OpenMldbConfig.SESSION_TIMEOUT)
                 .optional(OpenMldbConfig.REQUEST_TIMEOUT)
-                .conditional(Condition.of(OpenMldbConfig.CLUSTER_MODE, false),
+                .conditional(OpenMldbConfig.CLUSTER_MODE, Arrays.asList(false),
                         OpenMldbConfig.HOST, OpenMldbConfig.PORT)
-                .conditional(Condition.of(OpenMldbConfig.CLUSTER_MODE, true),
+                .conditional(OpenMldbConfig.CLUSTER_MODE, Arrays.asList(true),
                         OpenMldbConfig.ZK_HOST, OpenMldbConfig.ZK_PATH)
                 .build();
     }
