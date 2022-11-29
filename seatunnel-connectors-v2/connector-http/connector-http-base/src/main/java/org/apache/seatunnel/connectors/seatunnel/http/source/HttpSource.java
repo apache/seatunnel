@@ -43,7 +43,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import com.google.auto.service.AutoService;
-import com.jayway.jsonpath.JsonPath;
 
 @AutoService(SeaTunnelSource.class)
 public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
@@ -52,7 +51,6 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     protected JsonField jsonField;
     protected JobContext jobContext;
     protected DeserializationSchema<SeaTunnelRow> deserializationSchema;
-    protected JsonPath[] jsonPaths;
 
     @Override
     public String getPluginName() {
