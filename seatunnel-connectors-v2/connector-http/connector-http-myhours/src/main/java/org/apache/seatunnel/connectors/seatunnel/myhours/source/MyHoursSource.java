@@ -72,7 +72,7 @@ public class MyHoursSource extends HttpSource {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(this.myHoursSourceParameter, readerContext, this.deserializationSchema, jsonField);
+        return new HttpSourceReader(this.myHoursSourceParameter, readerContext, this.deserializationSchema, jsonField, contentField);
     }
 
     private String getAccessToken(Config pluginConfig){

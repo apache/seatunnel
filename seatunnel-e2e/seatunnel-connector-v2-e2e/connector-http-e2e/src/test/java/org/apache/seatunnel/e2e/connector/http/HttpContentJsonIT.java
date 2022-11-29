@@ -38,7 +38,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.stream.Stream;
 
-public class HttpJsonPathIT extends TestSuiteBase implements TestResource {
+public class HttpContentJsonIT extends TestSuiteBase implements TestResource {
 
     private static final String IMAGE = "mockserver/mockserver:5.14.0";
 
@@ -51,10 +51,10 @@ public class HttpJsonPathIT extends TestSuiteBase implements TestResource {
             .withNetwork(NETWORK)
             .withNetworkAliases("mockserver")
             .withExposedPorts(1080)
-            .withCopyFileToContainer(MountableFile.forHostPath(new File(HttpJsonPathIT.class.getResource(
-                    "/mockserver-jsonpath-config.json").getPath()).getAbsolutePath()),
-                "/tmp/mockserver-jsonpath-config.json")
-            .withEnv("MOCKSERVER_INITIALIZATION_JSON_PATH", "/tmp/mockserver-jsonpath-config.json")
+            .withCopyFileToContainer(MountableFile.forHostPath(new File(HttpContentJsonIT.class.getResource(
+                    "/mockserver-contentjson-config.json").getPath()).getAbsolutePath()),
+                "/tmp/mockserver-contentjson-config.json")
+            .withEnv("MOCKSERVER_INITIALIZATION_JSON_PATH", "/tmp/mockserver-contentjson-config.json")
             .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
             .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));
         Startables.deepStart(Stream.of(mockserverContainer)).join();
@@ -69,8 +69,8 @@ public class HttpJsonPathIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testHttpJsonPathSourceToAssertSink(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/http_jsonpath_to_assert.conf");
+    public void testHttpContentJsonSourceToAssertSink(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/http_contentjson_to_assert.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

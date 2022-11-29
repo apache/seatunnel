@@ -49,6 +49,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     protected final HttpParameter httpParameter = new HttpParameter();
     protected SeaTunnelRowType rowType;
     protected JsonField jsonField;
+    protected String contentField;
     protected JobContext jobContext;
     protected DeserializationSchema<SeaTunnelRow> deserializationSchema;
 
@@ -87,6 +88,9 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                     if (pluginConfig.hasPath(HttpConfig.JSON_FIELD.key())) {
                         jsonField = getJsonField(pluginConfig.getConfig(HttpConfig.JSON_FIELD.key()));
                     }
+                    if (pluginConfig.hasPath(HttpConfig.CONTENT_FIELD.key())) {
+                        contentField = pluginConfig.getString(HttpConfig.JSON_FIELD.key());
+                    }
                     break;
                 default:
                     // TODO: use format SPI
@@ -110,7 +114,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(this.httpParameter, readerContext, this.deserializationSchema, jsonField);
+        return new HttpSourceReader(this.httpParameter, readerContext, this.deserializationSchema, jsonField, contentField);
     }
 
     private JsonField getJsonField(Config jsonFieldConf) {

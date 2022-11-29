@@ -71,5 +71,8 @@ public class HttpConfig {
             .objectType(JsonField.class)
             .noDefaultValue()
             .withDescription("SeaTunnel json field.When partial json data is required, this parameter can be configured to obtain data");
-
+    public static final Option<String> CONTENT_FIELD = Options.key("content_field")
+        .stringType()
+        .noDefaultValue()
+        .withDescription("SeaTunnel content field.This parameter can get some json data, and there is no need to configure each field separately.");
 }

@@ -53,13 +53,16 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private static final Option[] DEFAULT_OPTIONS =
         {Option.SUPPRESS_EXCEPTIONS, Option.ALWAYS_RETURN_LIST, Option.DEFAULT_PATH_LEAF_TO_NULL};
     private JsonPath[] jsonPaths;
-    private JsonField jsonField;
+    private final JsonField jsonField;
+    private final String contentJson;
+    private final Configuration jsonConfiguration = Configuration.defaultConfiguration().addOptions(DEFAULT_OPTIONS);
 
-    public HttpSourceReader(HttpParameter httpParameter, SingleSplitReaderContext context, DeserializationSchema<SeaTunnelRow> deserializationSchema, JsonField jsonField) {
+    public HttpSourceReader(HttpParameter httpParameter, SingleSplitReaderContext context, DeserializationSchema<SeaTunnelRow> deserializationSchema, JsonField jsonField, String contentJson) {
         this.context = context;
         this.httpParameter = httpParameter;
         this.deserializationCollector = new DeserializationCollector(deserializationSchema);
         this.jsonField = jsonField;
+        this.contentJson = contentJson;
     }
 
     @Override
@@ -81,6 +84,9 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             if (HttpResponse.STATUS_OK == response.getCode()) {
                 String content = response.getContent();
                 if (!Strings.isNullOrEmpty(content)) {
+                    if (contentJson != null) {
+                        content = JsonUtils.toJsonNode(getPartOfJson(content)).toString();
+                    }
                     if (jsonField != null) {
                         this.initJsonPath(jsonField);
                         content = JsonUtils.toJsonNode(parseToMap(decodeJSON(content), jsonField)).toString();
@@ -127,7 +133,6 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     private List<List<String>> decodeJSON(String data) {
-        Configuration jsonConfiguration = Configuration.defaultConfiguration().addOptions(DEFAULT_OPTIONS);
         ReadContext jsonReadContext = JsonPath.using(jsonConfiguration).parse(data);
         List<List<String>> results = new ArrayList<>(jsonPaths.length);
         for (JsonPath path : jsonPaths) {
@@ -146,6 +151,11 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
 
         return dataFlip(results);
+    }
+
+    private String getPartOfJson(String data) {
+        ReadContext jsonReadContext = JsonPath.using(jsonConfiguration).parse(data);
+        return jsonReadContext.read(JsonPath.compile(contentJson));
     }
 
     private List<List<String>> dataFlip(List<List<String>> results) {

@@ -125,6 +125,32 @@ connector will generate data as the following:
 
 the schema fields of upstream data
 
+### content_json [String]
+
+This parameter can get some json data.
+
+Please refer to `http_contentjson_to_assert.conf`.
+Return parameters can refer to `mockserver-contentjson-config.json`
+
+```hocon
+Http {
+    url = "http://mockserver:1080/contentjson/mock"
+    method = "GET"
+    format = "json"
+    content_field = {
+      book = "$.store.book.*"
+    }
+    schema = {
+      fields {
+        category = string
+        author = string
+        title = string
+        price = string
+      }
+    }
+  }
+```
+
 ### json_field [Config]
 
 The Wildcards for jsonpath. This parameter must be used with schema.
