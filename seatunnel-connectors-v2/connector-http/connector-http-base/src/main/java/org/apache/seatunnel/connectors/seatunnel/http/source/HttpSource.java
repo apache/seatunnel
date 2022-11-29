@@ -118,14 +118,11 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext)
         throws Exception {
-        return new HttpSourceReader(this.httpParameter, readerContext, this.deserializationSchema);
-    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
         return new HttpSourceReader(this.httpParameter, readerContext, this.deserializationSchema, jsonField, contentField);
     }
 
     private JsonField getJsonField(Config jsonFieldConf) {
         ConfigRenderOptions options = ConfigRenderOptions.concise();
-
         return JsonField.builder().fields(JsonUtils.toMap(jsonFieldConf.root().render(options))).build();
     }
 }
