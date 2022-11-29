@@ -15,7 +15,7 @@ Used to read data from Http.
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
-##  Options
+## Options
 
 | name                        | type   | required | default value |
 | --------------------------- | ------ | -------- | ------------- |
@@ -33,6 +33,7 @@ Used to read data from Http.
 | retry_backoff_multiplier_ms | int    | No       | 100           |
 | retry_backoff_max_ms        | int    | No       | 10000         |
 | common-options              |        | No       | -             |
+
 ### url [String]
 
 http request url
@@ -79,7 +80,11 @@ upstream data is the following:
 
 ```json
 
-{"code":  200, "data":  "get success", "success":  true}
+{
+  "code": 200,
+  "data": "get success",
+  "success": true
+}
 
 ```
 
@@ -88,11 +93,11 @@ you should assign schema as the following:
 ```hocon
 
 schema {
-    fields {
-        code = int
-        data = string
-        success = boolean
-    }
+  fields {
+    code = int
+    data = string
+    success = boolean
+  }
 }
 
 ```
@@ -109,7 +114,11 @@ upstream data is the following:
 
 ```json
 
-{"code":  200, "data":  "get success", "success":  true}
+{
+  "code": 200,
+  "data": "get success",
+  "success": true
+}
 
 ```
 
@@ -129,34 +138,30 @@ the schema fields of upstream data
 
 This parameter can get some json data.
 
-Please refer to `http_contentjson_to_assert.conf`.
-Return parameters can refer to `mockserver-contentjson-config.json`
+Please refer to `http_contentjson_to_assert.conf`. Return parameters can refer to `mockserver-contentjson-config.json`
 
 ```hocon
 Http {
-    url = "http://mockserver:1080/contentjson/mock"
-    method = "GET"
-    format = "json"
-    content_field = {
-      book = "$.store.book.*"
-    }
-    schema = {
-      fields {
-        category = string
-        author = string
-        title = string
-        price = string
-      }
+  url = "http://mockserver:1080/contentjson/mock"
+  method = "GET"
+  format = "json"
+  content_field = "$.store.book.*"
+  schema = {
+    fields {
+      category = string
+      author = string
+      title = string
+      price = string
     }
   }
+}
 ```
 
 ### json_field [Config]
 
 The Wildcards for jsonpath. This parameter must be used with schema.
 
-Please refer to `http_jsonpath_to_assert.conf`.
-Return parameters can refer to `mockserver-jsonpath-config.json`
+Please refer to `http_jsonpath_to_assert.conf`. Return parameters can refer to `mockserver-jsonpath-config.json`
 
 ```hocon
 source {
@@ -182,7 +187,7 @@ source {
 }
 ```
 
-### common options 
+### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
@@ -192,15 +197,15 @@ simple:
 
 ```hocon
 Http {
-    url = "https://tyrantlucifer.com/api/getDemoData"
-    schema {
-      fields {
-        code = int
-        message = string
-        data = string
-        ok = boolean
-      }
+  url = "https://tyrantlucifer.com/api/getDemoData"
+  schema {
+    fields {
+      code = int
+      message = string
+      data = string
+      ok = boolean
     }
+  }
 }
 ```
 
