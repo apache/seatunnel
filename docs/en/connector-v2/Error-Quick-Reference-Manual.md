@@ -169,3 +169,16 @@ problems encountered by users.
 | CLICKHOUSE-04 | Ssh operation failed, such as (login,connect,authentication,close) etc... | When users encounter this error code, it means that the ssh request failed, please check your network environment                                                       |
 | CLICKHOUSE-05 | Get cluster list from clickhouse failed                                   | When users encounter this error code, it means that the clickhouse cluster is not configured correctly, please check                                                    |
 | CLICKHOUSE-06 | Shard key not found in table                                              | When users encounter this error code, it means that the shard key of the distributed table is not configured, please check                                              |
+
+## Pulsar Connector Error Codes
+
+| code         | description                                                  | solution                                                                                                                                                              |
+|--------------|--------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| PULSAR-01 | Open pulsar admin failed                                        | When users encounter this error code, it means that open pulsar admin failed, please check it                                        |
+| PULSAR-02 | Open pulsar client failed                                       | When users encounter this error code, it means that open pulsar client failed, please check it                                       |
+| PULSAR-03 | Pulsar authentication failed                                    | When users encounter this error code, it means that Pulsar Authentication failed, please check it                                    |
+| PULSAR-04 | Subscribe topic from pulsar failed                              | When users encounter this error code, it means that Subscribe topic from pulsar failed, please check it                              |
+| PULSAR-05 | Get last cursor of pulsar topic failed                          | When users encounter this error code, it means that get last cursor of pulsar topic failed, please check it                          |
+| PULSAR-06 | Get partition information of pulsar topic failed                | When users encounter this error code, it means that Get partition information of pulsar topic failed, please check it                |
+| PULSAR-07 | Source reader operation failed, such as (open, close) etc...")  | When users encounter this error code, it means that Source reader operation failed, such as (open, close) etc..."), please check it  |
+
