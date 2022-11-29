@@ -22,8 +22,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.split.JdbcNumericBetweenParametersProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSourceState;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -34,8 +33,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+@Slf4j
 public class JdbcSourceSplitEnumerator implements SourceSplitEnumerator<JdbcSourceSplit, JdbcSourceState> {
-    private static final Logger LOG = LoggerFactory.getLogger(JdbcSourceSplitEnumerator.class);
     private final SourceSplitEnumerator.Context<JdbcSourceSplit> enumeratorContext;
 
     private final Map<Integer, Set<JdbcSourceSplit>> pendingSplits;
@@ -63,7 +62,7 @@ public class JdbcSourceSplitEnumerator implements SourceSplitEnumerator<JdbcSour
 
     private void discoverySplits() {
         List<JdbcSourceSplit> allSplit = new ArrayList<>();
-        LOG.info("Starting to calculate splits.");
+        log.info("Starting to calculate splits.");
         if (null != partitionParameter) {
             int partitionNumber = partitionParameter.getPartitionNumber() != null ?
                 partitionParameter.getPartitionNumber() : enumeratorContext.currentParallelism();
@@ -83,8 +82,8 @@ public class JdbcSourceSplitEnumerator implements SourceSplitEnumerator<JdbcSour
             pendingSplits.computeIfAbsent(ownerReader, r -> new HashSet<>())
                 .add(split);
         }
-        LOG.debug("Assigned {} to {} readers.", allSplit, numReaders);
-        LOG.info("Calculated splits successfully, the size of splits is {}.", allSplit.size());
+        log.debug("Assigned {} to {} readers.", allSplit, numReaders);
+        log.info("Calculated splits successfully, the size of splits is {}.", allSplit.size());
     }
 
     private void assignPendingSplits() {
@@ -96,7 +95,7 @@ public class JdbcSourceSplitEnumerator implements SourceSplitEnumerator<JdbcSour
 
             if (pendingAssignmentForReader != null && !pendingAssignmentForReader.isEmpty()) {
                 // Assign pending splits to reader
-                LOG.info("Assigning splits to readers {}", pendingAssignmentForReader);
+                log.info("Assigning splits to readers {}", pendingAssignmentForReader);
                 enumeratorContext.assignSplit(pendingReader, new ArrayList<>(pendingAssignmentForReader));
             }
             enumeratorContext.signalNoMoreSplits(pendingReader);
