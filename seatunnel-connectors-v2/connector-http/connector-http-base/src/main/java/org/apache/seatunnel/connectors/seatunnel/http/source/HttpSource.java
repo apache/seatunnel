@@ -44,6 +44,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import com.google.auto.service.AutoService;
 
+import java.util.Locale;
+
 @AutoService(SeaTunnelSource.class)
 public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     protected final HttpParameter httpParameter = new HttpParameter();
@@ -78,12 +80,13 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             Config schema = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
             this.rowType = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
             // default use json format
-            String format = HttpConfig.DEFAULT_FORMAT;
+            HttpConfig.ResponseFormat format = HttpConfig.FORMAT.defaultValue();
             if (pluginConfig.hasPath(HttpConfig.FORMAT.key())) {
-                format = pluginConfig.getString(HttpConfig.FORMAT.key());
+                format = HttpConfig.ResponseFormat.valueOf(pluginConfig.getString(HttpConfig.FORMAT.key()).toUpperCase(
+                    Locale.ROOT));
             }
             switch (format) {
-                case HttpConfig.DEFAULT_FORMAT:
+                case JSON:
                     this.deserializationSchema = new JsonDeserializationSchema(false, false, rowType);
                     if (pluginConfig.hasPath(HttpConfig.JSON_FIELD.key())) {
                         jsonField = getJsonField(pluginConfig.getConfig(HttpConfig.JSON_FIELD.key()));
@@ -113,6 +116,9 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     }
 
     @Override
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext)
+        throws Exception {
+        return new HttpSourceReader(this.httpParameter, readerContext, this.deserializationSchema);
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
         return new HttpSourceReader(this.httpParameter, readerContext, this.deserializationSchema, jsonField, contentField);
     }

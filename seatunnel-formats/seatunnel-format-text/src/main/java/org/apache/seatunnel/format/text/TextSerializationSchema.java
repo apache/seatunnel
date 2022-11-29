@@ -21,10 +21,12 @@ import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.format.text.exception.SeaTunnelTextFormatException;
 
 import lombok.Builder;
 import lombok.NonNull;
@@ -95,7 +97,8 @@ public class TextSerializationSchema implements SerializationSchema {
                 }
                 return String.join(delimiter, strings);
             default:
-                throw new UnsupportedOperationException("SeaTunnel format text not supported for parsing this type");
+                throw new SeaTunnelTextFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        String.format("SeaTunnel format text not supported for parsing this type [%s]", fieldType.getSqlType()));
         }
     }
 }

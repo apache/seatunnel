@@ -24,7 +24,7 @@ import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceCo
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.TABLE_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.USE_KERBEROS;
 
-import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -35,7 +35,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiPluginException;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -66,13 +67,19 @@ public class HudiSource implements SeaTunnelSource<SeaTunnelRow, HudiSourceSplit
     public void prepare(Config pluginConfig) {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, TABLE_PATH, CONF_FILES);
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
+            throw new HudiConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                String.format("PluginName: %s, PluginType: %s, Message: %s",
+                    getPluginName(), PluginType.SOURCE, result.getMsg())
+            );
         }
         // default hudi table tupe is cow
         // TODO: support hudi mor table
         // TODO: support Incremental Query and Read Optimized Query
         if (!"cow".equalsIgnoreCase(pluginConfig.getString(TABLE_TYPE))) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Do not support hudi mor table yet!");
+            throw new HudiConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                String.format("PluginName: %s, PluginType: %s, Message: %s",
+                    getPluginName(), PluginType.SOURCE, "Do not support hudi mor table yet!")
+            );
         }
         try {
             this.confFiles = pluginConfig.getString(CONF_FILES);
@@ -82,22 +89,27 @@ public class HudiSource implements SeaTunnelSource<SeaTunnelRow, HudiSourceSplit
                 if (this.useKerberos) {
                     CheckResult kerberosCheckResult = CheckConfigUtil.checkAllExists(pluginConfig, KERBEROS_PRINCIPAL, KERBEROS_PRINCIPAL_FILE);
                     if (!kerberosCheckResult.isSuccess()) {
-                        throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
+                        throw new HudiConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                            String.format("PluginName: %s, PluginType: %s, Message: %s",
+                                getPluginName(), PluginType.SOURCE, result.getMsg())
+                        );
                     }
                     HudiUtil.initKerberosAuthentication(HudiUtil.getConfiguration(this.confFiles), pluginConfig.getString(KERBEROS_PRINCIPAL), pluginConfig.getString(KERBEROS_PRINCIPAL_FILE));
                 }
             }
             this.filePath = HudiUtil.getParquetFileByPath(this.confFiles, tablePath);
             if (this.filePath == null) {
-                throw new HudiPluginException(String.format("%s has no parquet file, please check!", tablePath));
+                throw new HudiConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
+                    String.format("%s has no parquet file, please check!", tablePath));
             }
             // should read from config or read from hudi metadata( wait catlog done)
             this.typeInfo = HudiUtil.getSeaTunnelRowTypeInfo(this.confFiles, this.filePath);
-
-        } catch (HudiPluginException | IOException e) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Prepare HudiSource error.", e);
+        } catch (HudiConnectorException | IOException e) {
+            throw new HudiConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                String.format("PluginName: %s, PluginType: %s, Message: %s",
+                    getPluginName(), PluginType.SOURCE, result.getMsg())
+            );
         }
-
     }
 
     @Override

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.engine.common.serializeable.ConfigDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
@@ -31,7 +32,7 @@ import java.util.Map;
 
 @Data
 public class JobConfig implements IdentifiedDataSerializable {
-    private String name;
+    private String name = EnvCommonOptions.JOB_NAME.defaultValue();
     private JobContext jobContext;
 
     private Map<String, Object> envOptions = new HashMap<>();

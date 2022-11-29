@@ -20,7 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.FileReaderOption;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.ClickhouseProxy;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.ShardRouter;
@@ -70,18 +73,18 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
         proxy = new ClickhouseProxy(this.readerOption.getShardMetadata().getDefaultShard().getNode());
         shardRouter = new ShardRouter(proxy, this.readerOption.getShardMetadata());
         clickhouseTable = proxy.getClickhouseTable(this.readerOption.getShardMetadata().getDatabase(),
-                this.readerOption.getShardMetadata().getTable());
+            this.readerOption.getShardMetadata().getTable());
         rowCache = new HashMap<>(Common.COLLECTION_SIZE);
 
         nodePasswordCheck();
 
         // find file local save path of each node
         shardLocalDataPaths = shardRouter.getShards().values().stream()
-                .collect(Collectors.toMap(Function.identity(), shard -> {
-                    ClickhouseTable shardTable = proxy.getClickhouseTable(shard.getNode().getDatabase().get(),
-                            clickhouseTable.getLocalTableName());
-                    return shardTable.getDataPaths();
-                }));
+            .collect(Collectors.toMap(Function.identity(), shard -> {
+                ClickhouseTable shardTable = proxy.getClickhouseTable(shard.getNode().getDatabase().get(),
+                    clickhouseTable.getLocalTableName());
+                return shardTable.getDataPaths();
+            }));
     }
 
     @Override
@@ -94,8 +97,8 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
         if (!this.readerOption.isNodeFreePass()) {
             shardRouter.getShards().values().forEach(shard -> {
                 if (!this.readerOption.getNodePassword().containsKey(shard.getNode().getAddress().getHostName())
-                        && !this.readerOption.getNodePassword().containsKey(shard.getNode().getHost())) {
-                    throw new RuntimeException("Cannot find password of shard " + shard.getNode().getAddress().getHostName());
+                    && !this.readerOption.getNodePassword().containsKey(shard.getNode().getHost())) {
+                    throw new ClickhouseConnectorException(ClickhouseConnectorErrorCode.PASSWORD_NOT_FOUND_IN_SHARD_NODE, "Cannot find password of shard " + shard.getNode().getAddress().getHostName());
                 }
             });
         }
@@ -126,12 +129,12 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
             // clear local file
             clearLocalFileDirectory(clickhouseLocalFiles);
         } catch (Exception e) {
-            throw new RuntimeException("Flush data into clickhouse file error", e);
+            throw new ClickhouseConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, "Flush data into clickhouse file error", e);
         }
     }
 
     private List<String> generateClickhouseLocalFiles(List<SeaTunnelRow> rows) throws IOException,
-            InterruptedException {
+        InterruptedException {
         if (rows.isEmpty()) {
             return Collections.emptyList();
         }
@@ -140,18 +143,18 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
         FileUtils.forceMkdir(new File(clickhouseLocalFile));
         String clickhouseLocalFileTmpFile = clickhouseLocalFile + "/local_data.log";
         try (FileChannel fileChannel = FileChannel.open(Paths.get(clickhouseLocalFileTmpFile), StandardOpenOption.WRITE,
-                StandardOpenOption.READ, StandardOpenOption.CREATE_NEW)) {
+            StandardOpenOption.READ, StandardOpenOption.CREATE_NEW)) {
             String data = rows.stream()
-                    .map(row -> this.readerOption.getFields().stream().map(field -> row.getField(this.readerOption.getSeaTunnelRowType().indexOf(field)).toString())
-                            .collect(Collectors.joining("\t")))
-                    .collect(Collectors.joining("\n"));
+                .map(row -> this.readerOption.getFields().stream().map(field -> row.getField(this.readerOption.getSeaTunnelRowType().indexOf(field)).toString())
+                    .collect(Collectors.joining("\t")))
+                .collect(Collectors.joining("\n"));
             MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_WRITE, fileChannel.size(),
-                    data.getBytes(StandardCharsets.UTF_8).length);
+                data.getBytes(StandardCharsets.UTF_8).length);
             buffer.put(data.getBytes(StandardCharsets.UTF_8));
         }
 
         List<String> localPaths = Arrays.stream(this.readerOption.getClickhouseLocalPath().trim().split(" "))
-                .collect(Collectors.toList());
+            .collect(Collectors.toList());
         List<String> command = new ArrayList<>(localPaths);
         if (localPaths.size() == 1) {
             command.add("local");
@@ -164,17 +167,17 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
         command.add("\"" + "temp_table" + uuid + "\"");
         command.add("-q");
         command.add(String.format(
-                "\"%s; INSERT INTO TABLE %s SELECT %s FROM temp_table%s;\"",
-                clickhouseTable.getCreateTableDDL().replace(clickhouseTable.getDatabase() + ".", "").replaceAll("`", ""),
-                clickhouseTable.getLocalTableName(),
-                readerOption.getTableSchema().keySet().stream().map(s -> {
-                    if (readerOption.getFields().contains(s)) {
-                        return s;
-                    } else {
-                        return "NULL";
-                    }
-                }).collect(Collectors.joining(",")),
-                uuid));
+            "\"%s; INSERT INTO TABLE %s SELECT %s FROM temp_table%s;\"",
+            clickhouseTable.getCreateTableDDL().replace(clickhouseTable.getDatabase() + ".", "").replaceAll("`", ""),
+            clickhouseTable.getLocalTableName(),
+            readerOption.getTableSchema().keySet().stream().map(s -> {
+                if (readerOption.getFields().contains(s)) {
+                    return s;
+                } else {
+                    return "NULL";
+                }
+            }).collect(Collectors.joining(",")),
+            uuid));
         command.add("--path");
         command.add("\"" + clickhouseLocalFile + "\"");
         log.info("Generate clickhouse local file command: {}", String.join(" ", command));
@@ -192,16 +195,16 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
         start.waitFor();
         File file = new File(clickhouseLocalFile + "/data/_local/" + clickhouseTable.getLocalTableName());
         if (!file.exists()) {
-            throw new RuntimeException("clickhouse local file not exists");
+            throw new ClickhouseConnectorException(ClickhouseConnectorErrorCode.FILE_NOT_EXISTS, "clickhouse local file not exists");
         }
         File[] files = file.listFiles();
         if (files == null) {
-            throw new RuntimeException("clickhouse local file not exists");
+            throw new ClickhouseConnectorException(ClickhouseConnectorErrorCode.FILE_NOT_EXISTS, "clickhouse local file not exists");
         }
         return Arrays.stream(files)
-                .filter(File::isDirectory)
-                .filter(f -> !"detached".equals(f.getName()))
-                .map(File::getAbsolutePath).collect(Collectors.toList());
+            .filter(File::isDirectory)
+            .filter(f -> !"detached".equals(f.getName()))
+            .map(File::getAbsolutePath).collect(Collectors.toList());
     }
 
     private void attachClickhouseLocalFileToServer(Shard shard, List<String> clickhouseLocalFiles) throws ClickHouseException {
@@ -215,8 +218,8 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
         ClickHouseRequest<?> request = proxy.getClickhouseConnection(shard);
         for (String clickhouseLocalFile : clickhouseLocalFiles) {
             ClickHouseResponse response = request.query(String.format("ALTER TABLE %s ATTACH PART '%s'",
-                    clickhouseTable.getLocalTableName(),
-                    clickhouseLocalFile.substring(clickhouseLocalFile.lastIndexOf("/") + 1))).executeAndWait();
+                clickhouseTable.getLocalTableName(),
+                clickhouseLocalFile.substring(clickhouseLocalFile.lastIndexOf("/") + 1))).executeAndWait();
             response.close();
         }
     }
@@ -230,7 +233,7 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
                 FileUtils.deleteDirectory(new File(localFileDir));
             }
         } catch (IOException e) {
-            throw new RuntimeException("Unable to delete directory " + localFileDir, e);
+            throw new ClickhouseConnectorException(ClickhouseConnectorErrorCode.DELETE_DIRECTORY_FIELD, "Unable to delete directory " + localFileDir, e);
         }
     }
 
