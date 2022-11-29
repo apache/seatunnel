@@ -43,8 +43,6 @@ import org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties;
 
 import com.google.auto.service.AutoService;
 
-import java.util.Arrays;
-
 @AutoService(Factory.class)
 public class PulsarSourceFactory implements TableSourceFactory {
     @Override
@@ -60,9 +58,9 @@ public class PulsarSourceFactory implements TableSourceFactory {
                 POLL_TIMEOUT, POLL_INTERVAL,
                 POLL_BATCH_SIZE, SeaTunnelSchema.SCHEMA)
             .exclusive(TOPIC, TOPIC_PATTERN)
-            .conditional(CURSOR_STARTUP_MODE, Arrays.asList(SourceProperties.StartMode.TIMESTAMP), CURSOR_STARTUP_TIMESTAMP)
-            .conditional(CURSOR_STARTUP_MODE, Arrays.asList(SourceProperties.StartMode.SUBSCRIPTION), CURSOR_RESET_MODE)
-            .conditional(CURSOR_STOP_MODE, Arrays.asList(SourceProperties.StopMode.TIMESTAMP), CURSOR_STOP_TIMESTAMP)
+            .conditional(CURSOR_STARTUP_MODE, SourceProperties.StartMode.TIMESTAMP, CURSOR_STARTUP_TIMESTAMP)
+            .conditional(CURSOR_STARTUP_MODE, SourceProperties.StartMode.SUBSCRIPTION, CURSOR_RESET_MODE)
+            .conditional(CURSOR_STOP_MODE, SourceProperties.StopMode.TIMESTAMP, CURSOR_STOP_TIMESTAMP)
             .bundled(AUTH_PLUGIN_CLASS, AUTH_PARAMS)
             .build();
     }

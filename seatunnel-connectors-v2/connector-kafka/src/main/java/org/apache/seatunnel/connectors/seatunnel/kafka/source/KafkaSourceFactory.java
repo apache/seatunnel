@@ -25,8 +25,6 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
 
 import com.google.auto.service.AutoService;
 
-import java.util.Arrays;
-
 @AutoService(Factory.class)
 public class KafkaSourceFactory implements TableSourceFactory {
 
@@ -39,10 +37,11 @@ public class KafkaSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
             .required(Config.TOPIC, Config.BOOTSTRAP_SERVERS)
-            .optional(Config.START_MODE, Config.PATTERN, Config.CONSUMER_GROUP, Config.COMMIT_ON_CHECKPOINT, Config.KAFKA_CONFIG_PREFIX, Config.SCHEMA,
+            .optional(Config.START_MODE, Config.PATTERN, Config.CONSUMER_GROUP, Config.COMMIT_ON_CHECKPOINT,
+                Config.KAFKA_CONFIG_PREFIX, Config.SCHEMA,
                 Config.FORMAT, Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS)
-            .conditional(Config.START_MODE, Arrays.asList(StartMode.TIMESTAMP), Config.START_MODE_TIMESTAMP)
-            .conditional(Config.START_MODE, Arrays.asList(StartMode.SPECIFIC_OFFSETS), Config.START_MODE_OFFSETS)
+            .conditional(Config.START_MODE, StartMode.TIMESTAMP, Config.START_MODE_TIMESTAMP)
+            .conditional(Config.START_MODE, StartMode.SPECIFIC_OFFSETS, Config.START_MODE_OFFSETS)
             .build();
     }
 }

@@ -27,8 +27,6 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
 
 import com.google.auto.service.AutoService;
 
-import java.util.Arrays;
-
 @AutoService(Factory.class)
 public class GitlabSourceFactory implements TableSourceFactory {
     @Override
@@ -45,8 +43,8 @@ public class GitlabSourceFactory implements TableSourceFactory {
                 .optional(GitlabSourceConfig.HEADERS)
                 .optional(GitlabSourceConfig.PARAMS)
                 .optional(GitlabSourceConfig.FORMAT)
-                .conditional(HttpConfig.METHOD, Arrays.asList(HttpRequestMethod.POST), GitlabSourceConfig.BODY)
-                .conditional(HttpConfig.FORMAT, Arrays.asList("json"), SeaTunnelSchema.SCHEMA)
+                .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, GitlabSourceConfig.BODY)
+                .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
                 .optional(GitlabSourceConfig.POLL_INTERVAL_MILLS)
                 .optional(GitlabSourceConfig.RETRY)
                 .optional(GitlabSourceConfig.RETRY_BACKOFF_MAX_MS)

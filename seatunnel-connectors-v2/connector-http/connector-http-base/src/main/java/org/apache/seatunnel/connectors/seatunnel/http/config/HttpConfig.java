@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.configuration.Options;
 import java.util.Map;
 
 public class HttpConfig {
-    public static final String DEFAULT_FORMAT = "json";
     public static final String BASIC = "Basic";
     public static final int DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS = 100;
     public static final int DEFAULT_RETRY_BACKOFF_MAX_MS = 10000;
@@ -47,9 +46,9 @@ public class HttpConfig {
             .stringType()
             .noDefaultValue()
             .withDescription("Http request body");
-    public static final Option<String> FORMAT = Options.key("format")
-            .stringType()
-            .defaultValue(DEFAULT_FORMAT)
+    public static final Option<ResponseFormat> FORMAT = Options.key("format")
+            .enumType(ResponseFormat.class)
+            .defaultValue(ResponseFormat.JSON)
             .withDescription("Http response format");
     public static final Option<Integer> POLL_INTERVAL_MILLS = Options.key("poll_interval_millis")
             .intType()
@@ -67,4 +66,8 @@ public class HttpConfig {
             .intType()
             .defaultValue(DEFAULT_RETRY_BACKOFF_MAX_MS)
             .withDescription("The maximum retry-backoff times(millis) if request http failed");
+
+    public enum ResponseFormat {
+        JSON
+    }
 }

@@ -27,8 +27,6 @@ import org.apache.seatunnel.connectors.seatunnel.onesignal.source.config.OneSign
 
 import com.google.auto.service.AutoService;
 
-import java.util.Arrays;
-
 @AutoService(Factory.class)
 public class OneSignalSourceFactory implements TableSourceFactory {
     @Override
@@ -39,18 +37,18 @@ public class OneSignalSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(OneSignalSourceConfig.URL)
-                .required(OneSignalSourceConfig.PASSWORD)
-                .optional(OneSignalSourceConfig.METHOD)
-                .optional(OneSignalSourceConfig.HEADERS)
-                .optional(OneSignalSourceConfig.PARAMS)
-                .optional(OneSignalSourceConfig.FORMAT)
-                .conditional(HttpConfig.METHOD, Arrays.asList(HttpRequestMethod.POST), OneSignalSourceConfig.BODY)
-                .conditional(HttpConfig.FORMAT, Arrays.asList("json"), SeaTunnelSchema.SCHEMA)
-                .optional(OneSignalSourceConfig.POLL_INTERVAL_MILLS)
-                .optional(OneSignalSourceConfig.RETRY)
-                .optional(OneSignalSourceConfig.RETRY_BACKOFF_MAX_MS)
-                .optional(OneSignalSourceConfig.RETRY_BACKOFF_MULTIPLIER_MS)
-                .build();
+            .required(OneSignalSourceConfig.URL)
+            .required(OneSignalSourceConfig.PASSWORD)
+            .optional(OneSignalSourceConfig.METHOD)
+            .optional(OneSignalSourceConfig.HEADERS)
+            .optional(OneSignalSourceConfig.PARAMS)
+            .optional(OneSignalSourceConfig.FORMAT)
+            .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, OneSignalSourceConfig.BODY)
+            .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
+            .optional(OneSignalSourceConfig.POLL_INTERVAL_MILLS)
+            .optional(OneSignalSourceConfig.RETRY)
+            .optional(OneSignalSourceConfig.RETRY_BACKOFF_MAX_MS)
+            .optional(OneSignalSourceConfig.RETRY_BACKOFF_MULTIPLIER_MS)
+            .build();
     }
 }

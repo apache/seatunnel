@@ -27,8 +27,6 @@ import org.apache.seatunnel.connectors.seatunnel.lemlist.source.config.LemlistSo
 
 import com.google.auto.service.AutoService;
 
-import java.util.Arrays;
-
 @AutoService(Factory.class)
 public class LemlistSourceFactory implements TableSourceFactory {
     @Override
@@ -39,18 +37,18 @@ public class LemlistSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(LemlistSourceConfig.URL)
-                .required(LemlistSourceConfig.PASSWORD)
-                .optional(LemlistSourceConfig.METHOD)
-                .optional(LemlistSourceConfig.HEADERS)
-                .optional(LemlistSourceConfig.PARAMS)
-                .optional(LemlistSourceConfig.FORMAT)
-                .conditional(HttpConfig.METHOD, Arrays.asList(HttpRequestMethod.POST), LemlistSourceConfig.BODY)
-                .conditional(HttpConfig.FORMAT, Arrays.asList("json"), SeaTunnelSchema.SCHEMA)
-                .optional(LemlistSourceConfig.POLL_INTERVAL_MILLS)
-                .optional(LemlistSourceConfig.RETRY)
-                .optional(LemlistSourceConfig.RETRY_BACKOFF_MAX_MS)
-                .optional(LemlistSourceConfig.RETRY_BACKOFF_MULTIPLIER_MS)
-                .build();
+            .required(LemlistSourceConfig.URL)
+            .required(LemlistSourceConfig.PASSWORD)
+            .optional(LemlistSourceConfig.METHOD)
+            .optional(LemlistSourceConfig.HEADERS)
+            .optional(LemlistSourceConfig.PARAMS)
+            .optional(LemlistSourceConfig.FORMAT)
+            .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, LemlistSourceConfig.BODY)
+            .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
+            .optional(LemlistSourceConfig.POLL_INTERVAL_MILLS)
+            .optional(LemlistSourceConfig.RETRY)
+            .optional(LemlistSourceConfig.RETRY_BACKOFF_MAX_MS)
+            .optional(LemlistSourceConfig.RETRY_BACKOFF_MULTIPLIER_MS)
+            .build();
     }
 }

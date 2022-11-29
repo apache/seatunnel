@@ -39,8 +39,6 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
 import com.google.auto.service.AutoService;
 
-import java.util.Arrays;
-
 @AutoService(Factory.class)
 public class IcebergSourceFactory implements TableSourceFactory {
 
@@ -59,7 +57,7 @@ public class IcebergSourceFactory implements TableSourceFactory {
                 KEY_NAMESPACE,
                 KEY_TABLE
             )
-            .conditional(KEY_CATALOG_TYPE, Arrays.asList(HIVE), KEY_URI)
+            .conditional(KEY_CATALOG_TYPE, HIVE, KEY_URI)
             .optional(
                 KEY_FIELDS,
                 KEY_CASE_SENSITIVE,

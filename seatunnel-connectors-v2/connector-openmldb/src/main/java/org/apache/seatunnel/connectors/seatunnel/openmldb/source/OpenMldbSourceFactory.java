@@ -24,8 +24,6 @@ import org.apache.seatunnel.connectors.seatunnel.openmldb.config.OpenMldbConfig;
 
 import com.google.auto.service.AutoService;
 
-import java.util.Arrays;
-
 @AutoService(Factory.class)
 public class OpenMldbSourceFactory implements TableSourceFactory {
     @Override
@@ -36,15 +34,15 @@ public class OpenMldbSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(OpenMldbConfig.CLUSTER_MODE)
-                .required(OpenMldbConfig.SQL)
-                .required(OpenMldbConfig.DATABASE)
-                .optional(OpenMldbConfig.SESSION_TIMEOUT)
-                .optional(OpenMldbConfig.REQUEST_TIMEOUT)
-                .conditional(OpenMldbConfig.CLUSTER_MODE, Arrays.asList(false),
-                        OpenMldbConfig.HOST, OpenMldbConfig.PORT)
-                .conditional(OpenMldbConfig.CLUSTER_MODE, Arrays.asList(true),
-                        OpenMldbConfig.ZK_HOST, OpenMldbConfig.ZK_PATH)
-                .build();
+            .required(OpenMldbConfig.CLUSTER_MODE)
+            .required(OpenMldbConfig.SQL)
+            .required(OpenMldbConfig.DATABASE)
+            .optional(OpenMldbConfig.SESSION_TIMEOUT)
+            .optional(OpenMldbConfig.REQUEST_TIMEOUT)
+            .conditional(OpenMldbConfig.CLUSTER_MODE, false,
+                OpenMldbConfig.HOST, OpenMldbConfig.PORT)
+            .conditional(OpenMldbConfig.CLUSTER_MODE, true,
+                OpenMldbConfig.ZK_HOST, OpenMldbConfig.ZK_PATH)
+            .build();
     }
 }

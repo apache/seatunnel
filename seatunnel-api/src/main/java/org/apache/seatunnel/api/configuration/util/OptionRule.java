@@ -165,14 +165,6 @@ public class OptionRule {
             return this;
         }
 
-        public Builder exclusive(@NonNull RequiredOption.ExclusiveRequiredOptions exclusiveRequiredOptions) {
-            exclusiveRequiredOptions.getExclusiveOptions().forEach(option -> {
-                verifyDuplicate(option, "ExclusiveOption");
-            });
-            this.requiredOptions.add(exclusiveRequiredOptions);
-            return this;
-        }
-
         public <T> Builder conditional(@NonNull Option<T> conditionalOption, @NonNull List<T> expectValues, @NonNull Option<?>... requiredOptions) {
             for (Option<?> o : requiredOptions) {
                 verifyDuplicate(o, "ConditionalOption");
@@ -195,6 +187,24 @@ public class OptionRule {
                     expression = expression.or(Expression.of(Condition.of(conditionalOption, expectValues.get(i))));
                 }
             }
+
+            this.requiredOptions.add(RequiredOption.ConditionalRequiredOptions.of(expression,
+                new ArrayList<>(Arrays.asList(requiredOptions))));
+            return this;
+        }
+
+        public <T> Builder conditional(@NonNull Option<T> conditionalOption, @NonNull T expectValue, @NonNull Option<?>... requiredOptions) {
+            for (Option<?> o : requiredOptions) {
+                verifyDuplicate(o, "ConditionalOption");
+                verifyRequiredOptionDefaultValue(o);
+            }
+
+            verifyConditionalExists(conditionalOption);
+
+            /**
+             * Each parameter can only be controlled by one other parameter
+             */
+            Expression expression = Expression.of(Condition.of(conditionalOption, expectValue));
 
             this.requiredOptions.add(RequiredOption.ConditionalRequiredOptions.of(expression,
                 new ArrayList<>(Arrays.asList(requiredOptions))));

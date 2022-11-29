@@ -137,7 +137,7 @@ public class ConfigValidatorTest {
     @Test
     public void testComplexExclusiveRequiredOptions() {
         OptionRule rule = OptionRule.builder()
-            .exclusive(RequiredOption.ExclusiveRequiredOptions.of(KEY_BEARER_TOKEN, KEY_KERBEROS_TICKET))
+            .exclusive(KEY_BEARER_TOKEN, KEY_KERBEROS_TICKET)
             .build();
 
         Map<String, Object> config = new HashMap<>();
@@ -163,7 +163,7 @@ public class ConfigValidatorTest {
     public void testSimpleConditionalRequiredOptionsWithDefaultValue() {
         OptionRule rule = OptionRule.builder()
             .optional(TEST_MODE)
-            .conditional(TEST_MODE, Arrays.asList(OptionTest.TestMode.TIMESTAMP), TEST_TIMESTAMP)
+            .conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_TIMESTAMP)
             .build();
         Map<String, Object> config = new HashMap<>();
         Executable executable = () -> validate(config, rule);
@@ -190,7 +190,7 @@ public class ConfigValidatorTest {
     public void testSimpleConditionalRequiredOptionsWithoutDefaultValue() {
         OptionRule rule = OptionRule.builder()
             .optional(KEY_USERNAME)
-            .conditional(KEY_USERNAME, Arrays.asList("ashulin"), TEST_TIMESTAMP)
+            .conditional(KEY_USERNAME, "ashulin", TEST_TIMESTAMP)
             .build();
         Map<String, Object> config = new HashMap<>();
         Executable executable = () -> validate(config, rule);

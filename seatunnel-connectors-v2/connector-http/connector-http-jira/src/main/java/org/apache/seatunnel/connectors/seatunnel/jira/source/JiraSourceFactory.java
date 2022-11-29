@@ -27,8 +27,6 @@ import org.apache.seatunnel.connectors.seatunnel.jira.source.config.JiraSourceCo
 
 import com.google.auto.service.AutoService;
 
-import java.util.Arrays;
-
 @AutoService(Factory.class)
 public class JiraSourceFactory implements TableSourceFactory {
     @Override
@@ -46,8 +44,8 @@ public class JiraSourceFactory implements TableSourceFactory {
             .optional(JiraSourceConfig.HEADERS)
             .optional(JiraSourceConfig.PARAMS)
             .optional(JiraSourceConfig.FORMAT)
-            .conditional(HttpConfig.METHOD, Arrays.asList(HttpRequestMethod.POST), JiraSourceConfig.BODY)
-            .conditional(HttpConfig.FORMAT, Arrays.asList("json"), SeaTunnelSchema.SCHEMA)
+            .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, JiraSourceConfig.BODY)
+            .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
             .optional(JiraSourceConfig.POLL_INTERVAL_MILLS)
             .optional(JiraSourceConfig.RETRY)
             .optional(JiraSourceConfig.RETRY_BACKOFF_MAX_MS)

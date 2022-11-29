@@ -29,8 +29,6 @@ import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 
 import com.google.auto.service.AutoService;
 
-import java.util.Arrays;
-
 @AutoService(Factory.class)
 public class ReplaceTransformFactory implements TableTransformFactory {
     @Override
@@ -43,7 +41,7 @@ public class ReplaceTransformFactory implements TableTransformFactory {
         return OptionRule.builder()
             .required(KEY_REPLACE_FIELD, KEY_PATTERN, KEY_REPLACEMENT)
             .optional(KEY_IS_REGEX)
-            .conditional(KEY_IS_REGEX, Arrays.asList(true), KEY_REPLACE_FIRST)
+            .conditional(KEY_IS_REGEX, true, KEY_REPLACE_FIRST)
             .build();
     }
 }

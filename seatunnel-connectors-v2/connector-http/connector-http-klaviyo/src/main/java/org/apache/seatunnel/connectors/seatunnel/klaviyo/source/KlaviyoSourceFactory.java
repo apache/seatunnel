@@ -27,8 +27,6 @@ import org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config.KlaviyoSo
 
 import com.google.auto.service.AutoService;
 
-import java.util.Arrays;
-
 @AutoService(Factory.class)
 public class KlaviyoSourceFactory implements TableSourceFactory {
     @Override
@@ -39,19 +37,19 @@ public class KlaviyoSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(KlaviyoSourceConfig.URL)
-                .required(KlaviyoSourceConfig.PRIVATE_KEY)
-                .required(KlaviyoSourceConfig.REVISION)
-                .optional(KlaviyoSourceConfig.METHOD)
-                .optional(KlaviyoSourceConfig.HEADERS)
-                .optional(KlaviyoSourceConfig.PARAMS)
-                .optional(KlaviyoSourceConfig.FORMAT)
-                .conditional(HttpConfig.METHOD, Arrays.asList(HttpRequestMethod.POST), KlaviyoSourceConfig.BODY)
-                .conditional(HttpConfig.FORMAT, Arrays.asList("json"), SeaTunnelSchema.SCHEMA)
-                .optional(KlaviyoSourceConfig.POLL_INTERVAL_MILLS)
-                .optional(KlaviyoSourceConfig.RETRY)
-                .optional(KlaviyoSourceConfig.RETRY_BACKOFF_MAX_MS)
-                .optional(KlaviyoSourceConfig.RETRY_BACKOFF_MULTIPLIER_MS)
-                .build();
+            .required(KlaviyoSourceConfig.URL)
+            .required(KlaviyoSourceConfig.PRIVATE_KEY)
+            .required(KlaviyoSourceConfig.REVISION)
+            .optional(KlaviyoSourceConfig.METHOD)
+            .optional(KlaviyoSourceConfig.HEADERS)
+            .optional(KlaviyoSourceConfig.PARAMS)
+            .optional(KlaviyoSourceConfig.FORMAT)
+            .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, KlaviyoSourceConfig.BODY)
+            .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
+            .optional(KlaviyoSourceConfig.POLL_INTERVAL_MILLS)
+            .optional(KlaviyoSourceConfig.RETRY)
+            .optional(KlaviyoSourceConfig.RETRY_BACKOFF_MAX_MS)
+            .optional(KlaviyoSourceConfig.RETRY_BACKOFF_MULTIPLIER_MS)
+            .build();
     }
 }

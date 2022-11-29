@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 
-import java.util.Collections;
 import java.util.Map;
 
 @SuppressWarnings("MagicNumber")
@@ -96,8 +95,8 @@ public class SourceOptions {
         .optional(INCREMENTAL_PARALLELISM)
         .optional(STARTUP_MODE, STOP_MODE)
         .optional(DEBEZIUM_PROPERTIES)
-        .conditional(STARTUP_MODE, Collections.singletonList(StartupMode.TIMESTAMP), STARTUP_TIMESTAMP)
-        .conditional(STARTUP_MODE, Collections.singletonList(StartupMode.SPECIFIC), STARTUP_SPECIFIC_OFFSET_FILE, STARTUP_SPECIFIC_OFFSET_POS)
-        .conditional(STOP_MODE, Collections.singletonList(StopMode.TIMESTAMP), STOP_TIMESTAMP)
-        .conditional(STOP_MODE, Collections.singletonList(StopMode.SPECIFIC), STOP_SPECIFIC_OFFSET_FILE, STOP_SPECIFIC_OFFSET_POS);
+        .conditional(STARTUP_MODE, StartupMode.TIMESTAMP, STARTUP_TIMESTAMP)
+        .conditional(STARTUP_MODE, StartupMode.SPECIFIC, STARTUP_SPECIFIC_OFFSET_FILE, STARTUP_SPECIFIC_OFFSET_POS)
+        .conditional(STOP_MODE, StopMode.TIMESTAMP, STOP_TIMESTAMP)
+        .conditional(STOP_MODE, StopMode.SPECIFIC, STOP_SPECIFIC_OFFSET_FILE, STOP_SPECIFIC_OFFSET_POS);
 }

@@ -26,8 +26,6 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
 
 import com.google.auto.service.AutoService;
 
-import java.util.Arrays;
-
 @AutoService(Factory.class)
 public class HttpSourceFactory implements TableSourceFactory {
 
@@ -39,17 +37,17 @@ public class HttpSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HttpConfig.URL)
-                .optional(HttpConfig.METHOD)
-                .optional(HttpConfig.HEADERS)
-                .optional(HttpConfig.PARAMS)
-                .optional(HttpConfig.FORMAT)
-                .conditional(HttpConfig.METHOD, Arrays.asList(HttpRequestMethod.POST), HttpConfig.BODY)
-                .conditional(HttpConfig.FORMAT, Arrays.asList("json"), SeaTunnelSchema.SCHEMA)
-                .optional(HttpConfig.POLL_INTERVAL_MILLS)
-                .optional(HttpConfig.RETRY)
-                .optional(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS)
-                .optional(HttpConfig.RETRY_BACKOFF_MAX_MS)
-                .build();
+            .required(HttpConfig.URL)
+            .optional(HttpConfig.METHOD)
+            .optional(HttpConfig.HEADERS)
+            .optional(HttpConfig.PARAMS)
+            .optional(HttpConfig.FORMAT)
+            .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, HttpConfig.BODY)
+            .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
+            .optional(HttpConfig.POLL_INTERVAL_MILLS)
+            .optional(HttpConfig.RETRY)
+            .optional(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS)
+            .optional(HttpConfig.RETRY_BACKOFF_MAX_MS)
+            .build();
     }
 }
