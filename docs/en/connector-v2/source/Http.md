@@ -128,6 +128,10 @@ the schema fields of upstream data
 ### json_field [Config]
 
 The Wildcards for jsonpath. This parameter must be used with schema.
+
+Please refer to [http_jsonpath_to_assert.conf](http_jsonpath_to_assert.conf).
+Return parameters can refer to[mockserver-jsonpath-config.json](mockserver-jsonpath-config.json) 
+
 ```hocon
 source {
   Http {
