@@ -31,6 +31,7 @@ problems encountered by users.
 | COMMON-11 | Sink writer operation failed, such as (open, close) etc...             | When users encounter this error code, it maybe some operation of writer such as Parquet,Orc,IceBerg failed, you need to check if the corresponding file or resource has read and write permissions |
 | COMMON-12 | Source reader operation failed, such as (open, close) etc...           | When users encounter this error code, it maybe some operation of reader such as Parquet,Orc,IceBerg failed, you need to check if the corresponding file or resource has read and write permissions |
 | COMMON-13 | Http operation failed, such as (open, close, response) etc...          | When users encounter this error code, it maybe some http requests failed, please check your network environment                                                                                    |
+| COMMON-14 | Class load operation failed                                            | When users encounter this error code, it maybe some The corresponding jar does not exist, or the type is not supported                                                                             |
 
 ## Assert Connector Error Codes
 
@@ -169,3 +170,16 @@ problems encountered by users.
 | CLICKHOUSE-04 | Ssh operation failed, such as (login,connect,authentication,close) etc... | When users encounter this error code, it means that the ssh request failed, please check your network environment                                                       |
 | CLICKHOUSE-05 | Get cluster list from clickhouse failed                                   | When users encounter this error code, it means that the clickhouse cluster is not configured correctly, please check                                                    |
 | CLICKHOUSE-06 | Shard key not found in table                                              | When users encounter this error code, it means that the shard key of the distributed table is not configured, please check                                              |
+
+## Jdbc Connector Error Codes
+
+| code    | description                                                         | solution                                                                                                                                                                                                    |
+|---------|---------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| JDBC-01 | Fail to create driver of class                                      | When users encounter this error code, it means that driver package may not be added. Check whether the driver exists                                                                                        |
+| JDBC-02 | No suitable driver found                                            | When users encounter this error code, it means that no password is configured for each node, please check                                                                                                   |
+| JDBC-03 | Sql operation failed, such as (execute,addBatch,close) etc...       | When users encounter this error code, it means that sql execution fails, Check whether the sql is correct                                                                                                   |
+| JDBC-04 | Xa operation failed, such as (commit, rollback) etc..               | When users encounter this error code, it means that if a distributed sql transaction fails, check the transaction execution of the corresponding database to determine the cause of the transaction failure |
+| JDBC-05 | Connector database failed                                           | When users encounter this error code, it means that database connection failure, check whether the url is correct or whether the corresponding service is normal                                            |
+| JDBC-06 | Null pointer failed                                                 | When users encounter this error code, it means that other exceptions may occur, for example, the connection to the database is abnormal                                                                     |
+| JDBC-07 | transaction operation failed, such as (commit, rollback) etc..      | When users encounter this error code, it means that if a sql transaction fails, check the transaction execution of the corresponding database to determine the cause of the transaction failure             |
+| JDBC-08 | No suitable dialect factory found                                   | When users encounter this error code, it means that may be an unsupported dialect type                                                                                                                      |

@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 
 import org.slf4j.Logger;
@@ -146,7 +148,7 @@ public class XaGroupOpsImpl
             }
         }
         if (reached != null) {
-            throw new RuntimeException(
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_EXCEPTION,
                 String.format(
                     "reached max number of commit attempts (%d) for transactions: %s",
                     maxAttempts, reached));

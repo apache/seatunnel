@@ -24,7 +24,10 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -35,7 +38,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOpsImpl
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XidGenerator;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.ExceptionUtils;
 
 import org.apache.commons.lang3.SerializationUtils;
 import org.slf4j.Logger;
@@ -94,7 +96,7 @@ public class JdbcExactlyOnceSinkWriter
         this.xaGroupOps = new XaGroupOpsImpl(xaFacade);
     }
 
-    private void tryOpen() throws IOException {
+    private void tryOpen() {
         if (!isOpen) {
             isOpen = true;
             try {
@@ -108,7 +110,7 @@ public class JdbcExactlyOnceSinkWriter
                 }
                 beginTx();
             } catch (Exception e) {
-                ExceptionUtils.rethrowIOException(e);
+                throw new JdbcConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, "unable to open JDBC exactly one writer", e);
             }
         }
     }
@@ -120,8 +122,7 @@ public class JdbcExactlyOnceSinkWriter
     }
 
     @Override
-    public void write(SeaTunnelRow element)
-        throws IOException {
+    public void write(SeaTunnelRow element) {
         tryOpen();
         checkState(currentXid != null, "current xid must not be null");
         SeaTunnelRow copy = SerializationUtils.clone(element);
@@ -158,7 +159,7 @@ public class JdbcExactlyOnceSinkWriter
         try {
             xaFacade.close();
         } catch (Exception e) {
-            ExceptionUtils.rethrowIOException(e);
+            throw new JdbcConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, "unable to close JDBC exactly one writer", e);
         }
         xidGenerator.close();
         currentXid = null;
@@ -171,7 +172,7 @@ public class JdbcExactlyOnceSinkWriter
         try {
             xaFacade.start(currentXid);
         } catch (Exception e) {
-            ExceptionUtils.rethrowIOException(e);
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_EXCEPTION, e);
         }
     }
 
@@ -182,7 +183,7 @@ public class JdbcExactlyOnceSinkWriter
             xaFacade.endAndPrepare(currentXid);
             prepareXid = currentXid;
         } catch (Exception e) {
-            ExceptionUtils.rethrowIOException(e);
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_EXCEPTION, e);
         }
     }
 }
