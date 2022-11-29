@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.ftp.source;
 
-import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
@@ -26,6 +25,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConfig;
 
 import com.google.auto.service.AutoService;
+
+import java.util.Arrays;
 
 @AutoService(Factory.class)
 public class FtpFileSourceFactory implements TableSourceFactory {
@@ -48,8 +49,7 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                 .optional(FtpConfig.DATE_FORMAT)
                 .optional(FtpConfig.DATETIME_FORMAT)
                 .optional(FtpConfig.TIME_FORMAT)
-                .conditional(Condition.of(FtpConfig.FILE_TYPE, "text"), SeaTunnelSchema.SCHEMA)
-                .conditional(Condition.of(FtpConfig.FILE_TYPE, "json"), SeaTunnelSchema.SCHEMA)
+                .conditional(FtpConfig.FILE_TYPE, Arrays.asList("text", "json"), SeaTunnelSchema.SCHEMA)
                 .build();
     }
 }
