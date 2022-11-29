@@ -85,7 +85,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 String content = response.getContent();
                 if (!Strings.isNullOrEmpty(content)) {
                     if (contentJson != null) {
-                        content = JsonUtils.toJsonNode(getPartOfJson(content)).toString();
+                        content = JsonUtils.stringToJsonNode(getPartOfJson(content)).toString();
                     }
                     if (jsonField != null) {
                         this.initJsonPath(jsonField);
@@ -155,7 +155,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private String getPartOfJson(String data) {
         ReadContext jsonReadContext = JsonPath.using(jsonConfiguration).parse(data);
-        return jsonReadContext.read(JsonPath.compile(contentJson));
+        return JsonUtils.toJsonString(jsonReadContext.read(JsonPath.compile(contentJson)));
     }
 
     private List<List<String>> dataFlip(List<List<String>> results) {

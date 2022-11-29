@@ -89,7 +89,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                         jsonField = getJsonField(pluginConfig.getConfig(HttpConfig.JSON_FIELD.key()));
                     }
                     if (pluginConfig.hasPath(HttpConfig.CONTENT_FIELD.key())) {
-                        contentField = pluginConfig.getString(HttpConfig.JSON_FIELD.key());
+                        contentField = pluginConfig.getString(HttpConfig.CONTENT_FIELD.key());
                     }
                     break;
                 default:
