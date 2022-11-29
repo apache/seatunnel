@@ -37,7 +37,6 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSpl
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
-import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
@@ -89,7 +88,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                     break;
                 default:
                     // TODO: use format SPI
-                    throw new HttpConnectorException(HttpConnectorErrorCode.FORMAT_FAILED, new UnsupportedOperationException());
+                    throw new HttpConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, String.format("Unsupported data format [%s], http connector only support json format now", format));
             }
         } else {
             this.rowType = SeaTunnelSchema.buildSimpleTextSchema();
