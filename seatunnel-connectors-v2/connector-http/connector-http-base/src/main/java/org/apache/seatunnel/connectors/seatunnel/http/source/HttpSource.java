@@ -77,7 +77,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             // default use json format
             HttpConfig.ResponseFormat format = HttpConfig.FORMAT.defaultValue();
             if (pluginConfig.hasPath(HttpConfig.FORMAT.key())) {
-                format = HttpConfig.ResponseFormat.valueOf(pluginConfig.getString(HttpConfig.FORMAT.key()).toLowerCase(
+                format = HttpConfig.ResponseFormat.valueOf(pluginConfig.getString(HttpConfig.FORMAT.key()).toUpperCase(
                     Locale.ROOT));
             }
             switch (format) {
