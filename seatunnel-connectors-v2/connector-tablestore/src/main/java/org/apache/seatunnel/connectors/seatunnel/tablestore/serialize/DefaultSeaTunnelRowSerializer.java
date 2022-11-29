@@ -20,7 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.tablestore.serialize;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreOptions;
+import org.apache.seatunnel.connectors.seatunnel.tablestore.exception.TablestoreConnectorException;
 
 import com.alicloud.openservices.tablestore.model.Column;
 import com.alicloud.openservices.tablestore.model.ColumnType;
@@ -92,7 +94,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             case BYTES:
                 return ColumnType.BINARY;
             default:
-                throw new UnsupportedOperationException("Unsupported columnType: " + seaTunnelDataType);
+                throw new TablestoreConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported columnType: " + seaTunnelDataType);
         }
     }
 
@@ -115,7 +118,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             case BYTES:
                 return PrimaryKeyType.BINARY;
             default:
-                throw new UnsupportedOperationException("Unsupported primaryKeyType: " + seaTunnelDataType);
+                throw new TablestoreConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported primaryKeyType: " + seaTunnelDataType);
         }
     }
 
@@ -135,7 +139,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             case BINARY:
                 return new Column(columnName, ColumnValue.fromBinary((byte[]) value));
             default:
-                throw new UnsupportedOperationException("Unsupported columnType: " + columnType);
+                throw new TablestoreConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported columnType: " + columnType);
         }
     }
 
@@ -151,7 +156,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             case BINARY:
                 return new PrimaryKeyColumn(columnName, PrimaryKeyValue.fromBinary((byte[]) value));
             default:
-                throw new UnsupportedOperationException("Unsupported primaryKeyType: " + primaryKeyType);
+                throw new TablestoreConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported primaryKeyType: " + primaryKeyType);
         }
     }
 

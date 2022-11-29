@@ -27,6 +27,8 @@ import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceCon
 import static org.apache.iotdb.tsfile.common.constant.QueryConstant.RESERVED_TIME;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.state.IoTDBSourceState;
 
 import com.google.common.base.Strings;
@@ -133,7 +135,8 @@ public class IoTDBSourceSplitEnumerator implements SourceSplitEnumerator<IoTDBSo
         }
         sqls = sqlBase.split("(?i)" + SQL_WHERE);
         if (sqls.length > SQL_WHERE_SPLIT_LENGTH) {
-            throw new IllegalArgumentException("sql should not contain more than one where");
+            throw new IotdbConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                "sql should not contain more than one where");
         }
         if (sqls.length > 1) {
             sqlBase = sqls[0];
@@ -241,6 +244,7 @@ public class IoTDBSourceSplitEnumerator implements SourceSplitEnumerator<IoTDBSo
 
     @Override
     public void handleSplitRequest(int subtaskId) {
-        throw new UnsupportedOperationException("Unsupported handleSplitRequest: " + subtaskId);
+        throw new IotdbConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+            String.format("Unsupported handleSplitRequest: %d", subtaskId));
     }
 }

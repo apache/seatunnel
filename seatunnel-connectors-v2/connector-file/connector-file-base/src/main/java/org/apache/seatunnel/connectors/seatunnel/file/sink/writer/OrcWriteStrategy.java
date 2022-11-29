@@ -24,6 +24,8 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
 
 import lombok.NonNull;
@@ -84,7 +86,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             rowBatch.reset();
         } catch (IOException e) {
             String errorMsg = String.format("Write data to orc file [%s] error", filePath);
-            throw new RuntimeException(errorMsg, e);
+            throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
         }
     }
 
@@ -95,7 +97,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                 v.close();
             } catch (IOException e) {
                 String errorMsg = String.format("Close file [%s] orc writer failed, error msg: [%s]", k, e.getMessage());
-                throw new RuntimeException(errorMsg, e);
+                throw new FileConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, errorMsg, e);
             }
             needMoveFiles.put(k, getTargetLocation(k));
         });
@@ -120,7 +122,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                 return newWriter;
             } catch (IOException e) {
                 String errorMsg = String.format("Get orc writer for file [%s] error", filePath);
-                throw new RuntimeException(errorMsg, e);
+                throw new FileConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, errorMsg, e);
             }
         }
         return writer;
@@ -172,7 +174,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             case NULL:
             default:
                 String errorMsg = String.format("Orc file not support this type [%s]", type.getSqlType());
-                throw new UnsupportedOperationException(errorMsg);
+                throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
     }
 
@@ -224,7 +226,8 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                     setStructColumnVector(value, structColumnVector, row);
                     break;
                 default:
-                    throw new RuntimeException("Unexpected ColumnVector subtype " + vector.type);
+                    throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                            "Unsupported ColumnVector subtype" + vector.type);
             }
         }
     }
@@ -237,7 +240,9 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                 setColumn(fields[i], structColumnVector.fields[i], row);
             }
         } else {
-            throw new RuntimeException("SeaTunnelRow type expected for field");
+            String errorMsg = String.format("SeaTunnelRow type expected for field, " +
+                    "not support this data type: [%s]", value.getClass());
+            throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
 
     }
@@ -258,7 +263,8 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                 ++i;
             }
         } else {
-            throw new RuntimeException("Map type expected for field");
+            String errorMsg = String.format("Map type expected for field, this field is [%s]", value.getClass());
+            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
 
@@ -269,7 +275,9 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         } else if (value instanceof List) {
             valueArray = ((List<?>) value).toArray();
         } else {
-            throw new RuntimeException("List and Array type expected for field");
+            String errorMsg = String.format("List and Array type expected for field, " +
+                    "this field is [%s]", value.getClass());
+            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
         }
         listColumnVector.offsets[row] = listColumnVector.childCount;
         listColumnVector.lengths[row] = valueArray.length;
@@ -285,7 +293,8 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         if (value instanceof BigDecimal) {
             decimalColumnVector.set(row, HiveDecimal.create((BigDecimal) value));
         } else {
-            throw new RuntimeException("BigDecimal type expected for field");
+            String errorMsg = String.format("BigDecimal type expected for field, this field is [%s]", value.getClass());
+            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
 
@@ -297,7 +306,8 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         } else if (value instanceof LocalTime) {
             timestampColumnVector.set(row, Timestamp.valueOf(((LocalTime) value).atDate(LocalDate.ofEpochDay(0))));
         } else {
-            throw new RuntimeException("Time series type expected for field");
+            String errorMsg = String.format("Time series type expected for field, this field is [%s]", value.getClass());
+            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
 
@@ -319,7 +329,9 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         } else if (value instanceof LocalDate) {
             longVector.vector[row] = ((LocalDate) value).getLong(ChronoField.EPOCH_DAY);
         } else {
-            throw new RuntimeException("Long or Integer type expected for field");
+            String errorMsg = String.format("Long or Integer type expected for field, " +
+                    "this field is [%s]", value.getClass());
+            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
 
@@ -341,7 +353,9 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             Float floatValue = (Float) value;
             doubleVector.vector[rowNum] = floatValue.doubleValue();
         } else {
-            throw new RuntimeException("Double or Float type expected for field ");
+            String errorMsg = String.format("Double or Float type expected for field, " +
+                    "this field is [%s]", value.getClass());
+            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
 }
