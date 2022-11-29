@@ -138,7 +138,8 @@ the schema fields of upstream data
 
 This parameter can get some json data.
 
-Please refer to `http_contentjson_to_assert.conf`. Return parameters can refer to `mockserver-contentjson-config.json`
+Please refer to [http_contentjson_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_contentjson_to_assert.conf).
+Return parameters can refer to [mockserver-contentjson-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-contentjson-config.json)
 
 ```hocon
 Http {
@@ -161,7 +162,8 @@ Http {
 
 The Wildcards for jsonpath. This parameter must be used with schema.
 
-Please refer to `http_jsonpath_to_assert.conf`. Return parameters can refer to `mockserver-jsonpath-config.json`
+Please refer to [http_jsonpath_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_jsonpath_to_assert.conf).
+Return parameters can refer to [mockserver-jsonpath-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-jsonpath-config.json)
 
 ```hocon
 source {
