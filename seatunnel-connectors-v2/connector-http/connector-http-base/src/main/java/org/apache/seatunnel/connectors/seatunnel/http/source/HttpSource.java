@@ -41,6 +41,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 
+import java.util.Locale;
+
 @AutoService(SeaTunnelSource.class)
 public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     protected final HttpParameter httpParameter = new HttpParameter();
@@ -75,7 +77,8 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             // default use json format
             HttpConfig.ResponseFormat format = HttpConfig.FORMAT.defaultValue();
             if (pluginConfig.hasPath(HttpConfig.FORMAT.key())) {
-                format = HttpConfig.ResponseFormat.valueOf(pluginConfig.getString(HttpConfig.FORMAT.key()));
+                format = HttpConfig.ResponseFormat.valueOf(pluginConfig.getString(HttpConfig.FORMAT.key()).toLowerCase(
+                    Locale.ROOT));
             }
             switch (format) {
                 case JSON:
