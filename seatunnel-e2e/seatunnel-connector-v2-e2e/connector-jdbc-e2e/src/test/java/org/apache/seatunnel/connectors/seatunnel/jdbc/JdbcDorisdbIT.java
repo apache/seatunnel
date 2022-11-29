@@ -63,7 +63,7 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class JdbcDorisdbIT extends TestSuiteBase implements TestResource {
-    private static final String DOCKER_IMAGE = "taozex/doris:1.1";
+    private static final String DOCKER_IMAGE = "taozex/doris:v1.1";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String HOST = "doris_e2e";
     private static final int DOCKER_PORT = 9030;
