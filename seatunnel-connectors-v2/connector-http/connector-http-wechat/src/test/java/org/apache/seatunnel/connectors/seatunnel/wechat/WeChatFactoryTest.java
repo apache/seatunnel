@@ -15,23 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.configuration.util;
+package org.apache.seatunnel.connectors.seatunnel.wechat;
 
-import static org.apache.seatunnel.api.configuration.OptionTest.TEST_MODE;
-import static org.apache.seatunnel.api.configuration.OptionTest.TEST_NUM;
-
-import org.apache.seatunnel.api.configuration.OptionTest;
+import org.apache.seatunnel.connectors.seatunnel.wechat.sink.WeChatSinkFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class ExpressionTest {
+class WeChatFactoryTest {
+
     @Test
-    public void testToString() {
-        Expression expression = Expression.of(TEST_NUM, 200)
-            .and(Expression.of(Condition.of(TEST_MODE, OptionTest.TestMode.EARLIEST)
-                .or(TEST_MODE, OptionTest.TestMode.LATEST)))
-            .or(Expression.of(Condition.of(TEST_NUM, 100)));
-        Assertions.assertEquals("('option.num' == 200 && ('option.mode' == EARLIEST || 'option.mode' == LATEST)) || 'option.num' == 100", expression.toString());
+    void optionRule() {
+        Assertions.assertNotNull((new WeChatSinkFactory()).optionRule());
     }
 }

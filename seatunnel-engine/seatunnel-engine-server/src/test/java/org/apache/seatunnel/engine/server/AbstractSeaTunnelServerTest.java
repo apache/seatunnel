@@ -29,7 +29,7 @@ import org.junit.jupiter.api.TestInstance;
 
 @Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class AbstractSeaTunnelServerTest {
+public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelServerTest> {
 
     protected SeaTunnelServer server;
 
@@ -41,8 +41,9 @@ public abstract class AbstractSeaTunnelServerTest {
 
     @BeforeAll
     public void before() {
+        String name = ((T) this).getClass().getName();
         instance = SeaTunnelServerStarter.createHazelcastInstance(
-            TestUtils.getClusterName("AbstractSeaTunnelServerTest_" + System.currentTimeMillis()));
+            TestUtils.getClusterName("AbstractSeaTunnelServerTest_" + name));
         nodeEngine = instance.node.nodeEngine;
         server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
         LOGGER = nodeEngine.getLogger(AbstractSeaTunnelServerTest.class);
