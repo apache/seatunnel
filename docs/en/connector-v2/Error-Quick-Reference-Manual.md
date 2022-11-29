@@ -1,6 +1,7 @@
 # Error Quick Reference Manual
 
-This document records some common error codes and corresponding solutions of SeaTunnel, aiming to quickly solve the problems encountered by users.
+This document records some common error codes and corresponding solutions of SeaTunnel, aiming to quickly solve the
+problems encountered by users.
 
 ## SeaTunnel API Error Codes
 
@@ -54,6 +55,12 @@ This document records some common error codes and corresponding solutions of Sea
 | SLACK-01  | Conversation can not be founded in channels | When users encounter this error code, it means that the channel is not existed in slack workspace, please check it |
 | SLACK-02  | Write to slack channel failed               | When users encounter this error code, it means that slack has some problems, please check it whether is work       |
 
+## MyHours Connector Error Codes
+
+| code        | description                      | solution                                                                                                                 | 
+|-------------|----------------------------------|--------------------------------------------------------------------------------------------------------------------------|
+| MYHOURS-01  | Get myhours token failed         | When users encounter this error code, it means that login to the MyHours Failed, please check your network and try again |
+
 ## Rabbitmq Connector Error Codes
 
 | code        | description                                                   | solution                                                                                                        |
@@ -76,6 +83,11 @@ This document records some common error codes and corresponding solutions of Sea
 | SOCKET-02 | Failed to send message to socket server                  | When the user encounters this error code, it means that there is a problem sending data and retry is not enabled, please check |
 | SOCKET-03 | Unable to write; interrupted while doing another attempt | When the user encounters this error code, it means that the data writing is interrupted abnormally, please check               |
 
+## TableStore Connector Error Codes
+
+| code           | description                           | solution                                                                                                                            |
+|----------------|---------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
+| TABLESTORE-01  | Failed to send these rows of data     | When users encounter this error code, it means that failed to write these rows of data, please check the rows that failed to import |
 
 ## Hive Connector Error Codes
 
@@ -84,3 +96,65 @@ This document records some common error codes and corresponding solutions of Sea
 | HIVE-01 | Get name node host from table location failed                 | When users encounter this error code, it means that the metastore inforamtion has some problems, please check it              |
 | HIVE-02 | Initialize hive metastore client failed                       | When users encounter this error code, it means that connect to hive metastore service failed, please check it whether is work |
 | HIVE-03 | Get hive table information from hive metastore service failed | When users encounter this error code, it means that hive metastore service has some problems, please check it whether is work |
+
+## Elasticsearch Connector Error Codes
+
+| code              | description                                   | solution                                                                                                                       |
+|-------------------|-----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| ELASTICSEARCH-01  | Bulk es response error                        | When the user encounters this error code, it means that the connection was aborted, please check it whether is work            |
+| ELASTICSEARCH-02  | Get elasticsearch version failed              | When the user encounters this error code, it means that the connection was aborted, please check it whether is work            |
+| ELASTICSEARCH-03  | Fail to scroll request                        | When the user encounters this error code, it means that the connection was aborted, please check it whether is work            |
+| ELASTICSEARCH-04  | Get elasticsearch document index count failed | When the user encounters this error code, it means that the es index may not wrong or the connection was aborted, please check |
+
+## Kafka Connector Error Codes
+
+| code     | description                                                                               | solution                                                                                                                          |
+|----------|-------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| KAFKA-01 | Incompatible KafkaProducer version                                                        | When users encounter this error code, it means that KafkaProducer version is incompatible, please check it                        |
+| KAFKA-02 | Get transactionManager in KafkaProducer exception                                         | When users encounter this error code, it means that can not get transactionManager in KafkaProducer, please check it              |
+| KAFKA-03 | Add the split checkpoint state to reader failed                                           | When users encounter this error code, it means that add the split checkpoint state to reader failed, please retry it              |
+| KAFKA-04 | Add a split back to the split enumerator,it will only happen when a SourceReader failed   | When users encounter this error code, it means that add a split back to the split enumerator failed, please check it              | 
+| KAFKA-05 | Error occurred when the kafka consumer thread was running                                 | When users encounter this error code, it means that an error occurred when the kafka consumer thread was running, please check it |
+| KAFKA-06 | Kafka failed to consume data                                                              | When users encounter this error code, it means that Kafka failed to consume data, please check config and retry it                |
+
+## InfluxDB Connector Error Codes
+
+| code        | description                                                      | solution                                                                                                    |
+|-------------|------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
+| INFLUXDB-01 | Connect influxdb failed, due to influxdb version info is unknown | When the user encounters this error code, it indicates that the connection to influxdb failed. Please check |
+| INFLUXDB-02 | Get column index of query result exception                       | When the user encounters this error code, it indicates that obtaining the column index failed. Please check |
+
+## Kudu Connector Error Codes
+
+| code    | description                                              | solution                                                                                                                                                                                          |
+|---------|----------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| KUDU-01 | Get the Kuduscan object for each splice failed           | When users encounter this error code, it is usually there are some problems with getting the KuduScan Object for each splice, please check your configuration whether correct and Kudu is work    |
+| KUDU-02 | Close Kudu client failed                                 | When users encounter this error code, it is usually there are some problems with closing the Kudu client, please check the Kudu is work                                                           |                                                                |
+| KUDU-03 | Value type does not match column type                    | When users encounter this error code, it is usually there are some problems on matching the Type between value type and colum type, please check if the data type is supported                    |
+| KUDU-04 | Upsert data to Kudu failed                               | When users encounter this error code, it means that Kudu has some problems, please check it whether is work                                                                                       |
+| KUDU-05 | Insert data to Kudu failed                               | When users encounter this error code, it means that Kudu has some problems, please check it whether is work                                                                                       |
+| KUDU-06 | Initialize the Kudu client failed                        | When users encounter this error code, it is usually there are some problems with initializing the Kudu client, please check your configuration whether correct and connector is work              |
+| KUDU-07 | Generate Kudu Parameters in the preparation phase failed | When users encounter this error code, it means that there are some problems on Kudu parameters generation, please check your configuration                                                        |
+
+## IotDB Connector Error Codes
+
+| code     | description                                              | solution                                                                                                     |
+|----------|----------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| IOTDB-01 | Close IoTDB session failed                               | When the user encounters this error code, it indicates that closing the session failed. Please check         |
+| IOTDB-02 | Initialize IoTDB client failed                           | When the user encounters this error code, it indicates that the client initialization failed. Please check   |
+| IOTDB-03 | Close IoTDB client failed                                | When the user encounters this error code, it indicates that closing the client failed. Please check          |
+
+## File Connector Error Codes
+
+| code    | description                 | solution                                                                                                                                                         |
+|---------|-----------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| FILE-01 | File type is invalid        | When users encounter this error code, it means that the this file is not the format that user assigned, please check it                                          |
+| FILE-02 | Data deserialization failed | When users encounter this error code, it means that data from files not satisfied the schema that user assigned, please check data from files whether is correct |
+| FILE-03 | Get file list failed        | When users encounter this error code, it means that connector try to traverse the path and get file list failed, please check file system whether is work        |
+
+## Hudi Connector Error Codes
+
+| code    | description                   | solution                                                                                                  |
+|---------|-------------------------------|-----------------------------------------------------------------------------------------------------------|
+| HUDI-01 | Create ParquetMetadata failed | When the user encounters this error code, it indicates that ParquetMetadata creation failed. Please check |
+| HUDI-02 | Kerberos Authorized failed    | When the user encounters this error code, it indicates that Kerberos authorization failed. Please check   |

@@ -20,9 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.config;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseTextFileConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.PartitionConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -107,7 +109,8 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
 
         if (this.isEnableTransaction &&
                 !this.fileNameExpression.contains(BaseSinkConfig.TRANSACTION_EXPRESSION)) {
-            throw new RuntimeException("file_name_expression must contains " +
+            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                    "file_name_expression must contains " +
                     BaseSinkConfig.TRANSACTION_EXPRESSION + " when is_enable_transaction is true");
         }
 
@@ -115,17 +118,20 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
         if (!CollectionUtils.isEmpty(this.partitionFieldList)
             && (CollectionUtils.isEmpty(this.sinkColumnList) ||
                 !new HashSet<>(this.sinkColumnList).containsAll(this.partitionFieldList))) {
-            throw new RuntimeException("partition fields must in sink columns");
+            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                    "partition fields must in sink columns");
         }
 
         if (!CollectionUtils.isEmpty(this.partitionFieldList) && !isPartitionFieldWriteInFile) {
             if (!this.sinkColumnList.removeAll(this.partitionFieldList)) {
-                throw new RuntimeException("remove partition field from sink columns error");
+                throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                        "remove partition field from sink columns error");
             }
         }
 
         if (CollectionUtils.isEmpty(this.sinkColumnList)) {
-            throw new RuntimeException("sink columns can not be empty");
+            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                    "sink columns can not be empty");
         }
 
         Map<String, Integer> columnsMap = new HashMap<>(seaTunnelRowTypeInfo.getFieldNames().length);

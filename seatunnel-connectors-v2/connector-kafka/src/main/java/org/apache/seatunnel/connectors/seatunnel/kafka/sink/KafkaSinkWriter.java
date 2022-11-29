@@ -28,7 +28,9 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSemantics;
+import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.SeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
@@ -124,7 +126,8 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         try (KafkaProduceSender<?, ?> kafkaProduceSender = kafkaProducerSender) {
             // no-opt
         } catch (Exception e) {
-            throw new RuntimeException("Close kafka sink writer error", e);
+            throw new KafkaConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED,
+                    "Close kafka sink writer error", e);
         }
     }
 
@@ -177,8 +180,8 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             List<String> rowTypeFieldNames = Arrays.asList(seaTunnelRowType.getFieldNames());
             for (String partitionKeyField : partitionKeyFields) {
                 if (!rowTypeFieldNames.contains(partitionKeyField)) {
-                    throw new IllegalArgumentException(String.format(
-                            "Partition key field not found: %s, rowType: %s", partitionKeyField, rowTypeFieldNames));
+                    throw new KafkaConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                            String.format("Partition key field not found: %s, rowType: %s", partitionKeyField, rowTypeFieldNames));
                 }
             }
             return partitionKeyFields;

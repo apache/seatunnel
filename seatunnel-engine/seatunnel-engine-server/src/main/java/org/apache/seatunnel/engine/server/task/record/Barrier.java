@@ -17,11 +17,6 @@
 
 package org.apache.seatunnel.engine.server.task.record;
 
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
-
-import java.time.Instant;
-
 /**
  * barrier flowing in data flow
  */
@@ -44,7 +39,4 @@ public interface Barrier {
      */
     boolean prepareClose();
 
-    static CheckpointBarrier completedBarrier() {
-        return new CheckpointBarrier(Barrier.PREPARE_CLOSE_BARRIER_ID, Instant.now().toEpochMilli(), CheckpointType.COMPLETED_POINT_TYPE);
-    }
 }
