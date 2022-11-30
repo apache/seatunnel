@@ -52,8 +52,8 @@ public class KlaviyoSource extends HttpSource {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, KlaviyoSourceConfig.URL.key(), KlaviyoSourceConfig.PRIVATE_KEY.key(), KlaviyoSourceConfig.REVISION.key());
         if (!result.isSuccess()) {
             throw new KlaviyoConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                String.format("PluginName: %s, PluginType: %s, Message: %s",
-                    getPluginName(), PluginType.SOURCE, result.getMsg()));
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                        getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         this.klaviyoSourceParameter.buildWithConfig(pluginConfig);
         buildSchemaWithConfig(pluginConfig);
