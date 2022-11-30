@@ -18,21 +18,19 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <groupId>org.apache.seatunnel</groupId>
-        <artifactId>seatunnel-spark-connector-v2-e2e</artifactId>
+        <artifactId>seatunnel-connector-v2-e2e</artifactId>
         <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>connector-elasticsearch-spark-e2e</artifactId>
+    <artifactId>connector-elasticsearch-e2e</artifactId>
 
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-spark-e2e-base</artifactId>
+            <artifactId>seatunnel-e2e-common</artifactId>
             <version>${project.version}</version>
             <classifier>tests</classifier>
-            <type>test-jar</type>
-            <scope>test</scope>
         </dependency>
 
         <!-- SeaTunnel connectors -->
@@ -49,7 +47,6 @@
             <scope>test</scope>
         </dependency>
 
-
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>elasticsearch</artifactId>
@@ -57,5 +54,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
 </project>
