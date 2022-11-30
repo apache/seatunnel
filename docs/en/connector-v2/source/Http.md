@@ -23,6 +23,7 @@ Used to read data from Http.
 | schema                      | Config | No       | -             |
 | schema.fields               | Config | No       | -             |
 | json_field                  | Config | No       | -             |
+| content_json                | String | No       | -             |
 | format                      | String | No       | json          |
 | method                      | String | No       | get           |
 | headers                     | Map    | No       | -             |
