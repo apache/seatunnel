@@ -26,6 +26,7 @@ public class EnvOptionRule {
             .required(EnvCommonOptions.JOB_MODE)
             .optional(EnvCommonOptions.JOB_NAME,
                 EnvCommonOptions.PARALLELISM,
+                EnvCommonOptions.JARS,
                 EnvCommonOptions.CHECKPOINT_INTERVAL,
                 EnvCommonOptions.CUSTOM_PARAMETERS)
             .build();

@@ -23,12 +23,15 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -158,6 +161,17 @@ public class Common {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * return the jar package configured in env jars
+     */
+    public static Set<Path> getThirdPartyJars(String paths) {
+
+        return Arrays.stream(paths.split(";"))
+            .filter(s -> !"".equals(s))
+            .filter(it -> it.endsWith(".jar"))
+            .map(path -> Paths.get(URI.create(path))).collect(Collectors.toSet());
     }
 
     public static Path pluginTarball() {
