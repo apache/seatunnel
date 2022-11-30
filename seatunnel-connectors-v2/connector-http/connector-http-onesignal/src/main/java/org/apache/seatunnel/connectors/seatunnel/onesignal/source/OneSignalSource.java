@@ -32,6 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.onesignal.source.config.OneSign
 import org.apache.seatunnel.connectors.seatunnel.onesignal.source.config.OneSignalSourceParameter;
 import org.apache.seatunnel.connectors.seatunnel.onesignal.source.config.exception.OneSignalConnectorException;
 
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
