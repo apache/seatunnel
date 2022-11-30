@@ -22,13 +22,14 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.config.JsonField;
+import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 
 import com.google.common.base.Strings;
 import com.jayway.jsonpath.Configuration;
@@ -143,7 +144,8 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             List<?> result0 = results.get(0);
             List<?> result = results.get(i);
             if (result0.size() != result.size()) {
-                throw new SeaTunnelException(
+                throw new HttpConnectorException(
+                    HttpConnectorErrorCode.FIELD_DATA_IS_INCONSISTENT,
                     String.format(
                         "[%s](%d) and [%s](%d) the number of parsing records is inconsistent.",
                         jsonPaths[0].getPath(), result0.size(), jsonPaths[i].getPath(), result.size()));
@@ -184,10 +186,8 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private void initJsonPath(JsonField jsonField) {
         jsonPaths = new JsonPath[jsonField.getFields().size()];
-        final int[] index = {0};
-        jsonField.getFields().forEach((key, value) -> {
-            jsonPaths[index[0]] = JsonPath.compile(jsonField.getFields().get(key));
-            index[0]++;
-        });
+        for (int index = 0; index < jsonField.getFields().keySet().size(); index++) {
+            jsonPaths[index] = JsonPath.compile(jsonField.getFields().keySet().toArray(new String[]{})[index]);
+        }
     }
 }
