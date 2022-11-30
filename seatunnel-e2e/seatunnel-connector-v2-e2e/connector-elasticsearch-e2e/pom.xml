@@ -26,13 +26,6 @@
     <artifactId>connector-elasticsearch-e2e</artifactId>
 
     <dependencies>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-e2e-common</artifactId>
-            <version>${project.version}</version>
-            <classifier>tests</classifier>
-        </dependency>
-
         <!-- SeaTunnel connectors -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
