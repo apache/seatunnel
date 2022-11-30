@@ -19,49 +19,43 @@ been used in the production of nearly 100 companies.
 
 ## Why do we need SeaTunnel
 
-SeaTunnel will do its best to solve the problems that may be encountered in the synchronization of massive data:
+SeaTunnel focuses on data integration and data synchronization, and is mainly designed to solve common problems in the field of data integration:
 
-- Data loss and duplication
-- Task accumulation and delay
-- Low throughput
-- Long cycle to be applied in the production environment
-- Lack of application running status monitoring
-
-## SeaTunnel use scenarios
-
-- Mass data synchronization
-- Mass data integration
-- ETL with massive data
-- Mass data aggregation
-- Multi-source data processing
+- Various data sources: There are hundreds of commonly-used data sources of which versions are incompatible. With the emergence of new technologies, more data sources are appearing. It is difficult for users to find a tool that can fully and quickly support these data sources.
+- Complex synchronization scenarios: Data synchronization needs to support various synchronization scenarios such as offline-full synchronization, offline- incremental synchronization, CDC, real-time synchronization, and full database synchronization.
+- High demand in resource: Existing data integration and data synchronization tools often require vast computing resources or JDBC connection resources to complete real-time synchronization of massive small tables. This has increased the burden on enterprises to a certain extent.
+- Lack of quality and monitoring: Data integration and synchronization processes often experience loss or duplication of data. The synchronization process lacks monitoring, and it is impossible to intuitively understand the real-situation of the data during the task process.
+- Complex technology stack: The technology components used by enterprises are different, and users need to develop corresponding synchronization programs for different components to complete data integration.
+- Difficulty in management and maintenance: Limited to different underlying technology components (Flink/Spark) , offline synchronization and real-time synchronization often have be developed and managed separately, which increases thedifficulty of the management and maintainance.
 
 ## Features of SeaTunnel
 
-- Easy to use, flexible configuration, low code development
-- Real-time streaming
-- Offline multi-source data analysis
-- High-performance, massive data processing capabilities
-- Modular and plug-in mechanism, easy to extend
-- Support data processing and aggregation by SQL
-- Support Spark structured streaming
-- Support Spark 2.x
+- Rich and extensible Connector: SeaTunnel provides a Connector API that does not depend on a specific execution engine. Connectors (Source, Transform, Sink) developed based on this API can run On many different engines, such as SeaTunnel Engine, Flink, Spark that are currently supported.
+- Connector plug-in: The plug-in design allows users to easily develop their own Connector and integrate it into the SeaTunnel project. Currently, SeaTunnel has supported more than 70 Connectors, and the number is surging. There is the list of the currently-supported connectors: xxxxxxx, and t he list of planned connectors: xxxxxxx.
+- Batch-stream integration: Connectors developed based on SeaTunnel Connector API are perfectly compatible with offline synchronization, real-time synchronization, full- synchronization, incremental synchronization and other scenarios. It greatly reduces the difficulty of managing data integration tasks.
+- Support distributed snapshot algorithm to ensure data consistency.
+- Multi-engine support: SeaTunnel uses SeaTunnel Engine for data synchronization by default. At the same time, SeaTunnel also supports the use of Flink or Spark as the execution engine of the Connector to adapt to the existing technical components of the enterprise. SeaTunnel supports multiple versions of Spark and Flink.
+- JDBC multiplexing, database log multi-table parsing: SeaTunnel supports multi-table or whole database synchronization, which solves the problem of over- JDBC connections; supports multi-table or whole database log reading and parsing, which solves the need for CDC multi-table synchronization scenarios Problems with repeated reading and parsing of logs.
+- High throughput and low latency: SeaTunnel supports parallel reading and writing, providing stable and reliable data synchronization capabilities with high throughput and low latency.
+- Perfect real-time monitoring: SeaTunnel supports detailed monitoring information of each step in the data synchronization process, allowing users to easily understand the number of data, data size, QPS and other information read and written by the synchronization task.
+- Two job development methods are supported: coding and canvas design: The SeaTunnel web project https://github.com/apache/incubator-seatunnel-web provides visual management of jobs, scheduling, running and monitoring capabilities.
 
-## Workflow of SeaTunnel
+## SeaTunnel work flowchart
 
-![seatunnel-workflow.svg](https://raw.githubusercontent.com/apache/incubator-seatunnel-website/main/static/image/seatunnel-workflow.svg)
+The runtime process of SeaTunnel is shown in the figure above. 
 
-```
-Source[Data Source Input] -> Transform[Data Processing] -> Sink[Result Output]
-```
+The user configures the job information and selects the execution engine to submit the job. 
 
-The data processing pipeline is constituted by multiple filters to meet a variety of data processing needs. If you are
-accustomed to SQL, you can also directly construct a data processing pipeline by SQL, which is simple and efficient.
-Currently, the filter list supported by SeaTunnel is still being expanded. Furthermore, you can develop your own data
-processing plug-in, because the whole system is easy to expand.
+The Source Connector is responsible for parallelizing the data and sending the data to the downstream Transform or directly to the Sink, and the Sink writes the data to the destination. It is worth noting that both Source and Transform and Sink can be easily developed and extended by yourself. 
+
+The default engine use by SeaTunnel is [SeaTunnel Engine](seatunnel-engine/README.md). If you choose to use the Flink or Spark engine, SeaTunnel will package the Connector into a Flink or Spark program and submit it to Flink or Spark to run.
+
 
 ## Connectors supported by SeaTunnel
 
-- Connectors supported [check out](https://seatunnel.apache.org/docs/category/source-v2)
+- Source Connectors supported [check out](https://seatunnel.apache.org/docs/category/source-v2)
+
+- Sink Connectors supported [check out](https://seatunnel.apache.org/docs/category/sink-v2)
 
 - Transform supported [check out](https://seatunnel.apache.org/docs/transform/common-options/)
 
@@ -89,11 +83,14 @@ Download address for run-directly software package : https://seatunnel.apache.or
 
 ## Quick start
 
+**SeaTunnel Engine**
+https://seatunnel.apache.org/docs/category/start-v2
+
 **Spark**
-https://seatunnel.apache.org/docs/deployment
+https://seatunnel.apache.org/docs/category/start-v2
 
 **Flink**
-https://seatunnel.apache.org/docs/deployment
+https://seatunnel.apache.org/docs/category/start-v2
 
 Detailed documentation on SeaTunnel
 https://seatunnel.apache.org/docs/intro/about
