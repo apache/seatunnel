@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.client.job;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
@@ -35,14 +36,17 @@ import com.hazelcast.logging.Logger;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 public class JobExecutionEnvironment {
 
@@ -76,6 +80,16 @@ public class JobExecutionEnvironment {
         this.jobClient = new JobClient(seaTunnelHazelcastClient);
         this.jobConfig.setJobContext(new JobContext(jobClient.getNewJobId()));
         this.commonPluginJars.addAll(searchPluginJars());
+        this.commonPluginJars.addAll(new ArrayList<>(Common.getThirdPartyJars(jobConfig.getEnvOptions()
+                .getOrDefault(EnvCommonOptions.JARS.key(), "").toString()).stream().map(Path::toUri)
+            .map(uri -> {
+                try {
+                    return uri.toURL();
+                } catch (MalformedURLException e) {
+                    throw new SeaTunnelEngineException("the uri of jar illegal:" + uri, e);
+                }
+            })
+            .collect(Collectors.toList())));
         LOGGER.info("add common jar in plugins :" + commonPluginJars);
     }
 

@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.myhours.source;
 
-import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
@@ -38,19 +37,19 @@ public class MyHoursSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(MyHoursSourceConfig.URL)
-                .required(MyHoursSourceConfig.EMAIL)
-                .required(MyHoursSourceConfig.PASSWORD)
-                .optional(MyHoursSourceConfig.METHOD)
-                .optional(MyHoursSourceConfig.HEADERS)
-                .optional(MyHoursSourceConfig.PARAMS)
-                .conditional(Condition.of(HttpConfig.METHOD, HttpRequestMethod.POST), MyHoursSourceConfig.BODY)
-                .conditional(Condition.of(HttpConfig.FORMAT, "json"), SeaTunnelSchema.SCHEMA)
-                .optional(MyHoursSourceConfig.FORMAT)
-                .optional(MyHoursSourceConfig.POLL_INTERVAL_MILLS)
-                .optional(MyHoursSourceConfig.RETRY)
-                .optional(MyHoursSourceConfig.RETRY_BACKOFF_MAX_MS)
-                .optional(MyHoursSourceConfig.RETRY_BACKOFF_MULTIPLIER_MS)
-                .build();
+            .required(MyHoursSourceConfig.URL)
+            .required(MyHoursSourceConfig.EMAIL)
+            .required(MyHoursSourceConfig.PASSWORD)
+            .optional(MyHoursSourceConfig.METHOD)
+            .optional(MyHoursSourceConfig.HEADERS)
+            .optional(MyHoursSourceConfig.PARAMS)
+            .optional(MyHoursSourceConfig.FORMAT)
+            .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, MyHoursSourceConfig.BODY)
+            .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
+            .optional(MyHoursSourceConfig.POLL_INTERVAL_MILLS)
+            .optional(MyHoursSourceConfig.RETRY)
+            .optional(MyHoursSourceConfig.RETRY_BACKOFF_MAX_MS)
+            .optional(MyHoursSourceConfig.RETRY_BACKOFF_MULTIPLIER_MS)
+            .build();
     }
 }

@@ -34,6 +34,7 @@ public class JdbcCase {
     private String userName;
     private String password;
     private int port;
+    private int localPort;
     private String dataBase;
     private String sourceTable;
     private String sinkTable;

@@ -23,7 +23,6 @@ import static org.apache.seatunnel.transform.ReplaceTransform.KEY_REPLACEMENT;
 import static org.apache.seatunnel.transform.ReplaceTransform.KEY_REPLACE_FIELD;
 import static org.apache.seatunnel.transform.ReplaceTransform.KEY_REPLACE_FIRST;
 
-import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
@@ -40,8 +39,9 @@ public class ReplaceTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(KEY_REPLACE_FIELD, KEY_PATTERN, KEY_REPLACEMENT)
-                .conditional(Condition.of(KEY_IS_REGEX, true), KEY_REPLACE_FIRST)
-                .build();
+            .required(KEY_REPLACE_FIELD, KEY_PATTERN, KEY_REPLACEMENT)
+            .optional(KEY_IS_REGEX)
+            .conditional(KEY_IS_REGEX, true, KEY_REPLACE_FIRST)
+            .build();
     }
 }
