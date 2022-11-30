@@ -165,4 +165,4 @@ parallel:
 - [Feature] Support Teradata JDBC　Source ([3362](https://github.com/apache/incubator-seatunnel/pull/3362))
 - [Feature] Support JDBC Fetch Size Config ([3478](https://github.com/apache/incubator-seatunnel/pull/3478))
 - [Feature] Support Doris JDBC Source
-- [Feature] Support Redshift JDBC Sink([]())
+- [Feature] Support Redshift JDBC Sink([#3615](https://github.com/apache/incubator-seatunnel/pull/3615))
