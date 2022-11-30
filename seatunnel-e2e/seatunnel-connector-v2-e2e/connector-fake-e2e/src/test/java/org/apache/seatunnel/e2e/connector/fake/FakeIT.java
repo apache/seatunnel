@@ -15,25 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.spark.v2.fake;
+package org.apache.seatunnel.e2e.connector.fake;
 
-import org.apache.seatunnel.e2e.spark.SparkContainer;
+import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
-/**
- * This test case is used to verify that the fake source is able to send data to the console.
- * Make sure the SeaTunnel job can submit successfully on spark engine.
- */
-public class FakeSourceToConsoleIT extends SparkContainer {
-
-    @Test
-    public void testFakeSourceToConsoleSine() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelSparkJob("/fake/fakesource_to_console.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+public class FakeIT extends TestSuiteBase {
+    @TestTemplate
+    public void testFakeConnector(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult textWriteResult = container.executeJob("/fake_to_assert.conf");
+        Assertions.assertEquals(0, textWriteResult.getExitCode());
     }
 }
