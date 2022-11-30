@@ -26,8 +26,7 @@ public enum PulsarConnectorErrorCode implements SeaTunnelErrorCode {
     PULSAR_AUTHENTICATION_FAILED("PULSAR-03", "Pulsar authentication failed"),
     SUBSCRIBE_TOPIC_FAILED("PULSAR-04", "Subscribe topic from pulsar failed"),
     GET_LAST_CURSOR_FAILED("PULSAR-05", "Get last cursor of pulsar topic failed"),
-    GET_TOPIC_PARTITION_FAILED("PULSAR-06", "Get partition information of pulsar topic failed"),
-    READER_OPERATION_FAILED("PULSAR-07", "Source reader operation failed, such as (open, close) etc...");
+    GET_TOPIC_PARTITION_FAILED("PULSAR-06", "Get partition information of pulsar topic failed");
 
     private final String code;
     private final String description;
