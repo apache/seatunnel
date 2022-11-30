@@ -20,7 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ReaderOption;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.ArrayInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.BigDecimalInjectFunction;
@@ -122,7 +124,7 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
                     intHolder.setValue(0);
                 }
             } catch (SQLException e) {
-                throw new RuntimeException("Failed to close prepared statement.", e);
+                throw new ClickhouseConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, "Failed to close prepared statement.", e);
             }
         }
     }
@@ -145,7 +147,7 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
             }
             clickHouseStatement.addBatch();
         } catch (SQLException e) {
-            throw new RuntimeException("Add row data into batch error", e);
+            throw new ClickhouseConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, "Add row data into batch error", e);
         }
     }
 
@@ -153,7 +155,7 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
         try {
             clickHouseStatement.executeBatch();
         } catch (Exception e) {
-            throw new RuntimeException("Clickhouse execute batch statement error", e);
+            throw new ClickhouseConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, "Clickhouse execute batch statement error", e);
         }
     }
 
@@ -169,7 +171,7 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
                     new ClickhouseBatchStatement(clickhouseConnection, preparedStatement, intHolder);
                 result.put(s, batchStatement);
             } catch (SQLException e) {
-                throw new RuntimeException("Clickhouse prepare statement error: " + e.getMessage(), e);
+                throw new ClickhouseConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, "Clickhouse prepare statement error: " + e.getMessage(), e);
             }
         });
         return result;

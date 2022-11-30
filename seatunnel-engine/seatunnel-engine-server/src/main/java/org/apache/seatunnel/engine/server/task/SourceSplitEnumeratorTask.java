@@ -37,6 +37,7 @@ import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.context.SeaTunnelSplitEnumeratorContext;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.BarrierFlowOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.LastCheckpointNotifyOperation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
@@ -234,8 +235,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             case RUNNING:
                 // The reader closes automatically after reading
                 if (prepareCloseStatus) {
-                    // TODO we should trigger this after CheckpointCoordinator done
-                    triggerBarrier(Barrier.completedBarrier());
+                    this.getExecutionContext().sendToMaster(new LastCheckpointNotifyOperation(jobID, taskLocation));
                     currState = PREPARE_CLOSE;
                 } else {
                     Thread.sleep(100);
@@ -244,6 +244,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             case PREPARE_CLOSE:
                 if (closeCalled) {
                     currState = CLOSED;
+                } else {
+                    Thread.sleep(100);
                 }
                 break;
             case CLOSED:

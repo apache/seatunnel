@@ -57,8 +57,6 @@ public class RabbitmqSourceFactory implements TableSourceFactory {
                 HOST,
                 PORT,
                 VIRTUAL_HOST,
-                USERNAME,
-                PASSWORD,
                 QUEUE_NAME,
                 SCHEMA
             )

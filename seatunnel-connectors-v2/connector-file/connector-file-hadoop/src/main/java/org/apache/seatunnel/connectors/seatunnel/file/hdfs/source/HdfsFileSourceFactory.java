@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.hdfs.source;
 
-import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
@@ -26,6 +25,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfig;
 
 import com.google.auto.service.AutoService;
+
+import java.util.Arrays;
 
 @AutoService(Factory.class)
 public class HdfsFileSourceFactory implements TableSourceFactory {
@@ -45,8 +46,7 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
                 .optional(HdfsSourceConfig.DATE_FORMAT)
                 .optional(HdfsSourceConfig.DATETIME_FORMAT)
                 .optional(HdfsSourceConfig.TIME_FORMAT)
-                .conditional(Condition.of(HdfsSourceConfig.FILE_TYPE, "text"), SeaTunnelSchema.SCHEMA)
-                .conditional(Condition.of(HdfsSourceConfig.FILE_TYPE, "json"), SeaTunnelSchema.SCHEMA)
+                .conditional(HdfsSourceConfig.FILE_TYPE, Arrays.asList("text", "json"), SeaTunnelSchema.SCHEMA)
                 .build();
     }
 }

@@ -117,7 +117,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         JobMaster jobMaster = server.getCoordinatorService().getJobMaster(JOB_ID);
 
         // waiting for job status turn to running
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
 
         // call checkpoint timeout
@@ -127,7 +127,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         Thread.sleep(5000);
 
         // test job still run
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
 
         PassiveCompletableFuture<JobStatus> jobMasterCompleteFuture = jobMaster.getJobMasterCompleteFuture();
@@ -135,7 +135,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         jobMaster.cancelJob();
 
         // test job turn to complete
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertTrue(
                 jobMasterCompleteFuture.isDone() && JobStatus.CANCELED.equals(jobMasterCompleteFuture.get())));
 
