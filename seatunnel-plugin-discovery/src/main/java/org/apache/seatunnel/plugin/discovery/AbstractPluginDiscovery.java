@@ -50,7 +50,6 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -203,39 +202,21 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
     /**
      * Get all support plugin already in SEATUNNEL_HOME, only support connector-v2
-     *
-     * @param pluginType choose which type plugin should be returned
-     * @return the all plugin identifier of the engine
-     */
-    @SuppressWarnings("unchecked")
-    public @Nonnull List<PluginIdentifier> getAllPlugin(PluginType pluginType) throws IOException {
-        List<URL> files = FileUtils.searchJarFiles(pluginDir);
-        List<PluginIdentifier> plugins = new ArrayList<>();
-        List factories;
-        if (pluginType.equals(PluginType.SOURCE)) {
-            factories = FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])), TableSourceFactory.class);
-        } else if (pluginType.equals(PluginType.SINK)) {
-            factories = FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])), TableSinkFactory.class);
-        } else if (pluginType.equals(PluginType.TRANSFORM)) {
-            factories = FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])), TableTransformFactory.class);
-        } else {
-            throw new IllegalArgumentException("Unsupported plugin type: " + pluginType);
-        }
-        factories.forEach(plugin -> {
-            plugins.add(PluginIdentifier.of("seatunnel", pluginType.getType(), ((Factory) plugin).factoryIdentifier()));
-        });
-        return plugins;
-    }
-
-    /**
-     * Get all support plugin already in SEATUNNEL_HOME, only support connector-v2
      * @return the all plugin identifier of the engine
      */
     @SuppressWarnings("checkstyle:WhitespaceAfter")
     public Map<PluginType, LinkedHashMap<PluginIdentifier, OptionRule>> getAllPlugin() throws IOException {
-        List<URL> files = FileUtils.searchJarFiles(this.pluginDir);
+        List<Factory> factories;
+        if (this.pluginDir.toFile().exists()) {
+            log.info("load plugin from plugin dir: {}", this.pluginDir);
+            List<URL> files = FileUtils.searchJarFiles(this.pluginDir);
+            factories = FactoryUtil.discoverFactories(new URLClassLoader((URL[]) files.toArray(new URL[0])));
+        } else {
+            log.info("plugin dir: {} not exists, load plugin from classpath", this.pluginDir);
+            factories = FactoryUtil.discoverFactories(Thread.currentThread().getContextClassLoader());
+        }
+
         Map<PluginType, LinkedHashMap<PluginIdentifier, OptionRule>> plugins = new HashMap<>();
-        List<Factory> factories = FactoryUtil.discoverFactories(new URLClassLoader((URL[]) files.toArray(new URL[0])));
 
         factories.forEach(plugin -> {
             if (TableSourceFactory.class.isAssignableFrom(plugin.getClass())) {
