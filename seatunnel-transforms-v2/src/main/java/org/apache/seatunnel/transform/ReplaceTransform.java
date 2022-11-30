@@ -57,7 +57,7 @@ public class ReplaceTransform extends SingleFieldOutputTransform {
 
     public static final Option<Boolean> KEY_REPLACE_FIRST = Options.key("replace_first")
             .booleanType()
-            .defaultValue(false)
+            .noDefaultValue()
             .withDescription("Replace the first match string");
 
     private int inputFieldIndex;
