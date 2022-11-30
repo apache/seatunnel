@@ -19,13 +19,13 @@ package org.apache.seatunnel.engine.server.master;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
 
+import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
-import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.loader.SeatunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -163,8 +163,8 @@ public class JobMaster extends Thread {
     // TODO replace it after ReadableConfig Support parse yaml format, then use only one config to read engine and env config.
     private CheckpointConfig mergeEnvAndEngineConfig(CheckpointConfig engine, Map<String, Object> env) {
         CheckpointConfig checkpointConfig = new CheckpointConfig();
-        if (env.containsKey(ServerConfigOptions.CHECKPOINT_INTERVAL.key())) {
-            checkpointConfig.setCheckpointInterval((Integer) env.get(ServerConfigOptions.CHECKPOINT_INTERVAL.key()));
+        if (env.containsKey(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
+            checkpointConfig.setCheckpointInterval((Integer) env.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()));
         }
         checkpointConfig.setCheckpointTimeout(engine.getCheckpointTimeout());
         checkpointConfig.setTolerableFailureCheckpoints(engine.getTolerableFailureCheckpoints());

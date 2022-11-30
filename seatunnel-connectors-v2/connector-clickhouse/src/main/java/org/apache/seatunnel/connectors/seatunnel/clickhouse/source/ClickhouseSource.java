@@ -24,6 +24,7 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Clickh
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.USERNAME;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -34,6 +35,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSourceState;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.TypeConvertUtil;
@@ -66,17 +68,18 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
     public void prepare(Config config) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(config, HOST.key(), DATABASE.key(), SQL.key(), USERNAME.key(), PASSWORD.key());
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
+            throw new ClickhouseConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                String.format("PluginName: %s, PluginType: %s, Message: %s", getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         servers = ClickhouseUtil.createNodes(config.getString(HOST.key()), config.getString(DATABASE.key()),
-                config.getString(USERNAME.key()), config.getString(PASSWORD.key()));
+            config.getString(USERNAME.key()), config.getString(PASSWORD.key()));
 
         sql = config.getString(SQL.key());
         ClickHouseNode currentServer = servers.get(ThreadLocalRandom.current().nextInt(servers.size()));
         try (ClickHouseClient client = ClickHouseClient.newInstance(currentServer.getProtocol());
              ClickHouseResponse response =
-                     client.connect(currentServer).format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
-                             .query(modifySQLToLimit1(config.getString(SQL.key()))).executeAndWait()) {
+                 client.connect(currentServer).format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
+                     .query(modifySQLToLimit1(config.getString(SQL.key()))).executeAndWait()) {
 
             int columnSize = response.getColumns().size();
             String[] fieldNames = new String[columnSize];
@@ -90,7 +93,8 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
             this.rowTypeInfo = new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
 
         } catch (ClickHouseException e) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, e.getMessage());
+            throw new ClickhouseConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                String.format("PluginName: %s, PluginType: %s, Message: %s", getPluginName(), PluginType.SOURCE, e.getMessage()));
         }
 
     }

@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.iotdb.serialize;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 
 import com.google.common.base.Strings;
 import lombok.NonNull;
@@ -78,14 +80,15 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                 case STRING:
                     return Long.parseLong((String) timestamp);
                 case TIMESTAMP:
-                    return LocalDateTime.class.cast(timestamp)
+                    return ((LocalDateTime) timestamp)
                         .atZone(ZoneOffset.UTC)
                         .toInstant()
                         .toEpochMilli();
                 case BIGINT:
                     return (Long) timestamp;
                 default:
-                    throw new UnsupportedOperationException("Unsupported data type: " + timestampFieldType);
+                    throw new IotdbConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported data type: " + timestampFieldType);
             }
         };
     }
@@ -167,7 +170,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             case DOUBLE:
                 return TSDataType.DOUBLE;
             default:
-                throw new UnsupportedOperationException("Unsupported dataType: " + dataType);
+                throw new IotdbConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                    "Unsupported data type: " + dataType);
         }
     }
 
@@ -191,7 +195,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             case TEXT:
                 return value.toString();
             default:
-                throw new UnsupportedOperationException("Unsupported dataType: " + tsDataType);
+                throw new IotdbConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                    "Unsupported data type: " + tsDataType);
         }
     }
 }

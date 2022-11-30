@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.http.source;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -29,17 +30,21 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
+
+import java.util.Locale;
 
 @AutoService(SeaTunnelSource.class)
 public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
@@ -62,7 +67,9 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HttpConfig.URL.key());
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
+            throw new HttpConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         this.httpParameter.buildWithConfig(pluginConfig);
         buildSchemaWithConfig(pluginConfig);
@@ -73,17 +80,18 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             Config schema = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
             this.rowType = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
             // default use json format
-            String format = HttpConfig.DEFAULT_FORMAT;
+            HttpConfig.ResponseFormat format = HttpConfig.FORMAT.defaultValue();
             if (pluginConfig.hasPath(HttpConfig.FORMAT.key())) {
-                format = pluginConfig.getString(HttpConfig.FORMAT.key());
+                format = HttpConfig.ResponseFormat.valueOf(pluginConfig.getString(HttpConfig.FORMAT.key()).toUpperCase(
+                    Locale.ROOT));
             }
             switch (format) {
-                case HttpConfig.DEFAULT_FORMAT:
+                case JSON:
                     this.deserializationSchema = new JsonDeserializationSchema(false, false, rowType);
                     break;
                 default:
                     // TODO: use format SPI
-                    throw new UnsupportedOperationException("Unsupported format: " + format);
+                    throw new HttpConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, String.format("Unsupported data format [%s], http connector only support json format now", format));
             }
         } else {
             this.rowType = SeaTunnelSchema.buildSimpleTextSchema();
@@ -102,7 +110,8 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     }
 
     @Override
-    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext)
+        throws Exception {
         return new HttpSourceReader(this.httpParameter, readerContext, this.deserializationSchema);
     }
 }

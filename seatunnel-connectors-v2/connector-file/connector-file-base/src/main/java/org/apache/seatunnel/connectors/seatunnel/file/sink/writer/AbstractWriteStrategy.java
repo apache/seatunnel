@@ -25,10 +25,12 @@ import static org.apache.parquet.avro.AvroWriteSupport.WRITE_OLD_LIST_STRUCTURE;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.Constants;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.VariablesSubstitute;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
@@ -222,7 +224,8 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         try {
             FileSystemUtils.deleteFile(getTransactionDir(transactionId));
         } catch (IOException e) {
-            throw new RuntimeException("abort transaction " + transactionId + " error.", e);
+            throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
+                    "Abort transaction " + transactionId + " error, delete transaction directory failed", e);
         }
     }
 
@@ -257,7 +260,9 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
                     .map(dir -> dir.replaceAll(jobDir, ""))
                     .collect(Collectors.toList());
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
+                    String.format("Get transaction id from states failed," +
+                            "it seems that can not get directory list from [%s]", jobDir), e);
         }
     }
 
