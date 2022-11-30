@@ -53,7 +53,7 @@ public class KlaviyoSource extends HttpSource {
         if (!result.isSuccess()) {
             throw new KlaviyoConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format("PluginName: %s, PluginType: %s, Message: %s",
-                        getPluginName(), PluginType.SOURCE, result.getMsg()));
+                            getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         this.klaviyoSourceParameter.buildWithConfig(pluginConfig);
         buildSchemaWithConfig(pluginConfig);
