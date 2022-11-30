@@ -84,11 +84,11 @@ public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSin
         tryOpen();
         outputFormat.flush();
         try {
-            if (!connectionProvider.getConnection().getAutoCommit()){
+            if (!connectionProvider.getConnection().getAutoCommit()) {
                 connectionProvider.getConnection().commit();
             }
         } catch (SQLException e) {
-            new JdbcConnectorException(JdbcConnectorErrorCode.EXCEPTION, e);
+            new JdbcConnectorException(JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED, "commit failed," + e.getMessage(), e);
         }
         return Optional.empty();
     }
@@ -104,7 +104,7 @@ public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSin
         tryOpen();
         outputFormat.flush();
         try {
-            if (!connectionProvider.getConnection().getAutoCommit()){
+            if (!connectionProvider.getConnection().getAutoCommit()) {
                 connectionProvider.getConnection().commit();
             }
         } catch (SQLException e) {

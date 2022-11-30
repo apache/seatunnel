@@ -148,7 +148,7 @@ public class XaGroupOpsImpl
             }
         }
         if (reached != null) {
-            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_EXCEPTION,
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED,
                 String.format(
                     "reached max number of commit attempts (%d) for transactions: %s",
                     maxAttempts, reached));

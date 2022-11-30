@@ -93,7 +93,7 @@ public class XaFacadeImplAutoLoad
         try {
             ds = (XADataSource) DataSourceUtils.buildCommonDataSource(jdbcConnectionOptions);
         } catch (Exception e) {
-            throw new JdbcConnectorException(JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED, e);
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED, "unable to build XADataSource", e);
         }
         xaConnection = ds.getXAConnection();
         xaResource = xaConnection.getXAResource();
@@ -101,7 +101,7 @@ public class XaFacadeImplAutoLoad
             try {
                 xaResource.setTransactionTimeout(jdbcConnectionOptions.getTransactionTimeoutSec().get());
             } catch (XAException e) {
-                throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_EXCEPTION, e);
+                throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED, "unable to set XA transaction timeout", e);
             }
         }
         connection = xaConnection.getConnection();
@@ -175,9 +175,9 @@ public class XaFacadeImplAutoLoad
         execute(Command.fromRunnable("end", xid, () -> xaResource.end(xid, XAResource.TMSUCCESS)));
         int prepResult = execute(new Command<>("prepare", of(xid), () -> xaResource.prepare(xid)));
         if (prepResult == XAResource.XA_RDONLY) {
-            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_EXCEPTION, new EmptyXaTransactionException(xid));
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED, new EmptyXaTransactionException(xid));
         } else if (prepResult != XAResource.XA_OK) {
-            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_EXCEPTION,
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED,
                 formatErrorMessage("prepare", of(xid), empty(), "response: " + prepResult));
         }
     }
@@ -279,7 +279,7 @@ public class XaFacadeImplAutoLoad
             }
             return cmd.recover.apply(e).orElseThrow(() -> wrapException(cmd.name, cmd.xid, e));
         } catch (RuntimeException e) {
-            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_EXCEPTION, e);
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED, e);
         } catch (Exception e) {
             throw wrapException(cmd.name, cmd.xid, e);
         }
@@ -290,13 +290,13 @@ public class XaFacadeImplAutoLoad
         if (ex instanceof XAException) {
             XAException xa = (XAException) ex;
             if (TRANSIENT_ERR_CODES.contains(xa.errorCode)) {
-                throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_EXCEPTION, new TransientXaException(xa));
+                throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED, new TransientXaException(xa));
             } else {
-                throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_EXCEPTION,
+                throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED,
                     formatErrorMessage(action, xid, of(xa.errorCode), xa.getMessage()));
             }
         } else {
-            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_EXCEPTION,
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED,
                 formatErrorMessage(action, xid, empty(), ex.getMessage()), ex);
         }
     }

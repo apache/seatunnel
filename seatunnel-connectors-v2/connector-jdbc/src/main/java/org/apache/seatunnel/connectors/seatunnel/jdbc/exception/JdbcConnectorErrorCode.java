@@ -24,12 +24,10 @@ public enum JdbcConnectorErrorCode implements SeaTunnelErrorCode {
 
     CREATE_DRIVER_FAILED("JDBC-01", "Fail to create driver of class"),
     NO_SUITABLE_DRIVER("JDBC-02", "No suitable driver found"),
-    SQL_OPERATION_FAILED("JDBC-03", "Sql operation failed, such as (execute,addBatch,close) etc..."),
-    XA_EXCEPTION("JDBC-04", "Xa operation failed, such as (commit, rollback) etc.."),
-    CONNECT_DATABASE_FAILED("JDBC-05", "Connector database failed"),
-    NULL_POINTER("JDBC-06", "Null pointer failed"),
-    EXCEPTION("JDBC-07", "transaction operation failed, such as (commit, rollback) etc.."),
-    NO_SUITABLE_DIALECT_FACTORY("JDBC-08", "No suitable dialect factory found");
+    XA_OPERATION_FAILED("JDBC-03", "Xa operation failed, such as (commit, rollback) etc.."),
+    CONNECT_DATABASE_FAILED("JDBC-04", "Connector database failed"),
+    TRANSACTION_OPERATION_FAILED("JDBC-05", "transaction operation failed, such as (commit, rollback) etc.."),
+    NO_SUITABLE_DIALECT_FACTORY("JDBC-06", "No suitable dialect factory found");
 
 
     private final String code;
@@ -43,12 +41,12 @@ public enum JdbcConnectorErrorCode implements SeaTunnelErrorCode {
 
     @Override
     public String getCode() {
-        return null;
+        return this.code;
     }
 
     @Override
     public String getDescription() {
-        return null;
+        return this.description;
     }
 
 }

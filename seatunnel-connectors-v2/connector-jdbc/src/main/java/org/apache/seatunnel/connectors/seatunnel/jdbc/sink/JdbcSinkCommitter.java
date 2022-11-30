@@ -63,7 +63,7 @@ public class JdbcSinkCommitter
         try {
             xaGroupOps.rollback(commitInfos);
         } catch (Exception e) {
-            new JdbcConnectorException(JdbcConnectorErrorCode.XA_EXCEPTION, "rollback failed", e);
+            new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED, "rollback failed", e);
         }
     }
 }

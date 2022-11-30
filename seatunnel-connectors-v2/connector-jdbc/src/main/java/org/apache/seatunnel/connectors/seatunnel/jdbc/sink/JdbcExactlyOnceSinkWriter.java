@@ -172,7 +172,7 @@ public class JdbcExactlyOnceSinkWriter
         try {
             xaFacade.start(currentXid);
         } catch (Exception e) {
-            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_EXCEPTION, e);
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED, "unable to start xa transaction", e);
         }
     }
 
@@ -183,7 +183,7 @@ public class JdbcExactlyOnceSinkWriter
             xaFacade.endAndPrepare(currentXid);
             prepareXid = currentXid;
         } catch (Exception e) {
-            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_EXCEPTION, e);
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED, "unable to prepare current xa transaction", e);
         }
     }
 }

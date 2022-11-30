@@ -98,7 +98,7 @@ public class JdbcInputFormat implements Serializable {
 
             statement = jdbcDialect.creatPreparedStatement(dbConn, queryTemplate, fetchSize);
         } catch (SQLException se) {
-            throw new JdbcConnectorException(CommonErrorCode.READER_OPERATION_FAILED, "open() failed." + se.getMessage(), se);
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED, "open() failed." + se.getMessage(), se);
         } catch (ClassNotFoundException cnfe) {
             throw new JdbcConnectorException(CommonErrorCode.CLASS_NOT_FOUND,
                 "JDBC-Class not found. - " + cnfe.getMessage(), cnfe);
@@ -174,7 +174,7 @@ public class JdbcInputFormat implements Serializable {
             resultSet = statement.executeQuery();
             hasNext = resultSet.next();
         } catch (SQLException se) {
-            throw new JdbcConnectorException(JdbcConnectorErrorCode.SQL_OPERATION_FAILED, "open() failed." + se.getMessage(), se);
+            throw new JdbcConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, "open() failed." + se.getMessage(), se);
         }
     }
 
@@ -216,9 +216,9 @@ public class JdbcInputFormat implements Serializable {
             hasNext = resultSet.next();
             return seaTunnelRow;
         } catch (SQLException se) {
-            throw new JdbcConnectorException(JdbcConnectorErrorCode.SQL_OPERATION_FAILED, "Couldn't read data - " + se.getMessage(), se);
+            throw new JdbcConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, "Couldn't read data - " + se.getMessage(), se);
         } catch (NullPointerException npe) {
-            throw new JdbcConnectorException(JdbcConnectorErrorCode.NULL_POINTER, "Couldn't access resultSet", npe);
+            throw new JdbcConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, "Couldn't access resultSet", npe);
         }
     }
 }

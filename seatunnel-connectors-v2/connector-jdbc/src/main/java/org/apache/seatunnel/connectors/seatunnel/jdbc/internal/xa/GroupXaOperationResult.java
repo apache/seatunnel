@@ -48,7 +48,7 @@ public class GroupXaOperationResult<T> {
 
     private RuntimeException wrapFailure(
         Exception error, String formatWithCounts, int errCount) {
-        return new JdbcConnectorException(JdbcConnectorErrorCode.XA_EXCEPTION,
+        return new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED,
             String.format(formatWithCounts, errCount, total()), error);
     }
 

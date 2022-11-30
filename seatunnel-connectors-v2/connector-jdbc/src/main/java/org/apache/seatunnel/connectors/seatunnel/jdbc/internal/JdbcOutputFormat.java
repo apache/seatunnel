@@ -82,7 +82,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
         try {
             connectionProvider.getOrEstablishConnection();
         } catch (Exception e) {
-            throw new JdbcConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, "unable to open JDBC writer", e);
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED, "unable to open JDBC writer", e);
         }
         jdbcStatementExecutor = createAndOpenStatementExecutor(statementExecutorFactory);
 
@@ -121,7 +121,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
         try {
             exec.prepareStatements(connectionProvider.getConnection());
         } catch (SQLException e) {
-            throw new JdbcConnectorException(JdbcConnectorErrorCode.SQL_OPERATION_FAILED, "unable to open JDBC writer", e);
+            throw new JdbcConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, "unable to open JDBC writer", e);
         }
         return exec;
     }
@@ -142,7 +142,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
                 flush();
             }
         } catch (Exception e) {
-            throw new JdbcConnectorException(JdbcConnectorErrorCode.SQL_OPERATION_FAILED, "Writing records to JDBC failed.", e);
+            throw new JdbcConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, "Writing records to JDBC failed.", e);
         }
     }
 
