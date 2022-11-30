@@ -136,10 +136,54 @@ the schema fields of upstream data
 
 ### content_json [String]
 
-This parameter can get some json data.
+This parameter can get some json data.If you only need the data in the 'book' section, configure `content_field = "$.store.book.*"`.
 
-Please refer to [http_contentjson_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_contentjson_to_assert.conf).
-Return parameters can refer to [mockserver-contentjson-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-contentjson-config.json)
+If your return data looks something like this.
+
+```json
+{
+        "store": {
+          "book": [
+            {
+              "category": "reference",
+              "author": "Nigel Rees",
+              "title": "Sayings of the Century",
+              "price": 8.95
+            },
+            {
+              "category": "fiction",
+              "author": "Evelyn Waugh",
+              "title": "Sword of Honour",
+              "price": 12.99
+            }
+          ],
+          "bicycle": {
+            "color": "red",
+            "price": 19.95
+          }
+        },
+        "expensive": 10
+      }
+```
+You can configure `content_field = "$.store.book.*"` and the result returned looks like this:
+
+```json
+[
+            {
+              "category": "reference",
+              "author": "Nigel Rees",
+              "title": "Sayings of the Century",
+              "price": 8.95
+            },
+            {
+              "category": "fiction",
+              "author": "Evelyn Waugh",
+              "title": "Sword of Honour",
+              "price": 12.99
+            }
+          ]
+```
+Then you can get the desired result with a simpler schema,like
 
 ```hocon
 Http {
@@ -158,12 +202,45 @@ Http {
 }
 ```
 
+Here is an example:
+
+- Test data can be found at this link [mockserver-contentjson-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-contentjson-config.json)
+- See this link for task configuration [http_contentjson_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_contentjson_to_assert.conf).
+
+
 ### json_field [Config]
 
-The Wildcards for jsonpath. This parameter must be used with schema.
+This parameter helps you configure the schema,so this parameter must be used with schema.
 
-Please refer to [http_jsonpath_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_jsonpath_to_assert.conf).
-Return parameters can refer to [mockserver-jsonpath-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-jsonpath-config.json)
+If your data looks something like this:
+
+```json
+{
+  "store": {
+    "book": [
+      {
+        "category": "reference",
+        "author": "Nigel Rees",
+        "title": "Sayings of the Century",
+        "price": 8.95
+      },
+      {
+        "category": "fiction",
+        "author": "Evelyn Waugh",
+        "title": "Sword of Honour",
+        "price": 12.99
+      }
+    ],
+    "bicycle": {
+      "color": "red",
+      "price": 19.95
+    }
+  },
+  "expensive": 10
+}
+```
+
+You can get the contents of 'book' by configuring the task as follows:
 
 ```hocon
 source {
@@ -188,6 +265,9 @@ source {
   }
 }
 ```
+
+- Test data can be found at this link [mockserver-jsonpath-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-jsonpath-config.json)
+- See this link for task configuration [http_jsonpath_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_jsonpath_to_assert.conf).
 
 ### common options
 
