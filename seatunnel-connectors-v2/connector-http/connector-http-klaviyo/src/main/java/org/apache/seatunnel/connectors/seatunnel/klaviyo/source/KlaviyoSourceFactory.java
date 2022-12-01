@@ -44,6 +44,8 @@ public class KlaviyoSourceFactory implements TableSourceFactory {
             .optional(KlaviyoSourceConfig.HEADERS)
             .optional(KlaviyoSourceConfig.PARAMS)
             .optional(KlaviyoSourceConfig.FORMAT)
+            .optional(KlaviyoSourceConfig.JSON_FIELD)
+            .optional(KlaviyoSourceConfig.CONTENT_FIELD)
             .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, KlaviyoSourceConfig.BODY)
             .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
             .optional(KlaviyoSourceConfig.POLL_INTERVAL_MILLS)

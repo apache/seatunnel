@@ -80,13 +80,11 @@ when you assign format is `json`, you should also assign schema option, for exam
 upstream data is the following:
 
 ```json
-
 {
   "code": 200,
   "data": "get success",
   "success": true
 }
-
 ```
 
 you should assign schema as the following:
@@ -114,13 +112,11 @@ when you assign format is `text`, connector will do nothing for upstream data, f
 upstream data is the following:
 
 ```json
-
 {
   "code": 200,
   "data": "get success",
   "success": true
 }
-
 ```
 
 connector will generate data as the following:
@@ -143,46 +139,46 @@ If your return data looks something like this.
 
 ```json
 {
-        "store": {
-          "book": [
-            {
-              "category": "reference",
-              "author": "Nigel Rees",
-              "title": "Sayings of the Century",
-              "price": 8.95
-            },
-            {
-              "category": "fiction",
-              "author": "Evelyn Waugh",
-              "title": "Sword of Honour",
-              "price": 12.99
-            }
-          ],
-          "bicycle": {
-            "color": "red",
-            "price": 19.95
-          }
-        },
-        "expensive": 10
+  "store": {
+    "book": [
+      {
+        "category": "reference",
+        "author": "Nigel Rees",
+        "title": "Sayings of the Century",
+        "price": 8.95
+      },
+      {
+        "category": "fiction",
+        "author": "Evelyn Waugh",
+        "title": "Sword of Honour",
+        "price": 12.99
       }
+    ],
+    "bicycle": {
+      "color": "red",
+      "price": 19.95
+    }
+  },
+  "expensive": 10
+}
 ```
 You can configure `content_field = "$.store.book.*"` and the result returned looks like this:
 
 ```json
 [
-            {
-              "category": "reference",
-              "author": "Nigel Rees",
-              "title": "Sayings of the Century",
-              "price": 8.95
-            },
-            {
-              "category": "fiction",
-              "author": "Evelyn Waugh",
-              "title": "Sword of Honour",
-              "price": 12.99
-            }
-          ]
+  {
+    "category": "reference",
+    "author": "Nigel Rees",
+    "title": "Sayings of the Century",
+    "price": 8.95
+  },
+  {
+    "category": "fiction",
+    "author": "Evelyn Waugh",
+    "title": "Sword of Honour",
+    "price": 12.99
+  }
+]
 ```
 Then you can get the desired result with a simpler schema,like
 
@@ -207,7 +203,6 @@ Here is an example:
 
 - Test data can be found at this link [mockserver-contentjson-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-contentjson-config.json)
 - See this link for task configuration [http_contentjson_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_contentjson_to_assert.conf).
-
 
 ### json_field [Config]
 

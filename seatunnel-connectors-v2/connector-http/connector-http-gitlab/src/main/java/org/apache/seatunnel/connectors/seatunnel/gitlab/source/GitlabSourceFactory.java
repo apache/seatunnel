@@ -43,6 +43,8 @@ public class GitlabSourceFactory implements TableSourceFactory {
                 .optional(GitlabSourceConfig.HEADERS)
                 .optional(GitlabSourceConfig.PARAMS)
                 .optional(GitlabSourceConfig.FORMAT)
+                .optional(GitlabSourceConfig.JSON_FIELD)
+                .optional(GitlabSourceConfig.CONTENT_FIELD)
                 .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, GitlabSourceConfig.BODY)
                 .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
                 .optional(GitlabSourceConfig.POLL_INTERVAL_MILLS)

@@ -43,6 +43,8 @@ public class LemlistSourceFactory implements TableSourceFactory {
             .optional(LemlistSourceConfig.HEADERS)
             .optional(LemlistSourceConfig.PARAMS)
             .optional(LemlistSourceConfig.FORMAT)
+            .optional(LemlistSourceConfig.JSON_FIELD)
+            .optional(LemlistSourceConfig.CONTENT_FIELD)
             .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, LemlistSourceConfig.BODY)
             .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
             .optional(LemlistSourceConfig.POLL_INTERVAL_MILLS)

@@ -44,6 +44,8 @@ public class MyHoursSourceFactory implements TableSourceFactory {
             .optional(MyHoursSourceConfig.HEADERS)
             .optional(MyHoursSourceConfig.PARAMS)
             .optional(MyHoursSourceConfig.FORMAT)
+            .optional(MyHoursSourceConfig.JSON_FIELD)
+            .optional(MyHoursSourceConfig.CONTENT_FIELD)
             .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, MyHoursSourceConfig.BODY)
             .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
             .optional(MyHoursSourceConfig.POLL_INTERVAL_MILLS)

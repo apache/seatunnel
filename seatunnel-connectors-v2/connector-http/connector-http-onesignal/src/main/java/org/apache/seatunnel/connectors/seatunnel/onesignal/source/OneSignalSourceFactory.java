@@ -43,6 +43,8 @@ public class OneSignalSourceFactory implements TableSourceFactory {
             .optional(OneSignalSourceConfig.HEADERS)
             .optional(OneSignalSourceConfig.PARAMS)
             .optional(OneSignalSourceConfig.FORMAT)
+            .optional(OneSignalSourceConfig.JSON_FIELD)
+            .optional(OneSignalSourceConfig.CONTENT_FIELD)
             .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, OneSignalSourceConfig.BODY)
             .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
             .optional(OneSignalSourceConfig.POLL_INTERVAL_MILLS)

@@ -44,6 +44,8 @@ public class JiraSourceFactory implements TableSourceFactory {
             .optional(JiraSourceConfig.HEADERS)
             .optional(JiraSourceConfig.PARAMS)
             .optional(JiraSourceConfig.FORMAT)
+            .optional(JiraSourceConfig.JSON_FIELD)
+            .optional(JiraSourceConfig.CONTENT_FIELD)
             .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, JiraSourceConfig.BODY)
             .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
             .optional(JiraSourceConfig.POLL_INTERVAL_MILLS)
