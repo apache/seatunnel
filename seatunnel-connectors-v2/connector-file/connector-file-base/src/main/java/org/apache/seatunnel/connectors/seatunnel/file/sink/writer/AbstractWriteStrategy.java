@@ -68,16 +68,20 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     protected String transactionId;
     protected String transactionDirectory;
     protected Map<String, String> needMoveFiles;
-    protected Map<String, String> beingWrittenFile;
+    protected Map<String, String> beingWrittenFile = new HashMap<>();
     private Map<String, List<String>> partitionDirAndValuesMap;
     protected SeaTunnelRowType seaTunnelRowType;
 
     // Checkpoint id from engine is start with 1
     protected Long checkpointId = 0L;
+    protected int partId = 0;
+    protected int batchSize;
+    protected int currentBatchSize = 0;
 
     public AbstractWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
         this.textFileSinkConfig = textFileSinkConfig;
         this.sinkColumnsIndexInRow = textFileSinkConfig.getSinkColumnsIndexInRow();
+        this.batchSize = textFileSinkConfig.getBatchSize();
     }
 
     /**
@@ -91,6 +95,16 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         this.jobId = jobId;
         this.subTaskIndex = subTaskIndex;
         FileSystemUtils.CONF = getConfiguration(hadoopConf);
+    }
+
+    @Override
+    public void write(SeaTunnelRow seaTunnelRow) throws FileConnectorException {
+        if (currentBatchSize >= batchSize) {
+            this.partId++;
+            currentBatchSize = 0;
+            beingWrittenFile.clear();
+        }
+        currentBatchSize++;
     }
 
     /**
@@ -190,7 +204,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         valuesMap.put(Constants.NOW, formattedDate);
         valuesMap.put(timeFormat, formattedDate);
         valuesMap.put(BaseSinkConfig.TRANSACTION_EXPRESSION, transactionId);
-        String substitute = VariablesSubstitute.substitute(fileNameExpression, valuesMap);
+        String substitute = VariablesSubstitute.substitute(fileNameExpression, valuesMap) + "_" + partId;
         return substitute + fileFormat.getSuffix();
     }
 
@@ -239,7 +253,6 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         this.transactionDirectory = getTransactionDir(this.transactionId);
         this.needMoveFiles = new HashMap<>();
         this.partitionDirAndValuesMap = new HashMap<>();
-        this.beingWrittenFile = new HashMap<>();
     }
 
     /**
