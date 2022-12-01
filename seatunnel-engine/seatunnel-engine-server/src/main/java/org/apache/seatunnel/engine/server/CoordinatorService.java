@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.api.common.metrics.JobMetrics;
+import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
@@ -34,6 +36,7 @@ import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
@@ -169,7 +172,8 @@ public class CoordinatorService {
             runningJobStateIMap,
             logger,
             runningJobMasterMap,
-            nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE)
+            nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE),
+            nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_METRICS)
         );
 
         List<CompletableFuture<Void>> collect = runningJobInfoIMap.entrySet().stream().map(entry -> {
@@ -241,8 +245,7 @@ public class CoordinatorService {
                     jobMaster.run();
                 } finally {
                     // storage job state info to HistoryStorage
-                    removeJobIMap(jobMaster);
-                    runningJobMasterMap.remove(jobId);
+                    onJobDone(jobMaster, jobId);
                 }
             });
             return;
@@ -256,10 +259,7 @@ public class CoordinatorService {
                     jobMaster.getPhysicalPlan().getPipelineList().forEach(SubPlan::restorePipelineState);
                     jobMaster.run();
                 } finally {
-                    // storage job state info to HistoryStorage
-                    jobHistoryService.storeFinishedJobState(jobMaster);
-                    removeJobIMap(jobMaster);
-                    runningJobMasterMap.remove(jobId);
+                    onJobDone(jobMaster, jobId);
                 }
             });
             return;
@@ -346,13 +346,18 @@ public class CoordinatorService {
             try {
                 jobMaster.run();
             } finally {
-                // storage job state info to HistoryStorage
-                jobHistoryService.storeFinishedJobState(jobMaster);
-                removeJobIMap(jobMaster);
-                runningJobMasterMap.remove(jobId);
+                onJobDone(jobMaster, jobId);
             }
         });
         return new PassiveCompletableFuture<>(voidCompletableFuture);
+    }
+
+    private void onJobDone(JobMaster jobMaster, long jobId){
+        // storage job state and metrics to HistoryStorage
+        jobHistoryService.storeFinishedJobState(jobMaster);
+        jobHistoryService.storeFinishedJobMetrics(jobMaster);
+        removeJobIMap(jobMaster);
+        runningJobMasterMap.remove(jobId);
     }
 
     private void removeJobIMap(JobMaster jobMaster) {
@@ -410,6 +415,15 @@ public class CoordinatorService {
             return jobHistoryService.getJobStatus(jobId).getJobStatus();
         }
         return runningJobMaster.getJobStatus();
+    }
+
+    public JobMetrics getJobMetrics(long jobId){
+        JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
+        if (runningJobMaster == null) {
+            return jobHistoryService.getJobMetrics(jobId);
+        }
+        List<RawJobMetrics> currJobMetrics = runningJobMaster.getCurrJobMetrics();
+        return JobMetricsUtil.toJobMetrics(currJobMetrics);
     }
 
     /**

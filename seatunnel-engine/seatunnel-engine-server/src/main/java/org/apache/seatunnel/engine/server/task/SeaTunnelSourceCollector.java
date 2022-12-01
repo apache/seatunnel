@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
+
+import org.apache.seatunnel.api.common.metrics.Unit;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.engine.server.metrics.Metrics;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
 
 import java.io.IOException;
@@ -39,6 +43,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     public void collect(T row) {
         try {
             sendRecordToNext(new Record<>(row));
+            Metrics.metric(SOURCE_RECEIVED_COUNT, Unit.COUNT).increment();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
