@@ -60,6 +60,6 @@ public class NotionSource extends HttpSource {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(this.notionSourceParameter, readerContext, this.deserializationSchema);
+        return new HttpSourceReader(this.notionSourceParameter, readerContext, this.deserializationSchema, jsonField, contentField);
     }
 }

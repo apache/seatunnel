@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.notion.source;
 
-import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
@@ -44,9 +43,11 @@ public class NotionSourceFactory implements TableSourceFactory {
                 .optional(NotionSourceConfig.METHOD)
                 .optional(NotionSourceConfig.HEADERS)
                 .optional(NotionSourceConfig.PARAMS)
-                .conditional(Condition.of(HttpConfig.METHOD, HttpRequestMethod.POST), NotionSourceConfig.BODY)
-                .conditional(Condition.of(HttpConfig.FORMAT, "json"), SeaTunnelSchema.SCHEMA)
                 .optional(NotionSourceConfig.FORMAT)
+                .optional(NotionSourceConfig.JSON_FIELD)
+                .optional(NotionSourceConfig.CONTENT_FIELD)
+                .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, NotionSourceConfig.BODY)
+                .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
                 .optional(NotionSourceConfig.POLL_INTERVAL_MILLS)
                 .optional(NotionSourceConfig.RETRY)
                 .optional(NotionSourceConfig.RETRY_BACKOFF_MAX_MS)
