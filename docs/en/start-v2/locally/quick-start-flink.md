@@ -62,7 +62,7 @@ cd "apache-seatunnel-incubating-${version}"
 
 ```
 
-**See The Output**: When you run the command, you could see its output in your console, You can think this
+**See The Output**: When you run the command, you could see its output in your console. You can think this
 is a sign that the command ran successfully or not.
 
 The SeaTunnel console will prints some logs as below:
