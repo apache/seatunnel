@@ -145,46 +145,46 @@ If your return data looks something like this.
 
 ```json
 {
-        "store": {
-          "book": [
-            {
-              "category": "reference",
-              "author": "Nigel Rees",
-              "title": "Sayings of the Century",
-              "price": 8.95
-            },
-            {
-              "category": "fiction",
-              "author": "Evelyn Waugh",
-              "title": "Sword of Honour",
-              "price": 12.99
-            }
-          ],
-          "bicycle": {
-            "color": "red",
-            "price": 19.95
-          }
-        },
-        "expensive": 10
+  "store": {
+    "book": [
+      {
+        "category": "reference",
+        "author": "Nigel Rees",
+        "title": "Sayings of the Century",
+        "price": 8.95
+      },
+      {
+        "category": "fiction",
+        "author": "Evelyn Waugh",
+        "title": "Sword of Honour",
+        "price": 12.99
       }
+    ],
+    "bicycle": {
+      "color": "red",
+      "price": 19.95
+    }
+  },
+  "expensive": 10
+}
 ```
 You can configure `content_field = "$.store.book.*"` and the result returned looks like this:
 
 ```json
 [
-            {
-              "category": "reference",
-              "author": "Nigel Rees",
-              "title": "Sayings of the Century",
-              "price": 8.95
-            },
-            {
-              "category": "fiction",
-              "author": "Evelyn Waugh",
-              "title": "Sword of Honour",
-              "price": 12.99
-            }
-          ]
+  {
+    "category": "reference",
+    "author": "Nigel Rees",
+    "title": "Sayings of the Century",
+    "price": 8.95
+  },
+  {
+    "category": "fiction",
+    "author": "Evelyn Waugh",
+    "title": "Sword of Honour",
+    "price": 12.99
+  }
+]
 ```
 Then you can get the desired result with a simpler schema,like
 
@@ -280,9 +280,10 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 ```hocon
 Notion {
-    url = "https://api.notion.com/v1/users/5f0f761d-c2b1-4e56-a09c-7fb84410af32"
+    url = "https://api.notion.com/v1/users"
     password = "Seatunnel-test"
     version = "2022-06-28"
+    content_field = "$.results.*"
     schema = {
        fields {
           object = string
