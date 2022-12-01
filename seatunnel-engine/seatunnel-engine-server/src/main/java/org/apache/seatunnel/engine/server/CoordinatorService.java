@@ -422,8 +422,9 @@ public class CoordinatorService {
         if (runningJobMaster == null) {
             return jobHistoryService.getJobMetrics(jobId);
         }
-        List<RawJobMetrics> currJobMetrics = runningJobMaster.getCurrJobMetrics();
-        return JobMetricsUtil.toJobMetrics(currJobMetrics);
+        JobMetrics jobMetrics = JobMetricsUtil.toJobMetrics(runningJobMaster.getCurrJobMetrics());
+        JobMetrics jobMetricsImap = jobHistoryService.getJobMetrics(jobId);
+        return jobMetricsImap != null ? jobMetricsImap : jobMetrics;
     }
 
     /**
