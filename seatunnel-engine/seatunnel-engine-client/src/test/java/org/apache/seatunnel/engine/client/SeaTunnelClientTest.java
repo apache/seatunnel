@@ -33,8 +33,10 @@ import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -49,6 +51,7 @@ public class SeaTunnelClientTest {
 
     private static SeaTunnelConfig SEATUNNEL_CONFIG = ConfigProvider.locateAndGetSeaTunnelConfig();
     private static HazelcastInstance INSTANCE;
+    private static SeaTunnelClient CLIENT;
 
     @BeforeAll
     public static void beforeClass() throws Exception {
@@ -58,14 +61,17 @@ public class SeaTunnelClientTest {
             new SeaTunnelNodeContext(ConfigProvider.locateAndGetSeaTunnelConfig()));
     }
 
-    @Test
-    public void testSayHello() {
+    @BeforeEach
+    void setUp() {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(TestUtils.getClusterName("SeaTunnelClientTest"));
-        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
+        CLIENT = new SeaTunnelClient(clientConfig);
+    }
 
+    @Test
+    public void testSayHello() {
         String msg = "Hello world";
-        String s = engineClient.printMessageToMaster(msg);
+        String s = CLIENT.printMessageToMaster(msg);
         Assertions.assertEquals(msg, s);
     }
 
@@ -76,10 +82,7 @@ public class SeaTunnelClientTest {
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_file");
 
-        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        clientConfig.setClusterName(TestUtils.getClusterName("SeaTunnelClientTest"));
-        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
-        JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
+        JobExecutionEnvironment jobExecutionEnv = CLIENT.createExecutionContext(filePath, jobConfig);
 
         try {
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
@@ -103,10 +106,7 @@ public class SeaTunnelClientTest {
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_console");
 
-        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        clientConfig.setClusterName(TestUtils.getClusterName("SeaTunnelClientTest"));
-        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
-        JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
+        JobExecutionEnvironment jobExecutionEnv = CLIENT.createExecutionContext(filePath, jobConfig);
 
         try {
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
@@ -117,11 +117,11 @@ public class SeaTunnelClientTest {
 
             await().atMost(30000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
-                    engineClient.getJobState(jobId).contains("RUNNING") && engineClient.listJobStatus().contains("RUNNING")));
+                    CLIENT.getJobState(jobId).contains("RUNNING") && CLIENT.listJobStatus().contains("RUNNING")));
 
             await().atMost(30000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
-                    engineClient.getJobState(jobId).contains("FINISHED") && engineClient.listJobStatus().contains("FINISHED")));
+                    CLIENT.getJobState(jobId).contains("FINISHED") && CLIENT.listJobStatus().contains("FINISHED")));
 
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
@@ -135,10 +135,7 @@ public class SeaTunnelClientTest {
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_console");
 
-        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        clientConfig.setClusterName(TestUtils.getClusterName("SeaTunnelClientTest"));
-        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
-        JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
+        JobExecutionEnvironment jobExecutionEnv = CLIENT.createExecutionContext(filePath, jobConfig);
 
         try {
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
@@ -149,15 +146,20 @@ public class SeaTunnelClientTest {
 
             await().atMost(30000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
-                    engineClient.getJobState(jobId).contains("FINISHED") && engineClient.listJobStatus().contains("FINISHED")));
+                    CLIENT.getJobState(jobId).contains("FINISHED") && CLIENT.listJobStatus().contains("FINISHED")));
 
-            String jobMetrics = engineClient.getJobMetrics(jobId);
+            String jobMetrics = CLIENT.getJobMetrics(jobId);
 
             Assertions.assertTrue(jobMetrics.contains("SourceReceivedCount"));
 
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @AfterEach
+    void tearDown() {
+        CLIENT.close();
     }
 
     @AfterAll
