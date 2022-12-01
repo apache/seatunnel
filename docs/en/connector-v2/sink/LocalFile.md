@@ -35,6 +35,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | is_partition_field_write_in_file | boolean | no       | false                                                     |
 | sink_columns                     | array   | no       | When this parameter is empty, all fields are sink columns |
 | is_enable_transaction            | boolean | no       | true                                                      |
+| batch_size                       | int     | no       | 1000000                                                   |
 | common-options                   |         | no       | -                                                         |
 
 ### path [string]
@@ -107,6 +108,10 @@ If `is_enable_transaction` is true, we will ensure that data will not be lost or
 Please note that, If `is_enable_transaction` is `true`, we will auto add `${transactionId}_` in the head of the file.
 
 Only support `true` now.
+
+### batch_size [int]
+
+Write a file for every number of pieces of data
 
 ### common options
 
@@ -186,3 +191,5 @@ LocalFile {
   - When field from upstream is null it will throw NullPointerException
   - Sink columns mapping failed
   - When restore writer from states getting transaction directly failed
+
+- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/incubator-seatunnel/pull/3625))
