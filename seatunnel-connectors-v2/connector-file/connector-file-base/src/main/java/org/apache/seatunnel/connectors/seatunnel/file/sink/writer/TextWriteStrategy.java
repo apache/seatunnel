@@ -33,8 +33,11 @@ import lombok.NonNull;
 import org.apache.hadoop.fs.FSDataOutputStream;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class TextWriteStrategy extends AbstractWriteStrategy {
     private final Map<String, FSDataOutputStream> beingWrittenOutputStream;
@@ -45,6 +48,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     private final DateTimeUtils.Formatter dateTimeFormat;
     private final TimeUtils.Formatter timeFormat;
     private SerializationSchema serializationSchema;
+    private Boolean isPrintHeader;
 
     public TextWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
         super(textFileSinkConfig);
@@ -55,6 +59,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         this.dateFormat = textFileSinkConfig.getDateFormat();
         this.dateTimeFormat = textFileSinkConfig.getDatetimeFormat();
         this.timeFormat = textFileSinkConfig.getTimeFormat();
+        this.isPrintHeader = textFileSinkConfig.getIsPrintHeader();
     }
 
     @Override
@@ -75,6 +80,10 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         FSDataOutputStream fsDataOutputStream = getOrCreateOutputStream(filePath);
         try {
             if (isFirstWrite.get(filePath)) {
+                if(isPrintHeader){
+                    fsDataOutputStream.write(getFieldNames().getBytes());
+                    fsDataOutputStream.write(rowDelimiter.getBytes());
+                }
                 isFirstWrite.put(filePath, false);
             } else {
                 fsDataOutputStream.write(rowDelimiter.getBytes());
@@ -121,5 +130,9 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
             }
         }
         return fsDataOutputStream;
+    }
+
+    private String getFieldNames() {
+        return Arrays.stream(seaTunnelRowType.getFieldNames()).collect(Collectors.joining(fieldDelimiter));
     }
 }

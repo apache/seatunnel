@@ -107,4 +107,9 @@ public class BaseSinkConfig {
             .booleanType()
             .defaultValue(true)
             .withDescription("If or not enable transaction");
+
+    public static final Option<Boolean> IS_PRINT_HEADER = Options.key("is_print_header")
+            .booleanType()
+            .defaultValue(false)
+            .withDescription("IS_PRINT_HEADER");
 }

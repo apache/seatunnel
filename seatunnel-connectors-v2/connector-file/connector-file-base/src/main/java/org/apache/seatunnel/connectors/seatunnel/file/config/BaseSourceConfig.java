@@ -52,4 +52,9 @@ public class BaseSourceConfig {
             .booleanType()
             .defaultValue(true)
             .withDescription("Whether parse partition fields from file path");
+
+    public static final Option<Long> SKIP_HEADER_ROW_NUMBER = Options.key("skip_header_row_number")
+            .longType()
+            .defaultValue(0L)
+            .withDescription("skip header row number");
 }

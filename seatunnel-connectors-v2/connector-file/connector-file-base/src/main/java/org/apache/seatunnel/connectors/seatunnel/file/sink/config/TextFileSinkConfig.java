@@ -64,6 +64,8 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
 
     private List<Integer> partitionFieldsIndexInRow;
 
+    private Boolean isPrintHeader = BaseSinkConfig.IS_PRINT_HEADER.defaultValue();
+
     public TextFileSinkConfig(@NonNull Config config, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
         super(config);
         checkArgument(!CollectionUtils.isEmpty(Arrays.asList(seaTunnelRowTypeInfo.getFieldNames())));
@@ -149,6 +151,10 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
             this.partitionFieldsIndexInRow = this.partitionFieldList.stream()
                 .map(columnsMap::get)
                 .collect(Collectors.toList());
+        }
+
+        if(config.hasPath(BaseSinkConfig.IS_PRINT_HEADER.key())){
+            this.isPrintHeader = config.getBoolean(BaseSinkConfig.IS_PRINT_HEADER.key());
         }
     }
 }

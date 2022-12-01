@@ -49,14 +49,19 @@ public class TextReadStrategy extends AbstractReadStrategy {
     private DateTimeUtils.Formatter datetimeFormat = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
     private TimeUtils.Formatter timeFormat = TimeUtils.Formatter.HH_MM_SS;
 
+    private Long skipHeaderNumber = BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.defaultValue();
+
     @Override
     public void read(String path, Collector<SeaTunnelRow> output) throws FileConnectorException, IOException {
+        if (pluginConfig.hasPath(BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.key())) {
+            skipHeaderNumber = pluginConfig.getLong(BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.key());
+        }
         Configuration conf = getConfiguration();
         FileSystem fs = FileSystem.get(conf);
         Path filePath = new Path(path);
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(filePath), StandardCharsets.UTF_8))) {
-            reader.lines().forEach(line -> {
+            reader.lines().skip(skipHeaderNumber).forEach(line -> {
                 try {
                     SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(line.getBytes());
                     if (isMergePartition) {
