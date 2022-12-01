@@ -52,7 +52,7 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
     private static final Long JOB_3 = 3L;
 
     @Test
-    public void testGetRunningJobMetrics() throws Exception {
+    public void testGetJobMetrics() throws Exception {
         startJob(JOB_1, "fake_to_console_job_metrics.conf");
         startJob(JOB_2, "fake_to_console_job_metrics.conf");
 
