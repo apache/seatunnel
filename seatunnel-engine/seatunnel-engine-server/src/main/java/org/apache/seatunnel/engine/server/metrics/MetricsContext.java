@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.metrics;
 
 import org.apache.seatunnel.api.common.metrics.Metric;
 import org.apache.seatunnel.api.common.metrics.Unit;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import com.hazelcast.internal.metrics.DynamicMetricsProvider;
 import com.hazelcast.internal.metrics.MetricDescriptor;
@@ -36,10 +37,16 @@ public class MetricsContext implements DynamicMetricsProvider {
     private static final BiFunction<String, Unit, AbstractMetric> CREATE_SINGLE_WRITER_METRIC = SingleWriterMetric::new;
     private static final BiFunction<String, Unit, AbstractMetric> CREATE_THREAD_SAFE_METRICS = ThreadSafeMetric::new;
 
+    private static final BiFunction<String, Unit, AbstractMetric> CREATE_SINGLE_WRITER_QPS_METRIC = SingleWriterQPSMetric::new;
+
     private volatile Map<String, AbstractMetric> metrics;
 
     Metric metric(String name, Unit unit) {
         return metric(name, unit, CREATE_SINGLE_WRITER_METRIC);
+    }
+
+    Metric qpsMetric(String name, Unit unit) {
+        return metric(name, unit, CREATE_SINGLE_WRITER_QPS_METRIC);
     }
 
     Metric threadSafeMetric(String name, Unit unit) {
@@ -65,8 +72,17 @@ public class MetricsContext implements DynamicMetricsProvider {
     @Override
     public void provideDynamicMetrics(MetricDescriptor tagger, MetricsCollectionContext context) {
         if (metrics != null) {
-            metrics.forEach((name, metric) ->
-                    context.collect(tagger.copy(), name, ProbeLevel.INFO, toProbeUnit(metric.unit()), metric.get()));
+            metrics.forEach((name, metric) -> {
+                if (metric.get() instanceof Long) {
+                    context.collect(tagger.copy(), name, ProbeLevel.INFO, toProbeUnit(metric.unit()),
+                        (Long) metric.get());
+                } else if (metric.get() instanceof Double) {
+                    context.collect(tagger.copy(), name, ProbeLevel.INFO, toProbeUnit(metric.unit()),
+                        (Double) metric.get());
+                } else {
+                    throw new SeaTunnelException("The value of Metric does not support " + metric.get().getClass().getSimpleName() + " data type");
+                }
+            });
         }
     }
 
@@ -94,8 +110,64 @@ public class MetricsContext implements DynamicMetricsProvider {
             return unit;
         }
 
-        protected abstract long get();
+        protected abstract Object get();
 
+    }
+
+    private static final class SingleWriterQPSMetric extends AbstractMetric {
+
+        private static final AtomicLongFieldUpdater<SingleWriterQPSMetric> VOLATILE_VALUE_UPDATER =
+            AtomicLongFieldUpdater.newUpdater(SingleWriterQPSMetric.class, "value");
+
+        private volatile long value;
+        private volatile long timestamp;
+
+        SingleWriterQPSMetric(String name, Unit unit) {
+            super(name, unit);
+        }
+
+        @Override
+        public void set(long newValue) {
+            checkAndSetStartTime();
+            VOLATILE_VALUE_UPDATER.lazySet(this, newValue);
+        }
+
+        @Override
+        public void increment() {
+            checkAndSetStartTime();
+            VOLATILE_VALUE_UPDATER.lazySet(this, value + 1);
+        }
+
+        @Override
+        public void increment(long increment) {
+            checkAndSetStartTime();
+            VOLATILE_VALUE_UPDATER.lazySet(this, value + increment);
+        }
+
+        @Override
+        public void decrement() {
+            checkAndSetStartTime();
+            VOLATILE_VALUE_UPDATER.lazySet(this, value - 1);
+        }
+
+        @Override
+        public void decrement(long decrement) {
+            checkAndSetStartTime();
+            VOLATILE_VALUE_UPDATER.lazySet(this, value - decrement);
+        }
+
+        @SuppressWarnings("checkstyle:MagicNumber")
+        @Override
+        protected Object get() {
+            long cost = System.currentTimeMillis() - timestamp;
+            return (double) value * 1000 / cost;
+        }
+
+        private void checkAndSetStartTime(){
+            if (timestamp == 0){
+                timestamp = System.currentTimeMillis();
+            }
+        }
     }
 
     private static final class SingleWriterMetric extends AbstractMetric {
@@ -135,7 +207,7 @@ public class MetricsContext implements DynamicMetricsProvider {
         }
 
         @Override
-        protected long get() {
+        protected Object get() {
             return value;
         }
     }
@@ -177,7 +249,7 @@ public class MetricsContext implements DynamicMetricsProvider {
         }
 
         @Override
-        protected long get() {
+        protected Object get() {
             return VOLATILE_VALUE_UPDATER.get(this);
         }
     }

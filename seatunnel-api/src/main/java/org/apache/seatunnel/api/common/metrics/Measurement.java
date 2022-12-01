@@ -50,13 +50,13 @@ public final class Measurement implements Serializable {
 
     private Map<String, String> tags; //tag name -> tag value
     private String metric;
-    private long value;
+    private Object value;
     private long timestamp;
 
     Measurement() {
     }
 
-    private Measurement(String metric, long value, long timestamp, Map<String, String> tags) {
+    private Measurement(String metric, Object value, long timestamp, Map<String, String> tags) {
         this.metric = metric;
         this.value = value;
         this.timestamp = timestamp;
@@ -68,7 +68,7 @@ public final class Measurement implements Serializable {
      * the metric descriptor in map form.
      */
     public static Measurement of(
-        String metric, long value, long timestamp, Map<String, String> tags
+        String metric, Object value, long timestamp, Map<String, String> tags
     ) {
         Objects.requireNonNull(tags, "metric");
         Objects.requireNonNull(tags, "tags");
@@ -78,7 +78,7 @@ public final class Measurement implements Serializable {
     /**
      * Returns the value associated with this {@link Measurement}.
      */
-    public long value() {
+    public Object value() {
         return value;
     }
 
@@ -111,7 +111,7 @@ public final class Measurement implements Serializable {
 
     @Override
     public int hashCode() {
-        return 31 * (int) (timestamp * 31 + value) + Objects.hashCode(tags);
+        return 31 * (int) (timestamp * 31 + value.hashCode()) + Objects.hashCode(tags);
     }
 
     @Override
@@ -127,7 +127,7 @@ public final class Measurement implements Serializable {
     public String toString() {
         StringBuilder sb = new StringBuilder();
 
-        sb.append(String.format("%s %,5d", metric, value))
+        sb.append(String.format("%s %s", metric, value))
                 .append(" ")
                 .append(timestamp)
                 .append(" [");

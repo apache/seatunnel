@@ -86,10 +86,11 @@ public final class JobMetricsUtil {
 
         @Override
         public void consumeDouble(MetricDescriptor descriptor, double value) {
-            consumeLong(descriptor, (long) value);
+            metrics.computeIfAbsent(descriptor.metric(), k -> new ArrayList<>())
+                .add(measurement(descriptor, value));
         }
 
-        private Measurement measurement(MetricDescriptor descriptor, long value) {
+        private Measurement measurement(MetricDescriptor descriptor, Object value) {
             Map<String, String> tags = MapUtil.createHashMap(descriptor.tagCount());
             for (int i = 0; i < descriptor.tagCount(); i++) {
                 tags.put(descriptor.tag(i), descriptor.tagValue(i));

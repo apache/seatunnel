@@ -35,6 +35,10 @@ public final class MetricsImpl {
         return getContext().metric(name, unit);
     }
 
+    public static Metric qpsMetric(String name, Unit unit) {
+        return getContext().qpsMetric(name, unit);
+    }
+
     public static Metric threadSafeMetric(String name, Unit unit) {
         return getContext().threadSafeMetric(name, unit);
     }

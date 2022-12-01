@@ -27,5 +27,7 @@ public final class MetricNames {
 
     public static final String SOURCE_RECEIVED_COUNT = "SourceReceivedCount";
 
+    public static final String SOURCE_RECEIVED_QPS = "SourceReceivedQPS";
     public static final String SINK_WRITE_COUNT = "SinkWriteCount";
+    public static final String SINK_WRITE_QPS = "SinkWriteQPS";
 }

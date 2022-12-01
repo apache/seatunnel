@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task;
 
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
 
 import org.apache.seatunnel.api.common.metrics.Unit;
 import org.apache.seatunnel.api.source.Collector;
@@ -43,6 +44,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     public void collect(T row) {
         try {
             sendRecordToNext(new Record<>(row));
+            Metrics.qpsMetric(SOURCE_RECEIVED_QPS, Unit.COUNT).increment();
             Metrics.metric(SOURCE_RECEIVED_COUNT, Unit.COUNT).increment();
         } catch (IOException e) {
             throw new RuntimeException(e);

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task.flow;
 
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_QPS;
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
 import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
 
@@ -154,6 +155,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     return;
                 }
                 writer.write((T) record.getData());
+                Metrics.qpsMetric(SINK_WRITE_QPS, Unit.COUNT).increment();
                 Metrics.metric(SINK_WRITE_COUNT, Unit.COUNT).increment();
             }
         } catch (Exception e) {

@@ -18,7 +18,9 @@
 package org.apache.seatunnel.engine.server.master;
 
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_QPS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -58,8 +60,8 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
             .untilAsserted(() -> {
                 JobMetrics jobMetrics = server.getCoordinatorService().getJobMetrics(JOB_1);
                 if (jobMetrics.get(SINK_WRITE_COUNT).size() > 0) {
-                    assertTrue(jobMetrics.get(SINK_WRITE_COUNT).get(0).value() > 0);
-                    assertTrue(jobMetrics.get(SOURCE_RECEIVED_COUNT).get(0).value() > 0);
+                    assertTrue((Long) jobMetrics.get(SINK_WRITE_COUNT).get(0).value() > 0);
+                    assertTrue((Long) jobMetrics.get(SOURCE_RECEIVED_COUNT).get(0).value() > 0);
                 }
                 else {
                     fail();
@@ -72,9 +74,10 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
                 server.getCoordinatorService().getJobHistoryService().listAllJob().contains(String.format("{\"jobId\":%s,\"jobStatus\":\"FINISHED\"}", JOB_1))));
 
         JobMetrics jobMetrics = server.getCoordinatorService().getJobMetrics(JOB_1);
-
-        assertEquals(30, jobMetrics.get(SINK_WRITE_COUNT).get(0).value());
-        assertEquals(30, jobMetrics.get(SOURCE_RECEIVED_COUNT).get(0).value());
+        assertEquals(30, (Long) jobMetrics.get(SINK_WRITE_COUNT).get(0).value());
+        assertEquals(30, (Long) jobMetrics.get(SOURCE_RECEIVED_COUNT).get(0).value());
+        assertTrue((Double) jobMetrics.get(SOURCE_RECEIVED_QPS).get(0).value() > 0);
+        assertTrue((Double) jobMetrics.get(SINK_WRITE_QPS).get(0).value() > 0);
     }
 
     private void startJob(Long jobid, String path){

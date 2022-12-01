@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.engine.client;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_QPS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
 import static org.awaitility.Awaitility.await;
 
 import org.apache.seatunnel.common.config.Common;
@@ -150,7 +154,10 @@ public class SeaTunnelClientTest {
 
             String jobMetrics = CLIENT.getJobMetrics(jobId);
 
-            Assertions.assertTrue(jobMetrics.contains("SourceReceivedCount"));
+            Assertions.assertTrue(jobMetrics.contains(SOURCE_RECEIVED_COUNT));
+            Assertions.assertTrue(jobMetrics.contains(SOURCE_RECEIVED_QPS));
+            Assertions.assertTrue(jobMetrics.contains(SINK_WRITE_COUNT));
+            Assertions.assertTrue(jobMetrics.contains(SINK_WRITE_QPS));
 
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
