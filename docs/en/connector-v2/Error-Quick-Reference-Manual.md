@@ -159,6 +159,12 @@ problems encountered by users.
 | HUDI-01 | Create ParquetMetadata failed | When the user encounters this error code, it indicates that ParquetMetadata creation failed. Please check |
 | HUDI-02 | Kerberos Authorized failed    | When the user encounters this error code, it indicates that Kerberos authorization failed. Please check   |
 
+## Doris Connector Error Codes
+
+| code     | description                               | solution                                                                                                                                 |
+|----------|-------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| Doris-01 | Writing records to Doris failed.          | When users encounter this error code, it means that writing records to Doris failed, please check data from files whether is correct     |
+
 ## Clickhouse Connector Error Codes
 
 | code          | description                                                               | solution                                                                                                                                                                |

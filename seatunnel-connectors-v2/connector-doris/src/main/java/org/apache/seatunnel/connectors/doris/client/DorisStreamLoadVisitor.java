@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.connectors.doris.client;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.doris.config.SinkConfig;
+import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.apache.seatunnel.connectors.doris.util.DelimiterParserUtil;
 
 import lombok.extern.slf4j.Slf4j;
@@ -59,7 +61,7 @@ public class DorisStreamLoadVisitor {
     public Boolean doStreamLoad(DorisFlushTuple flushData) throws IOException {
         String host = getAvailableHost();
         if (null == host) {
-            throw new IOException("None of the host in `load_url` could be connected.");
+            throw new DorisConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, "None of the host in `load_url` could be connected.");
         }
         String loadUrl = new StringBuilder(host)
                 .append("/api/")
@@ -75,7 +77,7 @@ public class DorisStreamLoadVisitor {
         final String keyStatus = "Status";
         if (null == loadResult || !loadResult.containsKey(keyStatus)) {
             log.error("unknown result status. {}", loadResult);
-            throw new IOException("Unable to flush data to Doris: unknown result status. " + loadResult);
+            throw new DorisConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, "Unable to flush data to Doris: unknown result status. " + loadResult);
         }
         if (log.isDebugEnabled()) {
             log.debug(new StringBuilder("StreamLoad response:\n").append(JsonUtils.toJsonString(loadResult)).toString());
@@ -98,7 +100,7 @@ public class DorisStreamLoadVisitor {
                 errorBuilder.append(JsonUtils.toJsonString(loadResult));
                 errorBuilder.append('\n');
             }
-            throw new IOException(errorBuilder.toString());
+            throw new DorisConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, errorBuilder.toString());
         } else if (RESULT_LABEL_EXISTED.equals(loadResult.get(keyStatus))) {
             log.debug(new StringBuilder("StreamLoad response:\n").append(JsonUtils.toJsonString(loadResult)).toString());
             // has to block-checking the state to get the final result
@@ -146,7 +148,7 @@ public class DorisStreamLoadVisitor {
             bos.put("]".getBytes(StandardCharsets.UTF_8));
             return bos.array();
         }
-        throw new RuntimeException("Failed to join rows data, unsupported `format` from stream load properties:");
+        throw new DorisConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, "Failed to join rows data, unsupported `format` from stream load properties:");
     }
 
     @SuppressWarnings("unchecked")
@@ -162,12 +164,12 @@ public class DorisStreamLoadVisitor {
                 String queryLoadStateUrl = new StringBuilder(host).append("/api/").append(sinkConfig.getDatabase()).append("/get_load_state?label=").append(label).toString();
                 Map<String, Object> result = httpHelper.doHttpGet(queryLoadStateUrl, getLoadStateHttpHeader(label));
                 if (result == null) {
-                    throw new IOException(String.format("Failed to flush data to Doris, Error " +
+                    throw new DorisConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, String.format("Failed to flush data to Doris, Error " +
                             "could not get the final state of label[%s].\n", label), null);
                 }
                 String labelState = (String) result.get("state");
                 if (null == labelState) {
-                    throw new IOException(String.format("Failed to flush data to Doris, Error " +
+                    throw new DorisConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, String.format("Failed to flush data to Doris, Error " +
                             "could not get the final state of label[%s]. response[%s]\n", label, JsonUtils.toJsonString(result)), null);
                 }
                 log.info(String.format("Checking label[%s] state[%s]\n", label, labelState));
@@ -178,12 +180,12 @@ public class DorisStreamLoadVisitor {
                     case RESULT_LABEL_PREPARE:
                         continue;
                     case RESULT_LABEL_ABORTED:
-                        throw new DorisStreamLoadFailedException(String.format("Failed to flush data to Doris, Error " +
-                                "label[%s] state[%s]\n", label, labelState), null, true);
+                        throw new DorisConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, String.format("Failed to flush data to Doris, Error " +
+                                "label[%s] state[%s]\n", label, labelState), true);
                     case RESULT_LABEL_UNKNOWN:
                     default:
-                        throw new DorisStreamLoadFailedException(String.format("Failed to flush data to Doris, Error " +
-                                "label[%s] state[%s]\n", label, labelState), null);
+                        throw new DorisConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, String.format("Failed to flush data to StarRocks, Error " +
+                                "label[%s] state[%s]\n", label, labelState));
                 }
             } catch (IOException e) {
                 throw new IOException(e);

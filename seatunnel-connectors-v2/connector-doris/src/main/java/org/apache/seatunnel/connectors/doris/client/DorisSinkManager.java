@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.connectors.doris.client;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.doris.config.SinkConfig;
+import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
+import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 
 import com.google.common.base.Strings;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -116,10 +119,10 @@ public class DorisSinkManager {
             } catch (Exception e) {
                 log.warn("Writing records to Doris failed, retry times = {}", i, e);
                 if (i >= sinkConfig.getMaxRetries()) {
-                    throw new IOException("Writing records to Doris failed.", e);
+                    throw new DorisConnectorException(DorisConnectorErrorCode.WRITE_RECORDS_FAILED, "The number of retries was exceeded,writing records to Doris failed.", e);
                 }
 
-                if (e instanceof DorisStreamLoadFailedException && ((DorisStreamLoadFailedException) e).needReCreateLabel()) {
+                if (e instanceof DorisConnectorException && ((DorisConnectorException) e).needReCreateLabel()) {
                     String newLabel = createBatchLabel();
                     log.warn(String.format("Batch label changed from [%s] to [%s]", tuple.getLabel(), newLabel));
                     tuple.setLabel(newLabel);
@@ -143,7 +146,7 @@ public class DorisSinkManager {
 
     private void checkFlushException() {
         if (flushException != null) {
-            throw new RuntimeException("Writing records to Doris failed.", flushException);
+            throw new DorisConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, flushException);
         }
     }
 
