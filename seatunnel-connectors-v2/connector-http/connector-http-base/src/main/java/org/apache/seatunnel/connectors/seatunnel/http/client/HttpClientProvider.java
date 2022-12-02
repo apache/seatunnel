@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.client;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import com.github.rholder.retry.Attempt;
@@ -382,6 +383,11 @@ public class HttpClientProvider implements AutoCloseable {
 
     private void addBody(HttpEntityEnclosingRequestBase request, String body) {
         request.addHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON);
+
+        if (StringUtils.isBlank(body)) {
+            body = "";
+        }
+
         StringEntity entity = new StringEntity(body, ContentType.APPLICATION_JSON);
         entity.setContentEncoding(new BasicHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON));
         request.setEntity(entity);
