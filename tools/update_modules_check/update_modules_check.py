@@ -68,7 +68,7 @@ def get_sub_modules(file):
     output = ""
     for line in f.readlines():
         line = line.decode().replace(" ","")
-        if line.startswith("<string>"):
+        if line.startswith(b"<string>"):
             line = line.replace(" ","").replace("<string>", "").replace("</string>", "").replace("\n", "")
             output = output + "," + line
 
@@ -88,7 +88,7 @@ def get_final_it_modules(file):
     f = open(file, 'rb')
     output = ""
     for line in f.readlines():
-        if line.startswith("org.apache.seatunnel"):
+        if line.startswith(b"org.apache.seatunnel"):
             con = line.split(":")
             # find all e2e modules
             if con[2] == "jar" and "-e2e" in con[1] and "transform" not in con[1]:
@@ -101,7 +101,7 @@ def get_final_ut_modules(file):
     f = open(file, 'rb')
     output = ""
     for line in f.readlines():
-        if line.startswith("org.apache.seatunnel".encode("utf-8")):
+        if line.startswith(b"org.apache.seatunnel"):
             con = line.split(":")
             # find all e2e modules
             if con[2] == "jar":
