@@ -67,7 +67,7 @@ def get_sub_modules(file):
     f = open(file, 'rb')
     output = ""
     for line in f.readlines():
-        line = line.replace(" ","")
+        line = line.decode().replace(" ","")
         if line.startswith("<string>"):
             line = line.replace(" ","").replace("<string>", "").replace("</string>", "").replace("\n", "")
             output = output + "," + line
