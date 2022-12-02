@@ -32,12 +32,12 @@ public enum DorisConnectorErrorCode implements SeaTunnelErrorCode {
 
     @Override
     public String getCode() {
-        return null;
+        return code;
     }
 
     @Override
     public String getDescription() {
-        return null;
+        return description;
     }
 
 }
