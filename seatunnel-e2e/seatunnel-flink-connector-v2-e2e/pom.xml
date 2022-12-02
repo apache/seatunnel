@@ -35,7 +35,7 @@
         <module>connector-fake-flink-e2e</module>
         <module>connector-mongodb-flink-e2e</module>
         <module>connector-iceberg-flink-e2e</module>
-        <module>connector-neo4j-flink-e2e</module>
+        <module>connector-iceberg-hadoop3-flink-e2e</module>
     </modules>
 
     <dependencies>

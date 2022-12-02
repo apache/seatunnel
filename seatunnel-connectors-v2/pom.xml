@@ -62,6 +62,9 @@
         <module>connector-cassandra</module>
         <module>connector-starrocks</module>
         <module>connector-google-sheets</module>
+        <module>connector-slack</module>
+        <module>connector-rabbitmq</module>
+        <module>connector-openmldb</module>
     </modules>
 
     <dependencyManagement>

@@ -112,6 +112,10 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
             case MYSQL_BIGINT_UNSIGNED:
                 return new DecimalType(20, 0);
             case MYSQL_DECIMAL:
+                if (precision > 38) {
+                    LOG.warn("{} will probably cause value overflow.", MYSQL_DECIMAL);
+                    return new DecimalType(38, 18);
+                }
                 return new DecimalType(precision, scale);
             case MYSQL_DECIMAL_UNSIGNED:
                 return new DecimalType(precision + 1, scale);

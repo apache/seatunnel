@@ -21,16 +21,28 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+import org.apache.seatunnel.connectors.seatunnel.http.config.JsonField;
+import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 
 import com.google.common.base.Strings;
+import com.jayway.jsonpath.Configuration;
+import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.Option;
+import com.jayway.jsonpath.ReadContext;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @Slf4j
@@ -39,11 +51,19 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     protected final HttpParameter httpParameter;
     protected HttpClientProvider httpClient;
     private final DeserializationCollector deserializationCollector;
+    private static final Option[] DEFAULT_OPTIONS =
+        {Option.SUPPRESS_EXCEPTIONS, Option.ALWAYS_RETURN_LIST, Option.DEFAULT_PATH_LEAF_TO_NULL};
+    private JsonPath[] jsonPaths;
+    private final JsonField jsonField;
+    private final String contentJson;
+    private final Configuration jsonConfiguration = Configuration.defaultConfiguration().addOptions(DEFAULT_OPTIONS);
 
-    public HttpSourceReader(HttpParameter httpParameter, SingleSplitReaderContext context, DeserializationSchema<SeaTunnelRow> deserializationSchema) {
+    public HttpSourceReader(HttpParameter httpParameter, SingleSplitReaderContext context, DeserializationSchema<SeaTunnelRow> deserializationSchema, JsonField jsonField, String contentJson) {
         this.context = context;
         this.httpParameter = httpParameter;
         this.deserializationCollector = new DeserializationCollector(deserializationSchema);
+        this.jsonField = jsonField;
+        this.contentJson = contentJson;
     }
 
     @Override
@@ -65,6 +85,13 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             if (HttpResponse.STATUS_OK == response.getCode()) {
                 String content = response.getContent();
                 if (!Strings.isNullOrEmpty(content)) {
+                    if (contentJson != null) {
+                        content = JsonUtils.stringToJsonNode(getPartOfJson(content)).toString();
+                    }
+                    if (jsonField != null) {
+                        this.initJsonPath(jsonField);
+                        content = JsonUtils.toJsonNode(parseToMap(decodeJSON(content), jsonField)).toString();
+                    }
                     deserializationCollector.collect(content.getBytes(), output);
                 }
                 return;
@@ -82,6 +109,85 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     Thread.sleep(httpParameter.getPollIntervalMillis());
                 }
             }
+        }
+    }
+
+    private List<Map<String, String>> parseToMap(List<List<String>> datas, JsonField jsonField) {
+        List<Map<String, String>> decodeDatas = new ArrayList<>(datas.get(0).size());
+        String[] keys = jsonField.getFields().keySet().toArray(new String[]{});
+        for (int index = 0; index < jsonField.getFields().size(); index++) {
+            int finalIndex = index;
+            datas.get(index).forEach(field -> {
+                if (decodeDatas.isEmpty() || decodeDatas.size() != datas.get(0).size()) {
+                    Map<String, String> decodeData = new HashMap<>(jsonField.getFields().size());
+                    decodeData.put(keys[finalIndex], field);
+                    decodeDatas.add(decodeData);
+                } else {
+                    decodeDatas.forEach(decodeData -> {
+                        decodeData.put(keys[finalIndex], field);
+                    });
+                }
+            });
+        }
+
+        return decodeDatas;
+    }
+
+    private List<List<String>> decodeJSON(String data) {
+        ReadContext jsonReadContext = JsonPath.using(jsonConfiguration).parse(data);
+        List<List<String>> results = new ArrayList<>(jsonPaths.length);
+        for (JsonPath path : jsonPaths) {
+            List<String> result = jsonReadContext.read(path);
+            results.add(result);
+        }
+        for (int i = 1; i < results.size(); i++) {
+            List<?> result0 = results.get(0);
+            List<?> result = results.get(i);
+            if (result0.size() != result.size()) {
+                throw new HttpConnectorException(
+                    HttpConnectorErrorCode.FIELD_DATA_IS_INCONSISTENT,
+                    String.format(
+                        "[%s](%d) and [%s](%d) the number of parsing records is inconsistent.",
+                        jsonPaths[0].getPath(), result0.size(), jsonPaths[i].getPath(), result.size()));
+            }
+        }
+
+        return dataFlip(results);
+    }
+
+    private String getPartOfJson(String data) {
+        ReadContext jsonReadContext = JsonPath.using(jsonConfiguration).parse(data);
+        return JsonUtils.toJsonString(jsonReadContext.read(JsonPath.compile(contentJson)));
+    }
+
+    private List<List<String>> dataFlip(List<List<String>> results) {
+
+        List<List<String>> datas = new ArrayList<>();
+        for (int i = 0; i < results.size(); i++) {
+            List<String> result = results.get(i);
+            if (i == 0) {
+                for (Object o : result) {
+                    String val = o == null ? null : o.toString();
+                    List<String> row = new ArrayList<>(jsonPaths.length);
+                    row.add(val);
+                    datas.add(row);
+                }
+            } else {
+                for (int j = 0; j < result.size(); j++) {
+                    Object o = result.get(j);
+                    String val = o == null ? null : o.toString();
+                    List<String> row = datas.get(j);
+                    row.add(val);
+                }
+            }
+        }
+        return datas;
+    }
+
+    private void initJsonPath(JsonField jsonField) {
+        jsonPaths = new JsonPath[jsonField.getFields().size()];
+        for (int index = 0; index < jsonField.getFields().keySet().size(); index++) {
+            jsonPaths[index] = JsonPath.compile(jsonField.getFields().keySet().toArray(new String[]{})[index]);
         }
     }
 }

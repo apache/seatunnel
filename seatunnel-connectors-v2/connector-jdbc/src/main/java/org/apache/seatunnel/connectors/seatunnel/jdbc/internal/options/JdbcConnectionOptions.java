@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig;
+
 import java.io.Serializable;
 import java.util.Optional;
 
@@ -24,23 +26,22 @@ public class JdbcConnectionOptions
     implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private static final int DEFAULT_CONNECTION_CHECK_TIMEOUT_SEC = 30;
+
     private static final int DEFAULT_MAX_RETRIES = 3;
     private static final int DEFAULT_BATCH_SIZE = 300;
     private static final int DEFAULT_BATCH_INTERVAL_MS = 1000;
     private static final int DEFAULT_MAX_COMMIT_ATTEMPTS = 3;
     private static final int DEFAULT_TRANSACTION_TIMEOUT_SEC = -1;
-    private static final boolean DEFAULT_AUTO_COMMIT = true;
 
     public String url;
     public String driverName;
-    public int connectionCheckTimeoutSeconds = DEFAULT_CONNECTION_CHECK_TIMEOUT_SEC;
+    public int connectionCheckTimeoutSeconds = JdbcConfig.CONNECTION_CHECK_TIMEOUT_SEC.defaultValue();
     public int maxRetries = DEFAULT_MAX_RETRIES;
     public String username;
     public String password;
     public String query;
 
-    public boolean autoCommit = DEFAULT_AUTO_COMMIT;
+    public boolean autoCommit = JdbcConfig.AUTO_COMMIT.defaultValue();
 
     public int batchSize = DEFAULT_BATCH_SIZE;
     public int batchIntervalMs = DEFAULT_BATCH_INTERVAL_MS;
@@ -82,10 +83,6 @@ public class JdbcConnectionOptions
         return Optional.ofNullable(password);
     }
 
-    public String getQuery() {
-        return query;
-    }
-
     public int getBatchSize() {
         return batchSize;
     }
@@ -113,12 +110,12 @@ public class JdbcConnectionOptions
     public static final class JdbcConnectionOptionsBuilder {
         private String url;
         private String driverName;
-        private int connectionCheckTimeoutSeconds = DEFAULT_CONNECTION_CHECK_TIMEOUT_SEC;
+        private int connectionCheckTimeoutSeconds = JdbcConfig.CONNECTION_CHECK_TIMEOUT_SEC.defaultValue();
         private int maxRetries = DEFAULT_MAX_RETRIES;
         private String username;
         private String password;
         private String query;
-        private boolean autoCommit = DEFAULT_AUTO_COMMIT;
+        private boolean autoCommit = JdbcConfig.AUTO_COMMIT.defaultValue();
         private int batchSize = DEFAULT_BATCH_SIZE;
         private int batchIntervalMs = DEFAULT_BATCH_INTERVAL_MS;
         private String xaDataSourceClassName;
@@ -201,7 +198,6 @@ public class JdbcConnectionOptions
             jdbcConnectionOptions.maxRetries = this.maxRetries;
             jdbcConnectionOptions.password = this.password;
             jdbcConnectionOptions.connectionCheckTimeoutSeconds = this.connectionCheckTimeoutSeconds;
-            jdbcConnectionOptions.query = this.query;
             jdbcConnectionOptions.url = this.url;
             jdbcConnectionOptions.autoCommit = this.autoCommit;
             jdbcConnectionOptions.username = this.username;

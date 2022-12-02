@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.s3.source;
 
-import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
@@ -26,6 +25,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3Config;
 
 import com.google.auto.service.AutoService;
+
+import java.util.Arrays;
 
 @AutoService(Factory.class)
 public class S3FileSourceFactory implements TableSourceFactory {
@@ -47,8 +48,7 @@ public class S3FileSourceFactory implements TableSourceFactory {
                 .optional(S3Config.DATE_FORMAT)
                 .optional(S3Config.DATETIME_FORMAT)
                 .optional(S3Config.TIME_FORMAT)
-                .conditional(Condition.of(S3Config.FILE_TYPE, "text"), SeaTunnelSchema.SCHEMA)
-                .conditional(Condition.of(S3Config.FILE_TYPE, "json"), SeaTunnelSchema.SCHEMA)
+                .conditional(S3Config.FILE_TYPE, Arrays.asList("text", "json"), SeaTunnelSchema.SCHEMA)
                 .build();
     }
 }

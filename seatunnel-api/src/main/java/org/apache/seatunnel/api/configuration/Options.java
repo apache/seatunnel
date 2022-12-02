@@ -155,6 +155,10 @@ public class Options {
 
         public <T> TypedOptionBuilder<T> objectType(Class<T> option) {
             return new TypedOptionBuilder<>(key, new TypeReference<T>() {
+                @Override
+                public Type getType() {
+                    return option;
+                }
             });
         }
 

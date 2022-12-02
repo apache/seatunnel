@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -36,9 +36,9 @@ public interface ReadStrategy extends Serializable {
 
     Configuration getConfiguration(HadoopConf conf);
 
-    void read(String path, Collector<SeaTunnelRow> output) throws Exception;
+    void read(String path, Collector<SeaTunnelRow> output) throws IOException, FileConnectorException;
 
-    SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) throws FilePluginException;
+    SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) throws FileConnectorException;
 
     void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType);
 

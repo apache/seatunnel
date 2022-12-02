@@ -27,6 +27,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -172,7 +174,8 @@ public class RowToJsonConverters implements Serializable {
                 MapType mapType = (MapType) type;
                 return createMapConverter(mapType.toString(), mapType.getKeyType(), mapType.getValueType());
             default:
-                throw new UnsupportedOperationException("unsupported parse type: " + type);
+                throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "unsupported parse type: " + type);
         }
     }
 
@@ -247,7 +250,7 @@ public class RowToJsonConverters implements Serializable {
 
     private RowToJsonConverter createMapConverter(String typeSummary, SeaTunnelDataType<?> keyType, SeaTunnelDataType<?> valueType) {
         if (!SqlType.STRING.equals(keyType.getSqlType())) {
-            throw new UnsupportedOperationException(
+            throw new SeaTunnelJsonFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                     "JSON format doesn't support non-string as key type of map. The type is: " + typeSummary);
         }
 

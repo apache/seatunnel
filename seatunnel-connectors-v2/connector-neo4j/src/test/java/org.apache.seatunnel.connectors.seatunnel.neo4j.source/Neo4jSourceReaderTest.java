@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.exception.Neo4jConnectorException;
 
 import org.junit.jupiter.api.Test;
 import org.neo4j.driver.exceptions.value.LossyCoercion;
@@ -66,8 +67,8 @@ class Neo4jSourceReaderTest {
         assertEquals(1, Neo4jSourceReader.convertType(BasicType.INT_TYPE, new IntegerValue(1)));
         assertEquals(1.1F, Neo4jSourceReader.convertType(BasicType.FLOAT_TYPE, new FloatValue(1.1F)));
 
-        assertThrows(IllegalArgumentException.class, () -> Neo4jSourceReader.convertType(BasicType.SHORT_TYPE, new IntegerValue(256)));
+        assertThrows(Neo4jConnectorException.class, () -> Neo4jSourceReader.convertType(BasicType.SHORT_TYPE, new IntegerValue(256)));
         assertThrows(LossyCoercion.class, () -> Neo4jSourceReader.convertType(BasicType.INT_TYPE, new IntegerValue(Integer.MAX_VALUE + 1L)));
-        assertThrows(IllegalArgumentException.class, () -> Neo4jSourceReader.convertType(new MapType<>(BasicType.INT_TYPE, BasicType.BOOLEAN_TYPE), new MapValue(Collections.singletonMap("1", BooleanValue.FALSE))));
+        assertThrows(Neo4jConnectorException.class, () -> Neo4jSourceReader.convertType(new MapType<>(BasicType.INT_TYPE, BasicType.BOOLEAN_TYPE), new MapValue(Collections.singletonMap("1", BooleanValue.FALSE))));
     }
 }

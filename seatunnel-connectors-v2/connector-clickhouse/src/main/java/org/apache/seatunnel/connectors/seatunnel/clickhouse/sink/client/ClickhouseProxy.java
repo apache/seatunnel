@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.DistributedEngine;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
@@ -48,7 +52,7 @@ public class ClickhouseProxy {
     public ClickhouseProxy(ClickHouseNode node) {
         this.client = ClickHouseClient.newInstance(node.getProtocol());
         this.clickhouseRequest =
-                client.connect(node).format(ClickHouseFormat.RowBinaryWithNamesAndTypes);
+            client.connect(node).format(ClickHouseFormat.RowBinaryWithNamesAndTypes);
 
     }
 
@@ -58,7 +62,7 @@ public class ClickhouseProxy {
 
     public ClickHouseRequest<?> getClickhouseConnection(Shard shard) {
         ClickHouseClient c = shardToDataSource
-                .computeIfAbsent(shard, s -> ClickHouseClient.newInstance(s.getNode().getProtocol()));
+            .computeIfAbsent(shard, s -> ClickHouseClient.newInstance(s.getNode().getProtocol()));
         return c.connect(shard.getNode()).format(ClickHouseFormat.RowBinaryWithNamesAndTypes);
     }
 
@@ -77,12 +81,12 @@ public class ClickhouseProxy {
                 // engineFull field will be like : Distributed(cluster, database, table[, sharding_key[, policy_name]])
                 String engineFull = record.getValue(0).asString();
                 List<String> infos = Arrays.stream(engineFull.substring(12).split(","))
-                        .map(s -> s.replace("'", "").trim()).collect(Collectors.toList());
+                    .map(s -> s.replace("'", "").trim()).collect(Collectors.toList());
                 return new DistributedEngine(infos.get(0), infos.get(1), infos.get(2).replace("\\)", "").trim());
             }
-            throw new RuntimeException("Cannot get distributed table from clickhouse, resultSet is empty");
+            throw new ClickhouseConnectorException(SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED, "Cannot get distributed table from clickhouse, resultSet is empty");
         } catch (ClickHouseException e) {
-            throw new RuntimeException("Cannot get distributed table from clickhouse", e);
+            throw new ClickhouseConnectorException(SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED, "Cannot get distributed table from clickhouse", e);
         }
     }
 
@@ -103,7 +107,7 @@ public class ClickhouseProxy {
         try (ClickHouseResponse response = request.query(sql).executeAndWait()) {
             response.records().forEach(r -> schema.put(r.getValue(0).asString(), r.getValue(1).asString()));
         } catch (ClickHouseException e) {
-            throw new RuntimeException("Cannot get table schema from clickhouse", e);
+            throw new ClickhouseConnectorException(CommonErrorCode.TABLE_SCHEMA_GET_FAILED, "Cannot get table schema from clickhouse", e);
         }
         return schema;
     }
@@ -124,16 +128,16 @@ public class ClickhouseProxy {
         try (ClickHouseResponse response = connection.query(sql).executeAndWait()) {
             response.records().forEach(r -> {
                 shardList.add(new Shard(
-                        r.getValue(0).asInteger(),
-                        r.getValue(1).asInteger(),
-                        r.getValue(2).asInteger(),
-                        r.getValue(3).asString(),
-                        r.getValue(4).asString(),
-                        port, database, username, password));
+                    r.getValue(0).asInteger(),
+                    r.getValue(1).asInteger(),
+                    r.getValue(2).asInteger(),
+                    r.getValue(3).asString(),
+                    r.getValue(4).asString(),
+                    port, database, username, password));
             });
             return shardList;
         } catch (ClickHouseException e) {
-            throw new RuntimeException("Cannot get cluster shard list from clickhouse", e);
+            throw new ClickhouseConnectorException(ClickhouseConnectorErrorCode.CLUSTER_LIST_GET_FAILED, "Cannot get cluster shard list from clickhouse", e);
         }
     }
 
@@ -149,7 +153,7 @@ public class ClickhouseProxy {
         try (ClickHouseResponse response = clickhouseRequest.query(sql).executeAndWait()) {
             List<ClickHouseRecord> records = response.stream().collect(Collectors.toList());
             if (records.isEmpty()) {
-                throw new RuntimeException("Cannot get table from clickhouse, resultSet is empty");
+                throw new ClickhouseConnectorException(SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED, "Cannot get table from clickhouse, resultSet is empty");
             }
             ClickHouseRecord record = records.get(0);
             String engine = record.getValue(0).asString();
@@ -160,11 +164,11 @@ public class ClickhouseProxy {
             if ("Distributed".equals(engine)) {
                 distributedEngine = getClickhouseDistributedTable(clickhouseRequest, database, table);
                 String localTableSQL = String.format("select engine,create_table_query from system.tables where database = '%s' and name = '%s'",
-                        distributedEngine.getDatabase(), distributedEngine.getTable());
+                    distributedEngine.getDatabase(), distributedEngine.getTable());
                 try (ClickHouseResponse rs = clickhouseRequest.query(localTableSQL).executeAndWait()) {
                     List<ClickHouseRecord> localTableRecords = rs.stream().collect(Collectors.toList());
                     if (localTableRecords.isEmpty()) {
-                        throw new RuntimeException("Cannot get table from clickhouse, resultSet is empty");
+                        throw new ClickhouseConnectorException(SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED, "Cannot get table from clickhouse, resultSet is empty");
                     }
                     String localEngine = localTableRecords.get(0).getValue(0).asString();
                     String createLocalTableDDL = localTableRecords.get(0).getValue(1).asString();
@@ -172,16 +176,16 @@ public class ClickhouseProxy {
                 }
             }
             return new ClickhouseTable(
-                    database,
-                    table,
-                    distributedEngine,
-                    engine,
-                    createTableDDL,
-                    engineFull,
-                    dataPaths,
-                    getClickhouseTableSchema(clickhouseRequest, table));
+                database,
+                table,
+                distributedEngine,
+                engine,
+                createTableDDL,
+                engineFull,
+                dataPaths,
+                getClickhouseTableSchema(clickhouseRequest, table));
         } catch (ClickHouseException e) {
-            throw new RuntimeException("Cannot get clickhouse table", e);
+            throw new ClickhouseConnectorException(SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED, "Cannot get clickhouse table", e);
         }
 
     }

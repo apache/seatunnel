@@ -20,6 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset.BINLOG_FILENAME_OFFSET_KEY;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
+import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.apache.seatunnel.connectors.cdc.base.source.reader.external.JdbcSourceFetchTaskContext;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlUtils;
@@ -50,12 +56,6 @@ import io.debezium.schema.TopicSelector;
 import io.debezium.util.Collect;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
-import org.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
-import org.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
-import org.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
-import org.seatunnel.connectors.cdc.base.source.offset.Offset;
-import org.seatunnel.connectors.cdc.base.source.reader.external.JdbcSourceFetchTaskContext;
-import org.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

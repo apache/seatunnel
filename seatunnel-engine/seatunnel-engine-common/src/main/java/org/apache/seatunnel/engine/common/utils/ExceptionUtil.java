@@ -16,6 +16,9 @@
 
 package org.apache.seatunnel.engine.common.utils;
 
+import org.apache.seatunnel.common.utils.function.ConsumerWithException;
+import org.apache.seatunnel.common.utils.function.RunnableWithException;
+import org.apache.seatunnel.common.utils.function.SupplierWithException;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;

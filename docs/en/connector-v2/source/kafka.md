@@ -17,20 +17,21 @@ Source connector for Apache Kafka.
 
 ## Options
 
-| name                 | type    | required | default value            |
-|----------------------|---------| -------- |--------------------------|
-| topic                | String  | yes      | -                        |
-| bootstrap.servers    | String  | yes      | -                        |
-| pattern              | Boolean | no       | false                    |
-| consumer.group       | String  | no       | SeaTunnel-Consumer-Group |
-| commit_on_checkpoint | Boolean | no       | true                     |
-| kafka.*              | String  | no       | -                        |
-| common-options       | config  | no       | -                        |
-| schema               |         | no       | -                        |
-| format               | String  | no       | json                     |
-| start_mode           | String  | no       | group_offsets            |
-| start_mode.offsets   |         | no       |                          |
-| start_mode.timestamp | Long    | no       |                          |
+| name                                | type    | required | default value            |
+|-------------------------------------|---------| -------- |--------------------------|
+| topic                               | String  | yes      | -                        |
+| bootstrap.servers                   | String  | yes      | -                        |
+| pattern                             | Boolean | no       | false                    |
+| consumer.group                      | String  | no       | SeaTunnel-Consumer-Group |
+| commit_on_checkpoint                | Boolean | no       | true                     |
+| kafka.*                             | String  | no       | -                        |
+| common-options                      | config  | no       | -                        |
+| schema                              |         | no       | -                        |
+| format                              | String  | no       | json                     |
+| start_mode                          | String  | no       | group_offsets            |
+| start_mode.offsets                  |         | no       |                          |
+| start_mode.timestamp                | Long    | no       |                          |
+| partition-discovery.interval-millis | long    | no       | -1                       |
 
 ### topic [string]
 
@@ -51,6 +52,10 @@ If `pattern` is set to `true`,the regular expression for a pattern of topic name
 ### commit_on_checkpoint [boolean]
 
 If true the consumer's offset will be periodically committed in the background.
+
+## partition-discovery.interval-millis [long]
+
+The interval for dynamically discovering topics and partitions.
 
 ### kafka.* [string]
 
@@ -148,3 +153,4 @@ source {
 ### Next Version
 
 - [Improve] Support setting read starting offset or time at startup config ([3157](https://github.com/apache/incubator-seatunnel/pull/3157))
+- [Improve] Support for dynamic discover topic & partition in streaming mode ([3125](https://github.com/apache/incubator-seatunnel/pull/3125))

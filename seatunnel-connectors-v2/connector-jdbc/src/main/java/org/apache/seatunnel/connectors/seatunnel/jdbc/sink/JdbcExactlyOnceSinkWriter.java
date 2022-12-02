@@ -23,11 +23,12 @@ import static com.google.common.base.Preconditions.checkState;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcStatementBuilder;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.SimpleBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaFacade;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOps;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOpsImpl;
@@ -73,8 +74,9 @@ public class JdbcExactlyOnceSinkWriter
     public JdbcExactlyOnceSinkWriter(
         SinkWriter.Context sinkcontext,
         JobContext context,
-        JdbcStatementBuilder<SeaTunnelRow> statementBuilder,
+        JdbcDialect dialect,
         JdbcSinkOptions jdbcSinkOptions,
+        SeaTunnelRowType rowType,
         List<JdbcSinkState> states) {
         checkArgument(
             jdbcSinkOptions.getJdbcConnectionOptions().getMaxRetries() == 0,
@@ -88,12 +90,7 @@ public class JdbcExactlyOnceSinkWriter
         checkState(jdbcSinkOptions.isExactlyOnce(), "is_exactly_once config error");
         this.xaFacade = XaFacade.fromJdbcConnectionOptions(
             jdbcSinkOptions.getJdbcConnectionOptions());
-
-        this.outputFormat = new JdbcOutputFormat<>(
-            xaFacade,
-            jdbcSinkOptions.getJdbcConnectionOptions(),
-            () -> new SimpleBatchStatementExecutor<>(jdbcSinkOptions.getJdbcConnectionOptions().getQuery(), statementBuilder));
-
+        this.outputFormat = new JdbcOutputFormatBuilder(dialect, xaFacade, jdbcSinkOptions, rowType).build();
         this.xaGroupOps = new XaGroupOpsImpl(xaFacade);
     }
 

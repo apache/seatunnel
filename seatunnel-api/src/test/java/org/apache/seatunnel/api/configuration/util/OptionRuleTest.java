@@ -19,6 +19,8 @@ package org.apache.seatunnel.api.configuration.util;
 
 import static org.apache.seatunnel.api.configuration.OptionTest.TEST_MODE;
 import static org.apache.seatunnel.api.configuration.OptionTest.TEST_NUM;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.OptionTest;
@@ -27,6 +29,7 @@ import org.apache.seatunnel.api.configuration.Options;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 import java.util.List;
 
@@ -52,6 +55,16 @@ public class OptionRuleTest {
         .noDefaultValue()
         .withDescription("test list int type");
 
+    public static final Option<String> TEST_REQUIRED_HAVE_DEFAULT_VALUE = Options.key("option.required-have-default")
+        .stringType()
+        .defaultValue("11")
+        .withDescription("test string type");
+
+    public static final Option<String> TEST_DUPLICATE = Options.key("option.test-duplicate")
+        .stringType()
+        .noDefaultValue()
+        .withDescription("test string type");
+
     @Test
     public void testBuildSuccess() {
         OptionRule rule = OptionRule.builder()
@@ -64,34 +77,77 @@ public class OptionRuleTest {
     }
 
     @Test
-    public void testOptionalException() {
-        Assertions.assertThrows(OptionValidationException.class,
-            () -> OptionRule.builder().required(TEST_NUM, TEST_MODE, TEST_PORTS).build(),
-            "Optional option 'option.ports' should have default value.");
-    }
+    public void testVerify() {
+        Executable executable = () -> {
+            OptionRule.builder()
+                .optional(TEST_NUM, TEST_MODE)
+                .required(TEST_PORTS, TEST_REQUIRED_HAVE_DEFAULT_VALUE)
+                .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                .conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_TIMESTAMP)
+                .build();
+        };
 
-    @Test
-    public void testRequiredException() {
-        Assertions.assertThrows(OptionValidationException.class,
-            () -> OptionRule.builder().required(TEST_NUM, TEST_MODE, TEST_PORTS).build(),
-            "Required option 'option.num' should have no default value.");
-    }
+        // test required option have no default value
+        assertEquals(
+            "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - Required option 'option.required-have-default' should have no default value.",
+            assertThrows(OptionValidationException.class, executable).getMessage());
 
-    @Test
-    public void testExclusiveException() {
-        Assertions.assertThrows(OptionValidationException.class,
-            () -> OptionRule.builder().exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC, TEST_MODE, TEST_PORTS).build(),
-            "Required option 'option.mode' should have no default value.");
-        Assertions.assertThrows(OptionValidationException.class,
-            () -> OptionRule.builder().exclusive(TEST_TOPIC_PATTERN).build(),
-            "The number of exclusive options must be greater than 1.");
-    }
+        executable = () -> {
+            OptionRule.builder()
+                .optional(TEST_NUM, TEST_MODE, TEST_REQUIRED_HAVE_DEFAULT_VALUE)
+                .required(TEST_PORTS, TEST_REQUIRED_HAVE_DEFAULT_VALUE)
+                .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                .conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_TIMESTAMP)
+                .build();
+        };
 
-    @Test
-    public void testConditionalException() {
-        Assertions.assertThrows(OptionValidationException.class,
-            () -> OptionRule.builder().conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_NUM).build(),
-            "Required option 'option.num' should have no default value.");
+        // test duplicate
+        assertEquals(
+            "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - RequiredOption 'option.required-have-default' duplicate in option options.",
+            assertThrows(OptionValidationException.class, executable).getMessage());
+
+        executable = () -> {
+            OptionRule.builder()
+                .optional(TEST_NUM, TEST_MODE)
+                .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC, TEST_DUPLICATE)
+                .required(TEST_PORTS, TEST_DUPLICATE)
+                .conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_TIMESTAMP)
+                .build();
+        };
+
+        // test duplicate in RequiredOption$ExclusiveRequiredOptions
+        assertEquals(
+            "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - RequiredOption 'option.test-duplicate' duplicate in 'org.apache.seatunnel.api.configuration.util.RequiredOption$ExclusiveRequiredOptions'.",
+            assertThrows(OptionValidationException.class, executable).getMessage());
+
+        executable = () -> {
+            OptionRule.builder()
+                .optional(TEST_NUM)
+                .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                .required(TEST_PORTS)
+                .conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_TIMESTAMP)
+                .build();
+        };
+
+        // test conditional not found in other options
+        assertEquals(
+            "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - Conditional 'option.mode' not found in options.",
+            assertThrows(OptionValidationException.class, executable).getMessage());
+
+        executable = () -> {
+            OptionRule.builder()
+                .optional(TEST_NUM, TEST_MODE)
+                .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                .required(TEST_PORTS)
+                .conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_TIMESTAMP)
+                .conditional(TEST_NUM, 100, TEST_TIMESTAMP)
+                .build();
+        };
+
+        // test parameter can only be controlled by one other parameter
+        assertEquals(
+            "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - ConditionalOption 'option.timestamp' duplicate in 'org.apache.seatunnel.api.configuration.util.RequiredOption$ConditionalRequiredOptions'.",
+            assertThrows(OptionValidationException.class, executable).getMessage());
     }
 
     @Test

@@ -34,7 +34,7 @@
         <module>connector-iotdb-spark-e2e</module>
         <module>connector-jdbc-spark-e2e</module>
         <module>connector-mongodb-spark-e2e</module>
-        <module>connector-neo4j-spark-e2e</module>
+        <module>connector-iceberg-hadoop3-spark-e2e</module>
         <module>connector-iceberg-spark-e2e</module>
     </modules>
 
