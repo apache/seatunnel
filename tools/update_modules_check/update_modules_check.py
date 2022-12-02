@@ -101,7 +101,7 @@ def get_final_ut_modules(file):
     f = open(file, 'rb')
     output = ""
     for line in f.readlines():
-        if line.startswith("org.apache.seatunnel"):
+        if line.startswith("org.apache.seatunnel").encode("utf-8"):
             con = line.split(":")
             # find all e2e modules
             if con[2] == "jar":
