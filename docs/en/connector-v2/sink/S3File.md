@@ -8,6 +8,7 @@ Output data to aws s3 file system.
 
 > Tips: We made some trade-offs in order to support more file types, so we used the HDFS protocol for internal access to S3 and this connector need some hadoop dependencies.
 > It's only support hadoop version **2.6.5+**.
+> Use this connector, you need add hadoop-aws.jar and hadoop-client.jar to the plugin directory.
 
 ## Key features
 
@@ -31,6 +32,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | bucket                           | string  | yes      | -                                                         |
 | access_key                       | string  | yes      | -                                                         |
 | access_secret                    | string  | yes      | -                                                         |
+| hadoop_s3_properties             | map     | no       | -                                                         |
 | file_name_expression             | string  | no       | "${transactionId}"                                        |
 | file_format                      | string  | no       | "text"                                                    |
 | filename_time_format             | string  | no       | "yyyy.MM.dd"                                              |
@@ -49,9 +51,7 @@ The target dir path is required.
 
 ### bucket [string]
 
-The bucket address of s3 file system, for example: `s3n://seatunnel-test`
-
-**Tips: SeaTunnel S3 file connector only support `s3n` protocol, not support `s3` and `s3a`**
+The bucket address of s3 file system, for example: `s3n://seatunnel-test`, if you use `s3a` protocol, this parameter should be `s3a://seatunnel-test`.
 
 ### access_key [string]
 
@@ -60,6 +60,15 @@ The access key of s3 file system.
 ### access_secret [string]
 
 The access secret of s3 file system.
+
+### hadoop_s3_properties [map]
+
+If you need to add a other option, you could add it here and refer to this [link](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)
+```
+     hadoop_s3_properties {
+       "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+      }
+```
 
 ### file_name_expression [string]
 
@@ -141,7 +150,7 @@ For text file format
   S3File {
     access_key = "xxxxxxxxxxxxxxxxx"
     secret_key = "xxxxxxxxxxxxxxxxx"
-    bucket = "s3n://seatunnel-test"
+    bucket = "s3a://seatunnel-test"
     tmp_path = "/tmp/seatunnel"
     path="/seatunnel/text"
     row_delimiter="\n"
@@ -151,6 +160,9 @@ For text file format
     file_format="text"
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
+    hadoop_s3_properties {
+       "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+    }
   }
 
 ```
@@ -162,7 +174,7 @@ For parquet file format
   S3File {
     access_key = "xxxxxxxxxxxxxxxxx"
     secret_key = "xxxxxxxxxxxxxxxxx"
-    bucket = "s3n://seatunnel-test"
+    bucket = "s3a://seatunnel-test"
     tmp_path = "/tmp/seatunnel"
     path="/seatunnel/parquet"
     row_delimiter="\n"
@@ -172,6 +184,9 @@ For parquet file format
     file_format="parquet"
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
+    hadoop_s3_properties {
+       "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+    }
   }
 
 ```
@@ -183,7 +198,7 @@ For orc file format
   S3File {
     access_key = "xxxxxxxxxxxxxxxxx"
     secret_key = "xxxxxxxxxxxxxxxxx"
-    bucket = "s3n://seatunnel-test"
+    bucket = "s3a://seatunnel-test"
     tmp_path = "/tmp/seatunnel"
     path="/seatunnel/orc"
     row_delimiter="\n"
@@ -193,6 +208,9 @@ For orc file format
     file_format="orc"
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
+    hadoop_s3_properties {
+       "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+    }
   }
 
 ```
@@ -208,3 +226,4 @@ For orc file format
   - When field from upstream is null it will throw NullPointerException
   - Sink columns mapping failed
   - When restore writer from states getting transaction directly failed
+  - Support S3A protocol
