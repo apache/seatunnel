@@ -184,7 +184,7 @@ public class DorisStreamLoadVisitor {
                                 "label[%s] state[%s]\n", label, labelState), true);
                     case RESULT_LABEL_UNKNOWN:
                     default:
-                        throw new DorisConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, String.format("Failed to flush data to StarRocks, Error " +
+                        throw new DorisConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, String.format("Failed to flush data to Doris, Error " +
                                 "label[%s] state[%s]\n", label, labelState));
                 }
             } catch (IOException e) {

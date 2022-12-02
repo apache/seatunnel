@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.doris.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum DorisConnectorErrorCode implements SeaTunnelErrorCode {
-    WRITE_RECORDS_FAILED("STARROCKS-01", "Writing records to StarRocks failed.");
+    WRITE_RECORDS_FAILED("DORIS-01", "Writing records to Doris failed.");
 
     private final String code;
     private final String description;
