@@ -56,6 +56,6 @@ public class PersistiqSource extends HttpSource {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(this.persistiqSourceParameter, readerContext, this.deserializationSchema);
+        return new HttpSourceReader(this.persistiqSourceParameter, readerContext, this.deserializationSchema, jsonField, contentField);
     }
 }

@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.persistiq.source;
 
-import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
@@ -43,9 +42,11 @@ public class PersistiqSourceFactory implements TableSourceFactory {
                 .optional(PersistiqSourceConfig.METHOD)
                 .optional(PersistiqSourceConfig.HEADERS)
                 .optional(PersistiqSourceConfig.PARAMS)
-                .conditional(Condition.of(HttpConfig.METHOD, HttpRequestMethod.POST), PersistiqSourceConfig.BODY)
-                .conditional(Condition.of(HttpConfig.FORMAT, "json"), SeaTunnelSchema.SCHEMA)
                 .optional(PersistiqSourceConfig.FORMAT)
+                .optional(PersistiqSourceConfig.JSON_FIELD)
+                .optional(PersistiqSourceConfig.CONTENT_FIELD)
+                .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, PersistiqSourceConfig.BODY)
+                .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
                 .optional(PersistiqSourceConfig.POLL_INTERVAL_MILLS)
                 .optional(PersistiqSourceConfig.RETRY)
                 .optional(PersistiqSourceConfig.RETRY_BACKOFF_MAX_MS)

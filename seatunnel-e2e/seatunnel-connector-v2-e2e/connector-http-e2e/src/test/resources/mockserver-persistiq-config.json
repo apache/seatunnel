@@ -7,11 +7,53 @@
       "path": "/v1/users"
     },
     "httpResponse": {
-      "body": [
-        {
-          "content": "{\"status\":\"success\",\"errors\":[],\"has_more\":true,\"next_page\":\"https://...\",\"dnc_domains\":[{\"id\":\"dom_3eWoGj\",\"name\":\"test.com\"},{\"id\":\"dom_N2X8dM\",\"name\":\"example.com\"}]}"
-        }
-      ]
+      "body":
+      {
+        "status": "success",
+        "errors": [],
+        "users": [
+          {
+            "id": "u_q3e537",
+            "name": "Tiana Eichmann MD",
+            "email": "colton.jenkins@acme2.com",
+            "activated": true,
+            "default_mailbox_id": "mbox_...",
+            "salesforce_id": null
+          },
+          {
+            "id": "u_2ljD34",
+            "name": "Brendan Reichert",
+            "email": "teresa@acme2.com",
+            "activated": true,
+            "default_mailbox_id": "mbox_...",
+            "salesforce_id": null
+          },
+          {
+            "id": "u_M3kXp2",
+            "name": "Chester Lind",
+            "email": "raina@acme2.com",
+            "activated": false,
+            "default_mailbox_id": "mbox_...",
+            "salesforce_id": null
+          },
+          {
+            "id": "u_114g0a",
+            "name": "TaoZex",
+            "email": "TaoZex@acme2.com",
+            "activated": true,
+            "default_mailbox_id": "mbox_...",
+            "salesforce_id": null
+          },
+          {
+            "id": "u_h44g53",
+            "name": "Jack",
+            "email": "Jack@acme2.com",
+            "activated": false,
+            "default_mailbox_id": "mbox_...",
+            "salesforce_id": null
+          }
+        ]
+      }
     }
   }
 ]
