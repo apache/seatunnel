@@ -17,14 +17,14 @@
 
 package org.apache.seatunnel.connectors.doris.sink;
 
+import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.doris.client.DorisSinkManager;
 import org.apache.seatunnel.connectors.doris.config.SinkConfig;
-import org.apache.seatunnel.connectors.doris.serialize.DorisCsvSerializer;
-import org.apache.seatunnel.connectors.doris.serialize.DorisISerializer;
-import org.apache.seatunnel.connectors.doris.serialize.DorisJsonSerializer;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.format.json.JsonSerializationSchema;
+import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -40,20 +40,20 @@ import java.util.stream.Collectors;
 @Slf4j
 public class DorisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
-    private final DorisISerializer serializer;
+    private final SerializationSchema serializationSchema;
     private final DorisSinkManager manager;
 
     public DorisSinkWriter(Config pluginConfig,
                            SeaTunnelRowType seaTunnelRowType) {
         SinkConfig sinkConfig = SinkConfig.loadConfig(pluginConfig);
         List<String> fieldNames = Arrays.stream(seaTunnelRowType.getFieldNames()).collect(Collectors.toList());
-        this.serializer = createSerializer(sinkConfig, seaTunnelRowType);
+        this.serializationSchema = createSerializer(sinkConfig, seaTunnelRowType);
         this.manager = new DorisSinkManager(sinkConfig, fieldNames);
     }
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        String record = serializer.serialize(element);
+        String record = new String(serializationSchema.serialize(element));
         manager.write(record);
     }
 
@@ -77,12 +77,15 @@ public class DorisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
     }
 
-    public static DorisISerializer createSerializer(SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) {
+    public static SerializationSchema createSerializer(SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) {
         if (SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
-            return new DorisCsvSerializer(sinkConfig.getColumnSeparator(), seaTunnelRowType);
+            return TextSerializationSchema.builder()
+                    .seaTunnelRowType(seaTunnelRowType)
+                    .delimiter(sinkConfig.getColumnSeparator())
+                    .build();
         }
         if (SinkConfig.StreamLoadFormat.JSON.equals(sinkConfig.getLoadFormat())) {
-            return new DorisJsonSerializer(seaTunnelRowType);
+            return new JsonSerializationSchema(seaTunnelRowType);
         }
         throw new RuntimeException("Failed to create row serializer, unsupported `format` from stream load properties.");
     }
