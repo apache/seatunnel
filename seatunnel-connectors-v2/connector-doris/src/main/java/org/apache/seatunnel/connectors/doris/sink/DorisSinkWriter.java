@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.doris.client.DorisSinkManager;
 import org.apache.seatunnel.connectors.doris.config.SinkConfig;
+import org.apache.seatunnel.connectors.doris.util.DelimiterParserUtil;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
@@ -79,9 +80,10 @@ public class DorisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     public static SerializationSchema createSerializer(SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) {
         if (SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
+            String columnSeparator = DelimiterParserUtil.parse(sinkConfig.getColumnSeparator(), "\t");
             return TextSerializationSchema.builder()
                     .seaTunnelRowType(seaTunnelRowType)
-                    .delimiter(sinkConfig.getColumnSeparator())
+                    .delimiter(columnSeparator)
                     .build();
         }
         if (SinkConfig.StreamLoadFormat.JSON.equals(sinkConfig.getLoadFormat())) {

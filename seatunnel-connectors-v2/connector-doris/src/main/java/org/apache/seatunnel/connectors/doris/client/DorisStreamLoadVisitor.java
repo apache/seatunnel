@@ -19,11 +19,10 @@ package org.apache.seatunnel.connectors.doris.client;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.doris.config.SinkConfig;
-import org.apache.seatunnel.connectors.doris.serialize.DorisDelimiterParser;
+import org.apache.seatunnel.connectors.doris.util.DelimiterParserUtil;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Base64;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -34,10 +33,8 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class DorisStreamLoadVisitor {
-
-    private static final Logger LOG = LoggerFactory.getLogger(DorisStreamLoadVisitor.class);
-
     private final HttpHelper httpHelper = new HttpHelper();
     private static final int MAX_SLEEP_TIME = 5;
 
@@ -71,17 +68,17 @@ public class DorisStreamLoadVisitor {
                 .append(sinkConfig.getTable())
                 .append("/_stream_load")
                 .toString();
-        if (LOG.isDebugEnabled()) {
-            LOG.debug(String.format("Start to join batch data: rows[%d] bytes[%d] label[%s].", flushData.getRows().size(), flushData.getBytes(), flushData.getLabel()));
+        if (log.isDebugEnabled()) {
+            log.debug(String.format("Start to join batch data: rows[%d] bytes[%d] label[%s].", flushData.getRows().size(), flushData.getBytes(), flushData.getLabel()));
         }
         Map<String, Object> loadResult = httpHelper.doHttpPut(loadUrl, joinRows(flushData.getRows(), flushData.getBytes().intValue()), getStreamLoadHttpHeader(flushData.getLabel()));
         final String keyStatus = "Status";
         if (null == loadResult || !loadResult.containsKey(keyStatus)) {
-            LOG.error("unknown result status. {}", loadResult);
+            log.error("unknown result status. {}", loadResult);
             throw new IOException("Unable to flush data to Doris: unknown result status. " + loadResult);
         }
-        if (LOG.isDebugEnabled()) {
-            LOG.debug(new StringBuilder("StreamLoad response:\n").append(JsonUtils.toJsonString(loadResult)).toString());
+        if (log.isDebugEnabled()) {
+            log.debug(new StringBuilder("StreamLoad response:\n").append(JsonUtils.toJsonString(loadResult)).toString());
         }
         if (RESULT_FAILED.equals(loadResult.get(keyStatus))) {
             StringBuilder errorBuilder = new StringBuilder("Failed to flush data to Doris.\n");
@@ -90,12 +87,12 @@ public class DorisStreamLoadVisitor {
                 errorBuilder.append('\n');
             }
             if (loadResult.containsKey("ErrorURL")) {
-                LOG.error("StreamLoad response: {}", loadResult);
+                log.error("StreamLoad response: {}", loadResult);
                 try {
                     errorBuilder.append(httpHelper.doHttpGet(loadResult.get("ErrorURL").toString()));
                     errorBuilder.append('\n');
                 } catch (IOException e) {
-                    LOG.warn("Get Error URL failed. {} ", loadResult.get("ErrorURL"), e);
+                    log.warn("Get Error URL failed. {} ", loadResult.get("ErrorURL"), e);
                 }
             } else {
                 errorBuilder.append(JsonUtils.toJsonString(loadResult));
@@ -103,7 +100,7 @@ public class DorisStreamLoadVisitor {
             }
             throw new IOException(errorBuilder.toString());
         } else if (RESULT_LABEL_EXISTED.equals(loadResult.get(keyStatus))) {
-            LOG.debug(new StringBuilder("StreamLoad response:\n").append(JsonUtils.toJsonString(loadResult)).toString());
+            log.debug(new StringBuilder("StreamLoad response:\n").append(JsonUtils.toJsonString(loadResult)).toString());
             // has to block-checking the state to get the final result
             checkLabelState(host, flushData.getLabel());
         }
@@ -125,7 +122,7 @@ public class DorisStreamLoadVisitor {
     private byte[] joinRows(List<byte[]> rows, int totalBytes) {
         if (SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
             Map<String, Object> props = sinkConfig.getStreamLoadProps();
-            byte[] lineDelimiter = DorisDelimiterParser.parse((String) props.get("row_delimiter"), "\n").getBytes(StandardCharsets.UTF_8);
+            byte[] lineDelimiter = DelimiterParserUtil.parse((String) props.get("row_delimiter"), "\n").getBytes(StandardCharsets.UTF_8);
             ByteBuffer bos = ByteBuffer.allocate(totalBytes + rows.size() * lineDelimiter.length);
             for (byte[] row : rows) {
                 bos.put(row);
@@ -173,7 +170,7 @@ public class DorisStreamLoadVisitor {
                     throw new IOException(String.format("Failed to flush data to Doris, Error " +
                             "could not get the final state of label[%s]. response[%s]\n", label, JsonUtils.toJsonString(result)), null);
                 }
-                LOG.info(String.format("Checking label[%s] state[%s]\n", label, labelState));
+                log.info(String.format("Checking label[%s] state[%s]\n", label, labelState));
                 switch (labelState) {
                     case LAEBL_STATE_VISIBLE:
                     case LAEBL_STATE_COMMITTED:
