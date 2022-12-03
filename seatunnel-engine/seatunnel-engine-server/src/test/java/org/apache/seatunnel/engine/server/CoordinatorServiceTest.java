@@ -39,6 +39,7 @@ import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 public class CoordinatorServiceTest {
+
     @Test
     public void testMasterNodeActive() {
         HazelcastInstanceImpl instance1 = SeaTunnelServerStarter.createHazelcastInstance(
