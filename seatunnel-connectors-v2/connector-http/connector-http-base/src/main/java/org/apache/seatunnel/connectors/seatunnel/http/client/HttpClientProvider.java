@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.client;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import com.github.rholder.retry.Attempt;
@@ -27,6 +26,7 @@ import com.github.rholder.retry.RetryerBuilder;
 import com.github.rholder.retry.StopStrategies;
 import com.github.rholder.retry.WaitStrategies;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.http.HttpStatus;
 import org.apache.http.NameValuePair;
