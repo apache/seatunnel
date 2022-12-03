@@ -139,7 +139,7 @@ jobs:
             engine-e2e:
               - "seatunnel-e2e/seatunnel-engine-e2e/**"
             deleted-poms:
-              - deleted: "**/pom.xml" 
+              - deleted: "**/pom.xml"
 
       - name: Check Connector V2 Update
         id: cv2-modules
@@ -202,7 +202,7 @@ jobs:
           update_files='${{ steps.filter.outputs.deleted-poms_files }}'
           modules=`python tools/update_modules_check/update_modules_check.py delete $update_files`
           echo $modules
-          echo "modules=$modules" >> $GITHUB_OUTPUT      
+          echo "modules=$modules" >> $GITHUB_OUTPUT
 
       - name: Make unit test modules
         id: ut-modules
@@ -216,11 +216,11 @@ jobs:
           if [[ "zz"$delete_modules != "zz" ]];then
             pl_modules=`python tools/update_modules_check/update_modules_check.py rm $pl_modules $delete_modules`
           fi
-          
+
           if [[ "zz"$pl_modules == "zz" ]];then
             exit 0
           fi
-          
+
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl $pl_modules > /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
           tree_modules="$modules$sub_modules"
@@ -242,11 +242,11 @@ jobs:
           if [[ "zz"$delete_modules != "zz" ]];then
             pl_modules=`python tools/update_modules_check/update_modules_check.py rm $pl_modules $delete_modules`
           fi
-          
+
           if [[ "zz"$pl_modules == "zz" ]];then
             exit 0
           fi
-          
+
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl $pl_modules > /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
           tree_modules="$modules$sub_modules"
@@ -298,6 +298,11 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: init hadoop env for windows
+        if: os='["windows-latest"]'
+        run: |
+          git clone https://github.com/4ttty/winutils.git
+          dir
       - name: run all modules unit test
         if: needs.changes.outputs.api == 'true'
         run: |
