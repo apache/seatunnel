@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.Progress;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
+import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.DeployTaskOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
@@ -80,6 +81,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
 
     public static final int GET_TASKGROUP_METRICS_OPERATION = 18;
 
+    public static final int CLEAN_TASKGROUP_CONTEXT_OPERATION = 19;
+
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
         SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY_ID
@@ -136,6 +139,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new LastCheckpointNotifyOperation();
                 case GET_TASKGROUP_METRICS_OPERATION:
                     return new GetTaskGroupMetricsOperation();
+                case CLEAN_TASKGROUP_CONTEXT_OPERATION:
+                    return new CleanTaskGroupContextOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

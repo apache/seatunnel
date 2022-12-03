@@ -48,6 +48,7 @@ import com.hazelcast.logging.Logger;
 import lombok.Data;
 import lombok.NonNull;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import java.net.URL;
@@ -144,10 +145,12 @@ public class JobConfigParser {
             jobConfig.getJobContext().setJobMode(EnvCommonOptions.JOB_MODE.defaultValue());
         }
 
-        if (envConfigs.hasPath(EnvCommonOptions.JOB_NAME.key())) {
-            jobConfig.setName(envConfigs.getString(EnvCommonOptions.JOB_NAME.key()));
-        } else {
-            jobConfig.setName(EnvCommonOptions.JOB_NAME.defaultValue());
+        if (StringUtils.isEmpty(jobConfig.getName())) {
+            if (envConfigs.hasPath(EnvCommonOptions.JOB_NAME.key())) {
+                jobConfig.setName(envConfigs.getString(EnvCommonOptions.JOB_NAME.key()));
+            } else {
+                jobConfig.setName(EnvCommonOptions.JOB_NAME.defaultValue());
+            }
         }
 
         if (envConfigs.hasPath(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {

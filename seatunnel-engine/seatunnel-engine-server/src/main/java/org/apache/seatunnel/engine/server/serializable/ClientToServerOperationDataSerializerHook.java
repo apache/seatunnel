@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.serializable;
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
 import org.apache.seatunnel.engine.server.operation.CancelJobOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
+import org.apache.seatunnel.engine.server.operation.GetJobStateOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
@@ -37,7 +38,7 @@ import com.hazelcast.spi.annotation.PrivateApi;
  * All about the Operation's data serializable define in this class.
  */
 @PrivateApi
-public final class OperationDataSerializerHook implements DataSerializerHook {
+public final class ClientToServerOperationDataSerializerHook implements DataSerializerHook {
     public static final int PRINT_MESSAGE_OPERATOR = 0;
     public static final int SUBMIT_OPERATOR = 1;
 
@@ -48,6 +49,8 @@ public final class OperationDataSerializerHook implements DataSerializerHook {
     public static final int GET_JOB_STATUS_OPERATOR = 4;
 
     public static final int GET_JOB_METRICS_OPERATOR = 5;
+
+    public static final int GET_JOB_STATE_OPERATION = 6;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_OPERATION_DATA_SERIALIZER_FACTORY,
@@ -81,6 +84,8 @@ public final class OperationDataSerializerHook implements DataSerializerHook {
                     return new GetJobStatusOperation();
                 case GET_JOB_METRICS_OPERATOR:
                     return new GetJobMetricsOperation();
+                case GET_JOB_STATE_OPERATION:
+                    return new GetJobStateOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }
