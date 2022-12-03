@@ -15,21 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.operation;
+package org.apache.seatunnel.engine.server.task.operation;
 
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsCollector;
+import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
-public class GetTaskGroupMetricsOperation extends Operation {
+import java.io.IOException;
+
+public class GetTaskGroupMetricsOperation extends Operation implements IdentifiedDataSerializable {
 
     private TaskGroupLocation taskGroupLocation;
     private RawJobMetrics response;
+
+    public GetTaskGroupMetricsOperation() {
+    }
 
     public GetTaskGroupMetricsOperation(TaskGroupLocation taskGroupLocation) {
         this.taskGroupLocation = taskGroupLocation;
@@ -55,7 +64,29 @@ public class GetTaskGroupMetricsOperation extends Operation {
     }
 
     @Override
+    protected void writeInternal(ObjectDataOutput out) throws IOException {
+        super.writeInternal(out);
+        out.writeObject(taskGroupLocation);
+    }
+
+    @Override
+    protected void readInternal(ObjectDataInput in) throws IOException {
+        super.readInternal(in);
+        taskGroupLocation = in.readObject();
+    }
+
+    @Override
     public Object getResponse() {
         return response;
+    }
+
+    @Override
+    public int getFactoryId() {
+        return TaskDataSerializerHook.FACTORY_ID;
+    }
+
+    @Override
+    public int getClassId() {
+        return TaskDataSerializerHook.GET_TASKGROUP_METRICS_OPERATION;
     }
 }

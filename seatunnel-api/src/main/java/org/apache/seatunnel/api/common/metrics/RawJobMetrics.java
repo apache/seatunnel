@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.api.common.metrics;
 
+import java.io.Serializable;
 import java.util.Arrays;
 
-public final class RawJobMetrics {
+public final class RawJobMetrics implements Serializable {
 
     private long timestamp;
     private byte[] blob;
