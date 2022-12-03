@@ -42,10 +42,8 @@ hazelcast:
           namespace: /tmp/imap-kris-test/2
           businessName: random
           clusterName: test-one
-          fs:
-            defaultFS: file:///
-            file:
-              impl: org.apache.hadoop.fs.LocalFileSystem
+          fs.defaultFS: file:///
+          fs.file.impl: org.apache.hadoop.fs.LocalFileSystem
 
   properties:
     hazelcast.invocation.max.retry.count: 20
