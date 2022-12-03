@@ -52,7 +52,13 @@ public class IMapFileStorageTest {
         IMapFileStorage storage = new IMapFileStorage();
         Map<String, Object> properties = new HashMap<>();
         properties.put(FileConstants.FileInitProperties.BUSINESS_KEY, "random");
-        properties.put(FileConstants.FileInitProperties.NAMESPACE_KEY, "D:\\tmp\\imap-kris-test\\2");
+        String os = System.getProperty("os.name");
+
+        if (os != null && os.startsWith("Windows")) {
+            properties.put(FileConstants.FileInitProperties.NAMESPACE_KEY, "D:\\tmp\\imap-kris-test\\2");
+        } else {
+            properties.put(FileConstants.FileInitProperties.NAMESPACE_KEY, "/tmp/imap-kris-test/2");
+        }
         properties.put(FileConstants.FileInitProperties.CLUSTER_NAME, "test-one");
         properties.put(FileConstants.FileInitProperties.HDFS_CONFIG_KEY, CONF);
 
