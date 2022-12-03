@@ -21,8 +21,6 @@
 package org.apache.seatunnel.engine.imap.storage.file;
 
 import static org.awaitility.Awaitility.await;
-import static org.junit.jupiter.api.condition.OS.LINUX;
-import static org.junit.jupiter.api.condition.OS.MAC;
 
 import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
 
@@ -32,7 +30,6 @@ import org.apache.hadoop.fs.Path;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledOnOs;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -40,7 +37,6 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@EnabledOnOs({LINUX, MAC})
 public class IMapFileStorageTest {
 
     private static final Configuration CONF;
@@ -56,7 +52,7 @@ public class IMapFileStorageTest {
         IMapFileStorage storage = new IMapFileStorage();
         Map<String, Object> properties = new HashMap<>();
         properties.put(FileConstants.FileInitProperties.BUSINESS_KEY, "random");
-        properties.put(FileConstants.FileInitProperties.NAMESPACE_KEY, "/tmp/imap-kris-test/2");
+        properties.put(FileConstants.FileInitProperties.NAMESPACE_KEY, "D:\\tmp\\imap-kris-test\\2");
         properties.put(FileConstants.FileInitProperties.CLUSTER_NAME, "test-one");
         properties.put(FileConstants.FileInitProperties.HDFS_CONFIG_KEY, CONF);
 

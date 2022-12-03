@@ -60,7 +60,7 @@ public class WALReader {
         }
         List<IMapFileData> result = new ArrayList<>(DEFAULT_QUERY_LIST_SIZE);
         for (String fileName : fileNames) {
-            result.addAll(readData(new Path(parentPath, fileName)));
+            result.addAll(readData(new Path(fileName)));
         }
         return result;
     }

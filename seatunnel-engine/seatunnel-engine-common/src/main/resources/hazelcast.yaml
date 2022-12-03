@@ -32,6 +32,21 @@ hazelcast:
       auto-increment: true
       port-count: 100
       port: 5801
+  map:
+    supplements:
+      map-store:
+        enabled: true
+        initial-mode: LAZY
+        class-name: org.apache.seatunnel.engine.server.persistence.FileMapStore
+        properties:
+          namespace: /tmp/imap-kris-test/2
+          businessName: random
+          clusterName: test-one
+          fs:
+            defaultFS: file:///
+            file:
+              impl: org.apache.hadoop.fs.LocalFileSystem
+
   properties:
     hazelcast.invocation.max.retry.count: 20
     hazelcast.tcp.join.port.try.count: 30

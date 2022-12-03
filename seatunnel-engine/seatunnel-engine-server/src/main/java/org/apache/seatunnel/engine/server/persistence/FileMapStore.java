@@ -17,58 +17,79 @@
 
 package org.apache.seatunnel.engine.server.persistence;
 
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.HDFS_CONFIG_KEY;
+
+import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
+import org.apache.seatunnel.engine.imap.storage.file.IMapFileStorage;
+
+import com.google.common.collect.Maps;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.MapLoaderLifecycleSupport;
 import com.hazelcast.map.MapStore;
+import lombok.SneakyThrows;
+import org.apache.hadoop.conf.Configuration;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
 public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycleSupport {
-    //TODO Wait for the file Kv storage development to complete
+
+    private IMapStorage mapStorage;
 
     @Override
     public void init(HazelcastInstance hazelcastInstance, Properties properties, String mapName) {
+        // TODO implemented by loading the factory
+        mapStorage = new IMapFileStorage();
+        Configuration configuration = new Configuration();
+        configuration.set("fs.defaultFS", properties.getProperty("fs.defaultFS"));
+        configuration.set("fs.file.impl", properties.getProperty("fs.file.impl"));
+        properties.put(HDFS_CONFIG_KEY, configuration);
+        mapStorage.initialize(new HashMap<>(Maps.fromProperties(properties)));
+
     }
 
     @Override
     public void destroy() {
-
+        mapStorage.destroy();
     }
 
     @Override
     public void store(Object key, Object value) {
+        mapStorage.store(key, value);
     }
 
     @Override
     public void storeAll(Map<Object, Object> map) {
-
+        mapStorage.storeAll(map);
     }
 
     @Override
     public void delete(Object key) {
-
+        mapStorage.delete(key);
     }
 
     @Override
     public void deleteAll(Collection<Object> keys) {
-
+        mapStorage.deleteAll(keys);
     }
 
+    @SneakyThrows
     @Override
-    public String load(Object key) {
-        return null;
+    public Object load(Object key) {
+        return mapStorage.loadAll().get(key);
     }
 
+    @SneakyThrows
     @Override
     public Map<Object, Object> loadAll(Collection<Object> keys) {
-        return null;
+        return mapStorage.loadAll();
     }
 
     @Override
     public Iterable<Object> loadAllKeys() {
-        return null;
+        return mapStorage.loadAllKeys();
     }
 
 }
