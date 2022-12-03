@@ -19,7 +19,7 @@ package org.apache.seatunnel.engine.server.operation;
 
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
+import org.apache.seatunnel.engine.server.serializable.ClientToServerOperationDataSerializerHook;
 
 import com.hazelcast.internal.nio.IOUtil;
 import com.hazelcast.internal.serialization.Data;
@@ -42,7 +42,7 @@ public class SubmitJobOperation extends AbstractJobAsyncOperation {
 
     @Override
     public int getClassId() {
-        return OperationDataSerializerHook.SUBMIT_OPERATOR;
+        return ClientToServerOperationDataSerializerHook.SUBMIT_OPERATOR;
     }
 
     @Override
