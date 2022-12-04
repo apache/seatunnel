@@ -260,6 +260,12 @@ public class DorisIT extends TestSuiteBase implements TestResource {
     }
 
     private void initializeJdbcTable() {
+        //just for test
+        try {
+            Thread.sleep(300000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         try (Statement statement = jdbcConnection.createStatement()) {
             // create databases
             statement.execute("create database test");
