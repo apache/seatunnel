@@ -184,7 +184,7 @@ public class DorisIT extends TestSuiteBase implements TestResource {
                         Byte.parseByte("1"),
                         Boolean.FALSE,
                         BigDecimal.valueOf(2222243, 1),
-                        Double.parseDouble("2222243.2222243"),
+                        Double.parseDouble("3.14"),
                         Float.parseFloat("222224"),
                         Integer.parseInt("1"),
                         "a",
