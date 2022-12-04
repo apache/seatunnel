@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
+package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ACCESS_ID;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ACCESS_KEY;
@@ -25,12 +25,12 @@ import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.Maxcom
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class MaxcomputeSourceFactory implements TableSourceFactory {
+public class MaxcomputeSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
         return "Maxcompute";

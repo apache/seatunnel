@@ -17,58 +17,92 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 
-import com.aliyun.odps.Column;
-import com.aliyun.odps.data.Record;
-import com.aliyun.odps.data.RecordReader;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
-import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.maxcomputeclient.MaxcomputeInputFormat;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeUtil;
 
-import java.util.Deque;
-import java.util.LinkedList;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import com.aliyun.odps.data.Record;
+import com.aliyun.odps.tunnel.TableTunnel;
+import com.aliyun.odps.tunnel.io.TunnelRecordReader;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
-public class MaxcomputeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
-
-    private final SingleSplitReaderContext context;
-
-    private final MaxcomputeInputFormat maxcomputeInputFormat;
-
+public class MaxcomputeSourceReader implements SourceReader<SeaTunnelRow, MaxcomputeSourceSplit> {
+    private static final Logger LOG = LoggerFactory.getLogger(MaxcomputeSource.class);
+    private final SourceReader.Context context;
+    private Set<MaxcomputeSourceSplit> sourceSplits;
+    private Config pluginConfig;
     boolean noMoreSplit;
+    private SeaTunnelRowType seaTunnelRowType;
 
-    public MaxcomputeSourceReader(MaxcomputeInputFormat kuduInputFormat, SingleSplitReaderContext context) {
+    public MaxcomputeSourceReader(Config pluginConfig, SourceReader.Context context, SeaTunnelRowType seaTunnelRowType) {
+        this.pluginConfig = pluginConfig;
         this.context = context;
-        this.maxcomputeInputFormat = kuduInputFormat;
+        this.sourceSplits = new HashSet<>();
+        this.seaTunnelRowType = seaTunnelRowType;
     }
 
     @Override
     public void open() {
-        maxcomputeInputFormat.openInputFormat();
     }
 
     @Override
     public void close() {
-        maxcomputeInputFormat.closeInputFormat();
     }
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        RecordReader recordReader = maxcomputeInputFormat.getTunnelReader();
-        if (null != recordReader) {
-            Record record;
-            while ((record = recordReader.read()) != null) {
-                SeaTunnelRow seaTunnelRow = MaxcomputeInputFormat.getSeaTunnelRowData(record, maxcomputeInputFormat.getSeaTunnelRowType());
-                output.collect(seaTunnelRow);
+        sourceSplits.forEach(source -> {
+            try {
+                TableTunnel.DownloadSession session = MaxcomputeUtil.getDownloadSession(pluginConfig);
+                TunnelRecordReader recordReader = session.openRecordReader(source.getSplitId(), source.getRowNum());
+                LOG.info("open record reader success");
+                Record record;
+                while ((record = recordReader.read()) != null) {
+                    SeaTunnelRow seaTunnelRow = MaxcomputeTypeMapper.getSeaTunnelRowData(record, seaTunnelRowType);
+                    output.collect(seaTunnelRow);
+                }
+                recordReader.close();
+            } catch (Exception e) {
+                throw new RuntimeException("Maxcompute source read error", e);
             }
+        });
+        if (this.noMoreSplit && Boundedness.BOUNDED.equals(context.getBoundedness())) {
+            // signal to the source that we have reached the end of the data.
+            log.info("Closed the bounded Maxcompute source");
+            context.signalNoMoreElement();
         }
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) {
+    public List<MaxcomputeSourceSplit> snapshotState(long checkpointId) throws Exception {
+        return new ArrayList<>(sourceSplits);
+    }
 
+    @Override
+    public void addSplits(List<MaxcomputeSourceSplit> splits) {
+        sourceSplits.addAll(splits);
+    }
+
+    @Override
+    public void handleNoMoreSplits() {
+        this.noMoreSplit = true;
+    }
+
+    @Override
+    public void notifyCheckpointComplete(long checkpointId) {
     }
 }
