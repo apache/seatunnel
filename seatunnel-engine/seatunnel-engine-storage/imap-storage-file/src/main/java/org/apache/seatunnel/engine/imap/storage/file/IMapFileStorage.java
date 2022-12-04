@@ -20,6 +20,7 @@
 
 package org.apache.seatunnel.engine.imap.storage.file;
 
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.DEFAULT_IMAP_FILE_PATH_SPLIT;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.DEFAULT_IMAP_NAMESPACE;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.BUSINESS_KEY;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.CLUSTER_NAME;
@@ -44,7 +45,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -128,14 +128,14 @@ public class IMapFileStorage implements IMapStorage {
         this.clusterName = (String) configuration.get(CLUSTER_NAME);
 
         this.region = String.valueOf(System.nanoTime());
-        this.businessRootPath = Paths.get(namespace, clusterName, businessName).toString();
+        this.businessRootPath = namespace + DEFAULT_IMAP_FILE_PATH_SPLIT + clusterName + DEFAULT_IMAP_FILE_PATH_SPLIT + businessName + DEFAULT_IMAP_FILE_PATH_SPLIT;
         try {
             this.fs = FileSystem.get(hadoopConf);
         } catch (IOException e) {
             throw new IMapStorageException("Failed to get file system", e);
         }
         this.serializer = new ProtoStuffSerializer();
-        this.walDisruptor = new WALDisruptor(fs, Paths.get(businessRootPath, region).toString(), serializer);
+        this.walDisruptor = new WALDisruptor(fs, businessRootPath + region + DEFAULT_IMAP_FILE_PATH_SPLIT, serializer);
     }
 
     @Override

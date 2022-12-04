@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.mapstore;
 
+import static org.awaitility.Awaitility.await;
+
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 
 import com.hazelcast.map.IMap;
@@ -27,6 +29,8 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
+import java.util.concurrent.TimeUnit;
+
 @Slf4j
 @DisabledOnOs(OS.WINDOWS)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -36,13 +40,13 @@ public class MapStoreTest extends AbstractSeaTunnelServerTest {
     public void testMapStore() {
 
         IMap<String, String> supplements = instance.getMap("supplements");
-        supplements.set("key", "value");
+        supplements.put("key", "value");
         log.info(supplements.size() + "");
         supplements.evictAll();
         log.info(supplements.size() + "");
         Assertions.assertEquals(0, supplements.size());
         supplements.loadAll(true);
         log.info(supplements.size() + "");
-        Assertions.assertEquals(1, supplements.size());
+        await().atMost(1, TimeUnit.SECONDS).until(() -> supplements.size() == 1);
     }
 }
