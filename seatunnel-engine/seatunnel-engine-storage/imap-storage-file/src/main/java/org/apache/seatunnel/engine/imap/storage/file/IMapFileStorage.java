@@ -131,6 +131,7 @@ public class IMapFileStorage implements IMapStorage {
         this.businessRootPath = namespace + DEFAULT_IMAP_FILE_PATH_SPLIT + clusterName + DEFAULT_IMAP_FILE_PATH_SPLIT + businessName + DEFAULT_IMAP_FILE_PATH_SPLIT;
         try {
             this.fs = FileSystem.get(hadoopConf);
+            fs.setWriteChecksum(false);
         } catch (IOException e) {
             throw new IMapStorageException("Failed to get file system", e);
         }
