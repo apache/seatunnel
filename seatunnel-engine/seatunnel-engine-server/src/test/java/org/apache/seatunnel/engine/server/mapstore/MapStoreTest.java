@@ -40,13 +40,17 @@ public class MapStoreTest extends AbstractSeaTunnelServerTest {
     public void testMapStore() {
 
         IMap<String, String> supplements = instance.getMap("supplements");
-        supplements.put("key", "value");
+
+        for (int index = 0; index < 100; index++) {
+            supplements.put("key" + index, "value" + index);
+        }
+
         log.info(supplements.size() + "");
         supplements.evictAll();
         log.info(supplements.size() + "");
         Assertions.assertEquals(0, supplements.size());
         supplements.loadAll(true);
         log.info(supplements.size() + "");
-        await().atMost(1, TimeUnit.SECONDS).until(() -> supplements.size() == 1);
+        await().atMost(1, TimeUnit.SECONDS).until(() -> supplements.size() > 0);
     }
 }
