@@ -20,8 +20,10 @@ package org.apache.seatunnel.connectors.doris.sink;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.doris.client.DorisSinkManager;
 import org.apache.seatunnel.connectors.doris.config.SinkConfig;
+import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.apache.seatunnel.connectors.doris.util.DelimiterParserUtil;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
@@ -73,8 +75,8 @@ public class DorisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                 manager.close();
             }
         } catch (IOException e) {
-            log.error("Close doris manager failed.", e);
-            throw new IOException("Close doris manager failed.", e);
+            throw new DorisConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED,
+                    "Close doris manager failed.", e);
         }
     }
 
@@ -89,6 +91,7 @@ public class DorisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         if (SinkConfig.StreamLoadFormat.JSON.equals(sinkConfig.getLoadFormat())) {
             return new JsonSerializationSchema(seaTunnelRowType);
         }
-        throw new RuntimeException("Failed to create row serializer, unsupported `format` from stream load properties.");
+        throw new DorisConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                "Failed to create row serializer, unsupported `format` from stream load properties.");
     }
 }

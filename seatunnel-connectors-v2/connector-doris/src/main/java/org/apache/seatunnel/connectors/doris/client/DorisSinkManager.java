@@ -134,8 +134,8 @@ public class DorisSinkManager {
                     Thread.sleep(backoff);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
-                    throw new IOException(
-                            "Unable to flush; interrupted while doing another attempt.", e);
+                    throw new DorisConnectorException(CommonErrorCode.FLUSH_DATA_FAILED,
+                            "Unable to flush, interrupted while doing another attempt.", e);
                 }
             }
         }
