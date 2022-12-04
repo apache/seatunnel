@@ -15,29 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.operation;
+package org.apache.seatunnel.connectors.seatunnel.pulsar.exception;
 
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
-import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.serializable.ClientToServerOperationDataSerializerHook;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-public class CancelJobOperation extends AbstractJobAsyncOperation {
-    public CancelJobOperation() {
-        super();
+public class PulsarConnectorException extends SeaTunnelRuntimeException {
+    public PulsarConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+        super(seaTunnelErrorCode, errorMessage);
     }
 
-    public CancelJobOperation(long jobId) {
-        super(jobId);
+    public PulsarConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+        super(seaTunnelErrorCode, errorMessage, cause);
     }
 
-    @Override
-    protected PassiveCompletableFuture<?> doRun() throws Exception {
-        SeaTunnelServer service = getService();
-        return service.getCoordinatorService().cancelJob(jobId);
-    }
-
-    @Override
-    public int getClassId() {
-        return ClientToServerOperationDataSerializerHook.CANCEL_JOB_OPERATOR;
+    public PulsarConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+        super(seaTunnelErrorCode, cause);
     }
 }

@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.pulsar.source.reader;
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConsumerConfig;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.start.StartCursor;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.stop.StopCursor;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.split.PulsarPartitionSplit;
@@ -137,7 +139,7 @@ public class PulsarSplitReaderThread extends Thread implements Closeable {
         try {
             return consumerBuilder.subscribe();
         } catch (PulsarClientException e) {
-            throw new RuntimeException("Failed to create pulsar consumer:", e);
+            throw new PulsarConnectorException(PulsarConnectorErrorCode.OPEN_PULSAR_ADMIN_FAILED, "Failed to create pulsar consumer:", e);
         }
     }
 
