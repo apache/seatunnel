@@ -15,16 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.operation;
+package org.apache.seatunnel.engine.server.task.operation;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
-public class CleanTaskGroupContextOperation extends Operation {
+import java.io.IOException;
+
+public class CleanTaskGroupContextOperation extends Operation implements IdentifiedDataSerializable {
 
     private TaskGroupLocation taskGroupLocation;
+
+    public CleanTaskGroupContextOperation() {
+    }
 
     public CleanTaskGroupContextOperation(TaskGroupLocation taskGroupLocation) {
         this.taskGroupLocation = taskGroupLocation;
@@ -37,5 +46,27 @@ public class CleanTaskGroupContextOperation extends Operation {
         SeaTunnelServer service = getService();
         service.getTaskExecutionService().notifyCleanTaskGroupContext(taskGroupLocation);
 
+    }
+
+    @Override
+    public int getFactoryId() {
+        return TaskDataSerializerHook.FACTORY_ID;
+    }
+
+    @Override
+    public int getClassId() {
+        return TaskDataSerializerHook.CLEAN_TASKGROUP_CONTEXT_OPERATION;
+    }
+
+    @Override
+    protected void writeInternal(ObjectDataOutput out) throws IOException {
+        super.writeInternal(out);
+        out.writeObject(taskGroupLocation);
+    }
+
+    @Override
+    protected void readInternal(ObjectDataInput in) throws IOException {
+        super.readInternal(in);
+        taskGroupLocation = in.readObject();
     }
 }

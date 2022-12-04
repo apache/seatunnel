@@ -38,6 +38,7 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
@@ -49,10 +50,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Cluster fault tolerance test. Test the job recovery capability and data consistency assurance capability in case of cluster node failure
+ * Cluster fault tolerance test. Test the job which have two pipelines can recovery capability and data consistency assurance capability in case of cluster node failure
  */
 @Slf4j
-public class ClusterFaultToleranceIT {
+public class ClusterFaultToleranceTwoPipelineIT {
+
+    public static final String TEST_TEMPLATE_FILE_NAME = "cluster_batch_fake_to_localfile_two_pipeline_template.conf";
 
     public static final String DYNAMIC_TEST_CASE_NAME = "dynamic_test_case_name";
 
@@ -64,9 +67,10 @@ public class ClusterFaultToleranceIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled("disabled until we fix the file sink filename duplicate bug when use SeaTunnel Engine")
     public void testBatchJobRunOkIn3Node() throws ExecutionException, InterruptedException {
         String testCaseName = "testBatchJobRunOkIn3Node";
-        String testClusterName = "ClusterFaultToleranceIT_testBatchJobRunOkIn3Node";
+        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testBatchJobRunOkIn3Node";
         long testRowNumber = 1000;
         int testParallelism = 6;
 
@@ -92,7 +96,7 @@ public class ClusterFaultToleranceIT {
 
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
-                createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism);
+                createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism, TEST_TEMPLATE_FILE_NAME);
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(testCaseName);
 
@@ -117,8 +121,7 @@ public class ClusterFaultToleranceIT {
                 });
 
             Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
-            System.out.println(engineClient.getJobMetrics(clientJobProxy.getJobId()));
+            Assertions.assertEquals(testRowNumber * testParallelism * 2, fileLineNumberFromDir);
         } finally {
             if (engineClient != null) {
                 engineClient.shutdown();
@@ -147,8 +150,11 @@ public class ClusterFaultToleranceIT {
      * @param rowNumber    row.num per FakeSource parallelism
      * @param parallelism  FakeSource parallelism
      */
-    private ImmutablePair<String, String> createTestResources(@NonNull String testCaseName, @NonNull JobMode jobMode,
-                                                              long rowNumber, int parallelism) {
+    private ImmutablePair<String, String> createTestResources(@NonNull String testCaseName,
+                                                              @NonNull JobMode jobMode,
+                                                              long rowNumber,
+                                                              int parallelism,
+                                                              @NonNull String templateFileName) {
         checkArgument(rowNumber > 0, "rowNumber must greater than 0");
         checkArgument(parallelism > 0, "parallelism must greater than 0");
         Map<String, String> valueMap = new HashMap<>();
@@ -166,17 +172,17 @@ public class ClusterFaultToleranceIT {
         String targetConfigFilePath =
             File.separator + "tmp" + File.separator + "test_conf" + File.separator + testCaseName +
                 ".conf";
-        TestUtils.createTestConfigFileFromTemplate("cluster_batch_fake_to_localfile_template.conf", valueMap,
-            targetConfigFilePath);
+        TestUtils.createTestConfigFileFromTemplate(templateFileName, valueMap, targetConfigFilePath);
 
         return new ImmutablePair<>(targetDir, targetConfigFilePath);
     }
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled("disabled until we fix the file sink filename duplicate bug when use SeaTunnel Engine")
     public void testStreamJobRunOkIn3Node() throws ExecutionException, InterruptedException {
         String testCaseName = "testStreamJobRunOkIn3Node";
-        String testClusterName = "ClusterFaultToleranceIT_testStreamJobRunOkIn3Node";
+        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testStreamJobRunOkIn3Node";
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
@@ -200,7 +206,7 @@ public class ClusterFaultToleranceIT {
 
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
-                createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism);
+                createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism, TEST_TEMPLATE_FILE_NAME);
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(testCaseName);
 
@@ -221,7 +227,7 @@ public class ClusterFaultToleranceIT {
                     Thread.sleep(2000);
                     System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                     Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
-                        testRowNumber * testParallelism == FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+                        testRowNumber * testParallelism * 2 == FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                 });
 
             clientJobProxy.cancelJob();
@@ -231,7 +237,7 @@ public class ClusterFaultToleranceIT {
                     objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
 
             Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
+            Assertions.assertEquals(testRowNumber * testParallelism * 2, fileLineNumberFromDir);
 
         } finally {
             if (engineClient != null) {
@@ -254,9 +260,10 @@ public class ClusterFaultToleranceIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled("disabled until we fix the file sink filename duplicate bug when use SeaTunnel Engine")
     public void testBatchJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testBatchJobRestoreIn3NodeWorkerDown";
-        String testClusterName = "ClusterFaultToleranceIT_testBatchJobRestoreIn3NodeWorkerDown";
+        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testBatchJobRestoreIn3NodeWorkerDown";
         long testRowNumber = 1000;
         int testParallelism = 2;
         HazelcastInstanceImpl node1 = null;
@@ -280,7 +287,7 @@ public class ClusterFaultToleranceIT {
 
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
-                createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism);
+                createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism, TEST_TEMPLATE_FILE_NAME);
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(testCaseName);
 
@@ -313,7 +320,7 @@ public class ClusterFaultToleranceIT {
                     objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
 
             Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
+            Assertions.assertEquals(testRowNumber * testParallelism * 2, fileLineNumberFromDir);
 
         } finally {
             if (engineClient != null) {
@@ -336,9 +343,10 @@ public class ClusterFaultToleranceIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled("disabled until we fix the file sink filename duplicate bug when use SeaTunnel Engine")
     public void testStreamJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testStreamJobRestoreIn3NodeWorkerDown";
-        String testClusterName = "ClusterFaultToleranceIT_testStreamJobRestoreIn3NodeWorkerDown";
+        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testStreamJobRestoreIn3NodeWorkerDown";
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
@@ -362,7 +370,7 @@ public class ClusterFaultToleranceIT {
 
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
-                createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism);
+                createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism, TEST_TEMPLATE_FILE_NAME);
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(testCaseName);
 
@@ -397,7 +405,7 @@ public class ClusterFaultToleranceIT {
                     Thread.sleep(2000);
                     System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                     Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
-                        testRowNumber * testParallelism == FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+                        testRowNumber * testParallelism * 2 == FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                 });
 
             // sleep 10s and expect the job don't write more rows.
@@ -410,7 +418,7 @@ public class ClusterFaultToleranceIT {
 
             // check the final rows
             Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
+            Assertions.assertEquals(testRowNumber * testParallelism * 2, fileLineNumberFromDir);
 
         } finally {
             if (engineClient != null) {
@@ -433,9 +441,10 @@ public class ClusterFaultToleranceIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled("disabled until we fix the file sink filename duplicate bug when use SeaTunnel Engine")
     public void testBatchJobRestoreIn3NodeMasterDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testBatchJobRestoreIn3NodeMasterDown";
-        String testClusterName = "ClusterFaultToleranceIT_testBatchJobRestoreIn3NodeMasterDown";
+        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testBatchJobRestoreIn3NodeMasterDown";
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
@@ -459,7 +468,7 @@ public class ClusterFaultToleranceIT {
 
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
-                createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism);
+                createTestResources(testCaseName, JobMode.BATCH, testRowNumber, testParallelism, TEST_TEMPLATE_FILE_NAME);
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(testCaseName);
 
@@ -492,7 +501,7 @@ public class ClusterFaultToleranceIT {
                     objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
 
             Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
+            Assertions.assertEquals(testRowNumber * testParallelism * 2, fileLineNumberFromDir);
 
         } finally {
             if (engineClient != null) {
@@ -515,9 +524,10 @@ public class ClusterFaultToleranceIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
+    @Disabled("disabled until we fix the file sink filename duplicate bug when use SeaTunnel Engine")
     public void testStreamJobRestoreIn3NodeMasterDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testStreamJobRestoreIn3NodeMasterDown";
-        String testClusterName = "ClusterFaultToleranceIT_testStreamJobRestoreIn3NodeMasterDown";
+        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testStreamJobRestoreIn3NodeMasterDown";
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
@@ -541,7 +551,7 @@ public class ClusterFaultToleranceIT {
 
             Common.setDeployMode(DeployMode.CLIENT);
             ImmutablePair<String, String> testResources =
-                createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism);
+                createTestResources(testCaseName, JobMode.STREAMING, testRowNumber, testParallelism, TEST_TEMPLATE_FILE_NAME);
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(testCaseName);
 
@@ -575,7 +585,7 @@ public class ClusterFaultToleranceIT {
                     Thread.sleep(2000);
                     System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                     Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
-                        testRowNumber * testParallelism == FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+                        testRowNumber * testParallelism * 2 == FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                 });
 
             // sleep 10s and expect the job don't write more rows.
@@ -588,7 +598,7 @@ public class ClusterFaultToleranceIT {
 
             // check the final rows
             Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
+            Assertions.assertEquals(testRowNumber * testParallelism * 2, fileLineNumberFromDir);
 
         } finally {
             if (engineClient != null) {
