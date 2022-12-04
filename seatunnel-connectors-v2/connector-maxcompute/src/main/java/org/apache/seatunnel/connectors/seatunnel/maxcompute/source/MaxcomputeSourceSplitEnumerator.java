@@ -26,8 +26,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.aliyun.odps.tunnel.TableTunnel;
 import com.aliyun.odps.tunnel.TunnelException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -38,8 +37,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+@Slf4j
 public class MaxcomputeSourceSplitEnumerator implements SourceSplitEnumerator<MaxcomputeSourceSplit, MaxcomputeSourceState> {
-    private static final Logger LOG = LoggerFactory.getLogger(MaxcomputeSource.class);
     private final Context<MaxcomputeSourceSplit> enumeratorContext;
     private final Map<Integer, Set<MaxcomputeSourceSplit>> pendingSplits;
     private Set<MaxcomputeSourceSplit> assignedSplits;
@@ -118,8 +117,8 @@ public class MaxcomputeSourceSplitEnumerator implements SourceSplitEnumerator<Ma
         }
         assignedSplits.forEach(allSplit::remove);
         addSplitChangeToPendingAssignments(allSplit);
-        LOG.debug("Assigned {} to {} readers.", allSplit, numReaders);
-        LOG.info("Calculated splits successfully, the size of splits is {}.", allSplit.size());
+        log.debug("Assigned {} to {} readers.", allSplit, numReaders);
+        log.info("Calculated splits successfully, the size of splits is {}.", allSplit.size());
     }
 
     private void addSplitChangeToPendingAssignments(Collection<MaxcomputeSourceSplit> newSplits) {
@@ -141,7 +140,7 @@ public class MaxcomputeSourceSplitEnumerator implements SourceSplitEnumerator<Ma
                 // Mark pending splits as already assigned
                 assignedSplits.addAll(pendingAssignmentForReader);
                 // Assign pending splits to reader
-                LOG.info("Assigning splits to readers {} {}", pendingReader, pendingAssignmentForReader);
+                log.info("Assigning splits to readers {} {}", pendingReader, pendingAssignmentForReader);
                 enumeratorContext.assignSplit(pendingReader, new ArrayList<>(pendingAssignmentForReader));
             }
             enumeratorContext.signalNoMoreSplits(pendingReader);

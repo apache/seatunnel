@@ -25,23 +25,21 @@ import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.Maxcom
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PROJECT;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.RESULT_TABLE_NAME;
 
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.source.MaxcomputeSource;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.aliyun.odps.Odps;
-import com.aliyun.odps.OdpsException;
 import com.aliyun.odps.PartitionSpec;
 import com.aliyun.odps.Table;
 import com.aliyun.odps.account.Account;
 import com.aliyun.odps.account.AliyunAccount;
 import com.aliyun.odps.tunnel.TableTunnel;
-import com.aliyun.odps.tunnel.TunnelException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class MaxcomputeUtil {
-    private static final Logger LOG = LoggerFactory.getLogger(MaxcomputeSource.class);
     public static Table getTable(Config pluginConfig) {
         Odps odps = getOdps(pluginConfig);
         Table table = odps.tables().get(pluginConfig.getString(RESULT_TABLE_NAME.key()));
@@ -72,8 +70,8 @@ public class MaxcomputeUtil {
             } else {
                 session = tunnel.createDownloadSession(pluginConfig.getString(PROJECT.key()), pluginConfig.getString(RESULT_TABLE_NAME.key()));
             }
-        } catch (TunnelException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            throw new MaxcomputeConnectorException(CommonErrorCode.READER_OPERATION_FAILED, e);
         }
         return session;
     }
@@ -91,7 +89,7 @@ public class MaxcomputeUtil {
                     try {
                         table.deletePartition(partitionSpec, true);
                     } catch (NullPointerException e) {
-                        LOG.debug("NullPointerException when delete table partition");
+                        log.debug("NullPointerException when delete table partition");
                     }
                 }
                 table.createPartition(partitionSpec, true);
@@ -100,12 +98,12 @@ public class MaxcomputeUtil {
                     try {
                         table.truncate();
                     } catch (NullPointerException e) {
-                        LOG.debug("NullPointerException when truncate table");
+                        log.debug("NullPointerException when truncate table");
                     }
                 }
             }
-        } catch (OdpsException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            throw new MaxcomputeConnectorException(CommonErrorCode.READER_OPERATION_FAILED, e);
         }
     }
 }

@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ACCESS_ID;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ACCESS_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ENDPOINT;
+import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.OVERWRITE;
+import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PARTITION_SPEC;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PROJECT;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.RESULT_TABLE_NAME;
 
@@ -38,6 +40,9 @@ public class MaxcomputeSinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(ACCESS_ID, ACCESS_KEY, ENDPOINT, PROJECT, RESULT_TABLE_NAME).build();
+        return OptionRule.builder()
+            .required(ACCESS_ID, ACCESS_KEY, ENDPOINT, PROJECT, RESULT_TABLE_NAME)
+            .optional(PARTITION_SPEC, OVERWRITE)
+            .build();
     }
 }

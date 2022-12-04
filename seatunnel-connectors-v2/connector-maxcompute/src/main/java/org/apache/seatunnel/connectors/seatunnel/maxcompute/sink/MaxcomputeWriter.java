@@ -23,30 +23,26 @@ import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.Maxcom
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.source.MaxcomputeSource;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import com.aliyun.odps.OdpsException;
 import com.aliyun.odps.PartitionSpec;
 import com.aliyun.odps.Table;
 import com.aliyun.odps.TableSchema;
 import com.aliyun.odps.data.Record;
 import com.aliyun.odps.data.RecordWriter;
 import com.aliyun.odps.tunnel.TableTunnel;
-import com.aliyun.odps.tunnel.TunnelException;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
 @Slf4j
 public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
-    private static final Logger LOG = LoggerFactory.getLogger(MaxcomputeSource.class);
     private final SeaTunnelRowType seaTunnelRowType;
     private final RecordWriter recordWriter;
     private final TableTunnel.UploadSession session;
@@ -68,11 +64,9 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                 session = tunnel.createUploadSession(pluginConfig.getString(PROJECT.key()), pluginConfig.getString(RESULT_TABLE_NAME.key()));
             }
             this.recordWriter = session.openRecordWriter(Thread.currentThread().getId());
-            LOG.info("open record writer success");
-        } catch (OdpsException e) {
-            throw new RuntimeException(e);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+            log.info("open record writer success");
+        } catch (Exception e) {
+            throw new MaxcomputeConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, e);
         }
     }
 
@@ -87,8 +81,8 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         this.recordWriter.close();
         try {
             this.session.commit(new Long[]{Thread.currentThread().getId()});
-        } catch (TunnelException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            throw new MaxcomputeConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, e);
         }
     }
 }

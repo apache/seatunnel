@@ -24,6 +24,8 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -32,8 +34,7 @@ import com.aliyun.odps.Table;
 import com.aliyun.odps.TableSchema;
 import com.aliyun.odps.data.Record;
 import com.aliyun.odps.tunnel.TableTunnel;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -42,9 +43,9 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 public class MaxcomputeTypeMapper implements Serializable {
 
-    private static final Logger LOG = LoggerFactory.getLogger(MaxcomputeTypeMapper.class);
 
     // ============================data types=====================
 
@@ -112,10 +113,9 @@ public class MaxcomputeTypeMapper implements Serializable {
             //Doesn't support yet
             case MAXCOMPUTE_UNKNOWN:
             default:
-                throw new UnsupportedOperationException(
-                    String.format(
-                        "Doesn't support Maxcompute type '%s' .",
-                        maxcomputeType));
+                throw new MaxcomputeConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, String.format(
+                    "Doesn't support Maxcompute type '%s' .",
+                    maxcomputeType));
         }
     }
 
@@ -129,9 +129,8 @@ public class MaxcomputeTypeMapper implements Serializable {
                 fieldNames.add(tableSchema.getColumns().get(i).getName());
                 seaTunnelDataTypes.add(mapping(tableSchema.getColumns(), i));
             }
-        } catch (SQLException e) {
-            LOG.warn("get row type info exception.", e);
-            return null;
+        } catch (Exception e) {
+            throw new MaxcomputeConnectorException(CommonErrorCode.TABLE_SCHEMA_GET_FAILED, e);
         }
         return new SeaTunnelRowType(fieldNames.toArray(new String[fieldNames.size()]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));
     }
@@ -167,7 +166,9 @@ public class MaxcomputeTypeMapper implements Serializable {
             } else if (BasicType.STRING_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getString(i);
             } else {
-                throw new IllegalStateException("Unexpected value: " + seaTunnelDataType);
+                throw new MaxcomputeConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, String.format(
+                    "Doesn't support SeaTunnelData type '%s' .",
+                    seaTunnelDataType));
             }
             fields.add(seatunnelField);
         }

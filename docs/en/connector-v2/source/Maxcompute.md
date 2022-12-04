@@ -76,6 +76,6 @@ source {
 
 ## Changelog
 
-### 2.1.3-beta 2022-12-05
+### next version
 
 - Add Maxcompute Source Connector

@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeUtil;
 
@@ -31,8 +33,6 @@ import com.aliyun.odps.data.Record;
 import com.aliyun.odps.tunnel.TableTunnel;
 import com.aliyun.odps.tunnel.io.TunnelRecordReader;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -41,7 +41,6 @@ import java.util.Set;
 
 @Slf4j
 public class MaxcomputeSourceReader implements SourceReader<SeaTunnelRow, MaxcomputeSourceSplit> {
-    private static final Logger LOG = LoggerFactory.getLogger(MaxcomputeSource.class);
     private final SourceReader.Context context;
     private Set<MaxcomputeSourceSplit> sourceSplits;
     private Config pluginConfig;
@@ -69,7 +68,7 @@ public class MaxcomputeSourceReader implements SourceReader<SeaTunnelRow, Maxcom
             try {
                 TableTunnel.DownloadSession session = MaxcomputeUtil.getDownloadSession(pluginConfig);
                 TunnelRecordReader recordReader = session.openRecordReader(source.getSplitId(), source.getRowNum());
-                LOG.info("open record reader success");
+                log.info("open record reader success");
                 Record record;
                 while ((record = recordReader.read()) != null) {
                     SeaTunnelRow seaTunnelRow = MaxcomputeTypeMapper.getSeaTunnelRowData(record, seaTunnelRowType);
@@ -77,7 +76,7 @@ public class MaxcomputeSourceReader implements SourceReader<SeaTunnelRow, Maxcom
                 }
                 recordReader.close();
             } catch (Exception e) {
-                throw new RuntimeException("Maxcompute source read error", e);
+                throw new MaxcomputeConnectorException(CommonErrorCode.READER_OPERATION_FAILED, e);
             }
         });
         if (this.noMoreSplit && Boundedness.BOUNDED.equals(context.getBoundedness())) {

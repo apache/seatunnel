@@ -29,13 +29,10 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Slf4j
 @AutoService(SeaTunnelSource.class)
 public class MaxcomputeSource implements SeaTunnelSource<SeaTunnelRow, MaxcomputeSourceSplit, MaxcomputeSourceState> {
-    private static final Logger LOG = LoggerFactory.getLogger(MaxcomputeSource.class);
     private SeaTunnelRowType typeInfo;
     private Config pluginConfig;
 

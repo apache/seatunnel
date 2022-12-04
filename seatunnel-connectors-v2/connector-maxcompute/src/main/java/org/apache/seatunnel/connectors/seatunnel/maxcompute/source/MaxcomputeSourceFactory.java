@@ -20,8 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ACCESS_ID;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ACCESS_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ENDPOINT;
+import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PARTITION_SPEC;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PROJECT;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.RESULT_TABLE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.SPLIT_ROW;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -38,6 +40,9 @@ public class MaxcomputeSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(ACCESS_ID, ACCESS_KEY, ENDPOINT, PROJECT, RESULT_TABLE_NAME).build();
+        return OptionRule.builder()
+            .required(ACCESS_ID, ACCESS_KEY, ENDPOINT, PROJECT, RESULT_TABLE_NAME)
+            .optional(PARTITION_SPEC, SPLIT_ROW)
+            .build();
     }
 }
