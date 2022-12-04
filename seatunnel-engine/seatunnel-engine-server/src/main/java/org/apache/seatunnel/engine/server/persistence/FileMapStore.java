@@ -42,11 +42,13 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
     public void init(HazelcastInstance hazelcastInstance, Properties properties, String mapName) {
         // TODO implemented by loading the factory
         mapStorage = new IMapFileStorage();
+        Map<String, Object> initMap = new HashMap<>(Maps.fromProperties(properties));
         Configuration configuration = new Configuration();
         configuration.set("fs.defaultFS", properties.getProperty("fs.defaultFS"));
         configuration.set("fs.file.impl", properties.getProperty("fs.file.impl"));
         properties.put(HDFS_CONFIG_KEY, configuration);
-        mapStorage.initialize(new HashMap<>(Maps.fromProperties(properties)));
+        initMap.put(HDFS_CONFIG_KEY, configuration);
+        mapStorage.initialize(initMap);
 
     }
 
