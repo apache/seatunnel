@@ -19,7 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
@@ -61,8 +63,9 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
     public void write(SeaTunnelRow element) throws IOException {
         try {
             writeStrategy.write(element);
-        } catch (Exception e) {
-            throw new RuntimeException("Write data error, please check", e);
+        } catch (FileConnectorException e) {
+            String errorMsg = String.format("Write this data [%s] to file failed", element);
+            throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
         }
     }
 

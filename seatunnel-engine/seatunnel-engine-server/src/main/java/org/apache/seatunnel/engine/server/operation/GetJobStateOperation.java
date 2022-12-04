@@ -19,7 +19,7 @@ package org.apache.seatunnel.engine.server.operation;
 
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
+import org.apache.seatunnel.engine.server.serializable.ClientToServerOperationDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -45,12 +45,12 @@ public class GetJobStateOperation extends Operation implements IdentifiedDataSer
 
     @Override
     public final int getFactoryId() {
-        return OperationDataSerializerHook.FACTORY_ID;
+        return ClientToServerOperationDataSerializerHook.FACTORY_ID;
     }
 
     @Override
     public int getClassId() {
-        return OperationDataSerializerHook.PRINT_MESSAGE_OPERATOR;
+        return ClientToServerOperationDataSerializerHook.PRINT_MESSAGE_OPERATOR;
     }
 
     @Override

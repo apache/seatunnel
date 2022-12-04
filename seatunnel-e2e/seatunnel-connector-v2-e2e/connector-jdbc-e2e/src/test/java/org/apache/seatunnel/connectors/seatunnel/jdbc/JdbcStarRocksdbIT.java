@@ -118,7 +118,7 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
         Map<String, String> containerEnv = new HashMap<>();
         String jdbcUrl = String.format(URL, SR_PORT);
         return JdbcCase.builder().dockerImage(DOCKER_IMAGE).networkAliases(NETWORK_ALIASES).containerEnv(containerEnv).driverClass(DRIVER_CLASS)
-            .host(HOST).jdbcTemplate(URL).dataBase(DATABASE).port(SR_PORT).jdbcUrl(jdbcUrl).userName(USERNAME).password(PASSWORD).dataBase(DATABASE)
+            .host(HOST).jdbcTemplate(URL).dataBase(DATABASE).port(SR_PORT).localPort(SR_PORT).jdbcUrl(jdbcUrl).userName(USERNAME).password(PASSWORD).dataBase(DATABASE)
             .sourceTable(SOURCE_TABLE).sinkTable(SINK_TABLE).driverJar(SR_DRIVER_JAR)
             .ddlSource(DDL_SOURCE).ddlSink(DDL_SINK).initDataSql(INIT_DATA_SQL).configFile(CONFIG_FILE).seaTunnelRow(initTestData()).build();
     }

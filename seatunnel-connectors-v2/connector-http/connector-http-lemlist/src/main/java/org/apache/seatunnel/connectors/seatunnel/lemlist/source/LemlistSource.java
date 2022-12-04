@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.lemlist.source;
 import static org.apache.seatunnel.connectors.seatunnel.http.util.AuthorizationUtil.getTokenByBasicAuth;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -31,6 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.lemlist.source.config.LemlistSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.lemlist.source.config.LemlistSourceParameter;
+import org.apache.seatunnel.connectors.seatunnel.lemlist.source.exception.LemlistConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -50,7 +52,9 @@ public class LemlistSource extends HttpSource {
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, LemlistSourceConfig.URL.key(), LemlistSourceConfig.PASSWORD.key());
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
+            throw new LemlistConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         //get accessToken by basic auth
         String accessToken = getTokenByBasicAuth("", pluginConfig.getString(LemlistSourceConfig.PASSWORD.key()));
@@ -60,6 +64,6 @@ public class LemlistSource extends HttpSource {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(this.lemlistSourceParameter, readerContext, this.deserializationSchema);
+        return new HttpSourceReader(this.lemlistSourceParameter, readerContext, this.deserializationSchema, jsonField, contentField);
     }
 }

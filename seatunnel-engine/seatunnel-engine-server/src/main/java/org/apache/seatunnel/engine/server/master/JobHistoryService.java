@@ -17,11 +17,14 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import org.apache.seatunnel.api.common.metrics.JobMetrics;
+import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -36,6 +39,7 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -67,18 +71,22 @@ public class JobHistoryService {
     //TODO need to limit the amount of storage
     private final IMap<Long, JobStateData> finishedJobStateImap;
 
+    private final IMap<Long, JobMetrics> finishedJobMetricsImap;
+
     private final ObjectMapper objectMapper;
 
     public JobHistoryService(
         IMap<Object, Object> runningJobStateIMap,
         ILogger logger,
         Map<Long, JobMaster> runningJobMasterMap,
-        IMap<Long, JobStateData> finishedJobStateImap
+        IMap<Long, JobStateData> finishedJobStateImap,
+        IMap<Long, JobMetrics> finishedJobMetricsImap
     ) {
         this.runningJobStateIMap = runningJobStateIMap;
         this.logger = logger;
         this.runningJobMasterMap = runningJobMasterMap;
         this.finishedJobStateImap = finishedJobStateImap;
+        this.finishedJobMetricsImap = finishedJobMetricsImap;
         this.objectMapper = new ObjectMapper();
         this.objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
     }
@@ -104,6 +112,10 @@ public class JobHistoryService {
             finishedJobStateImap.getOrDefault(jobId, null);
     }
 
+    public JobMetrics getJobMetrics(Long jobId){
+        return finishedJobMetricsImap.getOrDefault(jobId, null);
+    }
+
     // Get detailed status of a single job as json
     public String getJobStatusAsString(Long jobId) {
         JobStateData jobStatus = getJobStatus(jobId);
@@ -126,6 +138,16 @@ public class JobHistoryService {
     public void storeFinishedJobState(JobMaster jobMaster) {
         JobStateData jobStateData = toJobStateMapper(jobMaster);
         finishedJobStateImap.put(jobStateData.jobId, jobStateData, 14, TimeUnit.DAYS);
+    }
+
+    @SuppressWarnings("checkstyle:MagicNumber")
+    public void storeFinishedJobMetrics(JobMaster jobMaster) {
+        List<RawJobMetrics> currJobMetrics = jobMaster.getCurrJobMetrics();
+        JobMetrics jobMetrics = JobMetricsUtil.toJobMetrics(currJobMetrics);
+        Long jobId = jobMaster.getJobImmutableInformation().getJobId();
+        finishedJobMetricsImap.put(jobId, jobMetrics, 14, TimeUnit.DAYS);
+        //Clean TaskGroupContext for TaskExecutionServer
+        jobMaster.cleanTaskGroupContext();
     }
 
     private JobStateData toJobStateMapper(JobMaster jobMaster) {
