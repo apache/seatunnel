@@ -45,7 +45,6 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
         Map<String, Object> initMap = new HashMap<>(Maps.fromProperties(properties));
         Configuration configuration = new Configuration();
         configuration.set("fs.defaultFS", properties.getProperty("fs.defaultFS"));
-        configuration.set("fs.file.impl", properties.getProperty("fs.file.impl"));
         properties.put(HDFS_CONFIG_KEY, configuration);
         initMap.put(HDFS_CONFIG_KEY, configuration);
         mapStorage.initialize(initMap);
