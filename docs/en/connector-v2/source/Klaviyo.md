@@ -305,3 +305,4 @@ Klaviyo {
 ### next version
 
 - Add Klaviyo Source Connector
+- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/incubator-seatunnel/pull/3510))
