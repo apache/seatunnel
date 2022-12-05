@@ -68,6 +68,8 @@ spark
 
 If you want to install the V2 connector plugin manually, you only need to download the V2 connector plugin you need and put them in the seatunnel directory
 
+:::
+
 ## What's More
 
 For now, you are already deployment SeaTunnel complete. You can follow [Quick Start](quick-start-seatunnel-engine.md) to configure and run a data synchronization job.
