@@ -15,12 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.spark.v2.elasticsearch;
+package org.apache.seatunnel.e2e.connector.elasticsearch;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
-import org.apache.seatunnel.e2e.spark.SparkContainer;
+import org.apache.seatunnel.e2e.common.TestResource;
+import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,7 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
@@ -50,7 +52,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class ElasticsearchIT extends SparkContainer {
+public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
     private List<String> testDataset;
 
@@ -59,17 +61,17 @@ public class ElasticsearchIT extends SparkContainer {
     private EsRestClient esRestClient;
 
     @BeforeEach
-    public void startElasticsearchContainer() throws Exception {
+    @Override
+    public void startUp() throws Exception {
         container = new ElasticsearchContainer(DockerImageName.parse("elasticsearch:6.8.23").asCompatibleSubstituteFor("docker.elastic.co/elasticsearch/elasticsearch"))
-                .withNetwork(NETWORK)
-                .withNetworkAliases("elasticsearch")
-                .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger("elasticsearch:6.8.23")));
+            .withNetwork(NETWORK)
+            .withNetworkAliases("elasticsearch")
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger("elasticsearch:6.8.23")));
         container.start();
         log.info("Elasticsearch container started");
         esRestClient = EsRestClient.createInstance(Lists.newArrayList(container.getHttpHostAddress()), "", "");
         testDataset = generateTestDataSet();
         createIndexDocs();
-
     }
 
     /**
@@ -92,14 +94,14 @@ public class ElasticsearchIT extends SparkContainer {
         esRestClient.bulk(requestBody.toString());
     }
 
-    @Test
-    public void testElasticsearch() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelSparkJob("/elasticsearch/elasticsearch_source_and_sink.conf");
+    @TestTemplate
+    public void testElasticsearch(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/elasticsearch/elasticsearch_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> sinData = readSinkData();
         Assertions.assertIterableEquals(
-                testDataset,
-                sinData
+            testDataset,
+            sinData
         );
     }
 
@@ -141,7 +143,7 @@ public class ElasticsearchIT extends SparkContainer {
                 LocalDate.now().toString(),
                 LocalDateTime.now().toString()
             };
-            for (int j = 0; j  < fields.length; j++){
+            for (int j = 0; j < fields.length; j++) {
                 doc.put(fields[j], values[j]);
             }
             documents.add(objectMapper.writeValueAsString(doc));
@@ -149,7 +151,7 @@ public class ElasticsearchIT extends SparkContainer {
         return documents;
     }
 
-    private List<String> readSinkData() throws InterruptedException{
+    private List<String> readSinkData() throws InterruptedException {
         //wait for index refresh
         Thread.sleep(2000);
         List<String> source = Lists.newArrayList("c_map", "c_array", "c_string", "c_boolean", "c_tinyint", "c_smallint", "c_int", "c_bigint", "c_float", "c_double", "c_decimal", "c_bytes", "c_date", "c_timestamp");
@@ -164,7 +166,8 @@ public class ElasticsearchIT extends SparkContainer {
     }
 
     @AfterEach
-    public void close() {
+    @Override
+    public void tearDown() {
         esRestClient.close();
         container.close();
     }
