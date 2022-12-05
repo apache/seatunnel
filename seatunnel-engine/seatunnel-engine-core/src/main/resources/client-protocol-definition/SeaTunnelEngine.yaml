@@ -118,7 +118,7 @@ methods:
           doc: ''
 
   - id: 6
-    name: getJobState
+    name: getJobDetailStatus
     since: 2.0
     doc: ''
     request:
