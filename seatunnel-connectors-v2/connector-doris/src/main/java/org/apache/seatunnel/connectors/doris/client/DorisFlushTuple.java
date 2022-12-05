@@ -18,14 +18,12 @@
 package org.apache.seatunnel.connectors.doris.client;
 
 import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
 
 import java.util.List;
 
 @AllArgsConstructor
-@Getter
-@Setter
+@Data
 public class DorisFlushTuple {
     private String label;
     private Long bytes;

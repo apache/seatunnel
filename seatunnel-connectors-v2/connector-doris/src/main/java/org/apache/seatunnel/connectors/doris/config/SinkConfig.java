@@ -23,17 +23,13 @@ import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.Data;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Setter
-@Getter
-@ToString
+@Data
 public class SinkConfig {
 
     private static final int DEFAULT_BATCH_MAX_SIZE = 1024;

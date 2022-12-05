@@ -73,7 +73,7 @@ public class DorisStreamLoadVisitor {
             throw new DorisConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, "Unable to flush data to Doris: unknown result status. " + loadResult);
         }
         if (log.isDebugEnabled()) {
-            log.debug(new StringBuilder("StreamLoad response:\n").append(JsonUtils.toJsonString(loadResult)).toString());
+            log.debug(String.format("StreamLoad response:\n%s"), JsonUtils.toJsonString(loadResult));
         }
         if (RESULT_FAILED.equals(loadResult.get(keyStatus))) {
             StringBuilder errorBuilder = new StringBuilder("Failed to flush data to Doris.\n");
@@ -94,7 +94,7 @@ public class DorisStreamLoadVisitor {
             }
             throw new DorisConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, errorBuilder.toString());
         } else if (RESULT_LABEL_EXISTED.equals(loadResult.get(keyStatus))) {
-            log.debug(new StringBuilder("StreamLoad response:\n").append(JsonUtils.toJsonString(loadResult)).toString());
+            log.debug(String.format("StreamLoad response:\n%s"), JsonUtils.toJsonString(loadResult));
             // has to block-checking the state to get the final result
             checkLabelState(host, flushData.getLabel());
         }
@@ -188,7 +188,7 @@ public class DorisStreamLoadVisitor {
     private String getBasicAuthHeader(String username, String password) {
         String auth = username + ":" + password;
         byte[] encodedAuth = Base64.encodeBase64(auth.getBytes(StandardCharsets.UTF_8));
-        return new StringBuilder("Basic ").append(new String(encodedAuth)).toString();
+        return String.format("Basic %s", new String(encodedAuth));
     }
 
     private Map<String, String> getStreamLoadHttpHeader(String label) {

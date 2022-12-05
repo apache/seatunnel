@@ -42,7 +42,7 @@ public class DorisSinkManager {
     private final SinkConfig sinkConfig;
     private final List<byte[]> batchList;
 
-    private DorisStreamLoadVisitor dorisStreamLoadVisitor;
+    private final DorisStreamLoadVisitor dorisStreamLoadVisitor;
     private ScheduledExecutorService scheduler;
     private ScheduledFuture<?> scheduledFuture;
     private volatile boolean initialize;
@@ -50,7 +50,7 @@ public class DorisSinkManager {
     private int batchRowCount = 0;
     private long batchBytesSize = 0;
 
-    private Integer batchIntervalMs;
+    private final Integer batchIntervalMs;
 
     public DorisSinkManager(SinkConfig sinkConfig, List<String> fileNames) {
         this.sinkConfig = sinkConfig;
