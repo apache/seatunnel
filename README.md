@@ -95,7 +95,7 @@ https://seatunnel.apache.org/docs/category/start-v2
 https://seatunnel.apache.org/docs/category/start-v2
 
 Detailed documentation on SeaTunnel
-https://seatunnel.apache.org/docs/intro/about
+https://seatunnel.apache.org/docs/about/
 
 ## Application practice cases
 
