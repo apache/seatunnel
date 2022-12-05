@@ -20,15 +20,19 @@ package org.apache.seatunnel.engine.server.execution;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.Stateful;
+import org.apache.seatunnel.engine.server.metrics.MetricsContext;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
+import com.hazelcast.internal.metrics.DynamicMetricsProvider;
+import com.hazelcast.internal.metrics.MetricDescriptor;
+import com.hazelcast.internal.metrics.MetricsCollectionContext;
 import lombok.NonNull;
 
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
 
-public interface Task extends InternalCheckpointListener, Stateful, Serializable {
+public interface Task extends DynamicMetricsProvider, InternalCheckpointListener, Stateful, Serializable {
 
     default void init() throws Exception {
     }
@@ -53,4 +57,11 @@ public interface Task extends InternalCheckpointListener, Stateful, Serializable
 
     @Override
     default void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {}
+
+    default MetricsContext getMetricsContext() {
+        return null;
+    }
+
+    default void provideDynamicMetrics(MetricDescriptor tagger, MetricsCollectionContext context) {
+    }
 }

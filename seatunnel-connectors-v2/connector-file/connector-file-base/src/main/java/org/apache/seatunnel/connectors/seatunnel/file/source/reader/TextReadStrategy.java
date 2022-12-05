@@ -28,7 +28,8 @@ import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 
 import org.apache.hadoop.conf.Configuration;
@@ -49,7 +50,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
     private TimeUtils.Formatter timeFormat = TimeUtils.Formatter.HH_MM_SS;
 
     @Override
-    public void read(String path, Collector<SeaTunnelRow> output) throws IOException, FilePluginException {
+    public void read(String path, Collector<SeaTunnelRow> output) throws FileConnectorException, IOException {
         Configuration conf = getConfiguration();
         FileSystem fs = FileSystem.get(conf);
         Path filePath = new Path(path);
@@ -66,8 +67,8 @@ public class TextReadStrategy extends AbstractReadStrategy {
                     }
                     output.collect(seaTunnelRow);
                 } catch (IOException e) {
-                    String errorMsg = String.format("Deserialize this data [%s] error, please check the origin data", line);
-                    throw new RuntimeException(errorMsg);
+                    String errorMsg = String.format("Deserialize this data [%s] failed, please check the origin data", line);
+                    throw new FileConnectorException(FileConnectorErrorCode.DATA_DESERIALIZE_FAILED, errorMsg, e);
                 }
             });
         }
@@ -95,22 +96,22 @@ public class TextReadStrategy extends AbstractReadStrategy {
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
-        if (pluginConfig.hasPath(BaseSourceConfig.DELIMITER)) {
-            fieldDelimiter = pluginConfig.getString(BaseSourceConfig.DELIMITER);
+        if (pluginConfig.hasPath(BaseSourceConfig.DELIMITER.key())) {
+            fieldDelimiter = pluginConfig.getString(BaseSourceConfig.DELIMITER.key());
         } else {
-            FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(BaseSourceConfig.FILE_TYPE).toUpperCase());
+            FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(BaseSourceConfig.FILE_TYPE.key()).toUpperCase());
             if (fileFormat == FileFormat.CSV) {
                 fieldDelimiter = ",";
             }
         }
-        if (pluginConfig.hasPath(BaseSourceConfig.DATE_FORMAT)) {
-            dateFormat = DateUtils.Formatter.parse(pluginConfig.getString(BaseSourceConfig.DATE_FORMAT));
+        if (pluginConfig.hasPath(BaseSourceConfig.DATE_FORMAT.key())) {
+            dateFormat = DateUtils.Formatter.parse(pluginConfig.getString(BaseSourceConfig.DATE_FORMAT.key()));
         }
-        if (pluginConfig.hasPath(BaseSourceConfig.DATETIME_FORMAT)) {
-            datetimeFormat = DateTimeUtils.Formatter.parse(pluginConfig.getString(BaseSourceConfig.DATETIME_FORMAT));
+        if (pluginConfig.hasPath(BaseSourceConfig.DATETIME_FORMAT.key())) {
+            datetimeFormat = DateTimeUtils.Formatter.parse(pluginConfig.getString(BaseSourceConfig.DATETIME_FORMAT.key()));
         }
-        if (pluginConfig.hasPath(BaseSourceConfig.TIME_FORMAT)) {
-            timeFormat = TimeUtils.Formatter.parse(pluginConfig.getString(BaseSourceConfig.TIME_FORMAT));
+        if (pluginConfig.hasPath(BaseSourceConfig.TIME_FORMAT.key())) {
+            timeFormat = TimeUtils.Formatter.parse(pluginConfig.getString(BaseSourceConfig.TIME_FORMAT.key()));
         }
         if (isMergePartition) {
             deserializationSchema = TextDeserializationSchema.builder()

@@ -29,6 +29,7 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Clickh
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.USERNAME;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -40,7 +41,10 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ReaderOption;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.ShardMetadata;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
@@ -85,12 +89,15 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
         }
 
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
+            throw new ClickhouseConnectorException(
+                SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                String.format("PluginName: %s, PluginType: %s, Message: %s",
+                    getPluginName(), PluginType.SINK, result.getMsg()));
         }
         Map<String, Object> defaultConfig = ImmutableMap.<String, Object>builder()
             .put(BULK_SIZE.key(), BULK_SIZE.defaultValue())
             .put(SPLIT_MODE.key(), SPLIT_MODE.defaultValue())
-                .build();
+            .build();
 
         config = config.withFallback(ConfigFactory.parseMap(defaultConfig));
 
@@ -123,7 +130,7 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
             ClickhouseTable table = proxy.getClickhouseTable(config.getString(DATABASE.key()),
                 config.getString(TABLE.key()));
             if (!"Distributed".equals(table.getEngine())) {
-                throw new IllegalArgumentException("split mode only support table which engine is " +
+                throw new ClickhouseConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, "split mode only support table which engine is " +
                     "'Distributed' engine at now");
             }
             if (config.hasPath(SHARDING_KEY.key())) {
@@ -157,7 +164,7 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
             // check if the fields exist in schema
             for (String field : fields) {
                 if (!tableSchema.containsKey(field)) {
-                    throw new RuntimeException("Field " + field + " does not exist in table " + config.getString(TABLE.key()));
+                    throw new ClickhouseConnectorException(ClickhouseConnectorErrorCode.FIELD_NOT_IN_TABLE, "Field " + field + " does not exist in table " + config.getString(TABLE.key()));
                 }
             }
         } else {

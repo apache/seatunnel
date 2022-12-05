@@ -92,6 +92,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         taskExecutionService = new TaskExecutionService(
             nodeEngine, nodeEngine.getProperties()
         );
+        nodeEngine.getMetricsRegistry().registerDynamicMetricsProvider(taskExecutionService);
         taskExecutionService.start();
         getSlotService();
         coordinatorService = new CoordinatorService(nodeEngine, this, seaTunnelConfig.getEngineConfig());

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.commit;
 
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
@@ -37,7 +38,8 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
     private final String dbName;
     private final String tableName;
 
-    public HiveSinkAggregatedCommitter(Config pluginConfig, String dbName, String tableName) {
+    public HiveSinkAggregatedCommitter(Config pluginConfig, String dbName, String tableName, HadoopConf hadoopConf) {
+        super(hadoopConf);
         this.pluginConfig = pluginConfig;
         this.dbName = dbName;
         this.tableName = tableName;
@@ -55,9 +57,9 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
                         .collect(Collectors.toList());
                 try {
                     hiveMetaStore.addPartitions(dbName, tableName, partitions);
-                    log.info("Add these partitions [{}]", partitions);
+                    log.info("Add these partitions {}", partitions);
                 } catch (TException e) {
-                    log.error("Failed to add these partitions [{}]", partitions);
+                    log.error("Failed to add these partitions {}", partitions);
                     errorCommitInfos.add(aggregatedCommitInfo);
                 }
             }
@@ -77,9 +79,9 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
                     .collect(Collectors.toList());
             try {
                 hiveMetaStore.dropPartitions(dbName, tableName, partitions);
-                log.info("Remove these partitions [{}]", partitions);
+                log.info("Remove these partitions {}", partitions);
             } catch (TException e) {
-                log.error("Failed to remove these partitions [{}]", partitions);
+                log.error("Failed to remove these partitions {}", partitions);
             }
         }
         hiveMetaStore.close();

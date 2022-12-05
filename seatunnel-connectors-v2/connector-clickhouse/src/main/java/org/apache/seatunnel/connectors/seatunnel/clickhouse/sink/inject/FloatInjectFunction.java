@@ -27,7 +27,7 @@ public class FloatInjectFunction implements ClickhouseFieldInjectFunction {
         if (value instanceof BigDecimal) {
             statement.setFloat(index, ((BigDecimal) value).floatValue());
         } else {
-            statement.setFloat(index, (Float) value);
+            statement.setFloat(index, Float.parseFloat(value.toString()));
         }
     }
 

@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.neo4j.config;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.exception.Neo4jConnectorException;
+
 import lombok.Getter;
 import lombok.Setter;
 import org.neo4j.driver.AuthTokens;
@@ -51,26 +54,26 @@ public class DriverBuilder implements Serializable {
 
     public Driver build() {
         final Config.ConfigBuilder configBuilder = Config.builder()
-                .withMaxConnectionPoolSize(1);
+            .withMaxConnectionPoolSize(1);
         if (maxConnectionTimeoutSeconds != null) {
             configBuilder
-                    .withConnectionAcquisitionTimeout(maxConnectionTimeoutSeconds * 2, TimeUnit.SECONDS)
-                    .withConnectionTimeout(maxConnectionTimeoutSeconds, TimeUnit.SECONDS);
+                .withConnectionAcquisitionTimeout(maxConnectionTimeoutSeconds * 2, TimeUnit.SECONDS)
+                .withConnectionTimeout(maxConnectionTimeoutSeconds, TimeUnit.SECONDS);
         }
         if (maxTransactionRetryTimeSeconds != null) {
             configBuilder
-                    .withMaxTransactionRetryTime(maxTransactionRetryTimeSeconds, TimeUnit.SECONDS);
+                .withMaxTransactionRetryTime(maxTransactionRetryTimeSeconds, TimeUnit.SECONDS);
         }
         Config config = configBuilder
-                .build();
+            .build();
 
         if (username != null) {
             return GraphDatabase.driver(uri, AuthTokens.basic(username, password), config);
         } else if (bearerToken != null) {
             return GraphDatabase.driver(uri, AuthTokens.bearer(bearerToken), config);
-        } else if (kerberosTicket != null){
+        } else if (kerberosTicket != null) {
             return GraphDatabase.driver(uri, AuthTokens.kerberos(kerberosTicket), config);
         }
-        throw new IllegalArgumentException("Invalid Field");
+        throw new Neo4jConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED, "Invalid Field");
     }
 }

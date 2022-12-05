@@ -18,6 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -131,7 +133,8 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
             return constructor.newInstance(producerId, epoch);
         } catch (InvocationTargetException | InstantiationException | IllegalAccessException |
                  NoSuchFieldException | NoSuchMethodException e) {
-            throw new RuntimeException("Incompatible KafkaProducer version", e);
+            throw new KafkaConnectorException(KafkaConnectorErrorCode.VERSION_INCOMPATIBLE,
+                    "Incompatible KafkaProducer version", e);
         }
     }
 
@@ -139,7 +142,8 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
         Optional<Object> transactionManagerOptional = ReflectionUtils.getField(this, KafkaProducer.class,
                 "transactionManager");
         if (!transactionManagerOptional.isPresent()) {
-            throw new RuntimeException("can't get transactionManager in KafkaProducer");
+            throw new KafkaConnectorException(KafkaConnectorErrorCode.GET_TRANSACTIONMANAGER_FAILED,
+                    "Can't get transactionManager in KafkaProducer");
         }
         return transactionManagerOptional.get();
     }
@@ -155,7 +159,8 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
             Class<Enum> cl = (Class<Enum>) Class.forName(TRANSACTION_MANAGER_STATE_ENUM);
             return Enum.valueOf(cl, enumName);
         } catch (ClassNotFoundException e) {
-            throw new RuntimeException("Incompatible KafkaProducer version", e);
+            throw new KafkaConnectorException(KafkaConnectorErrorCode.VERSION_INCOMPATIBLE,
+                    "Incompatible KafkaProducer version", e);
         }
     }
 

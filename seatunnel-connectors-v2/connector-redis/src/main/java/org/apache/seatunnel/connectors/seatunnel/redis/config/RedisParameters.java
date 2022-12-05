@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.Data;
@@ -46,48 +49,50 @@ public class RedisParameters implements Serializable {
 
     public void buildWithConfig(Config config) {
         // set host
-        this.host = config.getString(RedisConfig.HOST);
+        this.host = config.getString(RedisConfig.HOST.key());
         // set port
-        this.port = config.getInt(RedisConfig.PORT);
+        this.port = config.getInt(RedisConfig.PORT.key());
         // set auth
-        if (config.hasPath(RedisConfig.AUTH)) {
-            this.auth = config.getString(RedisConfig.AUTH);
+        if (config.hasPath(RedisConfig.AUTH.key())) {
+            this.auth = config.getString(RedisConfig.AUTH.key());
         }
         // set user
-        if (config.hasPath(RedisConfig.USER)) {
-            this.user = config.getString(RedisConfig.USER);
+        if (config.hasPath(RedisConfig.USER.key())) {
+            this.user = config.getString(RedisConfig.USER.key());
         }
         // set mode
-        if (config.hasPath(RedisConfig.MODE)) {
-            this.mode = RedisConfig.RedisMode.valueOf(config.getString(RedisConfig.MODE));
+        if (config.hasPath(RedisConfig.MODE.key())) {
+            this.mode = RedisConfig.RedisMode
+                    .valueOf(config.getString(RedisConfig.MODE.key()).toUpperCase());
         } else {
-            this.mode = RedisConfig.RedisMode.SINGLE;
+            this.mode = RedisConfig.MODE.defaultValue();
         }
         // set hash key mode
-        if (config.hasPath(RedisConfig.HASH_KEY_PARSE_MODE)) {
+        if (config.hasPath(RedisConfig.HASH_KEY_PARSE_MODE.key())) {
             this.hashKeyParseMode = RedisConfig.HashKeyParseMode
-                    .valueOf(config.getString(RedisConfig.HASH_KEY_PARSE_MODE).toUpperCase());
+                    .valueOf(config.getString(RedisConfig.HASH_KEY_PARSE_MODE.key()).toUpperCase());
         } else {
-            this.hashKeyParseMode = RedisConfig.HashKeyParseMode.ALL;
+            this.hashKeyParseMode = RedisConfig.HASH_KEY_PARSE_MODE.defaultValue();
         }
         // set redis nodes information
-        if (config.hasPath(RedisConfig.NODES)) {
-            this.redisNodes = config.getStringList(RedisConfig.NODES);
+        if (config.hasPath(RedisConfig.NODES.key())) {
+            this.redisNodes = config.getStringList(RedisConfig.NODES.key());
         }
         // set key
-        if (config.hasPath(RedisConfig.KEY)) {
-            this.keyField = config.getString(RedisConfig.KEY);
+        if (config.hasPath(RedisConfig.KEY.key())) {
+            this.keyField = config.getString(RedisConfig.KEY.key());
         }
         // set keysPattern
-        if (config.hasPath(RedisConfig.KEY_PATTERN)) {
-            this.keysPattern = config.getString(RedisConfig.KEY_PATTERN);
+        if (config.hasPath(RedisConfig.KEY_PATTERN.key())) {
+            this.keysPattern = config.getString(RedisConfig.KEY_PATTERN.key());
         }
         // set redis data type
         try {
-            String dataType = config.getString(RedisConfig.DATA_TYPE);
+            String dataType = config.getString(RedisConfig.DATA_TYPE.key());
             this.redisDataType = RedisDataType.valueOf(dataType.toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new RuntimeException("Redis source connector only support these data types [key, hash, list, set, zset]", e);
+            throw new RedisConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                    "Redis source connector only support these data types [key, hash, list, set, zset]", e);
         }
     }
 
@@ -110,7 +115,8 @@ public class RedisParameters implements Serializable {
                     for (String redisNode : redisNodes) {
                         String[] splits = redisNode.split(":");
                         if (splits.length != 2) {
-                            throw new IllegalArgumentException("Invalid redis node information," +
+                            throw new RedisConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                                    "Invalid redis node information," +
                                     "redis node information must like as the following: [host:port]");
                         }
                         HostAndPort hostAndPort = new HostAndPort(splits[0], Integer.parseInt(splits[1]));
@@ -129,7 +135,8 @@ public class RedisParameters implements Serializable {
                 return new JedisWrapper(jedisCluster);
             default:
                 // do nothing
-                throw new IllegalArgumentException("Not support this redis mode");
+                throw new RedisConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+                        "Not support this redis mode");
         }
     }
 }
