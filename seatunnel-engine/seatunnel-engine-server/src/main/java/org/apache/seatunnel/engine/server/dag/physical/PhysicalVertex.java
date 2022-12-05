@@ -146,17 +146,31 @@ public class PhysicalVertex {
         }
 
         this.nodeEngine = nodeEngine;
-        this.taskFullName =
-            String.format(
-                "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)], taskGroupLocation: [%s]",
-                jobImmutableInformation.getJobConfig().getName(),
-                jobImmutableInformation.getJobId(),
-                pipelineId,
-                totalPipelineNum,
-                taskGroup.getTaskGroupName(),
-                subTaskGroupIndex + 1,
-                parallelism,
-                taskGroupLocation);
+        if (LOGGER.isFineEnabled() || LOGGER.isFinestEnabled()) {
+            this.taskFullName =
+                String.format(
+                    "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)], taskGroupLocation: [%s]",
+                    jobImmutableInformation.getJobConfig().getName(),
+                    jobImmutableInformation.getJobId(),
+                    pipelineId,
+                    totalPipelineNum,
+                    taskGroup.getTaskGroupName(),
+                    subTaskGroupIndex + 1,
+                    parallelism,
+                    taskGroupLocation);
+        } else {
+            this.taskFullName =
+                String.format(
+                    "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)]",
+                    jobImmutableInformation.getJobConfig().getName(),
+                    jobImmutableInformation.getJobId(),
+                    pipelineId,
+                    totalPipelineNum,
+                    taskGroup.getTaskGroupName(),
+                    subTaskGroupIndex + 1,
+                    parallelism);
+        }
+
         this.taskFuture = new CompletableFuture<>();
 
         this.runningJobStateIMap = runningJobStateIMap;
@@ -167,7 +181,8 @@ public class PhysicalVertex {
         this.taskFuture = new CompletableFuture<>();
         ExecutionState executionState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
         if (executionState != null) {
-            LOGGER.info(String.format("The task %s is in state %s when init state future", taskFullName, executionState));
+            LOGGER.info(
+                String.format("The task %s is in state %s when init state future", taskFullName, executionState));
         }
         // If the task state is CANCELING we need call noticeTaskExecutionServiceCancel().
         if (ExecutionState.CANCELING.equals(executionState)) {
@@ -329,7 +344,8 @@ public class PhysicalVertex {
         while (!taskFuture.isDone() && nodeEngine.getClusterService().getMember(getCurrentExecutionAddress()) != null) {
             try {
                 i++;
-                LOGGER.info(String.format("send cancel %s operator to member %s", taskFullName, getCurrentExecutionAddress()));
+                LOGGER.info(
+                    String.format("send cancel %s operator to member %s", taskFullName, getCurrentExecutionAddress()));
                 nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
                         new CancelTaskOperation(taskGroupLocation),
                         getCurrentExecutionAddress())
