@@ -42,7 +42,7 @@ sink {
 
 ```
 
-More information about config please check [config concept](../concept/config)
+More information about config please check [config concept](../../concept/config.md)
 
 ## Step 3: Run SeaTunnel Application
 
