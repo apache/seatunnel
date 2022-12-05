@@ -36,4 +36,4 @@ In the future, SeaTunnel Engine will further optimize its functions to support f
 
 ### Quick Start
 
-https://seatunnel.apache.org/docs/start-v2/locally/deployment
+https://seatunnel.apache.org/docs/start-v2/locally/quick-start-seatunnel-engine
