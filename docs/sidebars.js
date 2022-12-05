@@ -49,14 +49,6 @@ const sidebars = {
         {
             "type": "category",
             "label": "Quick Start - V2",
-            "link": {
-                "type": "generated-index",
-                "title": "Quick Start(V2) for SeaTunnel",
-                "description": "In this section, you could learn how to get up and running Apache SeaTunnel in both locally or in Docker environment.",
-                "slug": "/category/start-v2",
-                "keywords": ["start"],
-                "image": "/img/favicon.ico"
-            },
             "items": [
                 {
                     "type": "category",
