@@ -19,11 +19,13 @@ package org.apache.seatunnel.engine.server.mapstore;
 
 import static org.awaitility.Awaitility.await;
 
-import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.TestUtils;
 
+import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.map.IMap;
 import lombok.extern.slf4j.Slf4j;
-import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.condition.DisabledOnOs;
@@ -34,23 +36,41 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @DisabledOnOs(OS.WINDOWS)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class MapStoreTest extends AbstractSeaTunnelServerTest {
+public class MapStoreTest {
+
+    private HazelcastInstanceImpl instance;
 
     @Test
     public void testMapStore() {
 
-        IMap<String, String> supplements = instance.getMap("supplements");
+        String name = this.getClass().getName();
+        instance = SeaTunnelServerStarter.createHazelcastInstance(
+            TestUtils.getClusterName(name));
+
+        IMap<String, String> mapStore = instance.getMap("engine_mapStore");
 
         for (int index = 0; index < 100; index++) {
-            supplements.put("key" + index, "value" + index);
+            mapStore.put("key" + index, "value" + index);
         }
 
-        log.info(supplements.size() + "");
-        supplements.evictAll();
-        log.info(supplements.size() + "");
-        Assertions.assertEquals(0, supplements.size());
-        supplements.loadAll(true);
-        log.info(supplements.size() + "");
-        await().atMost(1, TimeUnit.SECONDS).until(() -> supplements.size() > 0);
+        log.info(mapStore.size() + "");
+
+        instance.shutdown();
+
+        instance = SeaTunnelServerStarter.createHazelcastInstance(
+            TestUtils.getClusterName(name));
+
+        mapStore = instance.getMap("engine_mapStore");
+
+        log.info(mapStore.size() + "");
+        IMap<String, String> finalMapStore = mapStore;
+        await().atMost(1, TimeUnit.SECONDS).until(() -> finalMapStore.size() > 0);
+    }
+
+    @AfterAll
+    public void after() {
+        if (instance != null) {
+            instance.shutdown();
+        }
     }
 }

@@ -33,10 +33,10 @@ hazelcast:
       port-count: 100
       port: 5801
   map:
-    supplements:
+    engine*:
       map-store:
         enabled: true
-        initial-mode: LAZY
+        initial-mode: EAGER
         class-name: org.apache.seatunnel.engine.server.persistence.FileMapStore
         properties:
           namespace: /tmp/imap-kris-test/2
