@@ -345,7 +345,7 @@ public class PhysicalVertex {
             try {
                 i++;
                 LOGGER.info(
-                    String.format("send cancel %s operator to member %s", taskFullName, getCurrentExecutionAddress()));
+                    String.format("Send cancel %s operator to member %s", taskFullName, getCurrentExecutionAddress()));
                 nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
                         new CancelTaskOperation(taskGroupLocation),
                         getCurrentExecutionAddress())
