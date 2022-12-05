@@ -71,7 +71,7 @@ public class ElasticsearchSource implements SeaTunnelSource<SeaTunnelRow, Elasti
                 SeaTunnelDataType seaTunnelDataType = EsTypeMappingSeaTunnelType.getSeaTunnelDataType(esType);
                 fieldTypes[i] = seaTunnelDataType;
             }
-            rowTypeInfo = new SeaTunnelRowType(source.toArray(new String[source.size()]), fieldTypes);
+            rowTypeInfo = new SeaTunnelRowType(source.toArray(new String[0]), fieldTypes);
         }
     }
 

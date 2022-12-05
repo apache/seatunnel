@@ -21,6 +21,7 @@ import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDB
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig.KEY_MEASUREMENT;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -31,6 +32,7 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -51,9 +53,14 @@ public class InfluxDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(config, URL, KEY_MEASUREMENT);
+        CheckResult result = CheckConfigUtil.checkAllExists(config, URL.key(), KEY_MEASUREMENT.key());
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
+            throw new InfluxdbConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                String.format("PluginName: %s, PluginType: %s, Message: %s",
+                    getPluginName(), PluginType.SINK,
+                    result.getMsg()
+                )
+            );
         }
         this.pluginConfig = config;
     }
@@ -64,12 +71,12 @@ public class InfluxDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public SeaTunnelDataType getConsumedType() {
+    public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
         return seaTunnelRowType;
     }
 
     @Override
-    public AbstractSinkWriter createWriter(SinkWriter.Context context) throws IOException {
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
         return new InfluxDBSinkWriter(pluginConfig, seaTunnelRowType);
     }
 }

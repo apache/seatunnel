@@ -154,3 +154,23 @@ methods:
           since: 2.0
           doc: ''
 
+  - id: 8
+    name: getJobMetrics
+    since: 2.0
+    doc: ''
+    request:
+      retryable: true
+      partitionIdentifier: -1
+      params:
+        - name: jobId
+          type: long
+          nullable: false
+          since: 2.0
+          doc: ''
+    response:
+      params:
+        - name: response
+          type: String
+          nullable: false
+          since: 2.0
+          doc: ''

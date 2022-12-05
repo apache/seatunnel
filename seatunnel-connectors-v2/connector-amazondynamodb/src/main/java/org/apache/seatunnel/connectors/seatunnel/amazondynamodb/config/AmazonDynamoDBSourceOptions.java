@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config;
 
-import org.apache.seatunnel.connectors.seatunnel.common.config.CommonConfig;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -29,9 +29,6 @@ import java.io.Serializable;
 @Data
 @AllArgsConstructor
 public class AmazonDynamoDBSourceOptions implements Serializable {
-
-    private static final int DEFAULT_BATCH_SIZE = 25;
-    private static final int DEFAULT_BATCH_INTERVAL_MS = 1000;
 
     private String url;
 
@@ -45,24 +42,23 @@ public class AmazonDynamoDBSourceOptions implements Serializable {
 
     private Config schema;
 
-    public int batchSize = DEFAULT_BATCH_SIZE;
-    public int batchIntervalMs = DEFAULT_BATCH_INTERVAL_MS;
+    public int batchSize = AmazonDynamoDBConfig.BATCH_SIZE.defaultValue();
+    public int batchIntervalMs = AmazonDynamoDBConfig.BATCH_INTERVAL_MS.defaultValue();
 
     public AmazonDynamoDBSourceOptions(Config config) {
-        this.url = config.getString(AmazonDynamoDBConfig.URL);
-        this.region = config.getString(AmazonDynamoDBConfig.REGION);
-        this.accessKeyId = config.getString(AmazonDynamoDBConfig.ACCESS_KEY_ID);
-        this.secretAccessKey = config.getString(AmazonDynamoDBConfig.SECRET_ACCESS_KEY);
-        this.table = config.getString(AmazonDynamoDBConfig.TABLE);
-
-        if (config.hasPath(CommonConfig.SCHEMA)) {
-            this.schema = config.getConfig(CommonConfig.SCHEMA);
+        this.url = config.getString(AmazonDynamoDBConfig.URL.key());
+        this.region = config.getString(AmazonDynamoDBConfig.REGION.key());
+        this.accessKeyId = config.getString(AmazonDynamoDBConfig.ACCESS_KEY_ID.key());
+        this.secretAccessKey = config.getString(AmazonDynamoDBConfig.SECRET_ACCESS_KEY.key());
+        this.table = config.getString(AmazonDynamoDBConfig.TABLE.key());
+        if (config.hasPath(SeaTunnelSchema.SCHEMA.key())) {
+            this.schema = config.getConfig(SeaTunnelSchema.SCHEMA.key());
         }
-        if (config.hasPath(AmazonDynamoDBConfig.BATCH_SIZE)) {
-            this.batchSize = config.getInt(AmazonDynamoDBConfig.BATCH_SIZE);
+        if (config.hasPath(AmazonDynamoDBConfig.BATCH_SIZE.key())) {
+            this.batchSize = config.getInt(AmazonDynamoDBConfig.BATCH_SIZE.key());
         }
-        if (config.hasPath(AmazonDynamoDBConfig.DEFAULT_BATCH_INTERVAL_MS)) {
-            this.batchIntervalMs = config.getInt(AmazonDynamoDBConfig.DEFAULT_BATCH_INTERVAL_MS);
+        if (config.hasPath(AmazonDynamoDBConfig.BATCH_INTERVAL_MS.key())) {
+            this.batchIntervalMs = config.getInt(AmazonDynamoDBConfig.BATCH_INTERVAL_MS.key());
         }
     }
 }

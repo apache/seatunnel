@@ -18,11 +18,13 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sftp.sink;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sftp.config.SftpConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sftp.config.SftpConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
@@ -41,10 +43,12 @@ public class SftpFileSink extends BaseFileSink {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
-                SftpConfig.SFTP_HOST, SftpConfig.SFTP_PORT,
-                SftpConfig.SFTP_USERNAME, SftpConfig.SFTP_PASSWORD);
+                SftpConfig.SFTP_HOST.key(), SftpConfig.SFTP_PORT.key(),
+                SftpConfig.SFTP_USERNAME.key(), SftpConfig.SFTP_PASSWORD.key());
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
+            throw new FileConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SINK, result.getMsg()));
         }
         super.prepare(pluginConfig);
         hadoopConf = SftpConf.buildWithConfig(pluginConfig);

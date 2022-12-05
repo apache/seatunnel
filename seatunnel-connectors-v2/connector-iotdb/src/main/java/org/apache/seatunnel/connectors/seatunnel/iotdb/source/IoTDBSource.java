@@ -23,6 +23,7 @@ import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfi
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -34,6 +35,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.state.IoTDBSourceState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -50,7 +52,7 @@ public class IoTDBSource implements SeaTunnelSource<SeaTunnelRow, IoTDBSourceSpl
 
     private SeaTunnelRowType typeInfo;
 
-    private Map<String, Object> configParams = new HashMap();
+    private final Map<String, Object> configParams = new HashMap<>();
 
     @Override
     public String getPluginName() {
@@ -59,12 +61,16 @@ public class IoTDBSource implements SeaTunnelSource<SeaTunnelRow, IoTDBSourceSpl
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HOST, PORT);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HOST.key(), PORT.key());
         if (!result.isSuccess()) {
-            result = CheckConfigUtil.checkAllExists(pluginConfig, NODE_URLS);
+            result = CheckConfigUtil.checkAllExists(pluginConfig, NODE_URLS.key());
 
             if (!result.isSuccess()) {
-                throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "host and port and node urls are both empty");
+                throw new IotdbConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                        getPluginName(), PluginType.SOURCE,
+                        result.getMsg())
+                );
             }
         }
         SeaTunnelSchema seatunnelSchema = SeaTunnelSchema.buildWithConfig(pluginConfig);

@@ -81,7 +81,7 @@ public class JdbcGbse8adbIT extends AbstractJdbcIT {
         Map<String, String> containerEnv = new HashMap<>();
         String jdbcUrl = String.format(URL, PORT, DATABASE);
         return JdbcCase.builder().dockerImage(DOCKER_IMAGE).networkAliases(NETWORK_ALIASES).containerEnv(containerEnv).driverClass(DRIVER_CLASS)
-            .host(HOST).port(PORT).jdbcTemplate(URL).jdbcUrl(jdbcUrl).userName(USERNAME).password(PASSWORD).dataBase(DATABASE)
+            .host(HOST).port(PORT).localPort(PORT).jdbcTemplate(URL).jdbcUrl(jdbcUrl).userName(USERNAME).password(PASSWORD).dataBase(DATABASE)
             .sourceTable(SOURCE_TABLE).driverJar(DRIVER_JAR)
             .ddlSource(DDL_SOURCE).initDataSql(INIT_DATA_SQL).configFile(CONFIG_FILE).seaTunnelRow(initTestData()).build();
     }

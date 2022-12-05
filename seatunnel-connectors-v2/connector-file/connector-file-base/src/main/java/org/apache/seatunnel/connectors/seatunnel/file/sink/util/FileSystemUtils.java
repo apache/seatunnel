@@ -17,15 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.util;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
@@ -37,6 +41,14 @@ public class FileSystemUtils {
     public static final int WRITE_BUFFER_SIZE = 2048;
 
     public static Configuration CONF;
+
+    public static Configuration getConfiguration(HadoopConf hadoopConf) {
+        Configuration configuration = new Configuration();
+        configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
+        configuration.set(String.format("fs.%s.impl", hadoopConf.getSchema()), hadoopConf.getFsHdfsImpl());
+        hadoopConf.setExtraOptionsForConfiguration(configuration);
+        return configuration;
+    }
 
     public static FileSystem getFileSystem(@NonNull String path) throws IOException {
         FileSystem fileSystem = FileSystem.get(URI.create(path.replaceAll("\\\\", "/")), CONF);
@@ -54,7 +66,8 @@ public class FileSystemUtils {
         FileSystem fileSystem = getFileSystem(filePath);
         Path path = new Path(filePath);
         if (!fileSystem.createNewFile(path)) {
-            throw new IOException("create file " + filePath + " error");
+            throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
+                    "create file " + filePath + " error");
         }
     }
 
@@ -63,7 +76,8 @@ public class FileSystemUtils {
         Path path = new Path(file);
         if (fileSystem.exists(path)) {
             if (!fileSystem.delete(path, true)) {
-                throw new IOException("delete file " + file + " error");
+                throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
+                        "delete file " + file + " error");
             }
         }
     }
@@ -102,7 +116,8 @@ public class FileSystemUtils {
         if (fileSystem.rename(oldPath, newPath)) {
             log.info("rename file :[" + oldPath + "] to [" + newPath + "] finish");
         } else {
-            throw new IOException("rename file :[" + oldPath + "] to [" + newPath + "] error");
+            throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
+                    "rename file :[" + oldPath + "] to [" + newPath + "] error");
         }
     }
 
@@ -110,7 +125,8 @@ public class FileSystemUtils {
         FileSystem fileSystem = getFileSystem(filePath);
         Path dfs = new Path(filePath);
         if (!fileSystem.mkdirs(dfs)) {
-            throw new IOException("create dir " + filePath + " error");
+            throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
+                    "create dir " + filePath + " error");
         }
     }
 
@@ -123,7 +139,7 @@ public class FileSystemUtils {
     /**
      * get the dir in filePath
      */
-    public static List<Path> dirList(@NonNull String filePath) throws FileNotFoundException, IOException {
+    public static List<Path> dirList(@NonNull String filePath) throws IOException {
         FileSystem fileSystem = getFileSystem(filePath);
         List<Path> pathList = new ArrayList<>();
         if (!fileExist(filePath)) {

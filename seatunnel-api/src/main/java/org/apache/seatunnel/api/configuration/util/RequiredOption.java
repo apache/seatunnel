@@ -17,27 +17,35 @@
 
 package org.apache.seatunnel.api.configuration.util;
 
+import static org.apache.seatunnel.api.configuration.util.OptionUtil.getOptionKeys;
+
 import org.apache.seatunnel.api.configuration.Option;
 
+import lombok.Getter;
+import lombok.NonNull;
+
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 public interface RequiredOption {
-    class ExclusiveRequiredOptions implements RequiredOption {
-        private final Set<Option<?>> exclusiveOptions;
 
-        ExclusiveRequiredOptions(Set<Option<?>> exclusiveOptions) {
+    List<Option<?>> getOptions();
+
+    /**
+     * These options are mutually exclusive, allowing only one set of options to be configured.
+     */
+    @Getter
+    class ExclusiveRequiredOptions implements RequiredOption {
+        private final List<Option<?>> exclusiveOptions;
+
+        public ExclusiveRequiredOptions(@NonNull List<Option<?>> exclusiveOptions) {
             this.exclusiveOptions = exclusiveOptions;
         }
 
-        public static ExclusiveRequiredOptions of(Option<?>... exclusiveOptions) {
-            return new ExclusiveRequiredOptions(new HashSet<>(Arrays.asList(exclusiveOptions)));
-        }
-
-        public Set<Option<?>> getExclusiveOptions() {
-            return exclusiveOptions;
+        public static ExclusiveRequiredOptions of(Option<?>... options) {
+            return new ExclusiveRequiredOptions(new ArrayList<>(Arrays.asList(options)));
         }
 
         @Override
@@ -57,36 +65,30 @@ public interface RequiredOption {
             return Objects.hash(exclusiveOptions);
         }
 
-        static String getOptionKeys(Set<Option<?>> options) {
-            StringBuilder builder = new StringBuilder();
-            int i = 0;
-            for (Option<?> option : options) {
-                if (i > 0) {
-                    builder.append(", ");
-                }
-                builder.append("'")
-                    .append(option.key())
-                    .append("'");
-                i++;
-            }
-            return builder.toString();
+        @Override
+        public String toString() {
+            return String.format("Exclusive required set options: %s", getOptionKeys(exclusiveOptions));
         }
 
         @Override
-        public String toString() {
-            return String.format("Exclusive required options: %s", getOptionKeys(exclusiveOptions));
+        public List<Option<?>> getOptions() {
+            return exclusiveOptions;
         }
     }
 
-    class AbsolutelyRequiredOption<T> implements RequiredOption {
-        private final Option<T> requiredOption;
+    /**
+     * The option is required.
+     */
+    class AbsolutelyRequiredOptions implements RequiredOption {
+        @Getter
+        private final List<Option<?>> requiredOption;
 
-        AbsolutelyRequiredOption(Option<T> requiredOption) {
+        AbsolutelyRequiredOptions(List<Option<?>> requiredOption) {
             this.requiredOption = requiredOption;
         }
 
-        public static <T> AbsolutelyRequiredOption<T> of(Option<T> requiredOption) {
-            return new AbsolutelyRequiredOption<>(requiredOption);
+        public static AbsolutelyRequiredOptions of(Option<?>... requiredOption) {
+            return new AbsolutelyRequiredOptions(new ArrayList<>(Arrays.asList(requiredOption)));
         }
 
         @Override
@@ -94,10 +96,10 @@ public interface RequiredOption {
             if (this == obj) {
                 return true;
             }
-            if (!(obj instanceof AbsolutelyRequiredOption)) {
+            if (!(obj instanceof AbsolutelyRequiredOptions)) {
                 return false;
             }
-            AbsolutelyRequiredOption<?> that = (AbsolutelyRequiredOption<?>) obj;
+            AbsolutelyRequiredOptions that = (AbsolutelyRequiredOptions) obj;
             return Objects.equals(this.requiredOption, that.requiredOption);
         }
 
@@ -108,24 +110,29 @@ public interface RequiredOption {
 
         @Override
         public String toString() {
-            return String.format("Absolutely required option: '%s'", requiredOption.key());
+            return String.format("Absolutely required options: '%s'", getOptionKeys(requiredOption));
+        }
+
+        @Override
+        public List<Option<?>> getOptions() {
+            return requiredOption;
         }
     }
 
     class ConditionalRequiredOptions implements RequiredOption {
         private final Expression expression;
-        private final Set<Option<?>> requiredOption;
+        private final List<Option<?>> requiredOption;
 
-        ConditionalRequiredOptions(Expression expression, Set<Option<?>> requiredOption) {
+        ConditionalRequiredOptions(Expression expression, List<Option<?>> requiredOption) {
             this.expression = expression;
             this.requiredOption = requiredOption;
         }
 
-        public static ConditionalRequiredOptions of(Expression expression, Set<Option<?>> requiredOption) {
+        public static ConditionalRequiredOptions of(Expression expression, List<Option<?>> requiredOption) {
             return new ConditionalRequiredOptions(expression, requiredOption);
         }
 
-        public static ConditionalRequiredOptions of(Condition<?> condition, Set<Option<?>> requiredOption) {
+        public static ConditionalRequiredOptions of(Condition<?> condition, List<Option<?>> requiredOption) {
             return new ConditionalRequiredOptions(Expression.of(condition), requiredOption);
         }
 
@@ -133,7 +140,7 @@ public interface RequiredOption {
             return expression;
         }
 
-        public Set<Option<?>> getRequiredOption() {
+        public List<Option<?>> getRequiredOption() {
             return requiredOption;
         }
 
@@ -156,25 +163,34 @@ public interface RequiredOption {
 
         @Override
         public String toString() {
-            return String.format("Condition expression: %s, Required options: %s", expression, ExclusiveRequiredOptions.getOptionKeys(requiredOption));
+            return String.format("Condition expression: %s, Required options: %s", expression, getOptionKeys(requiredOption));
+        }
+
+        @Override
+        public List<Option<?>> getOptions() {
+            return requiredOption;
         }
     }
 
     /**
-     * All options must exist or not exist at the same time
+     * These options are bundled, must be present or absent together.
      */
     class BundledRequiredOptions implements RequiredOption {
-        private final Set<Option<?>> requiredOption;
+        private final List<Option<?>> requiredOption;
 
-        BundledRequiredOptions(Set<Option<?>> requiredOption) {
+        BundledRequiredOptions(List<Option<?>> requiredOption) {
             this.requiredOption = requiredOption;
         }
 
-        public static BundledRequiredOptions of(Set<Option<?>> requiredOption) {
+        public static BundledRequiredOptions of(Option<?>... requiredOption) {
+            return new BundledRequiredOptions(new ArrayList<>(Arrays.asList(requiredOption)));
+        }
+
+        public static BundledRequiredOptions of(List<Option<?>> requiredOption) {
             return new BundledRequiredOptions(requiredOption);
         }
 
-        public Set<Option<?>> getRequiredOption() {
+        public List<Option<?>> getRequiredOption() {
             return requiredOption;
         }
 
@@ -197,7 +213,12 @@ public interface RequiredOption {
 
         @Override
         public String toString() {
-            return String.format("Both Required options: %s", ExclusiveRequiredOptions.getOptionKeys(requiredOption));
+            return String.format("Bundled Required options: %s", getOptionKeys(requiredOption));
+        }
+
+        @Override
+        public List<Option<?>> getOptions() {
+            return requiredOption;
         }
     }
 }

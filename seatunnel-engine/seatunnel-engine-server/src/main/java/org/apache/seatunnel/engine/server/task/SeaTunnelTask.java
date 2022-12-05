@@ -27,9 +27,10 @@ import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTask
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.STARTING;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.WAITING_RESTORE;
 
+import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.engine.common.utils.ConsumerWithException;
+import org.apache.seatunnel.common.utils.function.ConsumerWithException;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.PartitionTransformAction;
@@ -49,6 +50,7 @@ import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlo
 import org.apache.seatunnel.engine.server.dag.physical.flow.UnknownFlowException;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.metrics.MetricsContext;
 import org.apache.seatunnel.engine.server.task.flow.ActionFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.FlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
@@ -62,6 +64,8 @@ import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateQu
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
+import com.hazelcast.internal.metrics.MetricDescriptor;
+import com.hazelcast.internal.metrics.MetricsCollectionContext;
 import lombok.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,6 +106,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     private TaskGroup taskBelongGroup;
 
+    private MetricsContext metricsContext;
+
     public SeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
         super(jobID, taskID);
         this.indexID = indexID;
@@ -116,12 +122,14 @@ public abstract class SeaTunnelTask extends AbstractTask {
         flowFutures = new ArrayList<>();
         allCycles = new ArrayList<>();
         startFlowLifeCycle = convertFlowToActionLifeCycle(executionFlow);
+        metricsContext = new MetricsContext();
         for (FlowLifeCycle cycle : allCycles) {
             cycle.init();
         }
         CompletableFuture.allOf(flowFutures.toArray(new CompletableFuture[0])).whenComplete((s, e) -> closeCalled = true);
     }
 
+    @SuppressWarnings("checkstyle:MagicNumber")
     protected void stateProcess() throws Exception {
         switch (currState) {
             case INIT:
@@ -154,6 +162,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
             case PREPARE_CLOSE:
                 if (closeCalled) {
                     currState = CLOSED;
+                } else {
+                    Thread.sleep(100);
                 }
                 break;
             case CLOSED:
@@ -315,5 +325,18 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 }
             });
         restoreComplete = true;
+    }
+
+    @Override
+    public MetricsContext getMetricsContext() {
+        return metricsContext;
+    }
+
+    @Override
+    public void provideDynamicMetrics(MetricDescriptor descriptor, MetricsCollectionContext context) {
+        if (null != metricsContext) {
+            metricsContext.provideDynamicMetrics(
+                descriptor.copy().withTag(MetricTags.TASK_NAME, this.getClass().getSimpleName()), context);
+        }
     }
 }
