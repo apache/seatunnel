@@ -19,9 +19,11 @@ package org.apache.seatunnel.engine.server.master;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
 
+import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
@@ -32,6 +34,7 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
@@ -44,6 +47,8 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.scheduler.JobScheduler;
 import org.apache.seatunnel.engine.server.scheduler.PipelineBaseScheduler;
+import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
+import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
 
 import com.google.common.collect.Lists;
 import com.hazelcast.cluster.Address;
@@ -55,9 +60,12 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 import org.apache.commons.collections4.CollectionUtils;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -139,7 +147,8 @@ public class JobMaster extends Thread {
             logicalDag = nodeEngine.getSerializationService().toObject(jobImmutableInformation.getLogicalDag());
         }
 
-        CheckpointConfig checkpointConfig = mergeEnvAndEngineConfig(engineConfig.getCheckpointConfig(), jobImmutableInformation.getJobConfig().getEnvOptions());
+        CheckpointConfig checkpointConfig = mergeEnvAndEngineConfig(engineConfig.getCheckpointConfig(),
+            jobImmutableInformation.getJobConfig().getEnvOptions());
 
         final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple = PlanUtils.fromLogicalDAG(logicalDag,
             nodeEngine,
@@ -273,6 +282,45 @@ public class JobMaster extends Thread {
 
     public JobStatus getJobStatus() {
         return physicalPlan.getJobStatus();
+    }
+
+    public List<RawJobMetrics> getCurrJobMetrics() {
+        List<RawJobMetrics> metrics = new ArrayList<>();
+        ownedSlotProfilesIMap.forEach((pipelineLocation, taskGroupLocationSlotProfileMap) -> {
+            taskGroupLocationSlotProfileMap.forEach((taskGroupLocation, slotProfile) -> {
+                if (taskGroupLocation.getJobId() == this.getJobImmutableInformation().getJobId()) {
+                    Address worker = slotProfile.getWorker();
+                    InvocationFuture<Object> invoke = nodeEngine.getOperationService().createInvocationBuilder(
+                        SeaTunnelServer.SERVICE_NAME,
+                        new GetTaskGroupMetricsOperation(taskGroupLocation),
+                        worker).invoke();
+                    try {
+                        RawJobMetrics rawJobMetrics = (RawJobMetrics) invoke.get();
+                        metrics.add(rawJobMetrics);
+                    } catch (Exception e) {
+                        throw new SeaTunnelException(e.getMessage());
+                    }
+                }
+            });
+        });
+        return metrics;
+    }
+
+    public void cleanTaskGroupContext() {
+        ownedSlotProfilesIMap.forEach((pipelineLocation, taskGroupLocationSlotProfileMap) -> {
+            taskGroupLocationSlotProfileMap.forEach((taskGroupLocation, slotProfile) -> {
+                Address worker = slotProfile.getWorker();
+                InvocationFuture<Object> invoke = nodeEngine.getOperationService().createInvocationBuilder(
+                    SeaTunnelServer.SERVICE_NAME,
+                    new CleanTaskGroupContextOperation(taskGroupLocation),
+                    worker).invoke();
+                try {
+                    invoke.get();
+                } catch (Exception e) {
+                    throw new SeaTunnelException(e.getMessage());
+                }
+            });
+        });
     }
 
     public PhysicalPlan getPhysicalPlan() {

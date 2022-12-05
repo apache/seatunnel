@@ -54,13 +54,13 @@ public class PulsarSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
             .required(SUBSCRIPTION_NAME, CLIENT_SERVICE_URL, ADMIN_SERVICE_URL)
+            .optional(CURSOR_STARTUP_MODE, CURSOR_STOP_MODE, TOPIC_DISCOVERY_INTERVAL,
+                POLL_TIMEOUT, POLL_INTERVAL,
+                POLL_BATCH_SIZE, SeaTunnelSchema.SCHEMA)
             .exclusive(TOPIC, TOPIC_PATTERN)
             .conditional(CURSOR_STARTUP_MODE, SourceProperties.StartMode.TIMESTAMP, CURSOR_STARTUP_TIMESTAMP)
             .conditional(CURSOR_STARTUP_MODE, SourceProperties.StartMode.SUBSCRIPTION, CURSOR_RESET_MODE)
             .conditional(CURSOR_STOP_MODE, SourceProperties.StopMode.TIMESTAMP, CURSOR_STOP_TIMESTAMP)
-            .optional(CURSOR_STARTUP_MODE, CURSOR_STOP_MODE, TOPIC_DISCOVERY_INTERVAL,
-                POLL_TIMEOUT, POLL_INTERVAL,
-                POLL_BATCH_SIZE, SeaTunnelSchema.SCHEMA)
             .bundled(AUTH_PLUGIN_CLASS, AUTH_PARAMS)
             .build();
     }

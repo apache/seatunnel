@@ -19,8 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator;
 
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarAdminConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.start.StartCursor;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.start.SubscriptionStartCursor;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.stop.LatestMessageStopCursor;
@@ -107,10 +109,10 @@ public class PulsarSplitEnumerator implements SourceSplitEnumerator<PulsarPartit
                                  StopCursor stopCursor,
                                  String subscriptionName,
                                  Set<TopicPartition> assignedPartitions) {
-        if ((partitionDiscoverer instanceof TopicPatternDiscoverer)
+        if (partitionDiscoverer instanceof TopicPatternDiscoverer
             && partitionDiscoveryIntervalMs > 0
             && Boundedness.BOUNDED == stopCursor.getBoundedness()) {
-            throw new IllegalArgumentException("Bounded streams do not support dynamic partition discovery.");
+            throw new PulsarConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION, "Bounded streams do not support dynamic partition discovery.");
         }
         this.context = context;
         this.adminConfig = adminConfig;

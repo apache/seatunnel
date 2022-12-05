@@ -171,6 +171,7 @@ problems encountered by users.
 | CLICKHOUSE-05 | Get cluster list from clickhouse failed                                   | When users encounter this error code, it means that the clickhouse cluster is not configured correctly, please check                                                    |
 | CLICKHOUSE-06 | Shard key not found in table                                              | When users encounter this error code, it means that the shard key of the distributed table is not configured, please check                                              |
 
+
 ## Jdbc Connector Error Codes
 
 | code    | description                                                         | solution                                                                                                                                                                                                    |
@@ -181,3 +182,15 @@ problems encountered by users.
 | JDBC-04 | Connector database failed                                           | When users encounter this error code, it means that database connection failure, check whether the url is correct or whether the corresponding service is normal                                            |
 | JDBC-05 | transaction operation failed, such as (commit, rollback) etc..      | When users encounter this error code, it means that if a sql transaction fails, check the transaction execution of the corresponding database to determine the cause of the transaction failure             |
 | JDBC-06 | No suitable dialect factory found                                   | When users encounter this error code, it means that may be an unsupported dialect type                                                                                                                      |
+
+## Pulsar Connector Error Codes
+
+| code         | description                                                  | solution                                                                                                                                                              |
+|--------------|--------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| PULSAR-01 | Open pulsar admin failed                                        | When users encounter this error code, it means that open pulsar admin failed, please check it                                        |
+| PULSAR-02 | Open pulsar client failed                                       | When users encounter this error code, it means that open pulsar client failed, please check it                                       |
+| PULSAR-03 | Pulsar authentication failed                                    | When users encounter this error code, it means that Pulsar Authentication failed, please check it                                    |
+| PULSAR-04 | Subscribe topic from pulsar failed                              | When users encounter this error code, it means that Subscribe topic from pulsar failed, please check it                              |
+| PULSAR-05 | Get last cursor of pulsar topic failed                          | When users encounter this error code, it means that get last cursor of pulsar topic failed, please check it                          |
+| PULSAR-06 | Get partition information of pulsar topic failed                | When users encounter this error code, it means that Get partition information of pulsar topic failed, please check it                |
+

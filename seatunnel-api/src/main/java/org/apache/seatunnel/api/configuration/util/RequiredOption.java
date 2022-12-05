@@ -22,6 +22,7 @@ import static org.apache.seatunnel.api.configuration.util.OptionUtil.getOptionKe
 import org.apache.seatunnel.api.configuration.Option;
 
 import lombok.Getter;
+import lombok.NonNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,25 +31,21 @@ import java.util.Objects;
 
 public interface RequiredOption {
 
+    List<Option<?>> getOptions();
+
     /**
      * These options are mutually exclusive, allowing only one set of options to be configured.
      */
     @Getter
     class ExclusiveRequiredOptions implements RequiredOption {
-        private final List<BundledRequiredOptions> exclusiveBundledOptions;
         private final List<Option<?>> exclusiveOptions;
 
-        ExclusiveRequiredOptions(List<BundledRequiredOptions> exclusiveBundledOptions, List<Option<?>> exclusiveOptions) {
-            this.exclusiveBundledOptions = exclusiveBundledOptions;
+        public ExclusiveRequiredOptions(@NonNull List<Option<?>> exclusiveOptions) {
             this.exclusiveOptions = exclusiveOptions;
         }
 
-        public static ExclusiveRequiredOptions of(Option<?>... exclusiveOptions) {
-            return ExclusiveRequiredOptions.of(new ArrayList<>(), exclusiveOptions);
-        }
-
-        public static ExclusiveRequiredOptions of(List<BundledRequiredOptions> exclusiveBundledOptions, Option<?>... exclusiveOptions) {
-            return new ExclusiveRequiredOptions(exclusiveBundledOptions, new ArrayList<>(Arrays.asList(exclusiveOptions)));
+        public static ExclusiveRequiredOptions of(Option<?>... options) {
+            return new ExclusiveRequiredOptions(new ArrayList<>(Arrays.asList(options)));
         }
 
         @Override
@@ -65,12 +62,17 @@ public interface RequiredOption {
 
         @Override
         public int hashCode() {
-            return Objects.hash(exclusiveBundledOptions, exclusiveOptions);
+            return Objects.hash(exclusiveOptions);
         }
 
         @Override
         public String toString() {
-            return String.format("Exclusive required set options: %s", getOptionKeys(exclusiveOptions, exclusiveBundledOptions));
+            return String.format("Exclusive required set options: %s", getOptionKeys(exclusiveOptions));
+        }
+
+        @Override
+        public List<Option<?>> getOptions() {
+            return exclusiveOptions;
         }
     }
 
@@ -109,6 +111,11 @@ public interface RequiredOption {
         @Override
         public String toString() {
             return String.format("Absolutely required options: '%s'", getOptionKeys(requiredOption));
+        }
+
+        @Override
+        public List<Option<?>> getOptions() {
+            return requiredOption;
         }
     }
 
@@ -158,6 +165,11 @@ public interface RequiredOption {
         public String toString() {
             return String.format("Condition expression: %s, Required options: %s", expression, getOptionKeys(requiredOption));
         }
+
+        @Override
+        public List<Option<?>> getOptions() {
+            return requiredOption;
+        }
     }
 
     /**
@@ -202,6 +214,11 @@ public interface RequiredOption {
         @Override
         public String toString() {
             return String.format("Bundled Required options: %s", getOptionKeys(requiredOption));
+        }
+
+        @Override
+        public List<Option<?>> getOptions() {
+            return requiredOption;
         }
     }
 }
