@@ -15,35 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
+package org.apache.seatunnel.connectors.seatunnel.starrocks.exception;
 
-import java.io.IOException;
-import java.util.Map;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-public class StarRocksStreamLoadFailedException extends IOException {
+public class StarRocksConnectorException extends SeaTunnelRuntimeException {
 
-    static final long serialVersionUID = 1L;
-
-    private final Map<String, Object> response;
     private boolean reCreateLabel;
 
-    public StarRocksStreamLoadFailedException(String message, Map<String, Object> response) {
-        super(message);
-        this.response = response;
+    public StarRocksConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+        super(seaTunnelErrorCode, errorMessage);
     }
 
-    public StarRocksStreamLoadFailedException(String message, Map<String, Object> response, boolean reCreateLabel) {
-        super(message);
-        this.response = response;
+    public StarRocksConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, boolean reCreateLabel) {
+        super(seaTunnelErrorCode, errorMessage);
         this.reCreateLabel = reCreateLabel;
     }
 
-    public Map<String, Object> getFailedResponse() {
-        return response;
+    public StarRocksConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+        super(seaTunnelErrorCode, errorMessage, cause);
+    }
+
+    public StarRocksConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+        super(seaTunnelErrorCode, cause);
     }
 
     public boolean needReCreateLabel() {
         return reCreateLabel;
     }
-
 }

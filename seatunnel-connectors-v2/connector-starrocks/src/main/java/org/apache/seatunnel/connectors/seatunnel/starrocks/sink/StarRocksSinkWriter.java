@@ -19,9 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StarRocksSinkManager;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksCsvSerializer;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksISerializer;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksJsonSerializer;
@@ -73,7 +75,7 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
             }
         } catch (IOException e) {
             log.error("Close starRocks manager failed.", e);
-            throw new IOException("Close starRocks manager failed.", e);
+            throw new StarRocksConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, e);
         }
     }
 
@@ -84,6 +86,6 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
         if (SinkConfig.StreamLoadFormat.JSON.equals(sinkConfig.getLoadFormat())) {
             return new StarRocksJsonSerializer(seaTunnelRowType);
         }
-        throw new RuntimeException("Failed to create row serializer, unsupported `format` from stream load properties.");
+        throw new StarRocksConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, "Failed to create row serializer, unsupported `format` from stream load properties.");
     }
 }
