@@ -42,7 +42,7 @@ SeaTunnel focuses on data integration and data synchronization, and is mainly de
 
 ## SeaTunnel work flowchart
 
-![SeaTunnel work flowchart](./docs/en/images/architecture_diagram.png)
+![SeaTunnel work flowchart](docs/en/images/architecture_diagram.png)
 
 The runtime process of SeaTunnel is shown in the figure above. 
 
@@ -93,9 +93,6 @@ https://seatunnel.apache.org/docs/category/start-v2
 
 **Flink**
 https://seatunnel.apache.org/docs/category/start-v2
-
-Detailed documentation on SeaTunnel
-https://seatunnel.apache.org/docs/about/
 
 ## Application practice cases
 

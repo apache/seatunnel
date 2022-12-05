@@ -20,7 +20,6 @@ package org.apache.seatunnel.engine.core.protocol.codec;
 import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.client.impl.protocol.Generated;
 import com.hazelcast.client.impl.protocol.codec.builtin.*;
-import com.hazelcast.client.impl.protocol.codec.custom.*;
 
 import static com.hazelcast.client.impl.protocol.ClientMessage.*;
 import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.*;
@@ -35,7 +34,7 @@ import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCod
 /**
  */
 @Generated("56079ba8d58afe5c98dfe2b5dc6c301a")
-public final class SeaTunnelGetJobStateCodec {
+public final class SeaTunnelGetJobDetailStatusCodec {
     //hex: 0xDE0600
     public static final int REQUEST_MESSAGE_TYPE = 14550528;
     //hex: 0xDE0601
@@ -44,7 +43,7 @@ public final class SeaTunnelGetJobStateCodec {
     private static final int REQUEST_INITIAL_FRAME_SIZE = REQUEST_JOB_ID_FIELD_OFFSET + LONG_SIZE_IN_BYTES;
     private static final int RESPONSE_INITIAL_FRAME_SIZE = RESPONSE_BACKUP_ACKS_FIELD_OFFSET + BYTE_SIZE_IN_BYTES;
 
-    private SeaTunnelGetJobStateCodec() {
+    private SeaTunnelGetJobDetailStatusCodec() {
     }
 
     public static ClientMessage encodeRequest(long jobId) {

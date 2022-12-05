@@ -18,8 +18,8 @@
 package org.apache.seatunnel.engine.server.protocol.task;
 
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelCancelJobCodec;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobDetailStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobMetricsCodec;
-import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStateCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelListJobStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
@@ -58,8 +58,8 @@ public class SeaTunnelMessageTaskFactoryProvider implements MessageTaskFactoryPr
             (clientMessage, connection) -> new CancelJobTask(clientMessage, node, connection));
         factories.put(SeaTunnelGetJobStatusCodec.REQUEST_MESSAGE_TYPE,
             (clientMessage, connection) -> new GetJobStatusTask(clientMessage, node, connection));
-        factories.put(SeaTunnelGetJobStateCodec.REQUEST_MESSAGE_TYPE,
-            (clientMessage, connection) -> new GetJobStateTask(clientMessage, node, connection));
+        factories.put(SeaTunnelGetJobDetailStatusCodec.REQUEST_MESSAGE_TYPE,
+            (clientMessage, connection) -> new GetJobDetailStatusTask(clientMessage, node, connection));
         factories.put(SeaTunnelListJobStatusCodec.REQUEST_MESSAGE_TYPE,
             (clientMessage, connection) -> new ListJobStatusTask(clientMessage, node, connection));
         factories.put(SeaTunnelGetJobMetricsCodec.REQUEST_MESSAGE_TYPE,
