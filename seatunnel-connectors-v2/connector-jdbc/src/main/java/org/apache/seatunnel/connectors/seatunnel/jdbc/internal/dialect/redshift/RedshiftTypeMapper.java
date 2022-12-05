@@ -132,7 +132,7 @@ public class RedshiftTypeMapper implements JdbcDialectTypeMapper {
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+                throw new UnsupportedOperationException(
                     String.format(
                         "Doesn't support REDSHIFT type '%s' on column '%s'  yet.",
                         redshiftType, jdbcColumnName));
