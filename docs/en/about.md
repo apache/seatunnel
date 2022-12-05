@@ -1,7 +1,3 @@
----
-sidebar_position: 1
----
-
 # About Seatunnel
 
 <img src="https://seatunnel.apache.org/image/logo.png" alt="seatunnel logo" width="200px" height="200px" align="right" />
