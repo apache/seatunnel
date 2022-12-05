@@ -21,8 +21,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.util.HashMap;
 import java.util.Map;
 
@@ -30,7 +28,6 @@ public class StarRocksJsonSerializer extends StarRocksBaseSerializer implements 
 
     private static final long serialVersionUID = 1L;
     private final SeaTunnelRowType seaTunnelRowType;
-    private final ObjectMapper mapper = new ObjectMapper();
 
     public StarRocksJsonSerializer(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
