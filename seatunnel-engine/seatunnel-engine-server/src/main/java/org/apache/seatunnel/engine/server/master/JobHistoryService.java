@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.master;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
+import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
@@ -65,6 +66,12 @@ public class JobHistoryService {
     private final Map<Long, JobMaster> runningJobMasterMap;
 
     /**
+     * finishedJobInfoImap key is jobId and value is jobInfo
+     * JobStateData Indicates the status of the job, pipeline, and task
+     */
+    private final IMap<Long, JobInfo> finishedJobInfoImap;
+
+    /**
      * finishedJobStateImap key is jobId and value is jobState(json)
      * JobStateData Indicates the status of the job, pipeline, and task
      */
@@ -80,13 +87,15 @@ public class JobHistoryService {
         ILogger logger,
         Map<Long, JobMaster> runningJobMasterMap,
         IMap<Long, JobStateData> finishedJobStateImap,
-        IMap<Long, JobMetrics> finishedJobMetricsImap
+        IMap<Long, JobMetrics> finishedJobMetricsImap,
+        IMap<Long, JobInfo> finishedJobInfoImap
     ) {
         this.runningJobStateIMap = runningJobStateIMap;
         this.logger = logger;
         this.runningJobMasterMap = runningJobMasterMap;
         this.finishedJobStateImap = finishedJobStateImap;
         this.finishedJobMetricsImap = finishedJobMetricsImap;
+        this.finishedJobInfoImap = finishedJobInfoImap;
         this.objectMapper = new ObjectMapper();
         this.objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
     }
@@ -114,6 +123,10 @@ public class JobHistoryService {
 
     public JobMetrics getJobMetrics(Long jobId){
         return finishedJobMetricsImap.getOrDefault(jobId, null);
+    }
+
+    public JobInfo getJobInfo(Long jobId){
+        return finishedJobInfoImap.getOrDefault(jobId, null);
     }
 
     // Get detailed status of a single job as json
@@ -174,6 +187,10 @@ public class JobHistoryService {
         JobStatus jobStatus = (JobStatus) runningJobStateIMap.get(jobId);
 
         return new JobStateData(jobId, jobStatus, pipelineStateMapperMap);
+    }
+
+    public void storeJobInfo(long jobId, JobInfo jobInfo) {
+        finishedJobInfoImap.put(jobId, jobInfo);
     }
 
     @AllArgsConstructor

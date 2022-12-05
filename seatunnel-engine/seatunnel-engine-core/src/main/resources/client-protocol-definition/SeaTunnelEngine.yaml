@@ -174,3 +174,23 @@ methods:
           nullable: false
           since: 2.0
           doc: ''
+  - id: 9
+    name: getJobInfo
+    since: 2.0
+    doc: ''
+    request:
+      retryable: true
+      partitionIdentifier: -1
+      params:
+        - name: jobId
+          type: long
+          nullable: false
+          since: 2.0
+          doc: ''
+    response:
+      params:
+        - name: response
+          type: Data
+          nullable: false
+          since: 2.0
+          doc: ''

@@ -111,16 +111,8 @@ public class JobExecutionEnvironment {
         return new JobConfigParser(jobFilePath, idGenerator, jobConfig, commonPluginJars);
     }
 
-    public void addAction(List<Action> actions) {
-        this.actions.addAll(actions);
-    }
-
     private LogicalDagGenerator getLogicalDagGenerator() {
         return new LogicalDagGenerator(actions, jobConfig, idGenerator);
-    }
-
-    public List<Action> getActions() {
-        return actions;
     }
 
     public ClientJobProxy execute() throws ExecutionException, InterruptedException {
@@ -133,7 +125,7 @@ public class JobExecutionEnvironment {
         return jobClient.createJobProxy(jobImmutableInformation);
     }
 
-    public LogicalDag getLogicalDag() {
+    private LogicalDag getLogicalDag() {
         ImmutablePair<List<Action>, Set<URL>> immutablePair = getJobConfigParser().parse();
         actions.addAll(immutablePair.getLeft());
         jarUrls.addAll(immutablePair.getRight());

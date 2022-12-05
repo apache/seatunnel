@@ -20,6 +20,8 @@ package org.apache.seatunnel.engine.client;
 import org.apache.seatunnel.engine.client.job.JobClient;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobInfoCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobMetricsCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStateCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelListJobStatusCodec;
@@ -87,5 +89,12 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
             SeaTunnelGetJobMetricsCodec.encodeRequest(jobId),
             SeaTunnelGetJobMetricsCodec::decodeResponse
         );
+    }
+
+    public JobInfo getJobInfo(Long jobId) {
+        return hazelcastClient.getSerializationService().toObject(hazelcastClient.requestOnMasterAndDecodeResponse(
+            SeaTunnelGetJobInfoCodec.encodeRequest(jobId),
+            SeaTunnelGetJobInfoCodec::decodeResponse
+        ));
     }
 }

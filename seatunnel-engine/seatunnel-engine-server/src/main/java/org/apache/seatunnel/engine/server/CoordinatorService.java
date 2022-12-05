@@ -24,9 +24,9 @@ import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
-import org.apache.seatunnel.engine.core.job.RunningJobInfo;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
@@ -69,12 +69,12 @@ public class CoordinatorService {
     private JobHistoryService jobHistoryService;
 
     /**
-     * IMap key is jobId and value is {@link RunningJobInfo}.
+     * IMap key is jobId and value is {@link JobInfo}.
      * Tuple2 key is JobMaster init timestamp and value is the jobImmutableInformation which is sent by client when submit job
      * <p>
      * This IMap is used to recovery runningJobInfoIMap in JobMaster when a new master node active
      */
-    private IMap<Long, RunningJobInfo> runningJobInfoIMap;
+    private IMap<Long, JobInfo> runningJobInfoIMap;
 
     /**
      * IMap key is one of jobId {@link org.apache.seatunnel.engine.server.dag.physical.PipelineLocation} and
@@ -172,7 +172,8 @@ public class CoordinatorService {
             logger,
             runningJobMasterMap,
             nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE),
-            nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_METRICS)
+            nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_METRICS),
+            nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_INFO)
         );
 
         List<CompletableFuture<Void>> collect = runningJobInfoIMap.entrySet().stream().map(entry -> {
@@ -192,7 +193,7 @@ public class CoordinatorService {
         }
     }
 
-    private void restoreJobFromMasterActiveSwitch(@NonNull Long jobId, @NonNull RunningJobInfo runningJobInfo) {
+    private void restoreJobFromMasterActiveSwitch(@NonNull Long jobId, @NonNull JobInfo jobInfo) {
         if (runningJobStateIMap.get(jobId) == null) {
             runningJobInfoIMap.remove(jobId);
             return;
@@ -200,7 +201,7 @@ public class CoordinatorService {
 
         JobStatus jobStatus = (JobStatus) runningJobStateIMap.get(jobId);
         JobMaster jobMaster =
-            new JobMaster(runningJobInfo.getJobImmutableInformation(),
+            new JobMaster(jobInfo.getJobImmutableInformation(),
                 nodeEngine,
                 executorService,
                 getResourceManager(),
@@ -229,7 +230,7 @@ public class CoordinatorService {
                 String.format("The restore %s is state %s, cancel job and submit it again.", jobFullName, jobStatus));
             jobMaster.cancelJob();
             jobMaster.getJobMasterCompleteFuture().join();
-            submitJob(jobId, runningJobInfo.getJobImmutableInformation()).join();
+            submitJob(jobId, jobInfo.getJobImmutableInformation()).join();
             return;
         }
 
@@ -331,7 +332,7 @@ public class CoordinatorService {
             ownedSlotProfilesIMap, engineConfig);
         executorService.submit(() -> {
             try {
-                runningJobInfoIMap.put(jobId, new RunningJobInfo(System.currentTimeMillis(), jobImmutableInformation));
+                runningJobInfoIMap.put(jobId, new JobInfo(System.currentTimeMillis(), jobImmutableInformation));
                 runningJobMasterMap.put(jobId, jobMaster);
                 jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp());
             } catch (Throwable e) {
@@ -353,6 +354,7 @@ public class CoordinatorService {
 
     private void onJobDone(JobMaster jobMaster, long jobId){
         // storage job state and metrics to HistoryStorage
+        jobHistoryService.storeJobInfo(jobId, runningJobInfoIMap.get(jobId));
         jobHistoryService.storeFinishedJobState(jobMaster);
         jobHistoryService.storeFinishedJobMetrics(jobMaster);
         removeJobIMap(jobMaster);
@@ -416,7 +418,7 @@ public class CoordinatorService {
         return runningJobMaster.getJobStatus();
     }
 
-    public JobMetrics getJobMetrics(long jobId){
+    public JobMetrics getJobMetrics(long jobId) {
         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
         if (runningJobMaster == null) {
             return jobHistoryService.getJobMetrics(jobId);
@@ -424,6 +426,14 @@ public class CoordinatorService {
         JobMetrics jobMetrics = JobMetricsUtil.toJobMetrics(runningJobMaster.getCurrJobMetrics());
         JobMetrics jobMetricsImap = jobHistoryService.getJobMetrics(jobId);
         return jobMetricsImap != null ? jobMetricsImap : jobMetrics;
+    }
+
+    public JobInfo getJobInfo(long jobId) {
+        JobInfo jobInfo = runningJobInfoIMap.get(jobId);
+        if (jobInfo == null) {
+            return jobHistoryService.getJobInfo(jobId);
+        }
+        return jobInfo;
     }
 
     /**
