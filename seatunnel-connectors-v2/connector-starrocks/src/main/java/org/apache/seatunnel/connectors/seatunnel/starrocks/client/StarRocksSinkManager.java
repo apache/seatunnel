@@ -18,6 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
 import com.google.common.base.Strings;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -116,10 +118,10 @@ public class StarRocksSinkManager {
             } catch (Exception e) {
                 log.warn("Writing records to StarRocks failed, retry times = {}", i, e);
                 if (i >= sinkConfig.getMaxRetries()) {
-                    throw new IOException("Writing records to StarRocks failed.", e);
+                    throw new StarRocksConnectorException(StarRocksConnectorErrorCode.WRITE_RECORDS_FAILED, "The number of retries was exceeded, writing records to StarRocks failed.", e);
                 }
 
-                if (e instanceof StarRocksStreamLoadFailedException && ((StarRocksStreamLoadFailedException) e).needReCreateLabel()) {
+                if (e instanceof StarRocksConnectorException && ((StarRocksConnectorException) e).needReCreateLabel()) {
                     String newLabel = createBatchLabel();
                     log.warn(String.format("Batch label changed from [%s] to [%s]", tuple.getLabel(), newLabel));
                     tuple.setLabel(newLabel);
@@ -131,8 +133,7 @@ public class StarRocksSinkManager {
                     Thread.sleep(backoff);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
-                    throw new IOException(
-                            "Unable to flush; interrupted while doing another attempt.", e);
+                    throw new StarRocksConnectorException(StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, e);
                 }
             }
         }
@@ -143,7 +144,7 @@ public class StarRocksSinkManager {
 
     private void checkFlushException() {
         if (flushException != null) {
-            throw new RuntimeException("Writing records to StarRocks failed.", flushException);
+            throw new StarRocksConnectorException(StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, flushException);
         }
     }
 
