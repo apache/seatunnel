@@ -226,4 +226,7 @@ For orc file format
   - When field from upstream is null it will throw NullPointerException
   - Sink columns mapping failed
   - When restore writer from states getting transaction directly failed
-  - Support S3A protocol
+- [Feature] Support S3A protocol ([3632](https://github.com/apache/incubator-seatunnel/pull/3632))
+  - Allow user to add additional hadoop-s3 parameters
+  - Allow the use of the s3a protocol
+  - Decouple hadoop-aws dependencies
