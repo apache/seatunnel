@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.FileReaderOption;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
@@ -107,7 +106,7 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKFile
                 return FileChannel.open(Paths.get(clickhouseLocalFileTmpFile), StandardOpenOption.WRITE,
                     StandardOpenOption.READ, StandardOpenOption.CREATE_NEW);
             } catch (IOException e) {
-                throw new SeaTunnelException("can't create new file to save tmp data", e);
+                throw new ClickhouseConnectorException(CommonErrorCode.FILE_OPERATION_FAILED, "can't create new file to save tmp data", e);
             }
         });
         saveDataToFile(channel, element);
@@ -202,7 +201,7 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKFile
             try (FileWriter writer = new FileWriter(ckLocalConfigPath)) {
                 writer.write(String.format(CK_LOCAL_CONFIG_TEMPLATE, clickhouseLocalFile));
             } catch (IOException e) {
-                throw new RuntimeException("Error occurs when create ck local config", e);
+                throw new ClickhouseConnectorException(CommonErrorCode.FILE_OPERATION_FAILED, "Error occurs when create ck local config");
             }
             command.add("--config-file");
             command.add("\"" + ckLocalConfigPath + "\"");
@@ -220,6 +219,14 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKFile
             String line;
             while ((line = bufferedReader.readLine()) != null) {
                 log.info(line);
+            }
+        }
+        try (InputStream inputStream = start.getErrorStream();
+             InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+             BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
+            String line;
+            while ((line = bufferedReader.readLine()) != null) {
+                log.error(line);
             }
         }
         start.waitFor();
