@@ -52,7 +52,7 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
 
     @Override
     public void destroy() {
-        mapStorage.destroy();
+        //TODO Temporarily do not need to delete the file
     }
 
     @Override
