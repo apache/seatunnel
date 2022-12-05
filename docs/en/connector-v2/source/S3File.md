@@ -8,6 +8,7 @@ Read data from aws s3 file system.
 
 > Tips: We made some trade-offs in order to support more file types, so we used the HDFS protocol for internal access to S3 and this connector need some hadoop dependencies.
 > It's only support hadoop version **2.6.5+**.
+> Use this connector, you need add hadoop-aws.jar and hadoop-client.jar to the plugin directory.
 
 ## Key features
 
@@ -36,6 +37,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | bucket                    | string  | yes      | -                   |
 | access_key                | string  | yes      | -                   |
 | access_secret             | string  | yes      | -                   |
+| hadoop_s3_properties      | map     | no       | -                   |
 | delimiter                 | string  | no       | \001                |
 | parse_partition_from_path | boolean | no       | true                |
 | date_format               | string  | no       | yyyy-MM-dd          |
@@ -182,9 +184,7 @@ connector will generate data as the following:
 
 ### bucket [string]
 
-The bucket address of s3 file system, for example: `s3n://seatunnel-test`
-
-**Tips: SeaTunnel S3 file connector only support `s3n` protocol, not support `s3` and `s3a`**
+The bucket address of s3 file system, for example: `s3n://seatunnel-test`, if you use `s3a` protocol, this parameter should be `s3a://seatunnel-test`.
 
 ### access_key [string]
 
@@ -193,6 +193,15 @@ The access key of s3 file system.
 ### access_secret [string]
 
 The access secret of s3 file system.
+
+### hadoop_s3_properties [map]
+
+If you need to add a other option, you could add it here and refer to this [hadoop-aws](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)
+```
+     hadoop_s3_properties {
+       "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+      }
+```
 
 ### schema [config]
 
@@ -212,8 +221,11 @@ Source plugin common parameters, please refer to [Source Common Options](common-
     path = "/seatunnel/text"
     access_key = "xxxxxxxxxxxxxxxxx"
     secret_key = "xxxxxxxxxxxxxxxxx"
-    bucket = "s3n://seatunnel-test"
+    bucket = "s3a://seatunnel-test"
     type = "text"
+    hadoop_s3_properties {
+       "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+    }    
   }
 
 ```
@@ -222,7 +234,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
   S3File {
     path = "/seatunnel/json"
-    bucket = "s3n://seatunnel-test"
+    bucket = "s3a://seatunnel-test"
     access_key = "xxxxxxxxxxxxxxxxx"
     access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
     type = "json"
@@ -232,6 +244,9 @@ Source plugin common parameters, please refer to [Source Common Options](common-
         name = string
       }
     }
+    hadoop_s3_properties {
+       "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+    }    
   }
 
 ```
@@ -241,3 +256,6 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ### 2.3.0-beta 2022-10-20
 
 - Add S3File Source Connector
+
+### Next version
+- Support S3A protocol

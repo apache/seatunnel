@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.local.source;
 
-import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
@@ -26,6 +25,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.local.source.config.LocalSourceConfig;
 
 import com.google.auto.service.AutoService;
+
+import java.util.Arrays;
 
 @AutoService(Factory.class)
 public class LocalFileSourceFactory implements TableSourceFactory {
@@ -44,8 +45,7 @@ public class LocalFileSourceFactory implements TableSourceFactory {
                 .optional(LocalSourceConfig.DATE_FORMAT)
                 .optional(LocalSourceConfig.DATETIME_FORMAT)
                 .optional(LocalSourceConfig.TIME_FORMAT)
-                .conditional(Condition.of(LocalSourceConfig.FILE_TYPE, "text"), SeaTunnelSchema.SCHEMA)
-                .conditional(Condition.of(LocalSourceConfig.FILE_TYPE, "json"), SeaTunnelSchema.SCHEMA)
+                .conditional(LocalSourceConfig.FILE_TYPE, Arrays.asList("text", "json"), SeaTunnelSchema.SCHEMA)
                 .build();
     }
 }
