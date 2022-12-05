@@ -45,7 +45,13 @@ const sidebars = {
      */
 
     "docs": [
-        "about",
+        {
+            "type": "category",
+            "label": "Introduction",
+            "items": [
+                "intro/about",
+            ]
+        },
         {
             "type": "category",
             "label": "Quick Start - V2",
