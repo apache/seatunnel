@@ -64,7 +64,7 @@ def replace_comma_to_commacolon(modules_str):
     print(modules_str)
 
 def get_sub_modules(file):
-    f = open(file, 'rb')
+    f = open(file, 'r')
     output = ""
     for line in f.readlines():
         line = line.replace(" ","")
@@ -85,7 +85,7 @@ def get_dependency_tree_includes(modules_str):
     print(output)
 
 def get_final_it_modules(file):
-    f = open(file, 'rb')
+    f = open(file, 'r')
     output = ""
     for line in f.readlines():
         if line.startswith("org.apache.seatunnel"):
@@ -98,7 +98,7 @@ def get_final_it_modules(file):
     print(output)
 
 def get_final_ut_modules(file):
-    f = open(file, 'rb')
+    f = open(file, 'r')
     output = ""
     for line in f.readlines():
         if line.startswith("org.apache.seatunnel"):

@@ -233,3 +233,5 @@ seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engi
 seatunnel-engine/seatunnel-engine-core/src/main/java/org/apache/seatunnel/engine/core/checkpoint/CheckpointIDCounter.java                   from https://github.com/apache/flink
 seatunnel-engine/seatunnel-engine-core/src/main/java/org/apache/seatunnel/engine/core/checkpoint/InternalCheckpointListener.java            from https://github.com/apache/flink
 seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/checkpoint/StandaloneCheckpointIDCounter.java     from https://github.com/apache/flink
+seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/metrics                                           from https://github.com/hazelcast/hazelcast
+seatunnel-api/src/main/java/org/apache/seatunnel/api/common/metrics                                                                         from https://github.com/hazelcast/hazelcast

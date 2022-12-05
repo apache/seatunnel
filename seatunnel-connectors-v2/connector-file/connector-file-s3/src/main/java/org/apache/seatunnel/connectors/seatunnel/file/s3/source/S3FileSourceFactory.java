@@ -43,6 +43,7 @@ public class S3FileSourceFactory implements TableSourceFactory {
                 .required(S3Config.S3_BUCKET)
                 .required(S3Config.S3_ACCESS_KEY)
                 .required(S3Config.S3_SECRET_KEY)
+                .optional(S3Config.S3_PROPERTIES)
                 .optional(S3Config.DELIMITER)
                 .optional(S3Config.PARSE_PARTITION_FROM_PATH)
                 .optional(S3Config.DATE_FORMAT)

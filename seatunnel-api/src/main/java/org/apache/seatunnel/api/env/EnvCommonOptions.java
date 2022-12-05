@@ -34,7 +34,7 @@ public class EnvCommonOptions {
     public static final Option<String> JOB_NAME =
         Options.key("job.name")
             .stringType()
-            .noDefaultValue()
+            .defaultValue("SeaTunnel_Job")
             .withDescription("The job name of this job");
 
     public static final Option<JobMode> JOB_MODE =
