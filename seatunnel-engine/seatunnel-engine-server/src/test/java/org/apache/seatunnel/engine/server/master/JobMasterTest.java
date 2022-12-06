@@ -23,9 +23,9 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
-import org.apache.seatunnel.engine.core.job.RunningJobInfo;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.TestUtils;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
@@ -59,7 +59,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
      * <p>
      * This IMap is used to recovery runningJobInfoIMap in JobMaster when a new master node active
      */
-    private IMap<Long, RunningJobInfo> runningJobInfoIMap;
+    private IMap<Long, JobInfo> runningJobInfoIMap;
 
     /**
      * IMap key is one of jobId {@link org.apache.seatunnel.engine.server.dag.physical.PipelineLocation} and
