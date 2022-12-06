@@ -33,6 +33,7 @@ import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -56,9 +57,13 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
                 List<Path> paths = FileSystemUtils.dirList(writeStrategy.getFileSinkConfig().getTmpPath());
                 List<String> transactions = paths.stream().map(Path::getName).collect(Collectors.toList());
                 FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(hadoopConf);
-                for (FileSinkState fileSinkState : fileSinkStates) {
-                    if (transactions.contains(fileSinkState.getTransactionId())) {
+                HashMap<String, FileSinkState> fileStatesMap = new HashMap<>();
+                fileSinkStates.forEach(fileSinkState ->
+                        fileStatesMap.put(fileSinkState.getTransactionId(), fileSinkState));
+                for (String transaction : transactions) {
+                    if (fileStatesMap.containsKey(transaction)) {
                         // need commit
+                        FileSinkState fileSinkState = fileStatesMap.get(transaction);
                         FileAggregatedCommitInfo fileCommitInfo = fileSinkAggregatedCommitter
                                 .combine(Collections.singletonList(new FileCommitInfo(fileSinkState.getNeedMoveFiles(),
                                         fileSinkState.getPartitionDirAndValuesMap(),
@@ -66,7 +71,7 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
                         fileSinkAggregatedCommitter.commit(Collections.singletonList(fileCommitInfo));
                     } else {
                         // need abort
-                        writeStrategy.abortPrepare(fileSinkState.getTransactionId());
+                        writeStrategy.abortPrepare(transaction);
                     }
                 }
             } catch (IOException e) {
