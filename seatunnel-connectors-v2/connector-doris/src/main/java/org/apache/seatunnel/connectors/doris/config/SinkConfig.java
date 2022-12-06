@@ -33,6 +33,7 @@ import java.util.Map;
 public class SinkConfig {
 
     private static final int DEFAULT_BATCH_MAX_SIZE = 1024;
+    private static final int DEFAULT_BATCH_INTERVAL_MS = 1000;
     private static final long DEFAULT_BATCH_BYTES = 5 * 1024 * 1024;
 
     private static final String LOAD_FORMAT = "format";
@@ -126,8 +127,7 @@ public class SinkConfig {
 
     private int batchMaxSize = DEFAULT_BATCH_MAX_SIZE;
     private long batchMaxBytes = DEFAULT_BATCH_BYTES;
-
-    private Integer batchIntervalMs;
+    private int batchIntervalMs = DEFAULT_BATCH_INTERVAL_MS;
     private int maxRetries;
     private int retryBackoffMultiplierMs;
     private int maxRetryBackoffMs;

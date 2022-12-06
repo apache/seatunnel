@@ -115,7 +115,7 @@ public class DorisStreamLoadVisitor {
 
     private byte[] joinRows(List<byte[]> rows, int totalBytes) {
         if (SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
-            Map<String, Object> props = sinkConfig.getStreamLoadProps();
+            Map<String, String> props = sinkConfig.getStreamLoadProps();
             byte[] lineDelimiter = DelimiterParserUtil.parse((String) props.get("row_delimiter"), "\n").getBytes(StandardCharsets.UTF_8);
             ByteBuffer bos = ByteBuffer.allocate(totalBytes + rows.size() * lineDelimiter.length);
             for (byte[] row : rows) {
@@ -197,7 +197,7 @@ public class DorisStreamLoadVisitor {
             headerMap.put("columns", String.join(",", fieldNames.stream().map(f -> String.format("`%s`", f)).collect(Collectors.toList())));
         }
         if (null != sinkConfig.getStreamLoadProps()) {
-            for (Map.Entry<String, Object> entry : sinkConfig.getStreamLoadProps().entrySet()) {
+            for (Map.Entry<String, String> entry : sinkConfig.getStreamLoadProps().entrySet()) {
                 headerMap.put(entry.getKey(), String.valueOf(entry.getValue()));
             }
         }

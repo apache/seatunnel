@@ -65,21 +65,15 @@ public class DorisSinkManager {
         }
         initialize = true;
 
-        if (batchIntervalMs != null) {
-            scheduler = Executors.newSingleThreadScheduledExecutor(
-                    new ThreadFactoryBuilder().setNameFormat("Doris-sink-output-%s").build());
-            scheduledFuture = scheduler.scheduleAtFixedRate(
-                () -> {
-                    try {
-                        flush();
-                    } catch (IOException e) {
-                        flushException = e;
-                    }
-                },
-                    batchIntervalMs,
-                    batchIntervalMs,
-                    TimeUnit.MILLISECONDS);
-        }
+        scheduler = Executors.newSingleThreadScheduledExecutor(
+                new ThreadFactoryBuilder().setNameFormat("Doris-sink-output-%s").build());
+        scheduledFuture = scheduler.scheduleAtFixedRate(() -> {
+            try {
+                flush();
+            } catch (IOException e) {
+                flushException = e;
+            }
+        }, batchIntervalMs, batchIntervalMs, TimeUnit.MILLISECONDS);
     }
 
     public synchronized void write(String record) throws IOException {
@@ -109,7 +103,7 @@ public class DorisSinkManager {
             return;
         }
         String label = createBatchLabel();
-        DorisFlushTuple tuple = new DorisFlushTuple(label, batchBytesSize, new ArrayList<>(batchList));
+        DorisFlushTuple tuple = new DorisFlushTuple(label, batchBytesSize, batchList);
         for (int i = 0; i <= sinkConfig.getMaxRetries(); i++) {
             try {
                 Boolean successFlag = dorisStreamLoadVisitor.doStreamLoad(tuple);
@@ -151,11 +145,10 @@ public class DorisSinkManager {
     }
 
     public String createBatchLabel() {
-        StringBuilder sb = new StringBuilder();
+        String labelPrefix = "";
         if (!Strings.isNullOrEmpty(sinkConfig.getLabelPrefix())) {
-            sb.append(sinkConfig.getLabelPrefix());
+            labelPrefix = sinkConfig.getLabelPrefix();
         }
-        return sb.append(UUID.randomUUID().toString())
-                .toString();
+        return String.format("%s%s", labelPrefix, UUID.randomUUID().toString());
     }
 }
