@@ -76,23 +76,23 @@ public class DorisStreamLoadVisitor {
             log.debug(String.format("StreamLoad response:\n%s"), JsonUtils.toJsonString(loadResult));
         }
         if (RESULT_FAILED.equals(loadResult.get(keyStatus))) {
-            StringBuilder errorBuilder = new StringBuilder("Failed to flush data to Doris.\n");
+            String errorMsg = "Failed to flush data to Doris.\n";
+            String message = "";
             if (loadResult.containsKey("Message")) {
-                errorBuilder.append(loadResult.get("Message"));
-                errorBuilder.append('\n');
+                message = loadResult.get("Message") + "\n";
             }
+            String errorURL = "";
             if (loadResult.containsKey("ErrorURL")) {
                 try {
-                    errorBuilder.append(httpHelper.doHttpGet(loadResult.get("ErrorURL").toString()));
-                    errorBuilder.append('\n');
+                    errorURL = httpHelper.doHttpGet(loadResult.get("ErrorURL").toString()) + "\n";
                 } catch (IOException e) {
                     log.warn("Get Error URL failed. {} ", loadResult.get("ErrorURL"), e);
                 }
             } else {
-                errorBuilder.append(JsonUtils.toJsonString(loadResult));
-                errorBuilder.append('\n');
+                errorURL = JsonUtils.toJsonString(loadResult) + "\n";
             }
-            throw new DorisConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, errorBuilder.toString());
+            throw new DorisConnectorException(CommonErrorCode.FLUSH_DATA_FAILED,
+                    String.format("%s%s%s", errorMsg, message, errorURL));
         } else if (RESULT_LABEL_EXISTED.equals(loadResult.get(keyStatus))) {
             log.debug(String.format("StreamLoad response:\n%s"), JsonUtils.toJsonString(loadResult));
             // has to block-checking the state to get the final result
