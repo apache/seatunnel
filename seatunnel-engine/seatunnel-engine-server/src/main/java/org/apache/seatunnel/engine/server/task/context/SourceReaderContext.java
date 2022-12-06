@@ -59,6 +59,6 @@ public class SourceReaderContext implements SourceReader.Context {
 
     @Override
     public void sendSourceEventToEnumerator(SourceEvent sourceEvent) {
-
+        sourceActionLifeCycle.sendSourceEventToEnumerator(sourceEvent);
     }
 }
