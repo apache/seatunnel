@@ -21,7 +21,9 @@ import static org.awaitility.Awaitility.given;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
@@ -55,6 +57,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
+@DisabledOnContainer(value = {}, type = {EngineType.SEATUNNEL, EngineType.SPARK},
+    disabledReason = "There is a conflict of thrift version between IoTDB and Spark.Therefore.")
 public class IoTDBIT extends TestSuiteBase implements TestResource {
 
     private static final String IOTDB_DOCKER_IMAGE = "apache/iotdb:0.13.1-node";
