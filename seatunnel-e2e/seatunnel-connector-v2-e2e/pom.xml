@@ -38,6 +38,7 @@
         <module>connector-rabbitmq-e2e</module>
         <module>connector-kafka-e2e</module>
         <module>connector-elasticsearch-e2e</module>
+        <module>connector-iotdb-e2e</module>
     </modules>
 
     <artifactId>seatunnel-connector-v2-e2e</artifactId>
