@@ -30,12 +30,12 @@ import java.io.IOException;
 
 @AllArgsConstructor
 @Data
-public class RunningJobInfo implements IdentifiedDataSerializable {
+public class JobInfo implements IdentifiedDataSerializable {
     private Long initializationTimestamp;
 
     private com.hazelcast.internal.serialization.Data jobImmutableInformation;
 
-    public RunningJobInfo() {}
+    public JobInfo() {}
 
     @Override
     public int getFactoryId() {
@@ -44,7 +44,7 @@ public class RunningJobInfo implements IdentifiedDataSerializable {
 
     @Override
     public int getClassId() {
-        return JobDataSerializerHook.RUNNING_JOB_INFO;
+        return JobDataSerializerHook.JOB_INFO;
     }
 
     @Override

@@ -30,12 +30,15 @@ import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
+import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -160,6 +163,35 @@ public class SeaTunnelClientTest {
             Assertions.assertTrue(jobMetrics.contains(SINK_WRITE_QPS));
 
         } catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Test
+    public void testGetJobInfo() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("/client_test.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("fake_to_console");
+
+        JobExecutionEnvironment jobExecutionEnv = CLIENT.createExecutionContext(filePath, jobConfig);
+
+        try {
+            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+            long jobId = clientJobProxy.getJobId();
+
+            // Running
+            Assertions.assertNotNull(CLIENT.getJobInfo(jobId));
+
+            await().atMost(180000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> Assertions.assertTrue(
+                    CLIENT.getJobDetailStatus(jobId).contains("FINISHED") && CLIENT.listJobStatus().contains("FINISHED")));
+            // Finished
+            JobDAGInfo jobInfo = CLIENT.getJobInfo(jobId);
+            Assertions.assertTrue(StringUtils.isNotEmpty(new ObjectMapper().writeValueAsString(jobInfo)));
+
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
