@@ -73,17 +73,17 @@ class JobHistoryServiceTest extends AbstractSeaTunnelServerTest {
         // waiting for JOB_3 status turn to RUNNING
         await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertTrue(
-                server.getCoordinatorService().getJobHistoryService().getJobStatusAsString(JOB_3).contains("TaskGroupLocation")
+                server.getCoordinatorService().getJobHistoryService().getJobDetailStateAsString(JOB_3).contains("TaskGroupLocation")
                 &&
-                    server.getCoordinatorService().getJobHistoryService().getJobStatusAsString(JOB_3).contains("RUNNING")
+                    server.getCoordinatorService().getJobHistoryService().getJobDetailStateAsString(JOB_3).contains("RUNNING")
             ));
 
         // waiting for job1 status turn to FINISHED
         await().atMost(60000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> Assertions.assertTrue(
-                server.getCoordinatorService().getJobHistoryService().getJobStatusAsString(JOB_3).contains("TaskGroupLocation")
+                server.getCoordinatorService().getJobHistoryService().getJobDetailStateAsString(JOB_3).contains("TaskGroupLocation")
                     &&
-                    server.getCoordinatorService().getJobHistoryService().getJobStatusAsString(JOB_3).contains("FINISHED")
+                    server.getCoordinatorService().getJobHistoryService().getJobDetailStateAsString(JOB_3).contains("FINISHED")
             ));
     }
 

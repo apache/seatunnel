@@ -116,7 +116,7 @@ public class JobHistoryService {
     }
 
     // Get detailed status of a single job
-    public JobStateData getJobStatus(Long jobId) {
+    public JobStateData getJobDetailState(Long jobId) {
         return runningJobMasterMap.containsKey(jobId) ? toJobStateMapper(runningJobMasterMap.get(jobId)) :
             finishedJobStateImap.getOrDefault(jobId, null);
     }
@@ -130,8 +130,8 @@ public class JobHistoryService {
     }
 
     // Get detailed status of a single job as json
-    public String getJobStatusAsString(Long jobId) {
-        JobStateData jobStatus = getJobStatus(jobId);
+    public String getJobDetailStateAsString(Long jobId) {
+        JobStateData jobStatus = getJobDetailState(jobId);
         if (null != jobStatus) {
             try {
                 return objectMapper.writeValueAsString(jobStatus);

@@ -19,9 +19,9 @@ package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
 import org.apache.seatunnel.engine.server.operation.CancelJobOperation;
+import org.apache.seatunnel.engine.server.operation.GetJobDetailStatusOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobInfoOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
-import org.apache.seatunnel.engine.server.operation.GetJobStateOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
@@ -88,7 +88,7 @@ public final class ClientToServerOperationDataSerializerHook implements DataSeri
                 case GET_JOB_METRICS_OPERATOR:
                     return new GetJobMetricsOperation();
                 case GET_JOB_STATE_OPERATION:
-                    return new GetJobStateOperation();
+                    return new GetJobDetailStatusOperation();
                 case GET_JOB_INFO_OPERATION:
                     return new GetJobInfoOperation();
                 default:
