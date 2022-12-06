@@ -38,7 +38,7 @@ public class MaxcomputeSource implements SeaTunnelSource<SeaTunnelRow, Maxcomput
 
     @Override
     public String getPluginName() {
-        return "MaxcomputeSource";
+        return "Maxcompute";
     }
 
     @Override

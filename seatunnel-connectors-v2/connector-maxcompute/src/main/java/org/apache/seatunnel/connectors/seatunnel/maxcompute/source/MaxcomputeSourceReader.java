@@ -42,7 +42,7 @@ import java.util.Set;
 @Slf4j
 public class MaxcomputeSourceReader implements SourceReader<SeaTunnelRow, MaxcomputeSourceSplit> {
     private final SourceReader.Context context;
-    private Set<MaxcomputeSourceSplit> sourceSplits;
+    private final Set<MaxcomputeSourceSplit> sourceSplits;
     private Config pluginConfig;
     boolean noMoreSplit;
     private SeaTunnelRowType seaTunnelRowType;

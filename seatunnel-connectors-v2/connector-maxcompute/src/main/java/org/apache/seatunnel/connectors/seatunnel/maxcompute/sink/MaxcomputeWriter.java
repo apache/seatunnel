@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PARTITION_SPEC;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PROJECT;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.RESULT_TABLE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.TABLE_NAME;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -59,9 +59,9 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             TableTunnel tunnel = MaxcomputeUtil.getTableTunnel(pluginConfig);
             if (this.pluginConfig.hasPath(PARTITION_SPEC.key())) {
                 PartitionSpec partitionSpec = new PartitionSpec(this.pluginConfig.getString(PARTITION_SPEC.key()));
-                session = tunnel.createUploadSession(pluginConfig.getString(PROJECT.key()), pluginConfig.getString(RESULT_TABLE_NAME.key()), partitionSpec);
+                session = tunnel.createUploadSession(pluginConfig.getString(PROJECT.key()), pluginConfig.getString(TABLE_NAME.key()), partitionSpec);
             } else {
-                session = tunnel.createUploadSession(pluginConfig.getString(PROJECT.key()), pluginConfig.getString(RESULT_TABLE_NAME.key()));
+                session = tunnel.createUploadSession(pluginConfig.getString(PROJECT.key()), pluginConfig.getString(TABLE_NAME.key()));
             }
             this.recordWriter = session.openRecordWriter(Thread.currentThread().getId());
             log.info("open record writer success");
@@ -71,8 +71,8 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     }
 
     @Override
-    public void write(SeaTunnelRow element) throws IOException {
-        Record record = MaxcomputeTypeMapper.getRecord(element, this.seaTunnelRowType, this.session, this.tableSchema);
+    public void write(SeaTunnelRow seaTunnelRow) throws IOException {
+        Record record = MaxcomputeTypeMapper.getMaxcomputeRowData(seaTunnelRow, this.seaTunnelRowType);
         recordWriter.write(record);
     }
 

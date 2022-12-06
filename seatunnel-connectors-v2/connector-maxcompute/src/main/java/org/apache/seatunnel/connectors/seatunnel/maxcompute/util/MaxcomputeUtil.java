@@ -23,7 +23,7 @@ import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.Maxcom
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.OVERWRITE;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PARTITION_SPEC;
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PROJECT;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.RESULT_TABLE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.TABLE_NAME;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
@@ -42,7 +42,7 @@ import lombok.extern.slf4j.Slf4j;
 public class MaxcomputeUtil {
     public static Table getTable(Config pluginConfig) {
         Odps odps = getOdps(pluginConfig);
-        Table table = odps.tables().get(pluginConfig.getString(RESULT_TABLE_NAME.key()));
+        Table table = odps.tables().get(pluginConfig.getString(TABLE_NAME.key()));
         return table;
     }
 
@@ -66,9 +66,9 @@ public class MaxcomputeUtil {
         try {
             if (pluginConfig.hasPath(PARTITION_SPEC.key())) {
                 PartitionSpec partitionSpec = new PartitionSpec(pluginConfig.getString(PARTITION_SPEC.key()));
-                session = tunnel.createDownloadSession(pluginConfig.getString(PROJECT.key()), pluginConfig.getString(RESULT_TABLE_NAME.key()), partitionSpec);
+                session = tunnel.createDownloadSession(pluginConfig.getString(PROJECT.key()), pluginConfig.getString(TABLE_NAME.key()), partitionSpec);
             } else {
-                session = tunnel.createDownloadSession(pluginConfig.getString(PROJECT.key()), pluginConfig.getString(RESULT_TABLE_NAME.key()));
+                session = tunnel.createDownloadSession(pluginConfig.getString(PROJECT.key()), pluginConfig.getString(TABLE_NAME.key()));
             }
         } catch (Exception e) {
             throw new MaxcomputeConnectorException(CommonErrorCode.READER_OPERATION_FAILED, e);

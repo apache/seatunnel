@@ -16,15 +16,16 @@ Used to read data from Maxcompute.
 
 ## Options
 
-| name                    | type   | required  | default value |
-|-------------------------|--------|-----------|---------------|
-| accessId                | string | yes       | -             |
-| accesskey               | string | yes       | -             |
-| endpoint                | string | yes       | -             |
-| project                 | string | yes       | -             |
-| result_table_name       | string | yes       | -             |
-| partition_spec          | string | no        | -             |
-| split_row               | int    | no        | 10000         |
+| name            | type   | required  | default value |
+|-----------------|--------|-----------|---------------|
+| accessId        | string | yes       | -             |
+| accesskey       | string | yes       | -             |
+| endpoint        | string | yes       | -             |
+| project         | string | yes       | -             |
+| table_name      | string | yes       | -             |
+| partition_spec  | string | no        | -             |
+| split_row       | int    | no        | 10000         |
+| common-options  | string | no        |               |
 
 ### accessId [string]
 
@@ -42,9 +43,9 @@ Used to read data from Maxcompute.
 
 `project` Your Maxcompute project which is created in Alibaba Cloud.
 
-### result_table_name [string]
+### table_name [string]
 
-`result_table_name` Target Maxcompute table name eg: fake.
+`table_name` Target Maxcompute table name eg: fake.
 
 ### partition_spec [string]
 
@@ -62,12 +63,12 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 ```hocon
 source {
-  MaxcomputeSource {
+  Maxcompute {
     accessId="<your access id>"
     accesskey="<your access Key>"
     endpoint="<http://service.odps.aliyun.com/api>"
     project="<your project>"
-    result_table_name="<your table name>"
+    table_name="<your table name>"
     #partition_spec="<your partition spec>"
     #split_row = 10000
   }

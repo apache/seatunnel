@@ -41,7 +41,7 @@ public class MaxcomputeSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public String getPluginName() {
-        return "MaxcomputeSink";
+        return "Maxcompute";
     }
 
     @Override

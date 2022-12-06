@@ -40,7 +40,7 @@ public class MaxcomputeConfig implements Serializable {
         .stringType()
         .noDefaultValue()
         .withDescription("Your Maxcompute project which is created in Alibaba Cloud");
-    public static final Option<String> RESULT_TABLE_NAME = Options.key("result_table_name")
+    public static final Option<String> TABLE_NAME = Options.key("table_name")
         .stringType()
         .noDefaultValue()
         .withDescription("Target Maxcompute table name eg: fake");

@@ -8,22 +8,21 @@ Used to read data from Maxcompute.
 
 ## Key features
 
-- [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [ ] [schema projection](../../concept/connector-v2-features.md)
-- [x] [parallelism](../../concept/connector-v2-features.md)
 
 ## Options
 
-| name                    | type    | required  | default value |
-|-------------------------|---------|-----------|---------------|
-| accessId                | string  | yes       | -             |
-| accesskey               | string  | yes       | -             |
-| endpoint                | string  | yes       | -             |
-| project                 | string  | yes       | -             |
-| result_table_name       | string  | yes       | -             |
-| partition_spec          | string  | no        | -             |
-| overwrite               | boolean | no        | false         |
+| name              | type     | required  | default value |
+|-------------------|----------|-----------|---------------|
+| accessId          | string   | yes       | -             |
+| accesskey         | string   | yes       | -             |
+| endpoint          | string   | yes       | -             |
+| project           | string   | yes       | -             |
+| table_name        | string   | yes       | -             |
+| partition_spec    | string   | no        | -             |
+| overwrite         | boolean  | no        | false         |
+| common-options    | string   | no        |               |
 
 ### accessId [string]
 
@@ -41,9 +40,9 @@ Used to read data from Maxcompute.
 
 `project` Your Maxcompute project which is created in Alibaba Cloud.
 
-### result_table_name [string]
+### table_name [string]
 
-`result_table_name` Target Maxcompute table name eg: fake.
+`table_name` Target Maxcompute table name eg: fake.
 
 ### partition_spec [string]
 
@@ -61,12 +60,12 @@ Sink plugin common parameters, please refer to [Sink Common Options](common-opti
 
 ```hocon
 sink {
-  MaxcomputeSink {
+  Maxcompute {
     accessId="<your access id>"
     accesskey="<your access Key>"
     endpoint="<http://service.odps.aliyun.com/api>"
     project="<your project>"
-    result_table_name="<your table name>"
+    table_name="<your table name>"
     #partition_spec="<your partition spec>"
     #overwrite = false
   }
