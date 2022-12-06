@@ -164,6 +164,29 @@ public class SeaTunnelClientTest {
         }
     }
 
+    @Test
+    public void testCancelJob() throws ExecutionException, InterruptedException {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("/streaming_fake_to_console.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("streaming_fake_to_console");
+
+        JobExecutionEnvironment jobExecutionEnv = CLIENT.createExecutionContext(filePath, jobConfig);
+
+        final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+
+        long jobId = clientJobProxy.getJobId();
+
+        await().atMost(30000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> Assertions.assertEquals("RUNNING", CLIENT.getJobStatus(jobId)));
+
+        CLIENT.cancelJob(jobId);
+
+        await().atMost(30000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> Assertions.assertEquals("CANCELED", CLIENT.getJobStatus(jobId)));
+
+    }
+
     @AfterEach
     void tearDown() {
         CLIENT.close();

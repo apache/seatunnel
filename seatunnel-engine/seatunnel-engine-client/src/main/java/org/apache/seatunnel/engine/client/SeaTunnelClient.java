@@ -20,7 +20,9 @@ package org.apache.seatunnel.engine.client;
 import org.apache.seatunnel.engine.client.job.JobClient;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelCancelJobCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobDetailStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobMetricsCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStatusCodec;
@@ -74,7 +76,7 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
      * get job status and the tasks status
      *
      * @param jobId jobId
-     * @return
+     * @return Job detail status
      */
     public String getJobDetailStatus(Long jobId) {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
@@ -85,8 +87,6 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
 
     /**
      * list all jobId and job status
-     *
-     * @return
      */
     public String listJobStatus() {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
@@ -97,9 +97,7 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
 
     /**
      * get one job status
-     *
      * @param jobId jobId
-     * @return
      */
     public String getJobStatus(Long jobId) {
         int jobStatusOrdinal = hazelcastClient.requestOnMasterAndDecodeResponse(
@@ -113,5 +111,12 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
             SeaTunnelGetJobMetricsCodec.encodeRequest(jobId),
             SeaTunnelGetJobMetricsCodec::decodeResponse
         );
+    }
+
+    public void cancelJob(Long jobId) {
+        PassiveCompletableFuture<Void> cancelFuture = hazelcastClient.requestOnMasterAndGetCompletableFuture(
+            SeaTunnelCancelJobCodec.encodeRequest(jobId));
+
+        cancelFuture.join();
     }
 }
