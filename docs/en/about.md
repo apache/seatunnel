@@ -1,7 +1,3 @@
----
-sidebar_position: 1
----
-
 # About Seatunnel
 
 <img src="https://seatunnel.apache.org/image/logo.png" alt="seatunnel logo" width="200px" height="200px" align="right" />
@@ -38,6 +34,8 @@ SeaTunnel focuses on data integration and data synchronization, and is mainly de
 - Two job development methods are supported: coding and canvas design: The SeaTunnel web project https://github.com/apache/incubator-seatunnel-web provides visual management of jobs, scheduling, running and monitoring capabilities.
 
 ## SeaTunnel work flowchart
+
+![SeaTunnel work flowchart](images/architecture_diagram.png)
 
 The runtime process of SeaTunnel is shown in the figure above.
 

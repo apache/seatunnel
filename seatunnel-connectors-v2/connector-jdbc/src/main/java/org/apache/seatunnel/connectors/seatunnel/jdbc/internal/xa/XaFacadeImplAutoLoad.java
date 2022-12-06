@@ -34,6 +34,9 @@ import static javax.transaction.xa.XAResource.TMSTARTRSCAN;
 import static java.util.Optional.empty;
 import static java.util.Optional.of;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.DataSourceUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.ThrowingRunnable;
@@ -89,18 +92,16 @@ public class XaFacadeImplAutoLoad
         XADataSource ds;
         try {
             ds = (XADataSource) DataSourceUtils.buildCommonDataSource(jdbcConnectionOptions);
-        }
-        catch (Exception e) {
-            throw new SQLException(e);
+        } catch (Exception e) {
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED, "unable to build XADataSource", e);
         }
         xaConnection = ds.getXAConnection();
         xaResource = xaConnection.getXAResource();
         if (jdbcConnectionOptions.getTransactionTimeoutSec().isPresent()) {
             try {
                 xaResource.setTransactionTimeout(jdbcConnectionOptions.getTransactionTimeoutSec().get());
-            }
-            catch (XAException e) {
-                throw new SQLException(e);
+            } catch (XAException e) {
+                throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED, "unable to set XA transaction timeout", e);
             }
         }
         connection = xaConnection.getConnection();
@@ -117,8 +118,7 @@ public class XaFacadeImplAutoLoad
         }
         try {
             xaConnection.close(); // close likely a pooled AND the underlying connection
-        }
-        catch (SQLException e) {
+        } catch (SQLException e) {
             // Some databases (e.g. MySQL) rollback changes on normal client disconnect which
             // causes an exception if an XA transaction was prepared. Note that resources are
             // still released in case of an error. Pinning MySQL connections doesn't help as
@@ -155,15 +155,14 @@ public class XaFacadeImplAutoLoad
     public void closeConnection() {
         try {
             close();
-        }
-        catch (SQLException e) {
+        } catch (SQLException e) {
             LOG.warn("Connection close failed.", e);
         }
     }
 
     @Override
     public Connection reestablishConnection() {
-        throw new UnsupportedOperationException();
+        throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION, "The instance failed to implement this method");
     }
 
     @Override
@@ -176,10 +175,9 @@ public class XaFacadeImplAutoLoad
         execute(Command.fromRunnable("end", xid, () -> xaResource.end(xid, XAResource.TMSUCCESS)));
         int prepResult = execute(new Command<>("prepare", of(xid), () -> xaResource.prepare(xid)));
         if (prepResult == XAResource.XA_RDONLY) {
-            throw new EmptyXaTransactionException(xid);
-        }
-        else if (prepResult != XAResource.XA_OK) {
-            throw new RuntimeException(
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED, new EmptyXaTransactionException(xid));
+        } else if (prepResult != XAResource.XA_OK) {
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED,
                 formatErrorMessage("prepare", of(xid), empty(), "response: " + prepResult));
         }
     }
@@ -197,8 +195,7 @@ public class XaFacadeImplAutoLoad
                 err -> {
                     if (err.errorCode >= XA_RBBASE) {
                         rollback(xid);
-                    }
-                    else {
+                    } else {
                         LOG.warn(
                             formatErrorMessage(
                                 "end (fail)", of(xid), of(err.errorCode)));
@@ -253,8 +250,7 @@ public class XaFacadeImplAutoLoad
                             checkState(
                                 i < MAX_RECOVER_CALLS, "too many xa_recover() calls");
                         }
-                    }
-                    finally {
+                    } finally {
                         recover(TMENDRSCAN);
                     }
                     return list;
@@ -277,17 +273,14 @@ public class XaFacadeImplAutoLoad
             T result = cmd.callable.call();
             LOG.trace("{} succeeded , xid={}", cmd.name, cmd.xid);
             return result;
-        }
-        catch (XAException e) {
+        } catch (XAException e) {
             if (HEUR_ERR_CODES.contains(e.errorCode)) {
                 cmd.xid.ifPresent(this::forget);
             }
             return cmd.recover.apply(e).orElseThrow(() -> wrapException(cmd.name, cmd.xid, e));
-        }
-        catch (RuntimeException e) {
-            throw e;
-        }
-        catch (Exception e) {
+        } catch (RuntimeException e) {
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED, e);
+        } catch (Exception e) {
             throw wrapException(cmd.name, cmd.xid, e);
         }
     }
@@ -297,15 +290,13 @@ public class XaFacadeImplAutoLoad
         if (ex instanceof XAException) {
             XAException xa = (XAException) ex;
             if (TRANSIENT_ERR_CODES.contains(xa.errorCode)) {
-                throw new TransientXaException(xa);
-            }
-            else {
-                throw new RuntimeException(
+                throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED, new TransientXaException(xa));
+            } else {
+                throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED,
                     formatErrorMessage(action, xid, of(xa.errorCode), xa.getMessage()));
             }
-        }
-        else {
-            throw new RuntimeException(
+        } else {
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED,
                 formatErrorMessage(action, xid, empty(), ex.getMessage()), ex);
         }
     }
@@ -313,11 +304,9 @@ public class XaFacadeImplAutoLoad
     private Optional<String> buildCommitErrorDesc(XAException err, boolean ignoreUnknown) {
         if (err.errorCode == XA_HEURCOM) {
             return Optional.of("transaction was heuristically committed earlier");
-        }
-        else if (ignoreUnknown && err.errorCode == XAER_NOTA) {
+        } else if (ignoreUnknown && err.errorCode == XAER_NOTA) {
             return Optional.of("transaction is unknown to RM (ignoring)");
-        }
-        else {
+        } else {
             return empty();
         }
     }
@@ -325,11 +314,9 @@ public class XaFacadeImplAutoLoad
     private Optional<String> buildRollbackErrorDesc(XAException err) {
         if (err.errorCode == XA_HEURRB) {
             return Optional.of("transaction was already heuristically rolled back");
-        }
-        else if (err.errorCode >= XA_RBBASE) {
+        } else if (err.errorCode >= XA_RBBASE) {
             return Optional.of("transaction was already marked for rollback");
-        }
-        else {
+        } else {
             return empty();
         }
     }
