@@ -135,6 +135,7 @@ there are some reference value for params above.
 | Doris      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
 | teradata   | com.teradata.jdbc.TeraDriver                 | jdbc:teradata://localhost/DBS_PORT=1025,DATABASE=test              | /                                                  | https://mvnrepository.com/artifact/com.teradata.jdbc/terajdbc                                               |
 | Redshift   | com.amazon.redshift.jdbc42.Driver            | jdbc:redshift://localhost:5439/testdb                              | com.amazon.redshift.xa.RedshiftXADataSource                   | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                                           |
+| Presto     | io.prestosql.jdbc.PrestoDriver <br>io.trino.jdbc.TrinoDriver                 | jdbc:presto://host:port <br/>jdbc:presto://host:port/catalog<br/>jdbc:presto://host:port/catalog/schema <br> If trino, replace presto with trino | https://mvnrepository.com/artifact/com.facebook.presto/presto-jdbc <br>https://mvnrepository.com/artifact/io.trino/trino-jdbc                                     |
 
 ## Example
 
