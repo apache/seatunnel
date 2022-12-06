@@ -30,7 +30,7 @@
     <artifactId>connector-file-base</artifactId>
 
     <properties>
-        <commons-net.version>3.6</commons-net.version>
+        <commons-net.version>3.9.0</commons-net.version>
         <orc.version>1.5.6</orc.version>
         <commons.collecton4.version>4.4</commons.collecton4.version>
         <commons.lang3.version>3.4</commons.lang3.version>
