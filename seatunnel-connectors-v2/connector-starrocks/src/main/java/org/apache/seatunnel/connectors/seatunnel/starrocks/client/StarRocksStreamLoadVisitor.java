@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksDelimiterParser;
 
 import org.apache.commons.codec.binary.Base64;
@@ -62,7 +65,7 @@ public class StarRocksStreamLoadVisitor {
     public Boolean doStreamLoad(StarRocksFlushTuple flushData) throws IOException {
         String host = getAvailableHost();
         if (null == host) {
-            throw new IOException("None of the host in `load_url` could be connected.");
+            throw new StarRocksConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, "None of the host in `load_url` could be connected.");
         }
         String loadUrl = new StringBuilder(host)
                 .append("/api/")
@@ -78,7 +81,7 @@ public class StarRocksStreamLoadVisitor {
         final String keyStatus = "Status";
         if (null == loadResult || !loadResult.containsKey(keyStatus)) {
             LOG.error("unknown result status. {}", loadResult);
-            throw new IOException("Unable to flush data to StarRocks: unknown result status. " + loadResult);
+            throw new StarRocksConnectorException(StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,  "Unable to flush data to StarRocks: unknown result status. " + loadResult);
         }
         if (LOG.isDebugEnabled()) {
             LOG.debug(new StringBuilder("StreamLoad response:\n").append(JsonUtils.toJsonString(loadResult)).toString());
@@ -101,7 +104,7 @@ public class StarRocksStreamLoadVisitor {
                 errorBuilder.append(JsonUtils.toJsonString(loadResult));
                 errorBuilder.append('\n');
             }
-            throw new IOException(errorBuilder.toString());
+            throw new StarRocksConnectorException(StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, errorBuilder.toString());
         } else if (RESULT_LABEL_EXISTED.equals(loadResult.get(keyStatus))) {
             LOG.debug(new StringBuilder("StreamLoad response:\n").append(JsonUtils.toJsonString(loadResult)).toString());
             // has to block-checking the state to get the final result
@@ -149,7 +152,7 @@ public class StarRocksStreamLoadVisitor {
             bos.put("]".getBytes(StandardCharsets.UTF_8));
             return bos.array();
         }
-        throw new RuntimeException("Failed to join rows data, unsupported `format` from stream load properties:");
+        throw new StarRocksConnectorException(StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, "Failed to join rows data, unsupported `format` from stream load properties:");
     }
 
     @SuppressWarnings("unchecked")
@@ -165,12 +168,12 @@ public class StarRocksStreamLoadVisitor {
                 String queryLoadStateUrl = new StringBuilder(host).append("/api/").append(sinkConfig.getDatabase()).append("/get_load_state?label=").append(label).toString();
                 Map<String, Object> result = httpHelper.doHttpGet(queryLoadStateUrl, getLoadStateHttpHeader(label));
                 if (result == null) {
-                    throw new IOException(String.format("Failed to flush data to StarRocks, Error " +
+                    throw new StarRocksConnectorException(StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, String.format("Failed to flush data to StarRocks, Error " +
                             "could not get the final state of label[%s].\n", label), null);
                 }
                 String labelState = (String) result.get("state");
                 if (null == labelState) {
-                    throw new IOException(String.format("Failed to flush data to StarRocks, Error " +
+                    throw new StarRocksConnectorException(StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, String.format("Failed to flush data to StarRocks, Error " +
                             "could not get the final state of label[%s]. response[%s]\n", label, JsonUtils.toJsonString(result)), null);
                 }
                 LOG.info(String.format("Checking label[%s] state[%s]\n", label, labelState));
@@ -181,15 +184,15 @@ public class StarRocksStreamLoadVisitor {
                     case RESULT_LABEL_PREPARE:
                         continue;
                     case RESULT_LABEL_ABORTED:
-                        throw new StarRocksStreamLoadFailedException(String.format("Failed to flush data to StarRocks, Error " +
-                                "label[%s] state[%s]\n", label, labelState), null, true);
+                        throw new StarRocksConnectorException(StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, String.format("Failed to flush data to StarRocks, Error " +
+                                "label[%s] state[%s]\n", label, labelState), true);
                     case RESULT_LABEL_UNKNOWN:
                     default:
-                        throw new StarRocksStreamLoadFailedException(String.format("Failed to flush data to StarRocks, Error " +
-                                "label[%s] state[%s]\n", label, labelState), null);
+                        throw new StarRocksConnectorException(StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, String.format("Failed to flush data to StarRocks, Error " +
+                                "label[%s] state[%s]\n", label, labelState));
                 }
             } catch (IOException e) {
-                throw new IOException(e);
+                throw new StarRocksConnectorException(StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, e);
             }
         }
     }

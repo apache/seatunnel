@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.config;
 
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
+
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminBuilder;
 import org.apache.pulsar.client.api.Authentication;
@@ -43,7 +46,7 @@ public class PulsarConfigUtil {
         try {
             return builder.build();
         } catch (PulsarClientException e) {
-            throw new RuntimeException(e);
+            throw new PulsarConnectorException(PulsarConnectorErrorCode.OPEN_PULSAR_ADMIN_FAILED, e);
         }
     }
 
@@ -54,7 +57,7 @@ public class PulsarConfigUtil {
         try {
             return builder.build();
         } catch (PulsarClientException e) {
-            throw new RuntimeException(e);
+            throw new PulsarConnectorException(PulsarConnectorErrorCode.OPEN_PULSAR_CLIENT_FAILED, e);
         }
     }
 
@@ -74,10 +77,10 @@ public class PulsarConfigUtil {
             try {
                 return AuthenticationFactory.create(config.getAuthPluginClassName(), config.getAuthParams());
             } catch (PulsarClientException.UnsupportedAuthenticationException e) {
-                throw new RuntimeException("Failed to create the authentication plug-in.", e);
+                throw new PulsarConnectorException(PulsarConnectorErrorCode.PULSAR_AUTHENTICATION_FAILED, e);
             }
         } else {
-            throw new IllegalArgumentException("Authentication parameters are required when using authentication plug-in.");
+            throw new PulsarConnectorException(PulsarConnectorErrorCode.PULSAR_AUTHENTICATION_FAILED, "Authentication parameters are required when using authentication plug-in.");
         }
     }
 }
