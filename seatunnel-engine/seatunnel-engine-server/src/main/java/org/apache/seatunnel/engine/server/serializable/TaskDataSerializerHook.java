@@ -22,14 +22,17 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.Progress;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
+import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.DeployTaskOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
+import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.BarrierFlowOperation;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.CloseRequestOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkPrepareCommitOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.LastCheckpointNotifyOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RestoredSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceNoMoreElementOperation;
@@ -51,7 +54,9 @@ public class TaskDataSerializerHook implements DataSerializerHook {
     public static final int TASK_GROUP_INFO_TYPE = 4;
 
     public static final int SOURCE_UNREGISTER_TYPE = 5;
+
     public static final int GET_TASKGROUP_ADDRESS_TYPE = 6;
+
     public static final int SINK_REGISTER_TYPE = 7;
 
     public static final int SINK_PREPARE_COMMIT_TYPE = 8;
@@ -71,6 +76,12 @@ public class TaskDataSerializerHook implements DataSerializerHook {
     public static final int NOTIFY_TASK_STATUS_OPERATOR = 15;
 
     public static final int BARRIER_FLOW_OPERATOR = 16;
+
+    public static final int LAST_CHECKPOINT_NOTIFY = 17;
+
+    public static final int GET_TASKGROUP_METRICS_OPERATION = 18;
+
+    public static final int CLEAN_TASKGROUP_CONTEXT_OPERATION = 19;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -124,6 +135,12 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new NotifyTaskStatusOperation();
                 case BARRIER_FLOW_OPERATOR:
                     return new BarrierFlowOperation();
+                case LAST_CHECKPOINT_NOTIFY:
+                    return new LastCheckpointNotifyOperation();
+                case GET_TASKGROUP_METRICS_OPERATION:
+                    return new GetTaskGroupMetricsOperation();
+                case CLEAN_TASKGROUP_CONTEXT_OPERATION:
+                    return new CleanTaskGroupContextOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

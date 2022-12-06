@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -111,7 +113,7 @@ public class BufferReducedBatchStatementExecutor implements JdbcBatchStatementEx
             case UPDATE_BEFORE:
                 return false;
             default:
-                throw new UnsupportedOperationException("Unsupported rowKind: " + rowKind);
+                throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION, "Unsupported rowKind: " + rowKind);
         }
     }
 }

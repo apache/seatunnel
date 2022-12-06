@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
 
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +35,7 @@ public class WriteStrategyFactory {
             return fileFormat.getWriteStrategy(textFileSinkConfig);
         } catch (IllegalArgumentException e) {
             String errorMsg = String.format("File sink connector not support this file type [%s], please check your config", fileType);
-            throw new RuntimeException(errorMsg, e);
+            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
 

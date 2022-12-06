@@ -34,9 +34,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class ConfigValidatorTest {
@@ -120,7 +119,7 @@ public class ConfigValidatorTest {
         Executable executable = () -> validate(config, rule);
 
         // all absent
-        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, these options(['option.topic-pattern'], ['option.topic']) are mutually exclusive," +
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, these options('option.topic-pattern', 'option.topic') are mutually exclusive," +
                 " allowing only one set(\"[] for a set\") of options to be configured.",
             assertThrows(OptionValidationException.class, executable).getMessage());
 
@@ -130,46 +129,32 @@ public class ConfigValidatorTest {
 
         // present > 1
         config.put(TEST_TOPIC.key(), "[\"saitou\"]");
-        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options(['option.topic-pattern'], ['option.topic']) are mutually exclusive, " +
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('option.topic-pattern', 'option.topic') are mutually exclusive, " +
                 "allowing only one set(\"[] for a set\") of options to be configured.",
             assertThrows(OptionValidationException.class, executable).getMessage());
     }
 
     @Test
     public void testComplexExclusiveRequiredOptions() {
-        List<RequiredOption.BundledRequiredOptions> exclusiveBundledOptions  = new ArrayList<>();
-        exclusiveBundledOptions.add(RequiredOption.BundledRequiredOptions.of(KEY_USERNAME, KEY_PASSWORD));
         OptionRule rule = OptionRule.builder()
-            .exclusive(RequiredOption.ExclusiveRequiredOptions.of(exclusiveBundledOptions, KEY_BEARER_TOKEN, KEY_KERBEROS_TICKET))
+            .exclusive(KEY_BEARER_TOKEN, KEY_KERBEROS_TICKET)
             .build();
 
         Map<String, Object> config = new HashMap<>();
         Executable executable = () -> validate(config, rule);
 
         // all absent
-        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, these options(['bearer-token'], ['kerberos-ticket'], ['username', 'password']) are mutually exclusive," +
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, these options('bearer-token', 'kerberos-ticket') are mutually exclusive," +
                 " allowing only one set(\"[] for a set\") of options to be configured.",
             assertThrows(OptionValidationException.class, executable).getMessage());
 
-        // bundled option some present
-        config.put(KEY_USERNAME.key(), "asuka");
-        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('username', 'password') are bundled, must be present or absent together." +
-                " The options present are: 'username'. The options absent are 'password'.",
-            assertThrows(OptionValidationException.class, executable).getMessage());
-
-        // only one set options present
-        config.put(KEY_PASSWORD.key(), "saitou");
+        // set one
+        config.put(KEY_BEARER_TOKEN.key(), "ashulin");
         Assertions.assertDoesNotThrow(executable);
 
-        // tow set options present
-        config.put(KEY_BEARER_TOKEN.key(), "ashulin");
-        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options(['bearer-token'], ['username', 'password']) are mutually exclusive," +
-                " allowing only one set(\"[] for a set\") of options to be configured.",
-            assertThrows(OptionValidationException.class, executable).getMessage());
-
-        // three set options present
+        // all set
         config.put(KEY_KERBEROS_TICKET.key(), "zongwen");
-        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options(['bearer-token'], ['kerberos-ticket'], ['username', 'password']) are mutually exclusive," +
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('bearer-token', 'kerberos-ticket') are mutually exclusive," +
                 " allowing only one set(\"[] for a set\") of options to be configured.",
             assertThrows(OptionValidationException.class, executable).getMessage());
     }
@@ -177,6 +162,7 @@ public class ConfigValidatorTest {
     @Test
     public void testSimpleConditionalRequiredOptionsWithDefaultValue() {
         OptionRule rule = OptionRule.builder()
+            .optional(TEST_MODE)
             .conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_TIMESTAMP)
             .build();
         Map<String, Object> config = new HashMap<>();
@@ -203,6 +189,7 @@ public class ConfigValidatorTest {
     @Test
     public void testSimpleConditionalRequiredOptionsWithoutDefaultValue() {
         OptionRule rule = OptionRule.builder()
+            .optional(KEY_USERNAME)
             .conditional(KEY_USERNAME, "ashulin", TEST_TIMESTAMP)
             .build();
         Map<String, Object> config = new HashMap<>();
@@ -228,11 +215,9 @@ public class ConfigValidatorTest {
 
     @Test
     public void testComplexConditionalRequiredOptions() {
-        Expression expression = Expression.of(KEY_USERNAME, "ashulin")
-            .or(Expression.of(Condition.of(KEY_USERNAME, "asuka")
-                .and(KEY_PASSWORD, "saito")));
         OptionRule rule = OptionRule.builder()
-            .conditional(expression, TEST_TIMESTAMP)
+            .optional(KEY_USERNAME)
+            .conditional(KEY_USERNAME, Arrays.asList("ashulin", "asuka"), TEST_TIMESTAMP)
             .build();
         Map<String, Object> config = new HashMap<>();
         Executable executable = () -> validate(config, rule);
@@ -243,7 +228,13 @@ public class ConfigValidatorTest {
         // 'username' == ashulin, and required options absent
         config.put(KEY_USERNAME.key(), "ashulin");
         assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('option.timestamp') are required" +
-                " because ['username' == ashulin || ('username' == asuka && 'password' == saito)] is true.",
+                " because ['username' == ashulin || 'username' == asuka] is true.",
+            assertThrows(OptionValidationException.class, executable).getMessage());
+
+        // 'username' == asuka, and required options absent
+        config.put(KEY_USERNAME.key(), "asuka");
+        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('option.timestamp') are required" +
+                " because ['username' == ashulin || 'username' == asuka] is true.",
             assertThrows(OptionValidationException.class, executable).getMessage());
 
         // Expression match, and required options all present
@@ -251,17 +242,7 @@ public class ConfigValidatorTest {
         Assertions.assertDoesNotThrow(executable);
 
         // Expression mismatch
-        config.put(KEY_USERNAME.key(), "asuka");
+        config.put(KEY_USERNAME.key(), "asuka111");
         Assertions.assertDoesNotThrow(executable);
-
-        // 'username' == asuka && 'password' == saito
-        config.put(KEY_PASSWORD.key(), "saito");
-        Assertions.assertDoesNotThrow(executable);
-
-        // 'username' == asuka && 'password' == saito, and required options absent
-        config.remove(TEST_TIMESTAMP.key());
-        assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('option.timestamp') are required" +
-                " because ['username' == ashulin || ('username' == asuka && 'password' == saito)] is true.",
-            assertThrows(OptionValidationException.class, executable).getMessage());
     }
 }

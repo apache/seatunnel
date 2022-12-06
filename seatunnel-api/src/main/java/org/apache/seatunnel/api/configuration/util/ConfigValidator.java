@@ -108,30 +108,24 @@ public class ConfigValidator {
     }
 
     void validate(RequiredOption.ExclusiveRequiredOptions exclusiveRequiredOptions) {
-        List<RequiredOption.BundledRequiredOptions> presentBundledRequiredOptions = new ArrayList<>();
         List<Option<?>> presentOptions = new ArrayList<>();
-        for (RequiredOption.BundledRequiredOptions bundledOptions : exclusiveRequiredOptions.getExclusiveBundledOptions()) {
-            if (validate(bundledOptions)) {
-                presentBundledRequiredOptions.add(bundledOptions);
-            }
-        }
 
         for (Option<?> option : exclusiveRequiredOptions.getExclusiveOptions()) {
             if (hasOption(option)) {
                 presentOptions.add(option);
             }
         }
-        int count = presentBundledRequiredOptions.size() + presentOptions.size();
+        int count = presentOptions.size();
         if (count == 1) {
             return;
         }
         if (count == 0) {
             throw new OptionValidationException("There are unconfigured options, these options(%s) are mutually exclusive, allowing only one set(\"[] for a set\") of options to be configured.",
-                getOptionKeys(exclusiveRequiredOptions.getExclusiveOptions(), exclusiveRequiredOptions.getExclusiveBundledOptions()));
+                getOptionKeys(exclusiveRequiredOptions.getExclusiveOptions()));
         }
         if (count > 1) {
             throw new OptionValidationException("These options(%s) are mutually exclusive, allowing only one set(\"[] for a set\") of options to be configured.",
-                getOptionKeys(presentOptions, presentBundledRequiredOptions));
+                getOptionKeys(presentOptions));
         }
     }
 

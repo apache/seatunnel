@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.start;
 
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.topic.TopicPartition;
 
 import org.apache.pulsar.client.admin.PulsarAdmin;
@@ -48,7 +50,7 @@ public class SubscriptionStartCursor implements StartCursor {
             }
             pulsarAdmin.topics().createSubscription(partition.getFullTopicName(), subscription, CursorResetStrategy.EARLIEST == cursorResetStrategy ? MessageId.earliest : MessageId.latest);
         } catch (PulsarAdminException e) {
-            throw new RuntimeException(e);
+            throw new PulsarConnectorException(PulsarConnectorErrorCode.OPEN_PULSAR_ADMIN_FAILED, e);
         }
     }
 

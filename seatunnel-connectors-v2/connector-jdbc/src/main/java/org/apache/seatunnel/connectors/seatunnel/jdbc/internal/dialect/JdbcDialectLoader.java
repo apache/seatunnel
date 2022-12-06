@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,7 +49,7 @@ public final class JdbcDialectLoader {
         List<JdbcDialectFactory> foundFactories = discoverFactories(cl);
 
         if (foundFactories.isEmpty()) {
-            throw new IllegalStateException(
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.NO_SUITABLE_DIALECT_FACTORY,
                     String.format(
                             "Could not find any jdbc dialect factories that implement '%s' in the classpath.",
                             JdbcDialectFactory.class.getName()));
@@ -56,7 +59,7 @@ public final class JdbcDialectLoader {
                 foundFactories.stream().filter(f -> f.acceptsURL(url)).collect(Collectors.toList());
 
         if (matchingFactories.isEmpty()) {
-            throw new IllegalStateException(
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.NO_SUITABLE_DIALECT_FACTORY,
                     String.format(
                             "Could not find any jdbc dialect factory that can handle url '%s' that implements '%s' in the classpath.\n\n"
                                     + "Available factories are:\n\n"
@@ -70,7 +73,7 @@ public final class JdbcDialectLoader {
                                     .collect(Collectors.joining("\n"))));
         }
         if (matchingFactories.size() > 1) {
-            throw new IllegalStateException(
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.NO_SUITABLE_DIALECT_FACTORY,
                     String.format(
                             "Multiple jdbc dialect factories can handle url '%s' that implement '%s' found in the classpath.\n\n"
                                     + "Ambiguous factory classes are:\n\n"
@@ -95,7 +98,7 @@ public final class JdbcDialectLoader {
             return result;
         } catch (ServiceConfigurationError e) {
             LOG.error("Could not load service provider for jdbc dialects factory.", e);
-            throw new RuntimeException(
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.NO_SUITABLE_DIALECT_FACTORY,
                     "Could not load service provider for jdbc dialects factory.", e);
         }
     }

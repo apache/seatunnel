@@ -58,12 +58,14 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
     public void execute() throws CommandExecuteException {
         HazelcastInstance instance = null;
         SeaTunnelClient engineClient = null;
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         try {
             String clusterName = clientCommandArgs.getClusterName();
             if (clientCommandArgs.getExecutionMode().equals(ExecutionMode.LOCAL)) {
                 clusterName = creatRandomClusterName(clusterName);
                 instance = createServerInLocal(clusterName);
             }
+            seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(clusterName);
             engineClient = new SeaTunnelClient(clientConfig);
@@ -71,7 +73,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 String jobstatus = engineClient.listJobStatus();
                 System.out.println(jobstatus);
             } else if (null != clientCommandArgs.getJobId()) {
-                String jobState = engineClient.getJobState(Long.parseLong(clientCommandArgs.getJobId()));
+                String jobState = engineClient.getJobDetailStatus(Long.parseLong(clientCommandArgs.getJobId()));
                 System.out.println(jobState);
             } else {
                 Path configFile = FileUtils.getConfigPath(clientCommandArgs);

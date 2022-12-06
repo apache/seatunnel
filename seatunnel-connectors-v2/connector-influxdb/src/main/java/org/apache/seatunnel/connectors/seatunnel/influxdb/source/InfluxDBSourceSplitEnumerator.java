@@ -20,7 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.SQL_WHERE;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.state.InfluxDBSourceState;
 
 import lombok.extern.slf4j.Slf4j;
@@ -121,7 +123,8 @@ public class InfluxDBSourceSplitEnumerator implements SourceSplitEnumerator<Infl
 
         String[] sqls = sql.split(SQL_WHERE.key());
         if (sqls.length > 2) {
-            throw new IllegalArgumentException("sql should not contain more than one where");
+            throw new InfluxdbConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                "sql should not contain more than one where");
         }
 
         int i = 0;
@@ -209,7 +212,8 @@ public class InfluxDBSourceSplitEnumerator implements SourceSplitEnumerator<Infl
 
     @Override
     public void handleSplitRequest(int subtaskId) {
-        throw new UnsupportedOperationException("Unsupported handleSplitRequest: " + subtaskId);
+        throw new InfluxdbConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+            String.format("Unsupported handleSplitRequest: %d", subtaskId));
     }
 
 }
