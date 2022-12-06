@@ -135,8 +135,8 @@ public class PhysicalPlan {
 
     public PassiveCompletableFuture<JobStatus> initStateFuture() {
         jobEndFuture = new CompletableFuture<>();
-        pipelineList.forEach(subPlan -> addPipelineEndCallback(subPlan));
-        return new PassiveCompletableFuture<JobStatus>(jobEndFuture);
+        pipelineList.forEach(this::addPipelineEndCallback);
+        return new PassiveCompletableFuture<>(jobEndFuture);
     }
 
     public void addPipelineEndCallback(SubPlan subPlan) {
@@ -153,9 +153,7 @@ public class PhysicalPlan {
                     }
                     canceledPipelineNum.incrementAndGet();
                     if (makeJobEndWhenPipelineEnded) {
-                        LOGGER.info(
-                            String.format("cancel job %s because makeJobEndWhenPipelineEnded is %s", jobFullName,
-                                makeJobEndWhenPipelineEnded));
+                        LOGGER.info(String.format("cancel job %s because makeJobEndWhenPipelineEnded is true", jobFullName));
                         cancelJob();
                     }
                     LOGGER.info(String.format("release the pipeline %s resource", subPlan.getPipelineFullName()));

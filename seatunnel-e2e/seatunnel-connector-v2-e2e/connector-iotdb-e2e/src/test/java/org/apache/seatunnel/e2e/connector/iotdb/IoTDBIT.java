@@ -15,11 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.v2.iotdb;
+package org.apache.seatunnel.e2e.connector.iotdb;
 
 import static org.awaitility.Awaitility.given;
 
-import org.apache.seatunnel.e2e.flink.FlinkContainer;
+import org.apache.seatunnel.e2e.common.TestResource;
+import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
@@ -33,10 +37,10 @@ import org.apache.iotdb.tsfile.file.metadata.enums.TSEncoding;
 import org.apache.iotdb.tsfile.read.common.Field;
 import org.apache.iotdb.tsfile.read.common.RowRecord;
 import org.apache.iotdb.tsfile.utils.Binary;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -53,7 +57,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
-public class IoTDBIT extends FlinkContainer {
+@DisabledOnContainer(value = {}, type = {EngineType.SEATUNNEL, EngineType.SPARK},
+    disabledReason = "There is a conflict of thrift version between IoTDB and Spark.Therefore.")
+public class IoTDBIT extends TestSuiteBase implements TestResource {
 
     private static final String IOTDB_DOCKER_IMAGE = "apache/iotdb:0.13.1-node";
     private static final String IOTDB_HOST = "flink_e2e_iotdb_sink";
@@ -67,8 +73,9 @@ public class IoTDBIT extends FlinkContainer {
     private Session session;
     private List<RowRecord> testDataset;
 
-    @BeforeEach
-    public void startIoTDBContainer() throws Exception {
+    @BeforeAll
+    @Override
+    public void startUp() throws Exception {
         iotdbServer = new GenericContainer<>(IOTDB_DOCKER_IMAGE)
             .withNetwork(NETWORK)
             .withNetworkAliases(IOTDB_HOST)
@@ -88,9 +95,9 @@ public class IoTDBIT extends FlinkContainer {
         testDataset = generateTestDataSet();
     }
 
-    @Test
-    public void testIoTDB() throws Exception {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/iotdb/iotdb_source_to_sink.conf");
+    @TestTemplate
+    public void testIoTDB(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob("/iotdb/iotdb_source_to_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
         List<RowRecord> sinkDataset = readSinkDataset();
@@ -198,8 +205,9 @@ public class IoTDBIT extends FlinkContainer {
         }
     }
 
-    @AfterEach
-    public void closeIoTDBContainer() throws IoTDBConnectionException {
+    @AfterAll
+    @Override
+    public void tearDown() throws Exception {
         if (session != null) {
             session.close();
         }
