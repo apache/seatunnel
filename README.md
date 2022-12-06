@@ -86,13 +86,13 @@ Download address for run-directly software package : https://seatunnel.apache.or
 ## Quick start
 
 **SeaTunnel Engine**
-https://seatunnel.apache.org/docs/category/start-v2
+https://seatunnel.apache.org/docs/seatunnel-engine/about
 
 **Spark**
-https://seatunnel.apache.org/docs/category/start-v2
+https://seatunnel.apache.org/docs/other-engine/spark
 
 **Flink**
-https://seatunnel.apache.org/docs/category/start-v2
+https://seatunnel.apache.org/docs/other-engine/flink
 
 ## Application practice cases
 
