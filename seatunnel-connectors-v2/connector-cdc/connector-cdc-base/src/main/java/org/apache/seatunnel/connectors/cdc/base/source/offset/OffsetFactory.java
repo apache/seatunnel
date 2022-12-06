@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.offset;
 
+import java.io.Serializable;
 import java.util.Map;
 
-public abstract class OffsetFactory {
+public abstract class OffsetFactory implements Serializable {
     public OffsetFactory() {}
 
     public abstract Offset earliest();
