@@ -21,9 +21,11 @@ import org.apache.seatunnel.engine.client.job.JobClient;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelCancelJobCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobDetailStatusCodec;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobInfoCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobMetricsCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelListJobStatusCodec;
@@ -76,7 +78,6 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
      * get job status and the tasks status
      *
      * @param jobId jobId
-     * @return Job detail status
      */
     public String getJobDetailStatus(Long jobId) {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
@@ -118,5 +119,12 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
             SeaTunnelCancelJobCodec.encodeRequest(jobId));
 
         cancelFuture.join();
+    }
+
+    public JobDAGInfo getJobInfo(Long jobId) {
+        return hazelcastClient.getSerializationService().toObject(hazelcastClient.requestOnMasterAndDecodeResponse(
+            SeaTunnelGetJobInfoCodec.encodeRequest(jobId),
+            SeaTunnelGetJobInfoCodec::decodeResponse
+        ));
     }
 }
