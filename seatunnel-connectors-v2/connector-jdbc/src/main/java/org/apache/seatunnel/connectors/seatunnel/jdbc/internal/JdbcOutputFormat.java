@@ -19,10 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.ExceptionUtils;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
@@ -79,9 +81,8 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
         throws IOException {
         try {
             connectionProvider.getOrEstablishConnection();
-        }
-        catch (Exception e) {
-            throw new IOException("unable to open JDBC writer", e);
+        } catch (Exception e) {
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED, "unable to open JDBC writer", e);
         }
         jdbcStatementExecutor = createAndOpenStatementExecutor(statementExecutorFactory);
 
@@ -102,8 +103,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
                             if (!closed) {
                                 try {
                                     flush();
-                                }
-                                catch (Exception e) {
+                                } catch (Exception e) {
                                     flushException = e;
                                 }
                             }
@@ -116,26 +116,23 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
     }
 
     private E createAndOpenStatementExecutor(
-        StatementExecutorFactory<E> statementExecutorFactory)
-        throws IOException {
+        StatementExecutorFactory<E> statementExecutorFactory) {
         E exec = statementExecutorFactory.get();
         try {
             exec.prepareStatements(connectionProvider.getConnection());
-        }
-        catch (SQLException e) {
-            throw new IOException("unable to open JDBC writer", e);
+        } catch (SQLException e) {
+            throw new JdbcConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, "unable to open JDBC writer", e);
         }
         return exec;
     }
 
     private void checkFlushException() {
         if (flushException != null) {
-            throw new RuntimeException("Writing records to JDBC failed.", flushException);
+            throw new JdbcConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, "Writing records to JDBC failed.", flushException);
         }
     }
 
-    public final synchronized void writeRecord(I record)
-        throws IOException {
+    public final synchronized void writeRecord(I record) {
         checkFlushException();
         try {
             addToBatch(record);
@@ -144,9 +141,8 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
                 && batchCount >= jdbcConnectionOptions.getBatchSize()) {
                 flush();
             }
-        }
-        catch (Exception e) {
-            throw new IOException("Writing records to JDBC failed.", e);
+        } catch (Exception e) {
+            throw new JdbcConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, "Writing records to JDBC failed.", e);
         }
     }
 
@@ -164,29 +160,26 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
                 attemptFlush();
                 batchCount = 0;
                 break;
-            }
-            catch (SQLException e) {
+            } catch (SQLException e) {
                 LOG.error("JDBC executeBatch error, retry times = {}", i, e);
                 if (i >= jdbcConnectionOptions.getMaxRetries()) {
-                    ExceptionUtils.rethrowIOException(e);
+                    throw new JdbcConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, e);
                 }
                 try {
                     if (!connectionProvider.isConnectionValid()) {
                         updateExecutor(true);
                     }
-                }
-                catch (Exception exception) {
+                } catch (Exception exception) {
                     LOG.error(
                         "JDBC connection is not valid, and reestablish connection failed.",
                         exception);
-                    throw new IOException("Reestablish JDBC connection failed", exception);
+                    throw new JdbcConnectorException(JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED, "Reestablish JDBC connection failed", exception);
                 }
                 try {
                     Thread.sleep(sleepMs * i);
-                }
-                catch (InterruptedException ex) {
+                } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
-                    throw new IOException(
+                    throw new JdbcConnectorException(CommonErrorCode.FLUSH_DATA_FAILED,
                         "unable to flush; interrupted while doing another attempt", e);
                 }
             }
@@ -213,10 +206,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
             if (batchCount > 0) {
                 try {
                     flush();
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     LOG.warn("Writing records to JDBC failed.", e);
-                    throw new RuntimeException("Writing records to JDBC failed.", e);
+                    throw new JdbcConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, "Writing records to JDBC failed.", e);
                 }
             }
 
@@ -224,8 +216,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
                 if (jdbcStatementExecutor != null) {
                     jdbcStatementExecutor.closeStatements();
                 }
-            }
-            catch (SQLException e) {
+            } catch (SQLException e) {
                 LOG.warn("Close JDBC writer failed.", e);
             }
         }
@@ -251,7 +242,8 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
      * @param <T> The type of instance.
      */
     public interface StatementExecutorFactory<T extends JdbcBatchStatementExecutor<?>>
-        extends Supplier<T>, Serializable {}
+        extends Supplier<T>, Serializable {
+    }
 
     ;
 }
