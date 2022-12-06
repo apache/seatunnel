@@ -19,6 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+
 import javax.transaction.xa.Xid;
 
 import java.io.Serializable;
@@ -109,7 +112,7 @@ final class XidImpl implements Xid, Serializable {
         final int number0x0f = 0x0F;
         final int number4 = 4;
         if (bytes == null) {
-            throw new IllegalArgumentException("bytes == null");
+            throw new JdbcConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, "bytes == null");
         }
 
         int length = end - start;
