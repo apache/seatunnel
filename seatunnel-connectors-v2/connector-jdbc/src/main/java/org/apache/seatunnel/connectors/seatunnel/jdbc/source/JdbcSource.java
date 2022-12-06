@@ -28,7 +28,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcInputFormat;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
@@ -167,12 +169,12 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
                 fieldTypes.put(typeInfo.getFieldName(i), typeInfo.getFieldType(i));
             }
             if (!fieldTypes.containsKey(partitionColumn)) {
-                throw new IllegalArgumentException(String.format("field %s not contain in query %s",
+                throw new JdbcConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, String.format("field %s not contain in query %s",
                     partitionColumn, query));
             }
             SeaTunnelDataType<?> partitionColumnType = fieldTypes.get(partitionColumn);
             if (!isNumericType(partitionColumnType)) {
-                throw new IllegalArgumentException(String.format("%s is not numeric type", partitionColumn));
+                throw new JdbcConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, String.format("%s is not numeric type", partitionColumn));
             }
             PartitionParameter partitionParameter = initPartitionParameter(partitionColumn, connection);
             query = String.format("SELECT * FROM (%s) tt where " + partitionColumn + " >= ? AND " + partitionColumn + " <= ?", query);
