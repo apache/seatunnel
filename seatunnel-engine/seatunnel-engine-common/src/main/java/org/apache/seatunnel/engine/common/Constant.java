@@ -48,7 +48,7 @@ public class Constant {
 
     public static final String IMAP_FINISHED_JOB_METRICS = "finishedJobMetrics";
 
-    public static final String IMAP_FINISHED_JOB_INFO = "finishedJobInfo";
+    public static final String IMAP_FINISHED_JOB_VERTEX_INFO = "finishedJobVertexInfo";
 
     public static final String IMAP_STATE_TIMESTAMPS = "stateTimestamps";
 

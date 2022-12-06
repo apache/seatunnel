@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
@@ -173,7 +174,7 @@ public class CoordinatorService {
             runningJobMasterMap,
             nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE),
             nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_METRICS),
-            nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_INFO)
+            nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO)
         );
 
         List<CompletableFuture<Void>> collect = runningJobInfoIMap.entrySet().stream().map(entry -> {
@@ -354,7 +355,7 @@ public class CoordinatorService {
 
     private void onJobDone(JobMaster jobMaster, long jobId){
         // storage job state and metrics to HistoryStorage
-        jobHistoryService.storeJobInfo(jobId, runningJobInfoIMap.get(jobId));
+        jobHistoryService.storeJobInfo(jobId, runningJobMasterMap.get(jobId).getJobDAGInfo());
         jobHistoryService.storeFinishedJobState(jobMaster);
         jobHistoryService.storeFinishedJobMetrics(jobMaster);
         removeJobIMap(jobMaster);
@@ -428,12 +429,12 @@ public class CoordinatorService {
         return jobMetricsImap != null ? jobMetricsImap : jobMetrics;
     }
 
-    public JobInfo getJobInfo(long jobId) {
-        JobInfo jobInfo = runningJobInfoIMap.get(jobId);
-        if (jobInfo == null) {
-            return jobHistoryService.getJobInfo(jobId);
+    public JobDAGInfo getJobInfo(long jobId) {
+        JobDAGInfo jobInfo = jobHistoryService.getJobDAGInfo(jobId);
+        if (jobInfo != null) {
+            return jobInfo;
         }
-        return jobInfo;
+        return runningJobMasterMap.get(jobId).getJobDAGInfo();
     }
 
     /**

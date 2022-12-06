@@ -30,16 +30,14 @@ import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
-import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
-import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
-import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -184,18 +182,16 @@ public class SeaTunnelClientTest {
             long jobId = clientJobProxy.getJobId();
 
             // Running
-            Assertions.assertNotNull(CLIENT.getJobInfo(jobId).getJobImmutableInformation());
+            Assertions.assertNotNull(CLIENT.getJobInfo(jobId));
 
-            await().atMost(30000, TimeUnit.MILLISECONDS)
+            await().atMost(180000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
-                    CLIENT.getJobState(jobId).contains("FINISHED") && CLIENT.listJobStatus().contains("FINISHED")));
+                    CLIENT.getJobDetailStatus(jobId).contains("FINISHED") && CLIENT.listJobStatus().contains("FINISHED")));
             // Finished
-            JobInfo jobInfo = CLIENT.getJobInfo(jobId);
-            JobImmutableInformation jobImmutableInformation = ((HazelcastInstanceProxy) INSTANCE).getSerializationService().toObject(jobInfo.getJobImmutableInformation());
-            LogicalDag logicalDag = ((HazelcastInstanceProxy) INSTANCE).getSerializationService().toObject(jobImmutableInformation.getLogicalDag());
-            Assertions.assertTrue(StringUtils.isNotEmpty(logicalDag.getLogicalDagAsJson().toString()));
+            JobDAGInfo jobInfo = CLIENT.getJobInfo(jobId);
+            Assertions.assertTrue(StringUtils.isNotEmpty(new ObjectMapper().writeValueAsString(jobInfo)));
 
-        } catch (ExecutionException | InterruptedException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
