@@ -22,8 +22,8 @@ The internal implementation of Doris sink connector is cached and imported by st
 | labelPrefix                 | string                       | no       | -               |
 | batch_max_rows              | long                         | no       | 1024            |
 | batch_max_bytes             | int                          | no       | 5 * 1024 * 1024 |
-| batch_interval_ms           | int                          | no       | -               |
-| max_retries                 | int                          | no       | -               |
+| batch_interval_ms           | int                          | no       | 1000            |
+| max_retries                 | int                          | no       | 1               |
 | retry_backoff_multiplier_ms | int                          | no       | -               |
 | max_retry_backoff_ms        | int                          | no       | -               |
 | sink.properties.*           | doris stream load config     | no       | -               |
