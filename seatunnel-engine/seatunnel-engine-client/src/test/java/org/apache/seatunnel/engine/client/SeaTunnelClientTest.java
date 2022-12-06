@@ -94,7 +94,7 @@ public class SeaTunnelClientTest {
                 return clientJobProxy.waitForJobComplete();
             });
 
-            await().atMost(30000, TimeUnit.MILLISECONDS)
+            await().atMost(180000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
 
@@ -121,11 +121,11 @@ public class SeaTunnelClientTest {
 
             await().atMost(30000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
-                    CLIENT.getJobState(jobId).contains("RUNNING") && CLIENT.listJobStatus().contains("RUNNING")));
+                    CLIENT.getJobDetailStatus(jobId).contains("RUNNING") && CLIENT.listJobStatus().contains("RUNNING")));
 
             await().atMost(30000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
-                    CLIENT.getJobState(jobId).contains("FINISHED") && CLIENT.listJobStatus().contains("FINISHED")));
+                    CLIENT.getJobDetailStatus(jobId).contains("FINISHED") && CLIENT.listJobStatus().contains("FINISHED")));
 
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
@@ -150,7 +150,7 @@ public class SeaTunnelClientTest {
 
             await().atMost(30000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
-                    CLIENT.getJobState(jobId).contains("FINISHED") && CLIENT.listJobStatus().contains("FINISHED")));
+                    CLIENT.getJobDetailStatus(jobId).contains("FINISHED") && CLIENT.listJobStatus().contains("FINISHED")));
 
             String jobMetrics = CLIENT.getJobMetrics(jobId);
 

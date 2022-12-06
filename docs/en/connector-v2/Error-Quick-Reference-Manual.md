@@ -194,3 +194,9 @@ problems encountered by users.
 | PULSAR-05 | Get last cursor of pulsar topic failed                          | When users encounter this error code, it means that get last cursor of pulsar topic failed, please check it                          |
 | PULSAR-06 | Get partition information of pulsar topic failed                | When users encounter this error code, it means that Get partition information of pulsar topic failed, please check it                |
 
+## StarRocks Connector Error Codes
+
+| code    | description                 | solution                                                                                                                                                         |
+|---------|-----------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| STARROCKS-01 | Flush batch data to sink connector failed        | When users encounter this error code, it means that flush batch data to sink connector failed, please check it                                          |
+| STARROCKS-02 | Writing records to StarRocks failed. | When users encounter this error code, it means that writing records to StarRocks failed, please check data from files whether is correct |

@@ -17,25 +17,25 @@
 
 package org.apache.seatunnel.engine.server.protocol.task;
 
-import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStateCodec;
-import org.apache.seatunnel.engine.server.operation.GetJobStateOperation;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobDetailStatusCodec;
+import org.apache.seatunnel.engine.server.operation.GetJobDetailStatusOperation;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.nio.Connection;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
-public class GetJobStateTask extends AbstractSeaTunnelMessageTask<Long, String> {
+public class GetJobDetailStatusTask extends AbstractSeaTunnelMessageTask<Long, String> {
 
-    protected GetJobStateTask(ClientMessage clientMessage, Node node, Connection connection) {
+    protected GetJobDetailStatusTask(ClientMessage clientMessage, Node node, Connection connection) {
         super(clientMessage, node, connection,
-            SeaTunnelGetJobStateCodec::decodeRequest,
-            SeaTunnelGetJobStateCodec::encodeResponse);
+            SeaTunnelGetJobDetailStatusCodec::decodeRequest,
+            SeaTunnelGetJobDetailStatusCodec::encodeResponse);
     }
 
     @Override
     protected Operation prepareOperation() {
-        return new GetJobStateOperation(parameters);
+        return new GetJobDetailStatusOperation(parameters);
     }
 
     @Override
