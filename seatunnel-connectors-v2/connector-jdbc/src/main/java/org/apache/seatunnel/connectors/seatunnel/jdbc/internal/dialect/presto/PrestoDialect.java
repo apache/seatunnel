@@ -24,7 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import java.util.Optional;
 
 public class PrestoDialect
-        implements JdbcDialect {
+    implements JdbcDialect {
     @Override
     public String dialectName() {
         return "Presto";

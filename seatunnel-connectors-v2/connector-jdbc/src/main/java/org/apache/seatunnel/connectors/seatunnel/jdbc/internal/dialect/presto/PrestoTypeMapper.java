@@ -29,9 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
-public class PrestoTypeMapper
-        implements JdbcDialectTypeMapper
-{
+public class PrestoTypeMapper implements JdbcDialectTypeMapper {
     // ============================data types=====================
 
     private static final String PRESTO_BOOLEAN = "BOOLEAN";
@@ -66,9 +64,7 @@ public class PrestoTypeMapper
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
-            throws SQLException
-    {
+    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
         String columnType = metadata.getColumnTypeName(colIndex).toUpperCase();
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
@@ -109,9 +105,9 @@ public class PrestoTypeMapper
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
                 throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-                        String.format(
-                                "Doesn't support Presto type '%s' on column '%s'  yet.",
-                                columnType, jdbcColumnName));
+                    String.format(
+                        "Doesn't support Presto type '%s' on column '%s'  yet.",
+                        columnType, jdbcColumnName));
         }
     }
 }

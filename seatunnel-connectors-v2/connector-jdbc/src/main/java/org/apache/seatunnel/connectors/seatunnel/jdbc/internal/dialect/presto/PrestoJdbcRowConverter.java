@@ -20,10 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.presto;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 
 public class PrestoJdbcRowConverter
-        extends AbstractJdbcRowConverter {
+    extends AbstractJdbcRowConverter {
     @Override
     public String converterName() {
         return "Presto";
     }
-
 }
