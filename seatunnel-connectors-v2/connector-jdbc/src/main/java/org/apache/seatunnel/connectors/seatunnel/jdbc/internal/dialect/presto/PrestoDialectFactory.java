@@ -29,7 +29,7 @@ public class PrestoDialectFactory
 
     @Override
     public boolean acceptsURL(@NonNull String url) {
-        return url.startsWith("jdbc:phoenix:");
+        return url.startsWith("jdbc:presto:") || url.startsWith("jdbc:trino:");
     }
 
     @Override
