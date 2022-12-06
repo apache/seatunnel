@@ -140,7 +140,7 @@ Only support `true` now.
 
 ### batch_size [int]
 
-Write a file for every number of pieces of data
+The maximum number of rows in a file. For SeaTunnel Engine, the number of lines in the file is determined by `batch_size` and `checkpoint.interval` jointly decide. If the value of `checkpoint.interval` is large enough, sink writer will write rows in a file until the rows in the file larger than `batch_size`. If `checkpoint.interval` is small, the sink writer will create a new file when a new checkpoint trigger.
 
 ### common options
 
