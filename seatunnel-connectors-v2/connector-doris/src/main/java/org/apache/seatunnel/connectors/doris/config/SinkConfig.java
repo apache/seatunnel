@@ -132,7 +132,7 @@ public class SinkConfig {
     private int retryBackoffMultiplierMs;
     private int maxRetryBackoffMs;
 
-    private final Map<String, Object> streamLoadProps = new HashMap<>();
+    private final Map<String, String> streamLoadProps = new HashMap<>();
 
     public static SinkConfig loadConfig(Config pluginConfig) {
         SinkConfig sinkConfig = new SinkConfig();
@@ -182,7 +182,7 @@ public class SinkConfig {
                 DORIS_SINK_CONFIG_PREFIX.key(), false);
         dorisConfig.entrySet().forEach(entry -> {
             final String configKey = entry.getKey().toLowerCase();
-            sinkConfig.streamLoadProps.put(configKey, entry.getValue().unwrapped());
+            sinkConfig.streamLoadProps.put(configKey, entry.getValue().unwrapped().toString());
         });
     }
 }
