@@ -21,10 +21,15 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
 
 @Data
 @AllArgsConstructor
 public class FileSinkState implements Serializable {
     private final String transactionId;
     private final Long checkpointId;
+    private final Map<String, String> needMoveFiles;
+    private final Map<String, List<String>> partitionDirAndValuesMap;
+    private final String transactionDir;
 }

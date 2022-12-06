@@ -22,14 +22,20 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
+
+import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> {
     private final WriteStrategy writeStrategy;
@@ -46,8 +52,27 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
         this.subTaskIndex = context.getIndexOfSubtask();
         writeStrategy.init(hadoopConf, jobId, subTaskIndex);
         if (!fileSinkStates.isEmpty()) {
-            List<String> transactionIds = writeStrategy.getTransactionIdFromStates(fileSinkStates);
-            transactionIds.forEach(writeStrategy::abortPrepare);
+            try {
+                List<Path> paths = FileSystemUtils.dirList(writeStrategy.getFileSinkConfig().getTmpPath());
+                List<String> transactions = paths.stream().map(Path::getName).collect(Collectors.toList());
+                FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(hadoopConf);
+                for (FileSinkState fileSinkState : fileSinkStates) {
+                    if (transactions.contains(fileSinkState.getTransactionId())) {
+                        // need commit
+                        FileAggregatedCommitInfo fileCommitInfo = fileSinkAggregatedCommitter
+                                .combine(Collections.singletonList(new FileCommitInfo(fileSinkState.getNeedMoveFiles(),
+                                        fileSinkState.getPartitionDirAndValuesMap(),
+                                        fileSinkState.getTransactionDir())));
+                        fileSinkAggregatedCommitter.commit(Collections.singletonList(fileCommitInfo));
+                    } else {
+                        // need abort
+                        writeStrategy.abortPrepare(fileSinkState.getTransactionId());
+                    }
+                }
+            } catch (IOException e) {
+                String errorMsg = String.format("Try to process these fileStates %s failed", fileSinkStates);
+                throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
+            }
             writeStrategy.beginTransaction(fileSinkStates.get(0).getCheckpointId() + 1);
         } else {
             writeStrategy.beginTransaction(1L);

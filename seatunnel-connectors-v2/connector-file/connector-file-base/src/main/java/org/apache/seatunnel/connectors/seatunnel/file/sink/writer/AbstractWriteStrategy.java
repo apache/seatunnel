@@ -37,6 +37,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 
 import com.google.common.collect.Lists;
+import lombok.Getter;
 import lombok.NonNull;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -60,6 +61,7 @@ import java.util.stream.Collectors;
 
 public abstract class AbstractWriteStrategy implements WriteStrategy {
     protected final Logger log = LoggerFactory.getLogger(this.getClass());
+    @Getter
     protected final TextFileSinkConfig textFileSinkConfig;
     protected final List<Integer> sinkColumnsIndexInRow;
     protected String jobId;
@@ -286,7 +288,12 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      */
     @Override
     public List<FileSinkState> snapshotState(long checkpointId) {
-        ArrayList<FileSinkState> fileState = Lists.newArrayList(new FileSinkState(this.transactionId, this.checkpointId));
+        Map<String, List<String>> commitMap = this.partitionDirAndValuesMap.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> new ArrayList<>(e.getValue())));
+        ArrayList<FileSinkState> fileState = Lists.newArrayList(new FileSinkState(this.transactionId,
+                this.checkpointId, new HashMap<>(this.needMoveFiles),
+                commitMap, this.getTransactionDir(transactionId)));
+        this.beingWrittenFile.clear();
         this.beginTransaction(checkpointId + 1);
         return fileState;
     }
@@ -325,7 +332,13 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         return tmpPath.replaceAll(BaseSinkConfig.NON_PARTITION + Matcher.quoteReplacement(File.separator), "");
     }
 
+    @Override
     public long getCheckpointId() {
         return this.checkpointId;
+    }
+
+    @Override
+    public TextFileSinkConfig getFileSinkConfig() {
+        return textFileSinkConfig;
     }
 }
