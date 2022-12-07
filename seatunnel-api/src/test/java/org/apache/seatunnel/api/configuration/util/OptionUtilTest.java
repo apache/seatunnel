@@ -31,7 +31,7 @@ public class OptionUtilTest {
     public void test() throws InstantiationException, IllegalAccessException {
         List<Option<?>> options = OptionUtil.getOptions(TestOptionConfig.class);
         Assertions.assertEquals("short-value", options.get(0).key());
-        Assertions.assertEquals("shortValue",options.get(0).getDescription());
+        Assertions.assertEquals("shortValue", options.get(0).getDescription());
         Assertions.assertEquals(Short.class, options.get(0).typeReference().getType());
 
         Assertions.assertEquals(Integer.class, options.get(1).typeReference().getType());
