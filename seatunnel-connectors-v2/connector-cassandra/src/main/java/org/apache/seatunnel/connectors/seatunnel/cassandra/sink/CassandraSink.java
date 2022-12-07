@@ -17,9 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cassandra.sink;
 
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.DATACENTER;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.KEYSPACE;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.USERNAME;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -70,27 +74,26 @@ public class CassandraSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
                     String.format("PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, checkResult.getMsg()));
         }
-        this.cassandraConfig = CassandraConfig.getCassandraConfig(config);
         try (CqlSession session = CassandraClient.getCqlSessionBuilder(
-            cassandraConfig.getHost(),
-            cassandraConfig.getKeyspace(),
-            cassandraConfig.getUsername(),
-            cassandraConfig.getPassword(),
-            cassandraConfig.getDatacenter()
+                config.getString(HOST.key()),
+                config.getString(KEYSPACE.key()),
+                config.getString(USERNAME.key()),
+                config.getString(PASSWORD.key()),
+                config.getString(DATACENTER.key())
         ).build()) {
-            List<String> fields = cassandraConfig.getFields();
-            this.tableSchema = CassandraClient.getTableSchema(session, cassandraConfig.getTable());
+            List<String> fields = config.getStringList(FIELDS.key());
+            this.tableSchema = CassandraClient.getTableSchema(session, config.getString(TABLE.key()));
             if (fields == null || fields.isEmpty()) {
                 List<String> newFields = new ArrayList<>();
                 for (int i = 0; i < tableSchema.size(); i++) {
                     newFields.add(tableSchema.get(i).getName().asInternal());
                 }
-                cassandraConfig.setFields(newFields);
+                config.setFields(newFields);
             } else {
                 for (String field : fields) {
                     if (!tableSchema.contains(field)) {
                         throw new CassandraConnectorException(CassandraConnectorErrorCode.FIELD_NOT_IN_TABLE,
-                                "Field " + field + " does not exist in table " + config.getString(TABLE));
+                                "Field " + field + " does not exist in table " + config.getString(TABLE.key()));
                     }
                 }
             }

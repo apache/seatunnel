@@ -17,10 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cassandra.source;
 
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.CONSISTENCY_LEVEL;
 import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.CQL;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.DATACENTER;
 import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.KEYSPACE;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.USERNAME;
 
+import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -60,7 +65,7 @@ public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(config, HOST, KEYSPACE, CQL);
+        CheckResult checkResult = CheckConfigUtil.checkAllExists(config, HOST.key(), KEYSPACE.key(), CQL.key());
         if (!checkResult.isSuccess()) {
             throw new CassandraConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format("PluginName: %s, PluginType: %s, Message: %s",
@@ -68,15 +73,18 @@ public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         }
         this.cassandraConfig = CassandraConfig.getCassandraConfig(config);
         try (CqlSession currentSession = CassandraClient.getCqlSessionBuilder(
-            cassandraConfig.getHost(),
-            cassandraConfig.getKeyspace(),
-            cassandraConfig.getUsername(),
-            cassandraConfig.getPassword(),
-            cassandraConfig.getDatacenter()).build()) {
-            Row rs = currentSession.execute(CassandraClient.createSimpleStatement(cassandraConfig.getCql(), cassandraConfig.getConsistencyLevel())).one();
+                config.getString(HOST.key()),
+                config.getString(KEYSPACE.key()),
+                config.getString(USERNAME.key()),
+                config.getString(PASSWORD.key()),
+                config.getString(DATACENTER.key())
+        ).build()) {
+            Row rs = currentSession.execute(CassandraClient.createSimpleStatement(
+                    config.getString(CQL.key()),
+                    DefaultConsistencyLevel.valueOf(config.getString(CONSISTENCY_LEVEL.key())))).one();
             if (rs == null) {
                 throw new CassandraConnectorException(CassandraConnectorErrorCode.NO_DATA_IN_SOURCE_TABLE,
-                        "No data select from this cql: " + cassandraConfig.getCql());
+                        "No data select from this cql: " + config.getString(CQL.key()));
             }
             int columnSize = rs.getColumnDefinitions().size();
             String[] fieldNames = new String[columnSize];
@@ -108,3 +116,4 @@ public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     }
 
 }
+

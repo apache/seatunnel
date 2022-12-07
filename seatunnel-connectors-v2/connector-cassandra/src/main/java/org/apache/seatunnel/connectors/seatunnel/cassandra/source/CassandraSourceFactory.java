@@ -20,10 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.cassandra.source;
 import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
 @AutoService(Factory.class)
-public class CassandraSourceFactory implements TableSinkFactory {
+public class CassandraSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
         return "Cassandra";

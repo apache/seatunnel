@@ -32,9 +32,6 @@ import lombok.ToString;
 import java.io.Serializable;
 import java.util.List;
 
-@Data
-@ToString
-@NoArgsConstructor
 public class CassandraConfig implements Serializable {
 
     public static final Option<String> HOST =
@@ -83,20 +80,20 @@ public class CassandraConfig implements Serializable {
                     .stringType()
                     .defaultValue("LOCAL_ONE")
                     .withDescription("");
-    public static final Option<String> BATCH_SIZE =
+    public static final Option<Integer> BATCH_SIZE =
             Options.key("batch_size")
-                    .stringType()
-                    .defaultValue("5000")
+                    .intType()
+                    .defaultValue(5000)
                     .withDescription("");
     public static final Option<String> BATCH_TYPE =
             Options.key("batch_type")
                     .stringType()
                     .defaultValue("UNLOGGER")
                     .withDescription("");
-    public static final Option<String> ASYNC_WRITE =
+    public static final Option<Boolean> ASYNC_WRITE =
             Options.key("async_write")
-                    .stringType()
-                    .defaultValue("true")
+                    .booleanType()
+                    .defaultValue(true)
                     .withDescription("");
 
 }
