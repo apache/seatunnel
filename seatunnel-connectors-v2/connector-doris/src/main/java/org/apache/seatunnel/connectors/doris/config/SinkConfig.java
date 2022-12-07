@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.doris.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -88,7 +89,7 @@ public class SinkConfig {
 
     public static final Option<Integer> BATCH_INTERVAL_MS = Options.key("batch_interval_ms")
             .intType()
-            .noDefaultValue()
+            .defaultValue(DEFAULT_BATCH_INTERVAL_MS)
             .withDescription("For batch writing, when the number of buffers reaches the number of batch_max_rows or the byte size of batch_max_bytes or the time reaches batch_interval_ms, the data will be flushed into the Doris");
 
     public static final Option<Integer> MAX_RETRIES = Options.key("max_retries")
@@ -134,45 +135,28 @@ public class SinkConfig {
 
     private final Map<String, String> streamLoadProps = new HashMap<>();
 
-    public static SinkConfig loadConfig(Config pluginConfig) {
+    public static SinkConfig loadConfig(ReadonlyConfig config, Config pluginConfig) {
         SinkConfig sinkConfig = new SinkConfig();
-        sinkConfig.setNodeUrls(pluginConfig.getStringList(NODE_URLS.key()));
-        sinkConfig.setDatabase(pluginConfig.getString(DATABASE.key()));
-        sinkConfig.setTable(pluginConfig.getString(TABLE.key()));
+        sinkConfig.setNodeUrls(config.get(SinkConfig.NODE_URLS));
+        sinkConfig.setDatabase(config.get(SinkConfig.DATABASE));
+        sinkConfig.setTable(config.get(SinkConfig.TABLE));
 
-        if (pluginConfig.hasPath(USERNAME.key())) {
-            sinkConfig.setUsername(pluginConfig.getString(USERNAME.key()));
-        }
-        if (pluginConfig.hasPath(PASSWORD.key())) {
-            sinkConfig.setPassword(pluginConfig.getString(PASSWORD.key()));
-        }
-        if (pluginConfig.hasPath(LABEL_PREFIX.key())) {
-            sinkConfig.setLabelPrefix(pluginConfig.getString(LABEL_PREFIX.key()));
-        }
-        if (pluginConfig.hasPath(BATCH_MAX_SIZE.key())) {
-            sinkConfig.setBatchMaxSize(pluginConfig.getInt(BATCH_MAX_SIZE.key()));
-        }
-        if (pluginConfig.hasPath(BATCH_MAX_BYTES.key())) {
-            sinkConfig.setBatchMaxBytes(pluginConfig.getLong(BATCH_MAX_BYTES.key()));
-        }
-        if (pluginConfig.hasPath(BATCH_INTERVAL_MS.key())) {
-            sinkConfig.setBatchIntervalMs(pluginConfig.getInt(BATCH_INTERVAL_MS.key()));
-        }
-        if (pluginConfig.hasPath(MAX_RETRIES.key())) {
-            sinkConfig.setMaxRetries(pluginConfig.getInt(MAX_RETRIES.key()));
-        }
-        if (pluginConfig.hasPath(RETRY_BACKOFF_MULTIPLIER_MS.key())) {
-            sinkConfig.setRetryBackoffMultiplierMs(pluginConfig.getInt(RETRY_BACKOFF_MULTIPLIER_MS.key()));
-        }
-        if (pluginConfig.hasPath(MAX_RETRY_BACKOFF_MS.key())) {
-            sinkConfig.setMaxRetryBackoffMs(pluginConfig.getInt(MAX_RETRY_BACKOFF_MS.key()));
-        }
+        sinkConfig.setUsername(config.get(SinkConfig.USERNAME));
+        sinkConfig.setPassword(config.get(SinkConfig.PASSWORD));
+        sinkConfig.setBatchMaxSize(config.get(SinkConfig.BATCH_MAX_SIZE));
+        sinkConfig.setLabelPrefix(config.get(SinkConfig.LABEL_PREFIX));
+        sinkConfig.setBatchMaxBytes(config.get(SinkConfig.BATCH_MAX_BYTES));
+        sinkConfig.setBatchIntervalMs(config.get(SinkConfig.BATCH_INTERVAL_MS));
+        sinkConfig.setMaxRetries(config.get(SinkConfig.MAX_RETRIES));
+        sinkConfig.setRetryBackoffMultiplierMs(config.get(SinkConfig.RETRY_BACKOFF_MULTIPLIER_MS));
+        sinkConfig.setMaxRetryBackoffMs(config.get(SinkConfig.MAX_RETRY_BACKOFF_MS));
+
         parseSinkStreamLoadProperties(pluginConfig, sinkConfig);
         if (sinkConfig.streamLoadProps.containsKey(COLUMN_SEPARATOR)) {
-            sinkConfig.setColumnSeparator((String) sinkConfig.streamLoadProps.get(COLUMN_SEPARATOR));
+            sinkConfig.setColumnSeparator(sinkConfig.streamLoadProps.get(COLUMN_SEPARATOR));
         }
         if (sinkConfig.streamLoadProps.containsKey(LOAD_FORMAT)) {
-            sinkConfig.setLoadFormat(StreamLoadFormat.parse((String) sinkConfig.streamLoadProps.get(LOAD_FORMAT)));
+            sinkConfig.setLoadFormat(StreamLoadFormat.parse(sinkConfig.streamLoadProps.get(LOAD_FORMAT)));
         }
         return sinkConfig;
     }

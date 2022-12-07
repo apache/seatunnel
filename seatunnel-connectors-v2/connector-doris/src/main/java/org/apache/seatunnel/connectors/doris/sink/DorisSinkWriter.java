@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.doris.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -43,12 +44,15 @@ import java.util.stream.Collectors;
 @Slf4j
 public class DorisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
+    private ReadonlyConfig readonlyConfig;
     private final SerializationSchema serializationSchema;
     private final DorisSinkManager manager;
 
     public DorisSinkWriter(Config pluginConfig,
                            SeaTunnelRowType seaTunnelRowType) {
-        SinkConfig sinkConfig = SinkConfig.loadConfig(pluginConfig);
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
+        SinkConfig sinkConfig = SinkConfig.loadConfig(readonlyConfig, pluginConfig);
+
         List<String> fieldNames = Arrays.stream(seaTunnelRowType.getFieldNames()).collect(Collectors.toList());
         this.serializationSchema = createSerializer(sinkConfig, seaTunnelRowType);
         this.manager = new DorisSinkManager(sinkConfig, fieldNames);
