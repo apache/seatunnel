@@ -19,16 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.notion.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
+import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.notion.source.config.NotionSourceConfig;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class NotionSourceFactory implements TableSourceFactory {
+public class NotionSourceFactory extends HttpSourceFactory {
     @Override
     public String factoryIdentifier() {
         return "Notion";
@@ -36,22 +33,9 @@ public class NotionSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder()
-                .required(NotionSourceConfig.URL)
+        return getHttpBuilder()
                 .required(NotionSourceConfig.PASSWORD)
                 .required(NotionSourceConfig.VERSION)
-                .optional(NotionSourceConfig.METHOD)
-                .optional(NotionSourceConfig.HEADERS)
-                .optional(NotionSourceConfig.PARAMS)
-                .optional(NotionSourceConfig.FORMAT)
-                .optional(NotionSourceConfig.JSON_FIELD)
-                .optional(NotionSourceConfig.CONTENT_FIELD)
-                .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, NotionSourceConfig.BODY)
-                .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
-                .optional(NotionSourceConfig.POLL_INTERVAL_MILLS)
-                .optional(NotionSourceConfig.RETRY)
-                .optional(NotionSourceConfig.RETRY_BACKOFF_MAX_MS)
-                .optional(NotionSourceConfig.RETRY_BACKOFF_MULTIPLIER_MS)
                 .build();
     }
 }
