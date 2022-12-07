@@ -41,9 +41,7 @@ http request url
 
 ### password [String]
 
-API key for login, you can get it at this link:
-
-https://apidocs.persistiq.com/
+API key for login, you can get it at Persistiq website
 
 ### method [String]
 
