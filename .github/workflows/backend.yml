@@ -227,6 +227,9 @@ jobs:
           includes=`python tools/update_modules_check/update_modules_check.py tree $tree_modules`
           ./mvnw -Pci -D"e2e.dependency.skip"=false  dependency:tree $includes -DoutputType=text -DoutputFile=/tmp/tree_out.txt
           build_modules=`python tools/update_modules_check/update_modules_check.py final_ut /tmp/tree_out.txt`
+          if [[ "zz"$build_modules == "zz" ]];then
+            build_modules=$pl_modules
+          fi 
           echo $build_modules
           echo "modules=$build_modules" >> $GITHUB_OUTPUT
 

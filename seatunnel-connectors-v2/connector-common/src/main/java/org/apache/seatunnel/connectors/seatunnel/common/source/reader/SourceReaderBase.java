@@ -155,7 +155,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
         splitFetcherManager.checkErrors();
         RecordsWithSplitIds<E> recordsWithSplitId = elementsQueue.poll();
         if (recordsWithSplitId == null || !moveToNextSplit(recordsWithSplitId, output)) {
-            log.info("Current fetch is finished.");
+            log.debug("Current fetch is finished.");
             return null;
         }
 
@@ -194,6 +194,10 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
         }
 
         fetch.recycle();
+    }
+
+    public int getNumberOfCurrentlyAssignedSplits() {
+        return this.splitStates.size();
     }
 
     /**

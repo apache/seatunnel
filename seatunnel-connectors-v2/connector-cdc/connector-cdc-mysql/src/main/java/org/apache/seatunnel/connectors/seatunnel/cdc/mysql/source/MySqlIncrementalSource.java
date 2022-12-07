@@ -52,6 +52,8 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         MySqlSourceConfigFactory configFactory = new MySqlSourceConfigFactory();
         configFactory.serverId(config.get(JdbcSourceOptions.SERVER_ID));
         configFactory.fromReadonlyConfig(readonlyConfig);
+        configFactory.startupOptions(startupConfig);
+        configFactory.stopOptions(stopConfig);
         return configFactory;
     }
 
@@ -63,7 +65,7 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         // TODO: support multi-table
         // TODO: support metadata keys
         MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", jdbcSourceConfig.getDatabaseList().get(0), jdbcSourceConfig.getUsername(), jdbcSourceConfig.getPassword(), baseUrl);
-        CatalogTable table = mySqlCatalog.getTable(TablePath.of(jdbcSourceConfig.getDatabaseList().get(0), jdbcSourceConfig.getTableList().get(0)));
+        CatalogTable table = mySqlCatalog.getTable(TablePath.of(jdbcSourceConfig.getDatabaseList().get(0), config.get(JdbcSourceOptions.TABLE_NAME)));
         SeaTunnelRowType physicalRowType = table.getTableSchema().toPhysicalRowDataType();
         String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
         return (DebeziumDeserializationSchema<T>) SeaTunnelRowDebeziumDeserializeSchema.builder()
