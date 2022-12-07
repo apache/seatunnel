@@ -46,6 +46,8 @@ public class HttpSourceFactory implements TableSourceFactory {
                 .optional(HttpConfig.HEADERS)
                 .optional(HttpConfig.PARAMS)
                 .optional(HttpConfig.FORMAT)
+                .optional(HttpConfig.JSON_FIELD)
+                .optional(HttpConfig.CONTENT_FIELD)
                 .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, HttpConfig.BODY)
                 .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
                 .optional(HttpConfig.POLL_INTERVAL_MILLS)
