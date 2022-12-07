@@ -40,9 +40,9 @@ public class Constant {
 
     public static final int OPERATION_RETRY_SLEEP = 2000;
 
-    public static final String IMAP_RUNNING_JOB_INFO = "runningJobInfo";
+    public static final String IMAP_RUNNING_JOB_INFO = "engine_runningJobInfo";
 
-    public static final String IMAP_RUNNING_JOB_STATE = "runningJobState";
+    public static final String IMAP_RUNNING_JOB_STATE = "engine_runningJobState";
 
     public static final String IMAP_FINISHED_JOB_STATE = "finishedJobState";
 
@@ -50,9 +50,9 @@ public class Constant {
 
     public static final String IMAP_FINISHED_JOB_VERTEX_INFO = "finishedJobVertexInfo";
 
-    public static final String IMAP_STATE_TIMESTAMPS = "stateTimestamps";
+    public static final String IMAP_STATE_TIMESTAMPS = "engine_stateTimestamps";
 
-    public static final String IMAP_OWNED_SLOT_PROFILES = "ownedSlotProfilesIMap";
+    public static final String IMAP_OWNED_SLOT_PROFILES = "engine_ownedSlotProfilesIMap";
 
     public static final String IMAP_RESOURCE_MANAGER_REGISTER_WORKER = "ResourceManager_RegisterWorker";
 }
