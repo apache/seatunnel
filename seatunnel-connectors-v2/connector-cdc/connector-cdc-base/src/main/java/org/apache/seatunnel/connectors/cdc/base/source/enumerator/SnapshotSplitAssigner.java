@@ -148,12 +148,16 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
 
     @Override
     public Optional<SourceSplitBase> getNext() {
+        if (chunkSplitter == null) {
+            return Optional.empty();
+        }
         if (!remainingSplits.isEmpty()) {
             // return remaining splits firstly
             Iterator<SnapshotSplit> iterator = remainingSplits.iterator();
             SnapshotSplit split = iterator.next();
             iterator.remove();
             assignedSplits.put(split.splitId(), split);
+            context.getAssignedSnapshotSplit().put(split.splitId(), split);
             return Optional.of(split);
         } else {
             // it's turn for new table

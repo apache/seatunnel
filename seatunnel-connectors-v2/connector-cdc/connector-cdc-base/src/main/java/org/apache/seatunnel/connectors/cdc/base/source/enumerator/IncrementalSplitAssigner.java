@@ -124,6 +124,8 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
     @Override
     public void onCompletedSplits(List<SnapshotSplitWatermark> completedSplitWatermarks) {
         // do nothing
+        completedSplitWatermarks.forEach(watermark ->
+            context.getSplitCompletedOffsets().put(watermark.getSplitId(), watermark.getHighWatermark()));
     }
 
     @Override
@@ -205,7 +207,8 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
         }
         for (TableId tableId : capturedTables) {
             Offset watermark = tableWatermarks.get(tableId);
-            if (minOffset == null || watermark.isBefore(minOffset)) {
+            if (minOffset == null ||
+                (watermark != null && watermark.isBefore(minOffset))) {
                 minOffset = watermark;
             }
         }

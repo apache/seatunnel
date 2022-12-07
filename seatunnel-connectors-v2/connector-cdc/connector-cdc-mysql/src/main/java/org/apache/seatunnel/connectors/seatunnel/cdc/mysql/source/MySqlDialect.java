@@ -27,6 +27,8 @@ import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
+import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
@@ -44,6 +46,7 @@ import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 
 /** The {@link JdbcDataSourceDialect} implementation for MySQL datasource. */
@@ -108,8 +111,19 @@ public class MySqlDialect implements JdbcDataSourceDialect {
                 createMySqlConnection(taskSourceConfig.getDbzConfiguration());
         final BinaryLogClient binaryLogClient =
                 createBinaryClient(taskSourceConfig.getDbzConfiguration());
+        List<TableChanges.TableChange> tableChangeList = new ArrayList<>();
+        // TODO: support save table schema
+        if (sourceSplitBase instanceof SnapshotSplit) {
+            SnapshotSplit snapshotSplit = (SnapshotSplit) sourceSplitBase;
+            tableChangeList.add(queryTableSchema(jdbcConnection, snapshotSplit.getTableId()));
+        } else {
+            IncrementalSplit incrementalSplit = (IncrementalSplit) sourceSplitBase;
+            for (TableId tableId : incrementalSplit.getTableIds()) {
+                tableChangeList.add(queryTableSchema(jdbcConnection, tableId));
+            }
+        }
         return new MySqlSourceFetchTaskContext(
-                taskSourceConfig, this, jdbcConnection, binaryLogClient);
+                taskSourceConfig, this, jdbcConnection, binaryLogClient, tableChangeList);
     }
 
     @Override
