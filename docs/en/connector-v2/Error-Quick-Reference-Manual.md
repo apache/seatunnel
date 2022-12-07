@@ -206,3 +206,10 @@ problems encountered by users.
 |-------------|-----------------------------------------|----------------------------------------------------------------------------------------------------------------------|
 | DINGTALK-01 | Send response to DinkTalk server failed | When users encounter this error code, it means that send response message to DinkTalk server failed, please check it |
 | DINGTALK-02 | Get sign from DinkTalk server failed    | When users encounter this error code, it means that get signature from DinkTalk server failed , please check it      |
+
+## Iceberg Connector Error Codes
+
+| code       | description                     | solution                                                                                                 |
+|------------|---------------------------------|----------------------------------------------------------------------------------------------------------|
+| ICEBERG-01 | File Scan Split failed          | When users encounter this error code, it means that the file scanning and splitting failed. Please check |
+| ICEBERG-02 | Invalid starting record offset  | When users encounter this error code, it means that the starting record offset is invalid. Please check  |
