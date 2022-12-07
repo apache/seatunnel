@@ -15,21 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sink.state;
+package org.apache.seatunnel.connectors.seatunnel.notion;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.connectors.seatunnel.notion.source.NotionSourceFactory;
 
-import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-@Data
-@AllArgsConstructor
-public class FileSinkState implements Serializable {
-    private final String transactionId;
-    private final Long checkpointId;
-    private final Map<String, String> needMoveFiles;
-    private final Map<String, List<String>> partitionDirAndValuesMap;
-    private final String transactionDir;
+public class NotionFactoryTest {
+
+    @Test
+    void optionRule() {
+        Assertions.assertNotNull((new NotionSourceFactory()).optionRule());
+    }
+
 }
