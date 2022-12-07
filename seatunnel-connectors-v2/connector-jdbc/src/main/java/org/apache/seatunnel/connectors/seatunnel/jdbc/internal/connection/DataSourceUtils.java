@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
 
 import com.google.common.base.CaseFormat;
@@ -92,13 +94,13 @@ public class DataSourceUtils
             try {
                 xaDataSourceClass = Class.forName(xaDataSourceClassName);
             } catch (final ClassNotFoundException ex) {
-                throw new RuntimeException("Failed to load [" + xaDataSourceClassName + "]", ex);
+                throw new JdbcConnectorException(CommonErrorCode.CLASS_NOT_FOUND, "Failed to load [" + xaDataSourceClassName + "]", ex);
             }
         }
         try {
             return xaDataSourceClass.getDeclaredConstructor().newInstance();
         } catch (final ReflectiveOperationException ex) {
-            throw new RuntimeException("Failed to instance [" + xaDataSourceClassName + "]", ex);
+            throw new JdbcConnectorException(CommonErrorCode.REFLECT_CLASS_OPERATION_FAILED, "Failed to instance [" + xaDataSourceClassName + "]", ex);
         }
     }
 }

@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -45,7 +48,7 @@ public class GroupXaOperationResult<T> {
 
     private RuntimeException wrapFailure(
         Exception error, String formatWithCounts, int errCount) {
-        return new RuntimeException(
+        return new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED,
             String.format(formatWithCounts, errCount, total()), error);
     }
 

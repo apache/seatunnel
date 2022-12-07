@@ -27,6 +27,7 @@ import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTask
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.WAITING_RESTORE;
 
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
@@ -174,8 +175,12 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         }
     }
 
-    public void requestSplit(long taskID) {
-        enumerator.handleSplitRequest((int) taskID);
+    public void requestSplit(long taskIndex) {
+        enumerator.handleSplitRequest((int) taskIndex);
+    }
+
+    public void handleSourceEvent(int subtaskId, SourceEvent sourceEvent) {
+        enumerator.handleSourceEvent(subtaskId, sourceEvent);
     }
 
     public void addTaskMemberMapping(TaskLocation taskID, Address memberAdder) {
