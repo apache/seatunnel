@@ -26,6 +26,7 @@ import com.github.rholder.retry.RetryerBuilder;
 import com.github.rholder.retry.StopStrategies;
 import com.github.rholder.retry.WaitStrategies;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.http.HttpStatus;
 import org.apache.http.NameValuePair;
@@ -382,6 +383,11 @@ public class HttpClientProvider implements AutoCloseable {
 
     private void addBody(HttpEntityEnclosingRequestBase request, String body) {
         request.addHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON);
+
+        if (StringUtils.isBlank(body)) {
+            body = "";
+        }
+
         StringEntity entity = new StringEntity(body, ContentType.APPLICATION_JSON);
         entity.setContentEncoding(new BasicHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON));
         request.setEntity(entity);
