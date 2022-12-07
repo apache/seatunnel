@@ -141,16 +141,33 @@ public class SinkConfig {
         sinkConfig.setDatabase(config.get(SinkConfig.DATABASE));
         sinkConfig.setTable(config.get(SinkConfig.TABLE));
 
-        sinkConfig.setUsername(config.get(SinkConfig.USERNAME));
-        sinkConfig.setPassword(config.get(SinkConfig.PASSWORD));
-        sinkConfig.setBatchMaxSize(config.get(SinkConfig.BATCH_MAX_SIZE));
-        sinkConfig.setLabelPrefix(config.get(SinkConfig.LABEL_PREFIX));
-        sinkConfig.setBatchMaxBytes(config.get(SinkConfig.BATCH_MAX_BYTES));
-        sinkConfig.setBatchIntervalMs(config.get(SinkConfig.BATCH_INTERVAL_MS));
-        sinkConfig.setMaxRetries(config.get(SinkConfig.MAX_RETRIES));
-        sinkConfig.setRetryBackoffMultiplierMs(config.get(SinkConfig.RETRY_BACKOFF_MULTIPLIER_MS));
-        sinkConfig.setMaxRetryBackoffMs(config.get(SinkConfig.MAX_RETRY_BACKOFF_MS));
-
+        if (pluginConfig.hasPath(USERNAME.key())) {
+            sinkConfig.setUsername(config.get(SinkConfig.USERNAME));
+        }
+        if (pluginConfig.hasPath(PASSWORD.key())) {
+            sinkConfig.setPassword(config.get(SinkConfig.PASSWORD));
+        }
+        if (pluginConfig.hasPath(LABEL_PREFIX.key())) {
+            sinkConfig.setLabelPrefix(config.get(SinkConfig.LABEL_PREFIX));
+        }
+        if (pluginConfig.hasPath(BATCH_MAX_SIZE.key())) {
+            sinkConfig.setBatchMaxSize(config.get(SinkConfig.BATCH_MAX_SIZE));
+        }
+        if (pluginConfig.hasPath(BATCH_MAX_BYTES.key())) {
+            sinkConfig.setBatchMaxBytes(config.get(SinkConfig.BATCH_MAX_BYTES));
+        }
+        if (pluginConfig.hasPath(BATCH_INTERVAL_MS.key())) {
+            sinkConfig.setBatchIntervalMs(config.get(SinkConfig.BATCH_INTERVAL_MS));
+        }
+        if (pluginConfig.hasPath(MAX_RETRIES.key())) {
+            sinkConfig.setMaxRetries(config.get(SinkConfig.MAX_RETRIES));
+        }
+        if (pluginConfig.hasPath(RETRY_BACKOFF_MULTIPLIER_MS.key())) {
+            sinkConfig.setRetryBackoffMultiplierMs(config.get(SinkConfig.RETRY_BACKOFF_MULTIPLIER_MS));
+        }
+        if (pluginConfig.hasPath(MAX_RETRY_BACKOFF_MS.key())) {
+            sinkConfig.setMaxRetryBackoffMs(config.get(SinkConfig.MAX_RETRY_BACKOFF_MS));
+        }
         parseSinkStreamLoadProperties(pluginConfig, sinkConfig);
         if (sinkConfig.streamLoadProps.containsKey(COLUMN_SEPARATOR)) {
             sinkConfig.setColumnSeparator(sinkConfig.streamLoadProps.get(COLUMN_SEPARATOR));
