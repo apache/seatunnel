@@ -19,16 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.persistiq.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
+import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.persistiq.source.config.PersistiqSourceConfig;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class PersistiqSourceFactory implements TableSourceFactory {
+public class PersistiqSourceFactory extends HttpSourceFactory {
     @Override
     public String factoryIdentifier() {
         return "Persistiq";
@@ -36,21 +33,8 @@ public class PersistiqSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder()
-                .required(PersistiqSourceConfig.URL)
+        return getHttpBuilder()
                 .required(PersistiqSourceConfig.PASSWORD)
-                .optional(PersistiqSourceConfig.METHOD)
-                .optional(PersistiqSourceConfig.HEADERS)
-                .optional(PersistiqSourceConfig.PARAMS)
-                .optional(PersistiqSourceConfig.FORMAT)
-                .optional(PersistiqSourceConfig.JSON_FIELD)
-                .optional(PersistiqSourceConfig.CONTENT_FIELD)
-                .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, PersistiqSourceConfig.BODY)
-                .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
-                .optional(PersistiqSourceConfig.POLL_INTERVAL_MILLS)
-                .optional(PersistiqSourceConfig.RETRY)
-                .optional(PersistiqSourceConfig.RETRY_BACKOFF_MAX_MS)
-                .optional(PersistiqSourceConfig.RETRY_BACKOFF_MULTIPLIER_MS)
                 .build();
     }
 }
