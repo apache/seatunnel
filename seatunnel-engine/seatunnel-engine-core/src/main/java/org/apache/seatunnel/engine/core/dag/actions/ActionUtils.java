@@ -15,27 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.myhours.source;
+package org.apache.seatunnel.engine.core.dag.actions;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.myhours.source.config.MyHoursSourceConfig;
+import org.apache.seatunnel.common.constants.PluginType;
 
-import com.google.auto.service.AutoService;
+public class ActionUtils {
 
-@AutoService(Factory.class)
-public class MyHoursSourceFactory extends HttpSourceFactory {
-    @Override
-    public String factoryIdentifier() {
-        return "MyHours";
+    public static PluginType getActionType(Action action) {
+
+        if (action instanceof SourceAction) {
+            return PluginType.SOURCE;
+        }
+        if (action instanceof SinkAction) {
+            return PluginType.SINK;
+        }
+        return PluginType.TRANSFORM;
     }
 
-    @Override
-    public OptionRule optionRule() {
-        return getHttpBuilder()
-                .required(MyHoursSourceConfig.EMAIL)
-                .required(MyHoursSourceConfig.PASSWORD)
-                .build();
-    }
 }

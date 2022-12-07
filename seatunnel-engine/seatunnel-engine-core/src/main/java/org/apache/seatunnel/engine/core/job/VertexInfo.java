@@ -15,27 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.myhours.source;
+package org.apache.seatunnel.engine.core.job;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.myhours.source.config.MyHoursSourceConfig;
+import org.apache.seatunnel.common.constants.PluginType;
 
-import com.google.auto.service.AutoService;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@AutoService(Factory.class)
-public class MyHoursSourceFactory extends HttpSourceFactory {
-    @Override
-    public String factoryIdentifier() {
-        return "MyHours";
-    }
+import java.io.Serializable;
 
-    @Override
-    public OptionRule optionRule() {
-        return getHttpBuilder()
-                .required(MyHoursSourceConfig.EMAIL)
-                .required(MyHoursSourceConfig.PASSWORD)
-                .build();
-    }
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class VertexInfo implements Serializable {
+
+    private long vertexId;
+
+    private PluginType type;
+
+    private String connectorType;
+
 }

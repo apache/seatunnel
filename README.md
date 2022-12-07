@@ -86,7 +86,7 @@ Download address for run-directly software package : https://seatunnel.apache.or
 ## Quick start
 
 **SeaTunnel Engine**
-https://seatunnel.apache.org/docs/start-v2/locally/quick-start-seatunnel-engine
+https://seatunnel.apache.org/docs/start-v2/locally/quick-start-seatunnel-engine/
 
 **Spark**
 https://seatunnel.apache.org/docs/start-v2/locally/quick-start-spark
