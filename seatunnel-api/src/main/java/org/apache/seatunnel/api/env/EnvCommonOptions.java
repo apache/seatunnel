@@ -34,7 +34,7 @@ public class EnvCommonOptions {
     public static final Option<String> JOB_NAME =
         Options.key("job.name")
             .stringType()
-            .noDefaultValue()
+            .defaultValue("SeaTunnel_Job")
             .withDescription("The job name of this job");
 
     public static final Option<JobMode> JOB_MODE =
@@ -48,6 +48,12 @@ public class EnvCommonOptions {
             .longType()
             .noDefaultValue()
             .withDescription("The interval (in milliseconds) between two consecutive checkpoints.");
+
+    public static final Option<String> JARS =
+        Options.key("jars")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("third-party packages can be loaded via `jars`");
 
     public static final Option<Map<String, String>> CUSTOM_PARAMETERS =
         Options.key("custom_parameters")

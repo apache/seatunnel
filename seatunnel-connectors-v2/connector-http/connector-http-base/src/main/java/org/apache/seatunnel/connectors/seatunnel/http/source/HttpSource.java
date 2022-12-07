@@ -31,16 +31,19 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+import org.apache.seatunnel.connectors.seatunnel.http.config.JsonField;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -50,6 +53,8 @@ import java.util.Locale;
 public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     protected final HttpParameter httpParameter = new HttpParameter();
     protected SeaTunnelRowType rowType;
+    protected JsonField jsonField;
+    protected String contentField;
     protected JobContext jobContext;
     protected DeserializationSchema<SeaTunnelRow> deserializationSchema;
 
@@ -68,8 +73,8 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HttpConfig.URL.key());
         if (!result.isSuccess()) {
             throw new HttpConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format("PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
+                String.format("PluginName: %s, PluginType: %s, Message: %s",
+                    getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         this.httpParameter.buildWithConfig(pluginConfig);
         buildSchemaWithConfig(pluginConfig);
@@ -88,6 +93,12 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             switch (format) {
                 case JSON:
                     this.deserializationSchema = new JsonDeserializationSchema(false, false, rowType);
+                    if (pluginConfig.hasPath(HttpConfig.JSON_FIELD.key())) {
+                        jsonField = getJsonField(pluginConfig.getConfig(HttpConfig.JSON_FIELD.key()));
+                    }
+                    if (pluginConfig.hasPath(HttpConfig.CONTENT_FIELD.key())) {
+                        contentField = pluginConfig.getString(HttpConfig.CONTENT_FIELD.key());
+                    }
                     break;
                 default:
                     // TODO: use format SPI
@@ -112,6 +123,11 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext)
         throws Exception {
-        return new HttpSourceReader(this.httpParameter, readerContext, this.deserializationSchema);
+        return new HttpSourceReader(this.httpParameter, readerContext, this.deserializationSchema, jsonField, contentField);
+    }
+
+    private JsonField getJsonField(Config jsonFieldConf) {
+        ConfigRenderOptions options = ConfigRenderOptions.concise();
+        return JsonField.builder().fields(JsonUtils.toMap(jsonFieldConf.root().render(options))).build();
     }
 }

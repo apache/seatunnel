@@ -26,6 +26,7 @@ import java.util.List;
 
 @Getter
 public class IncrementalSplit extends SourceSplitBase {
+    private static final long serialVersionUID = 1L;
 
     /**
      * All the tables that this incremental split needs to capture.

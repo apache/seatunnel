@@ -19,16 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.jira.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
+import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.jira.source.config.JiraSourceConfig;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class JiraSourceFactory implements TableSourceFactory {
+public class JiraSourceFactory extends HttpSourceFactory {
     @Override
     public String factoryIdentifier() {
         return "Jira";
@@ -36,20 +33,9 @@ public class JiraSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder()
-            .required(JiraSourceConfig.URL)
-            .required(JiraSourceConfig.EMAIL)
-            .required(JiraSourceConfig.API_TOKEN)
-            .optional(JiraSourceConfig.METHOD)
-            .optional(JiraSourceConfig.HEADERS)
-            .optional(JiraSourceConfig.PARAMS)
-            .optional(JiraSourceConfig.FORMAT)
-            .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, JiraSourceConfig.BODY)
-            .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
-            .optional(JiraSourceConfig.POLL_INTERVAL_MILLS)
-            .optional(JiraSourceConfig.RETRY)
-            .optional(JiraSourceConfig.RETRY_BACKOFF_MAX_MS)
-            .optional(JiraSourceConfig.RETRY_BACKOFF_MULTIPLIER_MS)
-            .build();
+        return getHttpBuilder()
+                .required(JiraSourceConfig.EMAIL)
+                .required(JiraSourceConfig.API_TOKEN)
+                .build();
     }
 }
