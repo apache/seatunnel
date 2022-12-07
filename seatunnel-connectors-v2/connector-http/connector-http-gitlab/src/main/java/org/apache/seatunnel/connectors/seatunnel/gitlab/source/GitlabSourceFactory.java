@@ -19,16 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.gitlab.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.gitlab.source.config.GitlabSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
+import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class GitlabSourceFactory implements TableSourceFactory {
+public class GitlabSourceFactory extends HttpSourceFactory {
     @Override
     public String factoryIdentifier() {
         return "Gitlab";
@@ -36,19 +33,8 @@ public class GitlabSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder()
-                .required(GitlabSourceConfig.URL)
+        return getHttpBuilder()
                 .required(GitlabSourceConfig.ACCESS_TOKEN)
-                .optional(GitlabSourceConfig.METHOD)
-                .optional(GitlabSourceConfig.HEADERS)
-                .optional(GitlabSourceConfig.PARAMS)
-                .optional(GitlabSourceConfig.FORMAT)
-                .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, GitlabSourceConfig.BODY)
-                .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
-                .optional(GitlabSourceConfig.POLL_INTERVAL_MILLS)
-                .optional(GitlabSourceConfig.RETRY)
-                .optional(GitlabSourceConfig.RETRY_BACKOFF_MAX_MS)
-                .optional(GitlabSourceConfig.RETRY_BACKOFF_MULTIPLIER_MS)
                 .build();
     }
 }

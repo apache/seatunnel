@@ -111,7 +111,7 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
             // we need to wait snapshot-assigner to be completed before
             // assigning the incremental split. Otherwise, records emitted from incremental split
             // might be out-of-order in terms of same primary key with snapshot splits.
-            return snapshotSplitAssigner.getNext();
+            return incrementalSplitAssigner.getNext();
         }
         // no more splits for the assigner
         return Optional.empty();

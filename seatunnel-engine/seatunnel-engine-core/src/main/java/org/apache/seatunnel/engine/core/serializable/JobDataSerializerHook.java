@@ -22,7 +22,7 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
-import org.apache.seatunnel.engine.core.job.RunningJobInfo;
+import org.apache.seatunnel.engine.core.job.JobInfo;
 
 import com.hazelcast.internal.serialization.DataSerializerHook;
 import com.hazelcast.internal.serialization.impl.FactoryIdHelper;
@@ -58,7 +58,7 @@ public final class JobDataSerializerHook implements DataSerializerHook {
      */
     public static final int JOB_IMMUTABLE_INFORMATION = 3;
 
-    public static final int RUNNING_JOB_INFO = 4;
+    public static final int JOB_INFO = 4;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_JOB_DATA_SERIALIZER_FACTORY,
@@ -88,8 +88,8 @@ public final class JobDataSerializerHook implements DataSerializerHook {
                     return new LogicalEdge();
                 case JOB_IMMUTABLE_INFORMATION:
                     return new JobImmutableInformation();
-                case RUNNING_JOB_INFO:
-                    return new RunningJobInfo();
+                case JOB_INFO:
+                    return new JobInfo();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }
