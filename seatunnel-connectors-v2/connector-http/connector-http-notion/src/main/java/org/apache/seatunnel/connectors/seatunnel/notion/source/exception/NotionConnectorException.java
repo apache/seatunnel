@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sink.state;
+package org.apache.seatunnel.connectors.seatunnel.notion.source.exception;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
+public class NotionConnectorException extends SeaTunnelRuntimeException {
+    public NotionConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+        super(seaTunnelErrorCode, errorMessage);
+    }
 
-@Data
-@AllArgsConstructor
-public class FileSinkState implements Serializable {
-    private final String transactionId;
-    private final Long checkpointId;
-    private final Map<String, String> needMoveFiles;
-    private final Map<String, List<String>> partitionDirAndValuesMap;
-    private final String transactionDir;
+    public NotionConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+        super(seaTunnelErrorCode, errorMessage, cause);
+    }
+
+    public NotionConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+        super(seaTunnelErrorCode, cause);
+    }
 }

@@ -15,21 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sink.state;
+package org.apache.seatunnel.connectors.seatunnel.notion.source;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.notion.source.config.NotionSourceConfig;
 
-import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
+import com.google.auto.service.AutoService;
 
-@Data
-@AllArgsConstructor
-public class FileSinkState implements Serializable {
-    private final String transactionId;
-    private final Long checkpointId;
-    private final Map<String, String> needMoveFiles;
-    private final Map<String, List<String>> partitionDirAndValuesMap;
-    private final String transactionDir;
+@AutoService(Factory.class)
+public class NotionSourceFactory extends HttpSourceFactory {
+    @Override
+    public String factoryIdentifier() {
+        return "Notion";
+    }
+
+    @Override
+    public OptionRule optionRule() {
+        return getHttpBuilder()
+                .required(NotionSourceConfig.PASSWORD)
+                .required(NotionSourceConfig.VERSION)
+                .build();
+    }
 }
