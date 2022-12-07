@@ -43,11 +43,7 @@ public class PlanUtils {
                                                                       @NonNull IMap runningJobStateIMap,
                                                                       @NonNull IMap runningJobStateTimestampsIMap) {
         return new PhysicalPlanGenerator(
-            new ExecutionPlanGenerator(
-                logicalDag,
-                jobImmutableInformation,
-                initializationTimestamp)
-                .generate(),
+            new ExecutionPlanGenerator(logicalDag, jobImmutableInformation).generate(),
             nodeEngine,
             jobImmutableInformation,
             initializationTimestamp,

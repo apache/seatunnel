@@ -118,6 +118,9 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
                 SeaTunnelRow deserialize = convertJsonNode(arrayNode.get(i));
                 out.collect(deserialize);
             }
+        } else {
+            SeaTunnelRow deserialize = convertJsonNode(jsonNode);
+            out.collect(deserialize);
         }
     }
 

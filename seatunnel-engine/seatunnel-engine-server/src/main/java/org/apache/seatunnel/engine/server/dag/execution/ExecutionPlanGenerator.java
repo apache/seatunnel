@@ -89,17 +89,13 @@ public class ExecutionPlanGenerator {
 
     private final JobImmutableInformation jobImmutableInformation;
 
-    private final long initializationTimestamp;
-
     public ExecutionPlanGenerator(@NonNull LogicalDag logicalPlan,
-                                  @NonNull JobImmutableInformation jobImmutableInformation,
-                                  long initializationTimestamp) {
+                                  @NonNull JobImmutableInformation jobImmutableInformation) {
         checkArgument(logicalPlan.getEdges().size() > 0, "ExecutionPlan Builder must have LogicalPlan.");
 
         this.logicalEdges = new ArrayList<>(logicalPlan.getEdges());
         this.logicalVertices = new ArrayList<>(logicalPlan.getLogicalVertexMap().values());
         this.jobImmutableInformation = jobImmutableInformation;
-        this.initializationTimestamp = initializationTimestamp;
     }
 
     public ExecutionPlan generate() {

@@ -26,7 +26,7 @@ import static com.hazelcast.spi.impl.operationservice.ExceptionAction.THROW_EXCE
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
+import org.apache.seatunnel.engine.server.serializable.ClientToServerOperationDataSerializerHook;
 
 import com.hazelcast.nio.serialization.HazelcastSerializationException;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
@@ -102,6 +102,6 @@ public abstract class AsyncOperation extends Operation implements IdentifiedData
 
     @Override
     public final int getFactoryId() {
-        return OperationDataSerializerHook.FACTORY_ID;
+        return ClientToServerOperationDataSerializerHook.FACTORY_ID;
     }
 }
