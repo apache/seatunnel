@@ -77,6 +77,7 @@ public class ProtoStuffSerializer implements Serializer {
         WRAPPERS.add(TreeMap.class);
         WRAPPERS.add(Hashtable.class);
         WRAPPERS.add(SortedMap.class);
+        WRAPPERS.add(Long[].class);
     }
 
     @Override
