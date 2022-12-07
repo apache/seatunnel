@@ -36,18 +36,23 @@ public class HttpSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
+        return getHttpBuilder().build();
+    }
+
+    public OptionRule.Builder getHttpBuilder() {
         return OptionRule.builder()
-            .required(HttpConfig.URL)
-            .optional(HttpConfig.METHOD)
-            .optional(HttpConfig.HEADERS)
-            .optional(HttpConfig.PARAMS)
-            .optional(HttpConfig.FORMAT)
-            .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, HttpConfig.BODY)
-            .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
-            .optional(HttpConfig.POLL_INTERVAL_MILLS)
-            .optional(HttpConfig.RETRY)
-            .optional(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS)
-            .optional(HttpConfig.RETRY_BACKOFF_MAX_MS)
-            .build();
+                .required(HttpConfig.URL)
+                .optional(HttpConfig.METHOD)
+                .optional(HttpConfig.HEADERS)
+                .optional(HttpConfig.PARAMS)
+                .optional(HttpConfig.FORMAT)
+                .optional(HttpConfig.JSON_FIELD)
+                .optional(HttpConfig.CONTENT_FIELD)
+                .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, HttpConfig.BODY)
+                .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
+                .optional(HttpConfig.POLL_INTERVAL_MILLS)
+                .optional(HttpConfig.RETRY)
+                .optional(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS)
+                .optional(HttpConfig.RETRY_BACKOFF_MAX_MS);
     }
 }
