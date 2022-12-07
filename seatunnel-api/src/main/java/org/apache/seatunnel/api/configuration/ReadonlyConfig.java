@@ -29,13 +29,14 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-public class ReadonlyConfig {
-
+public class ReadonlyConfig implements Serializable {
+    private static final long serialVersionUID = 1L;
     private static final ObjectMapper JACKSON_MAPPER = new ObjectMapper();
 
     /**
