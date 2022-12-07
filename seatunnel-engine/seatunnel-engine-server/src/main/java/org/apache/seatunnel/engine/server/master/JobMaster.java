@@ -31,24 +31,31 @@ import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.loader.SeatunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.dag.actions.ActionUtils;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
+import org.apache.seatunnel.engine.core.job.Edge;
+import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.core.job.VertexInfo;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
+import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlanGenerator;
+import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
-import org.apache.seatunnel.engine.server.operation.CleanTaskGroupContextOperation;
-import org.apache.seatunnel.engine.server.operation.GetTaskGroupMetricsOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.scheduler.JobScheduler;
 import org.apache.seatunnel.engine.server.scheduler.PipelineBaseScheduler;
+import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
+import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
 
 import com.google.common.collect.Lists;
 import com.hazelcast.cluster.Address;
@@ -65,11 +72,14 @@ import lombok.NonNull;
 import org.apache.commons.collections4.CollectionUtils;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class JobMaster extends Thread {
     private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
@@ -93,6 +103,10 @@ public class JobMaster extends Thread {
 
     private JobScheduler jobScheduler;
 
+    private LogicalDag logicalDag;
+
+    private JobDAGInfo jobDAGInfo;
+
     /**
      * we need store slot used by task in Hazelcast IMap and release or reuse it when a new master node active.
      */
@@ -105,6 +119,9 @@ public class JobMaster extends Thread {
     private CompletableFuture<Void> scheduleFuture;
 
     private volatile boolean restore = false;
+
+    // TODO add config to change value
+    private boolean isPhyicalDAGInfo = true;
 
     private final EngineConfig engineConfig;
 
@@ -137,7 +154,6 @@ public class JobMaster extends Thread {
         LOGGER.info(String.format("Job %s (%s) needed jar urls %s", jobImmutableInformation.getJobConfig().getName(),
             jobImmutableInformation.getJobId(), jobImmutableInformation.getPluginJarsUrls()));
 
-        LogicalDag logicalDag;
         if (!CollectionUtils.isEmpty(jobImmutableInformation.getPluginJarsUrls())) {
             logicalDag =
                 CustomClassLoadedObject.deserializeWithCustomClassLoader(nodeEngine.getSerializationService(),
@@ -147,7 +163,8 @@ public class JobMaster extends Thread {
             logicalDag = nodeEngine.getSerializationService().toObject(jobImmutableInformation.getLogicalDag());
         }
 
-        CheckpointConfig checkpointConfig = mergeEnvAndEngineConfig(engineConfig.getCheckpointConfig(), jobImmutableInformation.getJobConfig().getEnvOptions());
+        CheckpointConfig checkpointConfig = mergeEnvAndEngineConfig(engineConfig.getCheckpointConfig(),
+            jobImmutableInformation.getJobConfig().getEnvOptions());
 
         final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple = PlanUtils.fromLogicalDAG(logicalDag,
             nodeEngine,
@@ -227,6 +244,42 @@ public class JobMaster extends Thread {
                 pipeline.cancelPipeline();
             }
         });
+    }
+
+    public JobDAGInfo getJobDAGInfo() {
+        if (jobDAGInfo != null) {
+            return jobDAGInfo;
+        }
+        List<Pipeline> pipelines = new ExecutionPlanGenerator(this.logicalDag, this.getJobImmutableInformation()).generate().getPipelines();
+
+        if (isPhyicalDAGInfo) {
+            // Generate ExecutePlan DAG
+            Map<Integer, List<Edge>> pipelineWithEdges = new HashMap<>();
+            Map<Long, VertexInfo> vertexInfoMap = new HashMap<>();
+            pipelines.forEach(pipeline -> {
+                pipelineWithEdges.put(pipeline.getId(), pipeline.getEdges().stream()
+                    .map(e -> new Edge(e.getLeftVertexId(), e.getRightVertexId())).collect(Collectors.toList()));
+                pipeline.getVertexes().forEach((id, vertex) -> {
+                    vertexInfoMap.put(id, new VertexInfo(vertex.getVertexId(), ActionUtils.getActionType(vertex.getAction()), vertex.getAction().getName()));
+                });
+            });
+            jobDAGInfo = new JobDAGInfo(this.jobImmutableInformation.getJobId(), pipelineWithEdges, vertexInfoMap);
+        } else {
+            // Generate LogicalPlan DAG
+            List<Edge> edges = this.logicalDag.getEdges().stream()
+                .map(e -> new Edge(e.getInputVertexId(), e.getTargetVertexId())).collect(Collectors.toList());
+
+            Map<Long, LogicalVertex> logicalVertexMap = this.logicalDag.getLogicalVertexMap();
+            Map<Long, VertexInfo> vertexInfoMap = logicalVertexMap.values().stream().map(v -> new VertexInfo(v.getVertexId(),
+                ActionUtils.getActionType(v.getAction()), v.getAction().getName())).collect(Collectors.toMap(VertexInfo::getVertexId, Function.identity()));
+
+            Map<Integer, List<Edge>> pipelineWithEdges = edges.stream().collect(Collectors.groupingBy(e -> {
+                LogicalVertex info = logicalVertexMap.get(e.getInputVertexId() != null ? e.getInputVertexId() : e.getTargetVertexId());
+                return pipelines.stream().filter(p -> p.getActions().containsKey(info.getAction().getId())).findFirst().get().getId();
+            }, Collectors.toList()));
+            jobDAGInfo = new JobDAGInfo(this.jobImmutableInformation.getJobId(), pipelineWithEdges, vertexInfoMap);
+        }
+        return jobDAGInfo;
     }
 
     public PassiveCompletableFuture<Void> reSchedulerPipeline(SubPlan subPlan) {

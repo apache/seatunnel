@@ -73,7 +73,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 String jobstatus = engineClient.listJobStatus();
                 System.out.println(jobstatus);
             } else if (null != clientCommandArgs.getJobId()) {
-                String jobState = engineClient.getJobState(Long.parseLong(clientCommandArgs.getJobId()));
+                String jobState = engineClient.getJobDetailStatus(Long.parseLong(clientCommandArgs.getJobId()));
                 System.out.println(jobState);
             } else {
                 Path configFile = FileUtils.getConfigPath(clientCommandArgs);

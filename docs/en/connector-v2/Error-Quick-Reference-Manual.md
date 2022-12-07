@@ -31,6 +31,7 @@ problems encountered by users.
 | COMMON-11 | Sink writer operation failed, such as (open, close) etc...             | When users encounter this error code, it maybe some operation of writer such as Parquet,Orc,IceBerg failed, you need to check if the corresponding file or resource has read and write permissions |
 | COMMON-12 | Source reader operation failed, such as (open, close) etc...           | When users encounter this error code, it maybe some operation of reader such as Parquet,Orc,IceBerg failed, you need to check if the corresponding file or resource has read and write permissions |
 | COMMON-13 | Http operation failed, such as (open, close, response) etc...          | When users encounter this error code, it maybe some http requests failed, please check your network environment                                                                                    |
+| COMMON-14 | Class load operation failed                                            | When users encounter this error code, it maybe some The corresponding jar does not exist, or the type is not supported                                                                             |
 
 ## Assert Connector Error Codes
 
@@ -169,3 +170,33 @@ problems encountered by users.
 | CLICKHOUSE-04 | Ssh operation failed, such as (login,connect,authentication,close) etc... | When users encounter this error code, it means that the ssh request failed, please check your network environment                                                       |
 | CLICKHOUSE-05 | Get cluster list from clickhouse failed                                   | When users encounter this error code, it means that the clickhouse cluster is not configured correctly, please check                                                    |
 | CLICKHOUSE-06 | Shard key not found in table                                              | When users encounter this error code, it means that the shard key of the distributed table is not configured, please check                                              |
+
+
+## Jdbc Connector Error Codes
+
+| code    | description                                                         | solution                                                                                                                                                                                                    |
+|---------|---------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| JDBC-01 | Fail to create driver of class                                      | When users encounter this error code, it means that driver package may not be added. Check whether the driver exists                                                                                        |
+| JDBC-02 | No suitable driver found                                            | When users encounter this error code, it means that no password is configured for each node, please check                                                                                                   |
+| JDBC-03 | Xa operation failed, such as (commit, rollback) etc..               | When users encounter this error code, it means that if a distributed sql transaction fails, check the transaction execution of the corresponding database to determine the cause of the transaction failure |
+| JDBC-04 | Connector database failed                                           | When users encounter this error code, it means that database connection failure, check whether the url is correct or whether the corresponding service is normal                                            |
+| JDBC-05 | transaction operation failed, such as (commit, rollback) etc..      | When users encounter this error code, it means that if a sql transaction fails, check the transaction execution of the corresponding database to determine the cause of the transaction failure             |
+| JDBC-06 | No suitable dialect factory found                                   | When users encounter this error code, it means that may be an unsupported dialect type                                                                                                                      |
+
+## Pulsar Connector Error Codes
+
+| code         | description                                                  | solution                                                                                                                                                              |
+|--------------|--------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| PULSAR-01 | Open pulsar admin failed                                        | When users encounter this error code, it means that open pulsar admin failed, please check it                                        |
+| PULSAR-02 | Open pulsar client failed                                       | When users encounter this error code, it means that open pulsar client failed, please check it                                       |
+| PULSAR-03 | Pulsar authentication failed                                    | When users encounter this error code, it means that Pulsar Authentication failed, please check it                                    |
+| PULSAR-04 | Subscribe topic from pulsar failed                              | When users encounter this error code, it means that Subscribe topic from pulsar failed, please check it                              |
+| PULSAR-05 | Get last cursor of pulsar topic failed                          | When users encounter this error code, it means that get last cursor of pulsar topic failed, please check it                          |
+| PULSAR-06 | Get partition information of pulsar topic failed                | When users encounter this error code, it means that Get partition information of pulsar topic failed, please check it                |
+
+## StarRocks Connector Error Codes
+
+| code    | description                 | solution                                                                                                                                                         |
+|---------|-----------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| STARROCKS-01 | Flush batch data to sink connector failed        | When users encounter this error code, it means that flush batch data to sink connector failed, please check it                                          |
+| STARROCKS-02 | Writing records to StarRocks failed. | When users encounter this error code, it means that writing records to StarRocks failed, please check data from files whether is correct |
