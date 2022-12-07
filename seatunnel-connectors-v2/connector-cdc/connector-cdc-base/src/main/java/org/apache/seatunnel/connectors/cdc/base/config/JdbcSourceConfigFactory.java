@@ -179,13 +179,21 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         return this;
     }
 
+    /** Specifies the stop options. */
+    public JdbcSourceConfigFactory stopOptions(StopConfig stopConfig) {
+        this.stopConfig = stopConfig;
+        return this;
+    }
+
     public JdbcSourceConfigFactory fromReadonlyConfig(ReadonlyConfig config) {
         this.port = config.get(JdbcSourceOptions.PORT);
         this.hostname = config.get(JdbcSourceOptions.HOSTNAME);
+        this.username = config.get(JdbcSourceOptions.USERNAME);
         this.password = config.get(JdbcSourceOptions.PASSWORD);
         // TODO: support multi-table
         this.databaseList = Collections.singletonList(config.get(JdbcSourceOptions.DATABASE_NAME));
-        this.tableList = Collections.singletonList(config.get(JdbcSourceOptions.TABLE_NAME));
+        this.tableList = Collections.singletonList(config.get(JdbcSourceOptions.DATABASE_NAME)
+            + "." + config.get(JdbcSourceOptions.TABLE_NAME));
         this.distributionFactorUpper = config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND);
         this.distributionFactorLower = config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND);
         this.splitSize = config.get(SourceOptions.SNAPSHOT_SPLIT_SIZE);
