@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.doris.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -135,38 +134,38 @@ public class SinkConfig {
 
     private final Map<String, String> streamLoadProps = new HashMap<>();
 
-    public static SinkConfig loadConfig(ReadonlyConfig config, Config pluginConfig) {
+    public static SinkConfig loadConfig(Config pluginConfig) {
         SinkConfig sinkConfig = new SinkConfig();
-        sinkConfig.setNodeUrls(config.get(SinkConfig.NODE_URLS));
-        sinkConfig.setDatabase(config.get(SinkConfig.DATABASE));
-        sinkConfig.setTable(config.get(SinkConfig.TABLE));
+        sinkConfig.setNodeUrls(pluginConfig.getStringList(NODE_URLS.key()));
+        sinkConfig.setDatabase(pluginConfig.getString(DATABASE.key()));
+        sinkConfig.setTable(pluginConfig.getString(TABLE.key()));
 
         if (pluginConfig.hasPath(USERNAME.key())) {
-            sinkConfig.setUsername(config.get(SinkConfig.USERNAME));
+            sinkConfig.setUsername(pluginConfig.getString(USERNAME.key()));
         }
         if (pluginConfig.hasPath(PASSWORD.key())) {
-            sinkConfig.setPassword(config.get(SinkConfig.PASSWORD));
+            sinkConfig.setPassword(pluginConfig.getString(PASSWORD.key()));
         }
         if (pluginConfig.hasPath(LABEL_PREFIX.key())) {
-            sinkConfig.setLabelPrefix(config.get(SinkConfig.LABEL_PREFIX));
+            sinkConfig.setLabelPrefix(pluginConfig.getString(LABEL_PREFIX.key()));
         }
         if (pluginConfig.hasPath(BATCH_MAX_SIZE.key())) {
-            sinkConfig.setBatchMaxSize(config.get(SinkConfig.BATCH_MAX_SIZE));
+            sinkConfig.setBatchMaxSize(pluginConfig.getInt(BATCH_MAX_SIZE.key()));
         }
         if (pluginConfig.hasPath(BATCH_MAX_BYTES.key())) {
-            sinkConfig.setBatchMaxBytes(config.get(SinkConfig.BATCH_MAX_BYTES));
+            sinkConfig.setBatchMaxBytes(pluginConfig.getLong(BATCH_MAX_BYTES.key()));
         }
         if (pluginConfig.hasPath(BATCH_INTERVAL_MS.key())) {
-            sinkConfig.setBatchIntervalMs(config.get(SinkConfig.BATCH_INTERVAL_MS));
+            sinkConfig.setBatchIntervalMs(pluginConfig.getInt(BATCH_INTERVAL_MS.key()));
         }
         if (pluginConfig.hasPath(MAX_RETRIES.key())) {
-            sinkConfig.setMaxRetries(config.get(SinkConfig.MAX_RETRIES));
+            sinkConfig.setMaxRetries(pluginConfig.getInt(MAX_RETRIES.key()));
         }
         if (pluginConfig.hasPath(RETRY_BACKOFF_MULTIPLIER_MS.key())) {
-            sinkConfig.setRetryBackoffMultiplierMs(config.get(SinkConfig.RETRY_BACKOFF_MULTIPLIER_MS));
+            sinkConfig.setRetryBackoffMultiplierMs(pluginConfig.getInt(RETRY_BACKOFF_MULTIPLIER_MS.key()));
         }
         if (pluginConfig.hasPath(MAX_RETRY_BACKOFF_MS.key())) {
-            sinkConfig.setMaxRetryBackoffMs(config.get(SinkConfig.MAX_RETRY_BACKOFF_MS));
+            sinkConfig.setMaxRetryBackoffMs(pluginConfig.getInt(MAX_RETRY_BACKOFF_MS.key()));
         }
         parseSinkStreamLoadProperties(pluginConfig, sinkConfig);
         if (sinkConfig.streamLoadProps.containsKey(COLUMN_SEPARATOR)) {

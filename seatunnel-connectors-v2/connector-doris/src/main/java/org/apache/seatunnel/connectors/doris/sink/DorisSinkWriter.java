@@ -50,9 +50,7 @@ public class DorisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     public DorisSinkWriter(Config pluginConfig,
                            SeaTunnelRowType seaTunnelRowType) {
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
-        SinkConfig sinkConfig = SinkConfig.loadConfig(readonlyConfig, pluginConfig);
-
+        SinkConfig sinkConfig = SinkConfig.loadConfig(pluginConfig);
         List<String> fieldNames = Arrays.stream(seaTunnelRowType.getFieldNames()).collect(Collectors.toList());
         this.serializationSchema = createSerializer(sinkConfig, seaTunnelRowType);
         this.manager = new DorisSinkManager(sinkConfig, fieldNames);
