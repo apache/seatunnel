@@ -36,6 +36,7 @@ import org.apache.seatunnel.engine.server.task.operation.source.LastCheckpointNo
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RestoredSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceNoMoreElementOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.SourceReaderEventOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
 
 import com.hazelcast.internal.serialization.DataSerializerHook;
@@ -82,6 +83,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
     public static final int GET_TASKGROUP_METRICS_OPERATION = 18;
 
     public static final int CLEAN_TASKGROUP_CONTEXT_OPERATION = 19;
+
+    public static final int SOURCE_READER_EVENT_OPERATOR = 20;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -141,6 +144,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new GetTaskGroupMetricsOperation();
                 case CLEAN_TASKGROUP_CONTEXT_OPERATION:
                     return new CleanTaskGroupContextOperation();
+                case SOURCE_READER_EVENT_OPERATOR:
+                    return new SourceReaderEventOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }
