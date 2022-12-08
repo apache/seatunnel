@@ -124,54 +124,43 @@ public class MetricsContext implements DynamicMetricsProvider {
             AtomicLongFieldUpdater.newUpdater(SingleWriterQPSMetric.class, "value");
 
         private volatile long value;
-        private volatile long timestamp;
+        private final long timestamp;
 
         SingleWriterQPSMetric(String name, Unit unit) {
             super(name, unit);
+            timestamp = System.currentTimeMillis();
         }
 
         @Override
         public void set(long newValue) {
-            checkAndSetStartTime();
             VOLATILE_VALUE_UPDATER.lazySet(this, newValue);
         }
 
         @Override
         public void increment() {
-            checkAndSetStartTime();
             VOLATILE_VALUE_UPDATER.lazySet(this, value + 1);
         }
 
         @Override
         public void increment(long increment) {
-            checkAndSetStartTime();
             VOLATILE_VALUE_UPDATER.lazySet(this, value + increment);
         }
 
         @Override
         public void decrement() {
-            checkAndSetStartTime();
             VOLATILE_VALUE_UPDATER.lazySet(this, value - 1);
         }
 
         @Override
         public void decrement(long decrement) {
-            checkAndSetStartTime();
             VOLATILE_VALUE_UPDATER.lazySet(this, value - decrement);
         }
 
         @SuppressWarnings("checkstyle:MagicNumber")
         @Override
         protected Object get() {
-            checkAndSetStartTime();
             long cost = System.currentTimeMillis() - timestamp;
             return (double) value * 1000 / cost;
-        }
-
-        private void checkAndSetStartTime(){
-            if (timestamp == 0){
-                timestamp = System.currentTimeMillis();
-            }
         }
     }
 
@@ -182,54 +171,43 @@ public class MetricsContext implements DynamicMetricsProvider {
 
         private volatile long value;
 
-        private volatile long timestamp;
+        private final long timestamp;
 
         ThreadSafeQPSMetric(String name, Unit unit) {
             super(name, unit);
+            timestamp = System.currentTimeMillis();
         }
 
         @Override
         public void increment() {
-            checkAndSetStartTime();
             VOLATILE_VALUE_UPDATER.incrementAndGet(this);
         }
 
         @Override
         public void increment(long amount) {
-            checkAndSetStartTime();
             VOLATILE_VALUE_UPDATER.addAndGet(this, amount);
         }
 
         @Override
         public void decrement() {
-            checkAndSetStartTime();
             VOLATILE_VALUE_UPDATER.decrementAndGet(this);
         }
 
         @Override
         public void decrement(long amount) {
-            checkAndSetStartTime();
             VOLATILE_VALUE_UPDATER.addAndGet(this, -amount);
         }
 
         @Override
         public void set(long newValue) {
-            checkAndSetStartTime();
             VOLATILE_VALUE_UPDATER.set(this, newValue);
         }
 
         @SuppressWarnings("checkstyle:MagicNumber")
         @Override
         protected Object get() {
-            checkAndSetStartTime();
             long cost = System.currentTimeMillis() - timestamp;
             return (double) value * 1000 / cost;
-        }
-
-        private void checkAndSetStartTime(){
-            if (timestamp == 0){
-                timestamp = System.currentTimeMillis();
-            }
         }
     }
 
