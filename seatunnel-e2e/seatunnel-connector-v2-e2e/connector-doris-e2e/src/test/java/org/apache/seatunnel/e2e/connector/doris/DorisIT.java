@@ -79,7 +79,8 @@ public class DorisIT extends TestSuiteBase implements TestResource {
     private static final String DRIVER_JAR = "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
     private static final String COLUMN_STRING = "BIGINT_COL, LARGEINT_COL, SMALLINT_COL, TINYINT_COL, BOOLEAN_COL, DECIMAL_COL, DOUBLE_COL, FLOAT_COL, INT_COL, CHAR_COL, VARCHAR_11_COL, STRING_COL, DATETIME_COL, DATE_COL";
 
-    private static final String DDL_SOURCE = "create table " + DATABASE + "." + SOURCE_TABLE + " (\n" +
+    private static final String CREATE_DATABASE = "CREATE DATABASE IF NOT EXISTS " + DATABASE;
+    private static final String DDL_SOURCE = "CREATE TABLE IF NOT EXISTS " + DATABASE + "." + SOURCE_TABLE + " (\n" +
             "  BIGINT_COL     BIGINT,\n" +
             "  LARGEINT_COL   LARGEINT,\n" +
             "  SMALLINT_COL   SMALLINT,\n" +
@@ -101,7 +102,7 @@ public class DorisIT extends TestSuiteBase implements TestResource {
             "\"replication_allocation\" = \"tag.location.default: 1\"" +
             ")";
 
-    private static final String DDL_SINK = "create table " + DATABASE + "." + SINK_TABLE + " (\n" +
+    private static final String DDL_SINK = "CREATE TABLE IF NOT EXISTS " + DATABASE + "." + SINK_TABLE + " (\n" +
             "  BIGINT_COL     BIGINT,\n" +
             "  LARGEINT_COL   LARGEINT,\n" +
             "  SMALLINT_COL   SMALLINT,\n" +
@@ -123,7 +124,7 @@ public class DorisIT extends TestSuiteBase implements TestResource {
             "\"replication_allocation\" = \"tag.location.default: 1\"" +
             ")";
 
-    private static final String INIT_DATA_SQL = "insert into " + DATABASE + "." + SOURCE_TABLE + " (\n" +
+    private static final String INIT_DATA_SQL = "INSERT INTO " + DATABASE + "." + SOURCE_TABLE + " (\n" +
             "  BIGINT_COL,\n" +
             "  LARGEINT_COL,\n" +
             "  SMALLINT_COL,\n" +
@@ -259,14 +260,15 @@ public class DorisIT extends TestSuiteBase implements TestResource {
         props.put("password", PASSWORD);
         jdbcConnection =  driver.connect(String.format(URL, dorisServer.getHost()), props);
         try (Statement statement = jdbcConnection.createStatement()) {
-            statement.execute("CREATE DATABASE IF NOT EXISTS test");
+            statement.execute(CREATE_DATABASE);
+            statement.execute(DDL_SOURCE);
         }
     }
 
     private void initializeJdbcTable() {
         try (Statement statement = jdbcConnection.createStatement()) {
             // create databases
-            statement.execute("CREATE DATABASE IF NOT EXISTS test");
+            statement.execute(CREATE_DATABASE);
             // create source table
             statement.execute(DDL_SOURCE);
             // create sink table
