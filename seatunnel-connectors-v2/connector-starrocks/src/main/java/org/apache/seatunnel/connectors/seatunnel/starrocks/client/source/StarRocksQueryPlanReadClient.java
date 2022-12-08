@@ -21,11 +21,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.HttpHelper;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.source.model.QueryPartition;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.source.model.QueryPlan;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.source.model.QueryPartition;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.source.model.QueryPlan;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Base64;

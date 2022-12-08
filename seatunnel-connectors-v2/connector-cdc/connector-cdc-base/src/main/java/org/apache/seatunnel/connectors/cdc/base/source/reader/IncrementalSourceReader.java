@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsReportEvent;
@@ -58,6 +59,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
 
     private final Map<String, IncrementalSplit> uncompletedIncrementalSplits;
 
+    private volatile boolean running = false;
     private final int subtaskId;
 
     private final C sourceConfig;
@@ -79,6 +81,17 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         this.finishedUnackedSplits = new HashMap<>();
         this.uncompletedIncrementalSplits = new HashMap<>();
         this.subtaskId = context.getIndexOfSubtask();
+    }
+
+    @Override
+    public void pollNext(Collector<T> output) throws Exception {
+        if (!running) {
+            if (getNumberOfCurrentlyAssignedSplits() == 0) {
+                context.sendSplitRequest();
+            }
+            running = true;
+        }
+        super.pollNext(output);
     }
 
     @Override

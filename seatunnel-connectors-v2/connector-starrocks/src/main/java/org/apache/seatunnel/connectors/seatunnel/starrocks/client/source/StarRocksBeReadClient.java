@@ -18,10 +18,10 @@ import static org.apache.seatunnel.connectors.seatunnel.starrocks.exception.Star
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.source.model.QueryPartition;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.source.model.QueryPartition;
 
 import com.starrocks.shade.org.apache.thrift.TException;
 import com.starrocks.shade.org.apache.thrift.protocol.TBinaryProtocol;

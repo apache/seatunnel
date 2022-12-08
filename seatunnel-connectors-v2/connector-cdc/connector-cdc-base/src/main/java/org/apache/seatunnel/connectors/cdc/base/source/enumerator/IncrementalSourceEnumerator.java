@@ -51,12 +51,14 @@ public class IncrementalSourceEnumerator
      */
     private final TreeSet<Integer> readersAwaitingSplit;
 
+    private volatile boolean running;
     public IncrementalSourceEnumerator(
             SourceSplitEnumerator.Context<SourceSplitBase> context,
             SplitAssigner splitAssigner) {
         this.context = context;
         this.splitAssigner = splitAssigner;
         this.readersAwaitingSplit = new TreeSet<>();
+        this.running = false;
     }
 
     @Override
@@ -66,7 +68,8 @@ public class IncrementalSourceEnumerator
 
     @Override
     public void run() throws Exception {
-
+        this.running = true;
+        assignSplits();
     }
 
     @Override
@@ -77,7 +80,9 @@ public class IncrementalSourceEnumerator
         }
 
         readersAwaitingSplit.add(subtaskId);
-        assignSplits();
+        if (running) {
+            assignSplits();
+        }
     }
 
     @Override
