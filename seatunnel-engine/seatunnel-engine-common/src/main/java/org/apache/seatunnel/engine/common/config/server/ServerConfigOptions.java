@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.configuration.Options;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 
+import java.util.Map;
+
 @SuppressWarnings("checkstyle:MagicNumber")
 public class ServerConfigOptions {
 
@@ -53,4 +55,7 @@ public class ServerConfigOptions {
 
     public static final Option<CheckpointConfig> CHECKPOINT = Options.key("checkpoint").type(new TypeReference<CheckpointConfig>() {
     }).defaultValue(new CheckpointConfig()).withDescription("The checkpoint configuration.");
+
+    public static final Option<Map<String, String>> CHECKPOINT_STORAGE_PLUGIN_CONFIG = Options.key("plugin-config").type(new TypeReference<Map<String, String>>() {
+    }).noDefaultValue().withDescription("The checkpoint storage instance configuration.");
 }
