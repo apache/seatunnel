@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse;
 
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.ClickhouseSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
@@ -29,5 +30,6 @@ public class ClickhouseFactoryTest {
     public void testOptionRule() {
         Assertions.assertNotNull((new ClickhouseSourceFactory()).optionRule());
         Assertions.assertNotNull((new ClickhouseSinkFactory()).optionRule());
+        Assertions.assertNotNull((new ClickhouseFileSinkFactory()).optionRule());
     }
 }

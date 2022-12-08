@@ -115,4 +115,11 @@ public class ClickhouseConfig {
     public static final Option<Map<String, String>> CLICKHOUSE_PREFIX = Options.key("clickhouse").mapType()
         .defaultValue(Collections.emptyMap()).withDescription("Clickhouse custom config");
 
+    public static final Option<String> FILE_FIELDS_DELIMITER = Options.key("file_fields_delimiter").stringType()
+        .defaultValue("\t").withDescription("ClickhouseFile uses csv format to temporarily save data. If the data in the row contains the delimiter value of csv," +
+            " it may cause program exceptions. Avoid this with this configuration. Value string has to be an exactly one character long");
+
+    public static final Option<String> FILE_TEMP_PATH = Options.key("file_temp_path").stringType()
+        .defaultValue("/tmp/seatunnel/clickhouse-local/file").withDescription("The directory where ClickhouseFile stores temporary files locally.");
+
 }

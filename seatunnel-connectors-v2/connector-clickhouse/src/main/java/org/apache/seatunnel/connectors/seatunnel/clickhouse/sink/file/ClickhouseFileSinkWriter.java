@@ -56,7 +56,6 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKFileCommitInfo, ClickhouseSinkState> {
-    private static final String CLICKHOUSE_LOCAL_FILE_PREFIX = "/tmp/seatunnel/clickhouse-local/seatunnel-file";
 
     private static final String CK_LOCAL_CONFIG_TEMPLATE = "<yandex><path> %s </path> <users><default><password/> <profile>default</profile> <quota>default</quota>" +
         "<access_management>1</access_management></default></users><profiles><default/></profiles><quotas><default/></quotas></yandex>";
@@ -99,7 +98,7 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKFile
         FileChannel channel = rowCache.computeIfAbsent(shard, k -> {
             try {
                 String uuid = UUID.randomUUID().toString().substring(0, UUID_LENGTH).replaceAll("-", "_");
-                String clickhouseLocalFile = String.format("%s/%s", CLICKHOUSE_LOCAL_FILE_PREFIX, uuid);
+                String clickhouseLocalFile = String.format("%s/%s", readerOption.getFileTempPath(), uuid);
                 FileUtils.forceMkdir(new File(clickhouseLocalFile));
                 String clickhouseLocalFileTmpFile = clickhouseLocalFile + CLICKHOUSE_LOCAL_FILE_SUFFIX;
                 shardTempFile.put(shard, clickhouseLocalFileTmpFile);
@@ -130,15 +129,19 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKFile
         }
         Map<Shard, List<String>> detachedFiles = new HashMap<>();
         shardTempFile.forEach((shard, path) -> {
+            List<String> clickhouseLocalFiles = null;
             try {
-                List<String> clickhouseLocalFiles = generateClickhouseLocalFiles(path);
+                clickhouseLocalFiles = generateClickhouseLocalFiles(path);
                 // move file to server
                 moveClickhouseLocalFileToServer(shard, clickhouseLocalFiles);
                 detachedFiles.put(shard, clickhouseLocalFiles);
-                // clear local file
-                clearLocalFileDirectory(clickhouseLocalFiles);
             } catch (Exception e) {
                 throw new ClickhouseConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, "Flush data into clickhouse file error", e);
+            } finally {
+                if (clickhouseLocalFiles != null && !clickhouseLocalFiles.isEmpty()) {
+                    // clear local file
+                    clearLocalFileDirectory(clickhouseLocalFiles);
+                }
             }
         });
         rowCache.clear();
@@ -159,7 +162,7 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKFile
 
     private void saveDataToFile(FileChannel fileChannel, SeaTunnelRow row) throws IOException {
         String data = this.readerOption.getFields().stream().map(field -> row.getField(this.readerOption.getSeaTunnelRowType().indexOf(field)).toString())
-            .collect(Collectors.joining("\t")) + "\n";
+            .collect(Collectors.joining(readerOption.getFileFieldsDelimiter())) + "\n";
         MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_WRITE, fileChannel.size(),
             data.getBytes(StandardCharsets.UTF_8).length);
         buffer.put(data.getBytes(StandardCharsets.UTF_8));
@@ -179,6 +182,8 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKFile
         }
         command.add("--file");
         command.add(clickhouseLocalFileTmpFile);
+        command.add("--format_csv_delimiter");
+        command.add("\"" + readerOption.getFileFieldsDelimiter() + "\"");
         command.add("-S");
         command.add("\"" + this.readerOption.getFields().stream().map(field -> field + " " + readerOption.getTableSchema().get(field)).collect(Collectors.joining(",")) + "\"");
         command.add("-N");
@@ -197,7 +202,7 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKFile
             }).collect(Collectors.joining(",")),
             uuid));
         if (readerOption.isCompatibleMode()) {
-            String ckLocalConfigPath = String.format("%s/%s/config.xml", CLICKHOUSE_LOCAL_FILE_PREFIX, uuid);
+            String ckLocalConfigPath = String.format("%s/%s/config.xml", readerOption.getFileTempPath(), uuid);
             try (FileWriter writer = new FileWriter(ckLocalConfigPath)) {
                 writer.write(String.format(CK_LOCAL_CONFIG_TEMPLATE, clickhouseLocalFile));
             } catch (IOException e) {
@@ -264,7 +269,7 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKFile
 
     private void clearLocalFileDirectory(List<String> clickhouseLocalFiles) {
         String clickhouseLocalFile = clickhouseLocalFiles.get(0);
-        String localFileDir = clickhouseLocalFile.substring(0, CLICKHOUSE_LOCAL_FILE_PREFIX.length() + UUID_LENGTH + 1);
+        String localFileDir = clickhouseLocalFile.substring(0, readerOption.getFileTempPath().length() + UUID_LENGTH + 1);
         try {
             File file = new File(localFileDir);
             if (file.exists()) {

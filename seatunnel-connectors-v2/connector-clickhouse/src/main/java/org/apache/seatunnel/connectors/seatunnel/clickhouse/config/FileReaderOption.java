@@ -39,6 +39,8 @@ public class FileReaderOption implements Serializable {
     private Map<String, String> nodePassword;
     private SeaTunnelRowType seaTunnelRowType;
     private boolean compatibleMode;
+    private String fileTempPath;
+    private String fileFieldsDelimiter;
 
     public FileReaderOption(ShardMetadata shardMetadata, Map<String, String> tableSchema,
                             List<String> fields, String clickhouseLocalPath,
@@ -46,7 +48,9 @@ public class FileReaderOption implements Serializable {
                             Map<String, String> nodeUser,
                             boolean nodeFreePass,
                             Map<String, String> nodePassword,
-                            boolean compatibleMode) {
+                            boolean compatibleMode,
+                            String fileTempPath,
+                            String fileFieldsDelimiter) {
         this.shardMetadata = shardMetadata;
         this.tableSchema = tableSchema;
         this.fields = fields;
@@ -56,5 +60,7 @@ public class FileReaderOption implements Serializable {
         this.nodeFreePass = nodeFreePass;
         this.nodePassword = nodePassword;
         this.compatibleMode = compatibleMode;
+        this.fileFieldsDelimiter = fileFieldsDelimiter;
+        this.fileTempPath = fileTempPath;
     }
 }
