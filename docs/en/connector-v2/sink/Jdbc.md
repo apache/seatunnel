@@ -15,6 +15,7 @@ Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` f
 support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 - [ ] [schema projection](../../concept/connector-v2-features.md)
+- [x] [cdc](../../concept/connector-v2-features.md)
 
 ## Options
 
