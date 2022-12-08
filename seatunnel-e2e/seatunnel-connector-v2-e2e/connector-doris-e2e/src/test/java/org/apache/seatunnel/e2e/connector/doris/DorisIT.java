@@ -261,7 +261,7 @@ public class DorisIT extends TestSuiteBase implements TestResource {
     }
 
     private void initializeJdbcTable() {
-        //just for test
+            // wait for BE start
         try {
             Thread.sleep(300000);
         } catch (InterruptedException e) {
