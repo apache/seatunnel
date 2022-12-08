@@ -36,21 +36,25 @@ public class MetricsContext implements DynamicMetricsProvider {
 
     private static final BiFunction<String, Unit, AbstractMetric> CREATE_SINGLE_WRITER_METRIC = SingleWriterMetric::new;
     private static final BiFunction<String, Unit, AbstractMetric> CREATE_THREAD_SAFE_METRICS = ThreadSafeMetric::new;
-
     private static final BiFunction<String, Unit, AbstractMetric> CREATE_SINGLE_WRITER_QPS_METRIC = SingleWriterQPSMetric::new;
+    private static final BiFunction<String, Unit, AbstractMetric> CREATE_THREAD_SAFE_QPS_METRIC = ThreadSafeQPSMetric::new;
 
     private volatile Map<String, AbstractMetric> metrics;
 
-    Metric metric(String name, Unit unit) {
+    public Metric metric(String name, Unit unit) {
         return metric(name, unit, CREATE_SINGLE_WRITER_METRIC);
     }
 
-    Metric qpsMetric(String name, Unit unit) {
+    public Metric qpsMetric(String name, Unit unit) {
         return metric(name, unit, CREATE_SINGLE_WRITER_QPS_METRIC);
     }
 
-    Metric threadSafeMetric(String name, Unit unit) {
+    public Metric threadSafeMetric(String name, Unit unit) {
         return metric(name, unit, CREATE_THREAD_SAFE_METRICS);
+    }
+
+    public Metric threadSafeQpsMetric(String name, Unit unit) {
+        return metric(name, unit, CREATE_THREAD_SAFE_QPS_METRIC);
     }
 
     private Metric metric(String name, Unit unit, BiFunction<String, Unit, AbstractMetric> metricSupplier) {
@@ -120,39 +124,35 @@ public class MetricsContext implements DynamicMetricsProvider {
             AtomicLongFieldUpdater.newUpdater(SingleWriterQPSMetric.class, "value");
 
         private volatile long value;
-        private volatile long timestamp;
+        private final long timestamp;
 
         SingleWriterQPSMetric(String name, Unit unit) {
             super(name, unit);
+            timestamp = System.currentTimeMillis();
         }
 
         @Override
         public void set(long newValue) {
-            checkAndSetStartTime();
             VOLATILE_VALUE_UPDATER.lazySet(this, newValue);
         }
 
         @Override
         public void increment() {
-            checkAndSetStartTime();
             VOLATILE_VALUE_UPDATER.lazySet(this, value + 1);
         }
 
         @Override
         public void increment(long increment) {
-            checkAndSetStartTime();
             VOLATILE_VALUE_UPDATER.lazySet(this, value + increment);
         }
 
         @Override
         public void decrement() {
-            checkAndSetStartTime();
             VOLATILE_VALUE_UPDATER.lazySet(this, value - 1);
         }
 
         @Override
         public void decrement(long decrement) {
-            checkAndSetStartTime();
             VOLATILE_VALUE_UPDATER.lazySet(this, value - decrement);
         }
 
@@ -162,11 +162,52 @@ public class MetricsContext implements DynamicMetricsProvider {
             long cost = System.currentTimeMillis() - timestamp;
             return (double) value * 1000 / cost;
         }
+    }
 
-        private void checkAndSetStartTime(){
-            if (timestamp == 0){
-                timestamp = System.currentTimeMillis();
-            }
+    private static final class ThreadSafeQPSMetric extends AbstractMetric {
+
+        private static final AtomicLongFieldUpdater<ThreadSafeQPSMetric> VOLATILE_VALUE_UPDATER =
+            AtomicLongFieldUpdater.newUpdater(ThreadSafeQPSMetric.class, "value");
+
+        private volatile long value;
+
+        private final long timestamp;
+
+        ThreadSafeQPSMetric(String name, Unit unit) {
+            super(name, unit);
+            timestamp = System.currentTimeMillis();
+        }
+
+        @Override
+        public void increment() {
+            VOLATILE_VALUE_UPDATER.incrementAndGet(this);
+        }
+
+        @Override
+        public void increment(long amount) {
+            VOLATILE_VALUE_UPDATER.addAndGet(this, amount);
+        }
+
+        @Override
+        public void decrement() {
+            VOLATILE_VALUE_UPDATER.decrementAndGet(this);
+        }
+
+        @Override
+        public void decrement(long amount) {
+            VOLATILE_VALUE_UPDATER.addAndGet(this, -amount);
+        }
+
+        @Override
+        public void set(long newValue) {
+            VOLATILE_VALUE_UPDATER.set(this, newValue);
+        }
+
+        @SuppressWarnings("checkstyle:MagicNumber")
+        @Override
+        protected Object get() {
+            long cost = System.currentTimeMillis() - timestamp;
+            return (double) value * 1000 / cost;
         }
     }
 
