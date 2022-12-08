@@ -258,8 +258,9 @@ public class DorisIT extends TestSuiteBase implements TestResource {
         props.put("user", USERNAME);
         props.put("password", PASSWORD);
         jdbcConnection =  driver.connect(String.format(URL, dorisServer.getHost()), props);
-        Statement statement = jdbcConnection.createStatement();
-        statement.execute("CREATE DATABASE IF NOT EXISTS test");
+        try (Statement statement = jdbcConnection.createStatement()) {
+            statement.execute("CREATE DATABASE IF NOT EXISTS test");
+        }
     }
 
     private void initializeJdbcTable() {
