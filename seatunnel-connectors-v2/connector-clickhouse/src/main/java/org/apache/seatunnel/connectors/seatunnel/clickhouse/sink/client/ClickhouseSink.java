@@ -17,14 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client;
 
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.BULK_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_PREFIX;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PRIMARY_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SHARDING_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SPLIT_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SUPPORT_UPSERT;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.USERNAME;
 
@@ -146,6 +149,7 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
                 shardKeyType,
                 config.getString(DATABASE.key()),
                 config.getString(TABLE.key()),
+                table.getEngine(),
                 config.getBoolean(SPLIT_MODE.key()),
                 new Shard(1, 1, nodes.get(0)), config.getString(USERNAME.key()), config.getString(PASSWORD.key()));
         } else {
@@ -154,6 +158,7 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
                 shardKeyType,
                 config.getString(DATABASE.key()),
                 config.getString(TABLE.key()),
+                table.getEngine(),
                 config.getBoolean(SPLIT_MODE.key()),
                 new Shard(1, 1, nodes.get(0)));
         }
@@ -171,7 +176,30 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
             fields.addAll(tableSchema.keySet());
         }
         proxy.close();
-        this.option = new ReaderOption(metadata, clickhouseProperties, fields, table.getEngine(), tableSchema, config.getInt(BULK_SIZE.key()));
+
+        String[] primaryKeys = null;
+        if (config.hasPath(PRIMARY_KEY.key())) {
+            primaryKeys = new String[]{config.getString(PRIMARY_KEY.key())};
+        }
+        boolean supportUpsert = SUPPORT_UPSERT.defaultValue();
+        if (config.hasPath(SUPPORT_UPSERT.key())) {
+            supportUpsert = config.getBoolean(SUPPORT_UPSERT.key());
+        }
+        boolean allowExperimentalLightweightDelete = ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE.defaultValue();
+        if (config.hasPath(ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE.key())) {
+            allowExperimentalLightweightDelete = config.getBoolean(ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE.key());
+        }
+        this.option = ReaderOption.builder()
+            .shardMetadata(metadata)
+            .properties(clickhouseProperties)
+            .fields(fields)
+            .tableEngine(table.getEngine())
+            .tableSchema(tableSchema)
+            .bulkSize(config.getInt(BULK_SIZE.key()))
+            .primaryKeys(primaryKeys)
+            .supportUpsert(supportUpsert)
+            .allowExperimentalLightweightDelete(allowExperimentalLightweightDelete)
+            .build();
     }
 
     @Override

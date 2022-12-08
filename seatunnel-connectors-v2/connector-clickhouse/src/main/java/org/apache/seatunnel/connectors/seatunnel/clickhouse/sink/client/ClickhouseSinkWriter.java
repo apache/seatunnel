@@ -129,15 +129,15 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
                 ClickHouseConnectionImpl clickhouseConnection = new ClickHouseConnectionImpl(s.getJdbcUrl(),
                     this.option.getProperties());
 
-                //todo  JdbcBatchStatementExecutor getTableEngine
                 JdbcBatchStatementExecutor jdbcBatchStatementExecutor = new JdbcBatchStatementExecutorBuilder()
                     .setTable(shardRouter.getShardTable())
-                    .setTableEngine(option.getTableEngine())
+                    .setTableEngine(shardRouter.getShardTableEngine())
                     .setRowType(option.getSeaTunnelRowType())
+                    .setPrimaryKeys(option.getPrimaryKeys())
                     .setClickhouseTableSchema(option.getTableSchema())
                     .setProjectionFields(option.getFields().toArray(new String[0]))
-                    .setAllowExperimentalLightweightDelete(false)
-                    .setSupportUpsert(false)
+                    .setAllowExperimentalLightweightDelete(option.isAllowExperimentalLightweightDelete())
+                    .setSupportUpsert(option.isSupportUpsert())
                     .build();
                 jdbcBatchStatementExecutor.prepareStatements(clickhouseConnection);
                 IntHolder intHolder = new IntHolder();

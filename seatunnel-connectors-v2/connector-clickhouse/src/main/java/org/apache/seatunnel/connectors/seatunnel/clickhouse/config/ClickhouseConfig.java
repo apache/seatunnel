@@ -89,17 +89,17 @@ public class ClickhouseConfig {
     public static final Option<String> PRIMARY_KEY = Options.key("primary_key")
         .stringType()
         .noDefaultValue()
-        .withDescription("Mark the primary key column from input data table");
+        .withDescription("Mark the primary key column from clickhouse table, and based on primary key execute INSERT/UPDATE/DELETE to clickhouse table");
 
-    public static final Option<Integer> MUTATIONS_SYNC = Options.key("mutations_sync")
-        .intType()
-        .noDefaultValue()
-        .withDescription("Allows to execute ALTER TABLE ... UPDATE|DELETE queries (mutations) synchronously");
-
-    public static final Option<Boolean> ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE = Options.key("allowExperimentalLightweightDelete")
+    public static final Option<Boolean> SUPPORT_UPSERT = Options.key("support_upsert")
         .booleanType()
         .defaultValue(false)
-        .withDescription("allow experimental lightweight delete");
+        .withDescription("Support upsert row by query primary key");
+
+    public static final Option<Boolean> ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE = Options.key("allow_experimental_lightweight_delete")
+        .booleanType()
+        .defaultValue(false)
+        .withDescription("Allow experimental lightweight delete based on `*MergeTree` table engine");
 
     /**
      * ClickhouseFile sink connector used clickhouse-local program's path
