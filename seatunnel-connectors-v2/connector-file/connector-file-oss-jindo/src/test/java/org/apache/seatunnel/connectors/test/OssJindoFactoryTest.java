@@ -15,26 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.config;
+package org.apache.seatunnel.connectors.test;
 
-import java.io.Serializable;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.sink.OssFileSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.source.OssFileSourceFactory;
 
-public enum FileSystemType implements Serializable {
-    HDFS("HdfsFile"),
-    LOCAL("LocalFile"),
-    OSS("OssFile"),
-    OSS_JINDO("OssJindoFile"),
-    FTP("FtpFile"),
-    SFTP("SftpFile"),
-    S3("S3File");
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-    private final String fileSystemPluginName;
-
-    FileSystemType(String fileSystemPluginName) {
-        this.fileSystemPluginName = fileSystemPluginName;
-    }
-
-    public String getFileSystemPluginName() {
-        return fileSystemPluginName;
+public class OssJindoFactoryTest {
+    @Test
+    public void testOptionRule() {
+        Assertions.assertNotNull((new OssFileSourceFactory()).optionRule());
+        Assertions.assertNotNull((new OssFileSinkFactory()).optionRule());
     }
 }
