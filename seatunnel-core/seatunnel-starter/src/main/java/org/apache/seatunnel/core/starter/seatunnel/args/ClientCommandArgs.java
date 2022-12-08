@@ -49,6 +49,10 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         description = "Get job status by JobId")
     private String jobId;
 
+    @Parameter(names = {"-can", "--cancel-job"},
+        description = "Cancel job by JobId")
+    private String cancelJobId;
+
     @Parameter(names = {"-l", "--list"},
         description = "list job status")
     private boolean listJob = false;
@@ -79,6 +83,10 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
     public String getJobId() {
         return jobId;
+    }
+
+    public String getCancelJobId() {
+        return cancelJobId;
     }
 
     public boolean isListJob(){
