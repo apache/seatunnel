@@ -167,7 +167,7 @@ public class DorisIT extends TestSuiteBase implements TestResource {
         // wait for doris fully start
         given().ignoreExceptions()
                 .await()
-                .atMost(360, TimeUnit.SECONDS)
+                .atMost(600, TimeUnit.SECONDS)
                 .untilAsserted(this::initializeJdbcConnection);
         initializeJdbcTable();
         batchInsertData();
@@ -258,18 +258,14 @@ public class DorisIT extends TestSuiteBase implements TestResource {
         props.put("user", USERNAME);
         props.put("password", PASSWORD);
         jdbcConnection =  driver.connect(String.format(URL, dorisServer.getHost()), props);
+        Statement statement = jdbcConnection.createStatement();
+        statement.execute("CREATE DATABASE IF NOT EXISTS test");
     }
 
     private void initializeJdbcTable() {
-            // wait for BE start
-        try {
-            Thread.sleep(300000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
         try (Statement statement = jdbcConnection.createStatement()) {
             // create databases
-            statement.execute("create database test");
+            statement.execute("CREATE DATABASE IF NOT EXISTS test");
             // create source table
             statement.execute(DDL_SOURCE);
             // create sink table
