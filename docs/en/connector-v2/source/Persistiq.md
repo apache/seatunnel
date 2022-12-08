@@ -184,7 +184,7 @@ Then you can get the desired result with a simpler schema,like
 
 ```hocon
 Http {
-  url = "http://mockserver:1080/contentjson/mock"
+  url = "http://example.com/xyz"
   method = "GET"
   format = "json"
   content_field = "$.store.book.*"
@@ -241,7 +241,7 @@ You can get the contents of 'book' by configuring the task as follows:
 ```hocon
 source {
   Http {
-    url = "http://mockserver:1080/jsonpath/mock"
+    url = "http://example.com/xyz"
     method = "GET"
     format = "json"
     json_field = {
@@ -274,7 +274,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ```hocon
   Persistiq{
     url = "https://api.persistiq.com/v1/users"
-    password = "Seatunnel-test"
+    password = "Your password"
     content_field = "$.users.*"
     schema = {
         fields {
