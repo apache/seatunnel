@@ -35,7 +35,6 @@ import java.util.Map;
 @Getter
 public class SourceConfig extends CommonConfig{
 
-    public static final String SOURCE_PROPERTIES_PREFIX = "scan.params.";
     private static final long DEFAULT_SCAN_MEM_LIMIT = 1024 * 1024 * 1024L;
 
     public SourceConfig(@NonNull List<String> nodeUrls,
@@ -50,7 +49,7 @@ public class SourceConfig extends CommonConfig{
     public static final Option<Integer> MAX_RETRIES = Options.key("max_retries")
             .intType()
             .defaultValue(3)
-            .withDescription("The number of retries to flush failed");
+            .withDescription("number of retry requests sent to StarRocks");
 
     public static final Option<Integer> QUERY_TABLET_SIZE = Options.key("request_tablet_size")
             .intType()
@@ -71,7 +70,7 @@ public class SourceConfig extends CommonConfig{
     @SuppressWarnings("checkstyle:MagicNumber")
     public static final Option<Integer> SCAN_BATCH_ROWS = Options.key("scan_batch_rows")
             .intType()
-            .defaultValue(1000)
+            .defaultValue(1024)
             .withDescription("scan batch rows");
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -83,13 +82,19 @@ public class SourceConfig extends CommonConfig{
     @SuppressWarnings("checkstyle:MagicNumber")
     public static final Option<Integer> SCAN_QUERY_TIMEOUT_SEC = Options.key("scan_query_timeout_sec")
             .intType()
-            .defaultValue(600)
+            .defaultValue(3600)
             .withDescription("Query timeout for a single query");
 
     public static final Option<Long> SCAN_MEM_LIMIT = Options.key("scan_mem_limit")
             .longType()
             .defaultValue(DEFAULT_SCAN_MEM_LIMIT)
             .withDescription("Memory byte limit for a single query");
+
+    public static final Option<String> STARROCKS_SCAN_CONFIG_PREFIX = Options.key("scan.params.")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("The parameter of the scan data from be");
+
 
     private int maxRetries = MAX_RETRIES.defaultValue();
     private int requestTabletSize = QUERY_TABLET_SIZE.defaultValue();
@@ -138,7 +143,7 @@ public class SourceConfig extends CommonConfig{
 
     private static void parseSourceOptionProperties(Config pluginConfig, SourceConfig sourceConfig) {
         Config sourceOptionConfig = TypesafeConfigUtils.extractSubConfig(pluginConfig,
-                SOURCE_PROPERTIES_PREFIX, false);
+                STARROCKS_SCAN_CONFIG_PREFIX.key(), false);
         sourceOptionConfig.entrySet().forEach(entry -> {
             final String configKey = entry.getKey().toLowerCase();
             sourceConfig.sourceOptionProps.put(configKey, (String) entry.getValue().unwrapped());

@@ -20,10 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.source;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StarRocksQueryPlanVisitor;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.source.StarRocksQueryPlanReadClient;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.source.model.QueryPartition;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.source.model.QueryPartition;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,7 +38,7 @@ import java.util.Set;
 @Slf4j
 public class StartRocksSourceSplitEnumerator implements SourceSplitEnumerator<StarRocksSourceSplit, StarRocksSourceState> {
     private SourceConfig sourceConfig;
-    private StarRocksQueryPlanVisitor starRocksQueryPlanVisitor;
+    private StarRocksQueryPlanReadClient starRocksQueryPlanReadClient;
     private final Map<Integer, List<StarRocksSourceSplit>> pendingSplit;
 
     private final Object stateLock = new Object();
@@ -51,7 +51,7 @@ public class StartRocksSourceSplitEnumerator implements SourceSplitEnumerator<St
 
     public StartRocksSourceSplitEnumerator(SourceSplitEnumerator.Context<StarRocksSourceSplit> context, SourceConfig sourceConfig, SeaTunnelRowType seaTunnelRowType, StarRocksSourceState sourceState) {
         this.sourceConfig = sourceConfig;
-        this.starRocksQueryPlanVisitor = new StarRocksQueryPlanVisitor(sourceConfig, seaTunnelRowType);
+        this.starRocksQueryPlanReadClient = new StarRocksQueryPlanReadClient(sourceConfig, seaTunnelRowType);
 
         this.context = context;
         this.pendingSplit = new HashMap<>();
@@ -164,7 +164,7 @@ public class StartRocksSourceSplitEnumerator implements SourceSplitEnumerator<St
 
     List<StarRocksSourceSplit> getStarRocksSourceSplit() {
         List<StarRocksSourceSplit> sourceSplits = new ArrayList<>();
-        List<QueryPartition> partitions = starRocksQueryPlanVisitor.findPartitions();
+        List<QueryPartition> partitions = starRocksQueryPlanReadClient.findPartitions();
         for (int i = 0; i < partitions.size(); i++) {
             sourceSplits.add(new StarRocksSourceSplit(partitions.get(i), String.valueOf(i + System.nanoTime())));
         }

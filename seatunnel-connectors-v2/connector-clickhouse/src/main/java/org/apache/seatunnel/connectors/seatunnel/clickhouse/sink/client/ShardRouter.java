@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client;
 
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.ShardMetadata;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.DistributedEngine;
@@ -55,15 +57,15 @@ public class ShardRouter implements Serializable {
         this.splitMode = shardMetadata.getSplitMode();
         this.table = shardMetadata.getTable();
         if (StringUtils.isNotEmpty(shardKey) && StringUtils.isEmpty(shardKeyType)) {
-            throw new IllegalArgumentException("Shard key " + shardKey + " not found in table " + table);
+            throw new ClickhouseConnectorException(ClickhouseConnectorErrorCode.SHARD_KEY_NOT_FOUND, "Shard key " + shardKey + " not found in table " + table);
         }
         ClickHouseRequest<?> connection = proxy.getClickhouseConnection();
         if (splitMode) {
             DistributedEngine localTable = proxy.getClickhouseDistributedTable(connection, shardMetadata.getDatabase(), table);
             this.shardTable = localTable.getTable();
             List<Shard> shardList = proxy.getClusterShardList(connection, localTable.getClusterName(),
-                    localTable.getDatabase(), shardMetadata.getDefaultShard().getNode().getPort(),
-                    shardMetadata.getUsername(), shardMetadata.getPassword());
+                localTable.getDatabase(), shardMetadata.getDefaultShard().getNode().getPort(),
+                shardMetadata.getUsername(), shardMetadata.getPassword());
             int weight = 0;
             for (Shard shard : shardList) {
                 shards.put(weight, shard);
@@ -87,7 +89,7 @@ public class ShardRouter implements Serializable {
             return shards.lowerEntry(threadLocalRandom.nextInt(shardWeightCount + 1)).getValue();
         }
         int offset = (int) (HASH_INSTANCE.hash(ByteBuffer.wrap(shardValue.toString().getBytes(StandardCharsets.UTF_8)),
-                0) & Long.MAX_VALUE % shardWeightCount);
+            0) & Long.MAX_VALUE % shardWeightCount);
         return shards.lowerEntry(offset + 1).getValue();
     }
 

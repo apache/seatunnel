@@ -104,6 +104,8 @@
             <message key="import.ordering" value="Import {0} appears after other imports that it should precede"/>
         </module>
 
+        <module name="SuppressionCommentFilter"/>
+
         <!-- Prohibit T.getT() methods for standard boxed types -->
         <module name="Regexp">
             <property name="format" value="Boolean\.getBoolean"/>

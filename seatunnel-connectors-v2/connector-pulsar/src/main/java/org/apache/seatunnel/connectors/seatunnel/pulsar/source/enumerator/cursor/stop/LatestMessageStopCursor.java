@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.stop;
 
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.topic.TopicPartition;
 
 import org.apache.pulsar.client.admin.PulsarAdmin;
@@ -41,7 +43,7 @@ public class LatestMessageStopCursor implements StopCursor {
             try {
                 messageId = admin.topics().getLastMessageId(topic);
             } catch (PulsarAdminException e) {
-                throw new RuntimeException("Failed to get the last cursor", e);
+                throw new PulsarConnectorException(PulsarConnectorErrorCode.GET_LAST_CURSOR_FAILED, "Failed to get the last cursor", e);
             }
         }
     }

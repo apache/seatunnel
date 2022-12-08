@@ -31,6 +31,7 @@ problems encountered by users.
 | COMMON-11 | Sink writer operation failed, such as (open, close) etc...             | When users encounter this error code, it maybe some operation of writer such as Parquet,Orc,IceBerg failed, you need to check if the corresponding file or resource has read and write permissions |
 | COMMON-12 | Source reader operation failed, such as (open, close) etc...           | When users encounter this error code, it maybe some operation of reader such as Parquet,Orc,IceBerg failed, you need to check if the corresponding file or resource has read and write permissions |
 | COMMON-13 | Http operation failed, such as (open, close, response) etc...          | When users encounter this error code, it maybe some http requests failed, please check your network environment                                                                                    |
+| COMMON-14 | Class load operation failed                                            | When users encounter this error code, it maybe some The corresponding jar does not exist, or the type is not supported                                                                             |
 
 ## Assert Connector Error Codes
 
@@ -46,7 +47,7 @@ problems encountered by users.
 | CASSANDRA-02 | Add batch SeaTunnelRow data into a batch failed | When users encounter this error code, it means that cassandra has some problems, please check it whether is work                                                      |
 | CASSANDRA-03 | Close cql session of cassandra failed           | When users encounter this error code, it means that cassandra has some problems, please check it whether is work                                                      |
 | CASSANDRA-04 | No data in source table                         | When users encounter this error code, it means that source cassandra table has no data, please check it                                                               |
-| CASSANDRA-05 | Parse ip address from string field field        | When users encounter this error code, it means that upstream data does not match ip address format, please check it                                                   |
+| CASSANDRA-05 | Parse ip address from string failed             | When users encounter this error code, it means that upstream data does not match ip address format, please check it                                                   |
 
 ## Slack Connector Error Codes
 
@@ -158,3 +159,49 @@ problems encountered by users.
 |---------|-------------------------------|-----------------------------------------------------------------------------------------------------------|
 | HUDI-01 | Create ParquetMetadata failed | When the user encounters this error code, it indicates that ParquetMetadata creation failed. Please check |
 | HUDI-02 | Kerberos Authorized failed    | When the user encounters this error code, it indicates that Kerberos authorization failed. Please check   |
+
+## Clickhouse Connector Error Codes
+
+| code          | description                                                               | solution                                                                                                                                                                |
+|---------------|---------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| CLICKHOUSE-01 | Field is not existed in target table                                      | When users encounter this error code, it means that the fields of upstream data don't meet with target clickhouse table, please check target clickhouse table structure |
+| CLICKHOUSE-02 | Can’t find password of shard node                                         | When users encounter this error code, it means that no password is configured for each node, please check                                                               |
+| CLICKHOUSE-03 | Can’t delete directory                                                    | When users encounter this error code, it means that the directory does not exist or does not have permission, please check                                              |
+| CLICKHOUSE-04 | Ssh operation failed, such as (login,connect,authentication,close) etc... | When users encounter this error code, it means that the ssh request failed, please check your network environment                                                       |
+| CLICKHOUSE-05 | Get cluster list from clickhouse failed                                   | When users encounter this error code, it means that the clickhouse cluster is not configured correctly, please check                                                    |
+| CLICKHOUSE-06 | Shard key not found in table                                              | When users encounter this error code, it means that the shard key of the distributed table is not configured, please check                                              |
+
+
+## Jdbc Connector Error Codes
+
+| code    | description                                                         | solution                                                                                                                                                                                                    |
+|---------|---------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| JDBC-01 | Fail to create driver of class                                      | When users encounter this error code, it means that driver package may not be added. Check whether the driver exists                                                                                        |
+| JDBC-02 | No suitable driver found                                            | When users encounter this error code, it means that no password is configured for each node, please check                                                                                                   |
+| JDBC-03 | Xa operation failed, such as (commit, rollback) etc..               | When users encounter this error code, it means that if a distributed sql transaction fails, check the transaction execution of the corresponding database to determine the cause of the transaction failure |
+| JDBC-04 | Connector database failed                                           | When users encounter this error code, it means that database connection failure, check whether the url is correct or whether the corresponding service is normal                                            |
+| JDBC-05 | transaction operation failed, such as (commit, rollback) etc..      | When users encounter this error code, it means that if a sql transaction fails, check the transaction execution of the corresponding database to determine the cause of the transaction failure             |
+| JDBC-06 | No suitable dialect factory found                                   | When users encounter this error code, it means that may be an unsupported dialect type                                                                                                                      |
+
+## Pulsar Connector Error Codes
+
+| code         | description                                                  | solution                                                                                                                                                              |
+|--------------|--------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| PULSAR-01 | Open pulsar admin failed                                        | When users encounter this error code, it means that open pulsar admin failed, please check it                                        |
+| PULSAR-02 | Open pulsar client failed                                       | When users encounter this error code, it means that open pulsar client failed, please check it                                       |
+| PULSAR-03 | Pulsar authentication failed                                    | When users encounter this error code, it means that Pulsar Authentication failed, please check it                                    |
+| PULSAR-04 | Subscribe topic from pulsar failed                              | When users encounter this error code, it means that Subscribe topic from pulsar failed, please check it                              |
+| PULSAR-05 | Get last cursor of pulsar topic failed                          | When users encounter this error code, it means that get last cursor of pulsar topic failed, please check it                          |
+| PULSAR-06 | Get partition information of pulsar topic failed                | When users encounter this error code, it means that Get partition information of pulsar topic failed, please check it                |
+
+## StarRocks Connector Error Codes
+
+| code         | description                               | solution                                                                                                                                 |
+|--------------|-------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| STARROCKS-01 | Flush batch data to sink connector failed | When users encounter this error code, it means that flush batch data to sink connector failed, please check it                           |
+| STARROCKS-02 | Writing records to StarRocks failed.      | When users encounter this error code, it means that writing records to StarRocks failed, please check data from files whether is correct |
+| STARROCKS-03 | Close StarRocks BE reader failed.         | it means that StarRocks has some problems, please check it whether is work                                                               |
+| STARROCKS-04 | Create StarRocks BE reader failed.        | it means that StarRocks has some problems, please check it whether is work                                                               |
+| STARROCKS-05 | Scan data from StarRocks BE failed.       | When users encounter this error code, it means that scan data from StarRocks failed, please check it                                     |
+| STARROCKS-06 | Request query Plan failed.                | When users encounter this error code, it means that scan data from StarRocks failed, please check it                                     |
+| STARROCKS-07 | Read Arrow data failed.                   | When users encounter this error code, it means that that job has some problems, please check it whether is work well                     |

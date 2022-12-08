@@ -37,6 +37,7 @@ import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
@@ -165,6 +166,14 @@ public class CheckpointManager {
         log.debug("reported task({}) status{}", reportStatusOperation.getLocation().getTaskID(),
             reportStatusOperation.getStatus());
         getCheckpointCoordinator(reportStatusOperation.getLocation()).reportedTask(reportStatusOperation);
+    }
+
+    /**
+     * Called by the {@link SourceSplitEnumeratorTask}.
+     * <br> used by SourceSplitEnumeratorTask to tell CheckpointCoordinator pipeline will trigger close barrier by SourceSplitEnumeratorTask.
+     */
+    public void readyToClose(TaskLocation taskLocation) {
+        getCheckpointCoordinator(taskLocation).readyToClose(taskLocation);
     }
 
     /**

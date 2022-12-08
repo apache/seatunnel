@@ -33,7 +33,6 @@
         <httpcore.version>4.4.4</httpcore.version>
         <starrocks.thrift.sdk.version>1.0.1</starrocks.thrift.sdk.version>
         <arrow.version>5.0.0</arrow.version>
-        <libthrift.version>0.14.0</libthrift.version>
     </properties>
 
     <dependencies>
@@ -63,17 +62,6 @@
             <version>${httpcore.version}</version>
         </dependency>
         <dependency>
-            <groupId>org.apache.thrift</groupId>
-            <artifactId>libthrift</artifactId>
-            <version>${libthrift.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>javax.annotation</groupId>
-                    <artifactId>javax.annotation-api</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
             <groupId>com.starrocks</groupId>
             <artifactId>starrocks-thrift-sdk</artifactId>
             <version>${starrocks.thrift.sdk.version}</version>
@@ -93,25 +81,6 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>org.apache.thrift.tools</groupId>
-                <artifactId>maven-thrift-plugin</artifactId>
-                <version>0.1.11</version>
-                <configuration>
-                    <thriftSourceRoot>${basedir}/src/main/thrift</thriftSourceRoot>
-                    <outputDirectory>${basedir}/gen-thrift</outputDirectory>
-                    <generator>java</generator>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>thrift-sources</id>
-                        <phase>generate-sources</phase>
-                        <goals>
-                            <goal>compile</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <configuration>
@@ -125,26 +94,10 @@
                             <shadedPattern>com.starrocks.shaded.io.netty</shadedPattern>
                         </relocation>
                         <relocation>
-                            <pattern>org.apache.commons.codec</pattern>
-                            <shadedPattern>com.starrocks.shaded.org.apache.commons.codec</shadedPattern>
-                        </relocation>
-                        <relocation>
                             <pattern>com.google.flatbuffers</pattern>
                             <shadedPattern>com.starrocks.shaded.com.google.flatbuffers</shadedPattern>
                         </relocation>
-                        <relocation>
-                            <pattern>org.apache.thrift</pattern>
-                            <shadedPattern>com.starrocks.shaded.org.apache.thrift</shadedPattern>
-                        </relocation>
                     </relocations>
-                    <filters>
-                        <filter>
-                            <artifact>*:*</artifact>
-                            <excludes>
-                                <exclude>module-info.class</exclude>
-                            </excludes>
-                        </filter>
-                    </filters>
                 </configuration>
                 <executions>
                     <execution>

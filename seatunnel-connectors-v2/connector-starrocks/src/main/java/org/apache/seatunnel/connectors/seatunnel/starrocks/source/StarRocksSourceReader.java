@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.client.StarRocksBeReadClient;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.source.StarRocksBeReadClient;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
 
 import lombok.extern.slf4j.Slf4j;

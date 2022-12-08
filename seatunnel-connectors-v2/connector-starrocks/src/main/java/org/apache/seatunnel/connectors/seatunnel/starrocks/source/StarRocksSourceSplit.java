@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.starrocks.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.source.model.QueryPartition;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.source.model.QueryPartition;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
