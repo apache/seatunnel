@@ -17,10 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cassandra.source;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig;
+
+import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
 public class CassandraSourceFactory implements TableSourceFactory {
@@ -32,6 +34,8 @@ public class CassandraSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
+                .required(CassandraConfig.HOST, CassandraConfig.KEYSPACE, CassandraConfig.CQL)
+                .optional(CassandraConfig.USERNAME, CassandraConfig.PASSWORD, CassandraConfig.DATACENTER, CassandraConfig.CONSISTENCY_LEVEL)
                 .build();
     }
 }

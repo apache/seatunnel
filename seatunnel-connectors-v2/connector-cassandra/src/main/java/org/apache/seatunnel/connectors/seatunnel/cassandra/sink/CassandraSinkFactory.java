@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cassandra.sink;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig;
+
+import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
 public class CassandraSinkFactory implements TableSinkFactory {
@@ -33,8 +34,12 @@ public class CassandraSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(CassandraConfig.HOST,CassandraConfig.KEYSPACE,CassandraConfig.CQL)
-                .optional()
+                .required(CassandraConfig.HOST, CassandraConfig.KEYSPACE, CassandraConfig.TABLE)
+                .optional(
+                        CassandraConfig.USERNAME, CassandraConfig.PASSWORD, CassandraConfig.DATACENTER,
+                        CassandraConfig.CONSISTENCY_LEVEL, CassandraConfig.FIELDS, CassandraConfig.BATCH_SIZE,
+                        CassandraConfig.BATCH_TYPE, CassandraConfig.ASYNC_WRITE
+                )
                 .build();
     }
 }

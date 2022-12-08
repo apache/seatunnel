@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cassandra.source;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClient;
-import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraParameters;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.util.TypeConvertUtil;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
@@ -33,23 +33,23 @@ import java.io.IOException;
 
 @Slf4j
 public class CassandraSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
-    private final CassandraConfig cassandraConfig;
+    private final CassandraParameters cassandraParameters;
     private final SingleSplitReaderContext readerContext;
     private CqlSession session;
 
-    CassandraSourceReader(CassandraConfig cassandraConfig, SingleSplitReaderContext readerContext) {
-        this.cassandraConfig = cassandraConfig;
+    CassandraSourceReader(CassandraParameters cassandraParameters, SingleSplitReaderContext readerContext) {
+        this.cassandraParameters = cassandraParameters;
         this.readerContext = readerContext;
     }
 
     @Override
     public void open() throws Exception {
         session = CassandraClient.getCqlSessionBuilder(
-            cassandraConfig.getHost(),
-            cassandraConfig.getKeyspace(),
-            cassandraConfig.getUsername(),
-            cassandraConfig.getPassword(),
-            cassandraConfig.getDatacenter()
+            cassandraParameters.getHost(),
+            cassandraParameters.getKeyspace(),
+            cassandraParameters.getUsername(),
+            cassandraParameters.getPassword(),
+            cassandraParameters.getDatacenter()
         ).build();
     }
 
@@ -63,7 +63,7 @@ public class CassandraSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         try {
-            ResultSet resultSet = session.execute(CassandraClient.createSimpleStatement(cassandraConfig.getCql(), cassandraConfig.getConsistencyLevel()));
+            ResultSet resultSet = session.execute(CassandraClient.createSimpleStatement(cassandraParameters.getCql(), cassandraParameters.getConsistencyLevel()));
             resultSet.forEach(row -> output.collect(TypeConvertUtil.buildSeaTunnelRow(row)));
         } finally {
             this.readerContext.signalNoMoreElement();

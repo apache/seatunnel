@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cassandra.sink;
 
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.CQL;
 import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.DATACENTER;
 import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.HOST;
@@ -36,7 +37,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClient;
-import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraParameters;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
@@ -55,8 +56,7 @@ import java.util.List;
 @AutoService(SeaTunnelSink.class)
 public class CassandraSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
-    private CassandraConfig cassandraConfig;
-
+    private final CassandraParameters cassandraParameters = new CassandraParameters();
     private SeaTunnelRowType seaTunnelRowType;
 
     private ColumnDefinitions tableSchema;
@@ -67,33 +67,34 @@ public class CassandraSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public void prepare(Config config) throws PrepareFailException {
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(config, HOST, KEYSPACE, TABLE);
+    public void prepare(Config pluginConfig) throws PrepareFailException {
+        CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, HOST.key(), KEYSPACE.key(), CQL.key());
         if (!checkResult.isSuccess()) {
             throw new CassandraConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format("PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, checkResult.getMsg()));
         }
         try (CqlSession session = CassandraClient.getCqlSessionBuilder(
-                config.getString(HOST.key()),
-                config.getString(KEYSPACE.key()),
-                config.getString(USERNAME.key()),
-                config.getString(PASSWORD.key()),
-                config.getString(DATACENTER.key())
+                pluginConfig.getString(HOST.key()),
+                pluginConfig.getString(KEYSPACE.key()),
+                pluginConfig.getString(USERNAME.key()),
+                pluginConfig.getString(PASSWORD.key()),
+                pluginConfig.getString(DATACENTER.key())
         ).build()) {
-            List<String> fields = config.getStringList(FIELDS.key());
-            this.tableSchema = CassandraClient.getTableSchema(session, config.getString(TABLE.key()));
+            this.cassandraParameters.buildWithConfig(pluginConfig);
+            List<String> fields = pluginConfig.getStringList(FIELDS.key());
+            this.tableSchema = CassandraClient.getTableSchema(session, pluginConfig.getString(TABLE.key()));
             if (fields == null || fields.isEmpty()) {
                 List<String> newFields = new ArrayList<>();
                 for (int i = 0; i < tableSchema.size(); i++) {
                     newFields.add(tableSchema.get(i).getName().asInternal());
                 }
-                config.setFields(newFields);
+                this.cassandraParameters.setFields(newFields);
             } else {
                 for (String field : fields) {
                     if (!tableSchema.contains(field)) {
                         throw new CassandraConnectorException(CassandraConnectorErrorCode.FIELD_NOT_IN_TABLE,
-                                "Field " + field + " does not exist in table " + config.getString(TABLE.key()));
+                                "Field " + field + " does not exist in table " + pluginConfig.getString(TABLE.key()));
                     }
                 }
             }
@@ -116,6 +117,6 @@ public class CassandraSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
-        return new CassandraSinkWriter(cassandraConfig, seaTunnelRowType, tableSchema);
+        return new CassandraSinkWriter(cassandraParameters, seaTunnelRowType, tableSchema);
     }
 }

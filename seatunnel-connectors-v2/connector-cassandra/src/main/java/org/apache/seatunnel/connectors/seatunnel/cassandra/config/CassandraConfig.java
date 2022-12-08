@@ -19,23 +19,19 @@ package org.apache.seatunnel.connectors.seatunnel.cassandra.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import com.datastax.oss.driver.api.core.ConsistencyLevel;
-import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
-import com.datastax.oss.driver.api.core.cql.DefaultBatchType;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.NonNull;
-import lombok.ToString;
+public class CassandraConfig {
 
-import java.io.Serializable;
-import java.util.List;
-
-public class CassandraConfig implements Serializable {
+    public static final Integer DEFAULT_BATCH_SIZE = 5000;
 
     public static final Option<String> HOST =
             Options.key("host")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("");
+
+    public static final Option<String> KEYSPACE =
+            Options.key("keyspace")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("");
@@ -55,45 +51,48 @@ public class CassandraConfig implements Serializable {
                     .stringType()
                     .defaultValue("datacenter1")
                     .withDescription("");
-    public static final Option<String> KEYSPACE =
-            Options.key("keyspace")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("");
-    public static final Option<String> TABLE =
-            Options.key("table")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("");
-    public static final Option<String> CQL =
-            Options.key("cql")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("");
-    public static final Option<String> FIELDS =
-            Options.key("fields")
-                    .stringType()
-                    .defaultValue("LOCAL_ONE")
-                    .withDescription("");
+
     public static final Option<String> CONSISTENCY_LEVEL =
             Options.key("consistency_level")
                     .stringType()
                     .defaultValue("LOCAL_ONE")
                     .withDescription("");
+
+    public static final Option<String> TABLE =
+            Options.key("table")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("");
+
+    public static final Option<String> FIELDS =
+            Options.key("fields")
+                    .stringType()
+                    .defaultValue("LOCAL_ONE")
+                    .withDescription("");
+
     public static final Option<Integer> BATCH_SIZE =
             Options.key("batch_size")
                     .intType()
-                    .defaultValue(5000)
+                    .defaultValue(DEFAULT_BATCH_SIZE)
                     .withDescription("");
+
     public static final Option<String> BATCH_TYPE =
             Options.key("batch_type")
                     .stringType()
                     .defaultValue("UNLOGGER")
                     .withDescription("");
+
     public static final Option<Boolean> ASYNC_WRITE =
             Options.key("async_write")
                     .booleanType()
                     .defaultValue(true)
                     .withDescription("");
+
+    public static final Option<String> CQL =
+            Options.key("cql")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("");
+
 
 }
