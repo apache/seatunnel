@@ -138,6 +138,10 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
                 configObject -> configObject.toConfig().getString(PASSWORD.key())));
 
         proxy.close();
+
+        if (config.getString(FILE_FIELDS_DELIMITER.key()).length() != 1) {
+            throw new ClickhouseConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED, FILE_FIELDS_DELIMITER.key() + " must be a single character");
+        }
         this.readerOption = new FileReaderOption(shardMetadata, tableSchema, fields, config.getString(CLICKHOUSE_LOCAL_PATH.key()),
             ClickhouseFileCopyMethod.from(config.getString(COPY_METHOD.key())), nodeUser, config.getBoolean(NODE_FREE_PASSWORD.key()), nodePassword,
             config.getBoolean(COMPATIBLE_MODE.key()), config.getString(FILE_TEMP_PATH.key()), config.getString(FILE_FIELDS_DELIMITER.key()));
