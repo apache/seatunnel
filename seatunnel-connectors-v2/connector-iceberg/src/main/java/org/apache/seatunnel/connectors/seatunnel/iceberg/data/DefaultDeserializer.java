@@ -136,7 +136,7 @@ public class DefaultDeserializer implements Deserializer {
                 return seatunnelMap;
             default:
                 throw new IcebergConnectorException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                     String.format("Unsupported iceberg type: %s", icebergType));
         }
     }
