@@ -206,6 +206,9 @@ public class SparkStarter implements Starter {
         appendOption(commands, "--config", this.commandArgs.getConfigFile());
         appendOption(commands, "--master", this.commandArgs.getMaster());
         appendOption(commands, "--deploy-mode", this.commandArgs.getDeployMode().getName());
+        if (this.commandArgs.isCheckConfig()) {
+            commands.add("--check");
+        }
         return commands;
     }
 

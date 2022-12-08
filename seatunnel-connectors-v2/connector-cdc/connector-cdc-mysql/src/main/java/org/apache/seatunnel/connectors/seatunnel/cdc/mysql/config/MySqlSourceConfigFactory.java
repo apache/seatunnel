@@ -20,11 +20,13 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
+import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 
 import io.debezium.config.Configuration;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 
 import java.util.Properties;
+import java.util.UUID;
 
 /** A factory to initialize {@link MySqlSourceConfig}. */
 public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
@@ -62,6 +64,12 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
         props.setProperty("database.fetchSize", String.valueOf(fetchSize));
         props.setProperty("database.responseBuffering", "adaptive");
         props.setProperty("database.serverTimezone", serverTimeZone);
+
+        // database history
+        props.setProperty("database.history", EmbeddedDatabaseHistory.class.getCanonicalName());
+        props.setProperty("database.history.instance.name", UUID.randomUUID() + "_" + subtaskId);
+        props.setProperty("database.history.skip.unparseable.ddl", String.valueOf(true));
+        props.setProperty("database.history.refer.ddl", String.valueOf(true));
 
         props.setProperty("connect.timeout.ms", String.valueOf(connectTimeout.toMillis()));
         // the underlying debezium reader should always capture the schema changes and forward them.

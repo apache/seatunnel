@@ -25,6 +25,7 @@ import lombok.Getter;
 
 @Getter
 public class SnapshotSplit extends SourceSplitBase {
+    private static final long serialVersionUID = 1L;
     private final TableId tableId;
     private final SeaTunnelRowType splitKeyType;
     private final Object splitStart;
