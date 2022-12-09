@@ -84,7 +84,11 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
     @SneakyThrows
     @Override
     public Map<Object, Object> loadAll(Collection<Object> keys) {
-        return mapStorage.loadAll();
+        Map<Object, Object> allMap = mapStorage.loadAll();
+        Map<Object, Object> retMap = new HashMap<>(keys.size());
+        keys.forEach(key -> retMap.put(key, allMap.get(key)));
+
+        return retMap;
     }
 
     @Override
