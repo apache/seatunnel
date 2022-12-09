@@ -54,5 +54,5 @@ public class Constant {
 
     public static final String IMAP_OWNED_SLOT_PROFILES = "engine_ownedSlotProfilesIMap";
 
-    public static final String IMAP_RESOURCE_MANAGER_REGISTER_WORKER = "engine_ResourceManager_RegisterWorker";
+    public static final String IMAP_RESOURCE_MANAGER_REGISTER_WORKER = "ResourceManager_RegisterWorker";
 }
