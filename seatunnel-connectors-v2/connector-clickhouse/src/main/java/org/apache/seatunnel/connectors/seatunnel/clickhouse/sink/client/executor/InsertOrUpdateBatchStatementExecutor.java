@@ -68,7 +68,7 @@ public class InsertOrUpdateBatchStatementExecutor implements JdbcBatchStatementE
 
     private boolean hasInsert(SeaTunnelRow record) throws SQLException {
         if (upsertMode()) {
-            return exist(keyExtractor.apply(record));
+            return !exist(keyExtractor.apply(record));
         }
         switch (record.getRowKind()) {
             case INSERT:
@@ -86,18 +86,18 @@ public class InsertOrUpdateBatchStatementExecutor implements JdbcBatchStatementE
         boolean currentChangeFlag = hasInsert(record);
         if (currentChangeFlag) {
             if (preChangeFlag != null && !preChangeFlag) {
-                insertStatement.executeBatch();
-                insertStatement.clearBatch();
-            }
-            valueRowConverter.toExternal(record, updateStatement);
-            updateStatement.addBatch();
-        } else {
-            if (preChangeFlag != null && preChangeFlag) {
                 updateStatement.executeBatch();
                 updateStatement.clearBatch();
             }
             valueRowConverter.toExternal(record, insertStatement);
             insertStatement.addBatch();
+        } else {
+            if (preChangeFlag != null && preChangeFlag) {
+                insertStatement.executeBatch();
+                insertStatement.clearBatch();
+            }
+            valueRowConverter.toExternal(record, updateStatement);
+            updateStatement.addBatch();
         }
         preChangeFlag = currentChangeFlag;
         submitted = false;
@@ -107,11 +107,11 @@ public class InsertOrUpdateBatchStatementExecutor implements JdbcBatchStatementE
     public void executeBatch() throws SQLException {
         if (preChangeFlag != null) {
             if (preChangeFlag) {
-                updateStatement.executeBatch();
-                updateStatement.clearBatch();
-            } else {
                 insertStatement.executeBatch();
                 insertStatement.clearBatch();
+            } else {
+                updateStatement.executeBatch();
+                updateStatement.clearBatch();
             }
         }
         submitted = true;

@@ -107,7 +107,7 @@ public class JdbcBatchStatementExecutorBuilder {
                     : createInsertExecutor(table, rowType, valueRowConverter);
                 convertUpdateBeforeEventToDeleteAction = true;
             }
-            return new BufferReducedBatchStatementExecutor(updateExecutor, deleteExecutor, pkExtractor,
+            return new ReduceBufferedBatchStatementExecutor(updateExecutor, deleteExecutor, pkExtractor,
                 Function.identity(), !convertUpdateBeforeEventToDeleteAction);
         }
 
@@ -125,7 +125,7 @@ public class JdbcBatchStatementExecutorBuilder {
                 createUpsertExecutor(table, rowType, primaryKeys, pkExtractor, pkRowConverter, valueRowConverter)
                 : createInsertOrUpdateExecutor(table, rowType, primaryKeys, valueRowConverter);
         }
-        return new BufferReducedBatchStatementExecutor(
+        return new ReduceBufferedBatchStatementExecutor(
             updateExecutor, deleteExecutor, pkExtractor,
             Function.identity(), true);
     }

@@ -34,7 +34,7 @@ import java.util.function.Function;
 
 @AllArgsConstructor
 @RequiredArgsConstructor
-public class BufferReducedBatchStatementExecutor implements JdbcBatchStatementExecutor {
+public class ReduceBufferedBatchStatementExecutor implements JdbcBatchStatementExecutor {
     @NonNull
     private final JdbcBatchStatementExecutor insertOrUpdateExecutor;
     @NonNull
