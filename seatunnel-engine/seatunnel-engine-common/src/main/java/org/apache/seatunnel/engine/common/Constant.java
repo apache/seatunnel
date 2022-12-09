@@ -44,15 +44,15 @@ public class Constant {
 
     public static final String IMAP_RUNNING_JOB_STATE = "engine_runningJobState";
 
-    public static final String IMAP_FINISHED_JOB_STATE = "finishedJobState";
+    public static final String IMAP_FINISHED_JOB_STATE = "engine_finishedJobState";
 
-    public static final String IMAP_FINISHED_JOB_METRICS = "finishedJobMetrics";
+    public static final String IMAP_FINISHED_JOB_METRICS = "engine_finishedJobMetrics";
 
-    public static final String IMAP_FINISHED_JOB_VERTEX_INFO = "finishedJobVertexInfo";
+    public static final String IMAP_FINISHED_JOB_VERTEX_INFO = "engine_finishedJobVertexInfo";
 
     public static final String IMAP_STATE_TIMESTAMPS = "engine_stateTimestamps";
 
     public static final String IMAP_OWNED_SLOT_PROFILES = "engine_ownedSlotProfilesIMap";
 
-    public static final String IMAP_RESOURCE_MANAGER_REGISTER_WORKER = "ResourceManager_RegisterWorker";
+    public static final String IMAP_RESOURCE_MANAGER_REGISTER_WORKER = "engine_ResourceManager_RegisterWorker";
 }
