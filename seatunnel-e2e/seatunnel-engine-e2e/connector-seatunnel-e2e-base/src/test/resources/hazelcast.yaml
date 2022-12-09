@@ -37,10 +37,9 @@ hazelcast:
       map-store:
         enabled: true
         initial-mode: EAGER
-        class-name: org.apache.seatunnel.engine.server.persistence.FileMapStore
+        factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
         properties:
           namespace: /tmp/imap-kris-test/2
-          businessName: random
           clusterName: test-one
           fs.defaultFS: file:///
 
