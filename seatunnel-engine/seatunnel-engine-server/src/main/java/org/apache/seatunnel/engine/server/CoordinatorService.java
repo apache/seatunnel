@@ -194,9 +194,11 @@ public class CoordinatorService {
                 collect.toArray(new CompletableFuture[0]));
             voidCompletableFuture.get();
         } catch (Exception e) {
-            StringBuffer sbr = new StringBuffer("init job error info: ");
-            COLLECTED_EXCEPTIONS.forEach(throwable -> sbr.append(ExceptionUtils.getMessage(throwable)));
-            logger.severe(String.valueOf(sbr));
+            if (!COLLECTED_EXCEPTIONS.isEmpty()) {
+                StringBuffer sbr = new StringBuffer("init job error info: ");
+                COLLECTED_EXCEPTIONS.forEach(throwable -> sbr.append(ExceptionUtils.getMessage(throwable)));
+                logger.severe(String.valueOf(sbr));
+            }
             throw new SeaTunnelEngineException(e);
         }
     }

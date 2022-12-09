@@ -78,7 +78,6 @@ public class ProtoStuffSerializer implements Serializer {
         WRAPPERS.add(Hashtable.class);
         WRAPPERS.add(SortedMap.class);
         WRAPPERS.add(Long[].class);
-        System.setProperty("protostuff.runtime.preserve_null_elements", "true");
     }
 
     @Override
