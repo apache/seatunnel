@@ -120,8 +120,8 @@ Sink plugin common parameters, please refer to [Sink Common Options](common-opti
 
 ```hocon
   ClickhouseFile {
-  host = "192.168.0.1:8123"
-  database = "default"
+    host = "192.168.0.1:8123"
+    database = "default"
     table = "fake_all"
     username = "default"
     password = ""
