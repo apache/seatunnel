@@ -35,8 +35,8 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | path                      | string  | yes      | -                   |
 | type                      | string  | yes      | -                   |
 | bucket                    | string  | yes      | -                   |
-| access_key                | string  | yes      | -                   |
-| access_secret             | string  | yes      | -                   |
+| access_key                | string  | no       | -                   |
+| access_secret             | string  | no       | -                   |
 | hadoop_s3_properties      | map     | no       | -                   |
 | delimiter                 | string  | no       | \001                |
 | parse_partition_from_path | boolean | no       | true                |
@@ -188,11 +188,11 @@ The bucket address of s3 file system, for example: `s3n://seatunnel-test`, if yo
 
 ### access_key [string]
 
-The access key of s3 file system.
+The access key of s3 file system. If this parameter is not set, please confirm that the credential provider chain can be authenticated correctly, you could check this [hadoop-aws](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)
 
 ### access_secret [string]
 
-The access secret of s3 file system.
+The access secret of s3 file system. If this parameter is not set, please confirm that the credential provider chain can be authenticated correctly, you could check this [hadoop-aws](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)
 
 ### hadoop_s3_properties [map]
 

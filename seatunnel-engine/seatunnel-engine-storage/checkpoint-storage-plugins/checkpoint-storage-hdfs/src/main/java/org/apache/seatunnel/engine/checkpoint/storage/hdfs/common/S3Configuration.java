@@ -31,7 +31,7 @@ import java.util.Map;
  * we just support s3n and s3a protocol.
  * some hadoop low version not support s3a, if you want to use s3a, you should check your hadoop version first.
  * <p>
- * access, secret and bucket is required, and the default schema is s3n
+ * bucket is required, and the default schema is s3n
  * we used the bucket name to get the protocol,if you used s3a, this bucket name must be s3a://bucket, if you used s3n, this bucket name must be s3n://bucket
  * <p>
  * other configuration is optional, if you need to set other configuration, you can set it in the config
@@ -46,8 +46,6 @@ import java.util.Map;
 public class S3Configuration extends AbstractConfiguration {
 
     /**************** S3 required keys ***************/
-    public static final String S3_ACCESS_KEY = "access.key";
-    public static final String S3_SECRET_KEY = "secret.key";
     public static final String S3_BUCKET_KEY = "s3.bucket";
 
 
@@ -62,7 +60,7 @@ public class S3Configuration extends AbstractConfiguration {
 
     @Override
     public Configuration buildConfiguration(Map<String, String> config) {
-        checkConfiguration(config, S3_ACCESS_KEY, S3_SECRET_KEY, S3_BUCKET_KEY);
+        checkConfiguration(config, S3_BUCKET_KEY);
         String protocol = DEFAULT_PROTOCOL;
         if (config.get(S3_BUCKET_KEY).startsWith(S3A_PROTOCOL)) {
             protocol = S3A_PROTOCOL;
@@ -70,8 +68,6 @@ public class S3Configuration extends AbstractConfiguration {
         String fsImpl = protocol.equals(S3A_PROTOCOL) ? HDFS_S3A_IMPL : HDFS_S3N_IMPL;
         Configuration hadoopConf = new Configuration();
         hadoopConf.set(FS_DEFAULT_NAME_KEY, config.get(S3_BUCKET_KEY));
-        hadoopConf.set(formatKey(protocol, S3_ACCESS_KEY), config.get(S3_ACCESS_KEY));
-        hadoopConf.set(formatKey(protocol, S3_SECRET_KEY), config.get(S3_SECRET_KEY));
         hadoopConf.set(formatKey(protocol, HDFS_IMPL_KEY), fsImpl);
         setExtraConfiguration(hadoopConf, config, FS_KEY + protocol + SPLIT_CHAR);
         return hadoopConf;
