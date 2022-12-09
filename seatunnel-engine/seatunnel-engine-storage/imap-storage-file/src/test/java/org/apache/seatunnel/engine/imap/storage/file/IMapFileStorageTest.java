@@ -90,7 +90,7 @@ public class IMapFileStorageTest {
         Assertions.assertEquals(keyValue, loadAllDatas.get(key50Index));
         Assertions.assertEquals(keyValue, loadAllDatas.get(key2Index));
         Assertions.assertNull(loadAllDatas.get(key1Index));
-        storage.destroy();
+        storage.destroy(true);
     }
 
     @AfterAll
