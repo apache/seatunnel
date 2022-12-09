@@ -72,6 +72,9 @@ public class S3Conf extends HadoopConf {
     }
 
     private static void putS3SK(Map<String, String> s3Options, Config config) {
+        if (!CheckConfigUtil.isValidParam(config, S3Config.S3_ACCESS_KEY.key()) && CheckConfigUtil.isValidParam(config, S3Config.S3_SECRET_KEY.key())) {
+            return;
+        }
         String accessKey = config.getString(S3Config.S3_ACCESS_KEY.key());
         String secretKey = config.getString(S3Config.S3_SECRET_KEY.key());
         if (S3A_SCHEMA.equals(SCHEMA)) {
@@ -83,4 +86,5 @@ public class S3Conf extends HadoopConf {
         s3Options.put("fs.s3n.awsAccessKeyId", accessKey);
         s3Options.put("fs.s3n.awsSecretAccessKey", secretKey);
     }
+
 }
