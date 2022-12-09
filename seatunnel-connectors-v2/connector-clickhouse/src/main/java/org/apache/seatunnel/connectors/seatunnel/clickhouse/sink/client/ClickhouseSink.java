@@ -67,6 +67,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -179,7 +180,12 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
 
         String[] primaryKeys = null;
         if (config.hasPath(PRIMARY_KEY.key())) {
-            primaryKeys = new String[]{config.getString(PRIMARY_KEY.key())};
+            String primaryKey = config.getString(PRIMARY_KEY.key());
+            if (shardKey != null && !Objects.equals(primaryKey, shardKey)) {
+                throw new ClickhouseConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                    "sharding_key and primary_key must be consistent to ensure correct processing of cdc events");
+            }
+            primaryKeys = new String[]{primaryKey};
         }
         boolean supportUpsert = SUPPORT_UPSERT.defaultValue();
         if (config.hasPath(SUPPORT_UPSERT.key())) {
