@@ -262,3 +262,4 @@ Source plugin common parameters, please refer to [Source Common Options](common-
   - Allow user to add additional hadoop-s3 parameters
   - Allow the use of the s3a protocol
   - Decouple hadoop-aws dependencies
+- [Feature]Set S3 AK to optional ([3688](https://github.com/apache/incubator-seatunnel/pull/))

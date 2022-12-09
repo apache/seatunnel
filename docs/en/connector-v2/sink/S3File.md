@@ -236,3 +236,4 @@ For orc file format
   - Allow the use of the s3a protocol
   - Decouple hadoop-aws dependencies
 - [Improve] Support setting batch size for every file ([3625](https://github.com/apache/incubator-seatunnel/pull/3625))
+- [Feature]Set S3 AK to optional ([3688](https://github.com/apache/incubator-seatunnel/pull/))
