@@ -35,7 +35,7 @@ public class SqlServerSnapshotFetchTask implements FetchTask<SourceSplitBase> {
     }
 
     @Override
-    public void execute(Context context) throws Exception {
+    public void execute(FetchTask.Context context) throws Exception {
         SqlServerSourceFetchTaskContext sourceFetchContext = (SqlServerSourceFetchTaskContext) context;
         taskRunning = true;
         snapshotSplitReadTask =

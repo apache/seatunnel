@@ -32,8 +32,7 @@ import java.nio.file.Paths;
 public class SeaTunnelEngineExample {
 
     public static void main(String[] args) throws FileNotFoundException, URISyntaxException, CommandException {
-        String configFile = getTestConfigFile("/examples/sqlservercdc_to_console.conf");
-//        String configFile = getTestConfigFile("/examples/mysqlcdc_to_console.conf");
+        String configFile = getTestConfigFile("/examples/fake_to_console.conf");
         ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
         clientCommandArgs.setConfigFile(configFile);
         clientCommandArgs.setCheckConfig(false);

@@ -49,10 +49,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/** The utils for SqlServer data source. */
+/**
+ * The utils for SqlServer data source.
+ */
 public class SqlServerUtils {
 
-    public SqlServerUtils() {}
+    public SqlServerUtils() {
+    }
 
     public static Object[] queryMinMax(JdbcConnection jdbc, TableId tableId, String columnName)
         throws SQLException {
@@ -75,48 +78,48 @@ public class SqlServerUtils {
     }
 
     public static long queryApproximateRowCnt(JdbcConnection jdbc, TableId tableId)
-            throws SQLException {
+        throws SQLException {
         // The statement used to get approximate row count which is less
         // accurate than COUNT(*), but is more efficient for large table.
         final String useDatabaseStatement = String.format("USE %s;", quote(tableId.catalog()));
         final String rowCountQuery =
-                String.format(
-                        "SELECT Total_Rows = SUM(st.row_count) FROM sys"
-                                + ".dm_db_partition_stats st WHERE object_name(object_id) = '%s' AND index_id < 2;",
-                        tableId.table());
+            String.format(
+                "SELECT Total_Rows = SUM(st.row_count) FROM sys"
+                    + ".dm_db_partition_stats st WHERE object_name(object_id) = '%s' AND index_id < 2;",
+                tableId.table());
         jdbc.executeWithoutCommitting(useDatabaseStatement);
         return jdbc.queryAndMap(
-                rowCountQuery,
-                rs -> {
-                    if (!rs.next()) {
-                        throw new SQLException(
-                                String.format(
-                                        "No result returned after running query [%s]",
-                                        rowCountQuery));
-                    }
-                    return rs.getLong(1);
-                });
+            rowCountQuery,
+            rs -> {
+                if (!rs.next()) {
+                    throw new SQLException(
+                        String.format(
+                            "No result returned after running query [%s]",
+                            rowCountQuery));
+                }
+                return rs.getLong(1);
+            });
     }
 
     public static Object queryMin(
-            JdbcConnection jdbc, TableId tableId, String columnName, Object excludedLowerBound)
-            throws SQLException {
+        JdbcConnection jdbc, TableId tableId, String columnName, Object excludedLowerBound)
+        throws SQLException {
         final String minQuery =
-                String.format(
-                        "SELECT MIN(%s) FROM %s WHERE %s > ?",
-                        quote(columnName), quote(tableId), quote(columnName));
+            String.format(
+                "SELECT MIN(%s) FROM %s WHERE %s > ?",
+                quote(columnName), quote(tableId), quote(columnName));
         return jdbc.prepareQueryAndMap(
-                minQuery,
-                ps -> ps.setObject(1, excludedLowerBound),
-                rs -> {
-                    if (!rs.next()) {
-                        // this should never happen
-                        throw new SQLException(
-                                String.format(
-                                        "No result returned after running query [%s]", minQuery));
-                    }
-                    return rs.getObject(1);
-                });
+            minQuery,
+            ps -> ps.setObject(1, excludedLowerBound),
+            rs -> {
+                if (!rs.next()) {
+                    // this should never happen
+                    throw new SQLException(
+                        String.format(
+                            "No result returned after running query [%s]", minQuery));
+                }
+                return rs.getObject(1);
+            });
     }
 
     /**
@@ -124,36 +127,36 @@ public class SqlServerUtils {
      * was read from the database.
      */
     public static Object queryNextChunkMax(
-            JdbcConnection jdbc,
-            TableId tableId,
-            String splitColumnName,
-            int chunkSize,
-            Object includedLowerBound)
-            throws SQLException {
+        JdbcConnection jdbc,
+        TableId tableId,
+        String splitColumnName,
+        int chunkSize,
+        Object includedLowerBound)
+        throws SQLException {
         String quotedColumn = quote(splitColumnName);
         String query =
-                String.format(
-                        "SELECT MAX(%s) FROM ("
-                                + "SELECT TOP (%s) %s FROM %s WHERE %s >= ? ORDER BY %s ASC "
-                                + ") AS T",
-                        quotedColumn,
-                        chunkSize,
-                        quotedColumn,
-                        quote(tableId),
-                        quotedColumn,
-                        quotedColumn);
+            String.format(
+                "SELECT MAX(%s) FROM ("
+                    + "SELECT TOP (%s) %s FROM %s WHERE %s >= ? ORDER BY %s ASC "
+                    + ") AS T",
+                quotedColumn,
+                chunkSize,
+                quotedColumn,
+                quote(tableId),
+                quotedColumn,
+                quotedColumn);
         return jdbc.prepareQueryAndMap(
-                query,
-                ps -> ps.setObject(1, includedLowerBound),
-                rs -> {
-                    if (!rs.next()) {
-                        // this should never happen
-                        throw new SQLException(
-                                String.format(
-                                        "No result returned after running query [%s]", query));
-                    }
-                    return rs.getObject(1);
-                });
+            query,
+            ps -> ps.setObject(1, includedLowerBound),
+            rs -> {
+                if (!rs.next()) {
+                    // this should never happen
+                    throw new SQLException(
+                        String.format(
+                            "No result returned after running query [%s]", query));
+                }
+                return rs.getObject(1);
+            });
     }
 
     public static SeaTunnelRowType getSplitType(Table table) {
@@ -183,12 +186,14 @@ public class SqlServerUtils {
         Map<String, String> offsetStrMap = new HashMap<>();
         for (Map.Entry<String, ?> entry : offset.entrySet()) {
             offsetStrMap.put(
-                    entry.getKey(), entry.getValue() == null ? null : entry.getValue().toString());
+                entry.getKey(), entry.getValue() == null ? null : entry.getValue().toString());
         }
         return new LsnOffset(Lsn.valueOf(offsetStrMap.get(SourceInfo.CHANGE_LSN_KEY)));
     }
 
-    /** Fetch current largest log sequence number (LSN) of the database. */
+    /**
+     * Fetch current largest log sequence number (LSN) of the database.
+     */
     public static LsnOffset currentLsn(SqlServerConnection connection) {
         try {
             Lsn maxLsn = connection.getMaxLsn();
@@ -198,22 +203,26 @@ public class SqlServerUtils {
         }
     }
 
-    /** Get split scan query for the given table. */
+    /**
+     * Get split scan query for the given table.
+     */
     public static String buildSplitScanQuery(
         TableId tableId, SeaTunnelRowType rowType, boolean isFirstSplit, boolean isLastSplit) {
         return buildSplitQuery(tableId, rowType, isFirstSplit, isLastSplit, -1, true);
     }
 
-    /** Get table split data PreparedStatement. */
+    /**
+     * Get table split data PreparedStatement.
+     */
     public static PreparedStatement readTableSplitDataStatement(
-            JdbcConnection jdbc,
-            String sql,
-            boolean isFirstSplit,
-            boolean isLastSplit,
-            Object[] splitStart,
-            Object[] splitEnd,
-            int primaryKeyNum,
-            int fetchSize) {
+        JdbcConnection jdbc,
+        String sql,
+        boolean isFirstSplit,
+        boolean isLastSplit,
+        Object[] splitStart,
+        Object[] splitEnd,
+        int primaryKeyNum,
+        int fetchSize) {
         try {
             final PreparedStatement statement = initStatement(jdbc, sql, fetchSize);
             if (isFirstSplit && isLastSplit) {
@@ -242,18 +251,18 @@ public class SqlServerUtils {
     }
 
     public static SqlServerDatabaseSchema createSqlServerDatabaseSchema(
-            SqlServerConnectorConfig connectorConfig) {
+        SqlServerConnectorConfig connectorConfig) {
         TopicSelector<TableId> topicSelector =
-                SqlServerTopicSelector.defaultSelector(connectorConfig);
+            SqlServerTopicSelector.defaultSelector(connectorConfig);
         SchemaNameAdjuster schemaNameAdjuster = SchemaNameAdjuster.create();
         SqlServerValueConverters valueConverters =
-                new SqlServerValueConverters(
-                        connectorConfig.getDecimalMode(),
-                        connectorConfig.getTemporalPrecisionMode(),
-                        connectorConfig.binaryHandlingMode());
+            new SqlServerValueConverters(
+                connectorConfig.getDecimalMode(),
+                connectorConfig.getTemporalPrecisionMode(),
+                connectorConfig.binaryHandlingMode());
 
         return new SqlServerDatabaseSchema(
-                connectorConfig, valueConverters, topicSelector, schemaNameAdjuster);
+            connectorConfig, valueConverters, topicSelector, schemaNameAdjuster);
     }
 
     private static String getPrimaryKeyColumnsProjection(SeaTunnelRowType rowType) {
@@ -322,7 +331,7 @@ public class SqlServerUtils {
     }
 
     private static PreparedStatement initStatement(JdbcConnection jdbc, String sql, int fetchSize)
-            throws SQLException {
+        throws SQLException {
         final Connection connection = jdbc.connection();
         connection.setAutoCommit(false);
         final PreparedStatement statement = connection.prepareStatement(sql);
@@ -343,11 +352,11 @@ public class SqlServerUtils {
     }
 
     private static String buildSelectWithRowLimits(
-            TableId tableId,
-            int limit,
-            String projection,
-            Optional<String> condition,
-            Optional<String> orderBy) {
+        TableId tableId,
+        int limit,
+        String projection,
+        Optional<String> condition,
+        Optional<String> orderBy) {
         final StringBuilder sql = new StringBuilder("SELECT ");
         if (limit > 0) {
             sql.append(" TOP( ").append(limit).append(") ");
@@ -394,12 +403,12 @@ public class SqlServerUtils {
     }
 
     private static String buildSelectWithBoundaryRowLimits(
-            TableId tableId,
-            int limit,
-            String projection,
-            String maxColumnProjection,
-            Optional<String> condition,
-            String orderBy) {
+        TableId tableId,
+        int limit,
+        String projection,
+        String maxColumnProjection,
+        Optional<String> condition,
+        String orderBy) {
         final StringBuilder sql = new StringBuilder("SELECT ");
         sql.append(maxColumnProjection);
         sql.append(" FROM (");

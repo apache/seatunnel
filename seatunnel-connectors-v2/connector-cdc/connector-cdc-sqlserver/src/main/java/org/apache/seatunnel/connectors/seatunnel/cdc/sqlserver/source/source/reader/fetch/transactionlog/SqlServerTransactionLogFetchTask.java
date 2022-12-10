@@ -35,7 +35,7 @@ public class SqlServerTransactionLogFetchTask implements FetchTask<SourceSplitBa
     }
 
     @Override
-    public void execute(Context context) throws Exception {
+    public void execute(FetchTask.Context context) throws Exception {
         SqlServerSourceFetchTaskContext sourceFetchContext = (SqlServerSourceFetchTaskContext) context;
         taskRunning = true;
 

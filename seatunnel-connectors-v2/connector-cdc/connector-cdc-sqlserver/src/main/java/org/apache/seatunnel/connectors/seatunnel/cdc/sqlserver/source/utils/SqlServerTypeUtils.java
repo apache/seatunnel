@@ -41,6 +41,8 @@ public class SqlServerTypeUtils {
             case Types.NVARCHAR:
             case Types.STRUCT:
             case Types.CLOB:
+            case Types.LONGVARCHAR:
+            case Types.LONGNVARCHAR:
                 return BasicType.STRING_TYPE;
             case Types.BLOB:
                 return PrimitiveByteArrayType.INSTANCE;
@@ -49,16 +51,24 @@ public class SqlServerTypeUtils {
             case Types.SMALLINT:
             case Types.TINYINT:
                 return BasicType.SHORT_TYPE;
+            case Types.BIGINT:
+                return BasicType.LONG_TYPE;
             case Types.FLOAT:
             case Types.REAL:
+                return BasicType.FLOAT_TYPE;
             case Types.DOUBLE:
                 return BasicType.DOUBLE_TYPE;
             case Types.NUMERIC:
             case Types.DECIMAL:
                 return new DecimalType(column.length(), column.scale().orElse(0));
+            case Types.TIMESTAMP:
+                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case Types.DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;
+            case Types.TIME:
+                return LocalTimeType.LOCAL_TIME_TYPE;
             case Types.BOOLEAN:
+            case Types.BIT:
                 return BasicType.BOOLEAN_TYPE;
             default:
                 throw new UnsupportedOperationException(

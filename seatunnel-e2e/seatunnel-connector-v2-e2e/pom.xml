@@ -27,6 +27,7 @@
         <module>connector-assert-e2e</module>
         <module>connector-jdbc-e2e</module>
         <module>connector-redis-e2e</module>
+        <module>connector-cdc-sqlserver-e2e</module>
         <module>connector-clickhouse-e2e</module>
         <module>connector-starrocks-e2e</module>
         <module>connector-influxdb-e2e</module>

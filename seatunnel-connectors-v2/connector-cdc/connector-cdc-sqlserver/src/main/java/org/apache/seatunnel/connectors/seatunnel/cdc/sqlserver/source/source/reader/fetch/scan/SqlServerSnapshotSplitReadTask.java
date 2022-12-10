@@ -30,6 +30,7 @@ import io.debezium.connector.sqlserver.SqlServerDatabaseSchema;
 import io.debezium.connector.sqlserver.SqlServerOffsetContext;
 import io.debezium.pipeline.EventDispatcher;
 import io.debezium.pipeline.source.AbstractSnapshotChangeEventSource;
+import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.pipeline.source.spi.SnapshotProgressListener;
 import io.debezium.pipeline.spi.ChangeRecordEmitter;
 import io.debezium.pipeline.spi.OffsetContext;
@@ -89,7 +90,7 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
 
     @Override
     public SnapshotResult execute(
-        ChangeEventSourceContext context, OffsetContext previousOffset)
+        ChangeEventSource.ChangeEventSourceContext context, OffsetContext previousOffset)
         throws InterruptedException {
         SnapshottingTask snapshottingTask = getSnapshottingTask(previousOffset);
         final SnapshotContext ctx;
@@ -111,13 +112,12 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
 
     @Override
     protected SnapshotResult doExecute(
-        ChangeEventSourceContext context,
+        ChangeEventSource.ChangeEventSourceContext context,
         OffsetContext previousOffset,
-        SnapshotContext snapshotContext,
-        SnapshottingTask snapshottingTask)
+        AbstractSnapshotChangeEventSource.SnapshotContext snapshotContext,
+        AbstractSnapshotChangeEventSource.SnapshottingTask snapshottingTask)
         throws Exception {
-        final RelationalSnapshotChangeEventSource.RelationalSnapshotContext ctx =
-            (RelationalSnapshotChangeEventSource.RelationalSnapshotContext) snapshotContext;
+        final SqlSeverSnapshotContext ctx = (SqlSeverSnapshotContext) snapshotContext;
         ctx.offset = offsetContext;
 
         final LsnOffset lowWatermark = SqlServerUtils.currentLsn(jdbcConnection);
@@ -144,18 +144,18 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
     }
 
     @Override
-    protected SnapshottingTask getSnapshottingTask(OffsetContext previousOffset) {
+    protected AbstractSnapshotChangeEventSource.SnapshottingTask getSnapshottingTask(OffsetContext previousOffset) {
         return new SnapshottingTask(false, true);
     }
 
     @Override
-    protected SnapshotContext prepare(ChangeEventSourceContext changeEventSourceContext)
+    protected AbstractSnapshotChangeEventSource.SnapshotContext prepare(ChangeEventSource.ChangeEventSourceContext changeEventSourceContext)
         throws Exception {
         return new SqlSeverSnapshotContext();
     }
 
     private void createDataEvents(
-        RelationalSnapshotChangeEventSource.RelationalSnapshotContext snapshotContext,
+        SqlSeverSnapshotContext snapshotContext,
         TableId tableId)
         throws Exception {
         EventDispatcher.SnapshotReceiver snapshotReceiver = dispatcher.getSnapshotChangeEventReceiver();
@@ -167,7 +167,7 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
 
     /** Dispatches the data change events for the records of a single table. */
     private void createDataEventsForTable(
-        RelationalSnapshotChangeEventSource.RelationalSnapshotContext snapshotContext,
+        SqlSeverSnapshotContext snapshotContext,
         EventDispatcher.SnapshotReceiver snapshotReceiver,
         Table table)
         throws InterruptedException {
@@ -240,7 +240,7 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
     }
 
     protected ChangeRecordEmitter getChangeRecordEmitter(
-        SnapshotContext snapshotContext, TableId tableId, Object[] row) {
+        SqlSeverSnapshotContext snapshotContext, TableId tableId, Object[] row) {
         snapshotContext.offset.event(tableId, clock.currentTime());
         return new SnapshotChangeRecordEmitter(snapshotContext.offset, row, clock);
     }
