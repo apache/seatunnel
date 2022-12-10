@@ -513,8 +513,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             logger.info("taskDone: " + taskGroup.getTaskGroupLocation());
             if (completionLatch.decrementAndGet() == 0) {
                 TaskGroupLocation taskGroupLocation = taskGroup.getTaskGroupLocation();
-                finishedExecutionContexts.put(taskGroupLocation, executionContexts.get(taskGroupLocation));
-                executionContexts.remove(taskGroupLocation);
+                finishedExecutionContexts.put(taskGroupLocation, executionContexts.remove(taskGroupLocation));
                 cancellationFutures.remove(taskGroupLocation);
                 Throwable ex = executionException.get();
                 if (ex == null) {
