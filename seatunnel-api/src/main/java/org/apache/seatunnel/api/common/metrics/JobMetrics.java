@@ -149,7 +149,7 @@ public final class JobMetrics implements Serializable {
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         try {
-            return objectMapper.writeValueAsString(this.metrics);
+            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(this.metrics);
         } catch (JsonProcessingException e) {
             ObjectNode objectNode = objectMapper.createObjectNode();
             objectNode.put("err", "serialize JobMetrics err");

@@ -130,6 +130,9 @@ public class JdbcInputFormat implements Serializable {
      */
     public void open(JdbcSourceSplit inputSplit) throws IOException {
         try {
+            if (!connectionProvider.isConnectionValid()) {
+                openInputFormat();
+            }
             Object[] parameterValues = inputSplit.getParameterValues();
             if (parameterValues != null) {
                 for (int i = 0; i < parameterValues.length; i++) {
