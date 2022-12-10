@@ -79,4 +79,4 @@ source {
 
 ### next version
 
-- Add Maxcompute Source Connector
+- [Feature] Add Maxcompute Source Connector([3640](https://github.com/apache/incubator-seatunnel/pull/3640))
