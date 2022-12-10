@@ -76,4 +76,4 @@ sink {
 
 ### next version
 
-- Add Maxcompute Sink Connector
+- [Feature] Add Maxcompute Sink Connector([3640](https://github.com/apache/incubator-seatunnel/pull/3640))
