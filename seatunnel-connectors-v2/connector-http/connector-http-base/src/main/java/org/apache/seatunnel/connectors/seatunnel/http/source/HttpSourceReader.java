@@ -113,21 +113,17 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     private List<Map<String, String>> parseToMap(List<List<String>> datas, JsonField jsonField) {
-        List<Map<String, String>> decodeDatas = new ArrayList<>(datas.get(0).size());
+        List<Map<String, String>> decodeDatas = new ArrayList<>(datas.size());
         String[] keys = jsonField.getFields().keySet().toArray(new String[]{});
-        for (int index = 0; index < jsonField.getFields().size(); index++) {
-            int finalIndex = index;
-            datas.get(index).forEach(field -> {
-                if (decodeDatas.isEmpty() || decodeDatas.size() != datas.get(0).size()) {
-                    Map<String, String> decodeData = new HashMap<>(jsonField.getFields().size());
-                    decodeData.put(keys[finalIndex], field);
-                    decodeDatas.add(decodeData);
-                } else {
-                    decodeDatas.forEach(decodeData -> {
-                        decodeData.put(keys[finalIndex], field);
-                    });
-                }
+
+        for (List<String> data : datas) {
+            Map<String, String> decodeData = new HashMap<>(jsonField.getFields().size());
+            final int[] index = {0};
+            data.forEach(field -> {
+                decodeData.put(keys[index[0]], field);
+                index[0]++;
             });
+            decodeDatas.add(decodeData);
         }
 
         return decodeDatas;
@@ -187,7 +183,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private void initJsonPath(JsonField jsonField) {
         jsonPaths = new JsonPath[jsonField.getFields().size()];
         for (int index = 0; index < jsonField.getFields().keySet().size(); index++) {
-            jsonPaths[index] = JsonPath.compile(jsonField.getFields().keySet().toArray(new String[]{})[index]);
+            jsonPaths[index] = JsonPath.compile(jsonField.getFields().values().toArray(new String[]{})[index]);
         }
     }
 }

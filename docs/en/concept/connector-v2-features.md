@@ -63,3 +63,7 @@ For sink connector, the sink connector supports exactly-once if any piece of dat
 ### schema projection
 
 If a sink connector supports the fields and their types or redefine columns order written in the configuration, we think it supports schema projection.
+
+### cdc(change data capture)
+
+If a sink connector supports writing row kinds(INSERT/UPDATE_BEFORE/UPDATE_AFTER/DELETE) based on primary key, we think it supports cdc(change data capture).

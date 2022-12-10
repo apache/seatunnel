@@ -40,7 +40,7 @@ http request url
 
 ### password [String]
 
-API key for login, you can get it at this link:
+API key for login, you can get more detail at this link:
 
 https://app.lemlist.com/settings/integrations
 

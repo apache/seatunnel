@@ -40,6 +40,7 @@ public class BaseTextFileConfig implements DelimiterConfig, CompressConfig, Seri
     protected String compressCodec;
     protected String fieldDelimiter = BaseSinkConfig.FIELD_DELIMITER.defaultValue();
     protected String rowDelimiter = BaseSinkConfig.ROW_DELIMITER.defaultValue();
+    protected int batchSize = BaseSinkConfig.BATCH_SIZE.defaultValue();
     protected String path;
     protected String fileNameExpression;
     protected FileFormat fileFormat = FileFormat.TEXT;
@@ -52,7 +53,9 @@ public class BaseTextFileConfig implements DelimiterConfig, CompressConfig, Seri
             throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
                     "Compress not supported by SeaTunnel file connector now");
         }
-
+        if (config.hasPath(BaseSinkConfig.BATCH_SIZE.key())) {
+            this.batchSize = config.getInt(BaseSinkConfig.BATCH_SIZE.key());
+        }
         if (config.hasPath(BaseSinkConfig.FIELD_DELIMITER.key()) &&
                 StringUtils.isNotEmpty(config.getString(BaseSinkConfig.FIELD_DELIMITER.key()))) {
             this.fieldDelimiter = config.getString(BaseSinkConfig.FIELD_DELIMITER.key());

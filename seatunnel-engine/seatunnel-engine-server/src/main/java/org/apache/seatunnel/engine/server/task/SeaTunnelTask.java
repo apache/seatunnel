@@ -118,11 +118,11 @@ public abstract class SeaTunnelTask extends AbstractTask {
     @Override
     public void init() throws Exception {
         super.init();
+        metricsContext = new MetricsContext();
         this.currState = SeaTunnelTaskState.INIT;
         flowFutures = new ArrayList<>();
         allCycles = new ArrayList<>();
         startFlowLifeCycle = convertFlowToActionLifeCycle(executionFlow);
-        metricsContext = new MetricsContext();
         for (FlowLifeCycle cycle : allCycles) {
             cycle.init();
         }
@@ -206,7 +206,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
             } else if (f.getAction() instanceof SinkAction) {
                 lifeCycle = new SinkFlowLifeCycle<>((SinkAction) f.getAction(), taskLocation, indexID, this,
                     ((SinkConfig) f.getConfig()).getCommitterTask(),
-                    ((SinkConfig) f.getConfig()).isContainCommitter(), completableFuture);
+                    ((SinkConfig) f.getConfig()).isContainCommitter(),
+                    completableFuture, this.getMetricsContext());
             } else if (f.getAction() instanceof TransformChainAction) {
                 lifeCycle =
                     new TransformFlowLifeCycle<SeaTunnelRow>((TransformChainAction) f.getAction(), this,

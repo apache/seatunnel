@@ -75,6 +75,8 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             } else if (null != clientCommandArgs.getJobId()) {
                 String jobState = engineClient.getJobDetailStatus(Long.parseLong(clientCommandArgs.getJobId()));
                 System.out.println(jobState);
+            } else if (null != clientCommandArgs.getCancelJobId()) {
+                engineClient.cancelJob(Long.parseLong(clientCommandArgs.getCancelJobId()));
             } else {
                 Path configFile = FileUtils.getConfigPath(clientCommandArgs);
                 checkConfigExist(configFile);
