@@ -304,7 +304,17 @@ public class CheckpointCoordinator {
         pendingCompletableFuture.thenAcceptAsync(pendingCheckpoint -> {
             LOG.info("wait checkpoint completed: " + pendingCheckpoint.getCheckpointId());
             PassiveCompletableFuture<CompletedCheckpoint> completableFuture = pendingCheckpoint.getCompletableFuture();
-            completableFuture.thenAcceptAsync(this::completePendingCheckpoint);
+            completableFuture.whenCompleteAsync((completedCheckpoint, error) -> {
+                if (error != null) {
+                    LOG.error("trigger checkpoint failed", error);
+                } else {
+                    try {
+                        completePendingCheckpoint(completedCheckpoint);
+                    } catch (Throwable e) {
+                        LOG.error("complete checkpoint failed", e);
+                    }
+                }
+            });
 
             // Trigger the barrier and wait for all tasks to ACK
             LOG.debug("trigger checkpoint barrier {}/{}/{}, {}", pendingCheckpoint.getJobId(), pendingCheckpoint.getPipelineId(), pendingCheckpoint.getCheckpointId(), pendingCheckpoint.getCheckpointType());
