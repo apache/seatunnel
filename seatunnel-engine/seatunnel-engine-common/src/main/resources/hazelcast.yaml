@@ -39,7 +39,7 @@ hazelcast:
         initial-mode: EAGER
         factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
         properties:
-          namespace: /tmp/imap-liugddx-imap
+          namespace: /tmp/seatunnel/imap
           clusterName: seatunnel-clsuter
           fs.defaultFS: file:///
 
