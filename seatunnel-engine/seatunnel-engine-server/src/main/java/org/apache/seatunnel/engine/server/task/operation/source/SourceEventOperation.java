@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.api.source.SourceEvent;
+import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
@@ -30,7 +31,7 @@ import java.io.IOException;
 public abstract class SourceEventOperation extends TaskOperation {
     protected TaskLocation currentTaskLocation;
 
-    protected SourceEvent sourceEvent;
+    protected byte[] sourceEvent;
 
     public SourceEventOperation() {
     }
@@ -40,7 +41,7 @@ public abstract class SourceEventOperation extends TaskOperation {
                                 SourceEvent event) {
         super(targetTaskLocation);
         this.currentTaskLocation = currentTaskLocation;
-        this.sourceEvent = event;
+        this.sourceEvent = SerializationUtils.serialize(event);
     }
 
     @Override

@@ -7,6 +7,14 @@
 Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
 semantics (using XA transaction guarantee).
 
+:::tip
+
+Warn: for license compliance, you have to provide database driver yourself, copy to `$SEATNUNNEL_HOME/plugins/jdbc/lib/` directory in order to make them work.
+
+e.g. If you use MySQL, should download and copy `mysql-connector-java-xxx.jar` to `$SEATNUNNEL_HOME/plugins/jdbc/lib/`
+
+:::
+
 ## Key features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
@@ -15,6 +23,7 @@ Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` f
 support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 - [ ] [schema projection](../../concept/connector-v2-features.md)
+- [x] [cdc](../../concept/connector-v2-features.md)
 
 ## Options
 
@@ -39,9 +48,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 ### driver [string]
 
-The jdbc class name used to connect to the remote data source, if you use MySQL the value is com.mysql.cj.jdbc.Driver.
-Warn: for license compliance, you have to provide any driver yourself like MySQL JDBC Driver, e.g. copy mysql-connector-java-xxx.jar to
-$SEATNUNNEL_HOME/lib for Standalone.
+The jdbc class name used to connect to the remote data source, if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.
 
 ### user [string]
 

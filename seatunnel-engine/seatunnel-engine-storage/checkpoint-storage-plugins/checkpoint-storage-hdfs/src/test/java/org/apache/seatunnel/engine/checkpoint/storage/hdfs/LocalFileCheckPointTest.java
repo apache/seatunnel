@@ -20,11 +20,23 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.hdfs;
 
-public class HdfsConstants {
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 
-    public static final String HDFS_DEF_FS_NAME = "fs.defaultFS";
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
-    public static final String KERBEROS_PRINCIPAL = "kerberosPrincipal";
+import java.util.HashMap;
 
-    public static final String KERBEROS_KEYTAB_FILE_PATH = "kerberosKeytabFilePath";
+@EnabledOnOs({OS.LINUX, OS.MAC})
+public class LocalFileCheckPointTest extends AbstractFileCheckPointTest {
+
+    @BeforeAll
+    public static void setup() throws CheckpointStorageException {
+        HashMap config = new HashMap();
+        config.put("storageNameSpace", "/tmp/");
+        STORAGE = new HdfsStorage(config);
+        initStorageData();
+    }
+
 }
