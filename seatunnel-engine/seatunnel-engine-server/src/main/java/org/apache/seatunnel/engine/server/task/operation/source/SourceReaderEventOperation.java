@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.common.utils.RetryUtils;
+import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -50,7 +51,10 @@ public class SourceReaderEventOperation extends SourceEventOperation {
         RetryUtils.retryWithException(() -> {
             SourceSplitEnumeratorTask<?> task =
                 server.getTaskExecutionService().getTask(taskLocation);
-            task.handleSourceEvent(currentTaskLocation.getTaskIndex(), sourceEvent);
+            ClassLoader classLoader =
+                server.getTaskExecutionService().getExecutionContext(taskLocation.getTaskGroupLocation())
+                    .getClassLoader();
+            task.handleSourceEvent(currentTaskLocation.getTaskIndex(), SerializationUtils.deserialize(sourceEvent, classLoader));
             return null;
         }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
             exception -> exception instanceof NullPointerException &&
