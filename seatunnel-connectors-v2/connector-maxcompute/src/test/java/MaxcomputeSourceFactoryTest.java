@@ -15,22 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.config.server;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.sink.MaxcomputeSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.source.MaxcomputeSourceFactory;
 
-import lombok.Data;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-import java.util.HashMap;
-import java.util.Map;
-
-@Data
-public class CheckpointStorageConfig {
-
-    private String storage = ServerConfigOptions.CHECKPOINT_STORAGE_TYPE.defaultValue();
-
-    private int maxRetainedCheckpoints = ServerConfigOptions.CHECKPOINT_STORAGE_MAX_RETAINED.defaultValue();
-
-    /**
-     * Storage plugin instance configuration
-     */
-    private Map<String, String> storagePluginConfig = new HashMap<>();
+public class MaxcomputeSourceFactoryTest {
+    @Test
+    void optionRule() {
+        Assertions.assertNotNull((new MaxcomputeSourceFactory()).optionRule());
+        Assertions.assertNotNull((new MaxcomputeSinkFactory()).optionRule());
+    }
 }

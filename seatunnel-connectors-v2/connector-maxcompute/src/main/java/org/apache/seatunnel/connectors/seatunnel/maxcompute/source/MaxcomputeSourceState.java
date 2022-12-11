@@ -15,22 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.config.server;
+package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 
-import lombok.Data;
+import java.io.Serializable;
+import java.util.Set;
 
-import java.util.HashMap;
-import java.util.Map;
+public class MaxcomputeSourceState implements Serializable {
+    private Set<MaxcomputeSourceSplit> assignedSplit;
 
-@Data
-public class CheckpointStorageConfig {
+    public MaxcomputeSourceState(Set<MaxcomputeSourceSplit> assignedSplit) {
+        this.assignedSplit = assignedSplit;
+    }
 
-    private String storage = ServerConfigOptions.CHECKPOINT_STORAGE_TYPE.defaultValue();
-
-    private int maxRetainedCheckpoints = ServerConfigOptions.CHECKPOINT_STORAGE_MAX_RETAINED.defaultValue();
-
-    /**
-     * Storage plugin instance configuration
-     */
-    private Map<String, String> storagePluginConfig = new HashMap<>();
+    public Set<MaxcomputeSourceSplit> getAssignedSplit() {
+        return assignedSplit;
+    }
 }

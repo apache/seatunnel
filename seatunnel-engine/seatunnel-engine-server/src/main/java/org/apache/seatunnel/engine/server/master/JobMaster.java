@@ -197,6 +197,7 @@ public class JobMaster extends Thread {
         CheckpointStorageConfig storageConfig = new CheckpointStorageConfig();
         storageConfig.setMaxRetainedCheckpoints(engine.getStorage().getMaxRetainedCheckpoints());
         storageConfig.setStorage(engine.getStorage().getStorage());
+        storageConfig.setStoragePluginConfig(engine.getStorage().getStoragePluginConfig());
         checkpointConfig.setStorage(storageConfig);
         return checkpointConfig;
     }

@@ -15,22 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.config.server;
+package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 
-import lombok.Data;
+import org.apache.seatunnel.api.source.SourceSplit;
 
-import java.util.HashMap;
-import java.util.Map;
+import lombok.Getter;
 
-@Data
-public class CheckpointStorageConfig {
+public class MaxcomputeSourceSplit implements SourceSplit {
+    @Getter
+    private int splitId;
+    @Getter
+    private long rowNum;
 
-    private String storage = ServerConfigOptions.CHECKPOINT_STORAGE_TYPE.defaultValue();
+    public MaxcomputeSourceSplit(int splitId, long rowNum) {
+        this.splitId = splitId;
+        this.rowNum = rowNum;
+    }
 
-    private int maxRetainedCheckpoints = ServerConfigOptions.CHECKPOINT_STORAGE_MAX_RETAINED.defaultValue();
-
-    /**
-     * Storage plugin instance configuration
-     */
-    private Map<String, String> storagePluginConfig = new HashMap<>();
+    @Override
+    public String splitId() {
+        return String.valueOf(this.splitId);
+    }
 }

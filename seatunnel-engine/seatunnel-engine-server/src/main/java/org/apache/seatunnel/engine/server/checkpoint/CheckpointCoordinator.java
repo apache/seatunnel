@@ -28,7 +28,6 @@ import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.common.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.checkpoint.storage.common.Serializer;
-import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -52,7 +51,6 @@ import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -273,6 +271,7 @@ public class CheckpointCoordinator {
     private void waitingPendingCheckpointDone() {
         while (pendingCounter.get() != 0) {
             try {
+                LOG.info("waiting pending checkpoint completed, pending counter: " + pendingCounter.get());
                 Thread.sleep(500);
             } catch (InterruptedException e) {
                 throw new SeaTunnelEngineException(e);
@@ -305,7 +304,17 @@ public class CheckpointCoordinator {
         pendingCompletableFuture.thenAcceptAsync(pendingCheckpoint -> {
             LOG.info("wait checkpoint completed: " + pendingCheckpoint.getCheckpointId());
             PassiveCompletableFuture<CompletedCheckpoint> completableFuture = pendingCheckpoint.getCompletableFuture();
-            completableFuture.thenAcceptAsync(this::completePendingCheckpoint);
+            completableFuture.whenCompleteAsync((completedCheckpoint, error) -> {
+                if (error != null) {
+                    LOG.error("trigger checkpoint failed", error);
+                } else {
+                    try {
+                        completePendingCheckpoint(completedCheckpoint);
+                    } catch (Throwable e) {
+                        LOG.error("complete checkpoint failed", e);
+                    }
+                }
+            });
 
             // Trigger the barrier and wait for all tasks to ACK
             LOG.debug("trigger checkpoint barrier {}/{}/{}, {}", pendingCheckpoint.getJobId(), pendingCheckpoint.getPipelineId(), pendingCheckpoint.getCheckpointId(), pendingCheckpoint.getCheckpointType());
@@ -490,7 +499,8 @@ public class CheckpointCoordinator {
                     String.valueOf(superfluous.getPipelineId()),
                     String.valueOf(superfluous.getCheckpointId()));
             }
-        } catch (IOException | CheckpointStorageException e) {
+        } catch (Throwable e) {
+            LOG.error("store checkpoint states failed.", e);
             sneakyThrow(e);
         }
         LOG.info("pending checkpoint({}/{}@{}) notify finished!", completedCheckpoint.getCheckpointId(), completedCheckpoint.getPipelineId(), completedCheckpoint.getJobId());
