@@ -26,14 +26,20 @@ import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.map.IMap;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
@@ -725,5 +731,17 @@ public class ClusterFaultToleranceIT {
                 node3.shutdown();
             }
         }
+    }
+
+    @Test
+    public void testRecoveryJob() {
+        HazelcastInstanceImpl nodeEngine = SeaTunnelServerStarter.createHazelcastInstance(
+            TestUtils.getClusterName("testRecoveryJob"));
+
+        IMap<Long, JobInfo> runningJobInfoIMap = nodeEngine.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateIMap = nodeEngine.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Long[]> runningJobStateTimestampsIMap = nodeEngine.getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap = nodeEngine.getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+
     }
 }
