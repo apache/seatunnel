@@ -42,7 +42,7 @@ public class BaseTextFileConfig implements DelimiterConfig, CompressConfig, Seri
     protected String rowDelimiter = BaseSinkConfig.ROW_DELIMITER.defaultValue();
     protected int batchSize = BaseSinkConfig.BATCH_SIZE.defaultValue();
     protected String path;
-    protected String fileNameExpression;
+    protected String fileNameExpression = BaseSinkConfig.FILE_NAME_EXPRESSION.defaultValue();
     protected FileFormat fileFormat = FileFormat.TEXT;
     protected DateUtils.Formatter dateFormat = DateUtils.Formatter.YYYY_MM_DD;
     protected DateTimeUtils.Formatter datetimeFormat = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
