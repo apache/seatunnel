@@ -45,6 +45,12 @@ public class MongodbConfig implements Serializable {
             .noDefaultValue()
             .withDescription("MongoDB collection");
 
+    public static final Option<String> MATCHQUERY =
+            Options.key("matchQuery")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("matchQuery MongoDB collection");
+
     // Don't use now
     public static final String FORMAT = "format";
 

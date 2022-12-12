@@ -32,10 +32,12 @@ import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.Projections;
 import lombok.extern.slf4j.Slf4j;
+import org.bson.BsonDocument;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 
 import java.io.IOException;
+import java.util.Optional;
 
 @Slf4j
 public class MongodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
@@ -86,7 +88,7 @@ public class MongodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         try (MongoCursor<Document> mongoCursor = client.getDatabase(params.getDatabase())
             .getCollection(params.getCollection())
-            .find()
+            .find(Optional.ofNullable(params.getMatchQuery()).isPresent() ? BsonDocument.parse(params.getMatchQuery()) : new BsonDocument())
             .projection(projectionFields)
             .iterator()) {
             while (mongoCursor.hasNext()) {
