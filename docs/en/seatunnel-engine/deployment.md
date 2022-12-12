@@ -1,5 +1,5 @@
 ---
-sidebar_position: 2
+sidebar_position: 4
 ---
 
 # Deployment SeaTunnel Engine
@@ -8,9 +8,7 @@ sidebar_position: 2
 
 SeaTunnel Engine is the default engine of SeaTunnel. The installation package of SeaTunnel already contains all the contents of SeaTunnel Engine.
 
-## 2. Config Cluster
-
-### 2.1 Config SEATUNNEL_HOME
+## 2 Config SEATUNNEL_HOME
 
 You can config `SEATUNNEL_HOME` by add `/etc/profile.d/seatunnel.sh` file. The content of `/etc/profile.d/seatunnel.sh` are
 
@@ -19,7 +17,7 @@ export SEATUNNEL_HOME=${seatunnel install path}
 export PATH=$PATH:$SEATUNNEL_HOME/bin
 ```
 
-### 2.2 Config SeaTunnel Engine JVM options
+## 3. Config SeaTunnel Engine JVM options
 
 SeaTunnel Engine supported two ways to set jvm options.
 
@@ -28,11 +26,11 @@ SeaTunnel Engine supported two ways to set jvm options.
     Modify the `$SEATUNNEL_HOME/bin/seatunnel-cluster.sh` file and add `JAVA_OPTS="-Xms2G -Xmx2G"` in the first line.
 2. Add JVM Options when start SeaTunnel Engine. For example `seatunnel-cluster.sh -DJvmOption="-Xms2G -Xmx2G"`
 
-### 2.3 Config SeaTunnel Engine 
+## 4. Config SeaTunnel Engine 
 
 SeaTunnel Engine provides many functions, which need to be configured in seatunnel.yaml. 
 
-#### Backup count
+### 4.1 Backup count
 
 SeaTunnel Engine implement cluster management based on [Hazelcast IMDG](https://docs.hazelcast.com/imdg/4.1/). The state data of cluster(Job Running State, Resource State) are storage is [Hazelcast IMap](https://docs.hazelcast.com/imdg/4.1/data-structures/map).
 The data saved in Hazelcast IMap will be distributed and stored in all nodes of the cluster. Hazelcast will partition the data stored in Imap. Each partition can specify the number of backups.
@@ -50,7 +48,7 @@ seatunnel:
 
 ```
 
-#### Slot service
+### 4.2 Slot service
 
 The number of Slots determines the number of TaskGroups the cluster node can run in parallel. SeaTunnel Engine is a data synchronization engine and most jobs are IO intensive.
 
@@ -64,8 +62,128 @@ seatunnel:
         # other config
 ```
 
-#### Checkpoint Manager
+### 4.3 Checkpoint Manager
 
 Like Flink, SeaTunnel Engine support Chandy–Lamport algorithm. Therefore, SeaTunnel Engine can realize data synchronization without data loss and duplication.
+
+**interval**
+
+The interval between two checkpoints, unit is milliseconds. If the `checkpoint.interval` parameter is configured in the `env` of the job config file, the value set here will be overwritten.
+
+**timeout**
+
+The timeout of a checkpoint. If a checkpoint cannot be completed within the timeout period, a checkpoint failure will be triggered. Job will be restored.
+
+**max-concurrent**
+
+How many checkpoints can be performed simultaneously at most.
+
+**tolerable-failure**
+
+Maximum number of retries after checkpoint failure.
+
+Example
+
+```
+seatunnel:
+    engine:
+        backup-count: 1
+        print-execution-info-interval: 10
+        slot-service:
+            dynamic-slot: true
+        checkpoint:
+            interval: 300000
+            timeout: 10000
+            max-concurrent: 1
+            tolerable-failure: 2
+
+```
+
+**checkpoint storage**
+
+About the checkpoint storage, you can see [checkpoint storage](checkpoint-storage.md)
+
+## 5. Config SeaTunnel Engine Server 
+
+All SeaTunnel Engine Server config in `hazelcast.yaml` file.
+
+### 5.1 cluster-name
+
+The SeaTunnel Engine nodes use the cluster name to determine whether the other is a cluster with themselves. If the cluster names between the two nodes are different, the SeaTunnel Engine will reject the service request.
+
+### 5.2 Network
+
+Base on [Hazelcast](https://docs.hazelcast.com/imdg/4.1/clusters/discovery-mechanisms), A SeaTunnel Engine cluster is a network of cluster members that run SeaTunnel Engine Server. Cluster members automatically join together to form a cluster. This automatic joining takes place with various discovery mechanisms that the cluster members use to find each other.
+
+Please note that, after a cluster is formed, communication between cluster members is always via TCP/IP, regardless of the discovery mechanism used.
+
+SeaTunnel Engine uses the following discovery mechanisms.
+
+#### TCP
+
+You can configure SeaTunnel Engine to be a full TCP/IP cluster. See the [Discovering Members by TCP section](tcp.md) for configuration details.
+
+An example is like this `hazelcast.yaml`
+
+```yaml
+hazelcast:
+  cluster-name: seatunnel
+  network:
+    join:
+      tcp-ip:
+        enabled: true
+        member-list:
+          - hostname1
+    port:
+      auto-increment: false
+      port: 5801
+  properties:
+    hazelcast.logging.type: log4j2
+
+```
+
+TCP is our suggest way in a standalone SeaTunnel Engine cluster. 
+
+On the other hand, Hazelcast provides some other service discovery methods. For details, please refer to [hazelcast network](https://docs.hazelcast.com/imdg/4.1/clusters/setting-up-clusters)
+
+## 6. Config SeaTunnel Engine Client
+
+All SeaTunnel Engine Client config in `hazelcast-client.yaml`
+
+### 6.1 cluster-name
+
+The Client must have the same `cluster-name` with the SeaTunnel Engine. Otherwise, SeaTunnel Engine will reject the client request.
+
+### 6.2 Network
+
+**cluster-members**
+
+All SeaTunnel Engine Server Node address need add to here.
+
+```yaml
+hazelcast-client:
+  cluster-name: seatunnel
+  properties:
+      hazelcast.logging.type: log4j2
+  network:
+    cluster-members:
+      - hostname1:5801
+
+```
+
+## 7. Start SeaTunnel Engine Server Node
+
+```shell
+mkdir -p $SEATUNNEL_HOME/logs
+nohup seatunnel-cluster.sh &
+```
+
+The logs will write in `$SEATUNNEL_HOME/logs/seatunnel-server.log`
+
+## 8. Install SeaTunnel Engine Client
+
+You only need to copy the `$SEATUNNEL_HOME` directory on the SeaTunnel Engine node to the Client node and config the `SEATUNNEL_HOME` like SeaTunnel Engine Server Node.
+
+
 
 

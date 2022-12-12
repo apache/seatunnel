@@ -56,6 +56,7 @@ seatunnel:
                 plugin-config:
                     storage-type: s3
                     s3.bucket: your-bucket
+                    fs.s3a.endpoint: your-endpoint
                     fs.s3a.access-key: your-access-key
                     fs.s3a.secret-key: your-secret-key
                     fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
