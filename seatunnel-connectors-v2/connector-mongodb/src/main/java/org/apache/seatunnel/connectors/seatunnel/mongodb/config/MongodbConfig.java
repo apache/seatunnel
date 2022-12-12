@@ -17,16 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.config;
 
-import lombok.Builder;
-import lombok.Getter;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import java.io.Serializable;
-
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.COLLECTION;
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.MATCHQUERY;
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.URI;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import lombok.Builder;
+import lombok.Getter;
+
+import java.io.Serializable;
+
 
 
 /**
@@ -44,8 +46,6 @@ public class MongodbConfig implements Serializable {
     private String collection = COLLECTION.defaultValue();
     @Builder.Default
     private String matchQuery = MATCHQUERY.defaultValue();
-
-
     public static MongodbConfig buildWithConfig(Config config) {
         MongodbConfigBuilder builder = MongodbConfig.builder();
         if (config.hasPath(URI.key())) {

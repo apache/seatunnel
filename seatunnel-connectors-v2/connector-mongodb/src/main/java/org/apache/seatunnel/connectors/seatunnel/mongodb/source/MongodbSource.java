@@ -62,10 +62,7 @@ public class MongodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                 String.format("PluginName: %s, PluginType: %s, Message: %s",
                     getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-
         this.params = MongodbConfig.buildWithConfig(config);
-
-
         if (config.hasPath(SeaTunnelSchema.SCHEMA.key())) {
             Config schema = config.getConfig(SeaTunnelSchema.SCHEMA.key());
             this.rowType = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
