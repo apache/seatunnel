@@ -18,7 +18,7 @@
 seatunnel:
     engine:
         backup-count: 1
-        print-execution-info-interval: 2
+        print-execution-info-interval: 10
         slot-service:
             dynamic-slot: false
             slot-num: 5
@@ -28,7 +28,7 @@ seatunnel:
             max-concurrent: 5
             tolerable-failure: 2
             storage:
-                type: hdfs
+                type: localfile
                 storageNameSpace: /tmp/seatunnel/checkpoint_final
                 max-retained: 3
                 plugin-config:

@@ -60,6 +60,7 @@ if [ -z $SEATUNNEL_CONFIG ]; then
     SEATUNNEL_CONFIG=${CONF_DIR}/seatunnel.yaml
 fi
 
+JAVA_OPTS="-Xms2G -Xmx2G"
 if test ${JvmOption} ;then
     JAVA_OPTS="${JAVA_OPTS} ${JvmOption}"
 fi

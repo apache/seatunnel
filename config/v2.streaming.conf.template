@@ -22,6 +22,7 @@ env {
   # You can set flink configuration here
   execution.parallelism = 2
   job.mode = "STREAMING"
+  checkpoint.interval = 2000
   #execution.checkpoint.interval = 10000
   #execution.checkpoint.data-uri = "hdfs://localhost:9000/checkpoint"
 }
@@ -44,18 +45,8 @@ source {
   # please go to https://seatunnel.apache.org/docs/category/source-v2
 }
 
-transform {
-  sql {
-    sql = "select name,age from fake"
-  }
-
-  # If you would like to get more information about how to configure Seatunnel and see full list of transform plugins,
-  # please go to https://seatunnel.apache.org/docs/category/transform
-}
-
 sink {
   Console {
-    parallelism = 3
   }
 
   # If you would like to get more information about how to configure Seatunnel and see full list of sink plugins,

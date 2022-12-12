@@ -1,6 +1,8 @@
 # Introduction of plugins directory
-This directory used to store some plugin configuration files. 
+This directory used to store some third party jar package dependency by connector running, such as jdbc drivers.
 
-- `json/files/schemas/` is the default schema store directory for [Json transform plugin](https://seatunnel.apache.org/docs/transform/json#schema_dir-string).
+## directory structure
 
-If you use spark cluster mode, this directory will be sent to the executor by `--files`.
+plugins/${connector name}/lib/
+
+For example jdbc driver jars need put in `${seatunnel_install_home}/plugins/jdbc/lib/`

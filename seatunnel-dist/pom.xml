@@ -495,20 +495,13 @@
                 <dependency>
                     <groupId>org.apache.hadoop</groupId>
                     <artifactId>hadoop-aws</artifactId>
-                    <version>3.0.0</version>
+                    <version>3.1.4</version>
                     <scope>provided</scope>
                 </dependency>
                 <dependency>
                     <groupId>com.amazonaws</groupId>
                     <artifactId>aws-java-sdk-bundle</artifactId>
-                    <version>1.11.199</version>
-                    <scope>provided</scope>
-                </dependency>
-                <!-- https://mvnrepository.com/artifact/org.apache.flink/flink-shaded-hadoop-3-uber -->
-                <dependency>
-                    <groupId>org.apache.flink</groupId>
-                    <artifactId>flink-shaded-hadoop-3-uber</artifactId>
-                    <version>3.1.1.7.2.9.0-173-9.0</version>
+                    <version>1.11.271</version>
                     <scope>provided</scope>
                 </dependency>
                 <!-- hadoop jar end -->

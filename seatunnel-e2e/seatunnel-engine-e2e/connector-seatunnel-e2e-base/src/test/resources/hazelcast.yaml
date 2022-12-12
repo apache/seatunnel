@@ -15,24 +15,23 @@
 # limitations under the License.
 #
 
-hazelcast-client:
+hazelcast:
   cluster-name: seatunnel
-  properties:
-      hazelcast.logging.type: log4j2
   network:
-    cluster-members:
-      - localhost:5801
-      - localhost:5802
-      - localhost:5803
-      - localhost:5804
-      - localhost:5805
-      - localhost:5806
-      - localhost:5807
-      - localhost:5808
-      - localhost:5809
-      - localhost:5810
-      - localhost:5811
-      - localhost:5812
-      - localhost:5813
-      - localhost:5814
-      - localhost:5815
+    join:
+      tcp-ip:
+        enabled: true
+        member-list:
+          - localhost
+    port:
+      auto-increment: true
+      port-count: 100
+      port: 5801
+  map:
+    map-name-template:
+      map-store:
+        enabled: true
+        initial-mode: EAGER
+        class-name: org.apache.seatunnel.engine.server.persistence.FileMapStore
+        properties:
+          path: /tmp/file-store-map

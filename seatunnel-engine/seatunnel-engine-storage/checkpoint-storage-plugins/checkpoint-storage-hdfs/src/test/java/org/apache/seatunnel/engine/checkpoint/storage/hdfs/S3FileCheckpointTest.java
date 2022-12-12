@@ -35,8 +35,8 @@ public class S3FileCheckpointTest extends AbstractFileCheckPointTest {
     public static void setup() throws CheckpointStorageException {
         Map<String, String> config = new HashMap<>();
         config.put("storage.type", "s3");
-        config.put("access.key", "your access key");
-        config.put("secret.key", "your secret key");
+        config.put("fs.s3a.access.key", "your access key");
+        config.put("fs.s3a.secret.key", "your secret key");
         config.put("s3.bucket", "s3a://calvin.test.cn");
         config.put("fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider");
         STORAGE = new HdfsStorage(config);

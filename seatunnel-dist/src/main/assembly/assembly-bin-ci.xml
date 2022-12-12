@@ -161,7 +161,7 @@
                 <include>org.apache.seatunnel:seatunnel-transforms-v2:jar</include>
                 <include>org.apache.hadoop:hadoop-aws:jar</include>
                 <include>com.amazonaws:aws-java-sdk-bundle:jar</include>
-                <include>org.apache.flink:flink-shaded-hadoop-3-uber:jar</include>
+                <include>org.apache.seatunnel:seatunnel-shaded-hadoop-3-uber:jar</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
             <outputDirectory>/lib</outputDirectory>
@@ -187,7 +187,7 @@
                 <include>com.amazon.redshift:redshift-jdbc42:jar</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
-            <outputDirectory>/lib/jdbc_driver</outputDirectory>
+            <outputDirectory>/plugins/jdbc/lib/</outputDirectory>
             <scope>provided</scope>
         </dependencySet>
     </dependencySets>
