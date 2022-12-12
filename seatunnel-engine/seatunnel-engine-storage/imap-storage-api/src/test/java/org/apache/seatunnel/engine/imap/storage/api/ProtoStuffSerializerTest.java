@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 public class ProtoStuffSerializerTest {
 
     @Test
-    void testProtoStuffSerializerForArrayType() {
+    public void testProtoStuffSerializerForArrayType() {
         System.setProperty("protostuff.runtime.preserve_null_elements", "true");
         Long[] longs = new Long[10];
         Boolean[] booleans = new Boolean[10];
