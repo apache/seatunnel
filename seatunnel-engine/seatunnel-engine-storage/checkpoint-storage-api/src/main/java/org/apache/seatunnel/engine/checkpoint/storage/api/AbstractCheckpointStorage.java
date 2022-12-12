@@ -95,7 +95,7 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
     }
 
     public String getCheckPointName(PipelineState state) {
-        return System.nanoTime() + FILE_NAME_SPLIT + ThreadLocalRandom.current().nextInt(FILE_NAME_RANDOM_RANGE) + FILE_NAME_SPLIT + state.getPipelineId() + FILE_NAME_SPLIT + state.getCheckpointId() + "." + FILE_FORMAT;
+        return System.currentTimeMillis() + FILE_NAME_SPLIT + ThreadLocalRandom.current().nextInt(FILE_NAME_RANDOM_RANGE) + FILE_NAME_SPLIT + state.getPipelineId() + FILE_NAME_SPLIT + state.getCheckpointId() + "." + FILE_FORMAT;
     }
 
     public byte[] serializeCheckPointData(PipelineState state) throws IOException {

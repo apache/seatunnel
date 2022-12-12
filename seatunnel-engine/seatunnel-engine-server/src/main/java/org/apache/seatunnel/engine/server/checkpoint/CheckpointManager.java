@@ -49,7 +49,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -87,7 +86,7 @@ public class CheckpointManager {
         this.checkpointStorage =
             FactoryUtil.discoverFactory(Thread.currentThread().getContextClassLoader(), CheckpointStorageFactory.class,
                     checkpointConfig.getStorage().getStorage())
-                .create(new ConcurrentHashMap<>());
+                .create(checkpointConfig.getStorage().getStoragePluginConfig());
         IMap<Integer, Long> checkpointIdMap =
             nodeEngine.getHazelcastInstance().getMap(String.format("checkpoint-id-%d", jobId));
         this.coordinatorMap = checkpointPlanMap.values().parallelStream()
@@ -141,8 +140,8 @@ public class CheckpointManager {
         getCheckpointCoordinator(pipelineId).tryTriggerPendingCheckpoint();
     }
 
-    protected void handleCheckpointTimeout(int pipelineId) {
-        jobMaster.handleCheckpointTimeout(pipelineId);
+    protected void handleCheckpointError(int pipelineId, Throwable e) {
+        jobMaster.handleCheckpointError(pipelineId, e);
     }
 
     private CheckpointCoordinator getCheckpointCoordinator(TaskLocation taskLocation) {

@@ -28,7 +28,6 @@ import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.common.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.checkpoint.storage.common.Serializer;
-import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -52,7 +51,6 @@ import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -110,6 +108,8 @@ public class CheckpointCoordinator {
 
     private volatile CompletedCheckpoint latestCompletedCheckpoint = null;
 
+    private volatile CheckpointType latestAcceptedCheckpoint = null;
+
     private final CheckpointConfig coordinatorConfig;
 
     private int tolerableFailureCheckpoints;
@@ -121,7 +121,9 @@ public class CheckpointCoordinator {
 
     private final Object lock = new Object();
 
-    /** Flag marking the coordinator as shut down (not accepting any messages any more). */
+    /**
+     * Flag marking the coordinator as shut down (not accepting any messages anymore).
+     */
     private volatile boolean shutdown;
 
     @Setter
@@ -259,7 +261,6 @@ public class CheckpointCoordinator {
                     return;
                 }
             } else {
-                shutdown = true;
                 waitingPendingCheckpointDone();
             }
             CompletableFuture<PendingCheckpoint> pendingCheckpoint = createPendingCheckpoint(currentTimestamp, checkpointType);
@@ -273,6 +274,7 @@ public class CheckpointCoordinator {
     private void waitingPendingCheckpointDone() {
         while (pendingCounter.get() != 0) {
             try {
+                LOG.info("waiting pending checkpoint completed, pending counter: " + pendingCounter.get());
                 Thread.sleep(500);
             } catch (InterruptedException e) {
                 throw new SeaTunnelEngineException(e);
@@ -305,7 +307,19 @@ public class CheckpointCoordinator {
         pendingCompletableFuture.thenAcceptAsync(pendingCheckpoint -> {
             LOG.info("wait checkpoint completed: " + pendingCheckpoint.getCheckpointId());
             PassiveCompletableFuture<CompletedCheckpoint> completableFuture = pendingCheckpoint.getCompletableFuture();
-            completableFuture.thenAcceptAsync(this::completePendingCheckpoint);
+            completableFuture.whenComplete((completedCheckpoint, error) -> {
+                if (error != null) {
+                    LOG.error("trigger checkpoint failed", error);
+                    checkpointManager.handleCheckpointError(pipelineId, new CheckpointException(CheckpointFailureReason.CHECKPOINT_INSIDE_ERROR));
+                } else {
+                    try {
+                        completePendingCheckpoint(completedCheckpoint);
+                    } catch (Throwable e) {
+                        LOG.error("complete checkpoint failed", e);
+                        checkpointManager.handleCheckpointError(pipelineId, new CheckpointException(CheckpointFailureReason.CHECKPOINT_INSIDE_ERROR));
+                    }
+                }
+            });
 
             // Trigger the barrier and wait for all tasks to ACK
             LOG.debug("trigger checkpoint barrier {}/{}/{}, {}", pendingCheckpoint.getJobId(), pendingCheckpoint.getPipelineId(), pendingCheckpoint.getCheckpointId(), pendingCheckpoint.getCheckpointType());
@@ -330,7 +344,7 @@ public class CheckpointCoordinator {
                     if (pendingCheckpoints.get(pendingCheckpoint.getCheckpointId()) != null && !pendingCheckpoint.isFullyAcknowledged()) {
                         if (tolerableFailureCheckpoints-- <= 0) {
                             cleanPendingCheckpoint(CheckpointFailureReason.CHECKPOINT_EXPIRED);
-                            checkpointManager.handleCheckpointTimeout(pipelineId);
+                            checkpointManager.handleCheckpointError(pipelineId, new CheckpointException(CheckpointFailureReason.CHECKPOINT_EXPIRED));
                         }
                     }
                 }, coordinatorConfig.getCheckpointTimeout(),
@@ -465,8 +479,8 @@ public class CheckpointCoordinator {
 
     public void completePendingCheckpoint(CompletedCheckpoint completedCheckpoint) {
         LOG.debug("pending checkpoint({}/{}@{}) completed! cost: {}, trigger: {}, completed: {}",
-                completedCheckpoint.getCheckpointId(), completedCheckpoint.getPipelineId(), completedCheckpoint.getJobId(),
-                completedCheckpoint.getCompletedTimestamp() - completedCheckpoint.getCheckpointTimestamp(), completedCheckpoint.getCheckpointTimestamp(), completedCheckpoint.getCompletedTimestamp());
+            completedCheckpoint.getCheckpointId(), completedCheckpoint.getPipelineId(), completedCheckpoint.getJobId(),
+            completedCheckpoint.getCompletedTimestamp() - completedCheckpoint.getCheckpointTimestamp(), completedCheckpoint.getCheckpointTimestamp(), completedCheckpoint.getCompletedTimestamp());
         pendingCounter.decrementAndGet();
         final long checkpointId = completedCheckpoint.getCheckpointId();
         pendingCheckpoints.remove(checkpointId);
@@ -490,7 +504,8 @@ public class CheckpointCoordinator {
                     String.valueOf(superfluous.getPipelineId()),
                     String.valueOf(superfluous.getCheckpointId()));
             }
-        } catch (IOException | CheckpointStorageException e) {
+        } catch (Throwable e) {
+            LOG.error("store checkpoint states failed.", e);
             sneakyThrow(e);
         }
         LOG.info("pending checkpoint({}/{}@{}) notify finished!", completedCheckpoint.getCheckpointId(), completedCheckpoint.getPipelineId(), completedCheckpoint.getJobId());
@@ -499,6 +514,7 @@ public class CheckpointCoordinator {
         // TODO: notifyCheckpointCompleted fail
         latestCompletedCheckpoint = completedCheckpoint;
         if (isCompleted()) {
+            shutdown = true;
             cleanPendingCheckpoint(CheckpointFailureReason.CHECKPOINT_COORDINATOR_COMPLETED);
         }
     }
