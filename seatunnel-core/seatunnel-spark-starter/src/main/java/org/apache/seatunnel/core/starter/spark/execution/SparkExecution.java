@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
+import org.apache.seatunnel.core.starter.execution.TaskExecution;
 import org.apache.seatunnel.core.starter.spark.config.SparkEnvironmentFactory;
 import org.apache.seatunnel.spark.SparkEnvironment;
 
@@ -35,7 +36,7 @@ import java.util.Collections;
 import java.util.List;
 
 @Slf4j
-public class SparkExecution {
+public class SparkExecution implements TaskExecution {
 
     private final SparkEnvironment sparkEnvironment;
     private final PluginExecuteProcessor sourcePluginExecuteProcessor;
@@ -52,6 +53,7 @@ public class SparkExecution {
         this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(sparkEnvironment, jobContext, config.getConfigList(Constants.SINK));
     }
 
+    @Override
     public void execute() throws TaskExecuteException {
         List<Dataset<Row>> datasets = new ArrayList<>();
         datasets = sourcePluginExecuteProcessor.execute(datasets);
