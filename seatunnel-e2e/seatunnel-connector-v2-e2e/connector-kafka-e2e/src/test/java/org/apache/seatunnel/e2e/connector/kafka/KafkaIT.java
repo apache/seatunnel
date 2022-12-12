@@ -159,7 +159,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
         String topicName = "test_text_topic";
         Map<String, String> data = new HashMap<>();
-        ObjectMapper objectMapper = new ObjectMapper();
         try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
             consumer.subscribe(Arrays.asList(topicName));
             Map<TopicPartition, Long> offsets = consumer.endOffsets(Arrays.asList(new TopicPartition(topicName, 0)));
@@ -176,10 +175,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 }
             } while (lastProcessedOffset < endOffset - 1);
         }
-        String key = data.keySet().iterator().next();
-        ObjectNode objectNode = objectMapper.readValue(key, ObjectNode.class);
-        Assertions.assertTrue(objectNode.has("c_map"));
-        Assertions.assertTrue(objectNode.has("c_string"));
         Assertions.assertEquals(10, data.size());
     }
 
