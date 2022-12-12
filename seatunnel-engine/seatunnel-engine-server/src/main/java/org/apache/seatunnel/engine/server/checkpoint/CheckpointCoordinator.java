@@ -108,6 +108,8 @@ public class CheckpointCoordinator {
 
     private volatile CompletedCheckpoint latestCompletedCheckpoint = null;
 
+    private volatile CheckpointType latestAcceptedCheckpoint = null;
+
     private final CheckpointConfig coordinatorConfig;
 
     private int tolerableFailureCheckpoints;
@@ -119,7 +121,9 @@ public class CheckpointCoordinator {
 
     private final Object lock = new Object();
 
-    /** Flag marking the coordinator as shut down (not accepting any messages any more). */
+    /**
+     * Flag marking the coordinator as shut down (not accepting any messages anymore).
+     */
     private volatile boolean shutdown;
 
     @Setter
@@ -257,7 +261,6 @@ public class CheckpointCoordinator {
                     return;
                 }
             } else {
-                shutdown = true;
                 waitingPendingCheckpointDone();
             }
             CompletableFuture<PendingCheckpoint> pendingCheckpoint = createPendingCheckpoint(currentTimestamp, checkpointType);
@@ -304,14 +307,16 @@ public class CheckpointCoordinator {
         pendingCompletableFuture.thenAcceptAsync(pendingCheckpoint -> {
             LOG.info("wait checkpoint completed: " + pendingCheckpoint.getCheckpointId());
             PassiveCompletableFuture<CompletedCheckpoint> completableFuture = pendingCheckpoint.getCompletableFuture();
-            completableFuture.whenCompleteAsync((completedCheckpoint, error) -> {
+            completableFuture.whenComplete((completedCheckpoint, error) -> {
                 if (error != null) {
                     LOG.error("trigger checkpoint failed", error);
+                    checkpointManager.handleCheckpointError(pipelineId, new CheckpointException(CheckpointFailureReason.CHECKPOINT_INSIDE_ERROR));
                 } else {
                     try {
                         completePendingCheckpoint(completedCheckpoint);
                     } catch (Throwable e) {
                         LOG.error("complete checkpoint failed", e);
+                        checkpointManager.handleCheckpointError(pipelineId, new CheckpointException(CheckpointFailureReason.CHECKPOINT_INSIDE_ERROR));
                     }
                 }
             });
@@ -339,7 +344,7 @@ public class CheckpointCoordinator {
                     if (pendingCheckpoints.get(pendingCheckpoint.getCheckpointId()) != null && !pendingCheckpoint.isFullyAcknowledged()) {
                         if (tolerableFailureCheckpoints-- <= 0) {
                             cleanPendingCheckpoint(CheckpointFailureReason.CHECKPOINT_EXPIRED);
-                            checkpointManager.handleCheckpointTimeout(pipelineId);
+                            checkpointManager.handleCheckpointError(pipelineId, new CheckpointException(CheckpointFailureReason.CHECKPOINT_EXPIRED));
                         }
                     }
                 }, coordinatorConfig.getCheckpointTimeout(),
@@ -474,8 +479,8 @@ public class CheckpointCoordinator {
 
     public void completePendingCheckpoint(CompletedCheckpoint completedCheckpoint) {
         LOG.debug("pending checkpoint({}/{}@{}) completed! cost: {}, trigger: {}, completed: {}",
-                completedCheckpoint.getCheckpointId(), completedCheckpoint.getPipelineId(), completedCheckpoint.getJobId(),
-                completedCheckpoint.getCompletedTimestamp() - completedCheckpoint.getCheckpointTimestamp(), completedCheckpoint.getCheckpointTimestamp(), completedCheckpoint.getCompletedTimestamp());
+            completedCheckpoint.getCheckpointId(), completedCheckpoint.getPipelineId(), completedCheckpoint.getJobId(),
+            completedCheckpoint.getCompletedTimestamp() - completedCheckpoint.getCheckpointTimestamp(), completedCheckpoint.getCheckpointTimestamp(), completedCheckpoint.getCompletedTimestamp());
         pendingCounter.decrementAndGet();
         final long checkpointId = completedCheckpoint.getCheckpointId();
         pendingCheckpoints.remove(checkpointId);
@@ -509,6 +514,7 @@ public class CheckpointCoordinator {
         // TODO: notifyCheckpointCompleted fail
         latestCompletedCheckpoint = completedCheckpoint;
         if (isCompleted()) {
+            shutdown = true;
             cleanPendingCheckpoint(CheckpointFailureReason.CHECKPOINT_COORDINATOR_COMPLETED);
         }
     }

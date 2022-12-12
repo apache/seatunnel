@@ -140,8 +140,8 @@ public class CheckpointManager {
         getCheckpointCoordinator(pipelineId).tryTriggerPendingCheckpoint();
     }
 
-    protected void handleCheckpointTimeout(int pipelineId) {
-        jobMaster.handleCheckpointTimeout(pipelineId);
+    protected void handleCheckpointError(int pipelineId, Throwable e) {
+        jobMaster.handleCheckpointError(pipelineId, e);
     }
 
     private CheckpointCoordinator getCheckpointCoordinator(TaskLocation taskLocation) {

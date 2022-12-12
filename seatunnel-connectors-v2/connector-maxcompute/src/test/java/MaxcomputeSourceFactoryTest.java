@@ -15,23 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.checkpoint;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.sink.MaxcomputeSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.source.MaxcomputeSourceFactory;
 
-public enum CheckpointFailureReason {
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-    PIPELINE_END("Pipeline turn to end state."),
-    CHECKPOINT_EXPIRED("Checkpoint expired before completing."),
-    CHECKPOINT_COORDINATOR_COMPLETED("CheckpointCoordinator completed."),
-    CHECKPOINT_COORDINATOR_SHUTDOWN("CheckpointCoordinator shutdown."),
-    CHECKPOINT_INSIDE_ERROR("CheckpointCoordinator inside have error.");
-
-    private final String message;
-
-    CheckpointFailureReason(String message) {
-        this.message = message;
-    }
-
-    public String message() {
-        return message;
+public class MaxcomputeSourceFactoryTest {
+    @Test
+    void optionRule() {
+        Assertions.assertNotNull((new MaxcomputeSourceFactory()).optionRule());
+        Assertions.assertNotNull((new MaxcomputeSinkFactory()).optionRule());
     }
 }

@@ -15,23 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.checkpoint;
+package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 
-public enum CheckpointFailureReason {
+import java.io.Serializable;
+import java.util.Set;
 
-    PIPELINE_END("Pipeline turn to end state."),
-    CHECKPOINT_EXPIRED("Checkpoint expired before completing."),
-    CHECKPOINT_COORDINATOR_COMPLETED("CheckpointCoordinator completed."),
-    CHECKPOINT_COORDINATOR_SHUTDOWN("CheckpointCoordinator shutdown."),
-    CHECKPOINT_INSIDE_ERROR("CheckpointCoordinator inside have error.");
+public class MaxcomputeSourceState implements Serializable {
+    private Set<MaxcomputeSourceSplit> assignedSplit;
 
-    private final String message;
-
-    CheckpointFailureReason(String message) {
-        this.message = message;
+    public MaxcomputeSourceState(Set<MaxcomputeSourceSplit> assignedSplit) {
+        this.assignedSplit = assignedSplit;
     }
 
-    public String message() {
-        return message;
+    public Set<MaxcomputeSourceSplit> getAssignedSplit() {
+        return assignedSplit;
     }
 }

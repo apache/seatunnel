@@ -15,23 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.checkpoint;
+package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 
-public enum CheckpointFailureReason {
+import org.apache.seatunnel.api.source.SourceSplit;
 
-    PIPELINE_END("Pipeline turn to end state."),
-    CHECKPOINT_EXPIRED("Checkpoint expired before completing."),
-    CHECKPOINT_COORDINATOR_COMPLETED("CheckpointCoordinator completed."),
-    CHECKPOINT_COORDINATOR_SHUTDOWN("CheckpointCoordinator shutdown."),
-    CHECKPOINT_INSIDE_ERROR("CheckpointCoordinator inside have error.");
+import lombok.Getter;
 
-    private final String message;
+public class MaxcomputeSourceSplit implements SourceSplit {
+    @Getter
+    private int splitId;
+    @Getter
+    private long rowNum;
 
-    CheckpointFailureReason(String message) {
-        this.message = message;
+    public MaxcomputeSourceSplit(int splitId, long rowNum) {
+        this.splitId = splitId;
+        this.rowNum = rowNum;
     }
 
-    public String message() {
-        return message;
+    @Override
+    public String splitId() {
+        return String.valueOf(this.splitId);
     }
 }
