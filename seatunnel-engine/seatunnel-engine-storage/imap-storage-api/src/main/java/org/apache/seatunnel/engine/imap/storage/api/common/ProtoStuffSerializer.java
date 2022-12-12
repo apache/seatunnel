@@ -78,6 +78,15 @@ public class ProtoStuffSerializer implements Serializer {
         WRAPPERS.add(Hashtable.class);
         WRAPPERS.add(SortedMap.class);
         WRAPPERS.add(Long[].class);
+        WRAPPERS.add(Boolean[].class);
+        WRAPPERS.add(Byte[].class);
+        WRAPPERS.add(Character[].class);
+        WRAPPERS.add(Short[].class);
+        WRAPPERS.add(Integer[].class);
+        WRAPPERS.add(Float[].class);
+        WRAPPERS.add(Double[].class);
+        WRAPPERS.add(String[].class);
+
     }
 
     @Override
