@@ -22,7 +22,8 @@ public enum CheckpointFailureReason {
     PIPELINE_END("Pipeline turn to end state."),
     CHECKPOINT_EXPIRED("Checkpoint expired before completing."),
     CHECKPOINT_COORDINATOR_COMPLETED("CheckpointCoordinator completed."),
-    CHECKPOINT_COORDINATOR_SHUTDOWN("CheckpointCoordinator shutdown.");
+    CHECKPOINT_COORDINATOR_SHUTDOWN("CheckpointCoordinator shutdown."),
+    CHECKPOINT_INSIDE_ERROR("CheckpointCoordinator inside have error.");
 
     private final String message;
 
