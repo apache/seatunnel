@@ -33,6 +33,7 @@ import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -620,14 +621,65 @@ public class ClusterFaultToleranceIT {
         SeaTunnelClient engineClient = null;
 
         try {
-            node1 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            String yaml = "#\n" +
+                "# Licensed to the Apache Software Foundation (ASF) under one or more\n" +
+                "# contributor license agreements.  See the NOTICE file distributed with\n" +
+                "# this work for additional information regarding copyright ownership.\n" +
+                "# The ASF licenses this file to You under the Apache License, Version 2.0\n" +
+                "# (the \"License\"); you may not use this file except in compliance with\n" +
+                "# the License.  You may obtain a copy of the License at\n" +
+                "#\n" +
+                "#    http://www.apache.org/licenses/LICENSE-2.0\n" +
+                "#\n" +
+                "# Unless required by applicable law or agreed to in writing, software\n" +
+                "# distributed under the License is distributed on an \"AS IS\" BASIS,\n" +
+                "# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n" +
+                "# See the License for the specific language governing permissions and\n" +
+                "# limitations under the License.\n" +
+                "#\n" +
+                "\n" +
+                "hazelcast:\n" +
+                "  cluster-name: seatunnel\n" +
+                "  network:\n" +
+                "    rest-api:\n" +
+                "      enabled: true\n" +
+                "      endpoint-groups:\n" +
+                "        CLUSTER_WRITE:\n" +
+                "          enabled: true\n" +
+                "    join:\n" +
+                "      tcp-ip:\n" +
+                "        enabled: true\n" +
+                "        member-list:\n" +
+                "          - localhost\n" +
+                "    port:\n" +
+                "      auto-increment: true\n" +
+                "      port-count: 100\n" +
+                "      port: 5801\n" +
+                "  map:\n" +
+                "    engine*:\n" +
+                "      map-store:\n" +
+                "        enabled: true\n" +
+                "        initial-mode: EAGER\n" +
+                "        factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory\n" +
+                "        properties:\n" +
+                "          namespace: /tmp/seatunnel/imap\n" +
+                "          clusterName: seatunnel-clsuter\n" +
+                "          fs.defaultFS: file:///\n" +
+                "\n" +
+                "  properties:\n" +
+                "    hazelcast.invocation.max.retry.count: 20\n" +
+                "    hazelcast.tcp.join.port.try.count: 30\n" +
+                "    hazelcast.logging.type: log4j2\n";
 
-            node2 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            Config hazelcastConfig = Config.loadFromString(yaml);
+            hazelcastConfig.setClusterName(testClusterName);
+            SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+            seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
+            node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node3 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+
+            node3 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
             // waiting all node added to cluster
             HazelcastInstanceImpl finalNode = node1;
@@ -669,14 +721,11 @@ public class ClusterFaultToleranceIT {
 
             Thread.sleep(10000);
 
-            node1 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node2 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            node3 = SeaTunnelServerStarter.createHazelcastInstance(
-                TestUtils.getClusterName(testClusterName));
+            node3 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
             // waiting all node added to cluster
             HazelcastInstanceImpl restoreFinalNode = node1;
