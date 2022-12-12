@@ -37,6 +37,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 
 import com.google.common.collect.Lists;
+import lombok.Getter;
 import lombok.NonNull;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -60,6 +61,7 @@ import java.util.stream.Collectors;
 
 public abstract class AbstractWriteStrategy implements WriteStrategy {
     protected final Logger log = LoggerFactory.getLogger(this.getClass());
+    @Getter
     protected final TextFileSinkConfig textFileSinkConfig;
     protected final List<Integer> sinkColumnsIndexInRow;
     protected String jobId;
@@ -68,16 +70,20 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     protected String transactionId;
     protected String transactionDirectory;
     protected Map<String, String> needMoveFiles;
-    protected Map<String, String> beingWrittenFile;
+    protected Map<String, String> beingWrittenFile = new HashMap<>();
     private Map<String, List<String>> partitionDirAndValuesMap;
     protected SeaTunnelRowType seaTunnelRowType;
 
     // Checkpoint id from engine is start with 1
     protected Long checkpointId = 0L;
+    protected int partId = 0;
+    protected int batchSize;
+    protected int currentBatchSize = 0;
 
     public AbstractWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
         this.textFileSinkConfig = textFileSinkConfig;
         this.sinkColumnsIndexInRow = textFileSinkConfig.getSinkColumnsIndexInRow();
+        this.batchSize = textFileSinkConfig.getBatchSize();
     }
 
     /**
@@ -91,6 +97,16 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         this.jobId = jobId;
         this.subTaskIndex = subTaskIndex;
         FileSystemUtils.CONF = getConfiguration(hadoopConf);
+    }
+
+    @Override
+    public void write(SeaTunnelRow seaTunnelRow) throws FileConnectorException {
+        if (currentBatchSize >= batchSize) {
+            this.partId++;
+            currentBatchSize = 0;
+            beingWrittenFile.clear();
+        }
+        currentBatchSize++;
     }
 
     /**
@@ -151,8 +167,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
             for (int i = 0; i < partitionFieldsIndexInRow.size(); i++) {
                 stringBuilder.append(partitionFieldList.get(i))
                         .append("=")
-                        .append(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)])
-                        .append(File.separator);
+                        .append(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)]);
                 vals.add(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)].toString());
             }
             partitionDir = stringBuilder.toString();
@@ -190,7 +205,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         valuesMap.put(Constants.NOW, formattedDate);
         valuesMap.put(timeFormat, formattedDate);
         valuesMap.put(BaseSinkConfig.TRANSACTION_EXPRESSION, transactionId);
-        String substitute = VariablesSubstitute.substitute(fileNameExpression, valuesMap);
+        String substitute = VariablesSubstitute.substitute(fileNameExpression, valuesMap) + "_" + partId;
         return substitute + fileFormat.getSuffix();
     }
 
@@ -239,7 +254,6 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         this.transactionDirectory = getTransactionDir(this.transactionId);
         this.needMoveFiles = new HashMap<>();
         this.partitionDirAndValuesMap = new HashMap<>();
-        this.beingWrittenFile = new HashMap<>();
     }
 
     /**
@@ -274,7 +288,12 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      */
     @Override
     public List<FileSinkState> snapshotState(long checkpointId) {
-        ArrayList<FileSinkState> fileState = Lists.newArrayList(new FileSinkState(this.transactionId, this.checkpointId));
+        Map<String, List<String>> commitMap = this.partitionDirAndValuesMap.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> new ArrayList<>(e.getValue())));
+        ArrayList<FileSinkState> fileState = Lists.newArrayList(new FileSinkState(this.transactionId,
+                this.checkpointId, new HashMap<>(this.needMoveFiles),
+                commitMap, this.getTransactionDir(transactionId)));
+        this.beingWrittenFile.clear();
         this.beginTransaction(checkpointId + 1);
         return fileState;
     }
@@ -313,7 +332,13 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         return tmpPath.replaceAll(BaseSinkConfig.NON_PARTITION + Matcher.quoteReplacement(File.separator), "");
     }
 
+    @Override
     public long getCheckpointId() {
         return this.checkpointId;
+    }
+
+    @Override
+    public TextFileSinkConfig getFileSinkConfig() {
+        return textFileSinkConfig;
     }
 }

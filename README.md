@@ -42,7 +42,7 @@ SeaTunnel focuses on data integration and data synchronization, and is mainly de
 
 ## SeaTunnel work flowchart
 
-![SeaTunnel work flowchart](/docs/en/images/architecture_diagram.png)
+![SeaTunnel work flowchart](docs/en/images/architecture_diagram.png)
 
 The runtime process of SeaTunnel is shown in the figure above. 
 
@@ -86,16 +86,13 @@ Download address for run-directly software package : https://seatunnel.apache.or
 ## Quick start
 
 **SeaTunnel Engine**
-https://seatunnel.apache.org/docs/category/start-v2
+https://seatunnel.apache.org/docs/start-v2/locally/quick-start-seatunnel-engine/
 
 **Spark**
-https://seatunnel.apache.org/docs/category/start-v2
+https://seatunnel.apache.org/docs/start-v2/locally/quick-start-spark
 
 **Flink**
-https://seatunnel.apache.org/docs/category/start-v2
-
-Detailed documentation on SeaTunnel
-https://seatunnel.apache.org/docs/intro/about
+https://seatunnel.apache.org/docs/start-v2/locally/quick-start-flink
 
 ## Application practice cases
 

@@ -38,6 +38,7 @@ In order to use this connector, You must ensure your spark/flink cluster already
 | is_partition_field_write_in_file | boolean | no       | false                                                     |
 | sink_columns                     | array   | no       | When this parameter is empty, all fields are sink columns |
 | is_enable_transaction            | boolean | no       | true                                                      |
+| batch_size                       | int     | no       | 1000000                                                   |
 | common-options                   |         | no       | -                                                         |
 
 ### fs.defaultFS [string]
@@ -114,6 +115,10 @@ If `is_enable_transaction` is true, we will ensure that data will not be lost or
 Please note that, If `is_enable_transaction` is `true`, we will auto add `${transactionId}_` in the head of the file.
 
 Only support `true` now.
+
+### batch_size [int]
+
+The maximum number of rows in a file. For SeaTunnel Engine, the number of lines in the file is determined by `batch_size` and `checkpoint.interval` jointly decide. If the value of `checkpoint.interval` is large enough, sink writer will write rows in a file until the rows in the file larger than `batch_size`. If `checkpoint.interval` is small, the sink writer will create a new file when a new checkpoint trigger.
 
 ### common options
 
@@ -196,3 +201,5 @@ HdfsFile {
   - When field from upstream is null it will throw NullPointerException
   - Sink columns mapping failed
   - When restore writer from states getting transaction directly failed
+
+- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/incubator-seatunnel/pull/3625))

@@ -73,8 +73,13 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 String jobstatus = engineClient.listJobStatus();
                 System.out.println(jobstatus);
             } else if (null != clientCommandArgs.getJobId()) {
-                String jobState = engineClient.getJobState(Long.parseLong(clientCommandArgs.getJobId()));
+                String jobState = engineClient.getJobDetailStatus(Long.parseLong(clientCommandArgs.getJobId()));
                 System.out.println(jobState);
+            } else if (null != clientCommandArgs.getCancelJobId()) {
+                engineClient.cancelJob(Long.parseLong(clientCommandArgs.getCancelJobId()));
+            } else if (null != clientCommandArgs.getMetricsJobId()) {
+                String jobMetrics = engineClient.getJobMetrics(Long.parseLong(clientCommandArgs.getMetricsJobId()));
+                System.out.println(jobMetrics);
             } else {
                 Path configFile = FileUtils.getConfigPath(clientCommandArgs);
                 checkConfigExist(configFile);
@@ -85,6 +90,8 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
 
                 ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
                 clientJobProxy.waitForJobComplete();
+                long jobId = clientJobProxy.getJobId();
+                System.out.println(engineClient.getJobMetrics(jobId));
             }
         } catch (ExecutionException | InterruptedException e) {
             throw new CommandExecuteException("SeaTunnel job executed failed", e);

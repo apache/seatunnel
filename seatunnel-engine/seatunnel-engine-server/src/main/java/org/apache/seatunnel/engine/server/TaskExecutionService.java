@@ -45,7 +45,6 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
-import org.apache.seatunnel.engine.server.metrics.MetricsImpl;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
 
@@ -340,11 +339,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
             Thread.currentThread().setContextClassLoader(classLoader);
             final Task t = tracker.task;
-            MetricsImpl.Container userMetricsContextContainer = MetricsImpl.container();
             try {
                 startedLatch.countDown();
                 t.init();
-                userMetricsContextContainer.setContext(t.getMetricsContext());
                 ProgressState result;
                 do {
                     result = t.call();
@@ -355,7 +352,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 taskGroupExecutionTracker.exception(e);
             } finally {
                 taskGroupExecutionTracker.taskDone();
-                userMetricsContextContainer.setContext(null);
             }
             Thread.currentThread().setContextClassLoader(oldClassLoader);
         }
@@ -381,7 +377,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         public AtomicReference<TaskTracker> exclusiveTaskTracker = new AtomicReference<>();
         final TaskCallTimer timer;
         private Thread myThread;
-        private MetricsImpl.Container userMetricsContextContainer;
         public LinkedBlockingDeque<TaskTracker> taskqueue;
 
         @SuppressWarnings("checkstyle:MagicNumber")
@@ -396,7 +391,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         @Override
         public void run() {
             myThread = currentThread();
-            userMetricsContextContainer = MetricsImpl.container();
             while (keep.get() && isRunning) {
                 TaskTracker taskTracker = null != exclusiveTaskTracker.get() ?
                     exclusiveTaskTracker.get() :
@@ -420,7 +414,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 try {
                     //run task
                     myThread.setContextClassLoader(executionContexts.get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation()).getClassLoader());
-                    userMetricsContextContainer.setContext(taskTracker.task.getMetricsContext());
                     call = taskTracker.task.call();
                     synchronized (timer) {
                         timer.timerStop();
@@ -437,7 +430,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 } finally {
                     //stop timer
                     timer.timerStop();
-                    userMetricsContextContainer.setContext(null);
                 }
                 //task call finished
                 if (null != call) {
@@ -521,8 +513,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             logger.info("taskDone: " + taskGroup.getTaskGroupLocation());
             if (completionLatch.decrementAndGet() == 0) {
                 TaskGroupLocation taskGroupLocation = taskGroup.getTaskGroupLocation();
-                finishedExecutionContexts.put(taskGroupLocation, executionContexts.get(taskGroupLocation));
-                executionContexts.remove(taskGroupLocation);
+                finishedExecutionContexts.put(taskGroupLocation, executionContexts.remove(taskGroupLocation));
                 cancellationFutures.remove(taskGroupLocation);
                 Throwable ex = executionException.get();
                 if (ex == null) {
