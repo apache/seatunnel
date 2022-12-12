@@ -75,4 +75,19 @@ public class ProtoStuffSerializerTest {
         Long[] deserialize9 = protoStuffSerializer.deserialize(serialize9, Long[].class);
         Assertions.assertEquals(deserialize9[6], 111111111L);
     }
+
+    @Test
+    public void testArrayInit() {
+        System.setProperty("protostuff.runtime.preserve_null_elements", "true");
+
+        Long[] arr = new Long[]{1L, null, 2L};
+        ProtoStuffSerializer p = new ProtoStuffSerializer();
+        byte[] serialize = p.serialize(arr);
+
+        Long[] deserialize = p.deserialize(serialize, Long[].class);
+        Assertions.assertEquals(deserialize.length, 3);
+        Assertions.assertEquals(deserialize[0], 1L);
+        Assertions.assertNull(deserialize[1]);
+        Assertions.assertEquals(deserialize[2], 2L);
+    }
 }
