@@ -672,7 +672,7 @@ public class ClusterFaultToleranceIT {
                 "    hazelcast.logging.type: log4j2\n";
 
             Config hazelcastConfig = Config.loadFromString(yaml);
-            hazelcastConfig.setClusterName(testClusterName);
+            hazelcastConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
             seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
