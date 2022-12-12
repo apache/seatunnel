@@ -79,6 +79,10 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     private static final String KAFKA_HOST = "kafkaCluster";
 
+    private static final String DEFAULT_FORMAT = "json";
+
+    private static final String DEFAULT_FIELD_DELIMITER = ",";
+
     private KafkaProducer<byte[], byte[]> producer;
 
     private KafkaContainer kafkaContainer;
@@ -101,7 +105,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(() -> initKafkaProducer());
 
         log.info("Write 100 records to topic test_topic_source");
-        DefaultSeaTunnelRowSerializer serializer = new DefaultSeaTunnelRowSerializer("test_topic_source", SEATUNNEL_ROW_TYPE);
+        DefaultSeaTunnelRowSerializer serializer = new DefaultSeaTunnelRowSerializer("test_topic_source", SEATUNNEL_ROW_TYPE, DEFAULT_FORMAT, DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow(row), 0, 100);
     }
 
@@ -161,7 +165,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testSourceKafkaJsonToConsole(TestContainer container) throws IOException, InterruptedException {
-        DefaultSeaTunnelRowSerializer serializer = new DefaultSeaTunnelRowSerializer("test_topic_json", SEATUNNEL_ROW_TYPE);
+        DefaultSeaTunnelRowSerializer serializer = new DefaultSeaTunnelRowSerializer("test_topic_json", SEATUNNEL_ROW_TYPE, DEFAULT_FORMAT, DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow(row), 0, 100);
         Container.ExecResult execResult = container.executeJob("/kafkasource_json_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -177,7 +181,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testSourceKafkaStartConfig(TestContainer container) throws IOException, InterruptedException {
-        DefaultSeaTunnelRowSerializer serializer = new DefaultSeaTunnelRowSerializer("test_topic_group", SEATUNNEL_ROW_TYPE);
+        DefaultSeaTunnelRowSerializer serializer = new DefaultSeaTunnelRowSerializer("test_topic_group", SEATUNNEL_ROW_TYPE, DEFAULT_FORMAT, DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow(row), 100, 150);
         testKafkaGroupOffsetsToConsole(container);
     }
