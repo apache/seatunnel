@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbParameters;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.data.DefaultDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.data.Deserializer;
 
@@ -46,7 +46,7 @@ public class MongodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
 
     private MongoClient client;
 
-    private final MongodbParameters params;
+    private final MongodbConfig params;
 
     private final Deserializer deserializer;
 
@@ -55,7 +55,7 @@ public class MongodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
     private final boolean useSimpleTextSchema;
 
     MongodbSourceReader(SingleSplitReaderContext context,
-                        MongodbParameters params,
+                        MongodbConfig params,
                         SeaTunnelRowType rowType,
                         boolean useSimpleTextSchema) {
         this.context = context;
