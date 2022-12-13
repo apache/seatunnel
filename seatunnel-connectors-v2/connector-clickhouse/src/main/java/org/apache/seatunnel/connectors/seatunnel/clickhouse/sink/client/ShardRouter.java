@@ -40,7 +40,9 @@ public class ShardRouter implements Serializable {
     private static final long serialVersionUID = -1L;
 
     private String shardTable;
+    private String shardTableEngine;
     private final String table;
+    private final String tableEngine;
     private int shardWeightCount;
     private final TreeMap<Integer, Shard> shards;
     private final String shardKey;
@@ -54,8 +56,9 @@ public class ShardRouter implements Serializable {
         this.shards = new TreeMap<>();
         this.shardKey = shardMetadata.getShardKey();
         this.shardKeyType = shardMetadata.getShardKeyType();
-        this.splitMode = shardMetadata.getSplitMode();
+        this.splitMode = shardMetadata.isSplitMode();
         this.table = shardMetadata.getTable();
+        this.tableEngine = shardMetadata.getTableEngine();
         if (StringUtils.isNotEmpty(shardKey) && StringUtils.isEmpty(shardKeyType)) {
             throw new ClickhouseConnectorException(ClickhouseConnectorErrorCode.SHARD_KEY_NOT_FOUND, "Shard key " + shardKey + " not found in table " + table);
         }
@@ -63,6 +66,7 @@ public class ShardRouter implements Serializable {
         if (splitMode) {
             DistributedEngine localTable = proxy.getClickhouseDistributedTable(connection, shardMetadata.getDatabase(), table);
             this.shardTable = localTable.getTable();
+            this.shardTableEngine = localTable.getTableEngine();
             List<Shard> shardList = proxy.getClusterShardList(connection, localTable.getClusterName(),
                 localTable.getDatabase(), shardMetadata.getDefaultShard().getNode().getPort(),
                 shardMetadata.getUsername(), shardMetadata.getPassword());
@@ -79,6 +83,10 @@ public class ShardRouter implements Serializable {
 
     public String getShardTable() {
         return splitMode ? shardTable : table;
+    }
+
+    public String getShardTableEngine() {
+        return splitMode ? shardTableEngine : tableEngine;
     }
 
     public Shard getShard(Object shardValue) {

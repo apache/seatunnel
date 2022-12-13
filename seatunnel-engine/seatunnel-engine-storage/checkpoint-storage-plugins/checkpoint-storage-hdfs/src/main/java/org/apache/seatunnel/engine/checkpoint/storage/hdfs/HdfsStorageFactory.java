@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.HdfsFileStorageInstance;
 
 import com.google.auto.service.AutoService;
 
@@ -63,6 +64,9 @@ public class HdfsStorageFactory implements CheckpointStorageFactory {
 
     @Override
     public CheckpointStorage create(Map<String, String> configuration) throws CheckpointStorageException {
-        return new HdfsStorage(configuration);
+        if (HdfsFileStorageInstance.isFsNull()) {
+            return HdfsFileStorageInstance.getOrCreateStorage(configuration);
+        }
+        return HdfsFileStorageInstance.getHdfsStorage();
     }
 }
