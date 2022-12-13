@@ -258,27 +258,26 @@ public class MongodbMatchQueryIT extends FlinkContainer {
         Serializer serializer = new DefaultSerializer(seatunnelRowType);
 
         List<Document> documents = new ArrayList<>();
-        for (int i = 4; i < 100; i++) {
-            SeaTunnelRow row = new SeaTunnelRow(
-                new Object[]{
-                    Long.valueOf(i),
-                    Collections.singletonMap("key", Short.parseShort("1")),
-                    new Byte[]{Byte.parseByte("1")},
-                    "string",
-                    Boolean.FALSE,
-                    Byte.parseByte("1"),
-                    Short.parseShort("1"),
-                    Integer.parseInt("1"),
-                    Long.parseLong("1"),
-                    Float.parseFloat("1.1"),
-                    Double.parseDouble("1.1"),
-                    BigDecimal.valueOf(11, 1),
-                    "test".getBytes(),
-                    LocalDate.now(),
-                    LocalDateTime.now()
-                });
-            documents.add(serializer.serialize(row));
-        }
+        SeaTunnelRow row = new SeaTunnelRow(
+            new Object[]{
+                Long.valueOf(3),
+                Collections.singletonMap("key", Short.parseShort("1")),
+                new Byte[]{Byte.parseByte("1")},
+                "string",
+                Boolean.FALSE,
+                Byte.parseByte("1"),
+                Short.parseShort("1"),
+                Integer.parseInt("1"),
+                Long.parseLong("1"),
+                Float.parseFloat("1.1"),
+                Double.parseDouble("1.1"),
+                BigDecimal.valueOf(11, 1),
+                "test".getBytes(),
+                LocalDate.now(),
+                LocalDateTime.now()
+            });
+        documents.add(serializer.serialize(row));
+
         return documents;
     }
 
