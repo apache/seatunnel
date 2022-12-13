@@ -282,8 +282,6 @@ public class MongodbMatchQueryIT extends FlinkContainer {
         return documents;
     }
 
-
-
     @AfterEach
     public void closeMongoContainer() {
         if (client != null) {
