@@ -118,7 +118,7 @@
         <flink-shaded-hadoop-2.version>2.7.5-7.0</flink-shaded-hadoop-2.version>
         <parquet-avro.version>1.10.0</parquet-avro.version>
         <transport.version>6.3.1</transport.version>
-        <elasticsearch-spark.version>6.8.3</elasticsearch-spark.version>
+        <elasticsearch-spark.version>7.0.0</elasticsearch-spark.version>
         <clickhouse-jdbc.version>0.2</clickhouse-jdbc.version>
         <hbase-spark.version>1.0.0</hbase-spark.version>
         <kudu-spark.version>1.7.0</kudu-spark.version>
