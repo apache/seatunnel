@@ -25,6 +25,8 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 | partition            | int                   | no       | -             |
 | assign_partitions    | array                 | no       | -             |
 | transaction_prefix   | string                | no       | -             |
+| format               | String                | no       | json          |
+| field_delimiter      | String                | no       | ,             |
 | common-options       | config                | no       | -             |
 
 ### topic [string]
@@ -88,6 +90,15 @@ This function by `MessageContentPartitioner` class implements `org.apache.kafka.
 If semantic is specified as EXACTLY_ONCE, the producer will write all messages in a Kafka transaction.
 Kafka distinguishes different transactions by different transactionId. This parameter is prefix of  kafka  transactionId, make sure different job use different prefix.
 
+### format
+
+Data format. The default format is json. Optional text format. The default field separator is ",".
+If you customize the delimiter, add the "field_delimiter" option.
+
+### field_delimiter
+
+Customize the field delimiter for data format.
+
 ### common options [config]
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
@@ -101,6 +112,7 @@ sink {
       topic = "seatunnel"
       bootstrap.servers = "localhost:9092"
       partition = 3
+      format = json
       kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
   }
@@ -113,6 +125,8 @@ sink {
 ### 2.3.0-beta 2022-10-20
 
 - Add Kafka Sink Connector
+
 ### next version
 
-- [Feature] Support to specify multiple partition keys [3230](https://github.com/apache/incubator-seatunnel/pull/3230)
+- [Improve] Support to specify multiple partition keys [3230](https://github.com/apache/incubator-seatunnel/pull/3230)
+- [Improve] Add text format for kafka sink connector [3711](https://github.com/apache/incubator-seatunnel/pull/3711)
