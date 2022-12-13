@@ -71,8 +71,8 @@ public class MongodbMatchQueryIT extends FlinkContainer {
     private static final String MONGODB_CONTAINER_HOST = "flink_e2e_mongodb";
     private static final int MONGODB_PORT = 27017;
     private static final String MONGODB_DATABASE = "test_db";
-    private static final String MONGODB_SOURCE_TABLE = "source_table";
-    private static final String MONGODB_SINK_TABLE = "sink_table";
+    private static final String MONGODB_SOURCE_TABLE = "source_matchQuery_table";
+    private static final String MONGODB_SINK_TABLE = "sink_matchQuery_table";
 
     private static final List<Document> TEST_DATASET = generateTestDataSet();
     private static final List<Document> RESULT_DATASET = generateResultDataSet();
