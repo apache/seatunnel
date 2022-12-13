@@ -15,22 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.plugin.discovery.seatunnel;
+package org.apache.seatunnel.plugin.discovery.flink;
 
-import org.apache.seatunnel.flink.BaseFlinkTransform;
-import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 
-/**
- * Discovery for the SeaTunnel Flink transform.
- */
-public class SeaTunnelFlinkTransformPluginDiscovery extends AbstractPluginDiscovery<BaseFlinkTransform> {
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 
-    public SeaTunnelFlinkTransformPluginDiscovery() {
-        super("seatunnel");
+public class FlinkTransformV2PluginDiscovery extends FlinkAbstractPluginDiscovery<SeaTunnelTransform> {
+
+    public FlinkTransformV2PluginDiscovery() {
+        super("flink");
     }
 
     @Override
-    protected Class<BaseFlinkTransform> getPluginBaseClass() {
-        return BaseFlinkTransform.class;
+    public List<URL> getPluginJarPaths(List<PluginIdentifier> pluginIdentifiers) {
+        return new ArrayList<>();
+    }
+
+    @Override
+    protected Class<SeaTunnelTransform> getPluginBaseClass() {
+        return SeaTunnelTransform.class;
     }
 }

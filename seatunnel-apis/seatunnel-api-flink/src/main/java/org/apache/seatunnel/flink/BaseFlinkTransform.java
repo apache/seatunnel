@@ -18,10 +18,10 @@
 package org.apache.seatunnel.flink;
 
 import org.apache.seatunnel.apis.base.api.BaseTransform;
-
 /**
  * a base interface indicates a transform plugin running on Flink.
  */
+
 public interface BaseFlinkTransform extends BaseTransform<FlinkEnvironment> {
 
     default void registerFunction(FlinkEnvironment flinkEnvironment) {
