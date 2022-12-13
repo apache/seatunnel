@@ -88,7 +88,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         Path filePath = new Path(getStorageParentDirectory() + state.getJobId() + "/" + getCheckPointName(state));
 
         Path tmpFilePath = new Path(getStorageParentDirectory() + state.getJobId() + "/" + getCheckPointName(state) + STORAGE_TMP_SUFFIX);
-        try (FSDataOutputStream out = fs.create(tmpFilePath)) {
+        try (FSDataOutputStream out = fs.create(tmpFilePath, false)) {
             out.write(datas);
         } catch (IOException e) {
             throw new CheckpointStorageException("Failed to write checkpoint data, state: " + state, e);
