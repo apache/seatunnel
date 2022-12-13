@@ -17,9 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.shard;
 
-import java.io.Serializable;
-import java.util.Objects;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 
+import java.io.Serializable;
+
+@Getter
+@EqualsAndHashCode
+@AllArgsConstructor
 public class ShardMetadata implements Serializable {
 
     private static final long serialVersionUID = -1L;
@@ -28,6 +34,7 @@ public class ShardMetadata implements Serializable {
     private String shardKeyType;
     private String database;
     private String table;
+    private String tableEngine;
     private boolean splitMode;
     private Shard defaultShard;
     private String username;
@@ -37,123 +44,10 @@ public class ShardMetadata implements Serializable {
                          String shardKeyType,
                          String database,
                          String table,
-                         boolean splitMode,
-                         Shard defaultShard,
-                         String username,
-                         String password) {
-        this.shardKey = shardKey;
-        this.shardKeyType = shardKeyType;
-        this.database = database;
-        this.table = table;
-        this.splitMode = splitMode;
-        this.defaultShard = defaultShard;
-        this.username = username;
-        this.password = password;
-    }
-
-    public ShardMetadata(String shardKey,
-                         String shardKeyType,
-                         String database,
-                         String table,
+                         String tableEngine,
                          boolean splitMode,
                          Shard defaultShard) {
-        this.shardKey = shardKey;
-        this.shardKeyType = shardKeyType;
-        this.database = database;
-        this.table = table;
-        this.splitMode = splitMode;
-        this.defaultShard = defaultShard;
-    }
-
-    public String getShardKey() {
-        return shardKey;
-    }
-
-    public void setShardKey(String shardKey) {
-        this.shardKey = shardKey;
-    }
-
-    public String getShardKeyType() {
-        return shardKeyType;
-    }
-
-    public void setShardKeyType(String shardKeyType) {
-        this.shardKeyType = shardKeyType;
-    }
-
-    public String getDatabase() {
-        return database;
-    }
-
-    public void setDatabase(String database) {
-        this.database = database;
-    }
-
-    public String getTable() {
-        return table;
-    }
-
-    public void setTable(String table) {
-        this.table = table;
-    }
-
-    public boolean getSplitMode() {
-        return splitMode;
-    }
-
-    public void setSplitMode(boolean splitMode) {
-        this.splitMode = splitMode;
-    }
-
-    public Shard getDefaultShard() {
-        return defaultShard;
-    }
-
-    public void setDefaultShard(Shard defaultShard) {
-        this.defaultShard = defaultShard;
-    }
-
-    public boolean isSplitMode() {
-        return splitMode;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        ShardMetadata that = (ShardMetadata) o;
-        return splitMode == that.splitMode
-                && Objects.equals(shardKey, that.shardKey)
-                && Objects.equals(shardKeyType, that.shardKeyType)
-                && Objects.equals(database, that.database)
-                && Objects.equals(table, that.table)
-                && Objects.equals(defaultShard, that.defaultShard)
-                && Objects.equals(username, that.username)
-                && Objects.equals(password, that.password);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(shardKey, shardKeyType, database, table, splitMode, defaultShard, username, password);
+        this(shardKey, shardKeyType, database, table, tableEngine,
+            splitMode, defaultShard, null, null);
     }
 }

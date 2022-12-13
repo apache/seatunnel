@@ -17,23 +17,22 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client;
 
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.executor.JdbcBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.tool.IntHolder;
 
 import com.clickhouse.jdbc.internal.ClickHouseConnectionImpl;
 
-import java.sql.PreparedStatement;
-
 public class ClickhouseBatchStatement {
 
     private final ClickHouseConnectionImpl clickHouseConnection;
-    private final PreparedStatement preparedStatement;
+    private final JdbcBatchStatementExecutor jdbcBatchStatementExecutor;
     private final IntHolder intHolder;
 
     public ClickhouseBatchStatement(ClickHouseConnectionImpl clickHouseConnection,
-                                    PreparedStatement preparedStatement,
+                                    JdbcBatchStatementExecutor jdbcBatchStatementExecutor,
                                     IntHolder intHolder) {
         this.clickHouseConnection = clickHouseConnection;
-        this.preparedStatement = preparedStatement;
+        this.jdbcBatchStatementExecutor = jdbcBatchStatementExecutor;
         this.intHolder = intHolder;
     }
 
@@ -41,8 +40,8 @@ public class ClickhouseBatchStatement {
         return clickHouseConnection;
     }
 
-    public PreparedStatement getPreparedStatement() {
-        return preparedStatement;
+    public JdbcBatchStatementExecutor getJdbcBatchStatementExecutor() {
+        return jdbcBatchStatementExecutor;
     }
 
     public IntHolder getIntHolder() {

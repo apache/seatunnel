@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink;
+package org.apache.seatunnel.connectors.seatunnel.clickhouse.state;
+
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 
 import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
 
+@Data
 @AllArgsConstructor
-@Getter
-public class DistributedEngine implements Serializable {
+public class CKFileCommitInfo implements Serializable {
 
-    private static final long serialVersionUID = -1L;
-    private String clusterName;
-    private String database;
-    private String table;
-    private String tableEngine;
-    private String tableDDL;
+    private Map<Shard, List<String>> detachedFiles;
+
 }
