@@ -17,16 +17,28 @@
 
 package org.apache.seatunnel.e2e.flink.v2.mongodb;
 
+import static java.net.HttpURLConnection.HTTP_OK;
+import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
+
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.data.DefaultSerializer;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.data.Serializer;
+import org.apache.seatunnel.e2e.flink.FlinkContainer;
+
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.Sorts;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.seatunnel.api.table.type.*;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.data.DefaultSerializer;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.data.Serializer;
-import org.apache.seatunnel.e2e.flink.FlinkContainer;
 import org.awaitility.Awaitility;
 import org.bson.Document;
 import org.junit.jupiter.api.AfterEach;
@@ -52,9 +64,6 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import static java.net.HttpURLConnection.HTTP_OK;
-import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 
 @Slf4j
 public class MongodbMatchQueryIT extends FlinkContainer {
