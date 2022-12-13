@@ -65,7 +65,7 @@ public class HdfsStorageFactory implements CheckpointStorageFactory {
     @Override
     public CheckpointStorage create(Map<String, String> configuration) throws CheckpointStorageException {
         if (HdfsFileStorageInstance.isFsNull()) {
-            return HdfsFileStorageInstance.setAndGetStorage(configuration);
+            return HdfsFileStorageInstance.getOrCreateStorage(configuration);
         }
         return HdfsFileStorageInstance.getHdfsStorage();
     }
