@@ -15,21 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink;
+package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.executor;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-import java.io.Serializable;
+import java.sql.Connection;
+import java.sql.SQLException;
 
-@AllArgsConstructor
-@Getter
-public class DistributedEngine implements Serializable {
+public interface JdbcBatchStatementExecutor extends AutoCloseable{
 
-    private static final long serialVersionUID = -1L;
-    private String clusterName;
-    private String database;
-    private String table;
-    private String tableEngine;
-    private String tableDDL;
+    void prepareStatements(Connection connection) throws SQLException;
+
+    void addToBatch(SeaTunnelRow record) throws SQLException;
+
+    void executeBatch() throws SQLException;
+
+    void closeStatements() throws SQLException;
+
+    @Override
+    default void close() throws SQLException {
+        closeStatements();
+    }
 }
