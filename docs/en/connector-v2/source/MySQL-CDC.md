@@ -204,3 +204,7 @@ source {
 ```
 
 ## Changelog
+
+### next version
+
+- Add MySQL CDC Source Connector
