@@ -57,7 +57,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -170,8 +169,7 @@ public class MongodbMatchQueryIT extends FlinkContainer {
                 "c_double",
                 "c_decimal",
                 "c_bytes",
-                "c_date",
-                "c_timestamp"
+                "c_date"
             },
             new SeaTunnelDataType[]{
                 BasicType.LONG_TYPE,
@@ -188,7 +186,6 @@ public class MongodbMatchQueryIT extends FlinkContainer {
                 new DecimalType(2, 1),
                 PrimitiveByteArrayType.INSTANCE,
                 LocalTimeType.LOCAL_DATE_TYPE,
-                LocalTimeType.LOCAL_DATE_TIME_TYPE
             }
         );
         Serializer serializer = new DefaultSerializer(seatunnelRowType);
@@ -211,7 +208,6 @@ public class MongodbMatchQueryIT extends FlinkContainer {
                     BigDecimal.valueOf(11, 1),
                     "test".getBytes(),
                     LocalDate.now(),
-                    LocalDateTime.now()
                 });
             documents.add(serializer.serialize(row));
         }
@@ -234,8 +230,7 @@ public class MongodbMatchQueryIT extends FlinkContainer {
                 "c_double",
                 "c_decimal",
                 "c_bytes",
-                "c_date",
-                "c_timestamp"
+                "c_date"
             },
             new SeaTunnelDataType[]{
                 BasicType.LONG_TYPE,
@@ -251,8 +246,7 @@ public class MongodbMatchQueryIT extends FlinkContainer {
                 BasicType.DOUBLE_TYPE,
                 new DecimalType(2, 1),
                 PrimitiveByteArrayType.INSTANCE,
-                LocalTimeType.LOCAL_DATE_TYPE,
-                LocalTimeType.LOCAL_DATE_TIME_TYPE
+                LocalTimeType.LOCAL_DATE_TYPE
             }
         );
         Serializer serializer = new DefaultSerializer(seatunnelRowType);
@@ -274,10 +268,8 @@ public class MongodbMatchQueryIT extends FlinkContainer {
                 BigDecimal.valueOf(11, 1),
                 "test".getBytes(),
                 LocalDate.now(),
-                LocalDateTime.now()
             });
         documents.add(serializer.serialize(row));
-
         return documents;
     }
 
