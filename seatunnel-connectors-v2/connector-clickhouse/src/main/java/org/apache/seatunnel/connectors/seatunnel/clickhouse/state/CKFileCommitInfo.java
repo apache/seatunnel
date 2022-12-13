@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse;
+package org.apache.seatunnel.connectors.seatunnel.clickhouse.state;
 
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.ClickhouseSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseFileSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-public class ClickhouseFactoryTest {
+import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
 
-    @Test
-    public void testOptionRule() {
-        Assertions.assertNotNull((new ClickhouseSourceFactory()).optionRule());
-        Assertions.assertNotNull((new ClickhouseSinkFactory()).optionRule());
-        Assertions.assertNotNull((new ClickhouseFileSinkFactory()).optionRule());
-    }
+@Data
+@AllArgsConstructor
+public class CKFileCommitInfo implements Serializable {
+
+    private Map<Shard, List<String>> detachedFiles;
+
 }

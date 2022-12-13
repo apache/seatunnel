@@ -96,7 +96,16 @@ public class ClickhouseConfig {
     public static final Option<ClickhouseFileCopyMethod> COPY_METHOD = Options.key("copy_method").enumType(ClickhouseFileCopyMethod.class)
         .defaultValue(ClickhouseFileCopyMethod.SCP).withDescription("The method of copy Clickhouse file");
 
+    public static final Option<Boolean> COMPATIBLE_MODE = Options.key("compatible_mode").booleanType()
+        .defaultValue(false).withDescription("In the lower version of Clickhouse, the ClickhouseLocal program does not support the `--path` parameter, " +
+            "you need to use this mode to take other ways to realize the --path parameter function");
+
     public static final String NODE_ADDRESS = "node_address";
+
+    public static final Option<Boolean> NODE_FREE_PASSWORD = Options.key("node_free_password").booleanType()
+        .defaultValue(false).withDescription("Because seatunnel need to use scp or rsync for file transfer, " +
+            "seatunnel need clickhouse server-side access. If each spark node and clickhouse server are configured with password-free login, " +
+            "you can configure this option to true, otherwise you need to configure the corresponding node password in the node_pass configuration");
     /**
      * The password of Clickhouse server node
      */
@@ -105,5 +114,12 @@ public class ClickhouseConfig {
 
     public static final Option<Map<String, String>> CLICKHOUSE_PREFIX = Options.key("clickhouse").mapType()
         .defaultValue(Collections.emptyMap()).withDescription("Clickhouse custom config");
+
+    public static final Option<String> FILE_FIELDS_DELIMITER = Options.key("file_fields_delimiter").stringType()
+        .defaultValue("\t").withDescription("ClickhouseFile uses csv format to temporarily save data. If the data in the row contains the delimiter value of csv," +
+            " it may cause program exceptions. Avoid this with this configuration. Value string has to be an exactly one character long");
+
+    public static final Option<String> FILE_TEMP_PATH = Options.key("file_temp_path").stringType()
+        .defaultValue("/tmp/seatunnel/clickhouse-local/file").withDescription("The directory where ClickhouseFile stores temporary files locally.");
 
 }
