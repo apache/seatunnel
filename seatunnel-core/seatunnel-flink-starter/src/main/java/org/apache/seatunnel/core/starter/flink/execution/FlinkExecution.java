@@ -59,8 +59,8 @@ public class FlinkExecution implements TaskExecution {
 
     private final FlinkEnvironment flinkEnvironment;
     private final PluginExecuteProcessor sourcePluginExecuteProcessor;
-    private final PluginExecuteProcessor sinkPluginExecuteProcessor;
     private final PluginExecuteProcessor transformPluginExecuteProcessor;
+    private final PluginExecuteProcessor sinkPluginExecuteProcessor;
     private final List<URL> jarPaths;
 
     public FlinkExecution(Config config) {

@@ -50,14 +50,14 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Se
 
     @Override
     protected List<SeaTunnelTransform> initializePlugins(List<URL> jarPaths, List<? extends Config> pluginConfigs) {
-        SeaTunnelTransformPluginDiscovery transformV2PluginDiscovery = new SeaTunnelTransformPluginDiscovery();
+        SeaTunnelTransformPluginDiscovery transformPluginDiscovery = new SeaTunnelTransformPluginDiscovery();
         List<URL> pluginJars = new ArrayList<>();
         List<SeaTunnelTransform> transforms = pluginConfigs.stream()
             .map(transformConfig -> {
                 PluginIdentifier pluginIdentifier = PluginIdentifier.of(ENGINE_TYPE, PLUGIN_TYPE, transformConfig.getString(PLUGIN_NAME));
-                List<URL> pluginJarPaths = transformV2PluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier));
+                List<URL> pluginJarPaths = transformPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier));
                 SeaTunnelTransform<?> seaTunnelTransform =
-                        transformV2PluginDiscovery.createPluginInstance(pluginIdentifier);
+                        transformPluginDiscovery.createPluginInstance(pluginIdentifier);
                 jarPaths.addAll(pluginJarPaths);
                 seaTunnelTransform.prepare(transformConfig);
                 seaTunnelTransform.setJobContext(jobContext);
@@ -95,13 +95,13 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Se
         transform.setTypeInfo(seaTunnelDataType);
         TypeInformation rowTypeInfo = TypeConverterUtils.convert(transform.getProducedType());
         FlinkRowConverter transformInputRowConverter = new FlinkRowConverter(seaTunnelDataType);
-        FlinkRowConverter transformOutRowConverter = new FlinkRowConverter(transform.getProducedType());
+        FlinkRowConverter transformOutputRowConverter = new FlinkRowConverter(transform.getProducedType());
         DataStream<Row> output =  stream.map(new MapFunction<Row, Row>() {
             @Override
             public Row map(Row value) throws Exception {
                 SeaTunnelRow seaTunnelRow = transformInputRowConverter.reconvert(value);
                 SeaTunnelRow dataRow = (SeaTunnelRow) transform.map(seaTunnelRow);
-                Row copy = transformOutRowConverter.convert(dataRow);
+                Row copy = transformOutputRowConverter.convert(dataRow);
                 return copy;
             }
         },
