@@ -15,21 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink;
+package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.executor;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 
-import java.io.Serializable;
+@FunctionalInterface
+public interface StatementFactory {
 
-@AllArgsConstructor
-@Getter
-public class DistributedEngine implements Serializable {
+    PreparedStatement createStatement(Connection connection) throws SQLException;
 
-    private static final long serialVersionUID = -1L;
-    private String clusterName;
-    private String database;
-    private String table;
-    private String tableEngine;
-    private String tableDDL;
 }

@@ -66,11 +66,6 @@ public class ClickhouseProxy {
         return c.connect(shard.getNode()).format(ClickHouseFormat.RowBinaryWithNamesAndTypes);
     }
 
-    public DistributedEngine getClickhouseDistributedTable(String database, String table) {
-        ClickHouseRequest<?> request = getClickhouseConnection();
-        return getClickhouseDistributedTable(request, database, table);
-    }
-
     public DistributedEngine getClickhouseDistributedTable(ClickHouseRequest<?> connection, String database,
                                                            String table) {
         String sql = String.format("select engine_full from system.tables where database = '%s' and name = '%s' and engine = 'Distributed'", database, table);
@@ -82,7 +77,30 @@ public class ClickhouseProxy {
                 String engineFull = record.getValue(0).asString();
                 List<String> infos = Arrays.stream(engineFull.substring(12).split(","))
                     .map(s -> s.replace("'", "").trim()).collect(Collectors.toList());
-                return new DistributedEngine(infos.get(0), infos.get(1), infos.get(2).replace("\\)", "").trim());
+
+                String clusterName = infos.get(0);
+                String localDatabase = infos.get(1);
+                String localTable = infos.get(2).replace("\\)", "").trim();
+
+                String localTableSQL = String.format("select engine,create_table_query from system.tables where database = '%s' and name = '%s'",
+                    localDatabase, localTable);
+                String localTableDDL;
+                String localTableEngine;
+                try (ClickHouseResponse localTableResponse = clickhouseRequest.query(localTableSQL).executeAndWait()) {
+                    List<ClickHouseRecord> localTableRecords = localTableResponse.stream().collect(Collectors.toList());
+                    if (localTableRecords.isEmpty()) {
+                        throw new ClickhouseConnectorException(SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED, "Cannot get table from clickhouse, resultSet is empty");
+                    }
+                    localTableEngine = localTableRecords.get(0).getValue(0).asString();
+                    localTableDDL = localTableRecords.get(0).getValue(1).asString();
+                    localTableDDL = localizationEngine(localTableEngine, localTableDDL);
+                }
+
+                return new DistributedEngine(clusterName,
+                    localDatabase,
+                    localTable,
+                    localTableEngine,
+                    localTableDDL);
             }
             throw new ClickhouseConnectorException(SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED, "Cannot get distributed table from clickhouse, resultSet is empty");
         } catch (ClickHouseException e) {
@@ -163,17 +181,7 @@ public class ClickhouseProxy {
             DistributedEngine distributedEngine = null;
             if ("Distributed".equals(engine)) {
                 distributedEngine = getClickhouseDistributedTable(clickhouseRequest, database, table);
-                String localTableSQL = String.format("select engine,create_table_query from system.tables where database = '%s' and name = '%s'",
-                    distributedEngine.getDatabase(), distributedEngine.getTable());
-                try (ClickHouseResponse rs = clickhouseRequest.query(localTableSQL).executeAndWait()) {
-                    List<ClickHouseRecord> localTableRecords = rs.stream().collect(Collectors.toList());
-                    if (localTableRecords.isEmpty()) {
-                        throw new ClickhouseConnectorException(SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED, "Cannot get table from clickhouse, resultSet is empty");
-                    }
-                    String localEngine = localTableRecords.get(0).getValue(0).asString();
-                    String createLocalTableDDL = localTableRecords.get(0).getValue(1).asString();
-                    createTableDDL = localizationEngine(localEngine, createLocalTableDDL);
-                }
+                createTableDDL = distributedEngine.getTableDDL();
             }
             return new ClickhouseTable(
                 database,

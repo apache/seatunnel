@@ -105,6 +105,7 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
 
         ClickhouseProxy proxy = new ClickhouseProxy(nodes.get(0));
         Map<String, String> tableSchema = proxy.getClickhouseTableSchema(config.getString(TABLE.key()));
+        ClickhouseTable table = proxy.getClickhouseTable(config.getString(DATABASE.key()), config.getString(TABLE.key()));
         String shardKey = null;
         String shardKeyType = null;
         if (config.hasPath(SHARDING_KEY.key())) {
@@ -116,6 +117,7 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
             shardKeyType,
             config.getString(DATABASE.key()),
             config.getString(TABLE.key()),
+            table.getEngine(),
             false, // we don't need to set splitMode in clickhouse file mode.
             new Shard(1, 1, nodes.get(0)), config.getString(USERNAME.key()), config.getString(PASSWORD.key()));
         List<String> fields;

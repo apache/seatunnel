@@ -81,8 +81,25 @@ public class ClickhouseConfig {
     /**
      * When split_mode is true, the sharding_key use for split
      */
-    public static final Option<String> SHARDING_KEY = Options.key("sharding_key").stringType()
-        .noDefaultValue().withDescription("When split_mode is true, the sharding_key use for split");
+    public static final Option<String> SHARDING_KEY = Options.key("sharding_key")
+        .stringType()
+        .noDefaultValue()
+        .withDescription("When split_mode is true, the sharding_key use for split");
+
+    public static final Option<String> PRIMARY_KEY = Options.key("primary_key")
+        .stringType()
+        .noDefaultValue()
+        .withDescription("Mark the primary key column from clickhouse table, and based on primary key execute INSERT/UPDATE/DELETE to clickhouse table");
+
+    public static final Option<Boolean> SUPPORT_UPSERT = Options.key("support_upsert")
+        .booleanType()
+        .defaultValue(false)
+        .withDescription("Support upsert row by query primary key");
+
+    public static final Option<Boolean> ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE = Options.key("allow_experimental_lightweight_delete")
+        .booleanType()
+        .defaultValue(false)
+        .withDescription("Allow experimental lightweight delete based on `*MergeTree` table engine");
 
     /**
      * ClickhouseFile sink connector used clickhouse-local program's path
