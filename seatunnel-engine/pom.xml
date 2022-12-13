@@ -29,6 +29,9 @@
         <!--  SeaTunnel Engine use     -->
         <hazelcast.version>5.1</hazelcast.version>
         <disruptor.version>3.4.4</disruptor.version>
+        <hadoop.aws.version>3.1.4</hadoop.aws.version>
+        <aws.java.sdk.version>1.11.271</aws.java.sdk.version>
+        <flink.hadoop.uber.version>3.1.1.7.2.9.0-173-9.0</flink.hadoop.uber.version>
     </properties>
 
     <modules>
@@ -51,6 +54,26 @@
                 <groupId>com.lmax</groupId>
                 <artifactId>disruptor</artifactId>
                 <version>${disruptor.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-aws</artifactId>
+                <version>${hadoop.aws.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>aws-java-sdk-bundle</artifactId>
+                <version>${aws.java.sdk.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- https://mvnrepository.com/artifact/org.apache.flink/flink-shaded-hadoop-3-uber -->
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-shaded-hadoop-3-uber</artifactId>
+                <version>${flink.hadoop.uber.version}</version>
+                <scope>provided</scope>
             </dependency>
 
             <!-- test dependencies -->
