@@ -28,6 +28,7 @@ Source connector for Apache Kafka.
 | common-options                      | config  | no       | -                        |
 | schema                              |         | no       | -                        |
 | format                              | String  | no       | json                     |
+| field_delimiter                     | String  | no       | ,                        |
 | start_mode                          | String  | no       | group_offsets            |
 | start_mode.offsets                  |         | no       |                          |
 | start_mode.timestamp                | Long    | no       |                          |

@@ -15,17 +15,19 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 
 ## Options
 
-| name                 | type   | required | default value |
-|----------------------|--------|----------|---------------|
-| topic                | string | yes      | -             |
-| bootstrap.servers    | string | yes      | -             |
+| name                 | type                  | required | default value |
+|----------------------|-----------------------| -------- | ------------- |
+| topic                | string                | yes      | -             |
+| bootstrap.servers    | string                | yes      | -             |
 | kafka.config         | map    | no       | -             |
-| semantic             | string | no       | NON           |
-| partition_key_fields | array  | no       | -             |
-| partition            | int    | no       | -             |
-| assign_partitions    | array  | no       | -             |
-| transaction_prefix   | string | no       | -             |
-| common-options       | config | no       | -             |
+| semantic             | string                | no       | NON           |
+| partition_key_fields | array                 | no       | -             |
+| partition            | int                   | no       | -             |
+| assign_partitions    | array                 | no       | -             |
+| transaction_prefix   | string                | no       | -             |
+| format               | String                | no       | json          |
+| field_delimiter      | String                | no       | ,             |
+| common-options       | config                | no       | -             |
 
 ### topic [string]
 
@@ -35,9 +37,11 @@ Kafka Topic.
 
 Kafka Brokers List.
 
-### kafka.config [map]
+### kafka.* [kafka producer config]
 
 In addition to the above parameters that must be specified by the `Kafka producer` client, the user can also specify multiple non-mandatory parameters for the `producer` client, covering [all the producer parameters specified in the official Kafka document](https://kafka.apache.org/documentation.html#producerconfigs).
+
+The way to specify the parameter is to add the prefix `kafka.` to the original parameter name. For example, the way to specify `request.timeout.ms` is: `kafka.request.timeout.ms = 60000` . If these non-essential parameters are not specified, they will use the default values given in the official Kafka documentation.
 
 ### semantic [string]
 
@@ -86,6 +90,15 @@ This function by `MessageContentPartitioner` class implements `org.apache.kafka.
 If semantic is specified as EXACTLY_ONCE, the producer will write all messages in a Kafka transaction.
 Kafka distinguishes different transactions by different transactionId. This parameter is prefix of  kafka  transactionId, make sure different job use different prefix.
 
+### format
+
+Data format. The default format is json. Optional text format. The default field separator is ",".
+If you customize the delimiter, add the "field_delimiter" option.
+
+### field_delimiter
+
+Customize the field delimiter for data format.
+
 ### common options [config]
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
@@ -99,6 +112,8 @@ sink {
       topic = "seatunnel"
       bootstrap.servers = "localhost:9092"
       partition = 3
+      format = json
+      kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
       kafka.config = {
         acks = "all"
@@ -115,7 +130,9 @@ sink {
 ### 2.3.0-beta 2022-10-20
 
 - Add Kafka Sink Connector
+
 ### next version
 
-- [Feature] Support to specify multiple partition keys [3230](https://github.com/apache/incubator-seatunnel/pull/3230)
+- [Improve] Support to specify multiple partition keys [3230](https://github.com/apache/incubator-seatunnel/pull/3230)
+- [Improve] Add text format for kafka sink connector [3711](https://github.com/apache/incubator-seatunnel/pull/3711)
 - [Improve] Change Connector Custom Config Prefix To Map

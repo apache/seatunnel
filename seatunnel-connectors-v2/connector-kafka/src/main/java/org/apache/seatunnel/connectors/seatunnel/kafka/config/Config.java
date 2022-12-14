@@ -30,6 +30,8 @@ public class Config {
      */
     public static final String DEFAULT_FORMAT = "json";
 
+    public static final String TEXT_FORMAT = "text";
+
     /**
      * The default field delimiter is “,”
      */
