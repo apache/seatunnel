@@ -207,7 +207,8 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
     }
 
     private AdminClient initAdminClient(Properties properties) {
-        Properties props = new Properties(properties);
+        Properties props = new Properties();
+        props.putAll(properties);
         props.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, this.metadata.getBootstrapServers());
         props.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, CLIENT_ID_PREFIX + "-enumerator-admin-client-" + this.hashCode());
         return AdminClient.create(props);
