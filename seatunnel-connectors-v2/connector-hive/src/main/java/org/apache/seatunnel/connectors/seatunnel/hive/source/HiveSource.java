@@ -23,14 +23,18 @@ import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.T
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.BaseHdfsFileSource;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
+import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
@@ -56,7 +60,9 @@ public class HiveSource extends BaseHdfsFileSource {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HiveConfig.METASTORE_URI.key(),
                 HiveConfig.TABLE_NAME.key());
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
+            throw new HiveConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         Pair<String[], Table> tableInfo = HiveConfig.getTableInfo(pluginConfig);
         tableInformation = tableInfo.getRight();
@@ -71,7 +77,8 @@ public class HiveSource extends BaseHdfsFileSource {
             pluginConfig = pluginConfig.withValue(BaseSourceConfig.FILE_TYPE.key(),
                     ConfigValueFactory.fromAnyRef(FileFormat.ORC.toString()));
         } else {
-            throw new RuntimeException("Only support [text parquet orc] file now");
+            throw new HiveConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                    "Hive connector only support [text parquet orc] table now");
         }
         String hdfsLocation = tableInformation.getSd().getLocation();
         try {
@@ -81,7 +88,9 @@ public class HiveSource extends BaseHdfsFileSource {
             pluginConfig = pluginConfig.withValue(BaseSourceConfig.FILE_PATH.key(), ConfigValueFactory.fromAnyRef(path))
                 .withValue(FS_DEFAULT_NAME_KEY, ConfigValueFactory.fromAnyRef(defaultFs));
         } catch (URISyntaxException e) {
-            throw new RuntimeException("Get hdfs cluster address failed, please check.", e);
+            String errorMsg = String.format("Get hdfs namenode host from table location [%s] failed," +
+                    "please check it", hdfsLocation);
+            throw new HiveConnectorException(HiveConnectorErrorCode.GET_HDFS_NAMENODE_HOST_FAILED, errorMsg, e);
         }
         super.prepare(pluginConfig);
     }

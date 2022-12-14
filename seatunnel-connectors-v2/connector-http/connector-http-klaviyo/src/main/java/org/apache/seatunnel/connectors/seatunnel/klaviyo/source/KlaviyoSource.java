@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.klaviyo.source;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -29,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config.KlaviyoSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config.KlaviyoSourceParameter;
+import org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config.exception.KlaviyoConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -49,7 +51,9 @@ public class KlaviyoSource extends HttpSource {
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, KlaviyoSourceConfig.URL.key(), KlaviyoSourceConfig.PRIVATE_KEY.key(), KlaviyoSourceConfig.REVISION.key());
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
+            throw new KlaviyoConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         this.klaviyoSourceParameter.buildWithConfig(pluginConfig);
         buildSchemaWithConfig(pluginConfig);
@@ -57,6 +61,6 @@ public class KlaviyoSource extends HttpSource {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(this.klaviyoSourceParameter, readerContext, this.deserializationSchema);
+        return new HttpSourceReader(this.klaviyoSourceParameter, readerContext, this.deserializationSchema, jsonField, contentField);
     }
 }

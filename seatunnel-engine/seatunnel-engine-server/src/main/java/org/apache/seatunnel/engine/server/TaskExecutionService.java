@@ -17,13 +17,20 @@
 
 package org.apache.seatunnel.engine.server;
 
+import static org.apache.seatunnel.api.common.metrics.MetricTags.JOB_ID;
+import static org.apache.seatunnel.api.common.metrics.MetricTags.PIPELINE_ID;
+import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_GROUP_ID;
+import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_GROUP_LOCATION;
+import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_ID;
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
 import static com.hazelcast.jet.impl.util.Util.uncheckRun;
+import static java.lang.Thread.currentThread;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.stream.Collectors.partitioningBy;
 import static java.util.stream.Collectors.toList;
 
+import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.loader.SeatunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -42,6 +49,10 @@ import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
 
 import com.google.common.collect.Lists;
+import com.hazelcast.internal.metrics.DynamicMetricsProvider;
+import com.hazelcast.internal.metrics.MetricDescriptor;
+import com.hazelcast.internal.metrics.MetricsCollectionContext;
+import com.hazelcast.internal.metrics.MetricsRegistry;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.logging.ILogger;
@@ -54,6 +65,7 @@ import org.apache.commons.collections4.CollectionUtils;
 
 import java.net.URL;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -69,11 +81,12 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 
 /**
  * This class is responsible for the execution of the Task
  */
-public class TaskExecutionService {
+public class TaskExecutionService implements DynamicMetricsProvider {
 
     private final String hzInstanceName;
     private final NodeEngineImpl nodeEngine;
@@ -84,6 +97,7 @@ public class TaskExecutionService {
     private final RunBusWorkSupplier runBusWorkSupplier = new RunBusWorkSupplier(executorService, threadShareTaskQueue);
     // key: TaskID
     private final ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts = new ConcurrentHashMap<>();
+    private final ConcurrentMap<TaskGroupLocation, TaskGroupContext> finishedExecutionContexts = new ConcurrentHashMap<>();
     private final ConcurrentMap<TaskGroupLocation, CompletableFuture<Void>> cancellationFutures =
         new ConcurrentHashMap<>();
 
@@ -91,6 +105,11 @@ public class TaskExecutionService {
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
         this.nodeEngine = nodeEngine;
         this.logger = nodeEngine.getLoggingService().getLogger(TaskExecutionService.class);
+
+        MetricsRegistry registry = nodeEngine.getMetricsRegistry();
+        MetricDescriptor descriptor = registry.newMetricDescriptor()
+            .withTag(MetricTags.SERVICE, this.getClass().getSimpleName());
+        registry.registerStaticMetrics(descriptor, this);
     }
 
     public void start() {
@@ -107,9 +126,23 @@ public class TaskExecutionService {
     }
 
     private void submitThreadShareTask(TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
-        tasks.stream()
-            .map(t -> new TaskTracker(t, taskGroupExecutionTracker))
-            .forEach(threadShareTaskQueue::add);
+        Stream<TaskTracker> taskTrackerStream = tasks.stream()
+            .map(t -> {
+                if (!taskGroupExecutionTracker.executionCompletedExceptionally()) {
+                    try {
+                        TaskTracker taskTracker = new TaskTracker(t, taskGroupExecutionTracker);
+                        taskTracker.task.init();
+                        return taskTracker;
+                    } catch (Exception e) {
+                        taskGroupExecutionTracker.exception(e);
+                        taskGroupExecutionTracker.taskDone();
+                    }
+                }
+                return null;
+            });
+        if (!taskGroupExecutionTracker.executionCompletedExceptionally()) {
+            taskTrackerStream.forEach(threadShareTaskQueue::add);
+        }
     }
 
     private void submitBlockingTask(TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
@@ -261,6 +294,34 @@ public class TaskExecutionService {
 
     }
 
+    public void notifyCleanTaskGroupContext(TaskGroupLocation taskGroupLocation){
+        finishedExecutionContexts.remove(taskGroupLocation);
+    }
+
+    @Override
+    public void provideDynamicMetrics(MetricDescriptor descriptor, MetricsCollectionContext context) {
+        try {
+            MetricDescriptor copy1 = descriptor.copy().withTag(MetricTags.SERVICE, this.getClass().getSimpleName());
+            Map<TaskGroupLocation, TaskGroupContext> contextMap = new HashMap<>();
+            contextMap.putAll(executionContexts);
+            contextMap.putAll(finishedExecutionContexts);
+            contextMap.forEach((taskGroupLocation, taskGroupContext) -> {
+                MetricDescriptor copy2 = copy1.copy().withTag(TASK_GROUP_LOCATION, taskGroupLocation.toString())
+                    .withTag(JOB_ID, String.valueOf(taskGroupLocation.getJobId()))
+                    .withTag(PIPELINE_ID, String.valueOf(taskGroupLocation.getPipelineId()))
+                    .withTag(TASK_GROUP_ID, String.valueOf(taskGroupLocation.getTaskGroupId()));
+                taskGroupContext.getTaskGroup().getTasks().forEach(task -> {
+                    Long taskID = task.getTaskID();
+                    MetricDescriptor copy3 = copy2.copy().withTag(TASK_ID, String.valueOf(taskID));
+                    task.provideDynamicMetrics(copy3, context);
+                });
+            });
+        } catch (Throwable t) {
+            logger.warning("Dynamic metric collection failed", t);
+            throw t;
+        }
+    }
+
     private final class BlockingWorker implements Runnable {
 
         private final TaskTracker tracker;
@@ -315,6 +376,7 @@ public class TaskExecutionService {
         AtomicBoolean keep = new AtomicBoolean(true);
         public AtomicReference<TaskTracker> exclusiveTaskTracker = new AtomicReference<>();
         final TaskCallTimer timer;
+        private Thread myThread;
         public LinkedBlockingDeque<TaskTracker> taskqueue;
 
         @SuppressWarnings("checkstyle:MagicNumber")
@@ -328,6 +390,7 @@ public class TaskExecutionService {
         @SneakyThrows
         @Override
         public void run() {
+            myThread = currentThread();
             while (keep.get() && isRunning) {
                 TaskTracker taskTracker = null != exclusiveTaskTracker.get() ?
                     exclusiveTaskTracker.get() :
@@ -350,6 +413,7 @@ public class TaskExecutionService {
                 ProgressState call = null;
                 try {
                     //run task
+                    myThread.setContextClassLoader(executionContexts.get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation()).getClassLoader());
                     call = taskTracker.task.call();
                     synchronized (timer) {
                         timer.timerStop();
@@ -449,7 +513,7 @@ public class TaskExecutionService {
             logger.info("taskDone: " + taskGroup.getTaskGroupLocation());
             if (completionLatch.decrementAndGet() == 0) {
                 TaskGroupLocation taskGroupLocation = taskGroup.getTaskGroupLocation();
-                executionContexts.remove(taskGroupLocation);
+                finishedExecutionContexts.put(taskGroupLocation, executionContexts.remove(taskGroupLocation));
                 cancellationFutures.remove(taskGroupLocation);
                 Throwable ex = executionException.get();
                 if (ex == null) {

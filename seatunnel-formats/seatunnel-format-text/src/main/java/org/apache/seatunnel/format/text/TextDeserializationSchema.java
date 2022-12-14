@@ -25,10 +25,12 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.format.text.exception.SeaTunnelTextFormatException;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import lombok.Builder;
@@ -130,8 +132,8 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                     case DOUBLE:
                         return objectArrayList.toArray(new Double[0]);
                     default:
-                        String errorMsg = String.format("SeaTunnel array not support this data type [%s]", elementType.getSqlType());
-                        throw new UnsupportedOperationException(errorMsg);
+                        throw new SeaTunnelTextFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                String.format("SeaTunnel array not support this data type [%s]", elementType.getSqlType()));
                 }
             case MAP:
                 SeaTunnelDataType<?> keyType = ((MapType<?, ?>) fieldType).getKeyType();
@@ -176,7 +178,8 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 }
                 return new SeaTunnelRow(objects);
             default:
-                throw new UnsupportedOperationException("SeaTunnel format text not supported for parsing this type");
+                throw new SeaTunnelTextFormatException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        String.format("SeaTunnel not support this data type [%s]", fieldType.getSqlType()));
         }
     }
 }

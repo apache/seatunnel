@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.seatunnel.command;
 
+import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist;
+
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
@@ -56,12 +58,14 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
     public void execute() throws CommandExecuteException {
         HazelcastInstance instance = null;
         SeaTunnelClient engineClient = null;
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         try {
             String clusterName = clientCommandArgs.getClusterName();
             if (clientCommandArgs.getExecutionMode().equals(ExecutionMode.LOCAL)) {
                 clusterName = creatRandomClusterName(clusterName);
                 instance = createServerInLocal(clusterName);
             }
+            seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(clusterName);
             engineClient = new SeaTunnelClient(clientConfig);
@@ -69,10 +73,16 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 String jobstatus = engineClient.listJobStatus();
                 System.out.println(jobstatus);
             } else if (null != clientCommandArgs.getJobId()) {
-                String jobState = engineClient.getJobState(Long.parseLong(clientCommandArgs.getJobId()));
+                String jobState = engineClient.getJobDetailStatus(Long.parseLong(clientCommandArgs.getJobId()));
                 System.out.println(jobState);
+            } else if (null != clientCommandArgs.getCancelJobId()) {
+                engineClient.cancelJob(Long.parseLong(clientCommandArgs.getCancelJobId()));
+            } else if (null != clientCommandArgs.getMetricsJobId()) {
+                String jobMetrics = engineClient.getJobMetrics(Long.parseLong(clientCommandArgs.getMetricsJobId()));
+                System.out.println(jobMetrics);
             } else {
                 Path configFile = FileUtils.getConfigPath(clientCommandArgs);
+                checkConfigExist(configFile);
                 JobConfig jobConfig = new JobConfig();
                 jobConfig.setName(clientCommandArgs.getJobName());
                 JobExecutionEnvironment jobExecutionEnv =
@@ -80,6 +90,8 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
 
                 ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
                 clientJobProxy.waitForJobComplete();
+                long jobId = clientJobProxy.getJobId();
+                System.out.println(engineClient.getJobMetrics(jobId));
             }
         } catch (ExecutionException | InterruptedException e) {
             throw new CommandExecuteException("SeaTunnel job executed failed", e);

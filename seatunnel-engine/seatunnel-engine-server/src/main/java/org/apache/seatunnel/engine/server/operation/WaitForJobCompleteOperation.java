@@ -19,7 +19,7 @@ package org.apache.seatunnel.engine.server.operation;
 
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
+import org.apache.seatunnel.engine.server.serializable.ClientToServerOperationDataSerializerHook;
 
 public class WaitForJobCompleteOperation extends AbstractJobAsyncOperation {
 
@@ -39,6 +39,6 @@ public class WaitForJobCompleteOperation extends AbstractJobAsyncOperation {
 
     @Override
     public int getClassId() {
-        return OperationDataSerializerHook.WAIT_FORM_JOB_COMPLETE_OPERATOR;
+        return ClientToServerOperationDataSerializerHook.WAIT_FORM_JOB_COMPLETE_OPERATOR;
     }
 }

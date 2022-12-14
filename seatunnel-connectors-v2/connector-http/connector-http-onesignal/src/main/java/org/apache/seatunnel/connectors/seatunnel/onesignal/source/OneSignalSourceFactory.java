@@ -17,19 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.onesignal.source;
 
-import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
+import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.onesignal.source.config.OneSignalSourceConfig;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class OneSignalSourceFactory implements TableSourceFactory {
+public class OneSignalSourceFactory extends HttpSourceFactory {
     @Override
     public String factoryIdentifier() {
         return "OneSignal";
@@ -37,19 +33,8 @@ public class OneSignalSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder()
-                .required(OneSignalSourceConfig.URL)
+        return getHttpBuilder()
                 .required(OneSignalSourceConfig.PASSWORD)
-                .optional(OneSignalSourceConfig.METHOD)
-                .optional(OneSignalSourceConfig.HEADERS)
-                .optional(OneSignalSourceConfig.PARAMS)
-                .conditional(Condition.of(HttpConfig.METHOD, HttpRequestMethod.POST), OneSignalSourceConfig.BODY)
-                .conditional(Condition.of(HttpConfig.FORMAT, "json"), SeaTunnelSchema.SCHEMA)
-                .optional(OneSignalSourceConfig.FORMAT)
-                .optional(OneSignalSourceConfig.POLL_INTERVAL_MILLS)
-                .optional(OneSignalSourceConfig.RETRY)
-                .optional(OneSignalSourceConfig.RETRY_BACKOFF_MAX_MS)
-                .optional(OneSignalSourceConfig.RETRY_BACKOFF_MULTIPLIER_MS)
                 .build();
     }
 }

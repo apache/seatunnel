@@ -22,9 +22,9 @@ import static org.apache.seatunnel.api.configuration.util.OptionUtil.getOptionKe
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 public class ConfigValidator {
     private final ReadonlyConfig config;
@@ -38,7 +38,7 @@ public class ConfigValidator {
     }
 
     public void validate(OptionRule rule) {
-        Set<RequiredOption> requiredOptions = rule.getRequiredOptions();
+        List<RequiredOption> requiredOptions = rule.getRequiredOptions();
         for (RequiredOption requiredOption : requiredOptions) {
             validate(requiredOption);
         }
@@ -64,8 +64,8 @@ public class ConfigValidator {
         throw new UnsupportedOperationException(String.format("This type option(%s) of validation is not supported", requiredOption.getClass()));
     }
 
-    private Set<Option<?>> getAbsentOptions(Set<Option<?>> requiredOption) {
-        Set<Option<?>> absent = new HashSet<>();
+    private List<Option<?>> getAbsentOptions(List<Option<?>> requiredOption) {
+        List<Option<?>> absent = new ArrayList<>();
         for (Option<?> option : requiredOption) {
             if (!hasOption(option)) {
                 absent.add(option);
@@ -75,7 +75,7 @@ public class ConfigValidator {
     }
 
     void validate(RequiredOption.AbsolutelyRequiredOptions requiredOption) {
-        Set<Option<?>> absentOptions = getAbsentOptions(requiredOption.getRequiredOption());
+        List<Option<?>> absentOptions = getAbsentOptions(requiredOption.getRequiredOption());
         if (absentOptions.size() == 0) {
             return;
         }
@@ -87,9 +87,9 @@ public class ConfigValidator {
     }
 
     boolean validate(RequiredOption.BundledRequiredOptions bundledRequiredOptions) {
-        Set<Option<?>> bundledOptions = bundledRequiredOptions.getRequiredOption();
-        Set<Option<?>> present = new HashSet<>();
-        Set<Option<?>> absent = new HashSet<>();
+        List<Option<?>> bundledOptions = bundledRequiredOptions.getRequiredOption();
+        List<Option<?>> present = new ArrayList<>();
+        List<Option<?>> absent = new ArrayList<>();
         for (Option<?> option : bundledOptions) {
             if (hasOption(option)) {
                 present.add(option);
@@ -108,30 +108,24 @@ public class ConfigValidator {
     }
 
     void validate(RequiredOption.ExclusiveRequiredOptions exclusiveRequiredOptions) {
-        Set<RequiredOption.BundledRequiredOptions> presentBundledRequiredOptions = new HashSet<>();
-        Set<Option<?>> presentOptions = new HashSet<>();
-        for (RequiredOption.BundledRequiredOptions bundledOptions : exclusiveRequiredOptions.getExclusiveBundledOptions()) {
-            if (validate(bundledOptions)) {
-                presentBundledRequiredOptions.add(bundledOptions);
-            }
-        }
+        List<Option<?>> presentOptions = new ArrayList<>();
 
         for (Option<?> option : exclusiveRequiredOptions.getExclusiveOptions()) {
             if (hasOption(option)) {
                 presentOptions.add(option);
             }
         }
-        int count = presentBundledRequiredOptions.size() + presentOptions.size();
+        int count = presentOptions.size();
         if (count == 1) {
             return;
         }
         if (count == 0) {
             throw new OptionValidationException("There are unconfigured options, these options(%s) are mutually exclusive, allowing only one set(\"[] for a set\") of options to be configured.",
-                getOptionKeys(exclusiveRequiredOptions.getExclusiveOptions(), exclusiveRequiredOptions.getExclusiveBundledOptions()));
+                getOptionKeys(exclusiveRequiredOptions.getExclusiveOptions()));
         }
         if (count > 1) {
             throw new OptionValidationException("These options(%s) are mutually exclusive, allowing only one set(\"[] for a set\") of options to be configured.",
-                getOptionKeys(presentOptions, presentBundledRequiredOptions));
+                getOptionKeys(presentOptions));
         }
     }
 
@@ -141,7 +135,7 @@ public class ConfigValidator {
         if (!match) {
             return;
         }
-        Set<Option<?>> absentOptions = getAbsentOptions(conditionalRequiredOptions.getRequiredOption());
+        List<Option<?>> absentOptions = getAbsentOptions(conditionalRequiredOptions.getRequiredOption());
         if (absentOptions.size() == 0) {
             return;
         }

@@ -17,9 +17,12 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_QPS;
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
 import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
 
+import org.apache.seatunnel.api.common.metrics.Unit;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -29,6 +32,7 @@ import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.metrics.MetricsContext;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
@@ -69,17 +73,21 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private Optional<CommitInfoT> lastCommitInfo;
 
+    private MetricsContext metricsContext;
+
     private final boolean containAggCommitter;
 
     public SinkFlowLifeCycle(SinkAction<T, StateT, CommitInfoT, AggregatedCommitInfoT> sinkAction, TaskLocation taskLocation, int indexID,
                              SeaTunnelTask runningTask, TaskLocation committerTaskLocation,
-                             boolean containAggCommitter, CompletableFuture<Void> completableFuture) {
+                             boolean containAggCommitter, CompletableFuture<Void> completableFuture,
+                             MetricsContext metricsContext) {
         super(sinkAction, runningTask, completableFuture);
         this.sinkAction = sinkAction;
         this.indexID = indexID;
         this.taskLocation = taskLocation;
         this.committerTaskLocation = committerTaskLocation;
         this.containAggCommitter = containAggCommitter;
+        this.metricsContext = metricsContext;
     }
 
     @Override
@@ -151,6 +159,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     return;
                 }
                 writer.write((T) record.getData());
+                metricsContext.threadSafeQpsMetric(SINK_WRITE_QPS, Unit.COUNT).increment();
+                metricsContext.threadSafeMetric(SINK_WRITE_COUNT, Unit.COUNT).increment();
             }
         } catch (Exception e) {
             throw new RuntimeException(e);

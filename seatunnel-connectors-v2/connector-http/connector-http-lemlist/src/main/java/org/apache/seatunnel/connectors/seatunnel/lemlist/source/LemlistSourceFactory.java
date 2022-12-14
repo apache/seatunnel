@@ -17,19 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.lemlist.source;
 
-import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
+import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.lemlist.source.config.LemlistSourceConfig;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class LemlistSourceFactory implements TableSourceFactory {
+public class LemlistSourceFactory extends HttpSourceFactory {
     @Override
     public String factoryIdentifier() {
         return "Lemlist";
@@ -37,19 +33,8 @@ public class LemlistSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder()
-                .required(LemlistSourceConfig.URL)
+        return getHttpBuilder()
                 .required(LemlistSourceConfig.PASSWORD)
-                .optional(LemlistSourceConfig.METHOD)
-                .optional(LemlistSourceConfig.HEADERS)
-                .optional(LemlistSourceConfig.PARAMS)
-                .conditional(Condition.of(HttpConfig.METHOD, HttpRequestMethod.POST), LemlistSourceConfig.BODY)
-                .conditional(Condition.of(HttpConfig.FORMAT, "json"), SeaTunnelSchema.SCHEMA)
-                .optional(LemlistSourceConfig.FORMAT)
-                .optional(LemlistSourceConfig.POLL_INTERVAL_MILLS)
-                .optional(LemlistSourceConfig.RETRY)
-                .optional(LemlistSourceConfig.RETRY_BACKOFF_MAX_MS)
-                .optional(LemlistSourceConfig.RETRY_BACKOFF_MULTIPLIER_MS)
                 .build();
     }
 }

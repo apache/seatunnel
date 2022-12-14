@@ -19,9 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.file.config;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -38,8 +40,9 @@ public class BaseTextFileConfig implements DelimiterConfig, CompressConfig, Seri
     protected String compressCodec;
     protected String fieldDelimiter = BaseSinkConfig.FIELD_DELIMITER.defaultValue();
     protected String rowDelimiter = BaseSinkConfig.ROW_DELIMITER.defaultValue();
+    protected int batchSize = BaseSinkConfig.BATCH_SIZE.defaultValue();
     protected String path;
-    protected String fileNameExpression;
+    protected String fileNameExpression = BaseSinkConfig.FILE_NAME_EXPRESSION.defaultValue();
     protected FileFormat fileFormat = FileFormat.TEXT;
     protected DateUtils.Formatter dateFormat = DateUtils.Formatter.YYYY_MM_DD;
     protected DateTimeUtils.Formatter datetimeFormat = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
@@ -47,9 +50,12 @@ public class BaseTextFileConfig implements DelimiterConfig, CompressConfig, Seri
 
     public BaseTextFileConfig(@NonNull Config config) {
         if (config.hasPath(BaseSinkConfig.COMPRESS_CODEC.key())) {
-            throw new RuntimeException("compress not support now");
+            throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+                    "Compress not supported by SeaTunnel file connector now");
         }
-
+        if (config.hasPath(BaseSinkConfig.BATCH_SIZE.key())) {
+            this.batchSize = config.getInt(BaseSinkConfig.BATCH_SIZE.key());
+        }
         if (config.hasPath(BaseSinkConfig.FIELD_DELIMITER.key()) &&
                 StringUtils.isNotEmpty(config.getString(BaseSinkConfig.FIELD_DELIMITER.key()))) {
             this.fieldDelimiter = config.getString(BaseSinkConfig.FIELD_DELIMITER.key());
