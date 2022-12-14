@@ -292,7 +292,8 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      * @return transaction directory
      */
     private String getTransactionDir(@NonNull String transactionId) {
-        return getTransactionDirPrefix(textFileSinkConfig.getTmpPath(), jobId, uuidPrefix) + File.separator + transactionId;
+        String transactionDirectoryPrefix = getTransactionDirPrefix(textFileSinkConfig.getTmpPath(), jobId, uuidPrefix);
+        return String.join(File.separator, new String[]{transactionDirectoryPrefix, transactionId});
     }
 
     public static String getTransactionDirPrefix(String tmpPath, String jobId, String uuidPrefix) {
