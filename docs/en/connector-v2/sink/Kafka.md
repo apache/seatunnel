@@ -15,19 +15,19 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 
 ## Options
 
-| name                 | type                  | required | default value |
-|----------------------|-----------------------| -------- | ------------- |
-| topic                | string                | yes      | -             |
-| bootstrap.servers    | string                | yes      | -             |
+| name                 | type   | required | default value |
+|----------------------|--------|----------|---------------|
+| topic                | string | yes      | -             |
+| bootstrap.servers    | string | yes      | -             |
 | kafka.config         | map    | no       | -             |
-| semantic             | string                | no       | NON           |
-| partition_key_fields | array                 | no       | -             |
-| partition            | int                   | no       | -             |
-| assign_partitions    | array                 | no       | -             |
-| transaction_prefix   | string                | no       | -             |
-| format               | String                | no       | json          |
-| field_delimiter      | String                | no       | ,             |
-| common-options       | config                | no       | -             |
+| semantic             | string | no       | NON           |
+| partition_key_fields | array  | no       | -             |
+| partition            | int    | no       | -             |
+| assign_partitions    | array  | no       | -             |
+| transaction_prefix   | string | no       | -             |
+| format               | String | no       | json          |
+| field_delimiter      | String | no       | ,             |
+| common-options       | config | no       | -             |
 
 ### topic [string]
 
