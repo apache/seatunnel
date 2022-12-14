@@ -77,8 +77,7 @@ public class JdbcSourceOptions extends SourceOptions {
                     .withDescription(
                             "A numeric ID or a numeric ID range of this database client, "
                                     + "The numeric ID syntax is like '5400', the numeric ID range syntax "
-                                    + "is like '5400-5408', The numeric ID range syntax is recommended when "
-                                    + "'scan.incremental.snapshot.enabled' enabled. Every ID must be unique across all "
+                                    + "is like '5400-5408'. Every ID must be unique across all "
                                     + "currently-running database processes in the MySQL cluster. This connector"
                                     + " joins the MySQL  cluster as another server (with this unique ID) "
                                     + "so it can read the binlog. By default, a random number is generated between"
