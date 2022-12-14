@@ -113,4 +113,4 @@ sink {
 ### next version
 
 - Add Rabbitmq Sink Connector
-- [Improve] Change Connector Custom Config Prefix To Map
+- [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
