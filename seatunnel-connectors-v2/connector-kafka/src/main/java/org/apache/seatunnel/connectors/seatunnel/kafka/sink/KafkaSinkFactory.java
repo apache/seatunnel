@@ -35,7 +35,7 @@ public class KafkaSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(Config.TOPIC, Config.BOOTSTRAP_SERVERS)
-                .optional(Config.KAFKA_CONFIG_PREFIX, Config.ASSIGN_PARTITIONS, Config.TRANSACTION_PREFIX)
+                .optional(Config.KAFKA_CONFIG, Config.ASSIGN_PARTITIONS, Config.TRANSACTION_PREFIX)
                 .exclusive(Config.PARTITION, Config.PARTITION_KEY_FIELDS)
                 .build();
     }

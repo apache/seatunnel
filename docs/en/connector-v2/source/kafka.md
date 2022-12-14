@@ -18,13 +18,13 @@ Source connector for Apache Kafka.
 ## Options
 
 | name                                | type    | required | default value            |
-|-------------------------------------|---------| -------- |--------------------------|
+|-------------------------------------|---------|----------|--------------------------|
 | topic                               | String  | yes      | -                        |
 | bootstrap.servers                   | String  | yes      | -                        |
 | pattern                             | Boolean | no       | false                    |
 | consumer.group                      | String  | no       | SeaTunnel-Consumer-Group |
 | commit_on_checkpoint                | Boolean | no       | true                     |
-| kafka.*                             | String  | no       | -                        |
+| kafka.config                        | Map     | no       | -                        |
 | common-options                      | config  | no       | -                        |
 | schema                              |         | no       | -                        |
 | format                              | String  | no       | json                     |
@@ -57,11 +57,9 @@ If true the consumer's offset will be periodically committed in the background.
 
 The interval for dynamically discovering topics and partitions.
 
-### kafka.* [string]
+### kafka.config [map]
 
 In addition to the above necessary parameters that must be specified by the `Kafka consumer` client, users can also specify multiple `consumer` client non-mandatory parameters, covering [all consumer parameters specified in the official Kafka document](https://kafka.apache.org/documentation.html#consumerconfigs).
-
-The way to specify parameters is to add the prefix `kafka.` to the original parameter name. For example, the way to specify `auto.offset.reset` is: `kafka.auto.offset.reset = latest` . If these non-essential parameters are not specified, they will use the default values given in the official Kafka documentation.
 
 ### common-options [config]
 
@@ -87,7 +85,7 @@ The initial consumption pattern of consumers,there are several types:
 
 ## start_mode.timestamp
 
-The time required for consumption mode to be timestamp.
+The time required for consumption mode to be "timestamp".
 
 ##  start_mode.offsets
 
@@ -119,11 +117,15 @@ source {
       }
     }
     format = text
-    field_delimiter = "#“
+    field_delimiter = "#"
     topic = "topic_1,topic_2,topic_3"
     bootstrap.servers = "localhost:9092"
-    kafka.max.poll.records = 500
-    kafka.client.id = client_1
+    kafka.config = {
+      client.id = client_1
+      max.poll.records = 500
+      auto.offset.reset = "earliest"
+      enable.auto.commit = "false"
+    }
   }
   
 }
@@ -154,3 +156,4 @@ source {
 
 - [Improve] Support setting read starting offset or time at startup config ([3157](https://github.com/apache/incubator-seatunnel/pull/3157))
 - [Improve] Support for dynamic discover topic & partition in streaming mode ([3125](https://github.com/apache/incubator-seatunnel/pull/3125))
+- [Improve] Change Connector Custom Config Prefix To Map
