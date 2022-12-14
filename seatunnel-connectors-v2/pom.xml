@@ -65,6 +65,7 @@
         <module>connector-slack</module>
         <module>connector-rabbitmq</module>
         <module>connector-openmldb</module>
+        <module>connector-doris</module>
         <module>connector-maxcompute</module>
     </modules>
 
