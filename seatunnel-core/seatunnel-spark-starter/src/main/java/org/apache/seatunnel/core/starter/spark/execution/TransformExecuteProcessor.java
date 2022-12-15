@@ -101,9 +101,9 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Se
         SeaTunnelDataType<?> seaTunnelDataType = TypeConverterUtils.convert(stream.schema());
         transform.setTypeInfo(seaTunnelDataType);
         StructType structType = (StructType) TypeConverterUtils.convert(transform.getProducedType());
+        SeaTunnelRow seaTunnelRow;
         List<Row> outputRows = new ArrayList<>();
         Iterator<Row> rowIterator = stream.toLocalIterator();
-        SeaTunnelRow seaTunnelRow;
         while (rowIterator.hasNext()) {
             Row row = rowIterator.next();
             seaTunnelRow = new InternalRowConverter(seaTunnelDataType).reconvert(InternalRow.apply(row.toSeq()));
