@@ -53,7 +53,7 @@ public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<File
                     FileSystemUtils.deleteFile(entry.getKey());
                 }
             } catch (Exception e) {
-                log.error("commit aggregatedCommitInfo error ", e);
+                log.error("commit aggregatedCommitInfo error, aggregatedCommitInfo = {} ", aggregatedCommitInfo, e);
                 errorAggregatedCommitInfoList.add(aggregatedCommitInfo);
             }
         });

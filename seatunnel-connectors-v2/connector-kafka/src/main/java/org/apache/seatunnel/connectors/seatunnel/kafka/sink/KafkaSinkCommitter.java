@@ -55,6 +55,8 @@ public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
             producer.commitTransaction();
             producer.flush();
         }
+        kafkaProducer.close();
+        kafkaProducer = null;
         return commitInfos;
     }
 
@@ -67,6 +69,8 @@ public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
             KafkaProducer<?, ?> producer = getProducer(commitInfo);
             producer.abortTransaction();
         }
+        kafkaProducer.close();
+        kafkaProducer = null;
     }
 
     private KafkaInternalProducer<?, ?> getProducer(KafkaCommitInfo commitInfo) {
