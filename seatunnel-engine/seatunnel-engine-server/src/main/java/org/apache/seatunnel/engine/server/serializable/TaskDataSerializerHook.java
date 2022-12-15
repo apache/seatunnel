@@ -86,6 +86,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
 
     public static final int SOURCE_READER_EVENT_OPERATOR = 20;
 
+    public static final int CHECK_TASKGROUP_IS_EXECUTING = 21;
+
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
         SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY_ID

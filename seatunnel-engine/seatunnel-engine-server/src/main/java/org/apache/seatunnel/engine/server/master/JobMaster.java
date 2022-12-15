@@ -176,13 +176,13 @@ public class JobMaster extends Thread {
             runningJobStateTimestampsIMap);
         this.physicalPlan = planTuple.f0();
         this.physicalPlan.setJobMaster(this);
-        this.initStateFuture();
         this.checkpointManager = new CheckpointManager(
             jobImmutableInformation.getJobId(),
             nodeEngine,
             this,
             planTuple.f1(),
             checkpointConfig);
+        this.initStateFuture();
     }
 
     // TODO replace it after ReadableConfig Support parse yaml format, then use only one config to read engine and env config.
