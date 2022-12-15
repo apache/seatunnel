@@ -58,6 +58,9 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     @Override
     public void beginTransaction(String transactionId) {
         this.transactionId = transactionId;
+        if (kafkaProducer != null) {
+            kafkaProducer.close();
+        }
         this.kafkaProducer = getTransactionProducer(kafkaProperties, transactionId);
         kafkaProducer.beginTransaction();
     }
