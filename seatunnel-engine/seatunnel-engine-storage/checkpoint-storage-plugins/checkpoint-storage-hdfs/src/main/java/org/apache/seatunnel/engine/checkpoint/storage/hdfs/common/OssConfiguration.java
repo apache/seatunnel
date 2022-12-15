@@ -20,33 +20,24 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.hdfs.common;
 
-public enum FileConfiguration {
-    LOCAL("local", new LocalConfiguration()),
-    HDFS("hdfs", new HdfsConfiguration()),
-    S3("s3", new S3Configuration()),
-    OSS("oss", new OssConfiguration());
+import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
 
-    /**
-     * file system type
-     */
-    private final String name;
+import org.apache.hadoop.conf.Configuration;
 
-    /**
-     * file system configuration
-     */
-    private final AbstractConfiguration configuration;
+import java.util.Map;
 
-    FileConfiguration(String name, AbstractConfiguration configuration) {
-        this.name = name;
-        this.configuration = configuration;
+public class OssConfiguration extends AbstractConfiguration {
+    public static final String OSS_BUCKET_KEY = "oss.bucket";
+    private static final String OSS_IMPL_KEY = "fs.oss.impl";
+    private static final String HDFS_OSS_IMPL = "org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem";
+    private static final String OSS_KEY = "fs.oss.";
+    @Override
+    public Configuration buildConfiguration(Map<String, String> config) {
+        checkConfiguration(config, OSS_BUCKET_KEY);
+        Configuration hadoopConf = new Configuration();
+        hadoopConf.set(FS_DEFAULT_NAME_KEY, config.get(OSS_BUCKET_KEY));
+        hadoopConf.set(OSS_IMPL_KEY, HDFS_OSS_IMPL);
+        setExtraConfiguration(hadoopConf, config, OSS_KEY);
+        return hadoopConf;
     }
-
-    public AbstractConfiguration getConfiguration(String name) {
-        return configuration;
-    }
-
-    public String getName() {
-        return name;
-    }
-
 }

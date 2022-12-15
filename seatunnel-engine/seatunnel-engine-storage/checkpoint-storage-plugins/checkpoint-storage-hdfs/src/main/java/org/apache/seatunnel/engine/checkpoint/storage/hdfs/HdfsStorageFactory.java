@@ -33,12 +33,13 @@ import java.util.Map;
  * HdfsCheckpointStorageFactory.
  * if you want to use HdfsCheckpointStorage, you should add the following configuration in the configuration file:
  * <pre>
- *      storage.type = hdfs # hdfs, local(default),s3
+ *      storage.type = hdfs # hdfs, local(default),s3, oss
  *  </pre>
  * then you need to configure the following parameters by the storage.type:
  * hdfs  {@link org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.HdfsConfiguration}
  * local {@link org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.LocalConfiguration}
  * s3    {@link org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.S3Configuration}
+ * oss   {@link org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.OssConfiguration}
  * eg: s3
  * <pre>
  *      storage.type = "s3"
@@ -46,6 +47,15 @@ import java.util.Map;
  *      s3.script.key = "your script key"
  *      s3.bucket= "s3a://your bucket"
  *      fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+ *  </pre>
+ * eg: oss
+ *  <pre>
+ *      storage.type = "oss"
+ *      fs.oss.accessKeyId = "your access key"
+ *      fs.oss.accessKeySecret = "your script key"
+ *      fs.oss.endpoint = "such as: oss-cn-hangzhou.aliyuncs.com"
+ *      oss.bucket= "oss://your bucket"
+ *      fs.oss.credentials.provider = "org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider"
  *  </pre>
  */
 @AutoService(CheckpointStorageFactory.class)
