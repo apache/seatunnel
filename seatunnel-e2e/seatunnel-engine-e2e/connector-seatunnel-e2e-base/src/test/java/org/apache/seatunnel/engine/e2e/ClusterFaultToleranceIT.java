@@ -720,22 +720,9 @@ public class ClusterFaultToleranceIT {
             Awaitility.await().atMost(10000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertEquals(3, restoreFinalNode.getCluster().getMembers().size()));
 
-            Awaitility.await().atMost(360000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> {
-                    // Wait job write all rows in file
-                    Thread.sleep(2000);
-                    System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
-                    Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
-                        testRowNumber * testParallelism == FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
-                });
-
-            // sleep 10s and expect the job don't write more rows.
-            Thread.sleep(10000);
-            clientJobProxy.cancelJob();
-
-            Awaitility.await().atMost(20000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
-                    objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
+                    objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
 
             // prove that the task was restarted
             Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
