@@ -119,7 +119,6 @@ public class IMapFileStorage implements IMapStorage {
      */
     @Override
     public void initialize(Map<String, Object> configuration) {
-        System.setProperty("protostuff.runtime.preserve_null_elements", "true");
         checkInitStorageProperties(configuration);
         Configuration hadoopConf = (Configuration) configuration.get(HDFS_CONFIG_KEY);
         this.conf = hadoopConf;

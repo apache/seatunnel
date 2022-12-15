@@ -29,7 +29,6 @@ public class ProtoStuffSerializerTest {
 
     @Test
     public void testProtoStuffSerializerForArrayType() {
-        System.setProperty("protostuff.runtime.preserve_null_elements", "true");
         Long[] longs = new Long[10];
         Boolean[] booleans = new Boolean[10];
         Character[] characters = new Character[10];
@@ -78,7 +77,6 @@ public class ProtoStuffSerializerTest {
 
     @Test
     public void testArrayInit() {
-        System.setProperty("protostuff.runtime.preserve_null_elements", "true");
 
         Long[] arr = new Long[]{1L, null, 2L};
         ProtoStuffSerializer p = new ProtoStuffSerializer();

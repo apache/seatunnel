@@ -50,6 +50,7 @@ public class ProtoStuffSerializer implements Serializer {
 
     @SuppressWarnings("unchecked")
     private static <T> Schema<T> getSchema(Class<T> clazz) {
+        System.setProperty("protostuff.runtime.preserve_null_elements", "true");
         return (Schema<T>) SCHEMA_CACHE.computeIfAbsent(clazz, RuntimeSchema::createFrom);
     }
 
