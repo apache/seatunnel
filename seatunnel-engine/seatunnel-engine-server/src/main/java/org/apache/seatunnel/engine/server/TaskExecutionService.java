@@ -249,33 +249,38 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         resultFuture.whenComplete(withTryCatch(logger, (r, s) -> {
             logger.info(
                 String.format("Task %s complete with state %s", r.getTaskGroupLocation(), r.getExecutionState()));
-            long sleepTime = 1000;
-            boolean notifyStateSuccess = false;
-            while (isRunning && !notifyStateSuccess) {
-                InvocationFuture<Object> invoke = nodeEngine.getOperationService().createInvocationBuilder(
-                    SeaTunnelServer.SERVICE_NAME,
-                    new NotifyTaskStatusOperation(taskGroup.getTaskGroupLocation(), r),
-                    nodeEngine.getMasterAddress()).invoke();
-                try {
-                    invoke.get();
-                    notifyStateSuccess = true;
-                } catch (InterruptedException e) {
-                    logger.severe(e);
-                    Thread.interrupted();
-                } catch (ExecutionException e) {
-                    logger.warning(ExceptionUtils.getMessage(e));
-                    logger.warning(String.format("notify the job of the task(%s) status failed, retry in %s millis",
-                        taskGroup.getTaskGroupLocation(), sleepTime));
-                    try {
-                        Thread.sleep(sleepTime);
-                    } catch (InterruptedException ex) {
-                        logger.severe(e);
-                        Thread.interrupted();
-                    }
-                }
-            }
+            notifyTaskStatusToMaster(taskGroup.getTaskGroupLocation(), r);
         }));
         return new PassiveCompletableFuture<>(resultFuture);
+    }
+
+    @SuppressWarnings("checkstyle:MagicNumber")
+    private void notifyTaskStatusToMaster(TaskGroupLocation taskGroupLocation, TaskExecutionState taskExecutionState){
+        long sleepTime = 1000;
+        boolean notifyStateSuccess = false;
+        while (isRunning && !notifyStateSuccess) {
+            InvocationFuture<Object> invoke = nodeEngine.getOperationService().createInvocationBuilder(
+                SeaTunnelServer.SERVICE_NAME,
+                new NotifyTaskStatusOperation(taskGroupLocation, taskExecutionState),
+                nodeEngine.getMasterAddress()).invoke();
+            try {
+                invoke.get();
+                notifyStateSuccess = true;
+            } catch (InterruptedException e) {
+                logger.severe(e);
+                Thread.interrupted();
+            } catch (ExecutionException e) {
+                logger.warning(ExceptionUtils.getMessage(e));
+                logger.warning(String.format("notify the job of the task(%s) status failed, retry in %s millis",
+                    taskGroupLocation, sleepTime));
+                try {
+                    Thread.sleep(sleepTime);
+                } catch (InterruptedException ex) {
+                    logger.severe(e);
+                    Thread.interrupted();
+                }
+            }
+        }
     }
 
     /**

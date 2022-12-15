@@ -32,9 +32,10 @@ import java.util.Map;
 public interface WriteStrategy extends Transaction, Serializable {
     /**
      * init hadoop conf
+     *
      * @param conf hadoop conf
      */
-    void init(HadoopConf conf, String jobId, int subTaskIndex);
+    void init(HadoopConf conf, String jobId, String uuidPrefix, int subTaskIndex);
 
     /**
      * use hadoop conf generate hadoop configuration

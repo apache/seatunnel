@@ -108,8 +108,6 @@ public class CheckpointCoordinator {
 
     private volatile CompletedCheckpoint latestCompletedCheckpoint = null;
 
-    private volatile CheckpointType latestAcceptedCheckpoint = null;
-
     private final CheckpointConfig coordinatorConfig;
 
     private int tolerableFailureCheckpoints;

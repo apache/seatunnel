@@ -378,7 +378,7 @@ public class SubPlan {
     public void restorePipelineState() {
         // only need restore from RUNNING or CANCELING state
         if (getPipelineState().ordinal() < PipelineStatus.RUNNING.ordinal()) {
-            restorePipeline();
+            cancelPipelineTasks();
         } else if (PipelineStatus.CANCELING.equals(getPipelineState())) {
             cancelPipelineTasks();
         } else if (PipelineStatus.RUNNING.equals(getPipelineState())) {
