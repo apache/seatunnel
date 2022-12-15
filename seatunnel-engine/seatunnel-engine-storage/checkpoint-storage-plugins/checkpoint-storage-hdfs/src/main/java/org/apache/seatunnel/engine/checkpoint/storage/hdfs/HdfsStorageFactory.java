@@ -39,7 +39,6 @@ import java.util.Map;
  * hdfs  {@link org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.HdfsConfiguration}
  * local {@link org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.LocalConfiguration}
  * s3    {@link org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.S3Configuration}
- * oss   {@link org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.OssConfiguration}
  * eg: s3
  * <pre>
  *      storage.type = "s3"
@@ -48,6 +47,7 @@ import java.util.Map;
  *      s3.bucket= "s3a://your bucket"
  *      fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
  *  </pre>
+ * oss   {@link org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.OssConfiguration}
  * eg: oss
  *  <pre>
  *      storage.type = "oss"
