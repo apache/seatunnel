@@ -28,9 +28,9 @@ seatunnel:
             tolerable-failure: 2
             storage:
                 type: hdfs
-                storageNameSpace: /tmp/seatunnel/checkpoint_snapshot
+                namespace: /tmp/seatunnel/checkpoint_snapshot
                 max-retained: 3
                 plugin-config:
                     storage-type: hdfs
-                        fs.defaultFS: /tmp/ # Ensure that the directory has written permission
+                    fs.defaultFS: /tmp/ # Ensure that the directory has written permission
                     

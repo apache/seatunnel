@@ -18,7 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.commit;
 
 import org.apache.seatunnel.api.sink.SinkCommitter;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
+
+import lombok.NonNull;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -28,6 +31,12 @@ import java.util.Map;
 @Deprecated
 public class FileSinkCommitter implements SinkCommitter<FileCommitInfo> {
 
+    private final FileSystemUtils fileSystemUtils;
+
+    public FileSinkCommitter(@NonNull HadoopConf hadoopConf) {
+        this.fileSystemUtils = new FileSystemUtils(hadoopConf);
+    }
+
     @Override
     public List<FileCommitInfo> commit(List<FileCommitInfo> commitInfos) throws IOException {
         ArrayList<FileCommitInfo> failedCommitInfos = new ArrayList<>();
@@ -35,12 +44,12 @@ public class FileSinkCommitter implements SinkCommitter<FileCommitInfo> {
             Map<String, String> needMoveFiles = commitInfo.getNeedMoveFiles();
             needMoveFiles.forEach((k, v) -> {
                 try {
-                    FileSystemUtils.renameFile(k, v, true);
+                    fileSystemUtils.renameFile(k, v, true);
                 } catch (IOException e) {
                     failedCommitInfos.add(commitInfo);
                 }
             });
-            FileSystemUtils.deleteFile(commitInfo.getTransactionDir());
+            fileSystemUtils.deleteFile(commitInfo.getTransactionDir());
         }
         return failedCommitInfos;
     }
@@ -56,11 +65,11 @@ public class FileSinkCommitter implements SinkCommitter<FileCommitInfo> {
         for (FileCommitInfo commitInfo : commitInfos) {
             Map<String, String> needMoveFiles = commitInfo.getNeedMoveFiles();
             for (Map.Entry<String, String> entry : needMoveFiles.entrySet()) {
-                if (FileSystemUtils.fileExist(entry.getValue()) && !FileSystemUtils.fileExist(entry.getKey())) {
-                    FileSystemUtils.renameFile(entry.getValue(), entry.getKey(), true);
+                if (fileSystemUtils.fileExist(entry.getValue()) && !fileSystemUtils.fileExist(entry.getKey())) {
+                    fileSystemUtils.renameFile(entry.getValue(), entry.getKey(), true);
                 }
             }
-            FileSystemUtils.deleteFile(commitInfo.getTransactionDir());
+            fileSystemUtils.deleteFile(commitInfo.getTransactionDir());
         }
     }
 }

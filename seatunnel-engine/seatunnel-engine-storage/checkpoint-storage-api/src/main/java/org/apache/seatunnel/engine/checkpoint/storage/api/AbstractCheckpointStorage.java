@@ -58,7 +58,7 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
      * storage root directory
      * if not set, use default value
      */
-    private String storageNameSpace = "/seatunnel/checkpoint/";
+    private String storageNameSpace = "/tmp/seatunnel/checkpoint/";
 
     public static final String FILE_NAME_SPLIT = "-";
 

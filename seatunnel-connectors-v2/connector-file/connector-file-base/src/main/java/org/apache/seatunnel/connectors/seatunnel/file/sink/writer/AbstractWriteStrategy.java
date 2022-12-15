@@ -84,6 +84,8 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     protected int batchSize;
     protected int currentBatchSize = 0;
 
+    protected FileSystemUtils fileSystemUtils;
+
     public AbstractWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
         this.textFileSinkConfig = textFileSinkConfig;
         this.sinkColumnsIndexInRow = textFileSinkConfig.getSinkColumnsIndexInRow();
@@ -101,7 +103,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         this.jobId = jobId;
         this.subTaskIndex = subTaskIndex;
         this.uuidPrefix = uuidPrefix;
-        FileSystemUtils.CONF = getConfiguration(hadoopConf);
+        this.fileSystemUtils = new FileSystemUtils(hadoopConf);
     }
 
     @Override
@@ -242,7 +244,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      */
     public void abortPrepare(String transactionId) {
         try {
-            FileSystemUtils.deleteFile(getTransactionDir(transactionId));
+            fileSystemUtils.deleteFile(getTransactionDir(transactionId));
         } catch (IOException e) {
             throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
                     "Abort transaction " + transactionId + " error, delete transaction directory failed", e);

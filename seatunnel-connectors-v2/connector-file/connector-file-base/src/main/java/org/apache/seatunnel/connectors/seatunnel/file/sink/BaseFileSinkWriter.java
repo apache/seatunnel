@@ -43,9 +43,12 @@ import java.util.stream.Collectors;
 public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> {
     private final WriteStrategy writeStrategy;
 
+    private final FileSystemUtils fileSystemUtils;
+
     @SuppressWarnings("checkstyle:MagicNumber")
     public BaseFileSinkWriter(WriteStrategy writeStrategy, HadoopConf hadoopConf, SinkWriter.Context context, String jobId, List<FileSinkState> fileSinkStates) {
         this.writeStrategy = writeStrategy;
+        this.fileSystemUtils = new FileSystemUtils(hadoopConf);
         int subTaskIndex = context.getIndexOfSubtask();
         String uuidPrefix;
         if (!fileSinkStates.isEmpty()) {
@@ -87,7 +90,7 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
     }
 
     private List<String> findTransactionList(String jobId, String uuidPrefix) throws IOException {
-        return FileSystemUtils.dirList(AbstractWriteStrategy.getTransactionDirPrefix(writeStrategy.getFileSinkConfig().getTmpPath(), jobId, uuidPrefix))
+        return fileSystemUtils.dirList(AbstractWriteStrategy.getTransactionDirPrefix(writeStrategy.getFileSinkConfig().getTmpPath(), jobId, uuidPrefix))
             .stream().map(Path::getName).collect(Collectors.toList());
     }
 

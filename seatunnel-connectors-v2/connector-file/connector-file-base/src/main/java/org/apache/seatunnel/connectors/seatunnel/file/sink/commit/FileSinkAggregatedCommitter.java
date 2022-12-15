@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -31,26 +32,26 @@ import java.util.Map;
 
 @Slf4j
 public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo> {
-    protected final HadoopConf hadoopConf;
+    protected final FileSystemUtils fileSystemUtils;
 
-    public FileSinkAggregatedCommitter(HadoopConf hadoopConf) {
-        this.hadoopConf = hadoopConf;
-        FileSystemUtils.CONF = FileSystemUtils.getConfiguration(hadoopConf);
-        log.info("Hadoop configuration initial done, [{}]", hadoopConf);
+    public FileSinkAggregatedCommitter(@NonNull HadoopConf hadoopConf) {
+        this.fileSystemUtils = new FileSystemUtils(hadoopConf);
     }
 
     @Override
-    public List<FileAggregatedCommitInfo> commit(List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
+    public List<FileAggregatedCommitInfo> commit(List<FileAggregatedCommitInfo> aggregatedCommitInfos)
+        throws IOException {
         List<FileAggregatedCommitInfo> errorAggregatedCommitInfoList = new ArrayList<>();
         aggregatedCommitInfos.forEach(aggregatedCommitInfo -> {
             try {
-                for (Map.Entry<String, Map<String, String>> entry : aggregatedCommitInfo.getTransactionMap().entrySet()) {
+                for (Map.Entry<String, Map<String, String>> entry : aggregatedCommitInfo.getTransactionMap()
+                    .entrySet()) {
                     for (Map.Entry<String, String> mvFileEntry : entry.getValue().entrySet()) {
                         // first rename temp file
-                        FileSystemUtils.renameFile(mvFileEntry.getKey(), mvFileEntry.getValue(), true);
+                        fileSystemUtils.renameFile(mvFileEntry.getKey(), mvFileEntry.getValue(), true);
                     }
                     // second delete transaction directory
-                    FileSystemUtils.deleteFile(entry.getKey());
+                    fileSystemUtils.deleteFile(entry.getKey());
                 }
             } catch (Exception e) {
                 log.error("commit aggregatedCommitInfo error ", e);
@@ -74,9 +75,11 @@ public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<File
         Map<String, Map<String, String>> aggregateCommitInfo = new HashMap<>();
         Map<String, List<String>> partitionDirAndValuesMap = new HashMap<>();
         commitInfos.forEach(commitInfo -> {
-            Map<String, String> needMoveFileMap = aggregateCommitInfo.computeIfAbsent(commitInfo.getTransactionDir(), k -> new HashMap<>());
+            Map<String, String> needMoveFileMap =
+                aggregateCommitInfo.computeIfAbsent(commitInfo.getTransactionDir(), k -> new HashMap<>());
             needMoveFileMap.putAll(commitInfo.getNeedMoveFiles());
-            if (commitInfo.getPartitionDirAndValuesMap() != null && !commitInfo.getPartitionDirAndValuesMap().isEmpty()) {
+            if (commitInfo.getPartitionDirAndValuesMap() != null &&
+                !commitInfo.getPartitionDirAndValuesMap().isEmpty()) {
                 partitionDirAndValuesMap.putAll(commitInfo.getPartitionDirAndValuesMap());
             }
         });
@@ -97,15 +100,17 @@ public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<File
         }
         aggregatedCommitInfos.forEach(aggregatedCommitInfo -> {
             try {
-                for (Map.Entry<String, Map<String, String>> entry : aggregatedCommitInfo.getTransactionMap().entrySet()) {
+                for (Map.Entry<String, Map<String, String>> entry : aggregatedCommitInfo.getTransactionMap()
+                    .entrySet()) {
                     // rollback the file
                     for (Map.Entry<String, String> mvFileEntry : entry.getValue().entrySet()) {
-                        if (FileSystemUtils.fileExist(mvFileEntry.getValue()) && !FileSystemUtils.fileExist(mvFileEntry.getKey())) {
-                            FileSystemUtils.renameFile(mvFileEntry.getValue(), mvFileEntry.getKey(), true);
+                        if (fileSystemUtils.fileExist(mvFileEntry.getValue()) &&
+                            !fileSystemUtils.fileExist(mvFileEntry.getKey())) {
+                            fileSystemUtils.renameFile(mvFileEntry.getValue(), mvFileEntry.getKey(), true);
                         }
                     }
                     // delete the transaction dir
-                    FileSystemUtils.deleteFile(entry.getKey());
+                    fileSystemUtils.deleteFile(entry.getKey());
                 }
             } catch (Exception e) {
                 log.error("abort aggregatedCommitInfo error ", e);
