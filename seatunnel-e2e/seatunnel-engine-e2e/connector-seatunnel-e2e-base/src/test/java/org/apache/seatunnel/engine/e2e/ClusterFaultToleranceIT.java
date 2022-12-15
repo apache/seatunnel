@@ -105,9 +105,7 @@ public class ClusterFaultToleranceIT {
                 engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
-                return clientJobProxy.waitForJobComplete();
-            });
+            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
@@ -213,9 +211,7 @@ public class ClusterFaultToleranceIT {
                 engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
-                return clientJobProxy.waitForJobComplete();
-            });
+            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await().atMost(3, TimeUnit.MINUTES)
                 .untilAsserted(() -> {
@@ -373,9 +369,7 @@ public class ClusterFaultToleranceIT {
                 engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
-                return clientJobProxy.waitForJobComplete();
-            });
+            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
@@ -470,9 +464,7 @@ public class ClusterFaultToleranceIT {
                 engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
-                return clientJobProxy.waitForJobComplete();
-            });
+            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
@@ -552,9 +544,7 @@ public class ClusterFaultToleranceIT {
                 engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
-                return clientJobProxy.waitForJobComplete();
-            });
+            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
@@ -700,9 +690,7 @@ public class ClusterFaultToleranceIT {
                 engineClient.createExecutionContext(testResources.getRight(), jobConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
-                return clientJobProxy.waitForJobComplete();
-            });
+            CompletableFuture<JobStatus> objectCompletableFuture = CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
@@ -749,9 +737,9 @@ public class ClusterFaultToleranceIT {
                 .untilAsserted(() -> Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
 
-            // check the final rows
+            // prove that the task was restarted
             Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
+            Assertions.assertTrue(testRowNumber * testParallelism <= fileLineNumberFromDir);
 
         } finally {
             if (engineClient != null) {
