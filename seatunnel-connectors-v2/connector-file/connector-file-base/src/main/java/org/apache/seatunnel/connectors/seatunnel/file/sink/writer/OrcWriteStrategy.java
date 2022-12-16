@@ -58,9 +58,12 @@ import java.time.temporal.ChronoField;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class OrcWriteStrategy extends AbstractWriteStrategy {
     private final Map<String, Writer> beingWrittenWriter;
+    TypeDescription schema;
+    VectorizedRowBatch rowBatch;
 
     public OrcWriteStrategy(FileSinkConfig fileSinkConfig) {
         super(fileSinkConfig);
@@ -70,10 +73,18 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
     @Override
     public void write(@NonNull SeaTunnelRow seaTunnelRow) {
         super.write(seaTunnelRow);
+        // flush data once writer finished
+        if (writtenFileStatusSet.size() > 0) {
+            checkAndFlush();
+        }
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         Writer writer = getOrCreateWriter(filePath);
-        TypeDescription schema = buildSchemaWithRowType();
-        VectorizedRowBatch rowBatch = schema.createRowBatch();
+        if (Objects.isNull(schema)) {
+            schema = buildSchemaWithRowType();
+        }
+        if (Objects.isNull(rowBatch)) {
+            rowBatch = schema.createRowBatch();
+        }
         int i = 0;
         int row = rowBatch.size++;
         for (Integer index : sinkColumnsIndexInRow) {
@@ -83,18 +94,45 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             i++;
         }
         try {
-            writer.addRowBatch(rowBatch);
-            rowBatch.reset();
+            if (row == rowBatch.getMaxSize() - 1) {
+                writer.addRowBatch(rowBatch);
+                rowBatch.reset();
+            }
         } catch (IOException e) {
             String errorMsg = String.format("Write data to orc file [%s] error", filePath);
             throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
         }
     }
 
+    private void checkAndFlush() {
+        writtenFileStatusSet.forEach(f -> {
+            Writer writer = beingWrittenWriter.getOrDefault(f, null);
+            if (Objects.isNull(writer)) {
+                return;
+            }
+            try {
+                log.info("flushed temp file {} success.", f);
+                writer.close();
+                needMoveFiles.put(f, getTargetLocation(f));
+                // remove writer
+                beingWrittenWriter.remove(f);
+            } catch (Exception e) {
+                log.error("flush temp file {} exception!", f, e);
+                // wait pre-commit to close
+            }
+        });
+        writtenFileStatusSet.clear();
+    }
+
     @Override
     public void finishAndCloseFile() {
         this.beingWrittenWriter.forEach((k, v) -> {
             try {
+                // the last writer need writes the last rows which is less than a batch
+                if (rowBatch.size > 0) {
+                    v.addRowBatch(rowBatch);
+                    rowBatch.reset();
+                }
                 v.close();
             } catch (IOException e) {
                 String errorMsg = String.format("Close file [%s] orc writer failed, error msg: [%s]", k, e.getMessage());

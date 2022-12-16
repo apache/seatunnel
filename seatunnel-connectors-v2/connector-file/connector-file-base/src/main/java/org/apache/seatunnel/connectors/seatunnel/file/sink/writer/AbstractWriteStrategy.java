@@ -51,6 +51,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -82,6 +83,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     protected int partId = 0;
     protected int batchSize;
     protected int currentBatchSize = 0;
+    protected HashSet<String> writtenFileStatusSet = new HashSet<>();
 
     public AbstractWriteStrategy(FileSinkConfig fileSinkConfig) {
         this.fileSinkConfig = fileSinkConfig;
@@ -107,6 +109,10 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         if (currentBatchSize >= batchSize) {
             this.partId++;
             currentBatchSize = 0;
+            if (beingWrittenFile.size() == 1) {
+                String filePath = beingWrittenFile.values().iterator().next();
+                writtenFileStatusSet.add(filePath);
+            }
             beingWrittenFile.clear();
         }
         currentBatchSize++;
@@ -257,6 +263,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         this.transactionDirectory = getTransactionDir(this.transactionId);
         this.needMoveFiles = new HashMap<>();
         this.partitionDirAndValuesMap = new HashMap<>();
+        this.writtenFileStatusSet = new HashSet<>();
     }
 
     private String getTransactionId(Long checkpointId) {
