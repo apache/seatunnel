@@ -15,16 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.state;
+package org.apache.seatunnel.connectors.seatunnel.redshift.exception;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-import java.io.Serializable;
-import java.util.List;
+public class S3RedshiftJdbcConnectorException extends SeaTunnelRuntimeException {
 
-@Data
-@AllArgsConstructor
-public class KafkaAggregatedCommitInfo implements Serializable {
-    List<KafkaCommitInfo> commitInfos;
+    public S3RedshiftJdbcConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+        super(seaTunnelErrorCode, errorMessage);
+    }
+
+    public S3RedshiftJdbcConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+        super(seaTunnelErrorCode, errorMessage, cause);
+    }
+
+    public S3RedshiftJdbcConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+        super(seaTunnelErrorCode, cause);
+    }
 }

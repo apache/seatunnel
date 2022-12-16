@@ -178,7 +178,7 @@
                 <include>com.amazon.redshift:redshift-jdbc42:jar</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
-            <outputDirectory>/plugins/jdbc/lib/</outputDirectory>
+            <outputDirectory>/plugins/jdbc/lib</outputDirectory>
             <scope>provided</scope>
         </dependencySet>
     </dependencySets>
