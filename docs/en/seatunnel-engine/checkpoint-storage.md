@@ -36,6 +36,37 @@ seatunnel:
                   K1: V1 # plugin other configuration
                   K2: V2 # plugin other configuration   
 ```
+#### OSS
+Aliyun oss base on hdfs-file, so you can refer [hadoop oss docs](https://hadoop.apache.org/docs/stable/hadoop-aliyun/tools/hadoop-aliyun/index.html) to config oss.
+
+Except when interacting with oss buckets, the oss client needs the credentials needed to interact with buckets.
+The client supports multiple authentication mechanisms and can be configured as to which mechanisms to use, and their order of use. Custom implementations of org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider may also be used.
+if you used AliyunCredentialsProvider (can be obtained from the Aliyun Access Key Management), these consist of an access key, a secret key.
+you can config like this:
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      max-concurrent: 5
+      tolerable-failure: 2
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          storage-type: oss
+          oss.bucket: your-bucket
+          fs.oss.accessKeyId: your-access-key
+          fs.oss.accessKeySecret: your-secret-key
+          fs.oss.endpoint: endpoint address
+          fs.oss.credentials.provider: org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider
+```
+For additional reading on the Hadoop Credential Provider API see: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
+
+Aliyun oss Credential Provider implements see: [Auth Credential Providers](https://github.com/aliyun/aliyun-oss-java-sdk/tree/master/src/main/java/com/aliyun/oss/common/auth)
+
+
 #### S3
 S3 base on hdfs-file, so you can refer [hadoop docs](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) to config s3.
 
@@ -60,7 +91,6 @@ seatunnel:
                 plugin-config:
                     storage-type: s3
                     s3.bucket: your-bucket
-                    fs.s3a.endpoint: your-endpoint
                     fs.s3a.access-key: your-access-key
                     fs.s3a.secret-key: your-secret-key
                     fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
