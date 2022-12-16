@@ -127,11 +127,11 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     @Override
     public void close() {
-        try (KafkaProduceSender<?, ?> kafkaProduceSender = kafkaProducerSender) {
-            // no-opt
+        try {
+            kafkaProducerSender.close();
         } catch (Exception e) {
             throw new KafkaConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED,
-                    "Close kafka sink writer error", e);
+                "Close kafka sink writer error", e);
         }
     }
 
