@@ -35,7 +35,7 @@ Kafka Topic.
 
 Currently two formats are supported:
 
-1. Fill in the name of the topic
+1. Fill in the name of the topic.
 
 2. Use value of a field from upstream data as topic,the format is ${your field name}, where topic is the value of one of the columns of the upstream data.
 
@@ -136,4 +136,4 @@ sink {
 
 - [Improve] Support to specify multiple partition keys [3230](https://github.com/apache/incubator-seatunnel/pull/3230)
 - [Improve] Add text format for kafka sink connector [3711](https://github.com/apache/incubator-seatunnel/pull/3711)
-- [Improve] Support extract topic from SeaTunnelRow fields
+- [Improve] Support extract topic from SeaTunnelRow fields [3742](https://github.com/apache/incubator-seatunnel/pull/3742)
