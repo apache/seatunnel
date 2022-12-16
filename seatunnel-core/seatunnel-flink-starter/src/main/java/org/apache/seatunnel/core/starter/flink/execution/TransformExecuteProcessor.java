@@ -23,17 +23,18 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.flink.FlinkTransformPluginDiscovery;
 import org.apache.seatunnel.translation.flink.serialization.FlinkRowConverter;
 import org.apache.seatunnel.translation.flink.utils.TypeConverterUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.common.collect.Lists;
-import org.apache.flink.api.common.functions.MapFunction;
+import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.Collector;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -50,7 +51,7 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Se
 
     @Override
     protected List<SeaTunnelTransform> initializePlugins(List<URL> jarPaths, List<? extends Config> pluginConfigs) {
-        SeaTunnelTransformPluginDiscovery transformPluginDiscovery = new SeaTunnelTransformPluginDiscovery();
+        FlinkTransformPluginDiscovery transformPluginDiscovery = new FlinkTransformPluginDiscovery();
         List<URL> pluginJars = new ArrayList<>();
         List<SeaTunnelTransform> transforms = pluginConfigs.stream()
             .map(transformConfig -> {
@@ -96,13 +97,15 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Se
         TypeInformation rowTypeInfo = TypeConverterUtils.convert(transform.getProducedType());
         FlinkRowConverter transformInputRowConverter = new FlinkRowConverter(seaTunnelDataType);
         FlinkRowConverter transformOutputRowConverter = new FlinkRowConverter(transform.getProducedType());
-        DataStream<Row> output =  stream.map(new MapFunction<Row, Row>() {
+        DataStream<Row> output =  stream.flatMap(new FlatMapFunction<Row, Row>() {
             @Override
-            public Row map(Row value) throws Exception {
+            public void flatMap(Row value, Collector<Row> out) throws Exception {
                 SeaTunnelRow seaTunnelRow = transformInputRowConverter.reconvert(value);
                 SeaTunnelRow dataRow = (SeaTunnelRow) transform.map(seaTunnelRow);
-                Row copy = transformOutputRowConverter.convert(dataRow);
-                return copy;
+                if (dataRow != null) {
+                    Row copy = transformOutputRowConverter.convert(dataRow);
+                    out.collect(copy);
+                }
             }
         },
             rowTypeInfo);

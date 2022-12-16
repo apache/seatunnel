@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.flink;
+package org.apache.seatunnel.plugin.discovery.flink;
 
-import org.apache.seatunnel.apis.base.api.BaseTransform;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
 
-/**
- * a base interface indicates a transform plugin running on Flink.
- */
-public interface BaseFlinkTransform extends BaseTransform<FlinkEnvironment> {
-
-    default void registerFunction(FlinkEnvironment flinkEnvironment) {
-
+public class FlinkTransformPluginDiscovery extends AbstractPluginDiscovery<SeaTunnelTransform> {
+    public FlinkTransformPluginDiscovery() {
+        super("flink");
     }
 
+    @Override
+    protected Class<SeaTunnelTransform> getPluginBaseClass() {
+        return SeaTunnelTransform.class;
+    }
 }
