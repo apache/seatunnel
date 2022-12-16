@@ -60,6 +60,7 @@
         <module>connector-amazondynamodb</module>
         <module>connector-tablestore</module>
         <module>connector-cassandra</module>
+        <module>connector-s3-redshift</module>
         <module>connector-starrocks</module>
         <module>connector-google-sheets</module>
         <module>connector-slack</module>
