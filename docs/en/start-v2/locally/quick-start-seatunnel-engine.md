@@ -10,7 +10,7 @@ Before starting, make sure you have downloaded and deployed SeaTunnel as describ
 
 ## Step 2: Add Job Config File to define a job
 
-Edit `config/seatunnel.streaming.conf.template`, which determines the way and logic of data input, processing, and output after seatunnel is started.
+Edit `config/v2.batch.conf.template`, which determines the way and logic of data input, processing, and output after seatunnel is started.
 The following is an example of the configuration file, which is the same as the example application mentioned above.
 
 ```hocon
@@ -56,24 +56,24 @@ is a sign that the command ran successfully or not.
 The SeaTunnel console will prints some logs as below:
 
 ```shell
-fields : name, age
-types : STRING, INT
-row=1 : elWaB, 1984352560
-row=2 : uAtnp, 762961563
-row=3 : TQEIB, 2042675010
-row=4 : DcFjo, 593971283
-row=5 : SenEb, 2099913608
-row=6 : DHjkg, 1928005856
-row=7 : eScCM, 526029657
-row=8 : sgOeE, 600878991
-row=9 : gwdvw, 1951126920
-row=10 : nSiKE, 488708928
-row=11 : xubpl, 1420202810
-row=12 : rHZqb, 331185742
-row=13 : rciGD, 1112878259
-row=14 : qLhdI, 1457046294
-row=15 : ZTkRx, 1240668386
-row=16 : SGZCr, 94186144
+2022-12-16 23:46:16,713 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - fields: name, age
+2022-12-16 23:46:16,714 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - types: STRING, INT
+2022-12-16 23:46:17,753 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=1 : XRMxN, 1011284614
+2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=2 : pWrpO, 843127905
+2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=3 : REBSo, 833504132
+2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=4 : WsFRN, 26587682
+2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=5 : vTuoq, 414594867
+2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=6 : CskBS, 1855664254
+2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=7 : HHYfL, 627284161
+2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=8 : twFct, 964724571
+2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=9 : JGLqE, 1919562939
+2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=10 : WDZLH, 1649520200
+2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=11 : lcOVg, 1666394529
+2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=12 : TnyqU, 2132613196
+2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=13 : tSHoE, 179597991
+2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=14 : RbFsX, 1726762920
+2022-12-16 23:46:17,755 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=15 : wsMAq, 46289844
+2022-12-16 23:46:17,755 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=16 : GXOQx, 1675062543
 ```
 
 ## What's More
