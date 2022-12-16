@@ -101,8 +101,6 @@ public class PhysicalPlan {
         this.jobImmutableInformation = jobImmutableInformation;
         this.jobId = jobImmutableInformation.getJobId();
         Long[] stateTimestamps = new Long[JobStatus.values().length];
-        this.runningJobStateIMap = runningJobStateIMap;
-        this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
         if (runningJobStateTimestampsIMap.get(jobId) == null) {
             stateTimestamps[JobStatus.INITIALIZING.ordinal()] = initializationTimestamp;
             runningJobStateTimestampsIMap.put(jobId, stateTimestamps);
@@ -126,7 +124,8 @@ public class PhysicalPlan {
             jobImmutableInformation.getJobId());
 
         pipelineSchedulerFutureMap = new ConcurrentHashMap<>(pipelineList.size());
-
+        this.runningJobStateIMap = runningJobStateIMap;
+        this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
     }
 
     public void setJobMaster(JobMaster jobMaster) {

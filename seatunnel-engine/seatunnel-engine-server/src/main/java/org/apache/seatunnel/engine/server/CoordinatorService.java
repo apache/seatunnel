@@ -54,7 +54,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -129,8 +128,6 @@ public class CoordinatorService {
 
     private final EngineConfig engineConfig;
 
-    private static final List<SeaTunnelEngineException> COLLECTED_EXCEPTIONS = new CopyOnWriteArrayList<>();
-
     @SuppressWarnings("checkstyle:MagicNumber")
     public CoordinatorService(@NonNull NodeEngineImpl nodeEngine, @NonNull SeaTunnelServer seaTunnelServer, EngineConfig engineConfig) {
         this.nodeEngine = nodeEngine;
@@ -180,25 +177,19 @@ public class CoordinatorService {
             nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO)
         );
 
-        List<CompletableFuture<Void>> collect = runningJobInfoIMap.entrySet().stream().map(entry -> CompletableFuture.runAsync(() -> {
-            logger.info(String.format("begin restore job (%s) from master active switch", entry.getKey()));
-            restoreJobFromMasterActiveSwitch(entry.getKey(), entry.getValue());
-            logger.info(String.format("restore job (%s) from master active switch finished", entry.getKey()));
-        }, executorService).exceptionally(throwable -> {
-            COLLECTED_EXCEPTIONS.add(new SeaTunnelEngineException(String.format("job (%s)", entry), throwable));
-            return null;
-        })).collect(Collectors.toList());
+        List<CompletableFuture<Void>> collect = runningJobInfoIMap.entrySet().stream().map(entry -> {
+            return CompletableFuture.runAsync(() -> {
+                logger.info(String.format("begin restore job (%s) from master active switch", entry.getKey()));
+                restoreJobFromMasterActiveSwitch(entry.getKey(), entry.getValue());
+                logger.info(String.format("restore job (%s) from master active switch finished", entry.getKey()));
+            }, executorService);
+        }).collect(Collectors.toList());
 
         try {
             CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
                 collect.toArray(new CompletableFuture[0]));
             voidCompletableFuture.get();
         } catch (Exception e) {
-            if (!COLLECTED_EXCEPTIONS.isEmpty()) {
-                StringBuffer sbr = new StringBuffer("init job error info: ");
-                COLLECTED_EXCEPTIONS.forEach(throwable -> sbr.append(ExceptionUtils.getMessage(throwable)));
-                logger.severe(String.valueOf(sbr));
-            }
             throw new SeaTunnelEngineException(e);
         }
     }
@@ -362,7 +353,7 @@ public class CoordinatorService {
         return new PassiveCompletableFuture<>(voidCompletableFuture);
     }
 
-    private void onJobDone(JobMaster jobMaster, long jobId) {
+    private void onJobDone(JobMaster jobMaster, long jobId){
         // storage job state and metrics to HistoryStorage
         jobHistoryService.storeJobInfo(jobId, runningJobMasterMap.get(jobId).getJobDAGInfo());
         jobHistoryService.storeFinishedJobState(jobMaster);
@@ -514,29 +505,29 @@ public class CoordinatorService {
         long completedTaskCount = threadPoolExecutor.getCompletedTaskCount();
         long taskCount = threadPoolExecutor.getTaskCount();
         logger.info(String.format(
-            "\n" + "***********************************************" +
+                "\n" + "***********************************************" +
                 "\n" + "     %s" +
                 "\n" + "***********************************************" +
                 "\n" + "%-26s: %19s\n" + "%-26s: %19s\n" + "%-26s: %19s\n"
-                + "%-26s: %19s\n" + "%-26s: %19s\n" + "%-26s: %19s\n"
+                        + "%-26s: %19s\n" + "%-26s: %19s\n" + "%-26s: %19s\n"
                 + "***********************************************\n",
-            "CoordinatorService Thread Pool Status",
-            "activeCount",
-            activeCount,
+                "CoordinatorService Thread Pool Status",
+                "activeCount",
+                activeCount,
 
-            "corePoolSize",
-            corePoolSize,
+                "corePoolSize",
+                corePoolSize,
 
-            "maximumPoolSize",
-            maximumPoolSize,
+                "maximumPoolSize",
+                maximumPoolSize,
 
-            "poolSize",
-            poolSize,
+                "poolSize",
+                poolSize,
 
-            "completedTaskCount",
-            completedTaskCount,
+                "completedTaskCount",
+                completedTaskCount,
 
-            "taskCount",
-            taskCount));
+                "taskCount",
+                taskCount));
     }
 }

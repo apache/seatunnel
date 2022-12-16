@@ -100,8 +100,6 @@ public class SubPlan {
         this.physicalVertexList = physicalVertexList;
         this.coordinatorVertexList = coordinatorVertexList;
         pipelineRestoreNum = 0;
-        this.runningJobStateIMap = runningJobStateIMap;
-        this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
 
         Long[] stateTimestamps = new Long[PipelineStatus.values().length];
         if (runningJobStateTimestampsIMap.get(pipelineLocation) == null) {
@@ -125,6 +123,8 @@ public class SubPlan {
             jobImmutableInformation.getJobId(),
             pipelineId,
             totalPipelineNum);
+        this.runningJobStateIMap = runningJobStateIMap;
+        this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
         this.executorService = executorService;
     }
 
