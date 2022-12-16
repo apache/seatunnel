@@ -603,7 +603,7 @@ public class ClusterFaultToleranceIT {
     public void testStreamJobRestoreInAllNodeDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testStreamJobRestoreInAllNodeDown";
         String testClusterName = "ClusterFaultToleranceIT_testStreamJobRestoreInAllNodeDown";
-        long testRowNumber = 1000;
+        int testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
         HazelcastInstanceImpl node2 = null;
@@ -726,7 +726,7 @@ public class ClusterFaultToleranceIT {
                     Thread.sleep(2000);
                     System.out.println(FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                     Assertions.assertTrue(JobStatus.RUNNING.equals(clientJobProxy.getJobStatus()) &&
-                        testRowNumber * testParallelism <= FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
+                        testRowNumber * testParallelism == FileUtils.getFileLineNumberFromDir(testResources.getLeft()));
                 });
 
             // sleep 10s and expect the job don't write more rows.
@@ -739,7 +739,7 @@ public class ClusterFaultToleranceIT {
 
             // prove that the task was restarted
             Long fileLineNumberFromDir = FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertTrue(testRowNumber * testParallelism <= fileLineNumberFromDir);
+            Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
 
         } finally {
             if (engineClient != null) {
