@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redshift;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfig;
-import org.apache.seatunnel.connectors.seatunnel.redshift.exception.S3RedshiftJdbcException;
+import org.apache.seatunnel.connectors.seatunnel.redshift.exception.S3RedshiftJdbcConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -35,7 +36,7 @@ public class RedshiftJdbcClient {
 
     private final Connection connection;
 
-    public static RedshiftJdbcClient getInstance(Config config) throws S3RedshiftJdbcException {
+    public static RedshiftJdbcClient getInstance(Config config) throws S3RedshiftJdbcConnectorException {
         if (INSTANCE == null) {
             synchronized (RedshiftJdbcClient.class) {
                 if (INSTANCE == null) {
@@ -45,7 +46,8 @@ public class RedshiftJdbcClient {
                             config.getString(S3RedshiftConfig.JDBC_USER.key()),
                             config.getString(S3RedshiftConfig.JDBC_PASSWORD.key()));
                     } catch (SQLException | ClassNotFoundException e) {
-                        throw new S3RedshiftJdbcException("RedshiftJdbcClient init error", e);
+                        throw new S3RedshiftJdbcConnectorException(CommonErrorCode.SQL_OPERATION_FAILED,
+                                "RedshiftJdbcClient init error", e);
                     }
                 }
             }
@@ -66,7 +68,8 @@ public class RedshiftJdbcClient {
             ResultSet rs = meta.getTables(null, null, tableName, type);
             flag = rs.next();
         } catch (SQLException e) {
-            throw new S3RedshiftJdbcException(String.format("checkTableExists error, table name is %s ", tableName), e);
+            throw new S3RedshiftJdbcConnectorException(CommonErrorCode.TABLE_SCHEMA_GET_FAILED,
+                    String.format("Check table is or not existed failed, table name is %s ", tableName), e);
         }
         return flag;
     }

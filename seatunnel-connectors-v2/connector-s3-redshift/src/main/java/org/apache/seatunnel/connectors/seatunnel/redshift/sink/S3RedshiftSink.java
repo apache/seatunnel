@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.redshift.sink;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -30,6 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregated
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.redshift.commit.S3RedshiftSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfig;
+import org.apache.seatunnel.connectors.seatunnel.redshift.exception.S3RedshiftJdbcConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -50,7 +52,9 @@ public class S3RedshiftSink extends BaseHdfsFileSink {
         CheckResult checkResult = CheckConfigUtil.checkAllExists(pluginConfig, S3Config.S3_BUCKET.key(), S3RedshiftConfig.JDBC_URL.key(),
             S3RedshiftConfig.JDBC_USER.key(), S3RedshiftConfig.JDBC_PASSWORD.key(), S3RedshiftConfig.EXECUTE_SQL.key());
         if (!checkResult.isSuccess()) {
-            throw new PrepareFailException(checkResult.getMsg(), PluginType.SINK, getPluginName());
+            throw new S3RedshiftJdbcConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SINK, checkResult.getMsg()));
         }
         this.pluginConfig = pluginConfig;
         hadoopConf = S3Conf.buildWithConfig(pluginConfig);

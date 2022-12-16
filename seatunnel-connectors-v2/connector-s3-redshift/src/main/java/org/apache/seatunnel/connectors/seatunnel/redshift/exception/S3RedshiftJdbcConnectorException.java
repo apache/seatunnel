@@ -17,13 +17,20 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redshift.exception;
 
-public class S3RedshiftJdbcException extends RuntimeException {
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-    public S3RedshiftJdbcException(String message) {
-        super(message);
+public class S3RedshiftJdbcConnectorException extends SeaTunnelRuntimeException {
+
+    public S3RedshiftJdbcConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+        super(seaTunnelErrorCode, errorMessage);
     }
 
-    public S3RedshiftJdbcException(String message, Throwable cause) {
-        super(message, cause);
+    public S3RedshiftJdbcConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+        super(seaTunnelErrorCode, errorMessage, cause);
+    }
+
+    public S3RedshiftJdbcConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+        super(seaTunnelErrorCode, cause);
     }
 }

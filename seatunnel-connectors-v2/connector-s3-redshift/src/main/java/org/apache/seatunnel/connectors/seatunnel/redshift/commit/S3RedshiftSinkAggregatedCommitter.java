@@ -17,13 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redshift.commit;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.connectors.seatunnel.redshift.RedshiftJdbcClient;
 import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfig;
-import org.apache.seatunnel.connectors.seatunnel.redshift.exception.S3RedshiftJdbcException;
+import org.apache.seatunnel.connectors.seatunnel.redshift.exception.S3RedshiftJdbcConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -99,8 +100,8 @@ public class S3RedshiftSinkAggregatedCommitter extends FileSinkAggregatedCommitt
         try {
             RedshiftJdbcClient.getInstance(pluginConfig).close();
         } catch (SQLException e) {
-            log.error("close redshift jdbc client error", e);
-            throw new S3RedshiftJdbcException("close redshift jdbc client error", e);
+            throw new S3RedshiftJdbcConnectorException(CommonErrorCode.SQL_OPERATION_FAILED,
+                    "close redshift jdbc client failed", e);
         }
     }
 
