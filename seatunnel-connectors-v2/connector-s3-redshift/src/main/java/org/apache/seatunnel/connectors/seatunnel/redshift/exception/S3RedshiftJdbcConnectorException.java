@@ -15,19 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.common.utils;
+package org.apache.seatunnel.connectors.seatunnel.redshift.exception;
 
-/**
- * please using {@link VariablesSubstitute} instead, since 2.0.5
- */
-@Deprecated
-public final class StringTemplate {
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-    private StringTemplate() {
+public class S3RedshiftJdbcConnectorException extends SeaTunnelRuntimeException {
+
+    public S3RedshiftJdbcConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+        super(seaTunnelErrorCode, errorMessage);
     }
 
-    public static String substitute(String str, String timeFormat) {
-        return VariablesSubstitute.substitute(str, timeFormat);
+    public S3RedshiftJdbcConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+        super(seaTunnelErrorCode, errorMessage, cause);
+    }
+
+    public S3RedshiftJdbcConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+        super(seaTunnelErrorCode, cause);
     }
 }
-

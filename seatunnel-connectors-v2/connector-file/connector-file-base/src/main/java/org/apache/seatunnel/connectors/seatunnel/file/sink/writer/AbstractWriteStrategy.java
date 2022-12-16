@@ -68,6 +68,10 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     protected int subTaskIndex;
     protected HadoopConf hadoopConf;
     protected String transactionId;
+    /**
+     * The uuid prefix to make sure same job different file sink will not conflict.
+     */
+    protected String uuidPrefix;
     protected String transactionDirectory;
     protected Map<String, String> needMoveFiles;
     protected Map<String, String> beingWrittenFile = new HashMap<>();
@@ -92,10 +96,11 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      * @param conf hadoop conf
      */
     @Override
-    public void init(HadoopConf conf, String jobId, int subTaskIndex) {
+    public void init(HadoopConf conf, String jobId, String uuidPrefix, int subTaskIndex) {
         this.hadoopConf = conf;
         this.jobId = jobId;
         this.subTaskIndex = subTaskIndex;
+        this.uuidPrefix = uuidPrefix;
         FileSystemUtils.CONF = getConfiguration(hadoopConf);
     }
 
@@ -250,34 +255,16 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      */
     public void beginTransaction(Long checkpointId) {
         this.checkpointId = checkpointId;
-        this.transactionId = "T" + BaseSinkConfig.TRANSACTION_ID_SPLIT + jobId + BaseSinkConfig.TRANSACTION_ID_SPLIT + subTaskIndex + BaseSinkConfig.TRANSACTION_ID_SPLIT + checkpointId;
+        this.transactionId = getTransactionId(checkpointId);
         this.transactionDirectory = getTransactionDir(this.transactionId);
         this.needMoveFiles = new HashMap<>();
         this.partitionDirAndValuesMap = new HashMap<>();
     }
 
-    /**
-     * get transaction ids from file sink states
-     * @param fileStates file sink states
-     * @return transaction ids
-     */
-    public List<String> getTransactionIdFromStates(List<FileSinkState> fileStates) {
-        String[] pathSegments = new String[]{textFileSinkConfig.getTmpPath(), BaseSinkConfig.SEATUNNEL, jobId};
-        String jobDir = String.join(File.separator, pathSegments) + File.separator;
-        try {
-            List<String> transactionDirList = FileSystemUtils.dirList(jobDir)
-                    .stream()
-                    .map(path -> path.toUri().getPath())
-                    .collect(Collectors.toList());
-            return transactionDirList
-                    .stream()
-                    .map(dir -> dir.replaceAll(jobDir, ""))
-                    .collect(Collectors.toList());
-        } catch (IOException e) {
-            throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
-                    String.format("Get transaction id from states failed," +
-                            "it seems that can not get directory list from [%s]", jobDir), e);
-        }
+    private String getTransactionId(Long checkpointId) {
+        return "T" + BaseSinkConfig.TRANSACTION_ID_SPLIT + jobId + BaseSinkConfig.TRANSACTION_ID_SPLIT
+            + uuidPrefix + BaseSinkConfig.TRANSACTION_ID_SPLIT + subTaskIndex + BaseSinkConfig.TRANSACTION_ID_SPLIT
+            + checkpointId;
     }
 
     /**
@@ -289,10 +276,10 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     @Override
     public List<FileSinkState> snapshotState(long checkpointId) {
         Map<String, List<String>> commitMap = this.partitionDirAndValuesMap.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> new ArrayList<>(e.getValue())));
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> new ArrayList<>(e.getValue())));
         ArrayList<FileSinkState> fileState = Lists.newArrayList(new FileSinkState(this.transactionId,
-                this.checkpointId, new HashMap<>(this.needMoveFiles),
-                commitMap, this.getTransactionDir(transactionId)));
+            this.uuidPrefix, this.checkpointId, new HashMap<>(this.needMoveFiles),
+            commitMap, this.getTransactionDir(transactionId)));
         this.beingWrittenFile.clear();
         this.beginTransaction(checkpointId + 1);
         return fileState;
@@ -300,11 +287,17 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
 
     /**
      * using transaction id generate transaction directory
+     *
      * @param transactionId transaction id
      * @return transaction directory
      */
     private String getTransactionDir(@NonNull String transactionId) {
-        String[] strings = new String[]{textFileSinkConfig.getTmpPath(), BaseSinkConfig.SEATUNNEL, jobId, transactionId};
+        String transactionDirectoryPrefix = getTransactionDirPrefix(textFileSinkConfig.getTmpPath(), jobId, uuidPrefix);
+        return String.join(File.separator, new String[]{transactionDirectoryPrefix, transactionId});
+    }
+
+    public static String getTransactionDirPrefix(String tmpPath, String jobId, String uuidPrefix) {
+        String[] strings = new String[]{tmpPath, BaseSinkConfig.SEATUNNEL, jobId, uuidPrefix};
         return String.join(File.separator, strings);
     }
 

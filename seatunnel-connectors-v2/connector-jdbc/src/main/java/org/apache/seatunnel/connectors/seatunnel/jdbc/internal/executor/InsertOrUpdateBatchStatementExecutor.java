@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 
 import lombok.NonNull;
@@ -33,38 +35,44 @@ import java.util.function.Function;
 
 @RequiredArgsConstructor
 public class InsertOrUpdateBatchStatementExecutor implements JdbcBatchStatementExecutor<SeaTunnelRow> {
-    @NonNull
     private final StatementFactory existStmtFactory;
     @NonNull
     private final StatementFactory insertStmtFactory;
     @NonNull
     private final StatementFactory updateStmtFactory;
+    private final SeaTunnelRowType keyRowType;
+    private final Function<SeaTunnelRow, SeaTunnelRow> keyExtractor;
     @NonNull
     private final SeaTunnelRowType valueRowType;
     @NonNull
-    private final SeaTunnelRowType keyRowType;
-    @NonNull
-    private final Function<SeaTunnelRow, SeaTunnelRow> keyExtractor;
-    @NonNull
     private final JdbcRowConverter rowConverter;
-
     private transient PreparedStatement existStatement;
     private transient PreparedStatement insertStatement;
     private transient PreparedStatement updateStatement;
     private transient Boolean preExistFlag;
     private transient boolean submitted;
 
+    public InsertOrUpdateBatchStatementExecutor(StatementFactory insertStmtFactory,
+                                                StatementFactory updateStmtFactory,
+                                                SeaTunnelRowType valueRowType,
+                                                JdbcRowConverter rowConverter) {
+        this(null, insertStmtFactory, updateStmtFactory,
+            null, null, valueRowType, rowConverter);
+    }
+
     @Override
     public void prepareStatements(Connection connection) throws SQLException {
-        existStatement = existStmtFactory.createStatement(connection);
+        if (upsertMode()) {
+            existStatement = existStmtFactory.createStatement(connection);
+        }
         insertStatement = insertStmtFactory.createStatement(connection);
         updateStatement = updateStmtFactory.createStatement(connection);
     }
 
     @Override
     public void addToBatch(SeaTunnelRow record) throws SQLException {
-        boolean currentExistFlag = exist(keyExtractor.apply(record));
-        if (currentExistFlag) {
+        boolean exist = existRow(record);
+        if (exist) {
             if (preExistFlag != null && !preExistFlag) {
                 insertStatement.executeBatch();
                 insertStatement.clearBatch();
@@ -79,7 +87,8 @@ public class InsertOrUpdateBatchStatementExecutor implements JdbcBatchStatementE
             rowConverter.toExternal(valueRowType, record, insertStatement);
             insertStatement.addBatch();
         }
-        preExistFlag = currentExistFlag;
+
+        preExistFlag = exist;
         submitted = false;
     }
 
@@ -106,6 +115,25 @@ public class InsertOrUpdateBatchStatementExecutor implements JdbcBatchStatementE
             if (statement != null) {
                 statement.close();
             }
+        }
+    }
+
+    private boolean upsertMode() {
+        return existStmtFactory != null;
+    }
+
+    private boolean existRow(SeaTunnelRow record) throws SQLException {
+        if (upsertMode()) {
+            return exist(keyExtractor.apply(record));
+        }
+        switch (record.getRowKind()) {
+            case INSERT:
+                return false;
+            case UPDATE_AFTER:
+                return true;
+            default:
+                throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+                    "unsupported row kind: " + record.getRowKind());
         }
     }
 

@@ -84,8 +84,8 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
     }
 
     @Override
-    public void init(HadoopConf conf, String jobId, int subTaskIndex) {
-        super.init(conf, jobId, subTaskIndex);
+    public void init(HadoopConf conf, String jobId, String uuidPrefix, int subTaskIndex) {
+        super.init(conf, jobId, uuidPrefix, subTaskIndex);
         schemaConverter = new AvroSchemaConverter(getConfiguration(hadoopConf));
     }
 
