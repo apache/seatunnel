@@ -52,6 +52,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Random;
+import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * KafkaSinkWriter is a sink writer that will write {@link SeaTunnelRow} to Kafka.
@@ -65,6 +68,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     private final KafkaProduceSender<byte[], byte[]> kafkaProducerSender;
     private final SeaTunnelRowSerializer<byte[], byte[]> seaTunnelRowSerializer;
+    private final Function<SeaTunnelRow, String> topicExtractor;
 
     private static final int PREFIX_RANGE = 10000;
 
@@ -74,6 +78,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             Config pluginConfig,
             List<KafkaSinkState> kafkaStates) {
         this.context = context;
+        this.topicExtractor = createTopicExtractor(pluginConfig.getString(TOPIC.key()), seaTunnelRowType);
         if (pluginConfig.hasPath(ASSIGN_PARTITIONS.key())) {
             MessageContentPartitioner.setAssignPartitions(pluginConfig.getStringList(ASSIGN_PARTITIONS.key()));
         }
@@ -102,7 +107,8 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     @Override
     public void write(SeaTunnelRow element) {
-        ProducerRecord<byte[], byte[]> producerRecord = seaTunnelRowSerializer.serializeRow(element);
+        String topic = topicExtractor.apply(element);
+        ProducerRecord<byte[], byte[]> producerRecord = seaTunnelRowSerializer.serializeRow(topic, element);
         kafkaProducerSender.send(producerRecord);
     }
 
@@ -160,10 +166,10 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             delimiter = pluginConfig.getString(FIELD_DELIMITER.key());
         }
         if (pluginConfig.hasPath(PARTITION.key())) {
-            return new DefaultSeaTunnelRowSerializer(pluginConfig.getString(TOPIC.key()),
+            return new DefaultSeaTunnelRowSerializer(
                     pluginConfig.getInt(PARTITION.key()), seaTunnelRowType, format, delimiter);
         } else {
-            return new DefaultSeaTunnelRowSerializer(pluginConfig.getString(TOPIC.key()),
+            return new DefaultSeaTunnelRowSerializer(
                     getPartitionKeyFields(pluginConfig, seaTunnelRowType), seaTunnelRowType, format, delimiter);
         }
     }
@@ -199,5 +205,27 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             return partitionKeyFields;
         }
         return Collections.emptyList();
+    }
+
+    private Function<SeaTunnelRow, String> createTopicExtractor(String topicConfig, SeaTunnelRowType seaTunnelRowType) {
+        String regex = "\\$\\{(.*?)\\}";
+        Pattern pattern = Pattern.compile(regex, Pattern.DOTALL);
+        Matcher matcher = pattern.matcher(topicConfig);
+        if (!matcher.find()) {
+            return row -> topicConfig;
+        }
+        String topicField = matcher.group(1);
+        List<String> fieldNames = Arrays.asList(seaTunnelRowType.getFieldNames());
+        if (!fieldNames.contains(topicField)) {
+            throw new IllegalArgumentException("Field name{" + topicField + "} is not found!");
+        }
+        int topicFieldIndex = seaTunnelRowType.indexOf(topicField);
+        return row -> {
+            Object topicFieldValue = row.getField(topicFieldIndex);
+            if (topicFieldValue == null) {
+                throw new IllegalArgumentException("The column value is empty!");
+            }
+            return topicFieldValue.toString();
+        };
     }
 }
