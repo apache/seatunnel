@@ -31,16 +31,6 @@ hazelcast:
     port:
       auto-increment: false
       port: 5801
-  map:
-    engine*:
-      map-store:
-        enabled: true
-        initial-mode: EAGER
-        factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
-        properties:
-          namespace: /tmp/seatunnel/imap
-          clusterName: seatunnel
-          fs.defaultFS: file:///
   properties:
     hazelcast.invocation.max.retry.count: 20
     hazelcast.tcp.join.port.try.count: 30
