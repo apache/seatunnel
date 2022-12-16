@@ -30,6 +30,7 @@ import lombok.SneakyThrows;
 import org.apache.hadoop.conf.Configuration;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -88,7 +89,7 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
         Map<Object, Object> retMap = new HashMap<>(keys.size());
         keys.forEach(key -> retMap.put(key, allMap.get(key)));
 
-        return retMap;
+        return Collections.unmodifiableMap(retMap);
     }
 
     @Override
