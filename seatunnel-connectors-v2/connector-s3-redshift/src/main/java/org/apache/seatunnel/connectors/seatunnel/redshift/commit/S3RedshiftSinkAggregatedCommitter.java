@@ -40,6 +40,8 @@ import java.util.Map;
 @Slf4j
 public class S3RedshiftSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
 
+    protected final FileSystemUtils fileSystemUtils;
+
     private final String executeSql;
 
     private Config pluginConfig;
@@ -48,6 +50,7 @@ public class S3RedshiftSinkAggregatedCommitter extends FileSinkAggregatedCommitt
         super(hadoopConf);
         this.pluginConfig = pluginConfig;
         this.executeSql = pluginConfig.getString(S3RedshiftConfig.EXECUTE_SQL.key());
+        this.fileSystemUtils = new FileSystemUtils(hadoopConf);
     }
 
     @Override
@@ -61,7 +64,7 @@ public class S3RedshiftSinkAggregatedCommitter extends FileSinkAggregatedCommitt
                         log.debug("execute redshift sql is:" + sql);
                         RedshiftJdbcClient.getInstance(pluginConfig).execute(sql);
                         try {
-                            FileSystemUtils.deleteFile(tmpFileEntry.getKey());
+                            fileSystemUtils.deleteFile(tmpFileEntry.getKey());
                         } catch (IOException e) {
                             log.warn("delete tmp file error:" + tmpFileEntry.getKey());
                         }
@@ -86,7 +89,7 @@ public class S3RedshiftSinkAggregatedCommitter extends FileSinkAggregatedCommitt
             try {
                 for (Map.Entry<String, Map<String, String>> entry : aggregatedCommitInfo.getTransactionMap().entrySet()) {
                     // delete the transaction dir
-                    FileSystemUtils.deleteFile(entry.getKey());
+                    fileSystemUtils.deleteFile(entry.getKey());
                 }
             } catch (Exception e) {
                 log.error("abort aggregatedCommitInfo error ", e);
