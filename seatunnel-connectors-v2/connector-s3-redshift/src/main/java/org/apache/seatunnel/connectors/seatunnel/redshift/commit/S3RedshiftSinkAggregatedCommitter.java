@@ -10,7 +10,7 @@ import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfi
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
 import java.sql.SQLException;

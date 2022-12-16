@@ -5,9 +5,6 @@ import org.apache.seatunnel.connectors.seatunnel.redshift.exception.JdbcExceptio
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import java.io.IOException;
-import java.io.Serializable;
-import java.net.ConnectException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
