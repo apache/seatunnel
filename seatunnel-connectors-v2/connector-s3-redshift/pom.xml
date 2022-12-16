@@ -5,11 +5,15 @@
     <parent>
         <artifactId>seatunnel-connectors-v2</artifactId>
         <groupId>org.apache.seatunnel</groupId>
-        <version>2.3.1-SNAPSHOT</version>
+        <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>connector-s3-redshift</artifactId>
+    
+    <properties>
+        <redshift.version>2.1.0.9</redshift.version>
+    </properties>
 
     <dependencies>
         <dependency>
@@ -26,12 +30,12 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-file-s3</artifactId>
-            <version>2.3.1-SNAPSHOT</version>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>com.amazon.redshift</groupId>
             <artifactId>redshift-jdbc42</artifactId>
-            <version>2.1.0.9</version>
+            <version>${redshift.version}</version>
         </dependency>
    
     </dependencies>
