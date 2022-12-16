@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggreg
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.connectors.seatunnel.redshift.RedshiftJdbcClient;
 import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfig;
+import org.apache.seatunnel.connectors.seatunnel.redshift.exception.S3RedshiftJdbcException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -99,7 +100,7 @@ public class S3RedshiftSinkAggregatedCommitter extends FileSinkAggregatedCommitt
             RedshiftJdbcClient.getInstance(pluginConfig).close();
         } catch (SQLException e) {
             log.error("close redshift jdbc client error", e);
-            throw new IOException("close redshift jdbc client error", e);
+            throw new S3RedshiftJdbcException("close redshift jdbc client error", e);
         }
     }
 
