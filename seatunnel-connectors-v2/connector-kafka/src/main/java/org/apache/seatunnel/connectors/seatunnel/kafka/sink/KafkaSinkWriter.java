@@ -217,13 +217,15 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         String topicField = matcher.group(1);
         List<String> fieldNames = Arrays.asList(seaTunnelRowType.getFieldNames());
         if (!fieldNames.contains(topicField)) {
-            throw new IllegalArgumentException("Field name{" + topicField + "} is not found!");
+            throw new KafkaConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                    String.format("Field name{ %s } is not found!", topicField));
         }
         int topicFieldIndex = seaTunnelRowType.indexOf(topicField);
         return row -> {
             Object topicFieldValue = row.getField(topicFieldIndex);
             if (topicFieldValue == null) {
-                throw new IllegalArgumentException("The column value is empty!");
+                throw new KafkaConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                        "The column value is empty!");
             }
             return topicFieldValue.toString();
         };
