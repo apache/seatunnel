@@ -218,7 +218,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         List<String> fieldNames = Arrays.asList(seaTunnelRowType.getFieldNames());
         if (!fieldNames.contains(topicField)) {
             throw new KafkaConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
-                    String.format("Field name{ %s } is not found!", topicField));
+                    String.format("Field name { %s } is not found!", topicField));
         }
         int topicFieldIndex = seaTunnelRowType.indexOf(topicField);
         return row -> {
