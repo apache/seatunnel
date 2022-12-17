@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.plugin.discovery.flink.FlinkTransformPluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFlinkTransformPluginDiscovery;
 import org.apache.seatunnel.translation.flink.serialization.FlinkRowConverter;
 import org.apache.seatunnel.translation.flink.utils.TypeConverterUtils;
 
@@ -51,7 +51,7 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Se
 
     @Override
     protected List<SeaTunnelTransform> initializePlugins(List<URL> jarPaths, List<? extends Config> pluginConfigs) {
-        FlinkTransformPluginDiscovery transformPluginDiscovery = new FlinkTransformPluginDiscovery();
+        SeaTunnelFlinkTransformPluginDiscovery transformPluginDiscovery = new SeaTunnelFlinkTransformPluginDiscovery();
         List<URL> pluginJars = new ArrayList<>();
         List<SeaTunnelTransform> transforms = pluginConfigs.stream()
             .map(transformConfig -> {

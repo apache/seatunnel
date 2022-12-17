@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.plugin.discovery.flink;
+package org.apache.seatunnel.plugin.discovery.seatunnel;
 
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
 
-public class FlinkTransformPluginDiscovery extends AbstractPluginDiscovery<SeaTunnelTransform> {
-    public FlinkTransformPluginDiscovery() {
-        super("flink");
+public class SeaTunnelFlinkTransformPluginDiscovery extends AbstractPluginDiscovery<SeaTunnelTransform> {
+    public SeaTunnelFlinkTransformPluginDiscovery() {
+        super("seatunnel");
     }
 
     @Override
