@@ -27,7 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 
 import lombok.NonNull;
 import org.apache.avro.Conversions;
@@ -78,8 +78,8 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         }
     }
 
-    public ParquetWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
-        super(textFileSinkConfig);
+    public ParquetWriteStrategy(FileSinkConfig fileSinkConfig) {
+        super(fileSinkConfig);
         this.beingWrittenWriter = new HashMap<>();
     }
 
