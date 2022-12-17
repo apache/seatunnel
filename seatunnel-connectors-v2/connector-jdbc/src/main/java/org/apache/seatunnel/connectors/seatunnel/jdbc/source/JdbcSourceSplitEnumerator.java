@@ -109,22 +109,6 @@ public class JdbcSourceSplitEnumerator implements SourceSplitEnumerator<JdbcSour
         return allSplit;
     }
 
-    private void assignPendingSplits() {
-        // Check if there's any pending splits for given readers
-        for (int pendingReader : enumeratorContext.registeredReaders()) {
-            // Remove pending assignment for the reader
-            final List<JdbcSourceSplit> pendingAssignmentForReader =
-                pendingSplits.remove(pendingReader);
-
-            if (pendingAssignmentForReader != null && !pendingAssignmentForReader.isEmpty()) {
-                // Assign pending splits to reader
-                LOG.info("Assigning splits to readers {}", pendingAssignmentForReader);
-                enumeratorContext.assignSplit(pendingReader, new ArrayList<>(pendingAssignmentForReader));
-            }
-            enumeratorContext.signalNoMoreSplits(pendingReader);
-        }
-    }
-
     @Override
     public void close() throws IOException {
         // nothing
