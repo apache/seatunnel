@@ -53,7 +53,6 @@ public class YamlSeaTunnelConfigParserTest {
         Assertions.assertEquals("hdfs", config.getEngineConfig().getCheckpointConfig().getStorage().getStorage());
 
         Assertions.assertEquals(3, config.getEngineConfig().getCheckpointConfig().getStorage().getMaxRetainedCheckpoints());
-        Assertions.assertEquals("secret-key", config.getEngineConfig().getCheckpointConfig().getStorage().getStoragePluginConfig().get("s3.secret-key"));
 
     }
 
