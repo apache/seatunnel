@@ -37,7 +37,16 @@ Currently two formats are supported:
 
 1. Fill in the name of the topic.
 
-2. Use value of a field from upstream data as topic,the format is ${your field name}, where topic is the value of one of the columns of the upstream data.
+2. Use value of a field from upstream data as topic,the format is `${your field name}`, where topic is the value of one of the columns of the upstream data.
+
+   For example, Upstream data is the following:
+
+    | name | age  | data          |
+    | ---- | ---- | ------------- |
+    | Jack | 16   | data-example1 |
+    | Mary | 23   | data-example2 |
+
+   If `${name}` is set as the topic. So the first row is sent to Jack topic, and the second row is sent to Mary topic.
 
 ### bootstrap.servers [string]
 
