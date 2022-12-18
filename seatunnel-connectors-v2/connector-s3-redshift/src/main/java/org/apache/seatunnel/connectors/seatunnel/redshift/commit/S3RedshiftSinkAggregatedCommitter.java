@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.redshift.commit;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
@@ -44,8 +43,8 @@ public class S3RedshiftSinkAggregatedCommitter extends FileSinkAggregatedCommitt
 
     private Config pluginConfig;
 
-    public S3RedshiftSinkAggregatedCommitter(HadoopConf hadoopConf, Config pluginConfig) {
-        super(hadoopConf);
+    public S3RedshiftSinkAggregatedCommitter(FileSystemUtils fileSystemUtils, Config pluginConfig) {
+        super(fileSystemUtils);
         this.pluginConfig = pluginConfig;
         this.executeSql = pluginConfig.getString(S3RedshiftConfig.EXECUTE_SQL.key());
     }
@@ -61,7 +60,7 @@ public class S3RedshiftSinkAggregatedCommitter extends FileSinkAggregatedCommitt
                         log.debug("execute redshift sql is:" + sql);
                         RedshiftJdbcClient.getInstance(pluginConfig).execute(sql);
                         try {
-                            FileSystemUtils.deleteFile(tmpFileEntry.getKey());
+                            fileSystemUtils.deleteFile(tmpFileEntry.getKey());
                         } catch (IOException e) {
                             log.warn("delete tmp file error:" + tmpFileEntry.getKey());
                         }
@@ -86,7 +85,7 @@ public class S3RedshiftSinkAggregatedCommitter extends FileSinkAggregatedCommitt
             try {
                 for (Map.Entry<String, Map<String, String>> entry : aggregatedCommitInfo.getTransactionMap().entrySet()) {
                     // delete the transaction dir
-                    FileSystemUtils.deleteFile(entry.getKey());
+                    fileSystemUtils.deleteFile(entry.getKey());
                 }
             } catch (Exception e) {
                 log.error("abort aggregatedCommitInfo error ", e);
