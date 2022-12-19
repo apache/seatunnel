@@ -35,20 +35,20 @@ import java.io.Serializable;
 import java.util.Locale;
 
 @Data
-public class BaseTextFileConfig implements DelimiterConfig, CompressConfig, Serializable {
+public class BaseFileSinkConfig implements DelimiterConfig, CompressConfig, Serializable {
     private static final long serialVersionUID = 1L;
     protected String compressCodec;
     protected String fieldDelimiter = BaseSinkConfig.FIELD_DELIMITER.defaultValue();
     protected String rowDelimiter = BaseSinkConfig.ROW_DELIMITER.defaultValue();
     protected int batchSize = BaseSinkConfig.BATCH_SIZE.defaultValue();
     protected String path;
-    protected String fileNameExpression;
+    protected String fileNameExpression = BaseSinkConfig.FILE_NAME_EXPRESSION.defaultValue();
     protected FileFormat fileFormat = FileFormat.TEXT;
     protected DateUtils.Formatter dateFormat = DateUtils.Formatter.YYYY_MM_DD;
     protected DateTimeUtils.Formatter datetimeFormat = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
     protected TimeUtils.Formatter timeFormat = TimeUtils.Formatter.HH_MM_SS;
 
-    public BaseTextFileConfig(@NonNull Config config) {
+    public BaseFileSinkConfig(@NonNull Config config) {
         if (config.hasPath(BaseSinkConfig.COMPRESS_CODEC.key())) {
             throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
                     "Compress not supported by SeaTunnel file connector now");
@@ -94,5 +94,5 @@ public class BaseTextFileConfig implements DelimiterConfig, CompressConfig, Seri
         }
     }
 
-    public BaseTextFileConfig() {}
+    public BaseFileSinkConfig() {}
 }

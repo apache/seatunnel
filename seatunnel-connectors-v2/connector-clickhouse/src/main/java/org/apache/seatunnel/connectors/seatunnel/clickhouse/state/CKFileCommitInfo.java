@@ -15,19 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.common.utils;
+package org.apache.seatunnel.connectors.seatunnel.clickhouse.state;
 
-/**
- * please using {@link VariablesSubstitute} instead, since 2.0.5
- */
-@Deprecated
-public final class StringTemplate {
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 
-    private StringTemplate() {
-    }
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-    public static String substitute(String str, String timeFormat) {
-        return VariablesSubstitute.substitute(str, timeFormat);
-    }
+import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
+
+@Data
+@AllArgsConstructor
+public class CKFileCommitInfo implements Serializable {
+
+    private Map<Shard, List<String>> detachedFiles;
+
 }
-

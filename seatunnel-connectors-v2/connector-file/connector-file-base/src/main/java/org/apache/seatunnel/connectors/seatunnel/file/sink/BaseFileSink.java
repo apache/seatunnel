@@ -31,8 +31,9 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategyFactory;
 
@@ -46,7 +47,8 @@ public abstract class BaseFileSink implements SeaTunnelSink<SeaTunnelRow, FileSi
     protected SeaTunnelRowType seaTunnelRowType;
     protected Config pluginConfig;
     protected HadoopConf hadoopConf;
-    protected TextFileSinkConfig textFileSinkConfig;
+    protected FileSystemUtils fileSystemUtils;
+    protected FileSinkConfig fileSinkConfig;
     protected WriteStrategy writeStrategy;
     protected JobContext jobContext;
     protected String jobId;
@@ -60,9 +62,11 @@ public abstract class BaseFileSink implements SeaTunnelSink<SeaTunnelRow, FileSi
     @Override
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
-        this.textFileSinkConfig = new TextFileSinkConfig(pluginConfig, seaTunnelRowType);
-        this.writeStrategy = WriteStrategyFactory.of(textFileSinkConfig.getFileFormat(), textFileSinkConfig);
+        this.fileSinkConfig = new FileSinkConfig(pluginConfig, seaTunnelRowType);
+        this.writeStrategy = WriteStrategyFactory.of(fileSinkConfig.getFileFormat(), fileSinkConfig);
+        this.fileSystemUtils = new FileSystemUtils(hadoopConf);
         this.writeStrategy.setSeaTunnelRowTypeInfo(seaTunnelRowType);
+        this.writeStrategy.setFileSystemUtils(fileSystemUtils);
     }
 
     @Override
@@ -77,7 +81,7 @@ public abstract class BaseFileSink implements SeaTunnelSink<SeaTunnelRow, FileSi
 
     @Override
     public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>> createAggregatedCommitter() throws IOException {
-        return Optional.of(new FileSinkAggregatedCommitter(hadoopConf));
+        return Optional.of(new FileSinkAggregatedCommitter(fileSystemUtils));
     }
 
     @Override

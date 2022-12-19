@@ -51,8 +51,7 @@ public class S3FileSource extends BaseFileSource {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
-                S3Config.FILE_PATH.key(), S3Config.FILE_TYPE.key(), S3Config.S3_BUCKET.key(),
-                S3Config.S3_ACCESS_KEY.key(), S3Config.S3_SECRET_KEY.key());
+                S3Config.FILE_PATH.key(), S3Config.FILE_TYPE.key(), S3Config.S3_BUCKET.key());
         if (!result.isSuccess()) {
             throw new FileConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format("PluginName: %s, PluginType: %s, Message: %s",

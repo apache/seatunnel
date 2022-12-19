@@ -31,6 +31,7 @@ import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
+import org.apache.seatunnel.engine.server.task.operation.CheckTaskGroupIsExecutingOperation;
 import org.apache.seatunnel.engine.server.task.operation.DeployTaskOperation;
 
 import com.hazelcast.cluster.Address;
@@ -39,11 +40,14 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 
 import java.net.URL;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
@@ -177,6 +181,7 @@ public class PhysicalVertex {
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
     }
 
+    @SuppressWarnings("checkstyle:MagicNumber")
     public PassiveCompletableFuture<TaskExecutionState> initStateFuture() {
         this.taskFuture = new CompletableFuture<>();
         ExecutionState executionState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
@@ -184,13 +189,49 @@ public class PhysicalVertex {
             LOGGER.info(
                 String.format("The task %s is in state %s when init state future", taskFullName, executionState));
         }
+        // if the task state is RUNNING
+        // We need to check the real running status of Task from taskExecutionServer.
+        // Because the state may be RUNNING when the cluster is restarted, but the Task no longer exists.
+        if (ExecutionState.RUNNING.equals(executionState)){
+            if (!checkTaskGroupIsExecuting(taskGroupLocation)) {
+                this.taskFuture.complete(new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, null));
+            }
+        }
         // If the task state is CANCELING we need call noticeTaskExecutionServiceCancel().
-        if (ExecutionState.CANCELING.equals(executionState)) {
-            noticeTaskExecutionServiceCancel();
+        else if (ExecutionState.CANCELING.equals(executionState)) {
+            noticeTaskExecutionServiceCancel(3);
+            this.taskFuture.complete(new TaskExecutionState(taskGroupLocation, ExecutionState.CANCELED, null));
         } else if (executionState.isEndState()) {
             this.taskFuture.complete(new TaskExecutionState(taskGroupLocation, executionState, null));
         }
         return new PassiveCompletableFuture<>(this.taskFuture);
+    }
+
+    private boolean checkTaskGroupIsExecuting(TaskGroupLocation taskGroupLocation){
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+        SlotProfile slotProfile = getOwnedSlotProfilesByTaskGroup(taskGroupLocation, ownedSlotProfilesIMap);
+        if (null != slotProfile){
+            Address worker = slotProfile.getWorker();
+            InvocationFuture<Object> invoke = nodeEngine.getOperationService().createInvocationBuilder(
+                SeaTunnelServer.SERVICE_NAME,
+                new CheckTaskGroupIsExecutingOperation(taskGroupLocation),
+                worker).invoke();
+            try {
+                return (Boolean) invoke.get();
+            } catch (InterruptedException | ExecutionException e) {
+                LOGGER.warning("Execution of CheckTaskGroupIsExecutingOperation failed, checkTaskGroupIsExecuting return false. ", e);
+            }
+        }
+        return false;
+    }
+
+    private SlotProfile getOwnedSlotProfilesByTaskGroup(TaskGroupLocation taskGroupLocation, IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap) {
+        PipelineLocation pipelineLocation = taskGroupLocation.getPipelineLocation();
+        if (ownedSlotProfilesIMap.containsKey(pipelineLocation) &&
+            ownedSlotProfilesIMap.get(pipelineLocation).containsKey(taskGroupLocation)) {
+            return ownedSlotProfilesIMap.get(pipelineLocation).get(taskGroupLocation);
+        }
+        return null;
     }
 
     private void deployOnLocal(@NonNull SlotProfile slotProfile) {
@@ -333,15 +374,16 @@ public class PhysicalVertex {
             updateTaskState(ExecutionState.DEPLOYING, ExecutionState.CANCELED)) {
             taskFuture.complete(new TaskExecutionState(this.taskGroupLocation, ExecutionState.CANCELED, null));
         } else if (updateTaskState(ExecutionState.RUNNING, ExecutionState.CANCELING)) {
-            noticeTaskExecutionServiceCancel();
+            noticeTaskExecutionServiceCancel(Integer.MAX_VALUE);
         }
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    private void noticeTaskExecutionServiceCancel() {
+    private void noticeTaskExecutionServiceCancel(int tryTimes) {
         int i = 0;
         // In order not to generate uncontrolled tasks, We will try again until the taskFuture is completed
-        while (!taskFuture.isDone() && nodeEngine.getClusterService().getMember(getCurrentExecutionAddress()) != null) {
+        // If the cluster restart causes the number of nodes to change, it is meaningless to keep retrying
+        while (!taskFuture.isDone() && nodeEngine.getClusterService().getMember(getCurrentExecutionAddress()) != null && i < tryTimes) {
             try {
                 i++;
                 LOGGER.info(
@@ -377,15 +419,6 @@ public class PhysicalVertex {
 
     private void resetExecutionState() {
         synchronized (this) {
-            ExecutionState executionState = getExecutionState();
-            if (!executionState.isEndState()) {
-                String message =
-                    String.format("%s reset state failed, only end state can be reset, current is %s",
-                        getTaskFullName(),
-                        executionState);
-                LOGGER.severe(message);
-                throw new IllegalStateException(message);
-            }
             updateStateTimestamps(ExecutionState.CREATED);
             runningJobStateIMap.set(taskGroupLocation, ExecutionState.CREATED);
         }

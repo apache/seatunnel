@@ -147,6 +147,7 @@
                 <!-- Don't exclude connector-http-base, because it contains SPI files -->
                 <exclude>org.apache.seatunnel:connector-file-base</exclude>
                 <exclude>org.apache.seatunnel:connector-file-base-hadoop</exclude>
+                <exclude>org.apache.seatunnel:connector-cdc-base</exclude>
             </excludes>
             <outputDirectory>/connectors/seatunnel</outputDirectory>
             <scope>provided</scope>
@@ -184,7 +185,7 @@
                 <include>com.amazon.redshift:redshift-jdbc42:jar</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
-            <outputDirectory>/lib/jdbc_driver</outputDirectory>
+            <outputDirectory>/plugins/jdbc/lib</outputDirectory>
             <scope>provided</scope>
         </dependencySet>
     </dependencySets>

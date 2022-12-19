@@ -21,8 +21,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseTextFileConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.PartitionConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
@@ -42,7 +42,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Data
-public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionConfig {
+public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfig {
 
     private List<String> sinkColumnList;
 
@@ -64,7 +64,7 @@ public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionC
 
     private List<Integer> partitionFieldsIndexInRow;
 
-    public TextFileSinkConfig(@NonNull Config config, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
+    public FileSinkConfig(@NonNull Config config, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
         super(config);
         checkArgument(!CollectionUtils.isEmpty(Arrays.asList(seaTunnelRowTypeInfo.getFieldNames())));
 

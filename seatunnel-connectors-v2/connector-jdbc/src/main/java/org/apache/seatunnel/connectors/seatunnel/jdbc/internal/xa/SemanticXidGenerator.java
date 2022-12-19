@@ -33,9 +33,9 @@ import java.util.Arrays;
  * <ol>
  *   <li>To provide uniqueness over other jobs and apps, and other instances
  *   <li>of this job, gtrid consists of
- *   <li>job id (16 bytes)
+ *   <li>job id (32 bytes)
  *   <li>subtask index (4 bytes)
- *   <li>checkpoint id (4 bytes)
+ *   <li>checkpoint id (8 bytes)
  *   <li>bqual consists of 4 random bytes (generated using {@link SecureRandom})
  * </ol>
  *
@@ -65,8 +65,9 @@ class SemanticXidGenerator
     @Override
     public Xid generateXid(JobContext context, SinkWriter.Context sinkContext, long checkpointId) {
         byte[] jobIdBytes = context.getJobId().getBytes();
+        Arrays.fill(gtridBuffer, (byte) 0);
         checkArgument(jobIdBytes.length <= JOB_ID_BYTES);
-        System.arraycopy(jobIdBytes, 0, gtridBuffer, 0, JOB_ID_BYTES);
+        System.arraycopy(jobIdBytes, 0, gtridBuffer, 0, jobIdBytes.length);
 
         writeNumber(sinkContext.getIndexOfSubtask(), Integer.BYTES, gtridBuffer, JOB_ID_BYTES);
         writeNumber(checkpointId, Long.BYTES, gtridBuffer, JOB_ID_BYTES + Integer.BYTES);
@@ -79,13 +80,18 @@ class SemanticXidGenerator
         if (xid.getFormatId() != FORMAT_ID) {
             return false;
         }
-        int subtaskIndex = readNumber(xid.getGlobalTransactionId(), JOB_ID_BYTES, Integer.BYTES);
-        if (subtaskIndex != sinkContext.getIndexOfSubtask()) {
+        int xidSubtaskIndex = readNumber(xid.getGlobalTransactionId(), JOB_ID_BYTES, Integer.BYTES);
+        if (xidSubtaskIndex != sinkContext.getIndexOfSubtask()) {
             return false;
         }
+        byte[] xidJobIdBytes = new byte[JOB_ID_BYTES];
+        System.arraycopy(xid.getGlobalTransactionId(), 0, xidJobIdBytes, 0, JOB_ID_BYTES);
+
         byte[] jobIdBytes = new byte[JOB_ID_BYTES];
-        System.arraycopy(xid.getGlobalTransactionId(), 0, jobIdBytes, 0, JOB_ID_BYTES);
-        return Arrays.equals(jobIdBytes, context.getJobId().getBytes());
+        byte[] bytes = context.getJobId().getBytes();
+        System.arraycopy(bytes, 0, jobIdBytes, 0, bytes.length);
+
+        return Arrays.equals(jobIdBytes, xidJobIdBytes);
     }
 
     private static int readNumber(byte[] bytes, int offset, int numBytes) {
