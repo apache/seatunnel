@@ -38,6 +38,7 @@ APP_DIR=`cd "$PRG_DIR/.." >/dev/null; pwd`
 CONF_DIR=${APP_DIR}/config
 APP_JAR=${APP_DIR}/starter/seatunnel-starter.jar
 APP_MAIN="org.apache.seatunnel.core.starter.seatunnel.SeaTunnelServer"
+JVM_PARSER_MAIN="org.apache.seatunnel.core.starter.seatunnel.jvm.JvmOptionsParser"
 
 if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
     . "${CONF_DIR}/seatunnel-env.sh"
@@ -87,5 +88,10 @@ fi
 echo "JAVA_OPTS: ${JAVA_OPTS}"
 
 CLASS_PATH=${APP_DIR}/lib/*:${APP_JAR}
+
+# The JVM options parser produces the final JVM options to start seatunnel-engine.
+JAVA_OPTS=`java -cp ${CLASS_PATH} ${JVM_PARSER_MAIN} ${CONF_DIR}`
+
+echo $JAVA_OPTS
 
 java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}
