@@ -145,6 +145,61 @@ source {
 }
 ```
 
+### AWS MSK SASL/SCRAM
+
+Replace the following `${username}` and `${password}` with the configuration values in AWS MSK.
+
+```hocon
+source {
+    Kafka {
+        topic = "seatunnel"
+        bootstrap.servers = "xx.amazonaws.com.cn:9096,xxx.amazonaws.com.cn:9096,xxxx.amazonaws.com.cn:9096"
+        consumer.group = "seatunnel_group"
+        kafka.security.protocol=SASL_SSL
+        kafka.sasl.mechanism=SCRAM-SHA-512
+        kafka.sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required \nusername=${username}\npassword=${password};"
+        #kafka.security.protocol=SASL_SSL
+        #kafka.sasl.mechanism=AWS_MSK_IAM
+        #kafka.sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
+        #kafka.sasl.client.callback.handler.class="software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+    }
+}
+```
+
+### AWS MSK IAM
+
+Download `aws-msk-iam-auth-1.1.5.jar` from https://github.com/aws/aws-msk-iam-auth/releases and put it in `$SEATUNNEL_HOME/plugin/kafka/lib` dir.
+
+Please ensure the IAM policy have `"kafka-cluster:Connect",`. Like this:
+
+```hocon
+"Effect": "Allow",
+"Action": [
+    "kafka-cluster:Connect",
+    "kafka-cluster:AlterCluster",
+    "kafka-cluster:DescribeCluster"
+],
+```
+
+Source Config
+
+```hocon
+source {
+    Kafka {
+        topic = "seatunnel"
+        bootstrap.servers = "xx.amazonaws.com.cn:9098,xxx.amazonaws.com.cn:9098,xxxx.amazonaws.com.cn:9098"
+        consumer.group = "seatunnel_group"
+        #kafka.security.protocol=SASL_SSL
+        #kafka.sasl.mechanism=SCRAM-SHA-512
+        #kafka.sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required \nusername=${username}\npassword=${password};"
+        kafka.security.protocol=SASL_SSL
+        kafka.sasl.mechanism=AWS_MSK_IAM
+        kafka.sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
+        kafka.sasl.client.callback.handler.class="software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+    }
+}
+```
+
 ## Changelog
 
 ### 2.3.0-beta 2022-10-20
