@@ -35,6 +35,7 @@ import org.apache.seatunnel.engine.server.task.operation.CheckTaskGroupIsExecuti
 import org.apache.seatunnel.engine.server.task.operation.DeployTaskOperation;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.cluster.Member;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
@@ -44,12 +45,15 @@ import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 
 import java.net.URL;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * PhysicalVertex is responsible for the scheduling and execution of a single task parallel
@@ -211,6 +215,12 @@ public class PhysicalVertex {
         SlotProfile slotProfile = getOwnedSlotProfilesByTaskGroup(taskGroupLocation, ownedSlotProfilesIMap);
         if (null != slotProfile){
             Address worker = slotProfile.getWorker();
+            List<Address> members = nodeEngine.getClusterService().getMembers().stream().map(Member::getAddress)
+                .collect(Collectors.toList());
+            if (!members.contains(worker)){
+                LOGGER.warning("The node:" + worker.toString() + " running the taskGroup no longer exists, return false.");
+                return false;
+            }
             InvocationFuture<Object> invoke = nodeEngine.getOperationService().createInvocationBuilder(
                 SeaTunnelServer.SERVICE_NAME,
                 new CheckTaskGroupIsExecutingOperation(taskGroupLocation),
