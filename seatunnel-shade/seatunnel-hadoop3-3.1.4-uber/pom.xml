@@ -25,12 +25,16 @@
 
     <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
 
+    <properties>
+        <hadoop3.version>3.1.4</hadoop3.version>
+    </properties>
+
     <dependencies>
         <!-- https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-aws -->
         <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-client</artifactId>
-            <version>3.1.4</version>
+            <version>${hadoop3.version}</version>
         </dependency>
 
     </dependencies>
