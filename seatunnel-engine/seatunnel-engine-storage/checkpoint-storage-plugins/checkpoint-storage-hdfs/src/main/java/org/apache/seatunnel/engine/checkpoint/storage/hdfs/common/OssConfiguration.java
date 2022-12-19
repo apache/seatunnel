@@ -27,10 +27,16 @@ import org.apache.hadoop.conf.Configuration;
 import java.util.Map;
 
 public class OssConfiguration extends AbstractConfiguration {
+
+    /**************** OSS required keys ***************/
     public static final String OSS_BUCKET_KEY = "oss.bucket";
+
+
+    /* OSS constants */
     private static final String OSS_IMPL_KEY = "fs.oss.impl";
     private static final String HDFS_OSS_IMPL = "org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem";
     private static final String OSS_KEY = "fs.oss.";
+
     @Override
     public Configuration buildConfiguration(Map<String, String> config) {
         checkConfiguration(config, OSS_BUCKET_KEY);
