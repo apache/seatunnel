@@ -17,18 +17,44 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+
 public class HudiSourceConfig {
+    public static final Option<String> TABLE_PATH =
+            Options.key("table.path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("hudi table path");
 
-    public static final String TABLE_PATH = "table.path";
+    public static final Option<String> TABLE_TYPE =
+            Options.key("table.type")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("hudi table type. default hudi table type is cow. mor is not support yet");
 
-    public static final String TABLE_TYPE = "table.type";
+    public static final Option<String> CONF_FILES =
+            Options.key("conf.files")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("hudi conf files ");
 
-    public static final String CONF_FILES = "conf.files";
+    public static final Option<Boolean> USE_KERBEROS =
+            Options.key("use.kerberos")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("hudi use.kerberos");
 
-    public static final String USE_KERBEROS = "use.kerberos";
+    public static final Option<String> KERBEROS_PRINCIPAL =
+            Options.key("kerberos.principal")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("hudi kerberos.principal");
 
-    public static final String KERBEROS_PRINCIPAL = "kerberos.principal";
-
-    public static final String KERBEROS_PRINCIPAL_FILE = "kerberos.principal.file";
+    public static final Option<String> KERBEROS_PRINCIPAL_FILE =
+            Options.key("kerberos.principal.file")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("hudi kerberos.principal.file ");
 
 }
