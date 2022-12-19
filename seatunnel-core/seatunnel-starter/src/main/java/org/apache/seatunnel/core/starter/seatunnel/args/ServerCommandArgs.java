@@ -32,7 +32,7 @@ public class ServerCommandArgs implements CommandArgs {
 
     @Parameter(names = {"-cn", "--cluster"},
         description = "The name of cluster")
-    private String clusterName = "seatunnel_default_cluster";
+    private String clusterName;
 
     @Parameter(names = {"-h", "--help"},
         help = true,

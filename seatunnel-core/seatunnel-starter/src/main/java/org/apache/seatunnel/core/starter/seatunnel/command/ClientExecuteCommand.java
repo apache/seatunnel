@@ -26,6 +26,7 @@ import org.apache.seatunnel.core.starter.utils.FileUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -36,6 +37,7 @@ import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 import java.nio.file.Path;
 import java.util.Random;
@@ -62,16 +64,19 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         try {
             String clusterName = clientCommandArgs.getClusterName();
             if (clientCommandArgs.getExecutionMode().equals(ExecutionMode.LOCAL)) {
-                clusterName = creatRandomClusterName(clusterName);
+                clusterName = creatRandomClusterName(StringUtils.isNotEmpty(clusterName) ?
+                    clusterName : Constant.DEFAULT_SEATUNNEL_CLUSTER_NAME);
                 instance = createServerInLocal(clusterName);
             }
-            seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
+            if (StringUtils.isNotEmpty(clusterName)) {
+                seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
+            }
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(clusterName);
             engineClient = new SeaTunnelClient(clientConfig);
             if (clientCommandArgs.isListJob()) {
-                String jobstatus = engineClient.listJobStatus();
-                System.out.println(jobstatus);
+                String jobStatus = engineClient.listJobStatus();
+                System.out.println(jobStatus);
             } else if (null != clientCommandArgs.getJobId()) {
                 String jobState = engineClient.getJobDetailStatus(Long.parseLong(clientCommandArgs.getJobId()));
                 System.out.println(jobState);
