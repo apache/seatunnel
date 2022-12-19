@@ -11,7 +11,7 @@ Checkpoint Storage is a storage mechanism for storing checkpoint data.
 
 SeaTunnel Engine supports the following checkpoint storage types:
 
-- HDFS (S3,HDFS,LocalFile)
+- HDFS (OSS,S3,HDFS,LocalFile)
 - LocalFile (native), (it's deprecated: use Hdfs(LocalFile) instead.
 
 We used the microkernel design pattern to separate the checkpoint storage module from the engine. This allows users to implement their own checkpoint storage modules.
