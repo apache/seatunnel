@@ -42,8 +42,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     public ConsoleSinkWriter(SeaTunnelRowType seaTunnelRowType, SinkWriter.Context context) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.context = context;
-        log.info("fields: {}", StringUtils.join(seaTunnelRowType.getFieldNames(), ", "));
-        log.info("types: {}", StringUtils.join(seaTunnelRowType.getFieldTypes(), ", "));
+        log.info("fields info: {}", fieldsInfo(seaTunnelRowType));
     }
 
     @Override
@@ -55,12 +54,20 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         for (int i = 0; i < fieldTypes.length; i++) {
             arr[i] = fieldToString(fieldTypes[i], fields[i]);
         }
-        log.info("subtaskIndex={}: row={} : {}", context.getIndexOfSubtask(), CNT.incrementAndGet(), StringUtils.join(arr, ", "));
+        log.info("subtaskIndex={}: SeaTunnelRow#tableId={} SeaTunnelRow#kind={} row={} : {}", context.getIndexOfSubtask(), element.getTableId(), element.getRowKind(), CNT.incrementAndGet(), StringUtils.join(arr, ", "));
     }
 
     @Override
     public void close() {
         // nothing
+    }
+
+    private String fieldsInfo(SeaTunnelRowType seaTunnelRowType) {
+        String[] fieldsInfo = new String[seaTunnelRowType.getTotalFields()];
+        for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
+            fieldsInfo[i] = String.format("%s<%s>", seaTunnelRowType.getFieldName(i), seaTunnelRowType.getFieldType(i));
+        }
+        return StringUtils.join(fieldsInfo, ", ");
     }
 
     private String fieldToString(SeaTunnelDataType<?> type, Object value) {

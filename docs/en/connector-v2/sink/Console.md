@@ -67,17 +67,17 @@ sink {
 * Console print data
 
 ```text
-2022-12-16 23:46:16,713 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - fields: name, age
-2022-12-16 23:46:16,714 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - types: STRING, INT
-2022-12-16 23:46:17,753 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=1 : XRMxN, 1011284614
-2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=2 : pWrpO, 843127905
-2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=3 : REBSo, 833504132
-2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=4 : WsFRN, 26587682
-2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=5 : vTuoq, 414594867
-2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=6 : CskBS, 1855664254
-2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=7 : HHYfL, 627284161
-2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=8 : twFct, 964724571
-2022-12-16 23:46:17,754 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: row=9 : JGLqE, 1919562939
+2022-12-19 11:01:45,417 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - fields info: name<STRING>, age<INT>
+2022-12-19 11:01:46,489 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT row=1 : CpiOd, 8520946
+2022-12-19 11:01:46,490 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT row=2 : eQqTs, 1256802974
+2022-12-19 11:01:46,490 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT row=3 : UsRgO, 2053193072
+2022-12-19 11:01:46,490 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT row=4 : jDQJj, 1993016602
+2022-12-19 11:01:46,490 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT row=5 : rqdKp, 1392682764
+2022-12-19 11:01:46,490 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT row=6 : wCoWN, 986999925
+2022-12-19 11:01:46,490 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT row=7 : qomTU, 72775247
+2022-12-19 11:01:46,490 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT row=8 : jcqXR, 1074529204
+2022-12-19 11:01:46,490 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT row=9 : AkWIO, 1961723427
+2022-12-19 11:01:46,490 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT row=10 : hBoib, 929089763
 ```
 
 ## Changelog
