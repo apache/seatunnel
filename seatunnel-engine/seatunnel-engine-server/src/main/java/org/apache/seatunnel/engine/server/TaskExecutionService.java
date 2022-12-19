@@ -506,7 +506,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 exception(e);
                 // Don't interrupt the threads. We require that they do not block for too long,
                 // interrupting them might make the termination faster, but can also cause troubles.
-                blockingFutures.forEach(f -> f.cancel(false));
+                blockingFutures.forEach(f -> f.cancel(true));
             }));
         }
 
@@ -515,19 +515,23 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
 
         void taskDone() {
-            logger.info("taskDone: " + taskGroup.getTaskGroupLocation());
+            TaskGroupLocation taskGroupLocation = taskGroup.getTaskGroupLocation();
+            logger.info("taskDone: " + taskGroupLocation);
+            Throwable ex = executionException.get();
             if (completionLatch.decrementAndGet() == 0) {
-                TaskGroupLocation taskGroupLocation = taskGroup.getTaskGroupLocation();
                 finishedExecutionContexts.put(taskGroupLocation, executionContexts.remove(taskGroupLocation));
                 cancellationFutures.remove(taskGroupLocation);
-                Throwable ex = executionException.get();
                 if (ex == null) {
                     future.complete(new TaskExecutionState(taskGroupLocation, ExecutionState.FINISHED, null));
+                    return;
                 } else if (isCancel.get()) {
                     future.complete(new TaskExecutionState(taskGroupLocation, ExecutionState.CANCELED, null));
-                } else {
-                    future.complete(new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, ex));
+                    return;
                 }
+            }
+            if (ex != null) {
+                future.complete(new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, ex));
+                blockingFutures.forEach(f -> f.cancel(true));
             }
         }
 
