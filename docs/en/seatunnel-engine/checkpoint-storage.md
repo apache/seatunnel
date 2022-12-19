@@ -116,6 +116,6 @@ seatunnel:
         max-retained: 3
         plugin-config:
           storage-type: hdfs
-            fs.defaultFS: /tmp/ # Ensure that the directory has written permission 
+          fs.defaultFS: /tmp/ # Ensure that the directory has written permission 
 
 ```
