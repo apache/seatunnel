@@ -82,11 +82,12 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
         return null;
     }
 
+    @SuppressWarnings("checkstyle:MagicNumber")
     @SneakyThrows
     @Override
     public Map<Object, Object> loadAll(Collection<Object> keys) {
         Map<Object, Object> allMap = mapStorage.loadAll();
-        Map<Object, Object> retMap = new HashMap<>(keys.size() * 0.75 + 1);
+        Map<Object, Object> retMap = new HashMap<>();
         keys.forEach(key -> retMap.put(key, allMap.get(key)));
 
         return Collections.unmodifiableMap(retMap);
