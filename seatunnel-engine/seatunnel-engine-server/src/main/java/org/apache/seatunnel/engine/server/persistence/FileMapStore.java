@@ -86,7 +86,7 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
     @Override
     public Map<Object, Object> loadAll(Collection<Object> keys) {
         Map<Object, Object> allMap = mapStorage.loadAll();
-        Map<Object, Object> retMap = new HashMap<>(keys.size());
+        Map<Object, Object> retMap = new HashMap<>(keys.size() * 0.75 + 1);
         keys.forEach(key -> retMap.put(key, allMap.get(key)));
 
         return Collections.unmodifiableMap(retMap);
