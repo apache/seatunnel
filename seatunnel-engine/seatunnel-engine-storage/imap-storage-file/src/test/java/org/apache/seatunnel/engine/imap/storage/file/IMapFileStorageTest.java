@@ -35,7 +35,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -45,23 +47,26 @@ public class IMapFileStorageTest {
 
     private static final Configuration CONF;
 
+    private static final IMapFileStorage STORAGE;
+
     static {
         CONF = new Configuration();
         CONF.set("fs.defaultFS", "file:///");
         CONF.set("fs.file.impl", "org.apache.hadoop.fs.LocalFileSystem");
-    }
-
-    @Test
-    void testAll() {
-        IMapFileStorage storage = new IMapFileStorage();
+        STORAGE = new IMapFileStorage();
         Map<String, Object> properties = new HashMap<>();
         properties.put(FileConstants.FileInitProperties.BUSINESS_KEY, "random");
         properties.put(FileConstants.FileInitProperties.NAMESPACE_KEY, "/tmp/imap-kris-test/2");
         properties.put(FileConstants.FileInitProperties.CLUSTER_NAME, "test-one");
         properties.put(FileConstants.FileInitProperties.HDFS_CONFIG_KEY, CONF);
 
-        storage.initialize(properties);
+        STORAGE.initialize(properties);
+    }
 
+    @Test
+    void testAll() {
+
+        List<Object> keys = new ArrayList<>();
         String key1Index = "key1";
         String key2Index = "key2";
         String key50Index = "key50";
@@ -74,23 +79,37 @@ public class IMapFileStorageTest {
 
             if (i == 50) {
                 // delete
-                storage.delete(key1Index);
+                STORAGE.delete(key1Index);
+                keys.remove(key1Index);
                 //update
-                storage.store(key2Index, keyValue);
+                STORAGE.store(key2Index, keyValue);
+                keys.add(key2Index);
                 value = keyValue;
-                new Thread(() -> dataSize.set(storage.loadAll().size())).start();
+                new Thread(() -> dataSize.set(STORAGE.loadAll().size())).start();
             }
-            storage.store(key, value);
-            storage.delete(key1Index);
+            STORAGE.store(key, value);
+            keys.add(key);
+            STORAGE.delete(key1Index);
+            keys.remove(key1Index);
         }
 
         await().atMost(1, TimeUnit.SECONDS).until(dataSize::get, size -> size > 0);
-        Map<Object, Object> loadAllDatas = storage.loadAll();
+        Map<Object, Object> loadAllDatas = STORAGE.loadAll();
         Assertions.assertTrue(dataSize.get() >= 50);
         Assertions.assertEquals(keyValue, loadAllDatas.get(key50Index));
         Assertions.assertEquals(keyValue, loadAllDatas.get(key2Index));
         Assertions.assertNull(loadAllDatas.get(key1Index));
-        storage.destroy();
+
+        STORAGE.deleteAll(keys);
+    }
+
+    @Test
+    void testStoreArray() {
+        Long[] data = new Long[10];
+        data[6] = 111111111L;
+        STORAGE.store("array", data);
+        Long[] array = (Long[]) STORAGE.loadAll().get("array");
+        Assertions.assertEquals(array[6], 111111111L);
     }
 
     @AfterAll
