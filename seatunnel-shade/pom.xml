@@ -26,7 +26,7 @@
     <artifactId>seatunnel-shade</artifactId>
     <packaging>pom</packaging>
     <modules>
-        <module>seatunnel-hadoop3-uber</module>
+        <module>seatunnel-hadoop3-3.1.4-uber</module>
     </modules>
 
 </project>

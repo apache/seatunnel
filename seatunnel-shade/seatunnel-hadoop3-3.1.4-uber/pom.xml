@@ -23,7 +23,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>seatunnel-hadoop3-uber</artifactId>
+    <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
 
     <dependencies>
         <!-- https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-aws -->
@@ -36,7 +36,7 @@
     </dependencies>
 
     <build>
-        <finalName>seatunnel-hadoop-${revision}-3.1.4-uber</finalName>
+        <finalName>seatunnel-hadoop3-3.1.4-uber</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -86,7 +86,7 @@
                         <configuration>
                             <artifacts>
                                 <artifact>
-                                    <file>${basedir}/target/${project.artifactId}-${project.version}.jar</file>
+                                    <file>${basedir}/target/${project.artifactId}.jar</file>
                                     <type>jar</type>
                                     <classifier>optional</classifier>
                                 </artifact>
