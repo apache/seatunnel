@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Disabled;
 import java.util.HashMap;
 import java.util.Map;
 
-@Disabled("OSS is not available in CI, if you want to run this test, please set up your own S3 environment")
+@Disabled("OSS is not available in CI, if you want to run this test, please set up your own oss environment")
 public class OssFileCheckpointTest extends AbstractFileCheckPointTest {
     @BeforeAll
     public static void setup() throws CheckpointStorageException {
