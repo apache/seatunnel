@@ -85,13 +85,11 @@ if [ -e "${CONF_DIR}/log4j2.properties" ]; then
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-starter-server"
 fi
 
-echo "JAVA_OPTS: ${JAVA_OPTS}"
-
 CLASS_PATH=${APP_DIR}/lib/*:${APP_JAR}
 
 # The JVM options parser produces the final JVM options to start seatunnel-engine.
 JAVA_OPTS=`java -cp ${CLASS_PATH} ${JVM_PARSER_MAIN} ${CONF_DIR}`
 
-echo $JAVA_OPTS
+echo "JAVA_OPTS: ${JAVA_OPTS}"
 
 java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}
