@@ -353,6 +353,19 @@ public class CoordinatorService {
         return new PassiveCompletableFuture<>(voidCompletableFuture);
     }
 
+    public PassiveCompletableFuture<Void> savePoint(long jobId){
+        CompletableFuture<Void> voidCompletableFuture = new CompletableFuture<>();
+        if (!runningJobMasterMap.containsKey(jobId)) {
+            Throwable throwable = new Throwable("The jobId: " + jobId + "of savePoint does not exist");
+            logger.warning(throwable);
+            voidCompletableFuture.completeExceptionally(throwable);
+        } else {
+            JobMaster jobMaster = runningJobMasterMap.get(jobId);
+            voidCompletableFuture = jobMaster.savePoint();
+        }
+        return new PassiveCompletableFuture<>(voidCompletableFuture);
+    }
+
     private void onJobDone(JobMaster jobMaster, long jobId){
         // storage job state and metrics to HistoryStorage
         jobHistoryService.storeJobInfo(jobId, runningJobMasterMap.get(jobId).getJobDAGInfo());

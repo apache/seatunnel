@@ -52,6 +52,8 @@ public class JobExecutionEnvironment {
 
     private static final ILogger LOGGER = Logger.getLogger(JobExecutionEnvironment.class);
 
+    private final boolean isStartWithSavePoint;
+
     private final JobConfig jobConfig;
 
     private final int maxParallelism = 1;
@@ -70,15 +72,21 @@ public class JobExecutionEnvironment {
 
     private final JobClient jobClient;
 
+    /**
+     * If the JobId is not empty, it is used to restore job from savePoint
+     */
     public JobExecutionEnvironment(JobConfig jobConfig,
                                    String jobFilePath,
-                                   SeaTunnelHazelcastClient seaTunnelHazelcastClient) {
+                                   SeaTunnelHazelcastClient seaTunnelHazelcastClient,
+                                   boolean isStartWithSavePoint,
+                                   Long jobId) {
         this.jobConfig = jobConfig;
         this.jobFilePath = jobFilePath;
         this.idGenerator = new IdGenerator();
         this.seaTunnelHazelcastClient = seaTunnelHazelcastClient;
         this.jobClient = new JobClient(seaTunnelHazelcastClient);
-        this.jobConfig.setJobContext(new JobContext(jobClient.getNewJobId()));
+        this.isStartWithSavePoint = isStartWithSavePoint;
+        this.jobConfig.setJobContext(new JobContext(isStartWithSavePoint ? jobId : jobClient.getNewJobId()));
         this.commonPluginJars.addAll(searchPluginJars());
         this.commonPluginJars.addAll(new ArrayList<>(Common.getThirdPartyJars(jobConfig.getEnvOptions()
                 .getOrDefault(EnvCommonOptions.JARS.key(), "").toString()).stream().map(Path::toUri)
@@ -91,6 +99,18 @@ public class JobExecutionEnvironment {
             })
             .collect(Collectors.toList())));
         LOGGER.info("add common jar in plugins :" + commonPluginJars);
+    }
+
+    public JobExecutionEnvironment(JobConfig jobConfig,
+                                   String jobFilePath,
+                                   SeaTunnelHazelcastClient seaTunnelHazelcastClient) {
+        this(
+            jobConfig,
+            jobFilePath,
+            seaTunnelHazelcastClient,
+            false,
+            null
+        );
     }
 
     /**
@@ -118,6 +138,7 @@ public class JobExecutionEnvironment {
     public ClientJobProxy execute() throws ExecutionException, InterruptedException {
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(
             Long.parseLong(jobConfig.getJobContext().getJobId()),
+            isStartWithSavePoint,
             seaTunnelHazelcastClient.getSerializationService().toData(getLogicalDag()),
             jobConfig,
             new ArrayList<>(jarUrls));
