@@ -27,9 +27,9 @@
 
     <properties>
         <hadoop3.version>3.1.4</hadoop3.version>
-        <guava.version>27.0-jre<guava.version>
+        <guava.version>27.0.1-jre</guava.version>
     </properties>
-    
+
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -39,7 +39,7 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
-    
+
     <dependencies>
         <!-- https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-aws -->
         <dependency>
