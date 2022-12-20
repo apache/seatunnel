@@ -19,16 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.klaviyo.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
+import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config.KlaviyoSourceConfig;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class KlaviyoSourceFactory implements TableSourceFactory {
+public class KlaviyoSourceFactory extends HttpSourceFactory {
     @Override
     public String factoryIdentifier() {
         return "Klaviyo";
@@ -36,20 +33,9 @@ public class KlaviyoSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder()
-            .required(KlaviyoSourceConfig.URL)
-            .required(KlaviyoSourceConfig.PRIVATE_KEY)
-            .required(KlaviyoSourceConfig.REVISION)
-            .optional(KlaviyoSourceConfig.METHOD)
-            .optional(KlaviyoSourceConfig.HEADERS)
-            .optional(KlaviyoSourceConfig.PARAMS)
-            .optional(KlaviyoSourceConfig.FORMAT)
-            .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, KlaviyoSourceConfig.BODY)
-            .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
-            .optional(KlaviyoSourceConfig.POLL_INTERVAL_MILLS)
-            .optional(KlaviyoSourceConfig.RETRY)
-            .optional(KlaviyoSourceConfig.RETRY_BACKOFF_MAX_MS)
-            .optional(KlaviyoSourceConfig.RETRY_BACKOFF_MULTIPLIER_MS)
-            .build();
+        return getHttpBuilder()
+                .required(KlaviyoSourceConfig.PRIVATE_KEY)
+                .required(KlaviyoSourceConfig.REVISION)
+                .build();
     }
 }

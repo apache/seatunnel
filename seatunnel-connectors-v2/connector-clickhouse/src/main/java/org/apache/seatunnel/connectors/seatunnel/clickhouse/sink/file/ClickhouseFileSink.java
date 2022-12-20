@@ -18,11 +18,15 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_LOCAL_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.COMPATIBLE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.COPY_METHOD;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.FIELDS;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.FILE_FIELDS_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.FILE_TEMP_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.NODE_ADDRESS;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.NODE_FREE_PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.NODE_PASS;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SHARDING_KEY;
@@ -31,7 +35,10 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Clickh
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
+import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -46,8 +53,8 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.Clickhouse
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.ShardMetadata;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.ClickhouseProxy;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKAggCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKFileAggCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKFileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSinkState;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
 
@@ -62,10 +69,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @AutoService(SeaTunnelSink.class)
-public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSinkState, CKCommitInfo, CKAggCommitInfo> {
+public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSinkState, CKFileCommitInfo, CKFileAggCommitInfo> {
 
     private FileReaderOption readerOption;
 
@@ -85,6 +93,10 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
         }
         Map<String, Object> defaultConfigs = ImmutableMap.<String, Object>builder()
             .put(COPY_METHOD.key(), COPY_METHOD.defaultValue().getName())
+            .put(NODE_FREE_PASSWORD.key(), NODE_FREE_PASSWORD.defaultValue())
+            .put(COMPATIBLE_MODE.key(), COMPATIBLE_MODE.defaultValue())
+            .put(FILE_TEMP_PATH.key(), FILE_TEMP_PATH.defaultValue())
+            .put(FILE_FIELDS_DELIMITER.key(), FILE_FIELDS_DELIMITER.defaultValue())
             .build();
 
         config = config.withFallback(ConfigFactory.parseMap(defaultConfigs));
@@ -93,6 +105,7 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
 
         ClickhouseProxy proxy = new ClickhouseProxy(nodes.get(0));
         Map<String, String> tableSchema = proxy.getClickhouseTableSchema(config.getString(TABLE.key()));
+        ClickhouseTable table = proxy.getClickhouseTable(config.getString(DATABASE.key()), config.getString(TABLE.key()));
         String shardKey = null;
         String shardKeyType = null;
         if (config.hasPath(SHARDING_KEY.key())) {
@@ -104,6 +117,7 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
             shardKeyType,
             config.getString(DATABASE.key()),
             config.getString(TABLE.key()),
+            table.getEngine(),
             false, // we don't need to set splitMode in clickhouse file mode.
             new Shard(1, 1, nodes.get(0)), config.getString(USERNAME.key()), config.getString(PASSWORD.key()));
         List<String> fields;
@@ -126,8 +140,13 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
                 configObject -> configObject.toConfig().getString(PASSWORD.key())));
 
         proxy.close();
+
+        if (config.getString(FILE_FIELDS_DELIMITER.key()).length() != 1) {
+            throw new ClickhouseConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED, FILE_FIELDS_DELIMITER.key() + " must be a single character");
+        }
         this.readerOption = new FileReaderOption(shardMetadata, tableSchema, fields, config.getString(CLICKHOUSE_LOCAL_PATH.key()),
-            ClickhouseFileCopyMethod.from(config.getString(COPY_METHOD.key())), nodeUser, nodePassword);
+            ClickhouseFileCopyMethod.from(config.getString(COPY_METHOD.key())), nodeUser, config.getBoolean(NODE_FREE_PASSWORD.key()), nodePassword,
+            config.getBoolean(COMPATIBLE_MODE.key()), config.getString(FILE_TEMP_PATH.key()), config.getString(FILE_FIELDS_DELIMITER.key()));
     }
 
     @Override
@@ -141,7 +160,22 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, CKCommitInfo, ClickhouseSinkState> createWriter(SinkWriter.Context context) throws IOException {
+    public SinkWriter<SeaTunnelRow, CKFileCommitInfo, ClickhouseSinkState> createWriter(SinkWriter.Context context) throws IOException {
         return new ClickhouseFileSinkWriter(readerOption, context);
+    }
+
+    @Override
+    public Optional<Serializer<CKFileCommitInfo>> getCommitInfoSerializer() {
+        return Optional.of(new DefaultSerializer<>());
+    }
+
+    @Override
+    public Optional<SinkAggregatedCommitter<CKFileCommitInfo, CKFileAggCommitInfo>> createAggregatedCommitter() throws IOException {
+        return Optional.of(new ClickhouseFileSinkAggCommitter(this.readerOption));
+    }
+
+    @Override
+    public Optional<Serializer<CKFileAggCommitInfo>> getAggregatedCommitInfoSerializer() {
+        return Optional.of(new DefaultSerializer<>());
     }
 }

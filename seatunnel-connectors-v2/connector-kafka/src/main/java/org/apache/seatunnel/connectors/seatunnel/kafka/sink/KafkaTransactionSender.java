@@ -24,7 +24,6 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
@@ -107,9 +106,9 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
 
     @Override
     public void close() {
-        kafkaProducer.flush();
-        try (KafkaProducer<?, ?> closedProducer = kafkaProducer) {
-            // no-op
+        if (kafkaProducer != null) {
+            kafkaProducer.flush();
+            kafkaProducer.close();
         }
     }
 

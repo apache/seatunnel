@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -81,16 +82,20 @@ public class ElasticsearchSinkWriter implements SinkWriter<SeaTunnelRow, Elastic
 
     @Override
     public void write(SeaTunnelRow element) {
+        if (RowKind.UPDATE_BEFORE.equals(element.getRowKind())) {
+            return;
+        }
+
         String indexRequestRow = seaTunnelRowSerializer.serializeRow(element);
         requestEsList.add(indexRequestRow);
         if (requestEsList.size() >= maxBatchSize) {
             bulkEsWithRetry(this.esRestClient, this.requestEsList);
-            requestEsList.clear();
         }
     }
 
     @Override
     public Optional<ElasticsearchCommitInfo> prepareCommit() {
+        bulkEsWithRetry(this.esRestClient, this.requestEsList);
         return Optional.empty();
     }
 
@@ -98,7 +103,7 @@ public class ElasticsearchSinkWriter implements SinkWriter<SeaTunnelRow, Elastic
     public void abortPrepare() {
     }
 
-    public void bulkEsWithRetry(EsRestClient esRestClient, List<String> requestEsList) {
+    public synchronized void bulkEsWithRetry(EsRestClient esRestClient, List<String> requestEsList) {
         try {
             RetryUtils.retryWithException(() -> {
                 if (requestEsList.size() > 0) {
@@ -112,6 +117,7 @@ public class ElasticsearchSinkWriter implements SinkWriter<SeaTunnelRow, Elastic
                 }
                 return null;
             }, retryMaterial);
+            requestEsList.clear();
         } catch (Exception e) {
             throw new ElasticsearchConnectorException(CommonErrorCode.SQL_OPERATION_FAILED, "ElasticSearch execute batch statement error", e);
         }

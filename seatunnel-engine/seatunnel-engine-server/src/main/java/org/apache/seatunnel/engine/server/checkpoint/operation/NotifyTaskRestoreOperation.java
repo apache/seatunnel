@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
@@ -79,10 +80,13 @@ public class NotifyTaskRestoreOperation extends TaskOperation {
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(() -> {
-            Task task = server.getTaskExecutionService().getExecutionContext(taskLocation.getTaskGroupLocation())
-                .getTaskGroup().getTask(taskLocation.getTaskID());
+            TaskGroupContext groupContext = server.getTaskExecutionService().getExecutionContext(taskLocation.getTaskGroupLocation());
+            Task task = groupContext.getTaskGroup().getTask(taskLocation.getTaskID());
             try {
+                ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+                Thread.currentThread().setContextClassLoader(groupContext.getClassLoader());
                 task.restoreState(restoredState);
+                Thread.currentThread().setContextClassLoader(classLoader);
             } catch (Exception e) {
                 sneakyThrow(e);
             }

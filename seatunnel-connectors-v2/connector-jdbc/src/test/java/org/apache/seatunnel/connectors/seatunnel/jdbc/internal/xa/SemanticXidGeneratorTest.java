@@ -28,19 +28,24 @@ import org.junit.jupiter.api.Test;
 import javax.transaction.xa.Xid;
 
 class SemanticXidGeneratorTest {
-    private JobContext jobContext;
     private SemanticXidGenerator xidGenerator;
 
     @BeforeEach
     void before() {
-        jobContext = new JobContext();
         xidGenerator = new SemanticXidGenerator();
         xidGenerator.open();
     }
 
     @Test
     void testBelongsToSubtask() {
-        DefaultSinkWriterContext dc1 = new DefaultSinkWriterContext(1);
+        JobContext uuidJobContext = new JobContext();
+        check(uuidJobContext);
+        JobContext longJobContext = new JobContext(Long.MIN_VALUE);
+        check(longJobContext);
+    }
+
+    void check(JobContext jobContext){
+        DefaultSinkWriterContext dc1 = new DefaultSinkWriterContext(Integer.MAX_VALUE);
         Xid xid1 = xidGenerator.generateXid(jobContext, dc1, System.currentTimeMillis());
         Assertions.assertTrue(xidGenerator.belongsToSubtask(xid1, jobContext, dc1));
         Assertions.assertFalse(xidGenerator.belongsToSubtask(xid1, jobContext, new DefaultSinkWriterContext(2)));

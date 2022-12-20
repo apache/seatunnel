@@ -23,11 +23,13 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
-import org.apache.seatunnel.engine.core.job.RunningJobInfo;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.TestUtils;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointException;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointFailureReason;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
@@ -59,7 +61,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
      * <p>
      * This IMap is used to recovery runningJobInfoIMap in JobMaster when a new master node active
      */
-    private IMap<Long, RunningJobInfo> runningJobInfoIMap;
+    private IMap<Long, JobInfo> runningJobInfoIMap;
 
     /**
      * IMap key is one of jobId {@link org.apache.seatunnel.engine.server.dag.physical.PipelineLocation} and
@@ -121,7 +123,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
             .untilAsserted(() -> Assertions.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
 
         // call checkpoint timeout
-        jobMaster.handleCheckpointTimeout(1);
+        jobMaster.handleCheckpointError(1, new CheckpointException(CheckpointFailureReason.CHECKPOINT_EXPIRED));
 
         // Because handleCheckpointTimeout is an async method, so we need sleep 5s to waiting job status become running again
         Thread.sleep(5000);

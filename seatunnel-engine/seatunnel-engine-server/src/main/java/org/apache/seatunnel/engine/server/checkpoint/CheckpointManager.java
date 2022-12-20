@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import static org.apache.seatunnel.engine.common.Constant.IMAP_CHECKPOINT_ID;
+
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
@@ -49,7 +51,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -87,9 +88,9 @@ public class CheckpointManager {
         this.checkpointStorage =
             FactoryUtil.discoverFactory(Thread.currentThread().getContextClassLoader(), CheckpointStorageFactory.class,
                     checkpointConfig.getStorage().getStorage())
-                .create(new ConcurrentHashMap<>());
+                .create(checkpointConfig.getStorage().getStoragePluginConfig());
         IMap<Integer, Long> checkpointIdMap =
-            nodeEngine.getHazelcastInstance().getMap(String.format("checkpoint-id-%d", jobId));
+            nodeEngine.getHazelcastInstance().getMap(String.format(IMAP_CHECKPOINT_ID, jobId));
         this.coordinatorMap = checkpointPlanMap.values().parallelStream()
             .map(plan -> {
                 IMapCheckpointIDCounter idCounter = new IMapCheckpointIDCounter(plan.getPipelineId(), checkpointIdMap);
@@ -141,8 +142,8 @@ public class CheckpointManager {
         getCheckpointCoordinator(pipelineId).tryTriggerPendingCheckpoint();
     }
 
-    protected void handleCheckpointTimeout(int pipelineId) {
-        jobMaster.handleCheckpointTimeout(pipelineId);
+    protected void handleCheckpointError(int pipelineId, Throwable e) {
+        jobMaster.handleCheckpointError(pipelineId, e);
     }
 
     private CheckpointCoordinator getCheckpointCoordinator(TaskLocation taskLocation) {

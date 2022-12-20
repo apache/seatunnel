@@ -7,6 +7,14 @@
 Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
 semantics (using XA transaction guarantee).
 
+:::tip
+
+Warn: for license compliance, you have to provide database driver yourself, copy to `$SEATNUNNEL_HOME/plugins/jdbc/lib/` directory in order to make them work.
+
+e.g. If you use MySQL, should download and copy `mysql-connector-java-xxx.jar` to `$SEATNUNNEL_HOME/plugins/jdbc/lib/`
+
+:::
+
 ## Key features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
@@ -15,33 +23,33 @@ Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` f
 support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 - [ ] [schema projection](../../concept/connector-v2-features.md)
+- [x] [cdc](../../concept/connector-v2-features.md)
 
 ## Options
 
-| name                         | type    | required | default value |
-|------------------------------|---------|----------|---------------|
-| url                          | String  | Yes      | -             |
-| driver                       | String  | Yes      | -             |
-| user                         | String  | No       | -             |
-| password                     | String  | No       | -             |
-| query                        | String  | No       | -             |
-| table                        | String  | No       | -             |
-| primary_keys                 | Array   | No       | -             |
-| connection_check_timeout_sec | Int     | No       | 30            |
-| max_retries                  | Int     | No       | 3             |
-| batch_size                   | Int     | No       | 300           |
-| batch_interval_ms            | Int     | No       | 1000          |
-| is_exactly_once              | Boolean | No       | false         |
-| xa_data_source_class_name    | String  | No       | -             |
-| max_commit_attempts          | Int     | No       | 3             |
-| transaction_timeout_sec      | Int     | No       | -1            |
-| common-options               |         | no       | -             |
+| name                                      | type    | required | default value |
+|-------------------------------------------|---------|----------|---------------|
+| url                                       | String  | Yes      | -             |
+| driver                                    | String  | Yes      | -             |
+| user                                      | String  | No       | -             |
+| password                                  | String  | No       | -             |
+| query                                     | String  | No       | -             |
+| table                                     | String  | No       | -             |
+| primary_keys                              | Array   | No       | -             |
+| support_upsert_by_query_primary_key_exist | Boolean | No       | false         |
+| connection_check_timeout_sec              | Int     | No       | 30            |
+| max_retries                               | Int     | No       | 3             |
+| batch_size                                | Int     | No       | 300           |
+| batch_interval_ms                         | Int     | No       | 1000          |
+| is_exactly_once                           | Boolean | No       | false         |
+| xa_data_source_class_name                 | String  | No       | -             |
+| max_commit_attempts                       | Int     | No       | 3             |
+| transaction_timeout_sec                   | Int     | No       | -1            |
+| common-options                            |         | no       | -             |
 
 ### driver [string]
 
-The jdbc class name used to connect to the remote data source, if you use MySQL the value is com.mysql.cj.jdbc.Driver.
-Warn: for license compliance, you have to provide any driver yourself like MySQL JDBC Driver, e.g. copy mysql-connector-java-xxx.jar to
-$SEATNUNNEL_HOME/lib for Standalone.
+The jdbc class name used to connect to the remote data source, if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.
 
 ### user [string]
 
@@ -68,6 +76,11 @@ This option is mutually exclusive with `query` and has a higher priority.
 ### primary_keys [array]
 
 This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.
+
+### support_upsert_by_query_primary_key_exist [boolean]
+
+Choose to use INSERT sql, UPDATE sql to process update events(INSERT, UPDATE_AFTER) based on query primary key exists. This configuration is only used when database unsupport upsert syntax.
+**Note**: that this method has low performance
 
 ### connection_check_timeout_sec [int]
 
@@ -210,3 +223,4 @@ sink {
 - [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3378](https://github.com/apache/incubator-seatunnel/issues/3378))
 - [Feature] Support Doris JDBC Sink
 - [Feature] Support Redshift JDBC Sink([#3615](https://github.com/apache/incubator-seatunnel/pull/3615))
+- [Improve] Add config item enable upsert by query([#3708](https://github.com/apache/incubator-seatunnel/pull/3708))
