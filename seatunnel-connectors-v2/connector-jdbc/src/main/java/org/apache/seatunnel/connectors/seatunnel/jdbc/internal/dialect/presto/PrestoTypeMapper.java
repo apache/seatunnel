@@ -66,6 +66,10 @@ public class PrestoTypeMapper implements JdbcDialectTypeMapper {
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
         String columnType = metadata.getColumnTypeName(colIndex).toUpperCase();
+        // VARCHAR(x)      --->      VARCHAR
+        if (columnType.indexOf("(") > -1) {
+            columnType = columnType.split("\\(")[0];
+        }
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
         switch (columnType) {
