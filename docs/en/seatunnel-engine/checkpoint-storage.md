@@ -1,3 +1,7 @@
+---
+sidebar_position: 7
+---
+
 # Checkpoint Storage
 ## Introduction
 Checkpoint is a fault-tolerant recovery mechanism. This mechanism ensures that when the program is running, it can recover itself even if it suddenly encounters an exception.
@@ -56,6 +60,7 @@ seatunnel:
                 plugin-config:
                     storage-type: s3
                     s3.bucket: your-bucket
+                    fs.s3a.endpoint: your-endpoint
                     fs.s3a.access-key: your-access-key
                     fs.s3a.secret-key: your-secret-key
                     fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider

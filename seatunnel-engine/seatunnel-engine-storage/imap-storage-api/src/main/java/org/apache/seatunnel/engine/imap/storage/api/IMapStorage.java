@@ -64,5 +64,5 @@ public interface IMapStorage {
 
     public Set<Object> loadAllKeys();
 
-    public void destroy();
+    public void destroy(boolean deleteAllFileFlag);
 }

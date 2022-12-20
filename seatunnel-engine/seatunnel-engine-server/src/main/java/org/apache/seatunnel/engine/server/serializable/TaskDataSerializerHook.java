@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.Progress;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
+import org.apache.seatunnel.engine.server.task.operation.CheckTaskGroupIsExecutingOperation;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.DeployTaskOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
@@ -148,6 +149,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new CleanTaskGroupContextOperation();
                 case SOURCE_READER_EVENT_OPERATOR:
                     return new SourceReaderEventOperation();
+                case CHECK_TASKGROUP_IS_EXECUTING:
+                    return new CheckTaskGroupIsExecutingOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }
