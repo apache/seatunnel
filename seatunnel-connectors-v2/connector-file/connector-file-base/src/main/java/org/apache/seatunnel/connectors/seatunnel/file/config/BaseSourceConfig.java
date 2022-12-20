@@ -52,4 +52,8 @@ public class BaseSourceConfig {
             .booleanType()
             .defaultValue(true)
             .withDescription("Whether parse partition fields from file path");
+    public static final Option<String> HDFS_SITE_PATH = Options.key("hdfs_site_path")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("The path of hdfs-site.xml");
 }
