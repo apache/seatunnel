@@ -42,6 +42,7 @@
         <tablestore.version>5.13.9</tablestore.version>
         <teradata.version>17.20.00.12</teradata.version>
         <redshift.version>2.1.0.9</redshift.version>
+        <presto.version>350</presto.version>
     </properties>
 
     <dependencyManagement>
@@ -112,6 +113,13 @@
                 <groupId>com.amazon.redshift</groupId>
                 <artifactId>redshift-jdbc42</artifactId>
                 <version>${redshift.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-jdbc</artifactId>
+                <version>${presto.version}</version>
                 <scope>provided</scope>
             </dependency>
         </dependencies>
