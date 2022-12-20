@@ -73,7 +73,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory = container -> {
-        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + jdbcCase.getDriverJar());
+        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/jars && cd /tmp/jars && curl -O " + jdbcCase.getDriverJar());
         Assertions.assertEquals(0, extraCommands.getExitCode());
     };
 
@@ -85,7 +85,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             .withEnv(jdbcCase.getContainerEnv())
             .withLogConsumer(new Slf4jLogConsumer(log));
         dbServer.setPortBindings(Lists.newArrayList(
-            String.format("%s:%s", jdbcCase.getPort(), jdbcCase.getPort())));
+            String.format("%s:%s", jdbcCase.getLocalPort(), jdbcCase.getPort())));
         Startables.deepStart(Stream.of(dbServer)).join();
 
         given().ignoreExceptions()
@@ -108,7 +108,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     }
 
     private void batchInsertData() {
-        try (Connection connection = initializeJdbcConnection(String.format(jdbcCase.getJdbcTemplate(), jdbcCase.getPort(), jdbcCase.getDataBase()))) {
+        try (Connection connection = initializeJdbcConnection(String.format(jdbcCase.getJdbcTemplate(), jdbcCase.getLocalPort(), jdbcCase.getDataBase()))) {
             connection.setAutoCommit(false);
             try (PreparedStatement preparedStatement = connection.prepareStatement(jdbcCase.getInitDataSql())) {
 

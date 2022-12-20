@@ -18,6 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.ASSIGN_PARTITIONS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG_PREFIX;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PARTITION;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PARTITION_KEY_FIELDS;
@@ -28,7 +32,9 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSemantics;
+import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.SeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
@@ -121,10 +127,11 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     @Override
     public void close() {
-        try (KafkaProduceSender<?, ?> kafkaProduceSender = kafkaProducerSender) {
-            // no-opt
+        try {
+            kafkaProducerSender.close();
         } catch (Exception e) {
-            throw new RuntimeException("Close kafka sink writer error", e);
+            throw new KafkaConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED,
+                "Close kafka sink writer error", e);
         }
     }
 
@@ -144,12 +151,20 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     }
 
     private SeaTunnelRowSerializer<byte[], byte[]> getSerializer(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
+        String format = DEFAULT_FORMAT;
+        if (pluginConfig.hasPath(FORMAT.key())) {
+            format = pluginConfig.getString(FORMAT.key());
+        }
+        String delimiter = DEFAULT_FIELD_DELIMITER;
+        if (pluginConfig.hasPath(FIELD_DELIMITER.key())) {
+            delimiter = pluginConfig.getString(FIELD_DELIMITER.key());
+        }
         if (pluginConfig.hasPath(PARTITION.key())) {
             return new DefaultSeaTunnelRowSerializer(pluginConfig.getString(TOPIC.key()),
-                    pluginConfig.getInt(PARTITION.key()), seaTunnelRowType);
+                    pluginConfig.getInt(PARTITION.key()), seaTunnelRowType, format, delimiter);
         } else {
             return new DefaultSeaTunnelRowSerializer(pluginConfig.getString(TOPIC.key()),
-                    getPartitionKeyFields(pluginConfig, seaTunnelRowType), seaTunnelRowType);
+                    getPartitionKeyFields(pluginConfig, seaTunnelRowType), seaTunnelRowType, format, delimiter);
         }
     }
 
@@ -177,8 +192,8 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             List<String> rowTypeFieldNames = Arrays.asList(seaTunnelRowType.getFieldNames());
             for (String partitionKeyField : partitionKeyFields) {
                 if (!rowTypeFieldNames.contains(partitionKeyField)) {
-                    throw new IllegalArgumentException(String.format(
-                            "Partition key field not found: %s, rowType: %s", partitionKeyField, rowTypeFieldNames));
+                    throw new KafkaConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                            String.format("Partition key field not found: %s, rowType: %s", partitionKeyField, rowTypeFieldNames));
                 }
             }
             return partitionKeyFields;

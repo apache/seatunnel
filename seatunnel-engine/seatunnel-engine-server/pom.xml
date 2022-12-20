@@ -36,12 +36,17 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>checkpoint-storage-api</artifactId>
+            <artifactId>checkpoint-storage-local-file</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>checkpoint-storage-local-file</artifactId>
+            <artifactId>checkpoint-storage-hdfs</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>imap-storage-file</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -51,6 +56,11 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-shaded-hadoop-2</artifactId>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.awaitility</groupId>
@@ -76,11 +86,7 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-shaded-hadoop-2</artifactId>
-            <scope>test</scope>
-        </dependency>
+
     </dependencies>
 
 </project>

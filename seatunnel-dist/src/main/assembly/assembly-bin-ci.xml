@@ -69,15 +69,6 @@
             </includes>
             <fileMode>0755</fileMode>
         </fileSet>
-        <!--Engine Config File-->
-        <fileSet>
-            <directory>../seatunnel-engine/seatunnel-engine-common/src/main/resources</directory>
-            <includes>
-                <include>*.yaml</include>
-            </includes>
-            <outputDirectory>/config</outputDirectory>
-            <fileMode>0644</fileMode>
-        </fileSet>
         <!--Licenses And NOTICE-->
         <fileSet>
             <directory>release-docs</directory>
@@ -146,6 +137,8 @@
                 <exclude>org.apache.seatunnel:connector-common</exclude>
                 <!-- Don't exclude connector-http-base, because it contains SPI files -->
                 <exclude>org.apache.seatunnel:connector-file-base</exclude>
+                <exclude>org.apache.seatunnel:connector-file-base-hadoop</exclude>
+                <exclude>org.apache.seatunnel:connector-cdc-base</exclude>
             </excludes>
             <outputDirectory>/connectors/seatunnel</outputDirectory>
             <scope>provided</scope>
@@ -161,6 +154,29 @@
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
             <outputDirectory>/lib</outputDirectory>
+            <scope>provided</scope>
+        </dependencySet>
+
+        <!-- =================== JDBC Connector Drivers ===================  -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <includes>
+                <include>com.aliyun.phoenix:ali-phoenix-shaded-thin-client:jar</include>
+                <include>mysql:mysql-connector-java:jar</include>
+                <include>org.postgresql:postgresql:jar</include>
+                <include>com.dameng:DmJdbcDriver18:jar</include>
+                <include>com.microsoft.sqlserver:mssql-jdbc:jar</include>
+                <include>com.oracle.database.jdbc:ojdbc8:jar</include>
+                <include>org.xerial:sqlite-jdbc:jar</include>
+                <include>com.ibm.db2.jcc:db2jcc:jar</include>
+                <include>com.aliyun.openservices:tablestore-jdbc:jar</include>
+                <include>com.teradata.jdbc:terajdbc4:jar</include>
+                <include>com.amazon.redshift:redshift-jdbc42:jar</include>
+            </includes>
+            <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
+            <outputDirectory>/plugins/jdbc/lib</outputDirectory>
             <scope>provided</scope>
         </dependencySet>
     </dependencySets>

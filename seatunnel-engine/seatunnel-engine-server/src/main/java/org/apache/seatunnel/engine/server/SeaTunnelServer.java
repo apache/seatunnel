@@ -92,6 +92,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         taskExecutionService = new TaskExecutionService(
             nodeEngine, nodeEngine.getProperties()
         );
+        nodeEngine.getMetricsRegistry().registerDynamicMetricsProvider(taskExecutionService);
         taskExecutionService.start();
         getSlotService();
         coordinatorService = new CoordinatorService(nodeEngine, this, seaTunnelConfig.getEngineConfig());
@@ -158,11 +159,19 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     public CoordinatorService getCoordinatorService() {
         int retryCount = 0;
         if (isMasterNode()) {
-            // TODO the retry count and sleep time need configurable
-            while (!coordinatorService.isCoordinatorActive() && retryCount < 20 && isRunning) {
+            // The hazelcast operator request invocation will retry, We must wait enough time to wait the invocation return.
+            String hazelcastInvocationMaxRetry = seaTunnelConfig.getHazelcastConfig().getProperty("hazelcast.invocation.max.retry.count");
+            int maxRetry = hazelcastInvocationMaxRetry == null ? 250 * 2 : Integer.valueOf(hazelcastInvocationMaxRetry) * 2;
+
+            String hazelcastRetryPause =
+                seaTunnelConfig.getHazelcastConfig().getProperty("hazelcast.invocation.retry.pause.millis");
+
+            int retryPause = hazelcastRetryPause == null ? 500 : Integer.valueOf(hazelcastRetryPause);
+
+            while (!coordinatorService.isCoordinatorActive() && retryCount < maxRetry && isRunning) {
                 try {
                     LOGGER.warning("This is master node, waiting the coordinator service init finished");
-                    Thread.sleep(1000);
+                    Thread.sleep(retryPause);
                     retryCount++;
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);

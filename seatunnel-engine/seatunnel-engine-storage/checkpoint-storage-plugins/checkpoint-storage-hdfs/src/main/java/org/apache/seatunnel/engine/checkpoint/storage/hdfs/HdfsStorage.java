@@ -25,6 +25,8 @@ import static org.apache.seatunnel.engine.checkpoint.storage.constants.StorageCo
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractCheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.AbstractConfiguration;
+import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.FileConfiguration;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -35,8 +37,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.security.UserGroupInformation;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -48,11 +48,8 @@ import java.util.Set;
 public class HdfsStorage extends AbstractCheckpointStorage {
 
     public FileSystem fs;
-    private static final String HADOOP_SECURITY_AUTHENTICATION_KEY = "hadoop.security.authentication";
-
-    private static final String KERBEROS_KEY = "kerberos";
-
     private static final String STORAGE_TMP_SUFFIX = "tmp";
+    private static final String STORAGE_TYPE_KEY = "storage.type";
 
     public HdfsStorage(Map<String, String> configuration) throws CheckpointStorageException {
         this.initStorage(configuration);
@@ -60,29 +57,24 @@ public class HdfsStorage extends AbstractCheckpointStorage {
 
     @Override
     public void initStorage(Map<String, String> configuration) throws CheckpointStorageException {
-        Configuration hadoopConf = new Configuration();
-        if (configuration.containsKey(HdfsConstants.HDFS_DEF_FS_NAME)) {
-            hadoopConf.set(HdfsConstants.HDFS_DEF_FS_NAME, configuration.get(HdfsConstants.HDFS_DEF_FS_NAME));
-        }
         if (StringUtils.isNotBlank(configuration.get(STORAGE_NAME_SPACE))) {
             setStorageNameSpace(configuration.get(STORAGE_NAME_SPACE));
+            configuration.remove(STORAGE_NAME_SPACE);
         }
-        // todo support other config configurations
-        if (configuration.containsKey(HdfsConstants.KERBEROS_PRINCIPAL) && configuration.containsKey(HdfsConstants.KERBEROS_KEYTAB_FILE_PATH)) {
-            String kerberosPrincipal = configuration.get(HdfsConstants.KERBEROS_PRINCIPAL);
-            String kerberosKeytabFilePath = configuration.get(HdfsConstants.KERBEROS_KEYTAB_FILE_PATH);
-            if (StringUtils.isNotBlank(kerberosPrincipal) && StringUtils.isNotBlank(kerberosKeytabFilePath)) {
-                hadoopConf.set(HADOOP_SECURITY_AUTHENTICATION_KEY, KERBEROS_KEY);
-                authenticateKerberos(kerberosPrincipal, kerberosKeytabFilePath, hadoopConf);
-            }
-        }
-        JobConf jobConf = new JobConf(hadoopConf);
+        Configuration hadoopConf = getConfiguration(configuration);
         try {
-            fs = FileSystem.get(jobConf);
+            fs = FileSystem.get(hadoopConf);
         } catch (IOException e) {
             throw new CheckpointStorageException("Failed to get file system", e);
         }
 
+    }
+
+    private Configuration getConfiguration(Map<String, String> config) throws CheckpointStorageException {
+        String storageType = config.getOrDefault(STORAGE_TYPE_KEY, FileConfiguration.LOCAL.toString());
+        config.remove(STORAGE_TYPE_KEY);
+        AbstractConfiguration configuration = FileConfiguration.valueOf(storageType.toUpperCase()).getConfiguration(storageType);
+        return configuration.buildConfiguration(config);
     }
 
     @Override
@@ -96,12 +88,19 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         Path filePath = new Path(getStorageParentDirectory() + state.getJobId() + "/" + getCheckPointName(state));
 
         Path tmpFilePath = new Path(getStorageParentDirectory() + state.getJobId() + "/" + getCheckPointName(state) + STORAGE_TMP_SUFFIX);
-        try (FSDataOutputStream out = fs.create(tmpFilePath)) {
+        try (FSDataOutputStream out = fs.create(tmpFilePath, false)) {
             out.write(datas);
-            out.hsync();
-            fs.rename(tmpFilePath, filePath);
         } catch (IOException e) {
             throw new CheckpointStorageException("Failed to write checkpoint data, state: " + state, e);
+        }
+        try {
+            boolean success = fs.rename(tmpFilePath, filePath);
+            if (!success) {
+                throw new CheckpointStorageException("Failed to rename tmp file to final file");
+            }
+
+        } catch (IOException e) {
+            throw new CheckpointStorageException("Failed to rename tmp file to final file");
         } finally {
             try {
                 // clean up tmp file, if still lying around
@@ -112,6 +111,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                 log.error("Failed to delete tmp file", ioe);
             }
         }
+
         return filePath.getName();
     }
 
@@ -243,23 +243,6 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                 }
             }
         });
-    }
-
-    /**
-     * Authenticate kerberos
-     *
-     * @param kerberosPrincipal      kerberos principal
-     * @param kerberosKeytabFilePath kerberos keytab file path
-     * @param hdfsConf               hdfs configuration
-     * @throws CheckpointStorageException authentication exception
-     */
-    private void authenticateKerberos(String kerberosPrincipal, String kerberosKeytabFilePath, Configuration hdfsConf) throws CheckpointStorageException {
-        UserGroupInformation.setConfiguration(hdfsConf);
-        try {
-            UserGroupInformation.loginUserFromKeytab(kerberosPrincipal, kerberosKeytabFilePath);
-        } catch (IOException e) {
-            throw new CheckpointStorageException("Failed to login user from keytab : " + kerberosKeytabFilePath + " and kerberos principal : " + kerberosPrincipal, e);
-        }
     }
 
     private List<String> getFileNames(String path) throws CheckpointStorageException {

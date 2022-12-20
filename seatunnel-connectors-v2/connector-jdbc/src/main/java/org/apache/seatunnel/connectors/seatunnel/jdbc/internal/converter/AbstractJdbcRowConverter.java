@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -100,7 +102,7 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                 case ARRAY:
                 case ROW:
                 default:
-                    throw new UnsupportedOperationException("Unsupported type: " + seaTunnelDataType);
+                    throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unexpected value: " + seaTunnelDataType);
             }
         }
         return new SeaTunnelRow(fields);
@@ -111,6 +113,12 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
         for (int fieldIndex = 0; fieldIndex < rowType.getTotalFields(); fieldIndex++) {
             SeaTunnelDataType<?> seaTunnelDataType = rowType.getFieldType(fieldIndex);
             int statementIndex = fieldIndex + 1;
+            Object fieldValue = row.getField(fieldIndex);
+            if (fieldValue == null) {
+                statement.setObject(statementIndex, null);
+                continue;
+            }
+
             switch (seaTunnelDataType.getSqlType()) {
                 case STRING:
                     statement.setString(statementIndex, (String) row.getField(fieldIndex));
@@ -161,7 +169,7 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                 case ARRAY:
                 case ROW:
                 default:
-                    throw new UnsupportedOperationException("Unsupported type: " + seaTunnelDataType);
+                    throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unexpected value: " + seaTunnelDataType);
             }
         }
         return statement;

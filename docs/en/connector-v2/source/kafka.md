@@ -17,20 +17,22 @@ Source connector for Apache Kafka.
 
 ## Options
 
-| name                 | type    | required | default value            |
-|----------------------|---------| -------- |--------------------------|
-| topic                | String  | yes      | -                        |
-| bootstrap.servers    | String  | yes      | -                        |
-| pattern              | Boolean | no       | false                    |
-| consumer.group       | String  | no       | SeaTunnel-Consumer-Group |
-| commit_on_checkpoint | Boolean | no       | true                     |
-| kafka.*              | String  | no       | -                        |
-| common-options       | config  | no       | -                        |
-| schema               |         | no       | -                        |
-| format               | String  | no       | json                     |
-| start_mode           | String  | no       | group_offsets            |
-| start_mode.offsets   |         | no       |                          |
-| start_mode.timestamp | Long    | no       |                          |
+| name                                | type    | required | default value            |
+|-------------------------------------|---------| -------- |--------------------------|
+| topic                               | String  | yes      | -                        |
+| bootstrap.servers                   | String  | yes      | -                        |
+| pattern                             | Boolean | no       | false                    |
+| consumer.group                      | String  | no       | SeaTunnel-Consumer-Group |
+| commit_on_checkpoint                | Boolean | no       | true                     |
+| kafka.*                             | String  | no       | -                        |
+| common-options                      | config  | no       | -                        |
+| schema                              |         | no       | -                        |
+| format                              | String  | no       | json                     |
+| field_delimiter                     | String  | no       | ,                        |
+| start_mode                          | String  | no       | group_offsets            |
+| start_mode.offsets                  |         | no       |                          |
+| start_mode.timestamp                | Long    | no       |                          |
+| partition-discovery.interval-millis | long    | no       | -1                       |
 
 ### topic [string]
 
@@ -51,6 +53,10 @@ If `pattern` is set to `true`,the regular expression for a pattern of topic name
 ### commit_on_checkpoint [boolean]
 
 If true the consumer's offset will be periodically committed in the background.
+
+## partition-discovery.interval-millis [long]
+
+The interval for dynamically discovering topics and partitions.
 
 ### kafka.* [string]
 
@@ -139,6 +145,61 @@ source {
 }
 ```
 
+### AWS MSK SASL/SCRAM
+
+Replace the following `${username}` and `${password}` with the configuration values in AWS MSK.
+
+```hocon
+source {
+    Kafka {
+        topic = "seatunnel"
+        bootstrap.servers = "xx.amazonaws.com.cn:9096,xxx.amazonaws.com.cn:9096,xxxx.amazonaws.com.cn:9096"
+        consumer.group = "seatunnel_group"
+        kafka.security.protocol=SASL_SSL
+        kafka.sasl.mechanism=SCRAM-SHA-512
+        kafka.sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required \nusername=${username}\npassword=${password};"
+        #kafka.security.protocol=SASL_SSL
+        #kafka.sasl.mechanism=AWS_MSK_IAM
+        #kafka.sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
+        #kafka.sasl.client.callback.handler.class="software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+    }
+}
+```
+
+### AWS MSK IAM
+
+Download `aws-msk-iam-auth-1.1.5.jar` from https://github.com/aws/aws-msk-iam-auth/releases and put it in `$SEATUNNEL_HOME/plugin/kafka/lib` dir.
+
+Please ensure the IAM policy have `"kafka-cluster:Connect",`. Like this:
+
+```hocon
+"Effect": "Allow",
+"Action": [
+    "kafka-cluster:Connect",
+    "kafka-cluster:AlterCluster",
+    "kafka-cluster:DescribeCluster"
+],
+```
+
+Source Config
+
+```hocon
+source {
+    Kafka {
+        topic = "seatunnel"
+        bootstrap.servers = "xx.amazonaws.com.cn:9098,xxx.amazonaws.com.cn:9098,xxxx.amazonaws.com.cn:9098"
+        consumer.group = "seatunnel_group"
+        #kafka.security.protocol=SASL_SSL
+        #kafka.sasl.mechanism=SCRAM-SHA-512
+        #kafka.sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required \nusername=${username}\npassword=${password};"
+        kafka.security.protocol=SASL_SSL
+        kafka.sasl.mechanism=AWS_MSK_IAM
+        kafka.sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
+        kafka.sasl.client.callback.handler.class="software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+    }
+}
+```
+
 ## Changelog
 
 ### 2.3.0-beta 2022-10-20
@@ -148,3 +209,4 @@ source {
 ### Next Version
 
 - [Improve] Support setting read starting offset or time at startup config ([3157](https://github.com/apache/incubator-seatunnel/pull/3157))
+- [Improve] Support for dynamic discover topic & partition in streaming mode ([3125](https://github.com/apache/incubator-seatunnel/pull/3125))

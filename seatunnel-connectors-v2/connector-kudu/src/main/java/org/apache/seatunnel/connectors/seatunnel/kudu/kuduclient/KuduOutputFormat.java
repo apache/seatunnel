@@ -18,7 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kudu.ColumnSchema;
@@ -109,10 +112,10 @@ public class KuduOutputFormat
                         row.addDecimal(columnIndex, (BigDecimal) element.getField(columnIndex));
                         break;
                     default:
-                        throw new IllegalArgumentException("Unsupported column type: " + col.getType());
+                        throw new KuduConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported column type: " + col.getType());
                 }
             } catch (ClassCastException e) {
-                throw new IllegalArgumentException(
+                throw new KuduConnectorException(KuduConnectorErrorCode.DATA_TYPE_CAST_FILED,
                         "Value type does not match column type " + col.getType() +
                                 " for column " + col.getName());
             }
@@ -128,8 +131,7 @@ public class KuduOutputFormat
         try {
             kuduSession.apply(upsert);
         } catch (KuduException e) {
-            log.error("Failed to upsert.", e);
-            throw new RuntimeException("Failed to upsert.", e);
+            throw new KuduConnectorException(KuduConnectorErrorCode.KUDU_UPSERT_FAILED, e);
         }
     }
 
@@ -141,8 +143,7 @@ public class KuduOutputFormat
         try {
             kuduSession.apply(insert);
         } catch (KuduException e) {
-            log.error("Failed to insert.", e);
-            throw new RuntimeException("Failed to insert.", e);
+            throw new KuduConnectorException(KuduConnectorErrorCode.KUDU_INSERT_FAILED, e);
         }
     }
 
@@ -155,7 +156,7 @@ public class KuduOutputFormat
                 upsert(element);
                 break;
             default:
-                throw new IllegalArgumentException(String.format("Unsupported saveMode: %s.", saveMode.name()));
+                throw new KuduConnectorException(CommonErrorCode.FLUSH_DATA_FAILED, String.format("Unsupported saveMode: %s.", saveMode.name()));
         }
     }
 
@@ -170,8 +171,7 @@ public class KuduOutputFormat
         try {
             kuduTable = kuduClient.openTable(kuduTableName);
         } catch (KuduException e) {
-            log.error("Failed to initialize the Kudu client.", e);
-            throw new RuntimeException("Failed to initialize the Kudu client.", e);
+            throw new KuduConnectorException(KuduConnectorErrorCode.INIT_KUDU_CLIENT_FAILED, e);
         }
         log.info("The Kudu client for Master: {} is initialized successfully.", kuduMaster);
     }

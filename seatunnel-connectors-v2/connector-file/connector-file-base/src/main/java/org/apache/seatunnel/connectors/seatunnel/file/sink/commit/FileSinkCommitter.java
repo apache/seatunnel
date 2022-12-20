@@ -25,8 +25,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Deprecated interface since 2.3.0-beta, now used {@link FileSinkAggregatedCommitter}
+ */
 @Deprecated
 public class FileSinkCommitter implements SinkCommitter<FileCommitInfo> {
+    private final FileSystemUtils fileSystemUtils;
+
+    public FileSinkCommitter(FileSystemUtils fileSystemUtils) {
+        this.fileSystemUtils = fileSystemUtils;
+    }
 
     @Override
     public List<FileCommitInfo> commit(List<FileCommitInfo> commitInfos) throws IOException {
@@ -35,12 +43,12 @@ public class FileSinkCommitter implements SinkCommitter<FileCommitInfo> {
             Map<String, String> needMoveFiles = commitInfo.getNeedMoveFiles();
             needMoveFiles.forEach((k, v) -> {
                 try {
-                    FileSystemUtils.renameFile(k, v, true);
+                    fileSystemUtils.renameFile(k, v, true);
                 } catch (IOException e) {
                     failedCommitInfos.add(commitInfo);
                 }
             });
-            FileSystemUtils.deleteFile(commitInfo.getTransactionDir());
+            fileSystemUtils.deleteFile(commitInfo.getTransactionDir());
         }
         return failedCommitInfos;
     }
@@ -56,11 +64,11 @@ public class FileSinkCommitter implements SinkCommitter<FileCommitInfo> {
         for (FileCommitInfo commitInfo : commitInfos) {
             Map<String, String> needMoveFiles = commitInfo.getNeedMoveFiles();
             for (Map.Entry<String, String> entry : needMoveFiles.entrySet()) {
-                if (FileSystemUtils.fileExist(entry.getValue()) && !FileSystemUtils.fileExist(entry.getKey())) {
-                    FileSystemUtils.renameFile(entry.getValue(), entry.getKey(), true);
+                if (fileSystemUtils.fileExist(entry.getValue()) && !fileSystemUtils.fileExist(entry.getKey())) {
+                    fileSystemUtils.renameFile(entry.getValue(), entry.getKey(), true);
                 }
             }
-            FileSystemUtils.deleteFile(commitInfo.getTransactionDir());
+            fileSystemUtils.deleteFile(commitInfo.getTransactionDir());
         }
     }
 }

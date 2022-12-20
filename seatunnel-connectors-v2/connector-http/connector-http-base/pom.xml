@@ -28,11 +28,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>connector-http-base</artifactId>
-    
+
     <properties>
         <httpclient.version>4.5.13</httpclient.version>
         <httpcore.version>4.4.4</httpcore.version>
         <guava-retrying.version>2.0.0</guava-retrying.version>
+        <json-path.version>2.7.0</json-path.version>
     </properties>
 
     <dependencies>
@@ -63,6 +64,11 @@
             <groupId>com.github.rholder</groupId>
             <artifactId>guava-retrying</artifactId>
             <version>${guava-retrying.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.jayway.jsonpath</groupId>
+            <artifactId>json-path</artifactId>
+            <version>${json-path.version}</version>
         </dependency>
     </dependencies>
 </project>

@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discoverer;
 
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.topic.TopicPartition;
 
 import org.apache.pulsar.client.admin.PulsarAdmin;
@@ -53,7 +55,7 @@ public class TopicListDiscoverer implements PulsarDiscoverer {
                     return PulsarDiscoverer.toTopicPartitions(topicName, metadata.partitions);
                 } catch (PulsarAdminException e) {
                     // This method would cause the failure for subscriber.
-                    throw new IllegalStateException(e);
+                    throw new PulsarConnectorException(PulsarConnectorErrorCode.SUBSCRIBE_TOPIC_FAILED, e);
                 }
             })
             .filter(Objects::nonNull)

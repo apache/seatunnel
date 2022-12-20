@@ -111,8 +111,7 @@ public class JdbcSink
     }
 
     @Override
-    public Optional<SinkAggregatedCommitter<XidInfo, JdbcAggregatedCommitInfo>> createAggregatedCommitter()
-        throws IOException {
+    public Optional<SinkAggregatedCommitter<XidInfo, JdbcAggregatedCommitInfo>> createAggregatedCommitter() {
         if (jdbcSinkOptions.isExactlyOnce()) {
             return Optional.of(new JdbcSinkAggregatedCommitter(jdbcSinkOptions));
         }
@@ -131,7 +130,11 @@ public class JdbcSink
 
     @Override
     public Optional<Serializer<JdbcAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
-        return Optional.of(new DefaultSerializer<>());
+        if (jdbcSinkOptions.isExactlyOnce()) {
+            return Optional.of(new DefaultSerializer<>());
+        }
+        return Optional.empty();
+
     }
 
     @Override
@@ -141,6 +144,9 @@ public class JdbcSink
 
     @Override
     public Optional<Serializer<XidInfo>> getCommitInfoSerializer() {
-        return Optional.of(new DefaultSerializer<>());
+        if (jdbcSinkOptions.isExactlyOnce()) {
+            return Optional.of(new DefaultSerializer<>());
+        }
+        return Optional.empty();
     }
 }

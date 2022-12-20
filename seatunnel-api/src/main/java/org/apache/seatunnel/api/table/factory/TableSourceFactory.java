@@ -24,16 +24,16 @@ import java.io.Serializable;
 
 /**
  * This is an SPI interface, used to create {@link TableSource}. Each plugin need to have it own implementation.
- * todo: now we have not use this interface, we directly use {@link org.apache.seatunnel.api.source.SeaTunnelSource} as the SPI interface
  */
 public interface TableSourceFactory extends Factory {
 
     /**
      * We will never use this method now. So gave a default implement and return null.
+     *
      * @param context TableFactoryContext
-     * @return
      */
-    default <T, SplitT extends SourceSplit, StateT extends Serializable> TableSource<T, SplitT, StateT> createSource(TableFactoryContext context) {
+    default <T, SplitT extends SourceSplit, StateT extends Serializable> TableSource<T, SplitT, StateT> createSource(
+        TableFactoryContext context) {
         throw new UnsupportedOperationException("unsupported now");
     }
 }

@@ -20,6 +20,13 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset.BINLOG_FILENAME_OFFSET_KEY;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
+import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.apache.seatunnel.connectors.cdc.base.source.reader.external.JdbcSourceFetchTaskContext;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
+import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlUtils;
@@ -45,21 +52,17 @@ import io.debezium.pipeline.spi.OffsetContext;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
+import io.debezium.relational.history.TableChanges;
 import io.debezium.schema.DataCollectionId;
 import io.debezium.schema.TopicSelector;
 import io.debezium.util.Collect;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
-import org.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
-import org.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
-import org.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
-import org.seatunnel.connectors.cdc.base.source.offset.Offset;
-import org.seatunnel.connectors.cdc.base.source.reader.external.JdbcSourceFetchTaskContext;
-import org.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -83,15 +86,18 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     private ChangeEventQueue<DataChangeEvent> queue;
     private MySqlErrorHandler errorHandler;
 
+    private Collection<TableChanges.TableChange> engineHistory;
     public MySqlSourceFetchTaskContext(
         JdbcSourceConfig sourceConfig,
         JdbcDataSourceDialect dataSourceDialect,
         MySqlConnection connection,
-        BinaryLogClient binaryLogClient) {
+        BinaryLogClient binaryLogClient,
+        Collection<TableChanges.TableChange> engineHistory) {
         super(sourceConfig, dataSourceDialect);
         this.connection = connection;
         this.binaryLogClient = binaryLogClient;
         this.metadataProvider = new MySqlEventMetadataProvider();
+        this.engineHistory = engineHistory;
     }
 
     @Override
@@ -100,7 +106,11 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         final MySqlConnectorConfig connectorConfig = getDbzConnectorConfig();
         final boolean tableIdCaseInsensitive = connection.isTableIdCaseSensitive();
         this.topicSelector = MySqlTopicSelector.defaultSelector(connectorConfig);
-
+        EmbeddedDatabaseHistory.registerHistory(
+            sourceConfig
+                .getDbzConfiguration()
+                .getString(EmbeddedDatabaseHistory.DATABASE_HISTORY_INSTANCE_NAME),
+            engineHistory);
         this.databaseSchema =
             MySqlUtils.createMySqlDatabaseSchema(connectorConfig, tableIdCaseInsensitive);
         this.offsetContext =

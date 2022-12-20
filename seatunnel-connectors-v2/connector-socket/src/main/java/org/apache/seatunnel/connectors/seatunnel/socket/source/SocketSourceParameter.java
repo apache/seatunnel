@@ -28,8 +28,8 @@ import java.io.Serializable;
 import java.util.Objects;
 
 public class SocketSourceParameter implements Serializable {
-    private String host;
-    private Integer port;
+    private final String host;
+    private final Integer port;
 
     public String getHost() {
         return StringUtils.isBlank(host) ? HOST.defaultValue() : host;

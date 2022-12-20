@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 
@@ -54,6 +55,10 @@ public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
             producer.commitTransaction();
             producer.flush();
         }
+        if (this.kafkaProducer != null) {
+            kafkaProducer.close();
+            kafkaProducer = null;
+        }
         return commitInfos;
     }
 
@@ -66,6 +71,10 @@ public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
             KafkaProducer<?, ?> producer = getProducer(commitInfo);
             producer.abortTransaction();
         }
+        if (this.kafkaProducer != null) {
+            kafkaProducer.close();
+            kafkaProducer = null;
+        }
     }
 
     private KafkaInternalProducer<?, ?> getProducer(KafkaCommitInfo commitInfo) {
@@ -73,6 +82,7 @@ public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
             this.kafkaProducer.setTransactionalId(commitInfo.getTransactionId());
         } else {
             Properties kafkaProperties = commitInfo.getKafkaProperties();
+            kafkaProperties.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, "sink-committer-" + this.hashCode());
             kafkaProperties.setProperty(ProducerConfig.TRANSACTIONAL_ID_CONFIG, commitInfo.getTransactionId());
             kafkaProducer =
                     new KafkaInternalProducer<>(commitInfo.getKafkaProperties(), commitInfo.getTransactionId());

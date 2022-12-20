@@ -27,6 +27,7 @@ import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTask
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.WAITING_RESTORE;
 
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
@@ -37,6 +38,7 @@ import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.context.SeaTunnelSplitEnumeratorContext;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.BarrierFlowOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.LastCheckpointNotifyOperation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
@@ -173,8 +175,12 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         }
     }
 
-    public void requestSplit(long taskID) {
-        enumerator.handleSplitRequest((int) taskID);
+    public void requestSplit(long taskIndex) {
+        enumerator.handleSplitRequest((int) taskIndex);
+    }
+
+    public void handleSourceEvent(int subtaskId, SourceEvent sourceEvent) {
+        enumerator.handleSourceEvent(subtaskId, sourceEvent);
     }
 
     public void addTaskMemberMapping(TaskLocation taskID, Address memberAdder) {
@@ -234,8 +240,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             case RUNNING:
                 // The reader closes automatically after reading
                 if (prepareCloseStatus) {
-                    // TODO we should trigger this after CheckpointCoordinator done
-                    triggerBarrier(Barrier.completedBarrier());
+                    this.getExecutionContext().sendToMaster(new LastCheckpointNotifyOperation(jobID, taskLocation));
                     currState = PREPARE_CLOSE;
                 } else {
                     Thread.sleep(100);
@@ -244,6 +249,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             case PREPARE_CLOSE:
                 if (closeCalled) {
                     currState = CLOSED;
+                } else {
+                    Thread.sleep(100);
                 }
                 break;
             case CLOSED:

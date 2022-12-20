@@ -18,14 +18,17 @@
 package org.apache.seatunnel.connectors.seatunnel.sentry.sink;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SinkWriter.Context;
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.sentry.config.SentryConfig;
+import org.apache.seatunnel.connectors.seatunnel.sentry.exception.SentryConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -37,10 +40,11 @@ import java.io.IOException;
  * @description: SentrySink class
  */
 @AutoService(SeaTunnelSink.class)
-public class SentrySink extends AbstractSimpleSink<SeaTunnelRow, SentrySinkState> {
+public class SentrySink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     private SeaTunnelRowType seaTunnelRowType;
     private Config pluginConfig;
+
     @Override
     public String getPluginName() {
         return SentryConfig.SENTRY;
@@ -49,8 +53,13 @@ public class SentrySink extends AbstractSimpleSink<SeaTunnelRow, SentrySinkState
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         if (!pluginConfig.hasPath(SentryConfig.DSN.key())) {
-            throw new PrepareFailException(getPluginName(), PluginType.SINK,
-                    String.format("Config must include column : %s", SentryConfig.DSN));
+            throw new SentryConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                String.format("PluginName: %s, PluginType: %s, Message: %s",
+                    getPluginName(), PluginType.SINK,
+                    String.format("Config must include column : %s",
+                        SentryConfig.DSN)
+                )
+            );
         }
 
         this.pluginConfig = pluginConfig;
@@ -67,7 +76,7 @@ public class SentrySink extends AbstractSimpleSink<SeaTunnelRow, SentrySinkState
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, SentrySinkState> createWriter(Context context) throws IOException {
-        return new SentrySinkWriter(seaTunnelRowType, context, pluginConfig);
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
+        return new SentrySinkWriter(seaTunnelRowType, pluginConfig);
     }
 }

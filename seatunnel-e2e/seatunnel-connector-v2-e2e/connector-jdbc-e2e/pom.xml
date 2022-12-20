@@ -103,6 +103,11 @@
             <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.teradata.jdbc</groupId>
+            <artifactId>terajdbc4</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
 </project>

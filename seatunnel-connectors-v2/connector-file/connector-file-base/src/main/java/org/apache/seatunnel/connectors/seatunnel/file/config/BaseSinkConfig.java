@@ -35,6 +35,7 @@ public class BaseSinkConfig {
     public static final String DEFAULT_PARTITION_DIR_EXPRESSION = "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/";
     public static final String DEFAULT_TMP_PATH = "/tmp/seatunnel";
     public static final String DEFAULT_FILE_NAME_EXPRESSION = "${transactionId}";
+    public static final int DEFAULT_BATCH_SIZE = 1000000;
 
     public static final Option<String> COMPRESS_CODEC = Options.key("compress_codec")
             .stringType()
@@ -107,4 +108,8 @@ public class BaseSinkConfig {
             .booleanType()
             .defaultValue(true)
             .withDescription("If or not enable transaction");
+    public static final Option<Integer> BATCH_SIZE = Options.key("batch_size")
+            .intType()
+            .defaultValue(DEFAULT_BATCH_SIZE)
+            .withDescription("The batch size of each split file");
 }
