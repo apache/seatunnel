@@ -168,7 +168,9 @@ const sidebars = {
                 "seatunnel-engine/about",
                 "seatunnel-engine/deployment",
                 "seatunnel-engine/local-mode",
-                "seatunnel-engine/cluster-mode"
+                "seatunnel-engine/cluster-mode",
+                "seatunnel-engine/checkpoint-storage",
+                "seatunnel-engine/tcp"
             ]
         },
         {
