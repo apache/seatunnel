@@ -57,7 +57,7 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
         startJob(JOB_ID, CONF_PATH, false);
 
         //2 Wait for the job to running and start outputting data
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {
                 Assertions.assertTrue(server.getCoordinatorService().getJobStatus(JOB_ID).equals(JobStatus.RUNNING) &&
                     FileUtils.getFileLineNumberFromDir(OUT_PATH) > 10);
@@ -67,7 +67,7 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
         server.getCoordinatorService().savePoint(1L);
 
         //4 Wait for savePoint to complete
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {
                 Assertions.assertEquals(server.getCoordinatorService().getJobStatus(JOB_ID), JobStatus.FINISHED);
             });
@@ -84,7 +84,7 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
         //5 Resume from savePoint
         startJob(JOB_ID, CONF_PATH, true);
 
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {
                 Assertions.assertEquals(server.getCoordinatorService().getJobStatus(JOB_ID), JobStatus.RUNNING);
             });
@@ -94,7 +94,7 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
 
         server.getCoordinatorService().cancelJob(JOB_ID);
 
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120000, TimeUnit.MILLISECONDS)
             .untilAsserted(() -> {
                 Assertions.assertEquals(server.getCoordinatorService().getJobStatus(JOB_ID), JobStatus.CANCELED);
             });
