@@ -195,6 +195,7 @@ public class CheckpointCoordinator {
     }
 
     private void handleCoordinatorError(CheckpointFailureReason reason) {
+        cleanPendingCheckpoint(reason);
         checkpointManager.handleCheckpointError(pipelineId, new CheckpointException(reason));
     }
 
@@ -358,7 +359,6 @@ public class CheckpointCoordinator {
                     // If any task is not acked within the checkpoint timeout
                     if (pendingCheckpoints.get(pendingCheckpoint.getCheckpointId()) != null && !pendingCheckpoint.isFullyAcknowledged()) {
                         if (tolerableFailureCheckpoints-- <= 0) {
-                            cleanPendingCheckpoint(CheckpointFailureReason.CHECKPOINT_EXPIRED);
                             handleCoordinatorError(CheckpointFailureReason.CHECKPOINT_EXPIRED);
                         }
                     }
@@ -409,12 +409,8 @@ public class CheckpointCoordinator {
 
     private Set<Long> getNotYetAcknowledgedTasks() {
         // TODO: some tasks have completed and don't need to be ack
-        Set<Long> set = new CopyOnWriteArraySet<>();
-        Set<Long> threadUnsafe = plan.getPipelineSubtasks()
-            .stream().map(TaskLocation::getTaskID)
-            .collect(Collectors.toSet());
-        set.addAll(threadUnsafe);
-        return set;
+        return plan.getPipelineSubtasks()
+            .stream().map(TaskLocation::getTaskID).collect(Collectors.toCollection(CopyOnWriteArraySet::new));
     }
 
     private Map<Long, ActionState> getActionStates() {

@@ -31,6 +31,7 @@ import com.hazelcast.map.IMap;
 import lombok.NonNull;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -45,15 +46,11 @@ public class SubPlan {
 
     private final int pipelineId;
 
-    private final int totalPipelineNum;
+    private final AtomicInteger finishedTaskNum = new AtomicInteger(0);
 
-    private final JobImmutableInformation jobImmutableInformation;
+    private final AtomicInteger canceledTaskNum = new AtomicInteger(0);
 
-    private AtomicInteger finishedTaskNum = new AtomicInteger(0);
-
-    private AtomicInteger canceledTaskNum = new AtomicInteger(0);
-
-    private AtomicInteger failedTaskNum = new AtomicInteger(0);
+    private final AtomicInteger failedTaskNum = new AtomicInteger(0);
 
     private final String pipelineFullName;
 
@@ -95,7 +92,6 @@ public class SubPlan {
         this.pipelineId = pipelineId;
         this.pipelineLocation = new PipelineLocation(jobImmutableInformation.getJobId(), pipelineId);
         this.pipelineFuture = new CompletableFuture<>();
-        this.totalPipelineNum = totalPipelineNum;
         this.physicalVertexList = physicalVertexList;
         this.coordinatorVertexList = coordinatorVertexList;
         pipelineRestoreNum = 0;
@@ -115,7 +111,6 @@ public class SubPlan {
             runningJobStateIMap.put(pipelineLocation, PipelineStatus.CREATED);
         }
 
-        this.jobImmutableInformation = jobImmutableInformation;
         this.pipelineFullName = String.format(
             "Job %s (%s), Pipeline: [(%d/%d)]",
             jobImmutableInformation.getJobConfig().getName(),
@@ -129,11 +124,11 @@ public class SubPlan {
     }
 
     public PassiveCompletableFuture<PipelineStatus> initStateFuture() {
-        physicalVertexList.stream().forEach(physicalVertex -> {
+        physicalVertexList.forEach(physicalVertex -> {
             addPhysicalVertexCallBack(physicalVertex.initStateFuture());
         });
 
-        coordinatorVertexList.stream().forEach(coordinator -> {
+        coordinatorVertexList.forEach(coordinator -> {
             addPhysicalVertexCallBack(coordinator.initStateFuture());
         });
 
@@ -250,7 +245,7 @@ public class SubPlan {
         }
         // If an active Master Node done and another Master Node active, we can not know whether canceled pipeline
         // complete. So we need cancel running pipeline again.
-        if (!PipelineStatus.CANCELING.equals((PipelineStatus) runningJobStateIMap.get(pipelineLocation))) {
+        if (!PipelineStatus.CANCELING.equals(runningJobStateIMap.get(pipelineLocation))) {
             updatePipelineState(getPipelineState(), PipelineStatus.CANCELING);
         }
         cancelPipelineTasks();
@@ -258,11 +253,11 @@ public class SubPlan {
 
     private void cancelPipelineTasks() {
         List<CompletableFuture<Void>> coordinatorCancelList =
-            coordinatorVertexList.stream().map(coordinator -> cancelTask(coordinator)).filter(x -> x != null)
+            coordinatorVertexList.stream().map(this::cancelTask).filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
         List<CompletableFuture<Void>> taskCancelList =
-            physicalVertexList.stream().map(task -> cancelTask(task)).filter(x -> x != null)
+            physicalVertexList.stream().map(this::cancelTask).filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
         try {
@@ -279,11 +274,10 @@ public class SubPlan {
     private CompletableFuture<Void> cancelTask(@NonNull PhysicalVertex task) {
         if (!task.getExecutionState().isEndState() &&
             !ExecutionState.CANCELING.equals(task.getExecutionState())) {
-            CompletableFuture<Void> future = CompletableFuture.supplyAsync(() -> {
+            return CompletableFuture.supplyAsync(() -> {
                 task.cancel();
                 return null;
             }, executorService);
-            return future;
         }
         return null;
     }
@@ -297,13 +291,9 @@ public class SubPlan {
         canceledTaskNum.set(0);
         failedTaskNum.set(0);
 
-        coordinatorVertexList.forEach(coordinate -> {
-            coordinate.reset();
-        });
+        coordinatorVertexList.forEach(PhysicalVertex::reset);
 
-        physicalVertexList.forEach(task -> {
-            task.reset();
-        });
+        physicalVertexList.forEach(PhysicalVertex::reset);
     }
 
     private void updateStateTimestamps(@NonNull PipelineStatus targetState) {
