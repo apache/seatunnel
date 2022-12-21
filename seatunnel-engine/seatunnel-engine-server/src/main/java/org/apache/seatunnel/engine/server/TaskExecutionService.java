@@ -155,7 +155,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             .map(executorService::submit)
             .collect(toList());
 
-        // Do not return from this method until all workers have started. Otherwise
+        // Do not return from this method until all workers have started. Otherwise,
         // on cancellation there is a race where the executor might not have started
         // the worker yet. This would result in taskletDone() never being called for
         // a worker.
@@ -543,10 +543,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 } else if (isCancel.get()) {
                     future.complete(new TaskExecutionState(taskGroupLocation, ExecutionState.CANCELED, null));
                     return;
+                } else {
+                    future.complete(new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, ex));
                 }
             }
             if (!isCancel.get() && ex != null) {
-                future.complete(new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, ex));
                 cancelAllTask();
             }
         }
