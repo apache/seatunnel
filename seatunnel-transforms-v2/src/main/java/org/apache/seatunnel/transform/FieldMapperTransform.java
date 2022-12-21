@@ -68,15 +68,11 @@ public class FieldMapperTransform extends AbstractSeaTunnelTransform {
         this.fieldMapper = convertConfigToMap(pluginConfig.getConfig(FIELD_MAPPER.key()));
     }
 
-    private static LinkedHashMap<String, String> convertConfigToMap(Config config) {
+    private static LinkedHashMap<String, String> convertConfigToSortedMap(Config config) {
         // Because the entrySet in typesafe config couldn't keep key-value order
         // So use jackson parsing schema information into a map to keep key-value order
         ConfigRenderOptions options = ConfigRenderOptions.concise();
-        String mapper = config.root().render(options);
-        return convertJsonToMap(mapper);
-    }
-
-    private static LinkedHashMap<String, String> convertJsonToMap(String json) {
+        String json = config.root().render(options);
         ObjectNode jsonNodes = JsonUtils.parseObject(json);
         LinkedHashMap<String, String> fieldsMap = new LinkedHashMap<>();
         jsonNodes.fields().forEachRemaining(field -> {
