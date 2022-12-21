@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
+import io.airlift.compress.lzo.LzopCodec;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -26,12 +27,14 @@ import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import lombok.NonNull;
 import org.apache.hadoop.fs.FSDataOutputStream;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -44,6 +47,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     private final DateTimeUtils.Formatter dateTimeFormat;
     private final TimeUtils.Formatter timeFormat;
     private SerializationSchema serializationSchema;
+    private String compressCodec;
 
     public TextWriteStrategy(FileSinkConfig textFileSinkConfig) {
         super(textFileSinkConfig);
@@ -54,6 +58,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         this.dateFormat = textFileSinkConfig.getDateFormat();
         this.dateTimeFormat = textFileSinkConfig.getDatetimeFormat();
         this.timeFormat = textFileSinkConfig.getTimeFormat();
+        this.compressCodec = textFileSinkConfig.getCompressCodec();
     }
 
     @Override
@@ -111,7 +116,13 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         FSDataOutputStream fsDataOutputStream = beingWrittenOutputStream.get(filePath);
         if (fsDataOutputStream == null) {
             try {
-                fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                if("lzo".equals(compressCodec)){
+                    LzopCodec lzo = new LzopCodec();
+                    OutputStream out = lzo.createOutputStream(fileSystemUtils.getOutputStream(filePath));
+                    fsDataOutputStream = new FSDataOutputStream(out);
+                }else{
+                    fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                }
                 beingWrittenOutputStream.put(filePath, fsDataOutputStream);
                 isFirstWrite.put(filePath, true);
             } catch (IOException e) {

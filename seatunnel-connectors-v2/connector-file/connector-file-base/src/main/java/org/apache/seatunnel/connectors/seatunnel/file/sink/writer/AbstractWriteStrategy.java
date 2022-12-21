@@ -197,8 +197,12 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     public String generateFileName(String transactionId) {
         String fileNameExpression = fileSinkConfig.getFileNameExpression();
         FileFormat fileFormat = fileSinkConfig.getFileFormat();
+        String suffix = fileFormat.getSuffix();
+        if("lzo".equals(fileSinkConfig.getCompressCodec())){
+            suffix = ".lzo";
+        }
         if (StringUtils.isBlank(fileNameExpression)) {
-            return transactionId + fileFormat.getSuffix();
+            return transactionId + suffix;
         }
         String timeFormat = fileSinkConfig.getFileNameTimeFormat();
         DateTimeFormatter df = DateTimeFormatter.ofPattern(timeFormat);
@@ -209,7 +213,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         valuesMap.put(timeFormat, formattedDate);
         valuesMap.put(BaseSinkConfig.TRANSACTION_EXPRESSION, transactionId);
         String substitute = VariablesSubstitute.substitute(fileNameExpression, valuesMap) + "_" + partId;
-        return substitute + fileFormat.getSuffix();
+        return substitute + suffix;
     }
 
     /**
