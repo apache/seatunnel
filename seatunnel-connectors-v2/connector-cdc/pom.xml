@@ -37,5 +37,6 @@
         <module>connector-cdc-base</module>
         <module>connector-cdc-mysql</module>
         <module>connector-cdc-sqlserver</module>
+        <module>connector-cdc-dameng</module>
     </modules>
 </project>

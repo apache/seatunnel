@@ -104,11 +104,19 @@ public class DmdbTypeMapper implements JdbcDialectTypeMapper {
     public static final String DM_LONGVARBINARY = "LONGVARBINARY";
 
     @Override
-    @SuppressWarnings("checkstyle:MagicNumber")
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
-        String dmdbType = metadata.getColumnTypeName(colIndex).toUpperCase();
-        int precision = metadata.getPrecision(colIndex);
-        switch (dmdbType) {
+        return mapping(metadata.getColumnName(colIndex),
+            metadata.getColumnTypeName(colIndex),
+            metadata.getPrecision(colIndex),
+            metadata.getScale(colIndex));
+    }
+
+    @SuppressWarnings("checkstyle:MagicNumber")
+    public SeaTunnelDataType<?> mapping(String columnName,
+                                        String columnType,
+                                        Integer precision,
+                                        Integer scale) {
+        switch (columnType) {
             case DM_BIT:
                 return BasicType.BOOLEAN_TYPE;
 
@@ -132,7 +140,7 @@ public class DmdbTypeMapper implements JdbcDialectTypeMapper {
             case DM_DECIMAL:
             case DM_DEC:
                 if (precision > 0) {
-                    return new DecimalType(precision, metadata.getScale(colIndex));
+                    return new DecimalType(precision, scale);
                 }
                 return new DecimalType(38, 18);
 
@@ -192,9 +200,8 @@ public class DmdbTypeMapper implements JdbcDialectTypeMapper {
             case DM_TIMESTAMP_WITH_TIME_ZONE:
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
             default:
-                final String jdbcColumnName = metadata.getColumnName(colIndex);
                 throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-                    String.format("Doesn't support Dmdb type '%s' on column '%s'  yet.", dmdbType, jdbcColumnName));
+                    String.format("Doesn't support Dmdb type '%s' on column '%s'  yet.", columnType, columnName));
         }
     }
 }
