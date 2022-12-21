@@ -31,6 +31,7 @@ import com.hazelcast.map.IMap;
 import lombok.NonNull;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -122,7 +123,6 @@ public class SubPlan {
             jobImmutableInformation.getJobId(),
             pipelineId,
             totalPipelineNum);
-
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
         this.executorService = executorService;
@@ -258,7 +258,7 @@ public class SubPlan {
 
     private void cancelPipelineTasks() {
         List<CompletableFuture<Void>> coordinatorCancelList =
-            coordinatorVertexList.stream().map(coordinator -> cancelTask(coordinator)).filter(x -> x != null)
+            coordinatorVertexList.stream().map(this::cancelTask).filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
         List<CompletableFuture<Void>> taskCancelList =
