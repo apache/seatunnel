@@ -88,7 +88,7 @@ public class JdbcMysqlIT extends SparkContainer {
     private void initializeJdbcTable() throws URISyntaxException {
 
         URI resource = Objects.requireNonNull(JdbcMysqlIT.class.getResource("/jdbc/init_sql/mysql_init.conf")).toURI();
-        config = new ConfigBuilder(Paths.get(resource)).getConfig();
+        config = ConfigBuilder.of(Paths.get(resource));
         CheckConfigUtil.checkAllExists(this.config, "source_table", "sink_table", "type_source_table",
             "type_sink_table", "insert_type_source_table_sql", "check_type_sink_table_sql");
 

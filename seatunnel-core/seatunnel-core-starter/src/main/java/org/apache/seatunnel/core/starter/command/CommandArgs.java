@@ -18,7 +18,8 @@
 package org.apache.seatunnel.core.starter.command;
 
 /**
- * Used to create command.
+ * CommandArgs, used to create command {@link Command}
  */
 public interface CommandArgs {
+    // do nothing
 }

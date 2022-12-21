@@ -103,7 +103,7 @@ public class JobConfigParser {
         this.jobDefineFilePath = jobDefineFilePath;
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
-        this.seaTunnelJobConfig = new ConfigBuilder(Paths.get(jobDefineFilePath)).getConfig();
+        this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath));
         this.envConfigs = seaTunnelJobConfig.getConfig("env");
         this.commonPluginJars = commonPluginJars;
     }

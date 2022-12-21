@@ -26,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 
 @Slf4j
-public class Seatunnel {
+public class SeaTunnel {
 
     /**
      * This method is the entrypoint of SeaTunnel.

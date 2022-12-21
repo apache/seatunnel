@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.core.starter.spark;
 
-import org.apache.seatunnel.core.starter.Seatunnel;
+import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
@@ -31,6 +31,6 @@ public class SeatunnelSpark {
         SparkCommandArgs sparkArgs = CommandLineUtils.parse(args, new SparkCommandArgs(), StarterConstant.SHELL_NAME, true);
         Command<SparkCommandArgs> sparkCommand =
             new SparkCommandBuilder().buildCommand(sparkArgs);
-        Seatunnel.run(sparkCommand);
+        SeaTunnel.run(sparkCommand);
     }
 }

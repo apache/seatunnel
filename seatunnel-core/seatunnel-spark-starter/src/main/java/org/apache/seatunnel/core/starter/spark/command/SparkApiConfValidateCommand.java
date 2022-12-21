@@ -45,8 +45,7 @@ public class SparkApiConfValidateCommand implements Command<SparkCommandArgs> {
     public void execute() throws ConfigCheckException {
         Path configPath = FileUtils.getConfigPath(sparkCommandArgs);
         // todo: validate the config by new api
-        ConfigBuilder configBuilder = new ConfigBuilder(configPath);
-        new SparkApiConfigChecker().checkConfig(configBuilder.getConfig());
+        new SparkApiConfigChecker().checkConfig(ConfigBuilder.of(configPath));
         log.info("config OK !");
     }
 }

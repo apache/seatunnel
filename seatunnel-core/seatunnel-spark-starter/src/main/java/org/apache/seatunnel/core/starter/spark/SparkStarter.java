@@ -180,7 +180,7 @@ public class SparkStarter implements Starter {
         if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
             return Collections.emptyList();
         }
-        Config config = new ConfigBuilder(Paths.get(commandArgs.getConfigFile())).getConfig();
+        Config config = ConfigBuilder.of(commandArgs.getConfigFile());
         Set<URL> pluginJars = new HashSet<>();
         SeaTunnelSourcePluginDiscovery seaTunnelSourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery();
         SeaTunnelSinkPluginDiscovery seaTunnelSinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();

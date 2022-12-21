@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.core.starter.flink;
 
-import org.apache.seatunnel.core.starter.Seatunnel;
+import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
@@ -31,7 +31,7 @@ public class SeatunnelFlink {
         FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parse(args, new FlinkCommandArgs(), StarterConstant.SHELL_NAME, true);
         Command<FlinkCommandArgs> flinkCommand = new FlinkCommandBuilder()
             .buildCommand(flinkCommandArgs);
-        Seatunnel.run(flinkCommand);
+        SeaTunnel.run(flinkCommand);
     }
 
 }

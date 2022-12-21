@@ -43,8 +43,7 @@ public class ApiConfValidateCommand implements Command<ClientCommandArgs> {
     @Override
     public void execute() throws ConfigCheckException {
         Path configPath = FileUtils.getConfigPath(clientCommandArgs);
-        ConfigBuilder configBuilder = new ConfigBuilder(configPath);
-        new SeaTunnelApiConfigChecker().checkConfig(configBuilder.getConfig());
+        new SeaTunnelApiConfigChecker().checkConfig(ConfigBuilder.of(configPath));
         log.info("config OK !");
     }
 }

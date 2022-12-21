@@ -26,13 +26,14 @@ import com.beust.jcommander.Parameter;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Abstract class of {@link CommandArgs} implementation to save common configuration settings
+ */
 public abstract class AbstractCommandArgs implements CommandArgs {
-
     @Parameter(names = {"-i", "--variable"},
         description = "variable substitution, such as -i city=beijing, or -i date=20190318")
     private List<String> variables = Collections.emptyList();
 
-    // todo: use command type enum
     @Parameter(names = {"-t", "--check"},
             description = "check config")
     private boolean checkConfig = false;
@@ -106,5 +107,4 @@ public abstract class AbstractCommandArgs implements CommandArgs {
     public void setConfigFile(String configFile) {
         throw new UnsupportedOperationException("abstract class CommandArgs not support this method");
     }
-
 }

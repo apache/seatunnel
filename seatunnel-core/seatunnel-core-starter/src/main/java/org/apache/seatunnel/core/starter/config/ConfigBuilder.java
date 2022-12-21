@@ -17,55 +17,48 @@
 
 package org.apache.seatunnel.core.starter.config;
 
-import org.apache.seatunnel.common.config.ConfigRuntimeException;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
+import java.nio.file.Paths;
 
 /**
- * Used to build the {@link  Config} from file.
+ * Used to build the {@link Config} from config file.
  */
 @Slf4j
 public class ConfigBuilder {
 
-    private static final String PLUGIN_NAME_KEY = "plugin_name";
-    private final Path configFile;
-    private final Config config;
+    private static final ConfigRenderOptions CONFIG_RENDER_OPTIONS = ConfigRenderOptions.concise().setFormatted(true);
 
-    public ConfigBuilder(Path configFile) {
-        this.configFile = configFile;
-        this.config = load();
+    public ConfigBuilder() {
+        throw new UnsupportedOperationException("ConfigBuilder is a utility class and cannot be instantiated");
     }
 
-    private Config load() {
-
-        if (configFile == null) {
-            throw new ConfigRuntimeException("Please specify config file");
-        }
-
-        log.info("Loading config file: {}", configFile);
-
-        // variables substitution / variables resolution order:
-        // config file --> system environment --> java properties
+    public static Config of(@NonNull String filePath) {
+        log.info("Loading config file from path: {}", filePath);
         Config config = ConfigFactory
-            .parseFile(configFile.toFile())
-            .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-            .resolveWith(ConfigFactory.systemProperties(),
-                ConfigResolveOptions.defaults().setAllowUnresolved(true));
-
-        ConfigRenderOptions options = ConfigRenderOptions.concise().setFormatted(true);
-        log.info("parsed config file: {}", config.root().render(options));
+                .parseFile(Paths.get(filePath).toFile())
+                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                .resolveWith(ConfigFactory.systemProperties(),
+                        ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        log.info("Parsed config file: {}", config.root().render(CONFIG_RENDER_OPTIONS));
         return config;
     }
 
-    public Config getConfig() {
+    public static Config of(@NonNull Path filePath) {
+        log.info("Loading config file from path: {}", filePath);
+        Config config = ConfigFactory
+                .parseFile(filePath.toFile())
+                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                .resolveWith(ConfigFactory.systemProperties(),
+                        ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        log.info("Parsed config file: {}", config.root().render(CONFIG_RENDER_OPTIONS));
         return config;
     }
-
 }

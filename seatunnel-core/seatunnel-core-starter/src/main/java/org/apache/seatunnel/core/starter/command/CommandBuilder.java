@@ -17,9 +17,13 @@
 
 package org.apache.seatunnel.core.starter.command;
 
+/**
+ * CommandBuilder interface only has one method {@link CommandBuilder#buildCommand(CommandArgs)},
+ * used to create {@link Command} with {@link CommandArgs}
+ * @param <T> the type of command args, extends from {@link CommandArgs}
+ */
 @FunctionalInterface
 public interface CommandBuilder<T extends CommandArgs> {
 
     Command<T> buildCommand(T commandArgs);
-
 }

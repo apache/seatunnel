@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.core.starter.seatunnel;
 
-import org.apache.seatunnel.core.starter.Seatunnel;
+import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
@@ -28,6 +28,6 @@ public class SeaTunnelClient {
         ClientCommandArgs clientCommandArgs = CommandLineUtils.parseSeaTunnelClientArgs(args);
         Command<ClientCommandArgs> command =
             new ClientCommandBuilder().buildCommand(clientCommandArgs);
-        Seatunnel.run(command);
+        SeaTunnel.run(command);
     }
 }

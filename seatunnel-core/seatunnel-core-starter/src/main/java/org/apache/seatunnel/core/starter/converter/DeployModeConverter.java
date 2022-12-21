@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.command;
+package org.apache.seatunnel.core.starter.converter;
 
 import org.apache.seatunnel.common.config.DeployMode;
 

@@ -49,7 +49,7 @@ public class SparkApiTaskExecuteCommand implements Command<SparkCommandArgs> {
     public void execute() throws CommandExecuteException {
         Path configFile = FileUtils.getConfigPath(sparkCommandArgs);
         checkConfigExist(configFile);
-        Config config = new ConfigBuilder(configFile).getConfig();
+        Config config = ConfigBuilder.of(configFile);
         try {
             SparkExecution seaTunnelTaskExecution = new SparkExecution(config);
             seaTunnelTaskExecution.execute();

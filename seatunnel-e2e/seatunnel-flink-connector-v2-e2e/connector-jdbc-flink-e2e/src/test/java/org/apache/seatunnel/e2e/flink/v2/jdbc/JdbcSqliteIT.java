@@ -56,7 +56,7 @@ public class JdbcSqliteIT extends FlinkContainer {
 
     private void initTestDb() throws Exception {
         URI resource = Objects.requireNonNull(JdbcSqliteIT.class.getResource("/jdbc/init_sql/sqlite_init.conf")).toURI();
-        config = new ConfigBuilder(Paths.get(resource)).getConfig();
+        config = ConfigBuilder.of(Paths.get(resource));
         CheckConfigUtil.checkAllExists(this.config, "source_table", "sink_table", "type_source_table",
                 "type_sink_table", "insert_type_source_table_sql", "check_type_sink_table_sql");
         tmpdir = Paths.get(System.getProperty("java.io.tmpdir")).toString();
@@ -116,7 +116,7 @@ public class JdbcSqliteIT extends FlinkContainer {
 
     private void checkSinkDataTypeTable() throws Exception {
         URI resource = Objects.requireNonNull(JdbcSqliteIT.class.getResource("/jdbc/init_sql/sqlite_init.conf")).toURI();
-        config = new ConfigBuilder(Paths.get(resource)).getConfig();
+        config = ConfigBuilder.of(Paths.get(resource));
         CheckConfigUtil.checkAllExists(this.config, "source_table", "sink_table", "type_source_table",
                 "type_sink_table", "insert_type_source_table_sql", "check_type_sink_table_sql");
 

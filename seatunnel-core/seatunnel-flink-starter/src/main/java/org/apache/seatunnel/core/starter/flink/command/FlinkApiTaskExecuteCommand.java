@@ -49,7 +49,7 @@ public class FlinkApiTaskExecuteCommand implements Command<FlinkCommandArgs> {
     public void execute() throws CommandExecuteException {
         Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
         checkConfigExist(configFile);
-        Config config = new ConfigBuilder(configFile).getConfig();
+        Config config = ConfigBuilder.of(configFile);
         FlinkExecution seaTunnelTaskExecution = new FlinkExecution(config);
         try {
             seaTunnelTaskExecution.execute();

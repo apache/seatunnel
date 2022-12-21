@@ -19,8 +19,8 @@ package org.apache.seatunnel.core.starter.spark.args;
 
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
-import org.apache.seatunnel.core.starter.command.DeployModeConverter;
 import org.apache.seatunnel.core.starter.config.EngineType;
+import org.apache.seatunnel.core.starter.converter.DeployModeConverter;
 
 import com.beust.jcommander.Parameter;
 

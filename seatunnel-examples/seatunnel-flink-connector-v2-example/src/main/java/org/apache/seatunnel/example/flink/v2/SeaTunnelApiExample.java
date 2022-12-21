@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.example.flink.v2;
 
-import org.apache.seatunnel.core.starter.Seatunnel;
+import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
@@ -39,7 +39,7 @@ public class SeaTunnelApiExample {
         flinkCommandArgs.setVariables(null);
         Command<FlinkCommandArgs> flinkCommand =
             new FlinkCommandBuilder().buildCommand(flinkCommandArgs);
-        Seatunnel.run(flinkCommand);
+        SeaTunnel.run(flinkCommand);
     }
 
     public static String getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {

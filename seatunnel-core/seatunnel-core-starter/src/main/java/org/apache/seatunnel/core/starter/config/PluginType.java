@@ -17,8 +17,13 @@
 
 package org.apache.seatunnel.core.starter.config;
 
+/**
+ * Plugin type enum
+ */
 public enum PluginType {
-    SOURCE("source"), TRANSFORM("transform"), SINK("sink");
+    SOURCE("source"),
+    TRANSFORM("transform"),
+    SINK("sink");
 
     private final String type;
 

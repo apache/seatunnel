@@ -18,7 +18,7 @@
 package org.apache.seatunnel.example.spark.v2;
 
 import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.core.starter.Seatunnel;
+import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
@@ -40,7 +40,7 @@ public class ExampleUtils {
         sparkCommandArgs.setDeployMode(DeployMode.CLIENT);
         Command<SparkCommandArgs> sparkCommand =
                 new SparkCommandBuilder().buildCommand(sparkCommandArgs);
-        Seatunnel.run(sparkCommand);
+        SeaTunnel.run(sparkCommand);
     }
 
     private static String getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {
