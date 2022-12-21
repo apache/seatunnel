@@ -30,10 +30,13 @@ import org.apache.seatunnel.engine.server.TestUtils;
 import com.hazelcast.internal.serialization.Data;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
+@DisabledOnOs(OS.WINDOWS)
 public class SavePointTest extends AbstractSeaTunnelServerTest {
     public static String OUT_PATH = "/tmp/hive/warehouse/test3";
     public static String CONF_PATH = "stream_fakesource_to_file_savepoint.conf";
