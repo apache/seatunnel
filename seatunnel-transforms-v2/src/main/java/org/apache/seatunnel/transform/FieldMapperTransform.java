@@ -82,10 +82,11 @@ public class FieldMapperTransform extends AbstractSeaTunnelTransform {
         jsonNodes.fields().forEachRemaining(field -> {
             String key = field.getKey();
             JsonNode value = field.getValue();
-            if (value.getNodeType() == JsonNodeType.OBJECT) {
-                fieldsMap.put(key, value.toString());
-            } else {
+            
+            if (value.isTextual()) {
                 fieldsMap.put(key, value.textValue());
+            } else {
+                throw new new SeaTunnelRuntimeException(CommonErrorCode.UNSUPPORTED_OPERATION, xxx);
             }
         });
         return fieldsMap;
