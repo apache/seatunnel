@@ -1,4 +1,4 @@
-# Common Options
+# Sink Common Options
 
 > Common parameters of sink connectors
 
