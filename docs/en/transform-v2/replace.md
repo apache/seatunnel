@@ -10,36 +10,152 @@ Examines string value in a given field and replaces substring of the string valu
 
 | name           | type   | required | default value |
 | -------------- | ------ | -------- |---------------|
-| replace_field  | string | no       |               |
+| replace_field  | string | yes       |               |
 | pattern        | string | yes      | -             |
 | replacement    | string | yes      | -             |
 | is_regex       | boolean| no       | false         |
 | replace_first  | boolean| no       | false         |
 
-### source_field [string]
+### replace_field [string]
 
 The field you want to replace
 
-### field [string]
-
-The name of the field to replaced.
-
 ### pattern [string]
 
-The string to match.
+The old string that will be replaced
 
 ### replacement [string]
 
-The replacement pattern (is_regex is true) or string literal (is_regex is false).
+The new string for replace
 
 ### is_regex [boolean]
 
-Whether or not to interpret the pattern as a regex (true) or string literal (false).
+Use regex for string match
 
 ### replace_first [boolean]
 
-Whether or not to skip any matches beyond the first match.
+Whether replace the first match string. Only used when `is_regex = true`.
 
 ### common options [string]
 
-Transform plugin common parameters, please refer to [Transform Plugin](common-options.mdx) for details
+Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details
+
+## Example
+
+The data read from source is a table like this:
+
+| name     | age | card |
+|----------|-----|------|
+| Joy Ding | 20  | 123  |
+| May Ding | 20  | 123  |
+| Kin Dom  | 20  | 123  |
+| Joy Dom  | 20  | 123  |
+
+We want to replace the char ` ` to `_` at the `name` field. Then we can add a `Replace` Transform like this:
+
+```
+transform {
+  Replace {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+    replace_field = "name"
+    pattern = " "
+    replacement = "_"
+    is_regex = true
+  }
+}
+```
+
+Then the data in result table `fake1` will update to 
+
+
+| name     | age | card |
+|----------|-----|------|
+| Joy_Ding | 20  | 123  |
+| May_Ding | 20  | 123  |
+| Kin_Dom  | 20  | 123  |
+| Joy_Dom  | 20  | 123  |
+
+## Job Config Example
+
+```
+env {
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    result_table_name = "fake"
+    row.num = 100
+    schema = {
+      fields {
+        id = "int"
+        name = "string"
+      }
+    }
+  }
+}
+
+transform {
+  Replace {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+    replace_field = "name"
+    pattern = ".+"
+    replacement = "b"
+    is_regex = true
+  }
+}
+
+sink {
+  Console {
+    source_table_name = "fake1"
+  }
+  Assert {
+    source_table_name = "fake1"
+    rules =
+      {
+        row_rules = [
+          {
+            rule_type = MIN_ROW
+            rule_value = 100
+          }
+        ],
+        field_rules = [
+          {
+            field_name = id
+            field_type = int
+            field_value = [
+              {
+                rule_type = NOT_NULL
+              }
+            ]
+          },
+          {
+            field_name = name
+            field_type = string
+            field_value = [
+              {
+                rule_type = NOT_NULL
+              },
+              {
+                rule_type = MIN_LENGTH
+                rule_value = 1
+              },
+              {
+                rule_type = MAX_LENGTH
+                rule_value = 1
+              }
+            ]
+          }
+        ]
+      }
+  }
+}
+```
+
+## Changelog
+
+### new version
+
+- Add Replace Transform Connector
