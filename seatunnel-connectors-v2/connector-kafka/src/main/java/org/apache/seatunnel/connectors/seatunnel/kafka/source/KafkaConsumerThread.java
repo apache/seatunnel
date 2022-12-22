@@ -68,7 +68,12 @@ public class KafkaConsumerThread implements Runnable {
         properties.forEach((key, value) -> props.setProperty(String.valueOf(key), String.valueOf(value)));
         props.setProperty(ConsumerConfig.GROUP_ID_CONFIG, consumerGroup);
         props.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServer);
-        props.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, CLIENT_ID_PREFIX + "-consumer-" + this.hashCode());
+        if(this.metadata.getProperties().get("client.id") == null){
+            props.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, CLIENT_ID_PREFIX + "-consumer-" + this.hashCode());
+        }else{
+            props.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, this.metadata.getProperties().get("client.id").toString());
+        }
+
 
         props.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
             ByteArrayDeserializer.class.getName());
