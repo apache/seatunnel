@@ -164,7 +164,7 @@ public class CheckpointManager {
      */
     public void reportedTask(TaskReportStatusOperation reportStatusOperation) {
         // task address may change during restore.
-        log.debug("reported task({}) status{}", reportStatusOperation.getLocation().getTaskID(),
+        log.debug("reported task({}) status {}", reportStatusOperation.getLocation().getTaskID(),
             reportStatusOperation.getStatus());
         getCheckpointCoordinator(reportStatusOperation.getLocation()).reportedTask(reportStatusOperation);
     }
