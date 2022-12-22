@@ -54,7 +54,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         for (int i = 0; i < fieldTypes.length; i++) {
             arr[i] = fieldToString(fieldTypes[i], fields[i]);
         }
-        log.info("subtaskIndex={}: SeaTunnelRow#tableId={} SeaTunnelRow#kind={} row={} : {}", context.getIndexOfSubtask(), element.getTableId(), element.getRowKind(), CNT.incrementAndGet(), StringUtils.join(arr, ", "));
+        log.info("subtaskIndex={}  rowIndex={}:  SeaTunnelRow#tableId={} SeaTunnelRow#kind={} : {}", context.getIndexOfSubtask(), CNT.incrementAndGet(), element.getTableId(), element.getRowKind(), StringUtils.join(arr, ", "));
     }
 
     @Override
