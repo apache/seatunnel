@@ -51,7 +51,7 @@ The default engine use by SeaTunnel is [SeaTunnel Engine](seatunnel-engine/about
 
 - **Source Connectors** SeaTunnel support read data from various relational databases, graph databases, NoSQL databases, document databases, and memory databases. Various distributed file systems such as HDFS. A variety of cloud storage, such as S3 and OSS. At the same time, we also support data reading of many common SaaS services. You can access the detailed list [here](connector-v2/source). If you want, You can develop your own source connector and easily integrate it into seatunnel.  
 
-- **Transform Connector** 
+- **Transform Connector** If the schema is different between source and sink, You can use Transform Connector to change the schema read from source and make it same as the sink schema.
 
 - **Sink Connector** SeaTunnel support write data to various relational databases, graph databases, NoSQL databases, document databases, and memory databases. Various distributed file systems such as HDFS. A variety of cloud storage, such as S3 and OSS. At the same time, we also support write data to many common SaaS services. You can access the detailed list [here](connector-v2/sink). If you want, You can develop your own sink connector and easily integrate it into seatunnel.
 

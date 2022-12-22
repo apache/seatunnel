@@ -54,12 +54,6 @@ source {
     }
 }
 
-transform {
-      sql {
-        sql = "select name, age from fake"
-      }
-}
-
 sink {
     Console {
 

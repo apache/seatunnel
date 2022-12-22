@@ -26,3 +26,58 @@ You can only config one of `include_kinds` and `exclude_kinds`.
 ### common options [string]
 
 Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details
+
+## Examples
+
+The RowKink of the data generate by FakeSource is `INSERT`, If we use `FilterRowKink` transform and exclude the `INSERT` data, we will write zero rows into sink.
+
+```yaml
+
+env {
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    result_table_name = "fake"
+    row.num = 100
+    schema = {
+      fields {
+        id = "int"
+        name = "string"
+        age = "int"
+      }
+    }
+  }
+}
+
+transform {
+  FilterRowKind {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+    exclude_kinds = ["INSERT"]
+  }
+}
+
+sink {
+  Console {
+    source_table_name = "fake1"
+  }
+  Assert {
+    source_table_name = "fake1"
+    rules =
+      {
+        row_rules = [
+          {
+            rule_type = MIN_ROW
+            rule_value = 0
+          },
+          {
+            rule_type = MAX_ROW
+            rule_value = 0
+          }
+        ]
+      }
+  }
+}
+```

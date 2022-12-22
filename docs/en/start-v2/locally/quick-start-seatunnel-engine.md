@@ -32,10 +32,6 @@ source {
     }
 }
 
-transform {
-
-}
-
 sink {
   Console {}
 }
