@@ -24,6 +24,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
@@ -115,7 +116,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         FSDataOutputStream fsDataOutputStream = beingWrittenOutputStream.get(filePath);
         if (fsDataOutputStream == null) {
             try {
-                if ("lzo".equals(compressCodec)) {
+                if (CompressFormat.LZO.getCompressCodec().equals(compressCodec)) {
                     LzopCodec lzo = new LzopCodec();
                     OutputStream out = lzo.createOutputStream(fileSystemUtils.getOutputStream(filePath));
                     fsDataOutputStream = new FSDataOutputStream(out);

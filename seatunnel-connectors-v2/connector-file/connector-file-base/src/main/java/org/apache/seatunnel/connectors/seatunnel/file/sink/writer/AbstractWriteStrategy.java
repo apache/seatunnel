@@ -28,6 +28,7 @@ import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.VariablesSubstitute;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
@@ -198,8 +199,8 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         String fileNameExpression = fileSinkConfig.getFileNameExpression();
         FileFormat fileFormat = fileSinkConfig.getFileFormat();
         String suffix = fileFormat.getSuffix();
-        if ("lzo".equals(fileSinkConfig.getCompressCodec())) {
-            suffix = ".lzo";
+        if (CompressFormat.LZO.getCompressCodec().equals(fileSinkConfig.getCompressCodec())) {
+            suffix = "." + CompressFormat.LZO.getCompressCodec();
         }
         if (StringUtils.isBlank(fileNameExpression)) {
             return transactionId + suffix;
