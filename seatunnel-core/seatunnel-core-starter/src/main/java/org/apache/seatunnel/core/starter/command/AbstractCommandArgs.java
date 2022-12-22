@@ -18,8 +18,6 @@
 package org.apache.seatunnel.core.starter.command;
 
 import org.apache.seatunnel.common.Constants;
-import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.core.starter.config.EngineType;
 
 import com.beust.jcommander.Parameter;
 
@@ -30,27 +28,41 @@ import java.util.List;
  * Abstract class of {@link CommandArgs} implementation to save common configuration settings
  */
 public abstract class AbstractCommandArgs implements CommandArgs {
-    @Parameter(names = {"-i", "--variable"},
-        description = "variable substitution, such as -i city=beijing, or -i date=20190318")
-    private List<String> variables = Collections.emptyList();
 
-    @Parameter(names = {"-t", "--check"},
-            description = "check config")
-    private boolean checkConfig = false;
+    @Parameter(names = {"-c", "--config"},
+            description = "Config file",
+            required = true)
+    protected String configFile;
+
+    @Parameter(names = {"-i", "--variable"},
+        description = "Variable substitution, such as -i city=beijing, or -i date=20190318")
+    protected List<String> variables = Collections.emptyList();
+
+    @Parameter(names = {"--check"},
+            description = "Whether check config")
+    protected boolean checkConfig = false;
 
     @Parameter(names = {"-n", "--name"},
-            description = "application name")
-    private String jobName = Constants.LOGO;
+            description = "SeaTunnel job name")
+    protected String jobName = Constants.LOGO;
 
     @Parameter(names = {"-h", "--help"},
             help = true,
             description = "Show the usage message")
-    private boolean help = false;
+    protected boolean help = false;
 
     /**
      * Undefined parameters parsed will be stored here as engine original command parameters.
      */
-    private List<String> originalParameters;
+    protected List<String> originalParameters;
+
+    public String getConfigFile() {
+        return configFile;
+    }
+
+    public void setConfigFile(String configFile) {
+        this.configFile = configFile;
+    }
 
     public List<String> getVariables() {
         return variables;
@@ -90,21 +102,5 @@ public abstract class AbstractCommandArgs implements CommandArgs {
 
     public void setOriginalParameters(List<String> originalParameters) {
         this.originalParameters = originalParameters;
-    }
-
-    public EngineType getEngineType() {
-        throw new UnsupportedOperationException("abstract class CommandArgs not support this method");
-    }
-
-    public DeployMode getDeployMode() {
-        throw new UnsupportedOperationException("abstract class CommandArgs not support this method");
-    }
-
-    public String getConfigFile() {
-        throw new UnsupportedOperationException("abstract class CommandArgs not support this method");
-    }
-
-    public void setConfigFile(String configFile) {
-        throw new UnsupportedOperationException("abstract class CommandArgs not support this method");
     }
 }

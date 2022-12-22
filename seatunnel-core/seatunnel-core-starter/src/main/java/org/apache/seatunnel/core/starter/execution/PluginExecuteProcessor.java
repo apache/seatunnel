@@ -21,6 +21,11 @@ import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 
 import java.util.List;
 
+/**
+ * Used to process every step(source,transform,sink) in the execution pipeline, contained in the {@link TaskExecution}
+ * @param <T> Data type of the execution
+ * @param <ENV> Runtime environment of engine
+ */
 public interface PluginExecuteProcessor<T, ENV extends RuntimeEnvironment> {
     List<T> execute(List<T> upstreamDataStreams) throws TaskExecuteException;
 

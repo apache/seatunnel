@@ -19,6 +19,7 @@ package org.apache.seatunnel.core.starter.config;
 
 import org.apache.seatunnel.apis.base.env.RuntimeEnv;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.core.starter.enums.PluginType;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 

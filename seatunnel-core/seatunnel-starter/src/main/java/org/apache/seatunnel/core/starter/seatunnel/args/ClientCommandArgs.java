@@ -19,7 +19,7 @@ package org.apache.seatunnel.core.starter.seatunnel.args;
 
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
-import org.apache.seatunnel.core.starter.config.EngineType;
+import org.apache.seatunnel.core.starter.enums.EngineType;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 
 import com.beust.jcommander.Parameter;
@@ -36,10 +36,6 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         description = "SeaTunnel deploy mode",
         converter = ExecutionModeConverter.class)
     private ExecutionMode executionMode = ExecutionMode.CLUSTER;
-
-    @Parameter(names = {"-c", "--config"},
-        description = "Config file")
-    private String configFile;
 
     @Parameter(names = {"-cn", "--cluster"},
         description = "The name of cluster")
@@ -101,23 +97,11 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         return listJob;
     }
 
-    @Override
     public EngineType getEngineType() {
         return EngineType.SEATUNNEL;
     }
 
-    @Override
     public DeployMode getDeployMode() {
         return DeployMode.CLIENT;
-    }
-
-    @Override
-    public String getConfigFile() {
-        return this.configFile;
-    }
-
-    @Override
-    public void setConfigFile(String configFile) {
-        this.configFile = configFile;
     }
 }

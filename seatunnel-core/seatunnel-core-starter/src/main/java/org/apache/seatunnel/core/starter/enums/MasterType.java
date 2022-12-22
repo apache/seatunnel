@@ -15,23 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.config;
+package org.apache.seatunnel.core.starter.enums;
 
 /**
- * Plugin type enum
+ * SeaTunnel job submitted master
  */
-public enum PluginType {
-    SOURCE("source"),
-    TRANSFORM("transform"),
-    SINK("sink");
+public enum MasterType {
+    /**
+     * ST Engine
+     */
+    LOCAL("local"),
+    CLUSTER("cluster"),
 
-    private final String type;
+    /**
+     * Spark
+     */
+    YARN("yarn"),
 
-    PluginType(String type) {
-        this.type = type;
+    /**
+     * Flink
+     */
+    YARN_SESSION("yarn-session"),
+    YARN_PER_JOB("yarn-per-job"),
+    K8S("kubernetes-session");
+
+    private final String master;
+
+    MasterType(String master) {
+        this.master = master;
     }
 
-    public String getType() {
-        return type;
+    public String getMaster() {
+        return master;
     }
 }

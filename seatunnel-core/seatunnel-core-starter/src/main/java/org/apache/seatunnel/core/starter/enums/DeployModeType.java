@@ -15,20 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.config;
+package org.apache.seatunnel.core.starter.enums;
 
-public enum EngineType {
-    SPARK("spark"),
-    FLINK("flink"),
-    SEATUNNEL("seatunnel");
+/**
+ * Driver submitted mode, only works with Spark engine
+ */
+public enum DeployModeType {
+    CLIENT("client"),
+    CLUSTER("cluster");
 
-    private final String engine;
+    private final String deployMode;
 
-    EngineType(String engine) {
-        this.engine = engine;
+    DeployModeType(String deployMode) {
+        this.deployMode = deployMode;
     }
 
-    public String getEngine() {
-        return engine;
+    public String getDeployMode() {
+        return deployMode;
     }
 }

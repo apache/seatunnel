@@ -19,17 +19,12 @@ package org.apache.seatunnel.core.starter.spark.args;
 
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
-import org.apache.seatunnel.core.starter.config.EngineType;
 import org.apache.seatunnel.core.starter.converter.DeployModeConverter;
+import org.apache.seatunnel.core.starter.enums.EngineType;
 
 import com.beust.jcommander.Parameter;
 
 public class SparkCommandArgs extends AbstractCommandArgs {
-
-    @Parameter(names = {"-c", "--config"},
-        description = "Config file",
-        required = true)
-    private String configFile;
 
     @Parameter(names = {"-e", "--deploy-mode"},
         description = "Spark deploy mode",
@@ -46,12 +41,10 @@ public class SparkCommandArgs extends AbstractCommandArgs {
         return master;
     }
 
-    @Override
     public EngineType getEngineType() {
         return EngineType.SPARK;
     }
 
-    @Override
     public DeployMode getDeployMode() {
         return deployMode;
     }
@@ -63,15 +56,4 @@ public class SparkCommandArgs extends AbstractCommandArgs {
     public void setMaster(String master) {
         this.master = master;
     }
-
-    @Override
-    public String getConfigFile() {
-        return this.configFile;
-    }
-
-    @Override
-    public void setConfigFile(String configFile) {
-        this.configFile = configFile;
-    }
-
 }

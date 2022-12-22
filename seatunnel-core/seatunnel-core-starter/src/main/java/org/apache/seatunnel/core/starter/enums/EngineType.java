@@ -15,14 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.execution;
-
-import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
+package org.apache.seatunnel.core.starter.enums;
 
 /**
- * Executes a SeaTunnel task of the specified engine, contained in the {@link org.apache.seatunnel.core.starter.command.Command}
+ * Engine type enum
  */
-public interface TaskExecution {
+public enum EngineType {
+    SPARK("spark"),
+    FLINK("flink"),
+    SEATUNNEL("seatunnel");
 
-    void execute() throws TaskExecuteException;
+    private final String engine;
+
+    EngineType(String engine) {
+        this.engine = engine;
+    }
+
+    public String getEngine() {
+        return engine;
+    }
 }

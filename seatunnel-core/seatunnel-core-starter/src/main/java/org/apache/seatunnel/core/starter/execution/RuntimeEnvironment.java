@@ -27,7 +27,8 @@ import java.net.URL;
 import java.util.List;
 
 /**
- * Runtime environment for each engine, such as spark flink and st-engine
+ * Runtime environment for each engine, such as spark flink and st-engine,
+ * used to store the engine context objects
  */
 public interface RuntimeEnvironment {
     RuntimeEnv setConfig(Config config);

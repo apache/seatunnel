@@ -19,7 +19,7 @@ package org.apache.seatunnel.core.starter.flink.args;
 
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
-import org.apache.seatunnel.core.starter.config.EngineType;
+import org.apache.seatunnel.core.starter.enums.EngineType;
 import org.apache.seatunnel.core.starter.flink.config.FlinkRunMode;
 
 import com.beust.jcommander.IStringConverter;
@@ -27,22 +27,15 @@ import com.beust.jcommander.Parameter;
 
 public class FlinkCommandArgs extends AbstractCommandArgs {
 
-    @Parameter(names = {"-c", "--config"},
-        description = "Config file",
-        required = true)
-    private String configFile;
-
     @Parameter(names = {"-r", "--run-mode"},
         converter = RunModeConverter.class,
         description = "job run mode, run or run-application")
     private FlinkRunMode runMode = FlinkRunMode.RUN;
 
-    @Override
     public EngineType getEngineType() {
         return EngineType.FLINK;
     }
 
-    @Override
     public DeployMode getDeployMode() {
         return DeployMode.CLIENT;
     }
@@ -53,16 +46,6 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
 
     public void setRunMode(FlinkRunMode runMode) {
         this.runMode = runMode;
-    }
-
-    @Override
-    public String getConfigFile() {
-        return this.configFile;
-    }
-
-    @Override
-    public void setConfigFile(String configFile) {
-        this.configFile = configFile;
     }
 
     /**

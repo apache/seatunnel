@@ -22,7 +22,7 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.Starter;
 import org.apache.seatunnel.core.starter.config.ConfigBuilder;
-import org.apache.seatunnel.core.starter.config.PluginType;
+import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
 import org.apache.seatunnel.core.starter.spark.config.StarterConstant;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;

@@ -15,14 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.execution;
-
-import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
+package org.apache.seatunnel.core.starter.enums;
 
 /**
- * Executes a SeaTunnel task of the specified engine, contained in the {@link org.apache.seatunnel.core.starter.command.Command}
+ * Plugin type enum
  */
-public interface TaskExecution {
+public enum PluginType {
+    SOURCE("source"),
+    TRANSFORM("transform"),
+    SINK("sink");
 
-    void execute() throws TaskExecuteException;
+    private final String type;
+
+    PluginType(String type) {
+        this.type = type;
+    }
+
+    public String getType() {
+        return type;
+    }
 }
