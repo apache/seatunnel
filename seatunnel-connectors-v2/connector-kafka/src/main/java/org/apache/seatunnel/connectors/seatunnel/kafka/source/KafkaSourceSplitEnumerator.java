@@ -210,9 +210,9 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
         Properties props = new Properties();
         props.putAll(properties);
         props.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, this.metadata.getBootstrapServers());
-        if(this.metadata.getProperties().get("client.id") == null){
+        if (this.metadata.getProperties().get("client.id") == null) {
             props.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, CLIENT_ID_PREFIX + "-enumerator-admin-client-" + this.hashCode());
-        }else{
+        } else {
             props.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, this.metadata.getProperties().get("client.id").toString());
         }
 
