@@ -198,7 +198,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         String fileNameExpression = fileSinkConfig.getFileNameExpression();
         FileFormat fileFormat = fileSinkConfig.getFileFormat();
         String suffix = fileFormat.getSuffix();
-        if("lzo".equals(fileSinkConfig.getCompressCodec())){
+        if ("lzo".equals(fileSinkConfig.getCompressCodec())) {
             suffix = ".lzo";
         }
         if (StringUtils.isBlank(fileNameExpression)) {

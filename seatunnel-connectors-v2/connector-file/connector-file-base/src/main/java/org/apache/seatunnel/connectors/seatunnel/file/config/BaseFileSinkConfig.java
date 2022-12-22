@@ -50,9 +50,9 @@ public class BaseFileSinkConfig implements DelimiterConfig, CompressConfig, Seri
 
     public BaseFileSinkConfig(@NonNull Config config) {
         if (config.hasPath(BaseSinkConfig.COMPRESS_CODEC.key())) {
-            if("lzo".equals(config.getString(BaseSinkConfig.COMPRESS_CODEC.key()))){
+            if ("lzo".equals(config.getString(BaseSinkConfig.COMPRESS_CODEC.key()))) {
                 this.compressCodec = config.getString(BaseSinkConfig.COMPRESS_CODEC.key());
-            }else{
+            } else {
                 throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
                         "Compress only supported lzo by SeaTunnel file connector now");
             }

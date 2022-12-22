@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
-import io.airlift.compress.lzo.LzopCodec;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -27,9 +26,9 @@ import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
+import io.airlift.compress.lzo.LzopCodec;
 import lombok.NonNull;
 import org.apache.hadoop.fs.FSDataOutputStream;
 
@@ -116,11 +115,11 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         FSDataOutputStream fsDataOutputStream = beingWrittenOutputStream.get(filePath);
         if (fsDataOutputStream == null) {
             try {
-                if("lzo".equals(compressCodec)){
+                if ("lzo".equals(compressCodec)) {
                     LzopCodec lzo = new LzopCodec();
                     OutputStream out = lzo.createOutputStream(fileSystemUtils.getOutputStream(filePath));
                     fsDataOutputStream = new FSDataOutputStream(out);
-                }else{
+                } else {
                     fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
                 }
                 beingWrittenOutputStream.put(filePath, fsDataOutputStream);
