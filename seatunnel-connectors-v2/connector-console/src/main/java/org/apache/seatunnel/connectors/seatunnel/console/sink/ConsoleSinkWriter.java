@@ -42,7 +42,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     public ConsoleSinkWriter(SeaTunnelRowType seaTunnelRowType, SinkWriter.Context context) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.context = context;
-        log.info("fields info: {}", fieldsInfo(seaTunnelRowType));
+        log.info("output rowType: {}", fieldsInfo(seaTunnelRowType));
     }
 
     @Override
