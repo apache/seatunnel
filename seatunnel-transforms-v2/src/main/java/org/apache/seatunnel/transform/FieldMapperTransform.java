@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.transform.common.AbstractSeaTunnelTransform;
 import org.apache.seatunnel.transform.exception.FieldMapperTransformErrorCode;
@@ -32,7 +34,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.Lists;
@@ -65,7 +66,7 @@ public class FieldMapperTransform extends AbstractSeaTunnelTransform {
         if (!pluginConfig.hasPath(FIELD_MAPPER.key())) {
             throw new IllegalArgumentException("The configuration missing key: " + FIELD_MAPPER);
         }
-        this.fieldMapper = convertConfigToMap(pluginConfig.getConfig(FIELD_MAPPER.key()));
+        this.fieldMapper = convertConfigToSortedMap(pluginConfig.getConfig(FIELD_MAPPER.key()));
     }
 
     private static LinkedHashMap<String, String> convertConfigToSortedMap(Config config) {
@@ -78,11 +79,12 @@ public class FieldMapperTransform extends AbstractSeaTunnelTransform {
         jsonNodes.fields().forEachRemaining(field -> {
             String key = field.getKey();
             JsonNode value = field.getValue();
-            
+
             if (value.isTextual()) {
                 fieldsMap.put(key, value.textValue());
             } else {
-                throw new new SeaTunnelRuntimeException(CommonErrorCode.UNSUPPORTED_OPERATION, xxx);
+                throw new SeaTunnelRuntimeException(CommonErrorCode.UNSUPPORTED_OPERATION,
+                    "field mapper value must be text");
             }
         });
         return fieldsMap;
