@@ -5,22 +5,24 @@
 ### Core
 
 - [Core] [Starter] Fix the bug of ST log print failed in some jdk versions #3160
-- [Core] Fix bug that shell script about downloading plugins does not work #3462
+- [Core] [Shell] Fix bug that shell script about downloading plugins does not work #3462
 
 ### Connector-V2
 
 - [Connector-V2] [Jdbc] Fix the bug that jdbc source can not be stopped in batch mode #3220
 - [Connector-V2] [Jdbc] Fix the bug that jdbc connector reset in jdbc connector #3670
+- [Connector-V2] [Jdbc] Fix the bug that jdbc connector exactly-once it will throw NullPointerException #3730
 - [Connector-V2] [Hive] Fix the following bugs of hive connector: 1. write parquet NullPointerException 2. when restore write from states getting error file path #3258
 - [Connector-V2] [File] Fix the bug that when getting file system throw NullPointerException #3506
-- [Connector-V2] [Hudi] Fix the bug that the split owner of Hudi connector may be negative #3184
 - [Connector-V2] [File] Fix the bug that when user does not config the `fileNameExpression` it will throw NullPointerException #3706
+- [Connector-V2] [Hudi] Fix the bug that the split owner of Hudi connector may be negative #3184
 
 ### ST-Engine
 
 - [ST-Engine] Fix bug data file name will duplicate when use SeaTunnel Engine #3717
 - [ST-Engine] Fix job restart of all nodes down #3722
 - [ST-Engine] Fix the bug that checkpoint stuck in ST-Engine #3213
+- [ST-Engine] Fix the bug that checkpoint failed in ST-Engine #3769
 
 ### E2E
 
@@ -31,6 +33,7 @@
 ### Core
 
 - [Core] [Starter] [Flink] Upgrade the method of loading extra jars in flink starter #2982
+- [Core] [Pom] [Package] Optimize package process #3751
 
 ### Connector-V1
 
@@ -47,6 +50,7 @@
 - [Connector-V2] [Kafka] Support setting read start offset or message time in kafka connector #3157
 - [Connector-V2] [Kafka] Support specify multiple partition keys in kafka connector #3230
 - [Connector-V2] [Kafka] Support dynamic discover topic & partition in kafka connector #3125
+- [Connector-V2] [Kafka] Support text format for kafka connector #3711
 - [Connector-V2] [IotDB] Add the parameter check logic for iotDB sink connector #3412
 - [Connector-V2] [Jdbc] Support setting fetch size in jdbc connector #3478
 - [Connector-V2] [Jdbc] Support upsert config in jdbc connector #3708
@@ -55,11 +59,11 @@
 - [Connector-V2] [Oracle] Improve data type mapping of Oracle connector #3486
 - [Connector-V2] [Http] Support extract complex json string in http connector #3510
 - [Connector-V2] [File] [S3] Support s3a protocol in S3 file connector #3632
+- [Connector-V2] [File] [HDFS] Support setting hdfs-site.xml #3778
 - [Connector-V2] [File] Support file split in file connectors #3625
 - [Connector-V2] [CDC] Support write cdc changelog event in elsticsearch sink connector #3673
 - [Connector-V2] [CDC] Support write cdc changelog event in clickhouse sink connector #3653
 - [Conncetor-V2] [CDC] Support write cdc changelog event in jdbc connector #3444
-- [Connector-V2] [Kafka] Support text format for kafka connector #3711
 
 ### ST-Engine
 
@@ -82,6 +86,7 @@
 
 - [Core] [Log] Integrate slf4j and log4j2 for unified management logs #3025
 - [Core] [Connector-V2] [Exception] Unified exception API & Unified connector error tip message #3045
+- [Core] [Shade] [Hadoop] Add hadoop shade package for SeaTunnel #3755
 
 ### Connector-V2
 
@@ -95,6 +100,7 @@
 - [Connector-V2] [MyHours] Add MyHours source connector #3228
 - [Connector-V2] [Lemlist] Add Lemlist source connector #3346
 - [Connector-V2] [CDC] [MySql] Add mysql cdc source connector #3455
+- [Connector-V2] [CDC] [SqlServer] Add sqlserver cdc source connector #3686
 - [Connector-V2] [Klaviyo] Add Klaviyo source connector #3443
 - [Connector-V2] [OneSingal] Add OneSingal source connector #3454
 - [Connector-V2] [Slack] Add slack sink connector #3226
@@ -115,6 +121,7 @@
 - [ST-Engine] Add metrics statistic in ST-Engine #3621
 - [ST-Engine] Support IMap file storage in ST-Engine #3418
 - [ST-Engine] Support S3 file system for IMap file storage #3675
+- [ST-Engine] Support save job restart status information in ST-Engine #3637 
 
 ### E2E
 
