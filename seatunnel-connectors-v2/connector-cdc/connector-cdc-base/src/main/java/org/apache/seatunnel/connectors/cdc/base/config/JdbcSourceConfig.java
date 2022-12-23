@@ -21,7 +21,6 @@ import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Properties;
 
@@ -39,7 +38,7 @@ public abstract class JdbcSourceConfig extends BaseSourceConfig {
     protected final List<String> tableList;
     protected final int fetchSize;
     protected final String serverTimeZone;
-    protected final Duration connectTimeout;
+    protected final long connectTimeoutMillis;
     protected final int connectMaxRetries;
     protected final int connectionPoolSize;
 
@@ -59,7 +58,7 @@ public abstract class JdbcSourceConfig extends BaseSourceConfig {
             String password,
             int fetchSize,
             String serverTimeZone,
-            Duration connectTimeout,
+            long connectTimeoutMillis,
             int connectMaxRetries,
             int connectionPoolSize) {
         super(
@@ -78,7 +77,7 @@ public abstract class JdbcSourceConfig extends BaseSourceConfig {
         this.tableList = tableList;
         this.fetchSize = fetchSize;
         this.serverTimeZone = serverTimeZone;
-        this.connectTimeout = connectTimeout;
+        this.connectTimeoutMillis = connectTimeoutMillis;
         this.connectMaxRetries = connectMaxRetries;
         this.connectionPoolSize = connectionPoolSize;
     }
@@ -121,8 +120,8 @@ public abstract class JdbcSourceConfig extends BaseSourceConfig {
         return serverTimeZone;
     }
 
-    public Duration getConnectTimeout() {
-        return connectTimeout;
+    public long getConnectTimeoutMillis() {
+        return connectTimeoutMillis;
     }
 
     public int getConnectMaxRetries() {
