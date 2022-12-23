@@ -46,7 +46,7 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory {
                 JdbcSourceOptions.PORT,
                 JdbcSourceOptions.SERVER_ID,
                 JdbcSourceOptions.SERVER_TIME_ZONE,
-                JdbcSourceOptions.CONNECT_TIMEOUT,
+                JdbcSourceOptions.CONNECT_TIMEOUT_MS,
                 JdbcSourceOptions.CONNECT_MAX_RETRIES,
                 JdbcSourceOptions.CONNECTION_POOL_SIZE)
             .build();

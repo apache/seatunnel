@@ -21,8 +21,6 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 
-import java.time.Duration;
-
 /** Configurations for {@link IncrementalSource} of JDBC data source. */
 @SuppressWarnings("checkstyle:MagicNumber")
 public class JdbcSourceOptions extends SourceOptions {
@@ -83,10 +81,10 @@ public class JdbcSourceOptions extends SourceOptions {
                                     + "so it can read the binlog. By default, a random number is generated between"
                                     + " 5400 and 6400, though we recommend setting an explicit value.");
 
-    public static final Option<Duration> CONNECT_TIMEOUT =
-            Options.key("connect.timeout")
-                    .durationType()
-                    .defaultValue(Duration.ofSeconds(30))
+    public static final Option<Long> CONNECT_TIMEOUT_MS =
+            Options.key("connect.timeout.ms")
+                    .longType()
+                    .defaultValue(30000L)
                     .withDescription(
                             "The maximum time that the connector should wait after trying to connect to the database server before timing out.");
 
