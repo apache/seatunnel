@@ -26,13 +26,11 @@ connector-cassandra
 connector-cdc-mysql
 connector-cdc-sqlserver
 connector-clickhouse
-connector-console
 connector-datahub
 connector-dingtalk
 connector-doris
 connector-elasticsearch
 connector-email
-connector-fake
 connector-file-ftp
 connector-file-hadoop
 connector-file-local
