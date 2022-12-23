@@ -105,7 +105,7 @@ public class JdbcConfig implements Serializable {
             jdbcOptions.batchIntervalMs = config.getInt(JdbcConfig.BATCH_INTERVAL_MS.key());
         }
 
-        if (config.hasPath(JdbcConfig.IS_EXACTLY_ONCE.key())) {
+        if (config.hasPath(JdbcConfig.IS_EXACTLY_ONCE.key()) && config.getBoolean(JdbcConfig.IS_EXACTLY_ONCE.key())) {
             jdbcOptions.xaDataSourceClassName = config.getString(JdbcConfig.XA_DATA_SOURCE_CLASS_NAME.key());
             if (config.hasPath(JdbcConfig.MAX_COMMIT_ATTEMPTS.key())) {
                 jdbcOptions.maxCommitAttempts = config.getInt(JdbcConfig.MAX_COMMIT_ATTEMPTS.key());
