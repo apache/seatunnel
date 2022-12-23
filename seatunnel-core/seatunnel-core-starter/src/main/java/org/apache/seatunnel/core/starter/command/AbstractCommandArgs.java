@@ -18,6 +18,7 @@
 package org.apache.seatunnel.core.starter.command;
 
 import org.apache.seatunnel.common.Constants;
+import org.apache.seatunnel.common.config.DeployMode;
 
 import com.beust.jcommander.Parameter;
 
@@ -102,5 +103,9 @@ public abstract class AbstractCommandArgs implements CommandArgs {
 
     public void setOriginalParameters(List<String> originalParameters) {
         this.originalParameters = originalParameters;
+    }
+
+    public DeployMode getDeployMode() {
+        throw new UnsupportedOperationException("Abstract class does not support this operation");
     }
 }

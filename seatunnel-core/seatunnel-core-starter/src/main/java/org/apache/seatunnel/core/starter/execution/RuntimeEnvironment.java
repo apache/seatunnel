@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.core.starter.execution;
 
-import org.apache.seatunnel.apis.base.env.RuntimeEnv;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 
@@ -31,15 +30,15 @@ import java.util.List;
  * used to store the engine context objects
  */
 public interface RuntimeEnvironment {
-    RuntimeEnv setConfig(Config config);
+    RuntimeEnvironment setConfig(Config config);
 
     Config getConfig();
 
     CheckResult checkConfig();
 
-    RuntimeEnv prepare();
+    RuntimeEnvironment prepare();
 
-    RuntimeEnv setJobMode(JobMode mode);
+    RuntimeEnvironment setJobMode(JobMode mode);
 
     JobMode getJobMode();
 

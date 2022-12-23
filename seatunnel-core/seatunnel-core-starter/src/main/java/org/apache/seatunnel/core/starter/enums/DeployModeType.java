@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.enums;
 
+import com.beust.jcommander.IStringConverter;
+
 /**
  * Driver submitted mode, only works with Spark engine
  */
@@ -28,6 +30,13 @@ public enum DeployModeType {
 
     DeployModeType(String deployMode) {
         this.deployMode = deployMode;
+    }
+
+    public static class DeployModeConverter implements IStringConverter<DeployModeType> {
+        @Override
+        public DeployModeType convert(String value) {
+            return DeployModeType.valueOf(value.toUpperCase());
+        }
     }
 
     public String getDeployMode() {
