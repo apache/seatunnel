@@ -24,11 +24,15 @@
 SEATUNNEL_HOME=$(cd $(dirname $0);cd ../;pwd)
 
 # connector default version is 2.2.0, you can also choose a custom version. eg: 2.1.2:  sh install-plugin.sh 2.1.2
-version=2.2.0
+version=2.3.0
 
 if [ -n "$1" ]; then
     version="$1"
 fi
+
+echo "Install hadoop shade jar, usage version is ${version}"
+
+${SEATUNNEL_HOME}/mvnw dependency:get -DgroupId=org.apache.seatunnel -DartifactId=seatunnel-hadoop3-3.1.4-uber -Dversion=${version} -Ddest=${SEATUNNEL_HOME}/lib
 
 echo "Install SeaTunnel connectors plugins, usage version is ${version}"
 
