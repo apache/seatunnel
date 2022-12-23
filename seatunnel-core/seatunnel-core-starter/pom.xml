@@ -21,7 +21,7 @@
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-core</artifactId>
-        <version>2.3.0</version>
+        <version>2.3.1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
@@ -58,8 +58,4 @@
             <artifactId>jcommander</artifactId>
         </dependency>
     </dependencies>
-
-  <scm>
-    <tag>2.3.0</tag>
-  </scm>
 </project>

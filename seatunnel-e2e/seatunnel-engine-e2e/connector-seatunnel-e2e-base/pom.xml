@@ -20,7 +20,7 @@
     <parent>
         <artifactId>seatunnel-engine-e2e</artifactId>
         <groupId>org.apache.seatunnel</groupId>
-        <version>2.3.0</version>
+        <version>2.3.1-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -83,9 +83,4 @@
             </plugin>
         </plugins>
     </build>
-
-
-  <scm>
-    <tag>2.3.0</tag>
-  </scm>
 </project>
