@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -58,9 +59,16 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
 
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
+        String[] fieldNames = new String[sinkColumnsIndexInRow.size()];
+        SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType[sinkColumnsIndexInRow.size()];
+        for (Integer index : sinkColumnsIndexInRow) {
+            fieldNames[index] = seaTunnelRowType.getFieldName(index);
+            fieldTypes[index] = seaTunnelRowType.getFieldType(index);
+        }
+        SeaTunnelRowType seaTunnelRowTypeNew = new SeaTunnelRowType(fieldNames, fieldTypes);
+        super.setSeaTunnelRowTypeInfo(seaTunnelRowTypeNew);
         this.serializationSchema = TextSerializationSchema.builder()
-                .seaTunnelRowType(seaTunnelRowType)
+                .seaTunnelRowType(seaTunnelRowTypeNew)
                 .delimiter(fieldDelimiter)
                 .dateFormatter(dateFormat)
                 .dateTimeFormatter(dateTimeFormat)
@@ -79,7 +87,14 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
             } else {
                 fsDataOutputStream.write(rowDelimiter.getBytes());
             }
-            fsDataOutputStream.write(serializationSchema.serialize(seaTunnelRow));
+            SeaTunnelRow seaTunnelRowNew = new SeaTunnelRow(sinkColumnsIndexInRow.size());
+            seaTunnelRowNew.setTableId(seaTunnelRow.getTableId());
+            seaTunnelRowNew.setRowKind(seaTunnelRow.getRowKind());
+            for (Integer index : sinkColumnsIndexInRow) {
+                Object value = seaTunnelRow.getField(index);
+                seaTunnelRowNew.setField(index, value);
+            }
+            fsDataOutputStream.write(serializationSchema.serialize(seaTunnelRowNew));
         } catch (IOException e) {
             throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
                     String.format("Write data to file [%s] failed", filePath), e);
