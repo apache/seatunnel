@@ -91,7 +91,7 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
                 password,
                 fetchSize,
                 serverTimeZone,
-                connectTimeout,
+                connectTimeoutMillis,
                 connectMaxRetries,
                 connectionPoolSize);
     }
