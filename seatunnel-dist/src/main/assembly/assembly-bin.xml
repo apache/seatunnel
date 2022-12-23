@@ -39,10 +39,15 @@
 
             <includes>
                 <include>README.md</include>
-                <include>bin/**</include>
                 <include>config/**</include>
                 <include>plugins/**</include>
             </includes>
+        </fileSet>
+        <!-- ============ Install Plugin Bin ============  -->
+        <fileSet>
+            <directory>../bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
         </fileSet>
         <!-- ============ Starter Bin ============  -->
         <!--connector starter v2-->
