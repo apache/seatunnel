@@ -36,6 +36,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public class TextWriteStrategy extends AbstractWriteStrategy {
@@ -116,7 +117,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         FSDataOutputStream fsDataOutputStream = beingWrittenOutputStream.get(filePath);
         if (fsDataOutputStream == null) {
             try {
-                CompressFormat compressFormat = CompressFormat.valueOf(compressCodec);
+                CompressFormat compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase(Locale.ROOT));
                 switch (compressFormat) {
                     case LZO:
                         LzopCodec lzo = new LzopCodec();

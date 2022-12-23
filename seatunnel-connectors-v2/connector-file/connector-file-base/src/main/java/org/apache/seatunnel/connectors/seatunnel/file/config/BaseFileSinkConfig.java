@@ -50,7 +50,7 @@ public class BaseFileSinkConfig implements DelimiterConfig, CompressConfig, Seri
 
     public BaseFileSinkConfig(@NonNull Config config) {
         if (config.hasPath(BaseSinkConfig.COMPRESS_CODEC.key())) {
-            CompressFormat compressFormat = CompressFormat.valueOf(config.getString(BaseSinkConfig.COMPRESS_CODEC.key()));
+            CompressFormat compressFormat = CompressFormat.valueOf(config.getString(BaseSinkConfig.COMPRESS_CODEC.key()).toUpperCase(Locale.ROOT));
             switch (compressFormat) {
                 case LZO:
                     this.compressCodec = compressFormat.getCompressCodec();
