@@ -117,16 +117,21 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         FSDataOutputStream fsDataOutputStream = beingWrittenOutputStream.get(filePath);
         if (fsDataOutputStream == null) {
             try {
-                CompressFormat compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase(Locale.ROOT));
-                switch (compressFormat) {
-                    case LZO:
-                        LzopCodec lzo = new LzopCodec();
-                        OutputStream out = lzo.createOutputStream(fileSystemUtils.getOutputStream(filePath));
-                        fsDataOutputStream = new FSDataOutputStream(out);
-                        break;
-                    default:
-                        fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                if (compressCodec != null) {
+                    CompressFormat compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase(Locale.ROOT));
+                    switch (compressFormat) {
+                        case LZO:
+                            LzopCodec lzo = new LzopCodec();
+                            OutputStream out = lzo.createOutputStream(fileSystemUtils.getOutputStream(filePath));
+                            fsDataOutputStream = new FSDataOutputStream(out);
+                            break;
+                        default:
+                            fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                    }
+                } else {
+                    fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
                 }
+
                 beingWrittenOutputStream.put(filePath, fsDataOutputStream);
                 isFirstWrite.put(filePath, true);
             } catch (IOException e) {
