@@ -36,7 +36,7 @@ public interface SeaTunnelPluginLifeCycle {
     /**
      * Check the pluginConfig to do some check operation, default always returns true, should be overridden by plugin.
      * @param pluginConfig Plugin config
-     * @return The check result, true of false
+     * @return The check result, true or false
      */
     default boolean checkConfig(Config pluginConfig) {
         return true;
