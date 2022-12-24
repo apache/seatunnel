@@ -43,4 +43,21 @@ public interface RuntimeEnvironment {
     JobMode getJobMode();
 
     void registerPlugin(List<URL> pluginPaths);
+
+    default void initialize(Config config) {
+        this.setConfig(config.getConfig("env"))
+                .setJobMode(getJobMode(config))
+                .prepare();
+    }
+
+    static JobMode getJobMode(Config config) {
+        JobMode jobMode;
+        Config envConfig = config.getConfig("env");
+        if (envConfig.hasPath("job.mode")) {
+            jobMode = envConfig.getEnum(JobMode.class, "job.mode");
+        } else {
+            jobMode = JobMode.BATCH;
+        }
+        return jobMode;
+    }
 }

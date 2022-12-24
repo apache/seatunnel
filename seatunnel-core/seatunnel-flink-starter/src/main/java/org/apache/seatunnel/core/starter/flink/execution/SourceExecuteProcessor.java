@@ -106,7 +106,7 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
 
     @Override
     protected List<SeaTunnelSource> initializePlugins(List<URL> jarPaths, List<? extends Config> pluginConfigs) {
-        SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery(addUrlToClassloader);
+        SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery(ADD_URL_TO_CLASSLOADER);
         List<SeaTunnelSource> sources = new ArrayList<>();
         Set<URL> jars = new HashSet<>();
         for (Config sourceConfig : pluginConfigs) {

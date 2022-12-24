@@ -20,7 +20,7 @@ package org.apache.seatunnel.core.starter.flink.execution;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
-import org.apache.seatunnel.flink.util.TableUtil;
+import org.apache.seatunnel.core.starter.flink.util.TableUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -41,7 +41,7 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T> implements
     protected static final String PLUGIN_NAME = "plugin_name";
     protected static final String SOURCE_TABLE_NAME = "source_table_name";
 
-    protected final BiConsumer<ClassLoader, URL> addUrlToClassloader = (classLoader, url) -> {
+    protected static final BiConsumer<ClassLoader, URL> ADD_URL_TO_CLASSLOADER = (classLoader, url) -> {
         if (classLoader.getClass().getName().endsWith("SafetyNetWrapperClassLoader")) {
             URLClassLoader c = (URLClassLoader) ReflectionUtils.getField(classLoader, "inner").get();
             ReflectionUtils.invoke(c, "addURL", url);
@@ -81,6 +81,10 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T> implements
 
     protected void registerResultTable(Config pluginConfig, DataStream<Row> dataStream) {
         flinkRuntimeEnvironment.registerResultTable(pluginConfig, dataStream);
+    }
+
+    protected BiConsumer<ClassLoader, URL> getAddUrlToClassloader() {
+        return ADD_URL_TO_CLASSLOADER;
     }
 
     protected abstract List<T> initializePlugins(List<URL> jarPaths, List<? extends Config> pluginConfigs);

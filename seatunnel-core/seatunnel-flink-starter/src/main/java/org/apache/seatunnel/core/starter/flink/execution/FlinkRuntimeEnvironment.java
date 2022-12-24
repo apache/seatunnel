@@ -21,16 +21,15 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.core.starter.execution.RuntimeEnvironment;
-import org.apache.seatunnel.flink.util.ConfigKeyName;
-import org.apache.seatunnel.flink.util.EnvironmentUtil;
-import org.apache.seatunnel.flink.util.TableUtil;
+import org.apache.seatunnel.core.starter.flink.util.ConfigKeyName;
+import org.apache.seatunnel.core.starter.flink.util.EnvironmentUtil;
+import org.apache.seatunnel.core.starter.flink.util.TableUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.api.common.time.Time;
-import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
@@ -43,7 +42,6 @@ import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.api.TableConfig;
-import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.TernaryBoolean;
@@ -56,21 +54,21 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
+    private static final String RESULT_TABLE_NAME = "result_table_name";
+    private static volatile FlinkRuntimeEnvironment INSTANCE = null;
     private Config config;
 
     private StreamExecutionEnvironment environment;
 
     private StreamTableEnvironment tableEnvironment;
 
-    private ExecutionEnvironment batchEnvironment;
-
-    private BatchTableEnvironment batchTableEnvironment;
-
     private JobMode jobMode;
 
     private String jobName = "seatunnel";
 
-    private static final String RESULT_TABLE_NAME = "result_table_name";
+    private FlinkRuntimeEnvironment(Config config) {
+        this.initialize(config);
+    }
 
     @Override
     public FlinkRuntimeEnvironment setConfig(Config config) {
@@ -90,13 +88,8 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
 
     @Override
     public FlinkRuntimeEnvironment prepare() {
-        // Batch/Streaming both use data stream api in SeaTunnel New API
         createStreamEnvironment();
         createStreamTableEnvironment();
-        if (!isStreaming()) {
-            createExecutionEnvironment();
-            createBatchTableEnvironment();
-        }
         if (config.hasPath("job.name")) {
             jobName = config.getString("job.name");
         }
@@ -130,9 +123,6 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
             configurations.add((Configuration) Objects.requireNonNull(ReflectionUtils.getDeclaredMethod(StreamExecutionEnvironment.class,
                     "getConfiguration")).orElseThrow(() -> new RuntimeException("can't find " +
                     "method: getConfiguration")).invoke(this.environment));
-            if (!isStreaming()) {
-                configurations.add(batchEnvironment.getConfiguration());
-            }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -162,8 +152,7 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
 
     private void createStreamTableEnvironment() {
         // use blink and streammode
-        EnvironmentSettings.Builder envBuilder = EnvironmentSettings.newInstance()
-                .inStreamingMode();
+        EnvironmentSettings.Builder envBuilder = EnvironmentSettings.newInstance().inStreamingMode();
         if (this.config.hasPath(ConfigKeyName.PLANNER) && "blink"
                 .equals(this.config.getString(ConfigKeyName.PLANNER))) {
             envBuilder.useBlinkPlanner();
@@ -210,27 +199,6 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
         if (this.jobMode.equals(JobMode.BATCH)) {
             environment.setRuntimeMode(RuntimeExecutionMode.BATCH);
         }
-    }
-
-    public ExecutionEnvironment getBatchEnvironment() {
-        return batchEnvironment;
-    }
-
-    public BatchTableEnvironment getBatchTableEnvironment() {
-        return batchTableEnvironment;
-    }
-
-    private void createExecutionEnvironment() {
-        batchEnvironment = ExecutionEnvironment.getExecutionEnvironment();
-        if (config.hasPath(ConfigKeyName.PARALLELISM)) {
-            int parallelism = config.getInt(ConfigKeyName.PARALLELISM);
-            batchEnvironment.setParallelism(parallelism);
-        }
-        EnvironmentUtil.setRestartStrategy(config, batchEnvironment.getConfig());
-    }
-
-    private void createBatchTableEnvironment() {
-        batchTableEnvironment = BatchTableEnvironment.create(batchEnvironment);
     }
 
     private void setTimeCharacteristic() {
@@ -339,5 +307,16 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
                 }
             }
         }
+    }
+
+    public static FlinkRuntimeEnvironment getInstance(Config config) {
+        if (INSTANCE == null) {
+            synchronized (FlinkRuntimeEnvironment.class) {
+                if (INSTANCE == null) {
+                    INSTANCE = new FlinkRuntimeEnvironment(config);
+                }
+            }
+        }
+        return INSTANCE;
     }
 }
