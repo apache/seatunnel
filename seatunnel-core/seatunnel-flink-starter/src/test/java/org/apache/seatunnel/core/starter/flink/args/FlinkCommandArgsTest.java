@@ -28,7 +28,7 @@ public class FlinkCommandArgsTest {
 
     @Test
     public void testParseFlinkArgs() {
-        String[] args = {"-c", "app.conf", "-t", "-i", "city=shenyang", "-i", "date=20200202"};
+        String[] args = {"-c", "app.conf", "--check", "-i", "city=shenyang", "-i", "date=20200202"};
         FlinkCommandArgs flinkArgs = CommandLineUtils.parse(args, new FlinkCommandArgs(), "seatunnel-flink", true);
         Assertions.assertEquals("app.conf", flinkArgs.getConfigFile());
         Assertions.assertTrue(flinkArgs.isCheckConfig());
