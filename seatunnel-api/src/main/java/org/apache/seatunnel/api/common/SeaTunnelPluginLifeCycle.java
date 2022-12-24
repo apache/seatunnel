@@ -33,4 +33,12 @@ public interface SeaTunnelPluginLifeCycle {
      */
     void prepare(Config pluginConfig) throws PrepareFailException;
 
+    /**
+     * Check the pluginConfig to do some check operation, default always returns true, should be overridden by plugin.
+     * @param pluginConfig Plugin config
+     * @return The check result, true of false
+     */
+    default boolean checkConfig(Config pluginConfig) {
+        return true;
+    }
 }
