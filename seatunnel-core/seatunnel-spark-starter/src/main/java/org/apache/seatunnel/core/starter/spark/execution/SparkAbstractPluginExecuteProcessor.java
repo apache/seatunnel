@@ -21,7 +21,7 @@ import static org.apache.seatunnel.apis.base.plugin.Plugin.RESULT_TABLE_NAME;
 import static org.apache.seatunnel.apis.base.plugin.Plugin.SOURCE_TABLE_NAME;
 
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.spark.SparkEnvironment;
+import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -31,22 +31,27 @@ import org.apache.spark.sql.Row;
 import java.util.List;
 import java.util.Optional;
 
-public abstract class AbstractPluginExecuteProcessor<T> implements PluginExecuteProcessor {
-
-    protected final SparkEnvironment sparkEnvironment;
+public abstract class SparkAbstractPluginExecuteProcessor<T> implements
+        PluginExecuteProcessor<Dataset<Row>, SparkRuntimeEnvironment> {
+    protected SparkRuntimeEnvironment sparkRuntimeEnvironment;
     protected final List<? extends Config> pluginConfigs;
     protected final JobContext jobContext;
     protected final List<T> plugins;
     protected static final String ENGINE_TYPE = "seatunnel";
     protected static final String PLUGIN_NAME = "plugin_name";
 
-    protected AbstractPluginExecuteProcessor(SparkEnvironment sparkEnvironment,
-                                             JobContext jobContext,
-                                             List<? extends Config> pluginConfigs) {
-        this.sparkEnvironment = sparkEnvironment;
+    protected SparkAbstractPluginExecuteProcessor(SparkRuntimeEnvironment sparkRuntimeEnvironment,
+                                                  JobContext jobContext,
+                                                  List<? extends Config> pluginConfigs) {
+        this.sparkRuntimeEnvironment = sparkRuntimeEnvironment;
         this.jobContext = jobContext;
         this.pluginConfigs = pluginConfigs;
         this.plugins = initializePlugins(pluginConfigs);
+    }
+
+    @Override
+    public void setRuntimeEnvironment(SparkRuntimeEnvironment sparkRuntimeEnvironment) {
+        this.sparkRuntimeEnvironment = sparkRuntimeEnvironment;
     }
 
     protected abstract List<T> initializePlugins(List<? extends Config> pluginConfigs);
@@ -58,12 +63,13 @@ public abstract class AbstractPluginExecuteProcessor<T> implements PluginExecute
         }
     }
 
-    protected Optional<Dataset<Row>> fromSourceTable(Config pluginConfig, SparkEnvironment sparkEnvironment) {
+    protected Optional<Dataset<Row>> fromSourceTable(Config pluginConfig,
+                                                     SparkRuntimeEnvironment sparkRuntimeEnvironment) {
         if (!pluginConfig.hasPath(SOURCE_TABLE_NAME)) {
             return Optional.empty();
         }
         String sourceTableName = pluginConfig.getString(SOURCE_TABLE_NAME);
-        return Optional.of(sparkEnvironment.getSparkSession().read().table(sourceTableName));
+        return Optional.of(sparkRuntimeEnvironment.getSparkSession().read().table(sourceTableName));
     }
 
     private void registerTempView(String tableName, Dataset<Row> ds) {

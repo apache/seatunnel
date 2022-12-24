@@ -20,11 +20,20 @@ package org.apache.seatunnel.core.starter.enums;
 import com.beust.jcommander.IStringConverter;
 
 /**
- * Driver submitted mode, only works with Spark engine
+ * Driver submitted mode, only works with Spark engine and Flink engine
  */
 public enum DeployModeType {
+    /**
+     * Spark
+     */
     CLIENT("client"),
-    CLUSTER("cluster");
+    CLUSTER("cluster"),
+
+    /**
+     * Flink
+     */
+    RUN("run"),
+    RUN_APPLICATION("run-application");
 
     private final String deployMode;
 

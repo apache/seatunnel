@@ -36,7 +36,7 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 
 public abstract class FlinkAbstractPluginExecuteProcessor<T> implements
-            PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment> {
+        PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment> {
     protected static final String ENGINE_TYPE = "seatunnel";
     protected static final String PLUGIN_NAME = "plugin_name";
     protected static final String SOURCE_TABLE_NAME = "source_table_name";
@@ -81,10 +81,6 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T> implements
 
     protected void registerResultTable(Config pluginConfig, DataStream<Row> dataStream) {
         flinkRuntimeEnvironment.registerResultTable(pluginConfig, dataStream);
-    }
-
-    protected BiConsumer<ClassLoader, URL> getAddUrlToClassloader() {
-        return ADD_URL_TO_CLASSLOADER;
     }
 
     protected abstract List<T> initializePlugins(List<URL> jarPaths, List<? extends Config> pluginConfigs);

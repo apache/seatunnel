@@ -28,21 +28,12 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * The SeaTunnel flink starter. This class is responsible for generate the final flink job execute command.
+ * The SeaTunnel flink starter, used to generate the final flink job execute command.
  */
 public class FlinkStarter implements Starter {
-
     private static final String APP_NAME = SeatunnelFlink.class.getName();
     public static final String APP_JAR_NAME = "seatunnel-flink-starter.jar";
-
-    /**
-     * SeaTunnel parameters, used by SeaTunnel application. e.g. `-c config.conf`
-     */
     private final FlinkCommandArgs flinkCommandArgs;
-
-    /**
-     * SeaTunnel flink job jar.
-     */
     private final String appJar;
 
     FlinkStarter(String[] args) {
@@ -82,5 +73,4 @@ public class FlinkStarter implements Starter {
                 .forEach(variable -> command.add("-D" + variable));
         return command;
     }
-
 }

@@ -26,12 +26,11 @@ import org.apache.seatunnel.core.starter.flink.config.StarterConstant;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
 public class SeatunnelFlink {
-
     public static void main(String[] args) throws CommandException {
-        FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parse(args, new FlinkCommandArgs(), StarterConstant.SHELL_NAME, true);
+        FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parse(args, new FlinkCommandArgs(),
+                StarterConstant.SHELL_NAME, true);
         Command<FlinkCommandArgs> flinkCommand = new FlinkCommandBuilder()
             .buildCommand(flinkCommandArgs);
         SeaTunnel.run(flinkCommand);
     }
-
 }

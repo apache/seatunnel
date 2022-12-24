@@ -19,7 +19,7 @@ package org.apache.seatunnel.core.starter.spark.args;
 
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
-import org.apache.seatunnel.core.starter.converter.DeployModeConverter;
+import org.apache.seatunnel.core.starter.enums.DeployModeType;
 import org.apache.seatunnel.core.starter.enums.EngineType;
 
 import com.beust.jcommander.Parameter;
@@ -29,7 +29,7 @@ public class SparkCommandArgs extends AbstractCommandArgs {
     @Parameter(names = {"-e", "--deploy-mode"},
         description = "Spark deploy mode",
         required = true,
-        converter = DeployModeConverter.class)
+        converter = DeployModeType.DeployModeConverter.class)
     private DeployMode deployMode;
 
     @Parameter(names = {"-m", "--master"},
