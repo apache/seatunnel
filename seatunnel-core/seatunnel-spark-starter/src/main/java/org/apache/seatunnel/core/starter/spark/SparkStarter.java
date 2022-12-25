@@ -127,6 +127,8 @@ public class SparkStarter implements Starter {
         this.jars.addAll(Common.getLibJars());
         this.jars.addAll(getConnectorJarDependencies());
         this.jars.addAll(new ArrayList<>(Common.getThirdPartyJars(sparkConf.getOrDefault(EnvCommonOptions.JARS.key(), ""))));
+        // TODO: override job name in command args, because in spark cluster deploy mode command-line arguments are read first
+        // if user has not specified job with command line, the job name config in file will not work
         return buildFinal();
     }
 
@@ -207,6 +209,7 @@ public class SparkStarter implements Starter {
         appendOption(commands, "--config", this.commandArgs.getConfigFile());
         appendOption(commands, "--master", this.commandArgs.getMaster());
         appendOption(commands, "--deploy-mode", this.commandArgs.getDeployMode().getDeployMode());
+        appendOption(commands, "--name", this.commandArgs.getJobName());
         if (this.commandArgs.isCheckConfig()) {
             commands.add("--check");
         }

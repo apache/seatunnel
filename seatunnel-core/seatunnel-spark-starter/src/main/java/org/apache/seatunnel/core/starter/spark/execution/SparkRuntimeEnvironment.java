@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.core.starter.spark.execution;
 
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.starter.enums.PluginType;
@@ -50,6 +51,8 @@ public class SparkRuntimeEnvironment implements RuntimeEnvironment {
     private boolean enableHive = false;
 
     private JobMode jobMode;
+
+    private String jobName = Constants.LOGO;
 
     private SparkRuntimeEnvironment(Config config) {
         this.setEnableHive(checkIsContainHive(config));
@@ -97,6 +100,9 @@ public class SparkRuntimeEnvironment implements RuntimeEnvironment {
 
     @Override
     public SparkRuntimeEnvironment prepare() {
+        if (config.hasPath("job.name")) {
+            this.jobName = config.getString("job.name");
+        }
         sparkConf = createSparkConf();
         SparkSession.Builder builder = SparkSession.builder().config(sparkConf);
         if (enableHive) {
@@ -122,9 +128,7 @@ public class SparkRuntimeEnvironment implements RuntimeEnvironment {
     private SparkConf createSparkConf() {
         SparkConf sparkConf = new SparkConf();
         this.config.entrySet().forEach(entry -> sparkConf.set(entry.getKey(), String.valueOf(entry.getValue().unwrapped())));
-        if (config.hasPath("job.name")) {
-            sparkConf.setAppName(config.getString("job.name"));
-        }
+        sparkConf.setAppName(jobName);
         return sparkConf;
     }
 
