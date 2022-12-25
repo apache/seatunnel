@@ -38,7 +38,7 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
             converter = FlinkMasterTargetConverter.class,
             description = "Flink job submitted target master, support [local, remote, yarn-session, yarn-per-job, " +
                     "kubernetes-session, yarn-application, kubernetes-application]")
-    private MasterType masterType = MasterType.LOCAL;
+    private MasterType masterType;
 
     public DeployMode getDeployMode() {
         return deployMode;
@@ -54,6 +54,18 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
 
     public void setMasterType(MasterType masterType) {
         this.masterType = masterType;
+    }
+
+    @Override
+    public String toString() {
+        return "FlinkCommandArgs{" +
+                "deployMode=" + deployMode +
+                ", masterType=" + masterType +
+                ", configFile='" + configFile + '\'' +
+                ", variables=" + variables +
+                ", jobName='" + jobName + '\'' +
+                ", originalParameters=" + originalParameters +
+                '}';
     }
 
     public static class FlinkMasterTargetConverter implements IStringConverter<MasterType> {

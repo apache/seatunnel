@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
@@ -64,7 +65,7 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
 
     private JobMode jobMode;
 
-    private String jobName = "seatunnel";
+    private String jobName = Constants.LOGO;
 
     private FlinkRuntimeEnvironment(Config config) {
         this.initialize(config);

@@ -59,8 +59,10 @@ public class FlinkStarter implements Starter {
         // set deploy mode, run or run-application
         command.add(flinkCommandArgs.getDeployMode().getDeployMode());
         // set submitted target master
-        command.add("--target");
-        command.add(flinkCommandArgs.getMasterType().getMaster());
+        if (flinkCommandArgs.getMasterType() != null) {
+            command.add("--target");
+            command.add(flinkCommandArgs.getMasterType().getMaster());
+        }
         // set flink original parameters
         command.addAll(flinkCommandArgs.getOriginalParameters());
         // set main class name
@@ -75,8 +77,9 @@ public class FlinkStarter implements Starter {
         if (flinkCommandArgs.isCheckConfig()) {
             command.add("--check");
         }
-        // set flink job name
-        command.add("-Dpipeline.name=" + flinkCommandArgs.getJobName());
+        // set job name
+        command.add("--name");
+        command.add(flinkCommandArgs.getJobName());
         // set extra system properties
         flinkCommandArgs.getVariables().stream()
                 .filter(Objects::nonNull)

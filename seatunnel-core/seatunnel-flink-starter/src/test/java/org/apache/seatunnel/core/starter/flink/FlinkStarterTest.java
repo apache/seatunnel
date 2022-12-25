@@ -31,14 +31,6 @@ public class FlinkStarterTest {
     }
 
     @Test
-    public void testJobNameOption() {
-        String[] args = {"--config", "test.conf", "-n", "test-flink-job"};
-        FlinkStarter flinkStarter = new FlinkStarter(args);
-        String flinkExecuteCommand = String.join(" ", flinkStarter.buildCommands());
-        Assertions.assertTrue(flinkExecuteCommand.contains("-Dpipeline.name=test-flink-job"));
-    }
-
-    @Test
     public void testSubmitMasterOption() {
         String[] args = {"--config", "test.conf", "-n", "test-flink-job", "--master", "yarn-session"};
         FlinkStarter flinkStarter = new FlinkStarter(args);

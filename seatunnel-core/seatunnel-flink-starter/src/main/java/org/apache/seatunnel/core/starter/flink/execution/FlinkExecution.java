@@ -86,7 +86,8 @@ public class FlinkExecution implements TaskExecution {
         List<DataStream<Row>> dataStreams = new ArrayList<>();
         dataStreams = sourcePluginExecuteProcessor.execute(dataStreams);
         sinkPluginExecuteProcessor.execute(dataStreams);
-        log.info("Flink Execution Plan:{}", flinkRuntimeEnvironment.getStreamExecutionEnvironment().getExecutionPlan());
+        log.info("Flink Execution Plan: {}", flinkRuntimeEnvironment.getStreamExecutionEnvironment().getExecutionPlan());
+        log.info("Flink job name: {}", flinkRuntimeEnvironment.getJobName());
         try {
             flinkRuntimeEnvironment.getStreamExecutionEnvironment().execute(flinkRuntimeEnvironment.getJobName());
         } catch (Exception e) {
