@@ -45,8 +45,10 @@ public class FileUtils {
      */
     public static Path getConfigPath(@NonNull AbstractCommandArgs args) {
         switch (args.getDeployMode()) {
+            case RUN:
             case CLIENT:
                 return Paths.get(args.getConfigFile());
+            case RUN_APPLICATION:
             case CLUSTER:
                 return Paths.get(getFileName(args.getConfigFile()));
             default:
