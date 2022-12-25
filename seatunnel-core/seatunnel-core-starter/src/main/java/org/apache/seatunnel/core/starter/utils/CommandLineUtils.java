@@ -20,11 +20,10 @@ package org.apache.seatunnel.core.starter.utils;
 import static org.apache.seatunnel.core.starter.constants.Constants.USAGE_EXIT_CODE;
 
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
+import org.apache.seatunnel.core.starter.command.UsageFormatter;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
-import com.beust.jcommander.UnixStyleUsageFormatter;
-import org.apache.seatunnel.core.starter.command.UsageFormatter;
 
 public class CommandLineUtils {
 
