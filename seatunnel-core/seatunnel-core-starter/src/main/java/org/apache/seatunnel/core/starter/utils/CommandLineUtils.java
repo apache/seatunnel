@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
-import static org.apache.seatunnel.core.starter.constants.Constants.USAGE_EXIT_CODE;
+import static org.apache.seatunnel.core.starter.constants.SeaTunnelStarterConstants.USAGE_EXIT_CODE;
 
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
 import org.apache.seatunnel.core.starter.command.UsageFormatter;
@@ -35,7 +35,9 @@ public class CommandLineUtils {
         return parse(args, obj, null, false);
     }
 
-    public static <T extends AbstractCommandArgs> T parse(String[] args, T obj, String programName, boolean acceptUnknownOptions) {
+    public static <T extends AbstractCommandArgs> T parse(String[] args,
+                                                          T obj, String programName,
+                                                          boolean acceptUnknownOptions) {
         JCommander jCommander = JCommander.newBuilder()
                 .programName(programName)
                 .addObject(obj)

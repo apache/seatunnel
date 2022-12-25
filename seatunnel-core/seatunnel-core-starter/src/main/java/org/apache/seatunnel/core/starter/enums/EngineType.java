@@ -21,17 +21,29 @@ package org.apache.seatunnel.core.starter.enums;
  * Engine type enum
  */
 public enum EngineType {
-    SPARK("spark"),
-    FLINK("flink"),
-    SEATUNNEL("seatunnel");
+    SPARK("spark", "seatunnel-spark-starter.jar", "start-seatunnel-spark-connector-v2.sh"),
+    FLINK("flink", "seatunnel-flink-starter.jar", "start-seatunnel-flink-connector-v2.sh"),
+    SEATUNNEL("seatunnel", "seatunnel-starter.jar", "seatunnel.sh");
 
     private final String engine;
+    private final String starterJarName;
+    private final String starterShellName;
 
-    EngineType(String engine) {
+    EngineType(String engine, String starterJarName, String starterShellName) {
         this.engine = engine;
+        this.starterJarName = starterJarName;
+        this.starterShellName = starterShellName;
     }
 
     public String getEngine() {
         return engine;
+    }
+
+    public String getStarterJarName() {
+        return starterJarName;
+    }
+
+    public String getStarterShellName() {
+        return starterShellName;
     }
 }

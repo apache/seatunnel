@@ -19,16 +19,16 @@ package org.apache.seatunnel.core.starter.flink;
 
 import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.enums.EngineType;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.flink.command.FlinkCommandBuilder;
-import org.apache.seatunnel.core.starter.flink.config.StarterConstant;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
 public class SeatunnelFlink {
     public static void main(String[] args) throws CommandException {
         FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parse(args, new FlinkCommandArgs(),
-                StarterConstant.SHELL_NAME, true);
+                EngineType.FLINK.getStarterShellName(), true);
         Command<FlinkCommandArgs> flinkCommand = new FlinkCommandBuilder()
             .buildCommand(flinkCommandArgs);
         SeaTunnel.run(flinkCommand);

@@ -15,10 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.flink.config;
+package org.apache.seatunnel.core.starter.constants;
 
-public class StarterConstant {
-
-    public static final String SHELL_NAME = "start-seatunnel-flink-connector-v2.sh";
-
+public class SeaTunnelStarterConstants {
+    public static final int USAGE_EXIT_CODE = 234;
 }
