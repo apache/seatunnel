@@ -33,13 +33,13 @@ public enum MasterType {
     REMOTE("remote"),
     YARN_SESSION("yarn-session"),
     YARN_PER_JOB("yarn-per-job"),
-    K8S_SESSION("kubernetes-session"),
+    KUBERNETES_SESSION("kubernetes-session"),
 
     /**
      * Flink run-application deploy mode
      */
     YARN_APPLICATION("yarn-application"),
-    K8S_APPLICATION("kubernetes-application");
+    KUBERNETES_APPLICATION("kubernetes-application");
 
     private final String master;
 

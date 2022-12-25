@@ -64,9 +64,9 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
             MASTER_TYPE_LIST.add(MasterType.REMOTE);
             MASTER_TYPE_LIST.add(MasterType.YARN_SESSION);
             MASTER_TYPE_LIST.add(MasterType.YARN_PER_JOB);
-            MASTER_TYPE_LIST.add(MasterType.K8S_SESSION);
+            MASTER_TYPE_LIST.add(MasterType.KUBERNETES_SESSION);
             MASTER_TYPE_LIST.add(MasterType.YARN_APPLICATION);
-            MASTER_TYPE_LIST.add(MasterType.K8S_APPLICATION);
+            MASTER_TYPE_LIST.add(MasterType.KUBERNETES_APPLICATION);
         }
 
         @Override
