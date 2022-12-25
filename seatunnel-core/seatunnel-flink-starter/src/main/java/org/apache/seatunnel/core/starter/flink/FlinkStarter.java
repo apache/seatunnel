@@ -53,20 +53,30 @@ public class FlinkStarter implements Starter {
     @Override
     public List<String> buildCommands() {
         List<String> command = new ArrayList<>();
+        // set start command
         command.add("${FLINK_HOME}/bin/flink");
-        command.add(flinkCommandArgs.getRunMode().getMode());
+        // set deploy mode, run or run-application
+        command.add(flinkCommandArgs.getDeployMode().getDeployMode());
+        // set submitted target master
+        command.add("--target");
+        command.add(flinkCommandArgs.getMasterType().getMaster());
+        // set flink original parameters
         command.addAll(flinkCommandArgs.getOriginalParameters());
+        // set main class name
         command.add("-c");
         command.add(APP_NAME);
+        // set main jar name
         command.add(appJar);
+        // set config file path
         command.add("--config");
         command.add(flinkCommandArgs.getConfigFile());
+        // set check config flag
         if (flinkCommandArgs.isCheckConfig()) {
             command.add("--check");
         }
-        //set job name
+        // set flink job name
         command.add("-Dpipeline.name=" + flinkCommandArgs.getJobName());
-        // set System properties
+        // set extra system properties
         flinkCommandArgs.getVariables().stream()
                 .filter(Objects::nonNull)
                 .map(String::trim)

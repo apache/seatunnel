@@ -24,6 +24,7 @@ import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 import com.beust.jcommander.UnixStyleUsageFormatter;
+import org.apache.seatunnel.core.starter.command.UsageFormatter;
 
 public class CommandLineUtils {
 
@@ -57,7 +58,7 @@ public class CommandLineUtils {
     }
 
     private static void exit(JCommander jCommander) {
-        jCommander.setUsageFormatter(new UnixStyleUsageFormatter(jCommander));
+        jCommander.setUsageFormatter(new UsageFormatter(jCommander));
         jCommander.usage();
         System.exit(USAGE_EXIT_CODE);
     }

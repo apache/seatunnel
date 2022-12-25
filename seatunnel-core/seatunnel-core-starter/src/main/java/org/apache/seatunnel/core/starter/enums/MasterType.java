@@ -18,7 +18,7 @@
 package org.apache.seatunnel.core.starter.enums;
 
 /**
- * SeaTunnel job submitted master
+ * SeaTunnel job submitted master target, works with ST-Engine and Flink engine
  */
 public enum MasterType {
     /**
@@ -28,16 +28,18 @@ public enum MasterType {
     CLUSTER("cluster"),
 
     /**
-     * Spark
+     * Flink run deploy mode
      */
-    YARN("yarn"),
-
-    /**
-     * Flink
-     */
+    REMOTE("remote"),
     YARN_SESSION("yarn-session"),
     YARN_PER_JOB("yarn-per-job"),
-    K8S("kubernetes-session");
+    K8S_SESSION("kubernetes-session"),
+
+    /**
+     * Flink run-application deploy mode
+     */
+    YARN_APPLICATION("yarn-application"),
+    K8S_APPLICATION("kubernetes-application");
 
     private final String master;
 

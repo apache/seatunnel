@@ -35,4 +35,10 @@ public class FlinkCommandArgsTest {
         Assertions.assertEquals(Arrays.asList("city=shenyang", "date=20200202"), flinkArgs.getVariables());
     }
 
+    @Test
+    public void testHelpPrint() {
+        String[] args = {"-h"};
+        FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parse(args, new FlinkCommandArgs(),
+                "seatunnel-flink", true);
+    }
 }
