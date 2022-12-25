@@ -31,7 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class TaskGroupWithIntermediateQueue extends TaskGroupDefaultImpl {
 
-    public static final int QUEUE_SIZE = 1000;
+    public static final int QUEUE_SIZE = 100000;
 
     public TaskGroupWithIntermediateQueue(TaskGroupLocation taskGroupLocation, String taskGroupName, Collection<Task> tasks) {
         super(taskGroupLocation, taskGroupName, tasks);
