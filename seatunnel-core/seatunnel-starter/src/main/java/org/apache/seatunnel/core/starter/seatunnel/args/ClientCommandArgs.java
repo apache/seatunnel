@@ -32,7 +32,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
      * Undefined parameters parsed will be stored here as seatunnel engine command parameters.
      */
     private List<String> seatunnelParams;
-    @Parameter(names = {"-d", "--deploy-mode"},
+    @Parameter(names = {"-d ", "--deploy-mode"},
         description = "SeaTunnel deploy mode",
         converter = ExecutionModeConverter.class)
     private ExecutionMode executionMode = ExecutionMode.CLUSTER;
