@@ -19,16 +19,17 @@ package org.apache.seatunnel.core.starter.spark;
 
 import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.enums.EngineType;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
 import org.apache.seatunnel.core.starter.spark.command.SparkCommandBuilder;
-import org.apache.seatunnel.core.starter.spark.config.StarterConstant;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
 public class SeatunnelSpark {
 
     public static void main(String[] args) throws CommandException {
-        SparkCommandArgs sparkArgs = CommandLineUtils.parse(args, new SparkCommandArgs(), StarterConstant.SHELL_NAME, true);
+        SparkCommandArgs sparkArgs = CommandLineUtils.parse(args, new SparkCommandArgs(),
+                EngineType.SPARK.getStarterShellName(), true);
         Command<SparkCommandArgs> sparkCommand =
             new SparkCommandBuilder().buildCommand(sparkArgs);
         SeaTunnel.run(sparkCommand);

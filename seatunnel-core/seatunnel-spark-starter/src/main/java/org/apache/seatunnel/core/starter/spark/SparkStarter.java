@@ -22,9 +22,9 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.Starter;
 import org.apache.seatunnel.core.starter.config.ConfigBuilder;
+import org.apache.seatunnel.core.starter.enums.EngineType;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
-import org.apache.seatunnel.core.starter.spark.config.StarterConstant;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 import org.apache.seatunnel.core.starter.utils.CompressionUtils;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
@@ -105,7 +105,8 @@ public class SparkStarter implements Starter {
      * {@link ClientModeSparkStarter} depending on deploy mode.
      */
     static SparkStarter getInstance(String[] args) {
-        SparkCommandArgs commandArgs = CommandLineUtils.parse(args, new SparkCommandArgs(), StarterConstant.SHELL_NAME, true);
+        SparkCommandArgs commandArgs = CommandLineUtils.parse(args, new SparkCommandArgs(),
+                EngineType.SPARK.getStarterShellName(), true);
         DeployMode deployMode = commandArgs.getDeployMode();
         switch (deployMode) {
             case CLUSTER:
@@ -261,7 +262,7 @@ public class SparkStarter implements Starter {
      * append appJar to StringBuilder
      */
     protected void appendAppJar(List<String> commands) {
-        commands.add(Common.appStarterDir().resolve("seatunnel-spark-starter.jar").toString());
+        commands.add(Common.appStarterDir().resolve(EngineType.SPARK.getStarterJarName()).toString());
     }
 
     @SuppressWarnings("checkstyle:Indentation")
