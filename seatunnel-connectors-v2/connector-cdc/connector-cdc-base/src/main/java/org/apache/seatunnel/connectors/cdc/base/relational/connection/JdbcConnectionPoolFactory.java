@@ -41,7 +41,7 @@ public abstract class JdbcConnectionPoolFactory {
         config.setPassword(sourceConfig.getPassword());
         config.setMinimumIdle(MINIMUM_POOL_SIZE);
         config.setMaximumPoolSize(sourceConfig.getConnectionPoolSize());
-        config.setConnectionTimeout(sourceConfig.getConnectTimeout().toMillis());
+        config.setConnectionTimeout(sourceConfig.getConnectTimeoutMillis());
         config.addDataSourceProperty(SERVER_TIMEZONE_KEY, sourceConfig.getServerTimeZone());
         config.setDriverClassName(sourceConfig.getDriverClassName());
 

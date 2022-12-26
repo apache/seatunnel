@@ -38,12 +38,16 @@
 
             <includes>
                 <include>README.md</include>
-                <include>bin/**</include>
                 <include>config/**</include>
                 <include>plugins/**</include>
             </includes>
         </fileSet>
-
+        <!-- ============ Install Plugin Bin ============  -->
+        <fileSet>
+            <directory>../bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
         <!-- ============ Starter Bin ============  -->
         <fileSet>
             <directory>../seatunnel-core/seatunnel-flink-starter/src/main/bin</directory>
@@ -144,13 +148,16 @@
             <scope>provided</scope>
         </dependencySet>
 
-        <!-- ============ SeaTunnel Transforms V2 Jars ============  -->
+        <!-- ============ SeaTunnel Transforms V2 Jars And SeaTunnel Hadoop3 Uber Jar ============  -->
         <dependencySet>
             <useProjectArtifact>false</useProjectArtifact>
             <useTransitiveDependencies>true</useTransitiveDependencies>
             <unpack>false</unpack>
             <includes>
                 <include>org.apache.seatunnel:seatunnel-transforms-v2:jar</include>
+                <include>org.apache.hadoop:hadoop-aws:jar</include>
+                <include>com.amazonaws:aws-java-sdk-bundle:jar</include>
+                <include>org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber:jar</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
             <outputDirectory>/lib</outputDirectory>

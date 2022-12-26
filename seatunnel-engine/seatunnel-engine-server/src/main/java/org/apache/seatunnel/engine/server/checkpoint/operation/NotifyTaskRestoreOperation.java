@@ -17,9 +17,8 @@
 
 package org.apache.seatunnel.engine.server.checkpoint.operation;
 
-import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
-
 import org.apache.seatunnel.common.utils.RetryUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
@@ -88,7 +87,7 @@ public class NotifyTaskRestoreOperation extends TaskOperation {
                 task.restoreState(restoredState);
                 Thread.currentThread().setContextClassLoader(classLoader);
             } catch (Exception e) {
-                sneakyThrow(e);
+                throw new SeaTunnelException(e);
             }
             return null;
         }, new RetryUtils.RetryMaterial(Constant.OPERATION_RETRY_TIME, true,
