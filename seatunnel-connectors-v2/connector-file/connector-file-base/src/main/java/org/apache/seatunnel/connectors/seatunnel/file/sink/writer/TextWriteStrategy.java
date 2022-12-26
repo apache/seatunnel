@@ -123,7 +123,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
                         case LZO:
                             LzopCodec lzo = new LzopCodec();
                             OutputStream out = lzo.createOutputStream(fileSystemUtils.getOutputStream(filePath));
-                            fsDataOutputStream = new FSDataOutputStream(out);
+                            fsDataOutputStream = new FSDataOutputStream(out, null);
                             break;
                         default:
                             fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
