@@ -36,7 +36,7 @@ public class JdbcConfig implements Serializable {
 
     public static final Option<Integer> CONNECTION_CHECK_TIMEOUT_SEC = Options.key("connection_check_timeout_sec").intType().defaultValue(DEFAULT_CONNECTION_CHECK_TIMEOUT_SEC).withDescription("connection check time second");
 
-    public static final Option<Integer> MAX_RETRIES = Options.key("max_retries").intType().noDefaultValue().withDescription("max_retired");
+    public static final Option<Integer> MAX_RETRIES = Options.key("max_retries").intType().defaultValue(0).withDescription("max_retired");
 
     public static final Option<String> USER = Options.key("user").stringType().noDefaultValue().withDescription("user");
 
