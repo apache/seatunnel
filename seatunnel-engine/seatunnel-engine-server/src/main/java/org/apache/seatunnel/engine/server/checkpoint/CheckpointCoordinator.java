@@ -265,7 +265,8 @@ public class CheckpointCoordinator {
     protected void tryTriggerPendingCheckpoint(CheckpointType checkpointType) {
         synchronized (lock) {
             if (isCompleted() || isShutdown()) {
-                LOG.warn(String.format("can't trigger checkpoint with type: %s, because checkpoint coordinator already have completed checkpoint or shutdown", checkpointType));
+                LOG.warn(String.format("can't trigger checkpoint with type: %s, because checkpoint coordinator already have last completed checkpoint: (%s) or shutdown (%b).",
+                    checkpointType, latestCompletedCheckpoint != null ? latestCompletedCheckpoint.getCheckpointType() : "null", shutdown));
                 return;
             }
             final long currentTimestamp = Instant.now().toEpochMilli();
@@ -442,6 +443,7 @@ public class CheckpointCoordinator {
     }
 
     protected void cleanPendingCheckpoint(CheckpointFailureReason failureReason) {
+        LOG.info("start clean pending checkpoint cause {}", failureReason.message());
         shutdown = true;
         isAllTaskReady = false;
         synchronized (lock) {
