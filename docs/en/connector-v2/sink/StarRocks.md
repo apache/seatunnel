@@ -119,8 +119,8 @@ sink {
     batch_max_rows = 10
     starrocks.config = {
       format = "CSV"
-      column_separator = "\x01"
-      row_delimiter = "\x02"
+      column_separator = "\\x01"
+      row_delimiter = "\\x02"
     }
   }
 }
