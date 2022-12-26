@@ -37,10 +37,13 @@ import java.util.Map;
 
 public class ClickhouseFileSinkAggCommitter implements SinkAggregatedCommitter<CKFileCommitInfo, CKFileAggCommitInfo> {
 
-    private final ClickhouseProxy proxy;
+    private transient ClickhouseProxy proxy;
     private final ClickhouseTable clickhouseTable;
 
+    private final FileReaderOption fileReaderOption;
+
     public ClickhouseFileSinkAggCommitter(FileReaderOption readerOption) {
+        fileReaderOption = readerOption;
         proxy = new ClickhouseProxy(readerOption.getShardMetadata().getDefaultShard().getNode());
         clickhouseTable = proxy.getClickhouseTable(readerOption.getShardMetadata().getDatabase(),
             readerOption.getShardMetadata().getTable());
@@ -76,13 +79,28 @@ public class ClickhouseFileSinkAggCommitter implements SinkAggregatedCommitter<C
 
     }
 
+    private ClickhouseProxy getProxy() {
+        if (proxy != null) {
+            return proxy;
+        }
+        synchronized (this) {
+            if (proxy != null) {
+                return proxy;
+            }
+            proxy = new ClickhouseProxy(fileReaderOption.getShardMetadata().getDefaultShard().getNode());
+            return proxy;
+        }
+    }
+
     @Override
     public void close() throws IOException {
-        proxy.close();
+        if (proxy != null) {
+            proxy.close();
+        }
     }
 
     private void attachFileToClickhouse(Shard shard, List<String> clickhouseLocalFiles) throws ClickHouseException {
-        ClickHouseRequest<?> request = proxy.getClickhouseConnection(shard);
+        ClickHouseRequest<?> request = getProxy().getClickhouseConnection(shard);
         for (String clickhouseLocalFile : clickhouseLocalFiles) {
             ClickHouseResponse response = request.query(String.format("ALTER TABLE %s ATTACH PART '%s'",
                 clickhouseTable.getLocalTableName(),

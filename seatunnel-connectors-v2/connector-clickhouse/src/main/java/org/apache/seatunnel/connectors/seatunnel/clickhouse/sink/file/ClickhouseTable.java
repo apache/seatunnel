@@ -19,10 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.DistributedEngine;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
-public class ClickhouseTable {
+public class ClickhouseTable implements Serializable {
 
     private String database;
     private String tableName;
