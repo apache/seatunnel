@@ -19,15 +19,19 @@ package org.apache.seatunnel.core.starter.seatunnel.args;
 
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
-import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
+import org.apache.seatunnel.core.starter.enums.MasterType;
 
+import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class ClientCommandArgs extends AbstractCommandArgs {
     @Parameter(names = {"-m", "--master"},
         description = "SeaTunnel job submit master, support [client, cluster]",
-        converter = ExecutionModeConverter.class)
-    private ExecutionMode executionMode = ExecutionMode.CLUSTER;
+        converter = SeaTunnelMasterTargetConverter.class)
+    private MasterType masterType = MasterType.LOCAL;
 
     @Parameter(names = {"-cn", "--cluster"},
         description = "The name of cluster")
@@ -49,6 +53,14 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         description = "list job status")
     private boolean listJob = false;
 
+    public MasterType getMasterType() {
+        return masterType;
+    }
+
+    public void setMasterType(MasterType masterType) {
+        this.masterType = masterType;
+    }
+
     public String getClusterName() {
         return clusterName;
     }
@@ -57,31 +69,59 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         this.clusterName = clusterName;
     }
 
-    public ExecutionMode getExecutionMode() {
-        return executionMode;
-    }
-
-    public void setExecutionMode(ExecutionMode executionMode) {
-        this.executionMode = executionMode;
-    }
-
     public String getJobId() {
         return jobId;
+    }
+
+    public void setJobId(String jobId) {
+        this.jobId = jobId;
     }
 
     public String getCancelJobId() {
         return cancelJobId;
     }
 
+    public void setCancelJobId(String cancelJobId) {
+        this.cancelJobId = cancelJobId;
+    }
+
     public String getMetricsJobId() {
         return metricsJobId;
     }
 
-    public boolean isListJob(){
+    public void setMetricsJobId(String metricsJobId) {
+        this.metricsJobId = metricsJobId;
+    }
+
+    public boolean isListJob() {
         return listJob;
+    }
+
+    public void setListJob(boolean listJob) {
+        this.listJob = listJob;
     }
 
     public DeployMode getDeployMode() {
         return DeployMode.CLIENT;
+    }
+
+    public static class SeaTunnelMasterTargetConverter implements IStringConverter<MasterType> {
+        private static final List<MasterType> MASTER_TYPE_LIST = new ArrayList<>();
+
+        static {
+            MASTER_TYPE_LIST.add(MasterType.LOCAL);
+            MASTER_TYPE_LIST.add(MasterType.CLUSTER);
+        }
+
+        @Override
+        public MasterType convert(String value) {
+            MasterType masterType = MasterType.valueOf(value.toUpperCase());
+            if (MASTER_TYPE_LIST.contains(masterType)) {
+                return masterType;
+            } else {
+                throw new IllegalArgumentException("SeaTunnel job on st-engine submitted target only " +
+                        "support these options: [local, cluster]");
+            }
+        }
     }
 }

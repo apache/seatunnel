@@ -25,6 +25,10 @@ import java.util.List;
  * CommandArgs, used to create command {@link Command}
  */
 public abstract class CommandArgs {
+
+    /**
+     * Help parameter
+     */
     @Parameter(names = {"-h", "--help"},
             help = true,
             description = "Show the usage message")

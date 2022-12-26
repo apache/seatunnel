@@ -30,19 +30,31 @@ import java.util.List;
  */
 public abstract class AbstractCommandArgs extends CommandArgs {
 
+    /**
+     * config file path
+     */
     @Parameter(names = {"-c", "--config"},
             description = "Config file",
             required = true)
     protected String configFile;
 
+    /**
+     * user-defined parameters
+     */
     @Parameter(names = {"-i", "--variable"},
         description = "Variable substitution, such as -i city=beijing, or -i date=20190318")
     protected List<String> variables = Collections.emptyList();
 
+    /**
+     * check config flag
+     */
     @Parameter(names = {"--check"},
             description = "Whether check config")
     protected boolean checkConfig = false;
 
+    /**
+     * SeaTunnel job name
+     */
     @Parameter(names = {"-n", "--name"},
             description = "SeaTunnel job name")
     protected String jobName = Constants.LOGO;
