@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.COLLECTION;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.URI;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.COLLECTION;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.URI;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;

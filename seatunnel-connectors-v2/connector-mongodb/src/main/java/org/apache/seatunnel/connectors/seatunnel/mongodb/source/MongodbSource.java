@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.COLLECTION;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.URI;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.COLLECTION;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.URI;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -35,11 +35,10 @@ import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbParameters;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigBeanFactory;
 
 import com.google.auto.service.AutoService;
 
@@ -48,7 +47,7 @@ public class MongodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     private SeaTunnelRowType rowType;
 
-    private MongodbParameters params;
+    private MongodbConfig params;
 
     @Override
     public String getPluginName() {
@@ -63,9 +62,7 @@ public class MongodbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                 String.format("PluginName: %s, PluginType: %s, Message: %s",
                     getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-
-        this.params = ConfigBeanFactory.create(config, MongodbParameters.class);
-
+        this.params = MongodbConfig.buildWithConfig(config);
         if (config.hasPath(SeaTunnelSchema.SCHEMA.key())) {
             Config schema = config.getConfig(SeaTunnelSchema.SCHEMA.key());
             this.rowType = SeaTunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
