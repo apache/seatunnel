@@ -19,21 +19,13 @@ package org.apache.seatunnel.core.starter.seatunnel.args;
 
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
-import org.apache.seatunnel.core.starter.enums.EngineType;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 
 import com.beust.jcommander.Parameter;
 
-import java.util.List;
-
 public class ClientCommandArgs extends AbstractCommandArgs {
-
-    /**
-     * Undefined parameters parsed will be stored here as seatunnel engine command parameters.
-     */
-    private List<String> seatunnelParams;
-    @Parameter(names = {"-e", "--deploy-mode"},
-        description = "SeaTunnel deploy mode",
+    @Parameter(names = {"-m", "--master"},
+        description = "SeaTunnel job submit master, support [client, cluster]",
         converter = ExecutionModeConverter.class)
     private ExecutionMode executionMode = ExecutionMode.CLUSTER;
 
@@ -49,7 +41,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         description = "Cancel job by JobId")
     private String cancelJobId;
 
-    @Parameter(names = {"-m", "--metrics"},
+    @Parameter(names = {"--metrics"},
         description = "Get job metrics by JobId")
     private String metricsJobId;
 
@@ -63,14 +55,6 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
     public void setClusterName(String clusterName) {
         this.clusterName = clusterName;
-    }
-
-    public List<String> getSeatunnelParams() {
-        return seatunnelParams;
-    }
-
-    public void setSeatunnelParams(List<String> seatunnelParams) {
-        this.seatunnelParams = seatunnelParams;
     }
 
     public ExecutionMode getExecutionMode() {
@@ -95,10 +79,6 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
     public boolean isListJob(){
         return listJob;
-    }
-
-    public EngineType getEngineType() {
-        return EngineType.SEATUNNEL;
     }
 
     public DeployMode getDeployMode() {

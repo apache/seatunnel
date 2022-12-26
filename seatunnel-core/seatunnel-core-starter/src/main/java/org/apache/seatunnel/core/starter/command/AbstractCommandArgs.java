@@ -28,7 +28,7 @@ import java.util.List;
 /**
  * Abstract class of {@link CommandArgs} implementation to save common configuration settings
  */
-public abstract class AbstractCommandArgs implements CommandArgs {
+public abstract class AbstractCommandArgs extends CommandArgs {
 
     @Parameter(names = {"-c", "--config"},
             description = "Config file",
@@ -46,16 +46,6 @@ public abstract class AbstractCommandArgs implements CommandArgs {
     @Parameter(names = {"-n", "--name"},
             description = "SeaTunnel job name")
     protected String jobName = Constants.LOGO;
-
-    @Parameter(names = {"-h", "--help"},
-            help = true,
-            description = "Show the usage message")
-    protected boolean help = false;
-
-    /**
-     * Undefined parameters parsed will be stored here as engine original command parameters.
-     */
-    protected List<String> originalParameters;
 
     public String getConfigFile() {
         return configFile;
@@ -87,22 +77,6 @@ public abstract class AbstractCommandArgs implements CommandArgs {
 
     public void setJobName(String jobName) {
         this.jobName = jobName;
-    }
-
-    public boolean isHelp() {
-        return help;
-    }
-
-    public void setHelp(boolean help) {
-        this.help = help;
-    }
-
-    public List<String> getOriginalParameters() {
-        return originalParameters;
-    }
-
-    public void setOriginalParameters(List<String> originalParameters) {
-        this.originalParameters = originalParameters;
     }
 
     public DeployMode getDeployMode() {
