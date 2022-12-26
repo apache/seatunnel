@@ -60,12 +60,10 @@ public class JdbcSinkFactory implements TableSinkFactory {
                 BATCH_SIZE,
                 BATCH_INTERVAL_MS,
                 IS_EXACTLY_ONCE,
-                XA_DATA_SOURCE_CLASS_NAME,
-                MAX_COMMIT_ATTEMPTS,
-                TRANSACTION_TIMEOUT_SEC,
-                PRIMARY_KEYS,
-                SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST,
-                AUTO_COMMIT)
-                .build();
+                SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST)
+            .conditional(IS_EXACTLY_ONCE, true, XA_DATA_SOURCE_CLASS_NAME, MAX_COMMIT_ATTEMPTS, TRANSACTION_TIMEOUT_SEC)
+            .conditional(SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST, true, PRIMARY_KEYS)
+            .conditional(DRIVER, "com.teradata.jdbc.TeraDriver", AUTO_COMMIT)
+            .build();
     }
 }
