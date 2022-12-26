@@ -178,7 +178,7 @@ public class FileUtils {
             file.delete();
 
         } catch (Exception e) {
-            log.error("delete file [" + file.getPath() + "] error");
+            log.error("delete file [" + file.getPath() + "] error", e);
             throw new SeaTunnelException(e);
         }
     }
