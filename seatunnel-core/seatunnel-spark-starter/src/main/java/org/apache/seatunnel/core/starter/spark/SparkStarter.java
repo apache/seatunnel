@@ -198,7 +198,7 @@ public class SparkStarter implements Starter {
     protected List<String> buildFinal() {
         List<String> commands = new ArrayList<>();
         commands.add("${SPARK_HOME}/bin/spark-submit");
-        appendOption(commands, "--class", SeatunnelSpark.class.getName());
+        appendOption(commands, "--class", SeaTunnelSpark.class.getName());
         appendOption(commands, "--name", this.commandArgs.getJobName());
         appendOption(commands, "--master", this.commandArgs.getMaster());
         appendOption(commands, "--deploy-mode", this.commandArgs.getDeployMode().getDeployMode());

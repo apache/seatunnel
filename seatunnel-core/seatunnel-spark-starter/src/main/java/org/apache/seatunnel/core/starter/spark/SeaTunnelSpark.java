@@ -23,7 +23,7 @@ import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
-public class SeatunnelSpark {
+public class SeaTunnelSpark {
 
     public static void main(String[] args) throws CommandException {
         SparkCommandArgs sparkCommandArgs = CommandLineUtils.parse(args, new SparkCommandArgs(),
