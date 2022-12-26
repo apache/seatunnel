@@ -456,7 +456,7 @@ public class CheckpointCoordinator {
                 1, runnable -> {
                     Thread thread = new Thread(runnable);
                     thread.setDaemon(true);
-                    thread.setName(String.format("checkpoint-coordinator-after-shutdown-%s/%s", pipelineId, jobId));
+                    thread.setName(String.format("checkpoint-coordinator-%s/%s", pipelineId, jobId));
                     return thread;
                 });
         }
