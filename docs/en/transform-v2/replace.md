@@ -10,7 +10,7 @@ Examines string value in a given field and replaces substring of the string valu
 
 | name           | type   | required | default value |
 | -------------- | ------ | -------- |---------------|
-| replace_field  | string | yes       |               |
+| replace_field  | string | yes      |               |
 | pattern        | string | yes      | -             |
 | replacement    | string | yes      | -             |
 | is_regex       | boolean| no       | false         |
