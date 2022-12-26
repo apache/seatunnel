@@ -176,13 +176,13 @@ public class JobMaster extends Thread {
             runningJobStateTimestampsIMap);
         this.physicalPlan = planTuple.f0();
         this.physicalPlan.setJobMaster(this);
-        this.initStateFuture();
         this.checkpointManager = new CheckpointManager(
             jobImmutableInformation.getJobId(),
             nodeEngine,
             this,
             planTuple.f1(),
             checkpointConfig);
+        this.initStateFuture();
     }
 
     // TODO replace it after ReadableConfig Support parse yaml format, then use only one config to read engine and env config.
@@ -237,11 +237,11 @@ public class JobMaster extends Thread {
         }
     }
 
-    public void handleCheckpointTimeout(long pipelineId) {
+    public void handleCheckpointError(long pipelineId, Throwable e) {
         this.physicalPlan.getPipelineList().forEach(pipeline -> {
             if (pipeline.getPipelineLocation().getPipelineId() == pipelineId) {
                 LOGGER.warning(
-                    String.format("%s checkpoint timeout, cancel the pipeline", pipeline.getPipelineFullName()));
+                    String.format("%s checkpoint have error, cancel the pipeline", pipeline.getPipelineFullName()), e);
                 pipeline.cancelPipeline();
             }
         });

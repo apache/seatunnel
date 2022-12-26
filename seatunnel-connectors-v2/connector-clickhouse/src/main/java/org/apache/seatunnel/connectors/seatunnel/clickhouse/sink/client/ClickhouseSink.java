@@ -17,14 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client;
 
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.BULK_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_PREFIX;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PRIMARY_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SHARDING_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SPLIT_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SUPPORT_UPSERT;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.USERNAME;
 
@@ -64,6 +67,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -126,9 +130,9 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
         Map<String, String> tableSchema = proxy.getClickhouseTableSchema(config.getString(TABLE.key()));
         String shardKey = null;
         String shardKeyType = null;
+        ClickhouseTable table = proxy.getClickhouseTable(config.getString(DATABASE.key()),
+            config.getString(TABLE.key()));
         if (config.getBoolean(SPLIT_MODE.key())) {
-            ClickhouseTable table = proxy.getClickhouseTable(config.getString(DATABASE.key()),
-                config.getString(TABLE.key()));
             if (!"Distributed".equals(table.getEngine())) {
                 throw new ClickhouseConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, "split mode only support table which engine is " +
                     "'Distributed' engine at now");
@@ -146,6 +150,7 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
                 shardKeyType,
                 config.getString(DATABASE.key()),
                 config.getString(TABLE.key()),
+                table.getEngine(),
                 config.getBoolean(SPLIT_MODE.key()),
                 new Shard(1, 1, nodes.get(0)), config.getString(USERNAME.key()), config.getString(PASSWORD.key()));
         } else {
@@ -154,6 +159,7 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
                 shardKeyType,
                 config.getString(DATABASE.key()),
                 config.getString(TABLE.key()),
+                table.getEngine(),
                 config.getBoolean(SPLIT_MODE.key()),
                 new Shard(1, 1, nodes.get(0)));
         }
@@ -171,7 +177,35 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
             fields.addAll(tableSchema.keySet());
         }
         proxy.close();
-        this.option = new ReaderOption(metadata, clickhouseProperties, fields, tableSchema, config.getInt(BULK_SIZE.key()));
+
+        String[] primaryKeys = null;
+        if (config.hasPath(PRIMARY_KEY.key())) {
+            String primaryKey = config.getString(PRIMARY_KEY.key());
+            if (shardKey != null && !Objects.equals(primaryKey, shardKey)) {
+                throw new ClickhouseConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
+                    "sharding_key and primary_key must be consistent to ensure correct processing of cdc events");
+            }
+            primaryKeys = new String[]{primaryKey};
+        }
+        boolean supportUpsert = SUPPORT_UPSERT.defaultValue();
+        if (config.hasPath(SUPPORT_UPSERT.key())) {
+            supportUpsert = config.getBoolean(SUPPORT_UPSERT.key());
+        }
+        boolean allowExperimentalLightweightDelete = ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE.defaultValue();
+        if (config.hasPath(ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE.key())) {
+            allowExperimentalLightweightDelete = config.getBoolean(ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE.key());
+        }
+        this.option = ReaderOption.builder()
+            .shardMetadata(metadata)
+            .properties(clickhouseProperties)
+            .fields(fields)
+            .tableEngine(table.getEngine())
+            .tableSchema(tableSchema)
+            .bulkSize(config.getInt(BULK_SIZE.key()))
+            .primaryKeys(primaryKeys)
+            .supportUpsert(supportUpsert)
+            .allowExperimentalLightweightDelete(allowExperimentalLightweightDelete)
+            .build();
     }
 
     @Override

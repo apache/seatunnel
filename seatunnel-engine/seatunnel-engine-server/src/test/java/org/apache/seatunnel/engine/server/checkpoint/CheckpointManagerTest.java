@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import static org.apache.seatunnel.engine.common.Constant.IMAP_CHECKPOINT_ID;
+
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
@@ -58,7 +60,7 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
             new HashMap<>());
         checkpointStorage.storeCheckPoint(PipelineState.builder().jobId(jobId + "").pipelineId(1).checkpointId(1)
             .states(new ProtoStuffSerializer().serialize(completedCheckpoint)).build());
-        IMap<Integer, Long> checkpointIdMap = nodeEngine.getHazelcastInstance().getMap("checkpoint-id-" + jobId);
+        IMap<Integer, Long> checkpointIdMap = nodeEngine.getHazelcastInstance().getMap(String.format(IMAP_CHECKPOINT_ID, jobId));
         checkpointIdMap.put(1, 2L);
         Map<Integer, CheckpointPlan> planMap = new HashMap<>();
         planMap.put(1, CheckpointPlan.builder().pipelineId(1).build());

@@ -58,6 +58,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -149,7 +150,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
         Optional<Serializable> state = actionStateList.stream()
             .map(ActionSubtaskState::getState)
-            .flatMap(Collection::stream)
+            .flatMap(Collection::stream).filter(Objects::nonNull)
             .map(bytes -> sneaky(() -> enumeratorStateSerializer.deserialize(bytes)))
             .findFirst();
         if (state.isPresent()) {

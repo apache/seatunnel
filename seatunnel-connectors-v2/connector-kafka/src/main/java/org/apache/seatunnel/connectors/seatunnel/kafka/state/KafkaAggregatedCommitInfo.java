@@ -17,11 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.state;
 
-import java.io.Serializable;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-/**
- * Right now, we don't need aggregated commit in kafka.
- * Todo: we need to add a default implementation of this state.
- */
+import java.io.Serializable;
+import java.util.List;
+
+@Data
+@AllArgsConstructor
 public class KafkaAggregatedCommitInfo implements Serializable {
+    List<KafkaCommitInfo> commitInfos;
 }

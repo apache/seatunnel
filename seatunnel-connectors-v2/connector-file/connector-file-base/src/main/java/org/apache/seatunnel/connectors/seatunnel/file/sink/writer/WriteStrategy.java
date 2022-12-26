@@ -21,7 +21,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 
 import org.apache.hadoop.conf.Configuration;
 
@@ -32,9 +33,10 @@ import java.util.Map;
 public interface WriteStrategy extends Transaction, Serializable {
     /**
      * init hadoop conf
+     *
      * @param conf hadoop conf
      */
-    void init(HadoopConf conf, String jobId, int subTaskIndex);
+    void init(HadoopConf conf, String jobId, String uuidPrefix, int subTaskIndex);
 
     /**
      * use hadoop conf generate hadoop configuration
@@ -75,7 +77,27 @@ public interface WriteStrategy extends Transaction, Serializable {
      */
     void finishAndCloseFile();
 
+    /**
+     * get current checkpoint id
+     * @return checkpoint id
+     */
     long getCheckpointId();
 
-    TextFileSinkConfig getFileSinkConfig();
+    /**
+     * get sink configuration
+     * @return sink configuration
+     */
+    FileSinkConfig getFileSinkConfig();
+
+    /**
+     * get file system utils
+     * @return file system utils
+     */
+    FileSystemUtils getFileSystemUtils();
+
+    /**
+     * set file system utils
+     * @param fileSystemUtils fileSystemUtils
+     */
+    void setFileSystemUtils(FileSystemUtils fileSystemUtils);
 }

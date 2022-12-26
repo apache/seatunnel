@@ -103,7 +103,7 @@ public class ElasticsearchSinkWriter implements SinkWriter<SeaTunnelRow, Elastic
     public void abortPrepare() {
     }
 
-    public void bulkEsWithRetry(EsRestClient esRestClient, List<String> requestEsList) {
+    public synchronized void bulkEsWithRetry(EsRestClient esRestClient, List<String> requestEsList) {
         try {
             RetryUtils.retryWithException(() -> {
                 if (requestEsList.size() > 0) {

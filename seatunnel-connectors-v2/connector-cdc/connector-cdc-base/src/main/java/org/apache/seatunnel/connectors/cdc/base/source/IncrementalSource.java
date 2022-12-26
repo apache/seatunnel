@@ -85,8 +85,8 @@ public abstract class IncrementalSource<T, C extends SourceConfig> implements Se
         this.stopMode = stopConfig.getStopMode();
         this.incrementalParallelism = readonlyConfig.get(SourceOptions.INCREMENTAL_PARALLELISM);
         this.configFactory = createSourceConfigFactory(readonlyConfig);
-        this.deserializationSchema = createDebeziumDeserializationSchema(readonlyConfig);
         this.dataSourceDialect = createDataSourceDialect(readonlyConfig);
+        this.deserializationSchema = createDebeziumDeserializationSchema(readonlyConfig);
         this.offsetFactory = createOffsetFactory(readonlyConfig);
     }
 
