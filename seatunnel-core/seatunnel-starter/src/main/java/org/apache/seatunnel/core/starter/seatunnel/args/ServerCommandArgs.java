@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.core.starter.seatunnel.args;
 
+import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.command.CommandArgs;
+import org.apache.seatunnel.core.starter.seatunnel.command.ServerExecuteCommand;
 
 import com.beust.jcommander.Parameter;
 
@@ -25,6 +27,11 @@ public class ServerCommandArgs extends CommandArgs {
     @Parameter(names = {"-cn", "--cluster"},
         description = "The name of cluster")
     private String clusterName = "seatunnel_default_cluster";
+
+    @Override
+    public Command<?> buildCommand() {
+        return new ServerExecuteCommand(this);
+    }
 
     public String getClusterName() {
         return clusterName;

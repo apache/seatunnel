@@ -21,10 +21,10 @@ import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist
 
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.core.starter.command.Command;
-import org.apache.seatunnel.core.starter.config.ConfigBuilder;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
 import org.apache.seatunnel.core.starter.spark.execution.SparkExecution;
+import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.core.starter.utils.FileUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -35,16 +35,12 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 
-/**
- * todo: do we need to move these class to a new module? since this may cause version conflict with the old Spark version.
- * This command is used to execute the Spark job by SeaTunnel new API.
- */
 @Slf4j
-public class SparkApiTaskExecuteCommand implements Command<SparkCommandArgs> {
+public class SparkTaskExecuteCommand implements Command<SparkCommandArgs> {
 
     private final SparkCommandArgs sparkCommandArgs;
 
-    public SparkApiTaskExecuteCommand(SparkCommandArgs sparkCommandArgs) {
+    public SparkTaskExecuteCommand(SparkCommandArgs sparkCommandArgs) {
         this.sparkCommandArgs = sparkCommandArgs;
     }
 

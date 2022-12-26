@@ -15,20 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.flink.command;
+package org.apache.seatunnel.core.starter.spark.command;
 
-import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.core.starter.command.Command;
-import org.apache.seatunnel.core.starter.command.CommandBuilder;
-import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
+import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
+import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
+import org.apache.seatunnel.core.starter.utils.FileUtils;
 
-public class FlinkCommandBuilder implements CommandBuilder<FlinkCommandArgs> {
+import lombok.extern.slf4j.Slf4j;
 
-    @Override
-    public Command<FlinkCommandArgs> buildCommand(FlinkCommandArgs commandArgs) {
-        Common.setDeployMode(commandArgs.getDeployMode());
-        return commandArgs.isCheckConfig() ? new FlinkApiConfValidateCommand(commandArgs)
-            : new FlinkApiTaskExecuteCommand(commandArgs);
+import java.nio.file.Path;
+
+/**
+ * Use to validate the configuration of the SeaTunnel API.
+ */
+
+@Slf4j
+public class SparkConfValidateCommand implements Command<SparkCommandArgs> {
+
+    private final SparkCommandArgs sparkCommandArgs;
+
+    public SparkConfValidateCommand(SparkCommandArgs sparkCommandArgs) {
+        this.sparkCommandArgs = sparkCommandArgs;
     }
 
+    @Override
+    public void execute() throws ConfigCheckException {
+        Path configPath = FileUtils.getConfigPath(sparkCommandArgs);
+        // TODO: validate the config by new api
+    }
 }

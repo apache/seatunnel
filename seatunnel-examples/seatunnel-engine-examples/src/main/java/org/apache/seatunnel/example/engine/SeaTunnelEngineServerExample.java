@@ -18,17 +18,13 @@
 package org.apache.seatunnel.example.engine;
 
 import org.apache.seatunnel.core.starter.SeaTunnel;
-import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ServerCommandArgs;
-import org.apache.seatunnel.core.starter.seatunnel.command.ServerCommandBuilder;
 
 public class SeaTunnelEngineServerExample {
     public static void main(String[] args) throws CommandException {
         ServerCommandArgs serverCommandArgs = new ServerCommandArgs();
-        Command<ServerCommandArgs> command =
-            new ServerCommandBuilder().buildCommand(serverCommandArgs);
-        SeaTunnel.run(command);
+        SeaTunnel.run(serverCommandArgs.buildCommand());
     }
 
 }

@@ -91,11 +91,5 @@ public abstract class AbstractCommandArgs extends CommandArgs {
         this.jobName = jobName;
     }
 
-    public DeployMode getDeployMode() {
-        throw new UnsupportedOperationException("Abstract class does not support this operation");
-    }
-
-    public void setDeployMode(DeployMode deployMode) {
-        throw new UnsupportedOperationException("Abstract class does not support this operation");
-    }
+    public abstract DeployMode getDeployMode();
 }

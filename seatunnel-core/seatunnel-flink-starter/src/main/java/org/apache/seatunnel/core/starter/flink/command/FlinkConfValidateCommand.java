@@ -15,23 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.config;
+package org.apache.seatunnel.core.starter.flink.command;
 
+import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
+import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
+import org.apache.seatunnel.core.starter.utils.FileUtils;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import lombok.extern.slf4j.Slf4j;
+
+import java.nio.file.Path;
 
 /**
- * Check the config is valid.
- *
+ * Use to validate the configuration of the SeaTunnel API.
  */
-public interface ConfigChecker {
+@Slf4j
+public class FlinkConfValidateCommand implements Command<FlinkCommandArgs> {
 
-    /**
-     * Check if the config is validated, if check fails, throw exception.
-     *
-     * @param config given config.
-     */
-    void checkConfig(Config config) throws ConfigCheckException;
+    private final FlinkCommandArgs flinkCommandArgs;
 
+    public FlinkConfValidateCommand(FlinkCommandArgs flinkCommandArgs) {
+        this.flinkCommandArgs = flinkCommandArgs;
+    }
+
+    @Override
+    public void execute() throws ConfigCheckException {
+        Path configPath = FileUtils.getConfigPath(flinkCommandArgs);
+        // TODO: validate the config by new api
+    }
 }

@@ -21,10 +21,10 @@ import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist
 
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.core.starter.command.Command;
-import org.apache.seatunnel.core.starter.config.ConfigBuilder;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.flink.execution.FlinkExecution;
+import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.core.starter.utils.FileUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -36,11 +36,11 @@ import lombok.extern.slf4j.Slf4j;
 import java.nio.file.Path;
 
 @Slf4j
-public class FlinkApiTaskExecuteCommand implements Command<FlinkCommandArgs> {
+public class FlinkTaskExecuteCommand implements Command<FlinkCommandArgs> {
 
     private final FlinkCommandArgs flinkCommandArgs;
 
-    public FlinkApiTaskExecuteCommand(FlinkCommandArgs flinkCommandArgs) {
+    public FlinkTaskExecuteCommand(FlinkCommandArgs flinkCommandArgs) {
         this.flinkCommandArgs = flinkCommandArgs;
     }
 

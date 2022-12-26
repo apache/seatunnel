@@ -17,9 +17,12 @@
 
 package org.apache.seatunnel.core.starter.spark.args;
 
+import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
-import org.apache.seatunnel.core.starter.enums.EngineType;
+import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.spark.command.SparkConfValidateCommand;
+import org.apache.seatunnel.core.starter.spark.command.SparkTaskExecuteCommand;
 
 import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
@@ -39,12 +42,18 @@ public class SparkCommandArgs extends AbstractCommandArgs {
                 "k8s://https://host:port, local], default local[*]")
     private String master = "local[*]";
 
-    public String getMaster() {
-        return master;
+    @Override
+    public Command<?> buildCommand() {
+        Common.setDeployMode(getDeployMode());
+        if (checkConfig) {
+            return new SparkConfValidateCommand(this);
+        } else {
+            return new SparkTaskExecuteCommand(this);
+        }
     }
 
-    public EngineType getEngineType() {
-        return EngineType.SPARK;
+    public String getMaster() {
+        return master;
     }
 
     public DeployMode getDeployMode() {

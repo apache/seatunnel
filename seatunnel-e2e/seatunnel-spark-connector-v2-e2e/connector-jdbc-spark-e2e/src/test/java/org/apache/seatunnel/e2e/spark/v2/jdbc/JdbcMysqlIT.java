@@ -20,7 +20,7 @@ package org.apache.seatunnel.e2e.spark.v2.jdbc;
 import static org.awaitility.Awaitility.given;
 
 import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.core.starter.config.ConfigBuilder;
+import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.e2e.spark.SparkContainer;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;

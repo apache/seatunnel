@@ -54,4 +54,6 @@ public abstract class CommandArgs {
     public void setOriginalParameters(List<String> originalParameters) {
         this.originalParameters = originalParameters;
     }
+
+    public abstract Command<?> buildCommand();
 }

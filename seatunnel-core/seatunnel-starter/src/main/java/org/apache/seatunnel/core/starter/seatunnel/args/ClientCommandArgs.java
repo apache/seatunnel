@@ -17,9 +17,13 @@
 
 package org.apache.seatunnel.core.starter.seatunnel.args;
 
+import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
+import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.enums.MasterType;
+import org.apache.seatunnel.core.starter.seatunnel.command.ClientExecuteCommand;
+import org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelConfValidateCommand;
 
 import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
@@ -52,6 +56,16 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     @Parameter(names = {"-l", "--list"},
         description = "list job status")
     private boolean listJob = false;
+
+    @Override
+    public Command<?> buildCommand() {
+        Common.setDeployMode(getDeployMode());
+        if (checkConfig) {
+            return new SeaTunnelConfValidateCommand(this);
+        } else {
+            return new ClientExecuteCommand(this);
+        }
+    }
 
     public MasterType getMasterType() {
         return masterType;
