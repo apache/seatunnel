@@ -27,17 +27,35 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
 public class JdbcSinkOptions implements Serializable {
     private JdbcConnectionOptions jdbcConnectionOptions;
     private boolean isExactlyOnce;
+    public String simpleSQL;
+    private String table;
+    private List<String> primaryKeys;
+    private boolean supportUpsertByQueryPrimaryKeyExist;
 
     public JdbcSinkOptions(Config config) {
         this.jdbcConnectionOptions = buildJdbcConnectionOptions(config);
-        if (config.hasPath(JdbcConfig.IS_EXACTLY_ONCE) && config.getBoolean(JdbcConfig.IS_EXACTLY_ONCE)) {
+        if (config.hasPath(JdbcConfig.IS_EXACTLY_ONCE.key()) && config.getBoolean(JdbcConfig.IS_EXACTLY_ONCE.key())) {
             this.isExactlyOnce = true;
+        }
+
+        if (config.hasPath(JdbcConfig.TABLE.key())) {
+            this.table = config.getString(JdbcConfig.TABLE.key());
+            if (config.hasPath(JdbcConfig.PRIMARY_KEYS.key())) {
+                this.primaryKeys = config.getStringList(JdbcConfig.PRIMARY_KEYS.key());
+            }
+            this.supportUpsertByQueryPrimaryKeyExist = JdbcConfig.SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST.defaultValue();
+            if (config.hasPath(JdbcConfig.SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST.key())) {
+                this.supportUpsertByQueryPrimaryKeyExist = config.getBoolean(JdbcConfig.SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST.key());
+            }
+        } else {
+            this.simpleSQL = config.getString(JdbcConfig.QUERY.key());
         }
     }
 }

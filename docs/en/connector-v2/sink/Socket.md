@@ -16,8 +16,8 @@ Used to send data to Socket Server. Both support streaming and batch mode.
 
 | name           | type   | required | default value |
 | -------------- |--------|----------|---------------|
-| host           | String | Yes      | -             |
-| port           | Integer| yes      | -             |
+| host           | String | Yes      |               |
+| port           | Integer| yes      |               |
 | max_retries    | Integer| No       | 3             |
 | common-options |        | no       | -             |
 

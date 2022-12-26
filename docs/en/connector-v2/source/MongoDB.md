@@ -1,6 +1,6 @@
-# MongoDb
+# MongoDB
 
-> MongoDb source connector
+> MongoDB source connector
 
 ## Description
 
@@ -22,6 +22,7 @@ Read data from MongoDB.
 | uri            | string | yes      | -             |
 | database       | string | yes      | -             |
 | collection     | string | yes      | -             |
+| matchQuery     | string | no       | -             |
 | schema         | object | yes      | -             |
 | common-options | config | no       | -             |
 
@@ -36,6 +37,10 @@ MongoDB database
 ### collection [string]
 
 MongoDB collection
+
+### matchQuery [string]
+
+MatchQuery is a JSON string that specifies the selection criteria using query operators for the documents to be returned from the collection.
 
 ### schema [object]
 
@@ -66,6 +71,7 @@ mongodb {
     uri = "mongodb://username:password@127.0.0.1:27017/mypost?retryWrites=true&writeConcern=majority"
     database = "mydatabase"
     collection = "mycollection"
+    matchQuery = "{"id":3}"
     schema {
       fields {
         id = int

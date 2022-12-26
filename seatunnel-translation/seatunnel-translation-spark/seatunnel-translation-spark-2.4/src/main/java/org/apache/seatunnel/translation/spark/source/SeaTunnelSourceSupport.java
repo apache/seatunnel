@@ -18,9 +18,9 @@
 package org.apache.seatunnel.translation.spark.source;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Constants;
-import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.translation.spark.source.batch.BatchSourceReader;
 import org.apache.seatunnel.translation.spark.source.micro.MicroBatchSourceReader;
@@ -60,14 +60,14 @@ public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroB
     @Override
     public DataSourceReader createReader(DataSourceOptions options) {
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
-        int parallelism = options.getInt(CollectionConstants.PARALLELISM, 1);
+        int parallelism = options.getInt(SourceCommonOptions.PARALLELISM.key(), 1);
         return new BatchSourceReader(seaTunnelSource, parallelism);
     }
 
     @Override
     public MicroBatchReader createMicroBatchReader(Optional<StructType> rowTypeOptional, String checkpointLocation, DataSourceOptions options) {
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
-        Integer parallelism = options.getInt(CollectionConstants.PARALLELISM, 1);
+        Integer parallelism = options.getInt(SourceCommonOptions.PARALLELISM.key(), 1);
         Integer checkpointInterval = options.getInt(Constants.CHECKPOINT_INTERVAL, CHECKPOINT_INTERVAL_DEFAULT);
         String checkpointPath = StringUtils.replacePattern(checkpointLocation, "sources/\\d+", "sources-state");
         Configuration configuration = SparkSession.getActiveSession().get().sparkContext().hadoopConfiguration();

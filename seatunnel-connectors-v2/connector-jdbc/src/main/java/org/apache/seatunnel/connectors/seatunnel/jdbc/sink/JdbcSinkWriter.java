@@ -19,19 +19,24 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcStatementBuilder;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.SimpleBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 
 import org.apache.commons.lang3.SerializationUtils;
 
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -40,20 +45,17 @@ public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSin
 
     private final JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat;
     private final SinkWriter.Context context;
+    private final JdbcConnectionProvider connectionProvider;
     private transient boolean isOpen;
 
     public JdbcSinkWriter(
         SinkWriter.Context context,
-        JdbcStatementBuilder<SeaTunnelRow> statementBuilder,
-        JdbcSinkOptions jdbcSinkOptions) {
-
-        JdbcConnectionProvider connectionProvider = new SimpleJdbcConnectionProvider(jdbcSinkOptions.getJdbcConnectionOptions());
-
+        JdbcDialect dialect,
+        JdbcSinkOptions jdbcSinkOptions,
+        SeaTunnelRowType rowType) {
         this.context = context;
-        this.outputFormat = new JdbcOutputFormat<>(
-            connectionProvider,
-            jdbcSinkOptions.getJdbcConnectionOptions(),
-            () -> new SimpleBatchStatementExecutor<>(jdbcSinkOptions.getJdbcConnectionOptions().getQuery(), statementBuilder));
+        this.connectionProvider = new SimpleJdbcConnectionProvider(jdbcSinkOptions.getJdbcConnectionOptions());
+        this.outputFormat = new JdbcOutputFormatBuilder(dialect, connectionProvider, jdbcSinkOptions, rowType).build();
     }
 
     private void tryOpen() throws IOException {
@@ -81,6 +83,13 @@ public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSin
         throws IOException {
         tryOpen();
         outputFormat.flush();
+        try {
+            if (!connectionProvider.getConnection().getAutoCommit()) {
+                connectionProvider.getConnection().commit();
+            }
+        } catch (SQLException e) {
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED, "commit failed," + e.getMessage(), e);
+        }
         return Optional.empty();
     }
 
@@ -94,6 +103,13 @@ public class JdbcSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSin
         throws IOException {
         tryOpen();
         outputFormat.flush();
+        try {
+            if (!connectionProvider.getConnection().getAutoCommit()) {
+                connectionProvider.getConnection().commit();
+            }
+        } catch (SQLException e) {
+            throw new JdbcConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, "unable to close JDBC sink write", e);
+        }
         outputFormat.close();
     }
 }

@@ -18,16 +18,18 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.GroupXaOperationResult;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaFacade;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOps;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOpsImpl;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.ExceptionUtils;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -52,7 +54,7 @@ public class JdbcSinkAggregatedCommitter
             try {
                 xaFacade.open();
             } catch (Exception e) {
-                ExceptionUtils.rethrowIOException(e);
+                new JdbcConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, "unable to open JDBC sink aggregated committer", e);
             }
         }
     }
@@ -61,7 +63,7 @@ public class JdbcSinkAggregatedCommitter
     public List<JdbcAggregatedCommitInfo> commit(List<JdbcAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
         tryOpen();
         return aggregatedCommitInfos.stream().map(aggregatedCommitInfo -> {
-            GroupXaOperationResult<XidInfo> result = xaGroupOps.commit(aggregatedCommitInfo.getXidInfoList(), false, jdbcSinkOptions.getJdbcConnectionOptions().getMaxCommitAttempts());
+            GroupXaOperationResult<XidInfo> result = xaGroupOps.commit(new ArrayList<>(aggregatedCommitInfo.getXidInfoList()), false, jdbcSinkOptions.getJdbcConnectionOptions().getMaxCommitAttempts());
             return new JdbcAggregatedCommitInfo(result.getForRetry());
         }).filter(ainfo -> !ainfo.getXidInfoList().isEmpty()).collect(Collectors.toList());
     }
@@ -87,7 +89,7 @@ public class JdbcSinkAggregatedCommitter
                 xaFacade.close();
             }
         } catch (Exception e) {
-            ExceptionUtils.rethrowIOException(e);
+            new JdbcConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, "unable to close JDBC sink aggregated committer", e);
         }
     }
 }

@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
 
 import lombok.NonNull;
@@ -77,7 +79,7 @@ public class SimpleJdbcConnectionProvider
     }
 
     private static Driver loadDriver(String driverName)
-        throws SQLException, ClassNotFoundException {
+        throws ClassNotFoundException {
         checkNotNull(driverName);
         Enumeration<Driver> drivers = DriverManager.getDrivers();
         while (drivers.hasMoreElements()) {
@@ -95,7 +97,7 @@ public class SimpleJdbcConnectionProvider
         try {
             return (Driver) clazz.getDeclaredConstructor().newInstance();
         } catch (Exception ex) {
-            throw new SQLException("Fail to create driver of class " + driverName, ex);
+            throw new JdbcConnectorException(JdbcConnectorErrorCode.CREATE_DRIVER_FAILED, "Fail to create driver of class " + driverName, ex);
         }
     }
 
@@ -125,12 +127,11 @@ public class SimpleJdbcConnectionProvider
         if (connection == null) {
             // Throw same exception as DriverManager.getConnection when no driver found to match
             // caller expectation.
-            throw new SQLException(
-                "No suitable driver found for " + jdbcOptions.getUrl(), "08001");
+            throw new JdbcConnectorException(
+                JdbcConnectorErrorCode.NO_SUITABLE_DRIVER, "No suitable driver found for " + jdbcOptions.getUrl());
         }
 
-        //Auto commit is used by default
-        connection.setAutoCommit(true);
+        connection.setAutoCommit(jdbcOptions.isAutoCommit());
 
         return connection;
     }

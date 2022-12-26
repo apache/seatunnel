@@ -17,13 +17,43 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.DateUtils;
+import org.apache.seatunnel.common.utils.TimeUtils;
+
 public class BaseSourceConfig {
-    public static final String FILE_TYPE = "type";
-    public static final String FILE_PATH = "path";
-    public static final String SCHEMA = "schema";
-    public static final String DELIMITER = "delimiter";
-    public static final String DATE_FORMAT = "date_format";
-    public static final String DATETIME_FORMAT = "datetime_format";
-    public static final String TIME_FORMAT = "time_format";
-    public static final String PARSE_PARTITION_FROM_PATH = "parse_partition_from_path";
+    public static final Option<String> FILE_TYPE = Options.key("type")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("File type");
+    public static final Option<FileFormat> FILE_PATH = Options.key("path")
+            .enumType(FileFormat.class)
+            .noDefaultValue()
+            .withDescription("The file path of source files");
+    public static final Option<String> DELIMITER = Options.key("delimiter")
+            .stringType()
+            .defaultValue(String.valueOf('\001'))
+            .withDescription("The separator between columns in a row of data. Only needed by `text` and `csv` file format");
+    public static final Option<DateUtils.Formatter> DATE_FORMAT = Options.key("date_format")
+            .enumType(DateUtils.Formatter.class)
+            .defaultValue(DateUtils.Formatter.YYYY_MM_DD)
+            .withDescription("Date format");
+    public static final Option<DateTimeUtils.Formatter> DATETIME_FORMAT = Options.key("datetime_format")
+            .enumType(DateTimeUtils.Formatter.class)
+            .defaultValue(DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS)
+            .withDescription("Datetime format");
+    public static final Option<TimeUtils.Formatter> TIME_FORMAT = Options.key("time_format")
+            .enumType(TimeUtils.Formatter.class)
+            .defaultValue(TimeUtils.Formatter.HH_MM_SS)
+            .withDescription("Time format");
+    public static final Option<Boolean> PARSE_PARTITION_FROM_PATH = Options.key("parse_partition_from_path")
+            .booleanType()
+            .defaultValue(true)
+            .withDescription("Whether parse partition fields from file path");
+    public static final Option<String> HDFS_SITE_PATH = Options.key("hdfs_site_path")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("The path of hdfs-site.xml");
 }

@@ -17,11 +17,39 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.s3.config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 
+import java.util.Map;
+
 public class S3Config extends BaseSourceConfig {
-    public static final String S3_ACCESS_KEY = "access_key";
-    public static final String S3_SECRET_KEY = "secret_key";
-    public static final String S3_BUCKET = "bucket";
+    public static final Option<String> S3_ACCESS_KEY = Options.key("access_key")
+        .stringType()
+        .noDefaultValue()
+        .withDescription("S3 access key");
+    public static final Option<String> S3_SECRET_KEY = Options.key("secret_key")
+        .stringType()
+        .noDefaultValue()
+        .withDescription("S3 secret key");
+    public static final Option<String> S3_BUCKET = Options.key("bucket")
+        .stringType()
+        .noDefaultValue()
+        .withDescription("S3 bucket");
+
+    /**
+     * The current key for that config option.
+     * if you need to add a new option, you can add it here and refer to this:
+     * <p>
+     * https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html
+     * <p>
+     * such as:
+     * key = "fs.s3a.session.token"
+     * value = "SECRET-SESSION-TOKEN"
+     */
+    public static final Option<Map<String, String>> S3_PROPERTIES = Options.key("hadoop_s3_properties")
+        .mapType()
+        .noDefaultValue()
+        .withDescription("S3 properties");
 
 }

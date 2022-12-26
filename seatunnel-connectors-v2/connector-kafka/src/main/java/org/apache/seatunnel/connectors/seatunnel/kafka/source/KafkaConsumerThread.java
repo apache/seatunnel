@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
+import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
+
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
@@ -50,7 +53,7 @@ public class KafkaConsumerThread implements Runnable {
                     task.accept(consumer);
                 }
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                throw new KafkaConnectorException(KafkaConnectorErrorCode.CONSUME_THREAD_RUN_ERROR, e);
             }
         }
     }
@@ -65,12 +68,13 @@ public class KafkaConsumerThread implements Runnable {
         properties.forEach((key, value) -> props.setProperty(String.valueOf(key), String.valueOf(value)));
         props.setProperty(ConsumerConfig.GROUP_ID_CONFIG, consumerGroup);
         props.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServer);
-        props.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, CLIENT_ID_PREFIX + "-enumerator-consumer-" + this.hashCode());
-
-        props.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-            ByteArrayDeserializer.class.getName());
-        props.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-            ByteArrayDeserializer.class.getName());
+        if (this.metadata.getProperties().get("client.id") == null) {
+            props.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, CLIENT_ID_PREFIX + "-consumer-" + this.hashCode());
+        } else {
+            props.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, this.metadata.getProperties().get("client.id").toString());
+        }
+        props.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        props.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
         props.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, String.valueOf(autoCommit));
 
         // Disable auto create topics feature

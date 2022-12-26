@@ -25,9 +25,51 @@ import org.apache.commons.lang3.StringUtils;
 import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class OptionUtil {
+
+    private OptionUtil() {
+    }
+
+    public static String getOptionKeys(List<Option<?>> options) {
+        StringBuilder builder = new StringBuilder();
+        boolean flag = false;
+        for (Option<?> option : options) {
+            if (flag) {
+                builder.append(", ");
+            }
+            builder.append("'")
+                .append(option.key())
+                .append("'");
+            flag = true;
+        }
+        return builder.toString();
+    }
+
+    public static String getOptionKeys(List<Option<?>> options,
+                                       List<RequiredOption.BundledRequiredOptions> bundledOptions) {
+        List<List<Option<?>>> optionList = new ArrayList<>();
+        for (Option<?> option : options) {
+            optionList.add(Collections.singletonList(option));
+        }
+        for (RequiredOption.BundledRequiredOptions bundledOption : bundledOptions) {
+            optionList.add(bundledOption.getRequiredOption());
+        }
+        boolean flag = false;
+        StringBuilder builder = new StringBuilder();
+        for (List<Option<?>> optionSet : optionList) {
+            if (flag) {
+                builder.append(", ");
+            }
+            builder.append("[")
+                .append(getOptionKeys(optionSet))
+                .append("]");
+            flag = true;
+        }
+        return builder.toString();
+    }
 
     public static List<Option<?>> getOptions(Class<?> clazz) throws InstantiationException, IllegalAccessException {
         Field[] fields = clazz.getDeclaredFields();
@@ -37,7 +79,8 @@ public class OptionUtil {
             field.setAccessible(true);
             OptionMark option = field.getAnnotation(OptionMark.class);
             if (option != null) {
-                options.add(new Option<>(!StringUtils.isNotBlank(option.name()) ? formatUnderScoreCase(field.getName()) : option.name(),
+                options.add(new Option<>(
+                    !StringUtils.isNotBlank(option.name()) ? formatUnderScoreCase(field.getName()) : option.name(),
                     new TypeReference<Object>() {
                         @Override
                         public Type getType() {

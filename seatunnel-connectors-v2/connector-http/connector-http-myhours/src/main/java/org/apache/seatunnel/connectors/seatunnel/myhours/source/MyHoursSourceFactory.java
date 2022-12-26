@@ -19,13 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.myhours.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.myhours.source.config.MyHoursSourceConfig;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class MyHoursSourceFactory implements TableSourceFactory {
+public class MyHoursSourceFactory extends HttpSourceFactory {
     @Override
     public String factoryIdentifier() {
         return "MyHours";
@@ -33,13 +33,9 @@ public class MyHoursSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder()
-                .required(MyHoursSourceConfig.URL)
+        return getHttpBuilder()
                 .required(MyHoursSourceConfig.EMAIL)
                 .required(MyHoursSourceConfig.PASSWORD)
-                .optional(MyHoursSourceConfig.RETRY)
-                .optional(MyHoursSourceConfig.RETRY_BACKOFF_MAX_MS)
-                .optional(MyHoursSourceConfig.RETRY_BACKOFF_MULTIPLIER_MS)
                 .build();
     }
 }

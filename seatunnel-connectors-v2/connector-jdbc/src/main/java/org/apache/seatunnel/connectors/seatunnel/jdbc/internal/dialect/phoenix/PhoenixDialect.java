@@ -21,6 +21,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRow
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
+import java.util.Optional;
+
 public class PhoenixDialect implements JdbcDialect {
     @Override
     public String dialectName() {
@@ -35,5 +37,10 @@ public class PhoenixDialect implements JdbcDialect {
     @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
         return new PhoenixTypeMapper();
+    }
+
+    @Override
+    public Optional<String> getUpsertStatement(String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+        return Optional.empty();
     }
 }

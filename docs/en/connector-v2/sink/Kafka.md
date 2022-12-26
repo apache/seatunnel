@@ -15,17 +15,19 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 
 ## Options
 
-| name               | type                   | required | default value |
-| ------------------ | ---------------------- | -------- | ------------- |
-| topic              | string                 | yes      | -             |
-| bootstrap.servers  | string                 | yes      | -             |
-| kafka.*            | kafka producer config  | no       | -             |
-| semantic           | string                 | no       | NON           |
-| partition_key      | string                 | no       | -             |
-| partition          | int                    | no       | -             |
-| assign_partitions  | list                   | no       | -             |
-| transaction_prefix | string                 | no       | -             |
-| common-options     |                        | no       | -             |
+| name                 | type                  | required | default value |
+|----------------------|-----------------------| -------- | ------------- |
+| topic                | string                | yes      | -             |
+| bootstrap.servers    | string                | yes      | -             |
+| kafka.*              | kafka producer config | no       | -             |
+| semantic             | string                | no       | NON           |
+| partition_key_fields | array                 | no       | -             |
+| partition            | int                   | no       | -             |
+| assign_partitions    | array                 | no       | -             |
+| transaction_prefix   | string                | no       | -             |
+| format               | String                | no       | json          |
+| field_delimiter      | String                | no       | ,             |
+| common-options       | config                | no       | -             |
 
 ### topic [string]
 
@@ -51,11 +53,11 @@ In AT_LEAST_ONCE, producer will wait for all outstanding messages in the Kafka b
 
 NON does not provide any guarantees: messages may be lost in case of issues on the Kafka broker and messages may be duplicated.
 
-### partition_key [string]
+### partition_key_fields [array]
 
-Configure which field is used as the key of the kafka message.
+Configure which fields are used as the key of the kafka message.
 
-For example, if you want to use value of a field from upstream data as key, you can assign it to the field name.
+For example, if you want to use value of fields from upstream data as key, you can assign field names to this property.
 
 Upstream data is the following:
 
@@ -66,13 +68,13 @@ Upstream data is the following:
 
 If name is set as the key, then the hash value of the name column will determine which partition the message is sent to.
 
-If the field name does not exist in the upstream data, the configured parameter will be used as the key.
+If not set partition key fields, the null message key will be sent to.
 
 ### partition [int]
 
 We can specify the partition, all messages will be sent to this partition.
 
-### assign_partitions [list]
+### assign_partitions [array]
 
 We can decide which partition to send based on the content of the message. The function of this parameter is to distribute information.
 
@@ -88,7 +90,16 @@ This function by `MessageContentPartitioner` class implements `org.apache.kafka.
 If semantic is specified as EXACTLY_ONCE, the producer will write all messages in a Kafka transaction.
 Kafka distinguishes different transactions by different transactionId. This parameter is prefix of  kafka  transactionId, make sure different job use different prefix.
 
-### common options
+### format
+
+Data format. The default format is json. Optional text format. The default field separator is ",".
+If you customize the delimiter, add the "field_delimiter" option.
+
+### field_delimiter
+
+Customize the field delimiter for data format.
+
+### common options [config]
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
 
@@ -101,8 +112,66 @@ sink {
       topic = "seatunnel"
       bootstrap.servers = "localhost:9092"
       partition = 3
+      format = json
       kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
+  }
+  
+}
+```
+
+### AWS MSK SASL/SCRAM
+
+Replace the following `${username}` and `${password}` with the configuration values in AWS MSK.
+
+```hocon
+sink {
+  kafka {
+      topic = "seatunnel"
+      bootstrap.servers = "localhost:9092"
+      partition = 3
+      format = json
+      kafka.request.timeout.ms = 60000
+      semantics = EXACTLY_ONCE
+      kafka.security.protocol=SASL_SSL
+      kafka.sasl.mechanism=SCRAM-SHA-512
+      kafka.sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required \nusername=${username}\npassword=${password};"
+  }
+  
+}
+```
+
+### AWS MSK IAM
+
+Download `aws-msk-iam-auth-1.1.5.jar` from https://github.com/aws/aws-msk-iam-auth/releases and put it in `$SEATUNNEL_HOME/plugin/kafka/lib` dir.
+
+Please ensure the IAM policy have `"kafka-cluster:Connect",`. Like this:
+
+
+```hocon
+"Effect": "Allow",
+"Action": [
+    "kafka-cluster:Connect",
+    "kafka-cluster:AlterCluster",
+    "kafka-cluster:DescribeCluster"
+],
+```
+
+Sink Config
+
+```hocon
+sink {
+  kafka {
+      topic = "seatunnel"
+      bootstrap.servers = "localhost:9092"
+      partition = 3
+      format = json
+      kafka.request.timeout.ms = 60000
+      semantics = EXACTLY_ONCE
+      kafka.security.protocol=SASL_SSL
+      kafka.sasl.mechanism=AWS_MSK_IAM
+      kafka.sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
+      kafka.sasl.client.callback.handler.class="software.amazon.msk.auth.iam.IAMClientCallbackHandler"
   }
   
 }
@@ -113,3 +182,8 @@ sink {
 ### 2.3.0-beta 2022-10-20
 
 - Add Kafka Sink Connector
+
+### next version
+
+- [Improve] Support to specify multiple partition keys [3230](https://github.com/apache/incubator-seatunnel/pull/3230)
+- [Improve] Add text format for kafka sink connector [3711](https://github.com/apache/incubator-seatunnel/pull/3711)

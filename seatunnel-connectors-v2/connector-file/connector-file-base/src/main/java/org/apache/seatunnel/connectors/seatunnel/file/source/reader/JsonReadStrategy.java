@@ -21,8 +21,9 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import org.apache.hadoop.conf.Configuration;
@@ -49,7 +50,7 @@ public class JsonReadStrategy extends AbstractReadStrategy {
     }
 
     @Override
-    public void read(String path, Collector<SeaTunnelRow> output) throws Exception {
+    public void read(String path, Collector<SeaTunnelRow> output) throws FileConnectorException, IOException {
         Configuration conf = getConfiguration();
         FileSystem fs = FileSystem.get(conf);
         Path filePath = new Path(path);
@@ -66,14 +67,16 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                     }
                     output.collect(seaTunnelRow);
                 } catch (IOException e) {
-                    throw new RuntimeException(e);
+                    String errorMsg = String.format("Read data from this file [%s] failed", filePath);
+                    throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED, errorMsg);
                 }
             });
         }
     }
 
     @Override
-    public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) throws FilePluginException {
-        throw new UnsupportedOperationException("User must defined schema for json file type");
+    public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path) throws FileConnectorException {
+        throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+                "User must defined schema for json file type");
     }
 }

@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.source;
 
-import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
 
 import com.google.auto.service.AutoService;
 
@@ -36,18 +36,23 @@ public class HttpSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
+        return getHttpBuilder().build();
+    }
+
+    public OptionRule.Builder getHttpBuilder() {
         return OptionRule.builder()
                 .required(HttpConfig.URL)
                 .optional(HttpConfig.METHOD)
                 .optional(HttpConfig.HEADERS)
                 .optional(HttpConfig.PARAMS)
-                .conditional(Condition.of(HttpConfig.METHOD, "post"), HttpConfig.BODY)
-                .conditional(Condition.of(HttpConfig.FORMAT, "json"), SeaTunnelSchema.SCHEMA)
                 .optional(HttpConfig.FORMAT)
+                .optional(HttpConfig.JSON_FIELD)
+                .optional(HttpConfig.CONTENT_FIELD)
+                .conditional(HttpConfig.METHOD, HttpRequestMethod.POST, HttpConfig.BODY)
+                .conditional(HttpConfig.FORMAT, HttpConfig.ResponseFormat.JSON, SeaTunnelSchema.SCHEMA)
                 .optional(HttpConfig.POLL_INTERVAL_MILLS)
                 .optional(HttpConfig.RETRY)
                 .optional(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS)
-                .optional(HttpConfig.RETRY_BACKOFF_MAX_MS)
-                .build();
+                .optional(HttpConfig.RETRY_BACKOFF_MAX_MS);
     }
 }

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.transform;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -28,11 +30,15 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.List;
+
 @Slf4j
 @AutoService(SeaTunnelTransform.class)
 public class FilterFieldTransform extends AbstractSeaTunnelTransform {
-
-    private static final String KEY_FIELDS = "fields";
+    public static final Option<List<String>> KEY_FIELDS = Options.key("fields")
+            .listType()
+            .noDefaultValue()
+            .withDescription("The fields you want to filter");
 
     private String[] fields;
     private int[] inputValueIndex;
@@ -44,10 +50,10 @@ public class FilterFieldTransform extends AbstractSeaTunnelTransform {
 
     @Override
     protected void setConfig(Config pluginConfig) {
-        if (!pluginConfig.hasPath(KEY_FIELDS)) {
+        if (!pluginConfig.hasPath(KEY_FIELDS.key())) {
             throw new IllegalArgumentException("The configuration missing key: " + KEY_FIELDS);
         }
-        this.fields = pluginConfig.getStringList(KEY_FIELDS).toArray(new String[0]);
+        this.fields = pluginConfig.getStringList(KEY_FIELDS.key()).toArray(new String[0]);
     }
 
     @Override

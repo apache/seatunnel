@@ -17,21 +17,23 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter;
 
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
+import java.sql.Date;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.Optional;
 
 /**
  * Base class for all converters that convert between JDBC object and Seatunnel internal object.
@@ -45,52 +47,131 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
 
     @Override
     @SuppressWarnings("checkstyle:Indentation")
-    public SeaTunnelRow toInternal(ResultSet rs, ResultSetMetaData metaData, SeaTunnelRowType typeInfo) throws SQLException {
-
-        List<Object> fields = new ArrayList<>();
-        SeaTunnelDataType<?>[] seaTunnelDataTypes = typeInfo.getFieldTypes();
-
-        for (int i = 1; i <= seaTunnelDataTypes.length; i++) {
-            Object seatunnelField;
-            SeaTunnelDataType<?> seaTunnelDataType = seaTunnelDataTypes[i - 1];
-            if (BasicType.BOOLEAN_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = rs.getBoolean(i);
-            } else if (BasicType.BYTE_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = rs.getByte(i);
-            } else if (BasicType.SHORT_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = rs.getShort(i);
-            } else if (BasicType.INT_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = rs.getInt(i);
-            } else if (BasicType.LONG_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = rs.getLong(i);
-            } else if (seaTunnelDataType instanceof DecimalType) {
-                Object value = rs.getObject(i);
-                seatunnelField = value instanceof BigInteger ?
-                    new BigDecimal((BigInteger) value, 0)
-                    : value;
-            } else if (BasicType.FLOAT_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = rs.getFloat(i);
-            } else if (BasicType.DOUBLE_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = rs.getDouble(i);
-            } else if (BasicType.STRING_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = rs.getString(i);
-            } else if (LocalTimeType.LOCAL_TIME_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = rs.getTime(i).toLocalTime();
-            } else if (LocalTimeType.LOCAL_DATE_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = rs.getDate(i).toLocalDate();
-            } else if (LocalTimeType.LOCAL_DATE_TIME_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = rs.getTimestamp(i).toLocalDateTime();
-            } else if (PrimitiveByteArrayType.INSTANCE.equals(seaTunnelDataType)) {
-                seatunnelField = rs.getBytes(i);
-            } else {
-                throw new IllegalStateException("Unexpected value: " + seaTunnelDataType);
+    public SeaTunnelRow toInternal(ResultSet rs, SeaTunnelRowType typeInfo) throws SQLException {
+        Object[] fields = new Object[typeInfo.getTotalFields()];
+        for (int fieldIndex = 0; fieldIndex < typeInfo.getTotalFields(); fieldIndex++) {
+            SeaTunnelDataType<?> seaTunnelDataType = typeInfo.getFieldType(fieldIndex);
+            int resultSetIndex = fieldIndex + 1;
+            switch (seaTunnelDataType.getSqlType()) {
+                case STRING:
+                    fields[fieldIndex] = rs.getString(resultSetIndex);
+                    break;
+                case BOOLEAN:
+                    fields[fieldIndex] = rs.getBoolean(resultSetIndex);
+                    break;
+                case TINYINT:
+                    fields[fieldIndex] = rs.getByte(resultSetIndex);
+                    break;
+                case SMALLINT:
+                    fields[fieldIndex] = rs.getShort(resultSetIndex);
+                    break;
+                case INT:
+                    fields[fieldIndex] = rs.getInt(resultSetIndex);
+                    break;
+                case BIGINT:
+                    fields[fieldIndex] = rs.getLong(resultSetIndex);
+                    break;
+                case FLOAT:
+                    fields[fieldIndex] = rs.getFloat(resultSetIndex);
+                    break;
+                case DOUBLE:
+                    fields[fieldIndex] = rs.getDouble(resultSetIndex);
+                    break;
+                case DECIMAL:
+                    fields[fieldIndex] = rs.getBigDecimal(resultSetIndex);
+                    break;
+                case DATE:
+                    Date sqlDate = rs.getDate(resultSetIndex);
+                    fields[fieldIndex] = Optional.ofNullable(sqlDate).map(e -> e.toLocalDate()).orElse(null);
+                    break;
+                case TIME:
+                    Time sqlTime = rs.getTime(resultSetIndex);
+                    fields[fieldIndex] = Optional.ofNullable(sqlTime).map(e -> e.toLocalTime()).orElse(null);
+                    break;
+                case TIMESTAMP:
+                    Timestamp sqlTimestamp = rs.getTimestamp(resultSetIndex);
+                    fields[fieldIndex] = Optional.ofNullable(sqlTimestamp).map(e -> e.toLocalDateTime()).orElse(null);
+                    break;
+                case BYTES:
+                    fields[fieldIndex] = rs.getBytes(resultSetIndex);
+                    break;
+                case NULL:
+                    fields[fieldIndex] = null;
+                    break;
+                case MAP:
+                case ARRAY:
+                case ROW:
+                default:
+                    throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unexpected value: " + seaTunnelDataType);
             }
-            if (rs.wasNull()) {
-                seatunnelField = null;
-            }
-            fields.add(seatunnelField);
         }
+        return new SeaTunnelRow(fields);
+    }
 
-        return new SeaTunnelRow(fields.toArray());
+    @Override
+    public PreparedStatement toExternal(SeaTunnelRowType rowType, SeaTunnelRow row, PreparedStatement statement) throws SQLException {
+        for (int fieldIndex = 0; fieldIndex < rowType.getTotalFields(); fieldIndex++) {
+            SeaTunnelDataType<?> seaTunnelDataType = rowType.getFieldType(fieldIndex);
+            int statementIndex = fieldIndex + 1;
+            Object fieldValue = row.getField(fieldIndex);
+            if (fieldValue == null) {
+                statement.setObject(statementIndex, null);
+                continue;
+            }
+
+            switch (seaTunnelDataType.getSqlType()) {
+                case STRING:
+                    statement.setString(statementIndex, (String) row.getField(fieldIndex));
+                    break;
+                case BOOLEAN:
+                    statement.setBoolean(statementIndex, (Boolean) row.getField(fieldIndex));
+                    break;
+                case TINYINT:
+                    statement.setByte(statementIndex, (Byte) row.getField(fieldIndex));
+                    break;
+                case SMALLINT:
+                    statement.setShort(statementIndex, (Short) row.getField(fieldIndex));
+                    break;
+                case INT:
+                    statement.setInt(statementIndex, (Integer) row.getField(fieldIndex));
+                    break;
+                case BIGINT:
+                    statement.setLong(statementIndex, (Long) row.getField(fieldIndex));
+                    break;
+                case FLOAT:
+                    statement.setFloat(statementIndex, (Float) row.getField(fieldIndex));
+                    break;
+                case DOUBLE:
+                    statement.setDouble(statementIndex, (Double) row.getField(fieldIndex));
+                    break;
+                case DECIMAL:
+                    statement.setBigDecimal(statementIndex, (BigDecimal) row.getField(fieldIndex));
+                    break;
+                case DATE:
+                    LocalDate localDate = (LocalDate) row.getField(fieldIndex);
+                    statement.setDate(statementIndex, java.sql.Date.valueOf(localDate));
+                    break;
+                case TIME:
+                    LocalTime localTime = (LocalTime) row.getField(fieldIndex);
+                    statement.setTime(statementIndex, java.sql.Time.valueOf(localTime));
+                    break;
+                case TIMESTAMP:
+                    LocalDateTime localDateTime = (LocalDateTime) row.getField(fieldIndex);
+                    statement.setTimestamp(statementIndex, java.sql.Timestamp.valueOf(localDateTime));
+                    break;
+                case BYTES:
+                    statement.setBytes(statementIndex, (byte[]) row.getField(fieldIndex));
+                    break;
+                case NULL:
+                    statement.setNull(statementIndex, java.sql.Types.NULL);
+                    break;
+                case MAP:
+                case ARRAY:
+                case ROW:
+                default:
+                    throw new JdbcConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unexpected value: " + seaTunnelDataType);
+            }
+        }
+        return statement;
     }
 }

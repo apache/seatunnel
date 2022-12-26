@@ -30,9 +30,12 @@
     <packaging>pom</packaging>
 
     <properties>
+        <debezium.version>1.6.4.Final</debezium.version>
     </properties>
 
     <modules>
         <module>connector-cdc-base</module>
+        <module>connector-cdc-mysql</module>
+        <module>connector-cdc-sqlserver</module>
     </modules>
 </project>

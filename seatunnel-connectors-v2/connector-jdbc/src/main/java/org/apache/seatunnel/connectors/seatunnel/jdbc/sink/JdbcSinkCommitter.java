@@ -18,14 +18,18 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.sink.SinkCommitter;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaFacade;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOps;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOpsImpl;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.ExceptionUtils;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 public class JdbcSinkCommitter
@@ -35,36 +39,33 @@ public class JdbcSinkCommitter
     private final JdbcConnectionOptions jdbcConnectionOptions;
 
     public JdbcSinkCommitter(
-        JdbcConnectionOptions jdbcConnectionOptions
+        JdbcSinkOptions jdbcSinkOptions
     )
         throws IOException {
-        this.jdbcConnectionOptions = jdbcConnectionOptions;
+        this.jdbcConnectionOptions = jdbcSinkOptions.getJdbcConnectionOptions();
         this.xaFacade = XaFacade.fromJdbcConnectionOptions(
             jdbcConnectionOptions);
         this.xaGroupOps = new XaGroupOpsImpl(xaFacade);
         try {
             xaFacade.open();
-        }
-        catch (Exception e) {
-            ExceptionUtils.rethrowIOException(e);
+        } catch (Exception e) {
+            new JdbcConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, "unable to open JDBC sink committer", e);
         }
     }
 
     @Override
     public List<XidInfo> commit(List<XidInfo> committables) {
         return xaGroupOps
-            .commit(committables, false, jdbcConnectionOptions.getMaxCommitAttempts())
+            .commit(new ArrayList<>(committables), false, jdbcConnectionOptions.getMaxCommitAttempts())
             .getForRetry();
     }
 
     @Override
-    public void abort(List<XidInfo> commitInfos)
-        throws IOException {
+    public void abort(List<XidInfo> commitInfos) {
         try {
             xaGroupOps.rollback(commitInfos);
-        }
-        catch (Exception e) {
-            ExceptionUtils.rethrowIOException(e);
+        } catch (Exception e) {
+            new JdbcConnectorException(JdbcConnectorErrorCode.XA_OPERATION_FAILED, "rollback failed", e);
         }
     }
 }
