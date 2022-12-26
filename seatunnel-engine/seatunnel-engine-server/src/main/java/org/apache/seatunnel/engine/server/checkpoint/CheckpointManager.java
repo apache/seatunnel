@@ -138,8 +138,7 @@ public class CheckpointManager {
     }
 
     public void reportedPipelineRunning(int pipelineId) {
-        getCheckpointCoordinator(pipelineId).setAllTaskReady(true);
-        getCheckpointCoordinator(pipelineId).tryTriggerPendingCheckpoint();
+        getCheckpointCoordinator(pipelineId).restoreCoordinator();
     }
 
     protected void handleCheckpointError(int pipelineId, Throwable e) {

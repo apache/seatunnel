@@ -46,7 +46,6 @@ import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.Getter;
-import lombok.Setter;
 import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -123,8 +122,6 @@ public class CheckpointCoordinator {
      * Flag marking the coordinator as shut down (not accepting any messages anymore).
      */
     private volatile boolean shutdown;
-
-    @Setter
     private volatile boolean isAllTaskReady = false;
 
     @SneakyThrows
@@ -259,10 +256,16 @@ public class CheckpointCoordinator {
         }
     }
 
+    protected void restoreCoordinator() {
+        isAllTaskReady = true;
+        shutdown = false;
+        tryTriggerPendingCheckpoint();
+    }
+
     protected void tryTriggerPendingCheckpoint(CheckpointType checkpointType) {
         synchronized (lock) {
             if (isCompleted() || isShutdown()) {
-                LOG.warn(String.format("can't trigger checkpoint with type: %s, because checkpoint coordinator already have completed checkpoint", checkpointType));
+                LOG.warn(String.format("can't trigger checkpoint with type: %s, because checkpoint coordinator already have completed checkpoint or shutdown", checkpointType));
                 return;
             }
             final long currentTimestamp = Instant.now().toEpochMilli();
@@ -439,6 +442,8 @@ public class CheckpointCoordinator {
     }
 
     protected void cleanPendingCheckpoint(CheckpointFailureReason failureReason) {
+        shutdown = true;
+        isAllTaskReady = false;
         synchronized (lock) {
             pendingCheckpoints.values().forEach(pendingCheckpoint ->
                 pendingCheckpoint.abortCheckpoint(failureReason, null)
@@ -451,10 +456,9 @@ public class CheckpointCoordinator {
                 1, runnable -> {
                     Thread thread = new Thread(runnable);
                     thread.setDaemon(true);
-                    thread.setName(String.format("checkpoint-coordinator-%s/%s", pipelineId, jobId));
+                    thread.setName(String.format("checkpoint-coordinator-after-shutdown-%s/%s", pipelineId, jobId));
                     return thread;
                 });
-            isAllTaskReady = false;
         }
     }
 
@@ -527,7 +531,6 @@ public class CheckpointCoordinator {
         // TODO: notifyCheckpointCompleted fail
         latestCompletedCheckpoint = completedCheckpoint;
         if (isCompleted()) {
-            shutdown = true;
             cleanPendingCheckpoint(CheckpointFailureReason.CHECKPOINT_COORDINATOR_COMPLETED);
         }
     }
