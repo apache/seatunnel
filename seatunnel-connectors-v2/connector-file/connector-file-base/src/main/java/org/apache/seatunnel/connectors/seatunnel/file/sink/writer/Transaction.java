@@ -50,13 +50,6 @@ public interface Transaction extends Serializable {
     List<FileSinkState> snapshotState(long checkpointId);
 
     /**
-     * get dirty transaction ids from file sink states
-     * @param fileSinkState file sink states
-     * @return transaction ids
-     */
-    List<String> getTransactionIdFromStates(List<FileSinkState> fileSinkState);
-
-    /**
      * when a checkpoint triggered, file sink should begin a new transaction
      * @param checkpointId checkpoint id
      */

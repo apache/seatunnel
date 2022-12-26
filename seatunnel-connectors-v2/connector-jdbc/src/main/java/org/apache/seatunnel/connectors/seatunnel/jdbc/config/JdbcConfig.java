@@ -67,6 +67,9 @@ public class JdbcConfig implements Serializable {
 
     public static final Option<List<String>> PRIMARY_KEYS = Options.key("primary_keys").listType().noDefaultValue().withDescription("primary keys");
 
+    public static final Option<Boolean> SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST = Options.key("support_upsert_by_query_primary_key_exist")
+        .booleanType().defaultValue(false).withDescription("support upsert by query primary_key exist");
+
     //source config
     public static final Option<String> PARTITION_COLUMN = Options.key("partition_column").stringType().noDefaultValue().withDescription("partition column");
     public static final Option<String> PARTITION_UPPER_BOUND = Options.key("partition_upper_bound").stringType().noDefaultValue().withDescription("partition upper bound");
@@ -102,7 +105,7 @@ public class JdbcConfig implements Serializable {
             jdbcOptions.batchIntervalMs = config.getInt(JdbcConfig.BATCH_INTERVAL_MS.key());
         }
 
-        if (config.hasPath(JdbcConfig.IS_EXACTLY_ONCE.key())) {
+        if (config.hasPath(JdbcConfig.IS_EXACTLY_ONCE.key()) && config.getBoolean(JdbcConfig.IS_EXACTLY_ONCE.key())) {
             jdbcOptions.xaDataSourceClassName = config.getString(JdbcConfig.XA_DATA_SOURCE_CLASS_NAME.key());
             if (config.hasPath(JdbcConfig.MAX_COMMIT_ATTEMPTS.key())) {
                 jdbcOptions.maxCommitAttempts = config.getInt(JdbcConfig.MAX_COMMIT_ATTEMPTS.key());

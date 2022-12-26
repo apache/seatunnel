@@ -64,7 +64,7 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
     private static final int HTTP_PORT = 7474;
     private static final int BOLT_PORT = 7687;
     private static final String CONTAINER_NEO4J_USERNAME = "neo4j";
-    private static final String CONTAINER_NEO4J_PASSWORD = "1234";
+    private static final String CONTAINER_NEO4J_PASSWORD = "Test@12343";
     private static final URI CONTAINER_URI = URI.create("neo4j://localhost:" + BOLT_PORT);
 
     private GenericContainer<?> container;

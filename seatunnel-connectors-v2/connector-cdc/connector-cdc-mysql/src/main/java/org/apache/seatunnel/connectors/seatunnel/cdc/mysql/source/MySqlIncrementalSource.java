@@ -42,9 +42,11 @@ import java.time.ZoneId;
 
 @AutoService(SeaTunnelSource.class)
 public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig> {
+    static final String IDENTIFIER = "MySQL-CDC";
+
     @Override
     public String getPluginName() {
-        return "MySQL-CDC";
+        return IDENTIFIER;
     }
 
     @Override

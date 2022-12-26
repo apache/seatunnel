@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import static org.apache.seatunnel.engine.common.Constant.IMAP_CHECKPOINT_ID;
+
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
@@ -88,7 +90,7 @@ public class CheckpointManager {
                     checkpointConfig.getStorage().getStorage())
                 .create(checkpointConfig.getStorage().getStoragePluginConfig());
         IMap<Integer, Long> checkpointIdMap =
-            nodeEngine.getHazelcastInstance().getMap(String.format("checkpoint-id-%d", jobId));
+            nodeEngine.getHazelcastInstance().getMap(String.format(IMAP_CHECKPOINT_ID, jobId));
         this.coordinatorMap = checkpointPlanMap.values().parallelStream()
             .map(plan -> {
                 IMapCheckpointIDCounter idCounter = new IMapCheckpointIDCounter(plan.getPipelineId(), checkpointIdMap);
@@ -162,7 +164,7 @@ public class CheckpointManager {
      */
     public void reportedTask(TaskReportStatusOperation reportStatusOperation) {
         // task address may change during restore.
-        log.debug("reported task({}) status{}", reportStatusOperation.getLocation().getTaskID(),
+        log.debug("reported task({}) status {}", reportStatusOperation.getLocation().getTaskID(),
             reportStatusOperation.getStatus());
         getCheckpointCoordinator(reportStatusOperation.getLocation()).reportedTask(reportStatusOperation);
     }
