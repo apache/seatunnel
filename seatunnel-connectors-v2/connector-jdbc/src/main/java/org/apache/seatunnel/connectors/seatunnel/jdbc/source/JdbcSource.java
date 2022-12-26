@@ -122,7 +122,7 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
 
     @Override
     public SourceSplitEnumerator<JdbcSourceSplit, JdbcSourceState> restoreEnumerator(SourceSplitEnumerator.Context<JdbcSourceSplit> enumeratorContext, JdbcSourceState checkpointState) throws Exception {
-        return new JdbcSourceSplitEnumerator(enumeratorContext, jdbcSourceOptions, partitionParameter);
+        return new JdbcSourceSplitEnumerator(enumeratorContext, jdbcSourceOptions, partitionParameter, checkpointState);
     }
 
     private SeaTunnelRowType initTableField(Connection conn) {
