@@ -23,8 +23,6 @@ import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 
-import org.apache.hadoop.hdfs.protocol.datatransfer.Op;
-
 import java.util.List;
 
 public class BaseSinkConfig {
