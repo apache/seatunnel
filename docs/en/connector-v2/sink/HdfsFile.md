@@ -209,3 +209,4 @@ HdfsFile {
   - When restore writer from states getting transaction directly failed
 
 - [Improve] Support setting batch size for every file ([3625](https://github.com/apache/incubator-seatunnel/pull/3625))
+- [Improve] Support lzo compression for text in file format ([3782](https://github.com/apache/incubator-seatunnel/pull/3782))
