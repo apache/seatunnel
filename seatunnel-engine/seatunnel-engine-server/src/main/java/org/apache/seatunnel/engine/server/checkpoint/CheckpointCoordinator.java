@@ -328,6 +328,7 @@ public class CheckpointCoordinator {
 
     private void startTriggerPendingCheckpoint(CompletableFuture<PendingCheckpoint> pendingCompletableFuture) {
         pendingCompletableFuture.thenAcceptAsync(pendingCheckpoint -> {
+            LOG.warn("trigger checkpoint with thread: {}.", Thread.currentThread());
             LOG.info("wait checkpoint completed: " + pendingCheckpoint.getCheckpointId());
             PassiveCompletableFuture<CompletedCheckpoint> completableFuture = pendingCheckpoint.getCompletableFuture();
             completableFuture.whenComplete((completedCheckpoint, error) -> {
@@ -446,10 +447,10 @@ public class CheckpointCoordinator {
     }
 
     protected void cleanPendingCheckpoint(CheckpointCloseReason closedReason) {
-        LOG.info("start clean pending checkpoint cause {}", closedReason.message());
         shutdown = true;
         isAllTaskReady = false;
         synchronized (lock) {
+            LOG.info("start clean pending checkpoint cause {}", closedReason.message());
             if (!pendingCheckpoints.isEmpty()) {
                 pendingCheckpoints.values().forEach(pendingCheckpoint ->
                     pendingCheckpoint.abortCheckpoint(closedReason, null)
