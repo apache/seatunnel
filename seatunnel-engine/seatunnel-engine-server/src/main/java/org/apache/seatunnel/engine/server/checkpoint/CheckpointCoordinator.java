@@ -256,11 +256,15 @@ public class CheckpointCoordinator {
         }
     }
 
-    protected void restoreCoordinator() {
+    protected void restoreCoordinator(boolean alreadyStarted) {
         cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
-        isAllTaskReady = true;
         shutdown = false;
-        //        tryTriggerPendingCheckpoint();
+        if (alreadyStarted) {
+            tryTriggerPendingCheckpoint();
+            isAllTaskReady = true;
+        } else {
+            isAllTaskReady = false;
+        }
     }
 
     protected void tryTriggerPendingCheckpoint(CheckpointType checkpointType) {

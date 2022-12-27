@@ -137,8 +137,8 @@ public class CheckpointManager {
         return getCheckpointCoordinator(pipelineId).startSavepoint();
     }
 
-    public void reportedPipelineRunning(int pipelineId) {
-        getCheckpointCoordinator(pipelineId).restoreCoordinator();
+    public void reportedPipelineRunning(int pipelineId, boolean alreadyStarted) {
+        getCheckpointCoordinator(pipelineId).restoreCoordinator(alreadyStarted);
     }
 
     protected void handleCheckpointError(int pipelineId, Throwable e) {

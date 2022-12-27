@@ -338,7 +338,7 @@ public class SubPlan {
                     forcePipelineFinish();
                     return;
                 }
-                jobMaster.getCheckpointManager().reportedPipelineRunning(pipelineId);
+                jobMaster.getCheckpointManager().reportedPipelineRunning(pipelineId, false);
                 reSchedulerPipelineFuture = jobMaster.reSchedulerPipeline(this);
                 if (reSchedulerPipelineFuture != null) {
                     reSchedulerPipelineFuture.join();
@@ -372,7 +372,7 @@ public class SubPlan {
         } else if (PipelineStatus.CANCELING.equals(getPipelineState())) {
             cancelPipelineTasks();
         } else if (PipelineStatus.RUNNING.equals(getPipelineState())) {
-            jobMaster.getCheckpointManager().reportedPipelineRunning(this.getPipelineLocation().getPipelineId());
+            jobMaster.getCheckpointManager().reportedPipelineRunning(this.getPipelineLocation().getPipelineId(), true);
         }
     }
 
