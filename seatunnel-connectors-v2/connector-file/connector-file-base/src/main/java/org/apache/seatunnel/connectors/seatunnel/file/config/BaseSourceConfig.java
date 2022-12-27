@@ -24,8 +24,8 @@ import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 
 public class BaseSourceConfig {
-    public static final Option<String> FILE_TYPE = Options.key("type")
-            .stringType()
+    public static final Option<FileFormat> FILE_TYPE = Options.key("type")
+            .objectType(FileFormat.class)
             .noDefaultValue()
             .withDescription("File type");
     public static final Option<FileFormat> FILE_PATH = Options.key("path")
@@ -35,7 +35,7 @@ public class BaseSourceConfig {
     public static final Option<String> DELIMITER = Options.key("delimiter")
             .stringType()
             .defaultValue(String.valueOf('\001'))
-            .withDescription("The separator between columns in a row of data. Only needed by `text` and `csv` file format");
+            .withDescription("The separator between columns in a row of data. Only needed by `text` file format");
     public static final Option<DateUtils.Formatter> DATE_FORMAT = Options.key("date_format")
             .enumType(DateUtils.Formatter.class)
             .defaultValue(DateUtils.Formatter.YYYY_MM_DD)
