@@ -38,6 +38,6 @@ public enum FieldMapperTransformErrorCode implements SeaTunnelErrorCode {
 
     @Override
     public String getDescription() {
-        return null;
+        return this.description;
     }
 }
