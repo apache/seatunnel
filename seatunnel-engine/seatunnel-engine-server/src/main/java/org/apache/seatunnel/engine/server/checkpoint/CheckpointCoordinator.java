@@ -260,7 +260,7 @@ public class CheckpointCoordinator {
         cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
         isAllTaskReady = true;
         shutdown = false;
-        tryTriggerPendingCheckpoint();
+        //        tryTriggerPendingCheckpoint();
     }
 
     protected void tryTriggerPendingCheckpoint(CheckpointType checkpointType) {
