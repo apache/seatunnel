@@ -269,6 +269,7 @@ public class CheckpointCoordinator {
                 LOG.warn("currentThread already be interrupted, skip trigger checkpoint");
                 return;
             }
+            LOG.warn("trigger pending checkpoint with thread: {}.", Thread.currentThread());
             if (isCompleted() || isShutdown()) {
                 LOG.warn(String.format("can't trigger checkpoint with type: %s, because checkpoint coordinator already have last completed checkpoint: (%s) or shutdown (%b).",
                     checkpointType, latestCompletedCheckpoint != null ? latestCompletedCheckpoint.getCheckpointType() : "null", shutdown));
@@ -286,6 +287,7 @@ public class CheckpointCoordinator {
             CompletableFuture<PendingCheckpoint> pendingCheckpoint = createPendingCheckpoint(currentTimestamp, checkpointType);
             startTriggerPendingCheckpoint(pendingCheckpoint);
             pendingCounter.incrementAndGet();
+            LOG.warn("pending count + 1 : {}", pendingCounter.get());
             // if checkpoint type are final type, we don't need to trigger next checkpoint
             if (notFinalCheckpoint(checkpointType)) {
                 scheduleTriggerPendingCheckpoint(coordinatorConfig.getCheckpointInterval());
@@ -463,6 +465,7 @@ public class CheckpointCoordinator {
                 pendingCheckpoints.clear();
             }
             pendingCounter.set(0);
+            LOG.warn("pending count set 0 : {}", pendingCounter.get());
             scheduler.shutdownNow();
             scheduler = Executors.newScheduledThreadPool(
                 1, runnable -> {
@@ -511,9 +514,11 @@ public class CheckpointCoordinator {
         final long checkpointId = completedCheckpoint.getCheckpointId();
         pendingCheckpoints.remove(checkpointId);
         pendingCounter.decrementAndGet();
+        LOG.warn("pending count - 1 : {}", pendingCounter.get());
         if (pendingCheckpoints.size() + 1 == coordinatorConfig.getMaxConcurrentCheckpoints()) {
             // latest checkpoint completed time > checkpoint interval
             if (notFinalCheckpoint(completedCheckpoint.getCheckpointType())) {
+                LOG.warn("trigger latest checkpoint completed time > checkpoint interval pending checkpoint with thread: {}.", Thread.currentThread());
                 tryTriggerPendingCheckpoint();
             }
         }
