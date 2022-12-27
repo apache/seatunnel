@@ -327,7 +327,7 @@ public class CheckpointCoordinator {
     }
 
     private void startTriggerPendingCheckpoint(CompletableFuture<PendingCheckpoint> pendingCompletableFuture) {
-        pendingCompletableFuture.thenAcceptAsync(pendingCheckpoint -> {
+        pendingCompletableFuture.thenAccept(pendingCheckpoint -> {
             LOG.warn("trigger checkpoint with thread: {}.", Thread.currentThread());
             LOG.info("wait checkpoint completed: " + pendingCheckpoint.getCheckpointId());
             PassiveCompletableFuture<CompletedCheckpoint> completableFuture = pendingCheckpoint.getCompletableFuture();
@@ -373,7 +373,7 @@ public class CheckpointCoordinator {
                 }, coordinatorConfig.getCheckpointTimeout(),
                 TimeUnit.MILLISECONDS
             );
-        });
+        }).join();
     }
 
     CompletableFuture<PendingCheckpoint> createPendingCheckpoint(long triggerTimestamp, CheckpointType checkpointType) {
