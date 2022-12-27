@@ -157,9 +157,13 @@ public class PendingCheckpoint implements Checkpoint {
             taskStatistics);
     }
 
-    public void abortCheckpoint(CheckpointFailureReason failureReason,
+    public void abortCheckpoint(CheckpointCloseReason closedReason,
                                 @Nullable Throwable cause) {
-        this.failureCause = new CheckpointException(failureReason, cause);
-        completableFuture.completeExceptionally(failureCause);
+        if (closedReason.equals(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET)) {
+            completableFuture.complete(null);
+        } else {
+            this.failureCause = new CheckpointException(closedReason, cause);
+            completableFuture.completeExceptionally(failureCause);
+        }
     }
 }

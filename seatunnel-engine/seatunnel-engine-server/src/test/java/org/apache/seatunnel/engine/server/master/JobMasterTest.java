@@ -28,8 +28,8 @@ import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.TestUtils;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointException;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointFailureReason;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
@@ -123,7 +123,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
             .untilAsserted(() -> Assertions.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
 
         // call checkpoint timeout
-        jobMaster.handleCheckpointError(1, new CheckpointException(CheckpointFailureReason.CHECKPOINT_EXPIRED));
+        jobMaster.handleCheckpointError(1, new CheckpointException(CheckpointCloseReason.CHECKPOINT_EXPIRED));
 
         // Because handleCheckpointTimeout is an async method, so we need sleep 5s to waiting job status become running again
         Thread.sleep(5000);

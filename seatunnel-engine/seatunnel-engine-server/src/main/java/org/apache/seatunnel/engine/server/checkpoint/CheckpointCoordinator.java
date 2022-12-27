@@ -181,17 +181,17 @@ public class CheckpointCoordinator {
                     break;
             }
         }).exceptionally(error -> {
-            handleCoordinatorError("task running failed", error, CheckpointFailureReason.CHECKPOINT_INSIDE_ERROR);
+            handleCoordinatorError("task running failed", error, CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
             return null;
         });
     }
 
-    private void handleCoordinatorError(String message, Throwable e, CheckpointFailureReason reason) {
+    private void handleCoordinatorError(String message, Throwable e, CheckpointCloseReason reason) {
         LOG.error(message, e);
         handleCoordinatorError(reason);
     }
 
-    private void handleCoordinatorError(CheckpointFailureReason reason) {
+    private void handleCoordinatorError(CheckpointCloseReason reason) {
         cleanPendingCheckpoint(reason);
         checkpointManager.handleCheckpointError(pipelineId, new CheckpointException(reason));
     }
@@ -257,6 +257,7 @@ public class CheckpointCoordinator {
     }
 
     protected void restoreCoordinator() {
+        cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
         isAllTaskReady = true;
         shutdown = false;
         tryTriggerPendingCheckpoint();
@@ -331,13 +332,15 @@ public class CheckpointCoordinator {
             PassiveCompletableFuture<CompletedCheckpoint> completableFuture = pendingCheckpoint.getCompletableFuture();
             completableFuture.whenComplete((completedCheckpoint, error) -> {
                 if (error != null) {
-                    handleCoordinatorError("trigger checkpoint failed", error, CheckpointFailureReason.CHECKPOINT_INSIDE_ERROR);
-                } else {
+                    handleCoordinatorError("trigger checkpoint failed", error, CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
+                } else if (completedCheckpoint != null) {
                     try {
                         completePendingCheckpoint(completedCheckpoint);
                     } catch (Throwable e) {
-                        handleCoordinatorError("complete checkpoint failed", e, CheckpointFailureReason.CHECKPOINT_INSIDE_ERROR);
+                        handleCoordinatorError("complete checkpoint failed", e, CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
                     }
+                } else {
+                    LOG.info("skip this checkpoint cause by completedCheckpoint is null");
                 }
             });
 
@@ -363,7 +366,7 @@ public class CheckpointCoordinator {
                     // If any task is not acked within the checkpoint timeout
                     if (pendingCheckpoints.get(pendingCheckpoint.getCheckpointId()) != null && !pendingCheckpoint.isFullyAcknowledged()) {
                         if (tolerableFailureCheckpoints-- <= 0) {
-                            handleCoordinatorError(CheckpointFailureReason.CHECKPOINT_EXPIRED);
+                            handleCoordinatorError(CheckpointCloseReason.CHECKPOINT_EXPIRED);
                         }
                     }
                 }, coordinatorConfig.getCheckpointTimeout(),
@@ -442,25 +445,29 @@ public class CheckpointCoordinator {
             .toArray(InvocationFuture[]::new);
     }
 
-    protected void cleanPendingCheckpoint(CheckpointFailureReason failureReason) {
-        LOG.info("start clean pending checkpoint cause {}", failureReason.message());
+    protected void cleanPendingCheckpoint(CheckpointCloseReason closedReason) {
+        LOG.info("start clean pending checkpoint cause {}", closedReason.message());
         shutdown = true;
         isAllTaskReady = false;
         synchronized (lock) {
-            pendingCheckpoints.values().forEach(pendingCheckpoint ->
-                pendingCheckpoint.abortCheckpoint(failureReason, null)
-            );
-            // TODO: clear related future & scheduler task
-            pendingCheckpoints.clear();
-            pendingCounter.set(0);
-            scheduler.shutdownNow();
-            scheduler = Executors.newScheduledThreadPool(
-                1, runnable -> {
-                    Thread thread = new Thread(runnable);
-                    thread.setDaemon(true);
-                    thread.setName(String.format("checkpoint-coordinator-%s/%s", pipelineId, jobId));
-                    return thread;
-                });
+            if (!pendingCheckpoints.isEmpty()) {
+                pendingCheckpoints.values().forEach(pendingCheckpoint ->
+                    pendingCheckpoint.abortCheckpoint(closedReason, null)
+                );
+                // TODO: clear related future & scheduler task
+                pendingCheckpoints.clear();
+            }
+            if (pendingCounter.get() != 0) {
+                pendingCounter.set(0);
+                scheduler.shutdownNow();
+                scheduler = Executors.newScheduledThreadPool(
+                    1, runnable -> {
+                        Thread thread = new Thread(runnable);
+                        thread.setDaemon(true);
+                        thread.setName(String.format("checkpoint-coordinator-%s/%s", pipelineId, jobId));
+                        return thread;
+                    });
+            }
         }
     }
 
@@ -533,7 +540,7 @@ public class CheckpointCoordinator {
         // TODO: notifyCheckpointCompleted fail
         latestCompletedCheckpoint = completedCheckpoint;
         if (isCompleted()) {
-            cleanPendingCheckpoint(CheckpointFailureReason.CHECKPOINT_COORDINATOR_COMPLETED);
+            cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_COMPLETED);
         }
     }
 
