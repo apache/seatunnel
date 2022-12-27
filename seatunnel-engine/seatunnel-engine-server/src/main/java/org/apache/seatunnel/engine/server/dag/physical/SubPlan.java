@@ -338,6 +338,7 @@ public class SubPlan {
                     forcePipelineFinish();
                     return;
                 }
+                jobMaster.getCheckpointManager().reportedPipelineRunning(pipelineId);
                 reSchedulerPipelineFuture = jobMaster.reSchedulerPipeline(this);
                 if (reSchedulerPipelineFuture != null) {
                     reSchedulerPipelineFuture.join();
