@@ -265,6 +265,10 @@ public class CheckpointCoordinator {
 
     protected void tryTriggerPendingCheckpoint(CheckpointType checkpointType) {
         synchronized (lock) {
+            if (Thread.currentThread().isInterrupted()) {
+                LOG.warn("currentThread already be interrupted, skip trigger checkpoint");
+                return;
+            }
             if (isCompleted() || isShutdown()) {
                 LOG.warn(String.format("can't trigger checkpoint with type: %s, because checkpoint coordinator already have last completed checkpoint: (%s) or shutdown (%b).",
                     checkpointType, latestCompletedCheckpoint != null ? latestCompletedCheckpoint.getCheckpointType() : "null", shutdown));
