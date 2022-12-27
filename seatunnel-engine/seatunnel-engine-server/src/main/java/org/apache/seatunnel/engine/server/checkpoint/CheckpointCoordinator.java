@@ -457,17 +457,15 @@ public class CheckpointCoordinator {
                 // TODO: clear related future & scheduler task
                 pendingCheckpoints.clear();
             }
-            if (pendingCounter.get() != 0) {
-                pendingCounter.set(0);
-                scheduler.shutdownNow();
-                scheduler = Executors.newScheduledThreadPool(
-                    1, runnable -> {
-                        Thread thread = new Thread(runnable);
-                        thread.setDaemon(true);
-                        thread.setName(String.format("checkpoint-coordinator-%s/%s", pipelineId, jobId));
-                        return thread;
-                    });
-            }
+            pendingCounter.set(0);
+            scheduler.shutdownNow();
+            scheduler = Executors.newScheduledThreadPool(
+                1, runnable -> {
+                    Thread thread = new Thread(runnable);
+                    thread.setDaemon(true);
+                    thread.setName(String.format("checkpoint-coordinator-%s/%s", pipelineId, jobId));
+                    return thread;
+                });
         }
     }
 
