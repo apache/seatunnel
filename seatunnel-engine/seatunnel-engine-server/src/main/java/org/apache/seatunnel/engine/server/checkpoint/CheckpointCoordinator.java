@@ -373,7 +373,7 @@ public class CheckpointCoordinator {
                 }, coordinatorConfig.getCheckpointTimeout(),
                 TimeUnit.MILLISECONDS
             );
-        }).join();
+        });
     }
 
     CompletableFuture<PendingCheckpoint> createPendingCheckpoint(long triggerTimestamp, CheckpointType checkpointType) {
