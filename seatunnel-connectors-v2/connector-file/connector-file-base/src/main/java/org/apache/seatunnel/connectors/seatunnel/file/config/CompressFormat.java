@@ -21,7 +21,8 @@ import java.io.Serializable;
 
 public enum CompressFormat implements Serializable {
 
-    LZO("lzo");
+    LZO("lzo"),
+    NONE("none");
 
     private final String compressCodec;
 
@@ -31,5 +32,14 @@ public enum CompressFormat implements Serializable {
 
     public String getCompressCodec() {
         return compressCodec;
+    }
+
+    public static CompressFormat getCompressFormat(String value) {
+        switch (value) {
+            case "lzo":
+                return CompressFormat.LZO;
+            default:
+                return CompressFormat.NONE;
+        }
     }
 }
