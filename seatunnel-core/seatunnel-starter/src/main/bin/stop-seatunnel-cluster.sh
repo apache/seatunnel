@@ -16,8 +16,11 @@
 # limitations under the License.
 #
 
-SHOW_USAGE="Usage: stop-seatunnel-cluster.sh [options]\n Options:\n       -cn, --cluster      The name of the cluster to shut down (default: seatunnel_default_cluster)\n        -h, --help          Show the usage message"
+SEATUNNEL_DEFAULT_CLUSTER_NAME="seatunnel_default_cluster"
+SHOW_USAGE="Usage: stop-seatunnel-cluster.sh [options]\n Options:\n       -cn, --cluster      The name of the cluster
+ to shut down (default: $SEATUNNEL_DEFAULT_CLUSTER_NAME)\n        -h, --help          Show the usage message"
 APP_MAIN="org.apache.seatunnel.core.starter.seatunnel.SeaTunnelServer"
+
 
 if [ $# -ne 0 ]; then
   while true; do
@@ -42,7 +45,7 @@ fi
 if test -z $CLUSTER_NAME;then
    RES=$(ps -ef | grep $APP_MAIN | grep -v "\-cn\|\--cluster" | grep -v grep | awk '{print $2}')
    if test -z $RES;then
-     echo "seatunnel_default_cluster is not running. Please check the correct name of the running cluster."
+     echo "$SEATUNNEL_DEFAULT_CLUSTER_NAME is not running. Please check the correct name of the running cluster."
      exit 0
    fi
    kill $RES >/dev/null
