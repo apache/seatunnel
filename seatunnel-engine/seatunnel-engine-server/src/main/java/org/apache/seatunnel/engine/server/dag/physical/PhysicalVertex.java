@@ -415,6 +415,7 @@ public class PhysicalVertex {
                 }
             }
         }
+        this.taskFuture.complete(new TaskExecutionState(taskGroupLocation, ExecutionState.CANCELED, null));
     }
 
     private void updateStateTimestamps(@NonNull ExecutionState targetState) {
