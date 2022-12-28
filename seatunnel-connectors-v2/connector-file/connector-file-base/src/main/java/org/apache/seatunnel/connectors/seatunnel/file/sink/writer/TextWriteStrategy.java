@@ -115,7 +115,6 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
                 beingWrittenOutputStream.put(filePath, fsDataOutputStream);
                 isFirstWrite.put(filePath, true);
             } catch (IOException e) {
-                log.error("can not get output file stream", e);
                 throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
                         String.format("Open file output stream [%s] failed", filePath), e);
             }
