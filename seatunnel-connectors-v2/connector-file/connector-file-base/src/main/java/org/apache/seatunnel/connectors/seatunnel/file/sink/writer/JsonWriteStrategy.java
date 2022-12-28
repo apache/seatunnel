@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -47,6 +48,15 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
 
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
+        if (seaTunnelRowType.getTotalFields() != sinkColumnsIndexInRow.size()) {
+            String[] fieldNames = new String[sinkColumnsIndexInRow.size()];
+            SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType[sinkColumnsIndexInRow.size()];
+            for (Integer index : sinkColumnsIndexInRow) {
+                fieldNames[index] = seaTunnelRowType.getFieldName(index);
+                fieldTypes[index] = seaTunnelRowType.getFieldType(index);
+            }
+            seaTunnelRowType = new SeaTunnelRowType(fieldNames, fieldTypes);
+        }
         super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
         this.serializationSchema = new JsonSerializationSchema(seaTunnelRowType);
     }
@@ -57,7 +67,19 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         FSDataOutputStream fsDataOutputStream = getOrCreateOutputStream(filePath);
         try {
-            byte[] rowBytes = serializationSchema.serialize(seaTunnelRow);
+            byte[] rowBytes;
+            if (seaTunnelRow.getFields().length != sinkColumnsIndexInRow.size()) {
+                SeaTunnelRow seaTunnelRowNew = new SeaTunnelRow(sinkColumnsIndexInRow.size());
+                seaTunnelRowNew.setTableId(seaTunnelRow.getTableId());
+                seaTunnelRowNew.setRowKind(seaTunnelRow.getRowKind());
+                for (Integer index : sinkColumnsIndexInRow) {
+                    Object value = seaTunnelRow.getField(index);
+                    seaTunnelRowNew.setField(index, value);
+                }
+                rowBytes = serializationSchema.serialize(seaTunnelRowNew);
+            } else {
+                rowBytes = serializationSchema.serialize(seaTunnelRow);
+            }
             if (isFirstWrite.get(filePath)) {
                 isFirstWrite.put(filePath, false);
             } else {
