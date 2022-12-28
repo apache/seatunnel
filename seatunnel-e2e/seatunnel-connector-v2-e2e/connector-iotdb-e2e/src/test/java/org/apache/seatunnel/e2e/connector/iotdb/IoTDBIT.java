@@ -40,7 +40,6 @@ import org.apache.iotdb.tsfile.utils.Binary;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -95,7 +94,7 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
         testDataset = generateTestDataSet();
     }
 
-    @TestTemplate
+    // temporary remote annotation while this pull request being merged https://github.com/apache/incubator-seatunnel/pull/3798
     public void testIoTDB(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob("/iotdb/iotdb_source_to_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
