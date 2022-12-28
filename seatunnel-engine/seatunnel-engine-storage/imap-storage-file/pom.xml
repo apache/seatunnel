@@ -35,6 +35,12 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-common</artifactId>
             <version>${project.version}</version>
+            <exclusions>
+                <exclusion>
+                    <artifactId>guava</artifactId>
+                    <groupId>com.google.guava</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
