@@ -45,7 +45,7 @@ import com.mongodb.client.model.Sorts;
 import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
 import org.bson.Document;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
@@ -69,7 +69,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
-@DisabledOnContainer(value = {}, type = {EngineType.FLINK}, disabledReason = "")
+@DisabledOnContainer(value = {}, type = {EngineType.SPARK,EngineType.SEATUNNEL}, disabledReason = "")
 public class MongodbIT extends TestSuiteBase implements TestResource {
 
     private static final String MONGODB_IMAGE = "mongo:latest";
@@ -300,9 +300,10 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
             .untilAsserted(this::initConnection);
         this.initSourceData();
         generateTestDataSet();
+        generateMatchQueryResultDataSet();
     }
 
-    @AfterEach
+    @AfterAll
     @Override
     public void tearDown() {
         if (client != null) {
