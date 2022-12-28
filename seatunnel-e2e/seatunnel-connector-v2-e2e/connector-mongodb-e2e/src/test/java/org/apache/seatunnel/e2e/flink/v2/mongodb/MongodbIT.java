@@ -69,7 +69,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
-@DisabledOnContainer(value = {}, type = {EngineType.SPARK,EngineType.SEATUNNEL}, disabledReason = "")
+@DisabledOnContainer(value = {}, type = {EngineType.SPARK, EngineType.SEATUNNEL}, disabledReason = "")
 public class MongodbIT extends TestSuiteBase implements TestResource {
 
     private static final String MONGODB_IMAGE = "mongo:latest";
