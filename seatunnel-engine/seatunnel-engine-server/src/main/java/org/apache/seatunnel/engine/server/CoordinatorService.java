@@ -263,7 +263,6 @@ public class CoordinatorService {
                     onJobDone(jobMaster, jobId);
                 }
             });
-            return;
         }
     }
 

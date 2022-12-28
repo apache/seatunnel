@@ -28,8 +28,8 @@ public class BaseSourceConfig {
             .objectType(FileFormat.class)
             .noDefaultValue()
             .withDescription("File type");
-    public static final Option<FileFormat> FILE_PATH = Options.key("path")
-            .enumType(FileFormat.class)
+    public static final Option<String> FILE_PATH = Options.key("path")
+            .stringType()
             .noDefaultValue()
             .withDescription("The file path of source files");
     public static final Option<String> DELIMITER = Options.key("delimiter")
