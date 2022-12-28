@@ -392,6 +392,7 @@ public class PhysicalVertex {
                         new CancelTaskOperation(taskGroupLocation),
                         getCurrentExecutionAddress())
                     .invoke().get();
+                this.taskFuture.complete(new TaskExecutionState(taskGroupLocation, ExecutionState.CANCELED, null));
                 return;
             } catch (Exception e) {
                 LOGGER.warning(String.format("%s cancel failed with Exception: %s, retry %s", this.getTaskFullName(),
