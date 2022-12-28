@@ -20,7 +20,7 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.disruptor;
 
-import org.apache.seatunnel.engine.imap.storage.api.common.Serializer;
+import org.apache.seatunnel.common.serializer.Serializer;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 

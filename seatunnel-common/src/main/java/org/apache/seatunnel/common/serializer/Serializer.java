@@ -18,7 +18,7 @@
  *
  */
 
-package org.apache.seatunnel.engine.imap.storage.api.common;
+package org.apache.seatunnel.common.serializer;
 
 import java.io.IOException;
 

@@ -23,7 +23,7 @@ package org.apache.seatunnel.engine.imap.storage.file.disruptor;
 import static org.junit.jupiter.api.condition.OS.LINUX;
 import static org.junit.jupiter.api.condition.OS.MAC;
 
-import org.apache.seatunnel.engine.imap.storage.api.common.ProtoStuffSerializer;
+import org.apache.seatunnel.common.serializer.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFuture;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFutureCache;
