@@ -47,6 +47,7 @@ import org.awaitility.Awaitility;
 import org.bson.Document;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -278,6 +279,7 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
         return documents;
     }
 
+    @BeforeAll
     @Override
     public void startUp() {
         DockerImageName imageName = DockerImageName.parse(MONGODB_IMAGE);
