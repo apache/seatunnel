@@ -59,16 +59,18 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
 
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        String[] fieldNames = new String[sinkColumnsIndexInRow.size()];
-        SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType[sinkColumnsIndexInRow.size()];
-        for (Integer index : sinkColumnsIndexInRow) {
-            fieldNames[index] = seaTunnelRowType.getFieldName(index);
-            fieldTypes[index] = seaTunnelRowType.getFieldType(index);
+        if (seaTunnelRowType.getTotalFields() != sinkColumnsIndexInRow.size()) {
+            String[] fieldNames = new String[sinkColumnsIndexInRow.size()];
+            SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType[sinkColumnsIndexInRow.size()];
+            for (Integer index : sinkColumnsIndexInRow) {
+                fieldNames[index] = seaTunnelRowType.getFieldName(index);
+                fieldTypes[index] = seaTunnelRowType.getFieldType(index);
+            }
+            seaTunnelRowType = new SeaTunnelRowType(fieldNames, fieldTypes);
         }
-        SeaTunnelRowType seaTunnelRowTypeNew = new SeaTunnelRowType(fieldNames, fieldTypes);
-        super.setSeaTunnelRowTypeInfo(seaTunnelRowTypeNew);
+        super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
         this.serializationSchema = TextSerializationSchema.builder()
-                .seaTunnelRowType(seaTunnelRowTypeNew)
+                .seaTunnelRowType(seaTunnelRowType)
                 .delimiter(fieldDelimiter)
                 .dateFormatter(dateFormat)
                 .dateTimeFormatter(dateTimeFormat)
@@ -87,14 +89,18 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
             } else {
                 fsDataOutputStream.write(rowDelimiter.getBytes());
             }
-            SeaTunnelRow seaTunnelRowNew = new SeaTunnelRow(sinkColumnsIndexInRow.size());
-            seaTunnelRowNew.setTableId(seaTunnelRow.getTableId());
-            seaTunnelRowNew.setRowKind(seaTunnelRow.getRowKind());
-            for (Integer index : sinkColumnsIndexInRow) {
-                Object value = seaTunnelRow.getField(index);
-                seaTunnelRowNew.setField(index, value);
+            if (seaTunnelRow.getFields().length != sinkColumnsIndexInRow.size()) {
+                SeaTunnelRow seaTunnelRowNew = new SeaTunnelRow(sinkColumnsIndexInRow.size());
+                seaTunnelRowNew.setTableId(seaTunnelRow.getTableId());
+                seaTunnelRowNew.setRowKind(seaTunnelRow.getRowKind());
+                for (Integer index : sinkColumnsIndexInRow) {
+                    Object value = seaTunnelRow.getField(index);
+                    seaTunnelRowNew.setField(index, value);
+                }
+                fsDataOutputStream.write(serializationSchema.serialize(seaTunnelRowNew));
+            } else {
+                fsDataOutputStream.write(serializationSchema.serialize(seaTunnelRow));
             }
-            fsDataOutputStream.write(serializationSchema.serialize(seaTunnelRowNew));
         } catch (IOException e) {
             throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
                     String.format("Write data to file [%s] failed", filePath), e);
