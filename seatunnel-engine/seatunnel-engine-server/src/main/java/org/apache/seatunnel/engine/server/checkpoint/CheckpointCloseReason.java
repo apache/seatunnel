@@ -17,17 +17,18 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
-public enum CheckpointFailureReason {
+public enum CheckpointCloseReason {
 
     PIPELINE_END("Pipeline turn to end state."),
     CHECKPOINT_EXPIRED("Checkpoint expired before completing."),
     CHECKPOINT_COORDINATOR_COMPLETED("CheckpointCoordinator completed."),
     CHECKPOINT_COORDINATOR_SHUTDOWN("CheckpointCoordinator shutdown."),
+    CHECKPOINT_COORDINATOR_RESET("CheckpointCoordinator reset."),
     CHECKPOINT_INSIDE_ERROR("CheckpointCoordinator inside have error.");
 
     private final String message;
 
-    CheckpointFailureReason(String message) {
+    CheckpointCloseReason(String message) {
         this.message = message;
     }
 

@@ -52,12 +52,13 @@ public class XaGroupOpsImpl
         List<XidInfo> xids, boolean allowOutOfOrderCommits, int maxCommitAttempts) {
         GroupXaOperationResult<XidInfo> result = new GroupXaOperationResult<>();
         int origSize = xids.size();
-        LOG.debug("commit {} transactions", origSize);
+        LOG.info("commit {} transactions", origSize);
         for (Iterator<XidInfo> i = xids.iterator();
              i.hasNext() && (result.hasNoFailures() || allowOutOfOrderCommits); ) {
             XidInfo x = i.next();
             i.remove();
             try {
+                LOG.info("committing {} transaction", x.getXid());
                 xaFacade.commit(x.getXid(), false);
                 result.succeeded(x);
             } catch (XaFacade.TransientXaException e) {
@@ -67,7 +68,12 @@ public class XaGroupOpsImpl
             }
         }
         result.getForRetry().addAll(xids);
-        result.throwIfAnyFailed("commit");
+        //TODO At present, it is impossible to distinguish whether
+        // the repeated Commit failure caused by restore (exception should not be thrown) or
+        // the failure of normal process Commit (exception should be thrown).
+        // So currently the exception is not thrown.
+
+        // result.throwIfAnyFailed("commit");
         throwIfAnyReachedMaxAttempts(result, maxCommitAttempts);
         result.getTransientFailure()
             .ifPresent(
