@@ -517,7 +517,6 @@ public class CheckpointCoordinator {
         if (pendingCheckpoints.size() + 1 == coordinatorConfig.getMaxConcurrentCheckpoints()) {
             // latest checkpoint completed time > checkpoint interval
             if (notFinalCheckpoint(completedCheckpoint.getCheckpointType())) {
-                LOG.warn("trigger latest checkpoint completed time > checkpoint interval pending checkpoint with thread: {}.", Thread.currentThread());
                 tryTriggerPendingCheckpoint();
             }
         }
