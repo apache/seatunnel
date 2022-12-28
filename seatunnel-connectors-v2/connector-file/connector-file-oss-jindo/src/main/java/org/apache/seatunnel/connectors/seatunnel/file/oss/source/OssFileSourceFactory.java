@@ -45,6 +45,7 @@ public class OssFileSourceFactory implements TableSourceFactory {
             .required(OssConfig.ACCESS_KEY)
             .required(OssConfig.ACCESS_SECRET)
             .required(OssConfig.ENDPOINT)
+            .required(BaseSourceConfig.FILE_TYPE)
             .conditional(BaseSourceConfig.FILE_TYPE, FileFormat.TEXT, BaseSourceConfig.DELIMITER)
             .conditional(BaseSourceConfig.FILE_TYPE, Arrays.asList(FileFormat.TEXT, FileFormat.JSON),
                 SeaTunnelSchema.SCHEMA)

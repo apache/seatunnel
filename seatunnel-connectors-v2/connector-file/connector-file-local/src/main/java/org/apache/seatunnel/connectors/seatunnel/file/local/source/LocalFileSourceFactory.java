@@ -41,6 +41,7 @@ public class LocalFileSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
             .required(LocalSourceConfig.FILE_PATH)
+            .required(BaseSourceConfig.FILE_TYPE)
             .conditional(BaseSourceConfig.FILE_TYPE, FileFormat.TEXT, BaseSourceConfig.DELIMITER)
             .conditional(BaseSourceConfig.FILE_TYPE, Arrays.asList(FileFormat.TEXT, FileFormat.JSON),
                 SeaTunnelSchema.SCHEMA)

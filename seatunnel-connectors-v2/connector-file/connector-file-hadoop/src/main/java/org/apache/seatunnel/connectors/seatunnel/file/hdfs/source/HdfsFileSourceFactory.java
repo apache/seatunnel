@@ -42,6 +42,7 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
         return OptionRule.builder()
             .required(HdfsSourceConfig.FILE_PATH)
             .required(HdfsSourceConfig.DEFAULT_FS)
+            .required(BaseSourceConfig.FILE_TYPE)
             .conditional(BaseSourceConfig.FILE_TYPE, FileFormat.TEXT, BaseSourceConfig.DELIMITER)
             .conditional(BaseSourceConfig.FILE_TYPE, Arrays.asList(FileFormat.TEXT, FileFormat.JSON),
                 SeaTunnelSchema.SCHEMA)
