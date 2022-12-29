@@ -99,12 +99,6 @@
             <artifactId>lz4</artifactId>
             <version>1.3.0</version>
         </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-mongodb</artifactId>
-            <version>${project.version}</version>
-        </dependency>
     </dependencies>
 
 </project>
