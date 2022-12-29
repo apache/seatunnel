@@ -33,7 +33,9 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.data.DefaultSerializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.data.Serializer;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -59,7 +61,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -68,6 +69,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
+@DisabledOnContainer(value = {}, type = {EngineType.FLINK, EngineType.SEATUNNEL}, disabledReason = "")
 public class MongodbIT extends TestSuiteBase implements TestResource {
 
     private static final String MONGODB_IMAGE = "mongo:latest";
@@ -81,9 +83,9 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
 
     private static final String MONGODB_SINK_MATCHQUERY_TABLE = "sink_matchQuery_table";
 
-    private static final List<Document> TEST_DATASET = generateTestDataSet();
+    private static final List<Document> TEST_DATASET = generateTestDataSet(0, 10);
 
-    private static final List<Document> RESULT_DATASET = generateMatchQueryResultDataSet();
+    private static final List<Document> RESULT_DATASET = generateTestDataSet(3, 4);
 
     private GenericContainer<?> mongodbContainer;
     private MongoClient client;
@@ -156,71 +158,7 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
         return documents;
     }
 
-    private static List<Document> generateTestDataSet() {
-        SeaTunnelRowType seatunnelRowType = new SeaTunnelRowType(
-            new String[]{
-                "id",
-                "c_map",
-                "c_array",
-                "c_string",
-                "c_boolean",
-                "c_tinyint",
-                "c_smallint",
-                "c_int",
-                "c_bigint",
-                "c_float",
-                "c_double",
-                "c_decimal",
-                "c_bytes",
-                "c_date",
-                "c_timestamp"
-            },
-            new SeaTunnelDataType[]{
-                BasicType.LONG_TYPE,
-                new MapType(BasicType.STRING_TYPE, BasicType.SHORT_TYPE),
-                ArrayType.BYTE_ARRAY_TYPE,
-                BasicType.STRING_TYPE,
-                BasicType.BOOLEAN_TYPE,
-                BasicType.BYTE_TYPE,
-                BasicType.SHORT_TYPE,
-                BasicType.INT_TYPE,
-                BasicType.LONG_TYPE,
-                BasicType.FLOAT_TYPE,
-                BasicType.DOUBLE_TYPE,
-                new DecimalType(2, 1),
-                PrimitiveByteArrayType.INSTANCE,
-                LocalTimeType.LOCAL_DATE_TYPE,
-                LocalTimeType.LOCAL_DATE_TIME_TYPE
-            }
-        );
-        Serializer serializer = new DefaultSerializer(seatunnelRowType);
-
-        List<Document> documents = new ArrayList<>();
-        for (int i = 0; i < 100; i++) {
-            SeaTunnelRow row = new SeaTunnelRow(
-                new Object[]{
-                    Long.valueOf(i),
-                    Collections.singletonMap("key", Short.parseShort("1")),
-                    new Byte[]{Byte.parseByte("1")},
-                    "string",
-                    Boolean.FALSE,
-                    Byte.parseByte("1"),
-                    Short.parseShort("1"),
-                    Integer.parseInt("1"),
-                    Long.parseLong("1"),
-                    Float.parseFloat("1.1"),
-                    Double.parseDouble("1.1"),
-                    BigDecimal.valueOf(11, 1),
-                    "test".getBytes(),
-                    LocalDate.now(),
-                    LocalDateTime.now()
-                });
-            documents.add(serializer.serialize(row));
-        }
-        return documents;
-    }
-
-    private static List<Document> generateMatchQueryResultDataSet() {
+    private static List<Document> generateTestDataSet(int start, int end) {
         SeaTunnelRowType seatunnelRowType = new SeaTunnelRowType(
             new String[]{
                 "id",
@@ -258,24 +196,26 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
         Serializer serializer = new DefaultSerializer(seatunnelRowType);
 
         List<Document> documents = new ArrayList<>();
-        SeaTunnelRow row = new SeaTunnelRow(
-            new Object[]{
-                Long.valueOf(3),
-                Collections.singletonMap("key", Short.parseShort("1")),
-                new Byte[]{Byte.parseByte("1")},
-                "string",
-                Boolean.FALSE,
-                Byte.parseByte("1"),
-                Short.parseShort("1"),
-                Integer.parseInt("1"),
-                Long.parseLong("1"),
-                Float.parseFloat("1.1"),
-                Double.parseDouble("1.1"),
-                BigDecimal.valueOf(11, 1),
-                "test".getBytes(),
-                LocalDate.now(),
-            });
-        documents.add(serializer.serialize(row));
+        for (int i = start; i < end; i++) {
+            SeaTunnelRow row = new SeaTunnelRow(
+                new Object[]{
+                    Long.valueOf(i),
+                    Collections.singletonMap("key", Short.parseShort("1")),
+                    new Byte[]{Byte.parseByte("1")},
+                    "string",
+                    Boolean.FALSE,
+                    Byte.parseByte("1"),
+                    Short.parseShort("1"),
+                    Integer.parseInt("1"),
+                    Long.parseLong("1"),
+                    Float.parseFloat("1.1"),
+                    Double.parseDouble("1.1"),
+                    BigDecimal.valueOf(11, 1),
+                    "test".getBytes(),
+                    LocalDate.now()
+                });
+            documents.add(serializer.serialize(row));
+        }
         return documents;
     }
 
