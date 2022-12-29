@@ -15,23 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.checkpoint;
+package org.apache.seatunnel.connectors.seatunnel.kafka;
 
-public enum CheckpointFailureReason {
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-    PIPELINE_END("Pipeline turn to end state."),
-    CHECKPOINT_EXPIRED("Checkpoint expired before completing."),
-    CHECKPOINT_COORDINATOR_COMPLETED("CheckpointCoordinator completed."),
-    CHECKPOINT_COORDINATOR_SHUTDOWN("CheckpointCoordinator shutdown."),
-    CHECKPOINT_INSIDE_ERROR("CheckpointCoordinator inside have error.");
+public class KafkaStartOffsetTest {
 
-    private final String message;
-
-    CheckpointFailureReason(String message) {
-        this.message = message;
-    }
-
-    public String message() {
-        return message;
+    @Test
+    void getTopicNameAndPartition(){
+        String topicName = "my-topic-test";
+        int partIndex = 1;
+        String key = "my-topic-test-1";
+        int splitIndex = key.lastIndexOf("-");
+        String topic = key.substring(0, splitIndex);
+        String partition = key.substring(splitIndex + 1);
+        Assertions.assertEquals(topic, topicName);
+        Assertions.assertEquals(Integer.valueOf(partition), partIndex);
     }
 }

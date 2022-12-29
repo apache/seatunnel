@@ -15,19 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.config;
+package org.apache.seatunnel.engine.server.checkpoint;
 
-import lombok.Data;
+public enum CheckpointCloseReason {
 
-import java.io.Serializable;
+    PIPELINE_END("Pipeline turn to end state."),
+    CHECKPOINT_EXPIRED("Checkpoint expired before completing."),
+    CHECKPOINT_COORDINATOR_COMPLETED("CheckpointCoordinator completed."),
+    CHECKPOINT_COORDINATOR_SHUTDOWN("CheckpointCoordinator shutdown."),
+    CHECKPOINT_COORDINATOR_RESET("CheckpointCoordinator reset."),
+    CHECKPOINT_INSIDE_ERROR("CheckpointCoordinator inside have error.");
 
-@Data
-public class MongodbParameters implements Serializable {
+    private final String message;
 
-    private String uri;
+    CheckpointCloseReason(String message) {
+        this.message = message;
+    }
 
-    private String database;
-
-    private String collection;
-
+    public String message() {
+        return message;
+    }
 }
