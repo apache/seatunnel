@@ -39,14 +39,7 @@ class JvmOptionsParserTest {
         List<String> expectJvmOptions = Arrays.asList(
             "-XX:+UseConcMarkSweepGC",
             "-XX:CMSInitiatingOccupancyFraction=75",
-            "-XX:+UseCMSInitiatingOccupancyOnly",
-            "-XX:+PrintGCDetails",
-            "-XX:+PrintGCDateStamps",
-            "-XX:+PrintTenuringDistribution",
-            "-XX:+PrintGCApplicationStoppedTime",
-            "-XX:+UseGCLogFileRotation",
-            "-XX:NumberOfGCLogFiles=32",
-            "-XX:GCLogFileSize=64m");
+            "-XX:+UseCMSInitiatingOccupancyOnly");
         assertArrayEquals(expectJvmOptions.toArray(), jvmOptions.toArray(), String.format("Expected:%s and actual:%s jvmOptions is not equal", expectJvmOptions, jvmOptions));
     }
 }
