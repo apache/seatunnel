@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.Parallelism;
+import org.apache.seatunnel.api.source.SchemaProjection;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -46,7 +48,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 @AutoService(SeaTunnelSource.class)
-public class IoTDBSource implements SeaTunnelSource<SeaTunnelRow, IoTDBSourceSplit, IoTDBSourceState> {
+public class IoTDBSource implements SeaTunnelSource<SeaTunnelRow, IoTDBSourceSplit, IoTDBSourceState>, Parallelism,
+    SchemaProjection {
 
     private JobContext jobContext;
 

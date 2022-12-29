@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.Parallelism;
+import org.apache.seatunnel.api.source.SchemaProjection;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -39,8 +41,8 @@ import java.util.List;
 import java.util.Map;
 
 @AutoService(SeaTunnelSource.class)
-public class ElasticsearchSource implements SeaTunnelSource<SeaTunnelRow, ElasticsearchSourceSplit, ElasticsearchSourceState> {
-
+public class ElasticsearchSource implements SeaTunnelSource<SeaTunnelRow, ElasticsearchSourceSplit, ElasticsearchSourceState>,
+    Parallelism, SchemaProjection {
 
     private Config pluginConfig;
 

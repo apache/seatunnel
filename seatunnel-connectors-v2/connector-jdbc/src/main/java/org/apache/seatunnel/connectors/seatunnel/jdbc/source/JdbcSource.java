@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.Parallelism;
+import org.apache.seatunnel.api.source.SchemaProjection;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -54,7 +56,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 @AutoService(SeaTunnelSource.class)
-public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit, JdbcSourceState> {
+public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit, JdbcSourceState>, Parallelism,
+    SchemaProjection {
     protected static final Logger LOG = LoggerFactory.getLogger(JdbcSource.class);
 
     private JdbcSourceOptions jdbcSourceOptions;

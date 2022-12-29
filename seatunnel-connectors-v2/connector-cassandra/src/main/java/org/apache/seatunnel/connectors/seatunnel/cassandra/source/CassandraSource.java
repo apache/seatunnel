@@ -24,6 +24,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.Cassand
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.SchemaProjection;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -48,7 +49,7 @@ import com.datastax.oss.driver.api.core.cql.Row;
 import com.google.auto.service.AutoService;
 
 @AutoService(SeaTunnelSource.class)
-public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow> {
+public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow> implements SchemaProjection {
 
     private SeaTunnelRowType rowTypeInfo;
     private CassandraConfig cassandraConfig;

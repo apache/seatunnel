@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.Parallelism;
+import org.apache.seatunnel.api.source.SchemaProjection;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -41,7 +43,8 @@ import com.google.auto.service.AutoService;
 import java.util.Collections;
 
 @AutoService(SeaTunnelSource.class)
-public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit, FakeSourceState> {
+public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit, FakeSourceState>, Parallelism,
+    SchemaProjection {
 
     private JobContext jobContext;
     private SeaTunnelSchema schema;

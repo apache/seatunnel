@@ -31,6 +31,7 @@ import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSource
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.SchemaProjection;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -55,7 +56,7 @@ import org.neo4j.driver.AuthTokens;
 import java.net.URI;
 
 @AutoService(SeaTunnelSource.class)
-public class Neo4jSource extends AbstractSingleSplitSource<SeaTunnelRow> {
+public class Neo4jSource extends AbstractSingleSplitSource<SeaTunnelRow> implements SchemaProjection {
 
     private final Neo4jSourceQueryInfo neo4jSourceQueryInfo = new Neo4jSourceQueryInfo();
     private SeaTunnelRowType rowType;
