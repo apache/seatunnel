@@ -25,6 +25,8 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 class JvmOptionsParserTest {
@@ -35,7 +37,7 @@ class JvmOptionsParserTest {
         URI configPath = Resources.getResource("").toURI();
         final JvmOptionsParser parser = new JvmOptionsParser();
         List<String> jvmOptions = parser.readJvmOptionsFiles(Paths.get(configPath));
-        String[] expectJvmOptions = {
+        List<String> expectJvmOptions = Arrays.asList(
             "-XX:+UseConcMarkSweepGC",
             "-XX:CMSInitiatingOccupancyFraction=75",
             "-XX:+UseCMSInitiatingOccupancyOnly",
@@ -45,7 +47,7 @@ class JvmOptionsParserTest {
             "-XX:+PrintGCApplicationStoppedTime",
             "-XX:+UseGCLogFileRotation",
             "-XX:NumberOfGCLogFiles=32",
-            "-XX:GCLogFileSize=64m"};
-        assertArrayEquals(expectJvmOptions, jvmOptions.toArray(), "Expected and actual jvmOptions is not equal");
+            "-XX:GCLogFileSize=64m");
+        assertArrayEquals(expectJvmOptions.toArray(), jvmOptions.toArray(), String.format("Expected:%s and actual:%s jvmOptions is not equal",expectJvmOptions, jvmOptions));
     }
 }
