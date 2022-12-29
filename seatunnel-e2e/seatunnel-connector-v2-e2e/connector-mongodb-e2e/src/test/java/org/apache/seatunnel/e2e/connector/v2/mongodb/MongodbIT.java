@@ -38,8 +38,6 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoCursor;
-import com.mongodb.client.model.Sorts;
 import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
 import org.bson.Document;
@@ -63,7 +61,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -75,13 +72,7 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
     private static final String MONGODB_DATABASE = "test_db";
     private static final String MONGODB_SOURCE_TABLE = "source_table";
 
-    private static final String MONGODB_SINK_TABLE = "sink_table";
-
-    private static final String MONGODB_SINK_MATCHQUERY_TABLE = "sink_matchQuery_table";
-
-    private static List<Document> TEST_DATASET;
-
-    private static List<Document> RESULT_DATASET;
+    private static final List<Document> TEST_DATASET = generateTestDataSet(0, 10);;
 
     private GenericContainer<?> mongodbContainer;
     private MongoClient client;
@@ -89,39 +80,13 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testMongodb(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/mongodb/mongodb_source_and_sink.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertIterableEquals(
-            TEST_DATASET.stream()
-                .map(e -> {
-                    e.remove("_id");
-                    return e;
-                })
-                .collect(Collectors.toList()),
-            readSinkData(MONGODB_DATABASE, MONGODB_SINK_TABLE).stream()
-                .map(e -> {
-                    e.remove("_id");
-                    return e;
-                })
-                .collect(Collectors.toList()));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
     @TestTemplate
     public void testMongodbMatchQuery(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/mongodb/mongodb_source_matchQuery_and_sink.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertIterableEquals(
-            RESULT_DATASET.stream()
-                .map(e -> {
-                    e.remove("_id");
-                    return e;
-                })
-                .collect(Collectors.toList()),
-            readSinkData(MONGODB_DATABASE, MONGODB_SINK_MATCHQUERY_TABLE).stream()
-                .map(e -> {
-                    e.remove("_id");
-                    return e;
-                })
-                .collect(Collectors.toList()));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
     public void initConnection() {
@@ -138,20 +103,6 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
 
         sourceTable.deleteMany(new Document());
         sourceTable.insertMany(documents);
-    }
-
-    private List<Document> readSinkData(String database, String table) {
-        MongoCollection<Document> sinkTable = client
-            .getDatabase(database)
-            .getCollection(table);
-        MongoCursor<Document> cursor = sinkTable.find()
-            .sort(Sorts.ascending("id"))
-            .cursor();
-        List<Document> documents = new ArrayList<>();
-        while (cursor.hasNext()) {
-            documents.add(cursor.next());
-        }
-        return documents;
     }
 
     private static List<Document> generateTestDataSet(int start, int end) {
@@ -236,8 +187,6 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
             .pollInterval(500, TimeUnit.MILLISECONDS)
             .atMost(180, TimeUnit.SECONDS)
             .untilAsserted(this::initConnection);
-        TEST_DATASET = generateTestDataSet(0, 10);
-        RESULT_DATASET = generateTestDataSet(3, 4);
         this.initSourceData(MONGODB_DATABASE, MONGODB_SOURCE_TABLE, TEST_DATASET);
     }
 
