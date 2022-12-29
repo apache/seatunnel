@@ -38,7 +38,7 @@ public class ConsumerMetadata implements Serializable {
     private String bootstrapServers;
     private Properties properties;
     private String consumerGroup;
-    private boolean commitOnCheckpoint = false;
+    private boolean commitOnCheckpoint = true;
     private StartMode startMode = StartMode.GROUP_OFFSETS;
     private Map<TopicPartition, Long> specificStartOffsets;
     private Long startOffsetsTimestamp;
