@@ -45,7 +45,7 @@ import org.awaitility.Awaitility;
 import org.bson.Document;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -75,14 +75,13 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
     private static final String MONGODB_DATABASE = "test_db";
     private static final String MONGODB_SOURCE_TABLE = "source_table";
 
-    private static final String MONGODB_SOURCE_MATCHQUERY_TABLE = "source_matchQuery_table";
     private static final String MONGODB_SINK_TABLE = "sink_table";
 
     private static final String MONGODB_SINK_MATCHQUERY_TABLE = "sink_matchQuery_table";
 
-    private static final List<Document> TEST_DATASET = generateTestDataSet(0, 10);
+    private static List<Document> TEST_DATASET;
 
-    private static final List<Document> RESULT_DATASET = generateTestDataSet(3, 4);
+    private static List<Document> RESULT_DATASET;
 
     private GenericContainer<?> mongodbContainer;
     private MongoClient client;
@@ -216,7 +215,7 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
         return documents;
     }
 
-    @BeforeEach
+    @BeforeAll
     @Override
     public void startUp() {
         DockerImageName imageName = DockerImageName.parse(MONGODB_IMAGE);
@@ -238,7 +237,8 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
             .atMost(180, TimeUnit.SECONDS)
             .untilAsserted(this::initConnection);
         this.initSourceData(MONGODB_DATABASE, MONGODB_SOURCE_TABLE, TEST_DATASET);
-        this.initSourceData(MONGODB_DATABASE, MONGODB_SOURCE_MATCHQUERY_TABLE, RESULT_DATASET);
+        TEST_DATASET = generateTestDataSet(0, 10);
+        RESULT_DATASET = generateTestDataSet(3, 4);
     }
 
     @AfterAll
