@@ -123,7 +123,7 @@ final class JvmOptionsParser {
 
     List<String> readJvmOptionsFiles(final Path config) throws IOException, JvmOptionsFileParserException {
         final ArrayList<Path> jvmOptionsFiles = new ArrayList<>();
-        jvmOptionsFiles.add(config.resolve("jvm.options"));
+        jvmOptionsFiles.add(config.resolve("jvm_options"));
 
         final List<String> jvmOptions = new ArrayList<>();
 
