@@ -54,6 +54,8 @@ public final class ContainerUtil {
      */
     public static final String PROJECT_ROOT_PATH = getProjectRootPath();
 
+    public static final String HADOOP_SHADE_NAME = "seatunnel-hadoop3-3.1.4-uber";
+
     private static String getProjectRootPath() {
         String e2eRootModuleDir = "seatunnel-e2e";
         Path path = Paths.get(System.getProperty("user.dir"));
@@ -100,6 +102,16 @@ public final class ContainerUtil {
         checkPathExist(loggingLibPath);
         container.withCopyFileToContainer(MountableFile.forHostPath(loggingLibPath),
             Paths.get(seatunnelHomeInContainer, "starter", "logging").toString());
+    }
+
+    public static void copySeaTunnelHadoopShadeToContainer(GenericContainer<?> container,
+                                                           String seatunnelHomeInContainer) {
+        // copy hadoop shade lib
+        final String hadoopShadePath = PROJECT_ROOT_PATH + File.separator + "seatunnel-shade"
+            + File.separator + HADOOP_SHADE_NAME + File.separator + "target" + File.separator + HADOOP_SHADE_NAME + ".jar";
+        checkPathExist(hadoopShadePath);
+        container.withCopyFileToContainer(MountableFile.forHostPath(hadoopShadePath),
+            Paths.get(seatunnelHomeInContainer, "lib").toString());
     }
 
     public static void copySeaTunnelStarterToContainer(GenericContainer<?> container,
