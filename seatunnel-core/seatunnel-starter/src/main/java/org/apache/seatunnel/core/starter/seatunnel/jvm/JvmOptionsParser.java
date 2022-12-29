@@ -71,7 +71,7 @@ final class JvmOptionsParser {
     public static void main(final String[] args) throws IOException {
         if (args.length != 1) {
             throw new IllegalArgumentException(
-                "Expected two arguments specifying path to ES_PATH_CONF and plugins directory, but was " + Arrays.toString(args)
+                "Expected one arguments specifying path to PATH_CONF, but was " + Arrays.toString(args)
             );
         }
 
