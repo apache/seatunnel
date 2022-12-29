@@ -58,6 +58,7 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -77,6 +78,7 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
         Types.NestedField.optional(5, "f5", Types.FloatType.get()),
         Types.NestedField.optional(6, "f6", Types.DoubleType.get()),
         Types.NestedField.optional(7, "f7", Types.DateType.get()),
+        Types.NestedField.optional(8, "f8", Types.TimeType.get()),
         Types.NestedField.optional(9, "f9", Types.TimestampType.withZone()),
         Types.NestedField.optional(10, "f10", Types.TimestampType.withoutZone()),
         Types.NestedField.optional(11, "f11", Types.StringType.get()),
@@ -93,7 +95,7 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
 
     private static final String CATALOG_NAME = "seatunnel";
     private static final IcebergCatalogType CATALOG_TYPE = HADOOP;
-    private static final String CATALOG_DIR = "/tmp/seatunnel/iceberg/flink/";
+    private static final String CATALOG_DIR = "/tmp/seatunnel/iceberg/hadoop3/";
     private static final String WAREHOUSE = "file://" + CATALOG_DIR;
     private static Catalog CATALOG;
 
@@ -141,7 +143,7 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
         record.setField("f5", Float.MAX_VALUE);
         record.setField("f6", Double.MAX_VALUE);
         record.setField("f7", LocalDate.now());
-        /*record.setField("f8", LocalTime.now());*/
+        record.setField("f8", LocalTime.now());
         record.setField("f9", OffsetDateTime.now());
         record.setField("f10", LocalDateTime.now());
         record.setField("f11", "test");
