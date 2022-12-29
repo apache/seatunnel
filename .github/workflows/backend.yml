@@ -339,7 +339,7 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx2048m
 
-  all-modules-integration-test-1:
+  engine-and-transform-v2-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
@@ -363,8 +363,7 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx2048m
 
-
-  all-modules-integration-test-2:
+  all-connectors-it-1:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
@@ -393,7 +392,7 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx2048m
 
-  all-modules-integration-test-3:
+  all-connectors-it-2:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
@@ -422,7 +421,7 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx2048m
 
-  all-modules-integration-test-4:
+  all-connectors-it-3:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true'
     runs-on: ${{ matrix.os }}
