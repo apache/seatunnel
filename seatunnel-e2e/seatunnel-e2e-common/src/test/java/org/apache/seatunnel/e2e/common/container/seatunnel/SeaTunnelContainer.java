@@ -112,7 +112,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
 
     @Override
     public TestContainerId identifier() {
-        return TestContainerId.SEATUNNEL;
+        return TestContainerId.SEATUNNEL_DEV;
     }
 
     @Override

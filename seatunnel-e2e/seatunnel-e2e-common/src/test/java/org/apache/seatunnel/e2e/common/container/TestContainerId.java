@@ -18,6 +18,7 @@
 package org.apache.seatunnel.e2e.common.container;
 
 import static org.apache.seatunnel.e2e.common.container.EngineType.FLINK;
+import static org.apache.seatunnel.e2e.common.container.EngineType.SEATUNNEL;
 import static org.apache.seatunnel.e2e.common.container.EngineType.SPARK;
 
 import lombok.AllArgsConstructor;
@@ -28,7 +29,7 @@ import lombok.Getter;
 public enum TestContainerId {
     FLINK_1_13(FLINK, "1.13.6"),
     SPARK_2_4(SPARK, "2.4.6"),
-    SEATUNNEL(EngineType.SEATUNNEL, "dev");
+    SEATUNNEL_DEV(SEATUNNEL, "dev");
 
     private final EngineType engineType;
     private final String version;
