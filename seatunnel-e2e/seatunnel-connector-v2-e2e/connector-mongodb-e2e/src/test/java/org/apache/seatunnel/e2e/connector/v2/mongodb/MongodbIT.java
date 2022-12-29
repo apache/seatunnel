@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.v2.mongodb;
+package org.apache.seatunnel.e2e.connector.v2.mongodb;
 
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
@@ -33,9 +33,7 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.data.DefaultSerializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.data.Serializer;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -70,15 +68,18 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
-@DisabledOnContainer(value = {}, type = {EngineType.SPARK, EngineType.SEATUNNEL}, disabledReason = "")
 public class MongodbIT extends TestSuiteBase implements TestResource {
 
     private static final String MONGODB_IMAGE = "mongo:latest";
-    private static final String MONGODB_CONTAINER_HOST = "flink_e2e_mongodb";
+    private static final String MONGODB_CONTAINER_HOST = "e2e_mongodb";
     private static final int MONGODB_PORT = 27017;
     private static final String MONGODB_DATABASE = "test_db";
     private static final String MONGODB_SOURCE_TABLE = "source_table";
+
+    private static final String MONGODB_SOURCE_MATCHQUERY_TABLE = "source_matchQuery_table";
     private static final String MONGODB_SINK_TABLE = "sink_table";
+
+    private static final String MONGODB_SINK_MATCHQUERY_TABLE = "sink_matchQuery_table";
 
     private static final List<Document> TEST_DATASET = generateTestDataSet();
 
@@ -98,7 +99,7 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
                     return e;
                 })
                 .collect(Collectors.toList()),
-            readSinkData().stream()
+            readSinkData(MONGODB_DATABASE, MONGODB_SINK_TABLE).stream()
                 .map(e -> {
                     e.remove("_id");
                     return e;
@@ -117,7 +118,7 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
                     return e;
                 })
                 .collect(Collectors.toList()),
-            readSinkData().stream()
+            readSinkData(MONGODB_DATABASE, MONGODB_SINK_MATCHQUERY_TABLE).stream()
                 .map(e -> {
                     e.remove("_id");
                     return e;
@@ -129,23 +130,22 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
         String host = mongodbContainer.getContainerIpAddress();
         int port = mongodbContainer.getFirstMappedPort();
         String url = String.format("mongodb://%s:%d/%s", host, port, MONGODB_DATABASE);
-
         client = MongoClients.create(url);
     }
 
-    private void initSourceData() {
+    private void initSourceData(String database, String table, List<Document> documents) {
         MongoCollection<Document> sourceTable = client
-            .getDatabase(MONGODB_DATABASE)
-            .getCollection(MONGODB_SOURCE_TABLE);
+            .getDatabase(database)
+            .getCollection(table);
 
         sourceTable.deleteMany(new Document());
-        sourceTable.insertMany(TEST_DATASET);
+        sourceTable.insertMany(documents);
     }
 
-    private List<Document> readSinkData() {
+    private List<Document> readSinkData(String database, String table) {
         MongoCollection<Document> sinkTable = client
-            .getDatabase(MONGODB_DATABASE)
-            .getCollection(MONGODB_SINK_TABLE);
+            .getDatabase(database)
+            .getCollection(table);
         MongoCursor<Document> cursor = sinkTable.find()
             .sort(Sorts.ascending("id"))
             .cursor();
@@ -300,9 +300,8 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
             .pollInterval(500, TimeUnit.MILLISECONDS)
             .atMost(180, TimeUnit.SECONDS)
             .untilAsserted(this::initConnection);
-        this.initSourceData();
-        generateTestDataSet();
-        generateMatchQueryResultDataSet();
+        this.initSourceData(MONGODB_DATABASE, MONGODB_SOURCE_TABLE, TEST_DATASET);
+        this.initSourceData(MONGODB_DATABASE, MONGODB_SOURCE_MATCHQUERY_TABLE, RESULT_DATASET);
     }
 
     @AfterAll
