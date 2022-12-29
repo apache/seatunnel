@@ -33,9 +33,7 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.data.DefaultSerializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.data.Serializer;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -69,7 +67,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
-@DisabledOnContainer(value = {}, type = {EngineType.FLINK, EngineType.SEATUNNEL}, disabledReason = "")
 public class MongodbIT extends TestSuiteBase implements TestResource {
 
     private static final String MONGODB_IMAGE = "mongo:latest";
