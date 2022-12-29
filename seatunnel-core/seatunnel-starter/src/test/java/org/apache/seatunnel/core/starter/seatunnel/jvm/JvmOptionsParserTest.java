@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.core.starter.seatunnel.jvm;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 import com.google.common.io.Resources;
 import lombok.SneakyThrows;
