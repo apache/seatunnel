@@ -25,7 +25,6 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -48,6 +47,6 @@ class JvmOptionsParserTest {
             "-XX:+UseGCLogFileRotation",
             "-XX:NumberOfGCLogFiles=32",
             "-XX:GCLogFileSize=64m");
-        assertArrayEquals(expectJvmOptions.toArray(), jvmOptions.toArray(), String.format("Expected:%s and actual:%s jvmOptions is not equal",expectJvmOptions, jvmOptions));
+        assertArrayEquals(expectJvmOptions.toArray(), jvmOptions.toArray(), String.format("Expected:%s and actual:%s jvmOptions is not equal", expectJvmOptions, jvmOptions));
     }
 }
