@@ -41,7 +41,7 @@ import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
-import org.apache.seatunnel.api.source.Parallelism;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -80,7 +80,7 @@ import java.util.regex.Pattern;
 
 @AutoService(SeaTunnelSource.class)
 public class PulsarSource<T> implements SeaTunnelSource<T, PulsarPartitionSplit, PulsarSplitEnumeratorState>,
-    Parallelism {
+    SupportParallelism {
     private DeserializationSchema<T> deserialization;
 
     private PulsarAdminConfig adminConfig;

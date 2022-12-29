@@ -18,7 +18,7 @@
 package org.apache.seatunnel.api.source;
 
 /**
- * Mark whether the Source connector supports SchemaProjection
+ * Mark whether the Source connector supports parallelism
  */
-public interface SchemaProjection {
+public interface SupportParallelism {
 }

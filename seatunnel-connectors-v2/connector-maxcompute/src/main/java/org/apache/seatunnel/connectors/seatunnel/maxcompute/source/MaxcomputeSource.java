@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 
 import org.apache.seatunnel.api.source.Boundedness;
-import org.apache.seatunnel.api.source.Parallelism;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -34,7 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @AutoService(SeaTunnelSource.class)
 public class MaxcomputeSource implements SeaTunnelSource<SeaTunnelRow, MaxcomputeSourceSplit, MaxcomputeSourceState>,
-    Parallelism {
+    SupportParallelism {
     private SeaTunnelRowType typeInfo;
     private Config pluginConfig;
 

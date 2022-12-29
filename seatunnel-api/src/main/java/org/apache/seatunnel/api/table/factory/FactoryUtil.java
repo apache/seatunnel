@@ -19,7 +19,7 @@ package org.apache.seatunnel.api.table.factory;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.source.Parallelism;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -171,7 +171,7 @@ public final class FactoryUtil {
         }
 
         Class<SeaTunnelSource> sourceClass = factory.getSourceClass();
-        if (sourceClass.isAssignableFrom(Parallelism.class)) {
+        if (sourceClass.isAssignableFrom(SupportParallelism.class)) {
             OptionRule sourceCommonOptionRule =
                 OptionRule.builder().optional(SourceCommonOptions.PARALLELISM).build();
             sourceOptionRule.getOptionalOptions().addAll(sourceCommonOptionRule.getOptionalOptions());

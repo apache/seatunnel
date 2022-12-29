@@ -26,7 +26,7 @@ import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceCo
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
-import org.apache.seatunnel.api.source.Parallelism;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -47,7 +47,7 @@ import com.google.auto.service.AutoService;
 import java.io.IOException;
 
 @AutoService(SeaTunnelSource.class)
-public class HudiSource implements SeaTunnelSource<SeaTunnelRow, HudiSourceSplit, HudiSourceState>, Parallelism {
+public class HudiSource implements SeaTunnelSource<SeaTunnelRow, HudiSourceSplit, HudiSourceState>, SupportParallelism {
 
     private SeaTunnelRowType typeInfo;
 

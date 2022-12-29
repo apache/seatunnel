@@ -22,8 +22,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.source.Boundedness;
-import org.apache.seatunnel.api.source.Parallelism;
-import org.apache.seatunnel.api.source.SchemaProjection;
+import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -57,7 +57,7 @@ import java.util.List;
 
 @AutoService(SeaTunnelSource.class)
 public class IcebergSource implements SeaTunnelSource<SeaTunnelRow, IcebergFileScanTaskSplit, IcebergSplitEnumeratorState>,
-    Parallelism, SchemaProjection {
+    SupportParallelism, SupportColumnProjection {
 
     private static final long serialVersionUID = 4343414808223919870L;
 
