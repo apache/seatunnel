@@ -18,7 +18,9 @@
  *
  */
 
-package org.apache.seatunnel.common.serializer;
+package org.apache.seatunnel.engine.common.serializer;
+
+import org.apache.seatunnel.engine.common.utils.serializer.ProtoStuffSerializer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

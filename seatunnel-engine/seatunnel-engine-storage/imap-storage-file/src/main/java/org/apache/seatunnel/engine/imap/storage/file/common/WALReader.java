@@ -22,7 +22,7 @@ package org.apache.seatunnel.engine.imap.storage.file.common;
 
 import static org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils.WAL_DATA_METADATA_LENGTH;
 
-import org.apache.seatunnel.common.serializer.Serializer;
+import org.apache.seatunnel.engine.common.utils.serializer.Serializer;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 

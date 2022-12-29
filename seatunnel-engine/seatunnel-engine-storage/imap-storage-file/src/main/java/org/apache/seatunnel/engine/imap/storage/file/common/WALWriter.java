@@ -20,7 +20,7 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.common;
 
-import org.apache.seatunnel.common.serializer.Serializer;
+import org.apache.seatunnel.engine.common.utils.serializer.Serializer;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 
 import org.apache.hadoop.fs.FSDataOutputStream;

@@ -18,7 +18,7 @@
  *
  */
 
-package org.apache.seatunnel.common.serializer;
+package org.apache.seatunnel.engine.common.utils.serializer;
 
 import java.io.IOException;
 
