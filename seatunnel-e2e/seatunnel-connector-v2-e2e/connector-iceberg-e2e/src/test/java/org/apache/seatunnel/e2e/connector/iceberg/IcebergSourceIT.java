@@ -49,7 +49,6 @@ import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.utility.MountableFile;
@@ -59,7 +58,6 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -101,7 +99,7 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory = container -> {
-        container.copyFileToContainer(MountableFile.forHostPath(CATALOG_DIR),CATALOG_DIR);
+        container.copyFileToContainer(MountableFile.forHostPath(CATALOG_DIR), CATALOG_DIR);
     };
 
     @BeforeEach
