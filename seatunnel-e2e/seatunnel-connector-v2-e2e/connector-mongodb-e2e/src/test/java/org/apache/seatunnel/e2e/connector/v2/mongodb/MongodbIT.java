@@ -236,9 +236,9 @@ public class MongodbIT extends TestSuiteBase implements TestResource {
             .pollInterval(500, TimeUnit.MILLISECONDS)
             .atMost(180, TimeUnit.SECONDS)
             .untilAsserted(this::initConnection);
-        this.initSourceData(MONGODB_DATABASE, MONGODB_SOURCE_TABLE, TEST_DATASET);
         TEST_DATASET = generateTestDataSet(0, 10);
         RESULT_DATASET = generateTestDataSet(3, 4);
+        this.initSourceData(MONGODB_DATABASE, MONGODB_SOURCE_TABLE, TEST_DATASET);
     }
 
     @AfterAll
