@@ -30,7 +30,7 @@ public class SqlUtils {
     public static String getInsertIntoStatement(String tableName,
                                                 String[] fieldNames) {
         String columns = Arrays.stream(fieldNames)
-            .map(fieldName -> quoteIdentifier(fieldName))
+            .map(SqlUtils::quoteIdentifier)
             .collect(Collectors.joining(", "));
         String placeholders = Arrays.stream(fieldNames)
             .map(fieldName -> "?")
