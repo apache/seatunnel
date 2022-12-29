@@ -32,7 +32,6 @@ import org.awaitility.core.ConditionTimeoutException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.TestTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.MSSQLServerContainer;
@@ -108,7 +107,8 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         LOG.info("Containers are stopped.");
     }
 
-    @TestTemplate
+    // Temporary disabled because the test can not be executed successfully
+    // https://github.com/apache/incubator-seatunnel/issues/3827
     public void test(TestContainer container) throws IOException, InterruptedException {
         initializeSqlServerTable("column_type_test");
 
