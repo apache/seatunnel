@@ -60,7 +60,6 @@ public class SeaTunnelContainer extends AbstractTestContainer {
             .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger("seatunnel-engine:" + JDK_DOCKER_IMAGE)))
             .waitingFor(Wait.forLogMessage(".*received new worker register.*\\n", 1));
         copySeaTunnelStarterToContainer(server);
-        copySeaTunnelStarterLoggingToContainer(server);
         copySeaTunnelHadoopShadeToContainer(server);
         server.withCopyFileToContainer(MountableFile.forHostPath(PROJECT_ROOT_PATH + File.separator + "config"),
             Paths.get(SEATUNNEL_HOME, "config").toString());
