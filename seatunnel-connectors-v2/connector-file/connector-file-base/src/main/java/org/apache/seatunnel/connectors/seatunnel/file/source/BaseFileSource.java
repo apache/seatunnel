@@ -18,10 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.file.source;
 
 import org.apache.seatunnel.api.source.Boundedness;
-import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -51,17 +51,21 @@ public abstract class BaseFileSource implements SeaTunnelSource<SeaTunnelRow, Fi
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, FileSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
+    public SourceReader<SeaTunnelRow, FileSourceSplit> createReader(SourceReader.Context readerContext)
+        throws Exception {
         return new BaseFileSourceReader(readStrategy, hadoopConf, readerContext);
     }
 
     @Override
-    public SourceSplitEnumerator<FileSourceSplit, FileSourceState> createEnumerator(SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext) throws Exception {
+    public SourceSplitEnumerator<FileSourceSplit, FileSourceState> createEnumerator(
+        SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext) throws Exception {
         return new FileSourceSplitEnumerator(enumeratorContext, filePaths);
     }
 
     @Override
-    public SourceSplitEnumerator<FileSourceSplit, FileSourceState> restoreEnumerator(SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext, FileSourceState checkpointState) throws Exception {
+    public SourceSplitEnumerator<FileSourceSplit, FileSourceState> restoreEnumerator(
+        SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext, FileSourceState checkpointState)
+        throws Exception {
         return new FileSourceSplitEnumerator(enumeratorContext, filePaths, checkpointState);
     }
 }
