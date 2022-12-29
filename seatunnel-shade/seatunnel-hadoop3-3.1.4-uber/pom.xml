@@ -51,6 +51,7 @@
     </dependencies>
 
     <build>
+        <finalName>seatunnel-hadoop3-3.1.4-uber</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -62,7 +63,6 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
-                            <finalName>seatunnel-hadoop3-3.1.4-uber</finalName>
                             <createSourcesJar>true</createSourcesJar>
                             <shadeSourcesContent>true</shadeSourcesContent>
                             <shadedArtifactAttached>false</shadedArtifactAttached>
@@ -80,39 +80,17 @@
                             <relocations>
                                 <relocation>
                                     <pattern>org.apache.commons.io</pattern>
-                                    <shadedPattern>shade.org.apache.commons.io</shadedPattern>
+                                    <shadedPattern>${seatunnel.shade.package}.org.apache.commons.io</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>com.google.common.base</pattern>
-                                    <shadedPattern>${seatunnel.shade.package}.hadoop.com.google.common.base</shadedPattern>
+                                    <shadedPattern>${seatunnel.shade.package}.com.google.common.base</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>com.fasterxml.jackson</pattern>
-                                    <shadedPattern>${seatunnel.shade.package}.hadoop.com.fasterxml.jackson</shadedPattern>
+                                    <shadedPattern>${seatunnel.shade.package}.com.fasterxml.jackson</shadedPattern>
                                 </relocation>
                             </relocations>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>build-helper-maven-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>attach-artifacts</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>attach-artifact</goal>
-                        </goals>
-                        <configuration>
-                            <artifacts>
-                                <artifact>
-                                    <file>${basedir}/target/seatunnel-hadoop3-3.1.4-uber.jar</file>
-                                    <type>jar</type>
-                                    <classifier>optional</classifier>
-                                </artifact>
-                            </artifacts>
                         </configuration>
                     </execution>
                 </executions>
