@@ -28,6 +28,7 @@ import java.util.Map;
 @AllArgsConstructor
 public class FileSinkState implements Serializable {
     private final String transactionId;
+    private final String uuidPrefix;
     private final Long checkpointId;
     private final Map<String, String> needMoveFiles;
     private final Map<String, List<String>> partitionDirAndValuesMap;

@@ -36,5 +36,6 @@
     <modules>
         <module>connector-cdc-base</module>
         <module>connector-cdc-mysql</module>
+        <module>connector-cdc-sqlserver</module>
     </modules>
 </project>

@@ -29,6 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcAggregatedCommit
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -62,7 +63,7 @@ public class JdbcSinkAggregatedCommitter
     public List<JdbcAggregatedCommitInfo> commit(List<JdbcAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
         tryOpen();
         return aggregatedCommitInfos.stream().map(aggregatedCommitInfo -> {
-            GroupXaOperationResult<XidInfo> result = xaGroupOps.commit(aggregatedCommitInfo.getXidInfoList(), false, jdbcSinkOptions.getJdbcConnectionOptions().getMaxCommitAttempts());
+            GroupXaOperationResult<XidInfo> result = xaGroupOps.commit(new ArrayList<>(aggregatedCommitInfo.getXidInfoList()), false, jdbcSinkOptions.getJdbcConnectionOptions().getMaxCommitAttempts());
             return new JdbcAggregatedCommitInfo(result.getForRetry());
         }).filter(ainfo -> !ainfo.getXidInfoList().isEmpty()).collect(Collectors.toList());
     }

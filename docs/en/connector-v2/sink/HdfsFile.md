@@ -28,6 +28,7 @@ In order to use this connector, You must ensure your spark/flink cluster already
 |----------------------------------|---------|----------|-----------------------------------------------------------|
 | fs.defaultFS                     | string  | yes      | -                                                         |
 | path                             | string  | yes      | -                                                         |
+| hdfs_site_path                   | string  | no       | -                                                         |
 | file_name_expression             | string  | no       | "${transactionId}"                                        |
 | file_format                      | string  | no       | "text"                                                    |
 | filename_time_format             | string  | no       | "yyyy.MM.dd"                                              |
@@ -48,6 +49,10 @@ The hadoop cluster address that start with `hdfs://`, for example: `hdfs://hadoo
 ### path [string]
 
 The target dir path is required.
+
+### hdfs_site_path [string]
+
+The path of `hdfs-site.xml`, used to load ha configuration of namenodes
 
 ### file_name_expression [string]
 

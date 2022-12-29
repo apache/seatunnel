@@ -24,7 +24,6 @@ import org.apache.seatunnel.connectors.cdc.base.config.StopConfig;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.relational.RelationalTableFilters;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Properties;
 
@@ -52,7 +51,7 @@ public class MySqlSourceConfig extends JdbcSourceConfig {
             String password,
             int fetchSize,
             String serverTimeZone,
-            Duration connectTimeout,
+            long connectTimeoutMillis,
             int connectMaxRetries,
             int connectionPoolSize) {
         super(
@@ -71,7 +70,7 @@ public class MySqlSourceConfig extends JdbcSourceConfig {
                 password,
                 fetchSize,
                 serverTimeZone,
-                connectTimeout,
+                connectTimeoutMillis,
                 connectMaxRetries,
                 connectionPoolSize);
     }

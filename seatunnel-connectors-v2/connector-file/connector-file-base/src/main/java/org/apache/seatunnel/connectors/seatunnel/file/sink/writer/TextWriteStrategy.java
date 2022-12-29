@@ -25,8 +25,7 @@ import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import lombok.NonNull;
@@ -46,7 +45,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     private final TimeUtils.Formatter timeFormat;
     private SerializationSchema serializationSchema;
 
-    public TextWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
+    public TextWriteStrategy(FileSinkConfig textFileSinkConfig) {
         super(textFileSinkConfig);
         this.beingWrittenOutputStream = new HashMap<>();
         this.isFirstWrite = new HashMap<>();
@@ -99,7 +98,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
                 try {
                     value.close();
                 } catch (IOException e) {
-                    log.error("error when close output stream {}", key);
+                    log.error("error when close output stream {}", key, e);
                 }
             }
             needMoveFiles.put(key, getTargetLocation(key));
@@ -112,11 +111,10 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         FSDataOutputStream fsDataOutputStream = beingWrittenOutputStream.get(filePath);
         if (fsDataOutputStream == null) {
             try {
-                fsDataOutputStream = FileSystemUtils.getOutputStream(filePath);
+                fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
                 beingWrittenOutputStream.put(filePath, fsDataOutputStream);
                 isFirstWrite.put(filePath, true);
             } catch (IOException e) {
-                log.error("can not get output file stream");
                 throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
                         String.format("Open file output stream [%s] failed", filePath), e);
             }

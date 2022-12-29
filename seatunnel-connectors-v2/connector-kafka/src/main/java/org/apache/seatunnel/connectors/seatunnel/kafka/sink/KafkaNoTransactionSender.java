@@ -76,8 +76,6 @@ public class KafkaNoTransactionSender<K, V> implements KafkaProduceSender<K, V> 
     @Override
     public void close() {
         kafkaProducer.flush();
-        try (KafkaProducer<?, ?> closedKafkaProducer = kafkaProducer) {
-            // close the producer
-        }
+        kafkaProducer.close();
     }
 }

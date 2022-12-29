@@ -71,7 +71,7 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
         props.setProperty("database.history.skip.unparseable.ddl", String.valueOf(true));
         props.setProperty("database.history.refer.ddl", String.valueOf(true));
 
-        props.setProperty("connect.timeout.ms", String.valueOf(connectTimeout.toMillis()));
+        props.setProperty("connect.timeout.ms", String.valueOf(connectTimeoutMillis));
         // the underlying debezium reader should always capture the schema changes and forward them.
         // Note: the includeSchemaChanges parameter is used to control emitting the schema record,
         // only DataStream API program need to emit the schema record, the Table API need not
@@ -125,7 +125,7 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
                 password,
                 fetchSize,
                 serverTimeZone,
-                connectTimeout,
+                connectTimeoutMillis,
                 connectMaxRetries,
                 connectionPoolSize);
     }
