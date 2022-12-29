@@ -30,9 +30,7 @@ import com.hazelcast.map.IMap;
 import lombok.NonNull;
 
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -71,13 +69,9 @@ public class PhysicalPlan {
      */
     private CompletableFuture<JobStatus> jobEndFuture;
 
-    private final ExecutorService executorService;
-
     private final String jobFullName;
 
     private final long jobId;
-
-    private final Map<Integer, CompletableFuture> pipelineSchedulerFutureMap;
 
     private JobMaster jobMaster;
 
@@ -97,7 +91,6 @@ public class PhysicalPlan {
                         long initializationTimestamp,
                         @NonNull IMap runningJobStateIMap,
                         @NonNull IMap runningJobStateTimestampsIMap) {
-        this.executorService = executorService;
         this.jobImmutableInformation = jobImmutableInformation;
         this.jobId = jobImmutableInformation.getJobId();
         Long[] stateTimestamps = new Long[JobStatus.values().length];
@@ -123,7 +116,6 @@ public class PhysicalPlan {
         this.jobFullName = String.format("Job %s (%s)", jobImmutableInformation.getJobConfig().getName(),
             jobImmutableInformation.getJobId());
 
-        pipelineSchedulerFutureMap = new ConcurrentHashMap<>(pipelineList.size());
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
     }
@@ -220,12 +212,8 @@ public class PhysicalPlan {
     }
 
     private void cancelJobPipelines() {
-        List<CompletableFuture<Void>> collect = pipelineList.stream().map(pipeline -> {
-            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                pipeline.cancelPipeline();
-            });
-            return future;
-        }).filter(x -> x != null).collect(Collectors.toList());
+        List<CompletableFuture<Void>> collect = pipelineList.stream()
+            .map(pipeline -> CompletableFuture.runAsync(pipeline::cancelPipeline)).collect(Collectors.toList());
 
         try {
             CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
@@ -307,10 +295,6 @@ public class PhysicalPlan {
                 return false;
             }
         }
-    }
-
-    public PassiveCompletableFuture<JobStatus> getJobEndCompletableFuture() {
-        return new PassiveCompletableFuture<>(jobEndFuture);
     }
 
     public JobImmutableInformation getJobImmutableInformation() {

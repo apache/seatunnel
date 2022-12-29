@@ -15,19 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.config;
+package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
-import lombok.Data;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-import java.io.Serializable;
-
-@Data
-public class MongodbParameters implements Serializable {
-
-    private String uri;
-
-    private String database;
-
-    private String collection;
-
+public class MySqlIncrementalSourceFactoryTest {
+    @Test
+    public void testOptionRule() {
+        Assertions.assertNotNull((new MySqlIncrementalSourceFactory()).optionRule());
+    }
 }

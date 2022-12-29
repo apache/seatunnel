@@ -15,23 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.checkpoint;
+package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source;
 
-public enum CheckpointFailureReason {
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
 
-    PIPELINE_END("Pipeline turn to end state."),
-    CHECKPOINT_EXPIRED("Checkpoint expired before completing."),
-    CHECKPOINT_COORDINATOR_COMPLETED("CheckpointCoordinator completed."),
-    CHECKPOINT_COORDINATOR_SHUTDOWN("CheckpointCoordinator shutdown."),
-    CHECKPOINT_INSIDE_ERROR("CheckpointCoordinator inside have error.");
+/** Factory to create {@link JdbcConnectionPoolFactory} for SQL Server. */
+public class SqlServerPooledDataSourceFactory extends JdbcConnectionPoolFactory {
 
-    private final String message;
+    private static final String URL_PATTERN = "jdbc:sqlserver://%s:%s;databaseName=%s";
 
-    CheckpointFailureReason(String message) {
-        this.message = message;
-    }
-
-    public String message() {
-        return message;
+    @Override
+    public String getJdbcUrl(JdbcSourceConfig sourceConfig) {
+        String hostName = sourceConfig.getHostname();
+        int port = sourceConfig.getPort();
+        String database = sourceConfig.getDatabaseList().get(0);
+        return String.format(URL_PATTERN, hostName, port, database);
     }
 }

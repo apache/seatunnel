@@ -34,16 +34,16 @@
         <orc.version>1.5.6</orc.version>
         <commons.collecton4.version>4.4</commons.collecton4.version>
         <commons.lang3.version>3.4</commons.lang3.version>
-        <flink.hadoop.version>2.7.5-7.0</flink.hadoop.version>
         <parquet-avro.version>1.12.3</parquet-avro.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-shaded-hadoop-2</artifactId>
-                <version>${flink.hadoop.version}</version>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+                <version>${project.version}</version>
+                <classifier>optional</classifier>
                 <scope>provided</scope>
             </dependency>
         </dependencies>
@@ -117,8 +117,10 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-shaded-hadoop-2</artifactId>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
             <scope>provided</scope>
             <exclusions>
                 <exclusion>
