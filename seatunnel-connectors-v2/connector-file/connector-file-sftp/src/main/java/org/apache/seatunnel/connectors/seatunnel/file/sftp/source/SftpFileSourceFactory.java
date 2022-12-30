@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sftp.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
@@ -51,5 +52,10 @@ public class SftpFileSourceFactory implements TableSourceFactory {
                 .optional(SftpConfig.TIME_FORMAT)
                 .conditional(SftpConfig.FILE_TYPE, Arrays.asList("text", "json"), SeaTunnelSchema.SCHEMA)
                 .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return SftpFileSource.class;
     }
 }

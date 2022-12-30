@@ -45,7 +45,7 @@ public class AmazonDynamoDBSourceFactory implements TableSourceFactory {
     }
 
     @Override
-    public Class<SeaTunnelSource> getSourceClass() {
+    public Class<? extends SeaTunnelSource> getSourceClass() {
         return AmazonDynamoDBSource.class;
     }
 }

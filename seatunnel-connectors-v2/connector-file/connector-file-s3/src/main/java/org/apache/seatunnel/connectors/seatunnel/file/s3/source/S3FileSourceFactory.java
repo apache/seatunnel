@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.s3.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
@@ -51,5 +52,10 @@ public class S3FileSourceFactory implements TableSourceFactory {
                 .optional(S3Config.TIME_FORMAT)
                 .conditional(S3Config.FILE_TYPE, Arrays.asList("text", "json"), SeaTunnelSchema.SCHEMA)
                 .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return S3FileSource.class;
     }
 }

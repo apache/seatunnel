@@ -38,5 +38,5 @@ public interface TableSourceFactory extends Factory {
         throw new UnsupportedOperationException("unsupported now");
     }
 
-    Class<SeaTunnelSource> getSourceClass();
+    Class<? extends SeaTunnelSource> getSourceClass();
 }
