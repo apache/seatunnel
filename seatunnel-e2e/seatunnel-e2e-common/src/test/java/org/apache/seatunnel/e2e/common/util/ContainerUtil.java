@@ -34,6 +34,7 @@ import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -111,7 +112,7 @@ public final class ContainerUtil {
             + File.separator + HADOOP_SHADE_NAME + File.separator + "target" + File.separator + HADOOP_SHADE_NAME + ".jar";
         checkPathExist(hadoopShadePath);
         container.withCopyFileToContainer(MountableFile.forHostPath(hadoopShadePath),
-            Paths.get(seatunnelHomeInContainer, "lib").toString());
+            Paths.get(seatunnelHomeInContainer, "lib", HADOOP_SHADE_NAME + ".jar").toString());
     }
 
     public static void copySeaTunnelStarterToContainer(GenericContainer<?> container,
@@ -214,10 +215,11 @@ public final class ContainerUtil {
 
     public static List<TestContainer> discoverTestContainers() {
         try {
-            final List<TestContainer> result = new LinkedList<>();
+            List<TestContainer> result = new LinkedList<>();
             ServiceLoader.load(TestContainer.class, Thread.currentThread().getContextClassLoader())
                 .iterator()
                 .forEachRemaining(result::add);
+            result = Collections.singletonList(result.get(1));
             return result;
         } catch (ServiceConfigurationError e) {
             log.error("Could not load service provider for containers.", e);

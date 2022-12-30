@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 @NoArgsConstructor
 @Slf4j
@@ -55,6 +56,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         server = new GenericContainer<>(getDockerImage())
             .withNetwork(NETWORK)
             .withCommand(ContainerUtil.adaptPathForWin(Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()))
+            .withEnv("SEATUNNEL_HOME", SEATUNNEL_HOME)
             .withNetworkAliases("server")
             .withExposedPorts()
             .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger("seatunnel-engine:" + JDK_DOCKER_IMAGE)))
@@ -63,6 +65,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         copySeaTunnelHadoopShadeToContainer(server);
         server.withCopyFileToContainer(MountableFile.forHostPath(PROJECT_ROOT_PATH + File.separator + "config"),
             Paths.get(SEATUNNEL_HOME, "config").toString());
+        server.withCopyFileToContainer(MountableFile.forHostPath(Objects.requireNonNull(Class.class.getResource("/log4j2.properties")).getPath()),
+            Paths.get(SEATUNNEL_HOME, "config", "log4j2.properties").toString());
         server.start();
         // execute extra commands
         executeExtraCommands(server);
