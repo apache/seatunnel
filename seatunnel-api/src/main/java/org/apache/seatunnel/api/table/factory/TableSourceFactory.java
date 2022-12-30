@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.api.table.factory;
 
-import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
 
@@ -37,6 +36,4 @@ public interface TableSourceFactory extends Factory {
         TableFactoryContext context) {
         throw new UnsupportedOperationException("unsupported now");
     }
-
-    Class<SeaTunnelSource> getSourceClass();
 }

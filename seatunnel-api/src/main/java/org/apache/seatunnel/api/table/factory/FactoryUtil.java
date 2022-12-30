@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSource;
@@ -164,19 +163,15 @@ public final class FactoryUtil {
      * This method is called by SeaTunnel Web to get the full option rule of a source.
      * @return
      */
-    public static OptionRule sourceFullOptionRule(@NonNull TableSourceFactory factory) {
+    public static OptionRule sourceFullOptionRule(@NonNull Factory factory) {
         OptionRule sourceOptionRule = factory.optionRule();
         if (sourceOptionRule == null) {
             throw new FactoryException("sourceOptionRule can not be null");
         }
 
-        Class<SeaTunnelSource> sourceClass = factory.getSourceClass();
-        if (sourceClass.isAssignableFrom(SupportParallelism.class)) {
-            OptionRule sourceCommonOptionRule =
-                OptionRule.builder().optional(SourceCommonOptions.PARALLELISM).build();
-            sourceOptionRule.getOptionalOptions().addAll(sourceCommonOptionRule.getOptionalOptions());
-        }
-
+        OptionRule sourceCommonOptionRule =
+            OptionRule.builder().optional(SourceCommonOptions.PARALLELISM).build();
+        sourceOptionRule.getOptionalOptions().addAll(sourceCommonOptionRule.getOptionalOptions());
         return sourceOptionRule;
     }
 }
