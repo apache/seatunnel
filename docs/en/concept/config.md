@@ -20,19 +20,28 @@ The Config file will be similar to the one below.
 
 ```hocon
 env {
-  execution.parallelism = 1
+  job.mode = "BATCH"
 }
 
 source {
   FakeSource {
     result_table_name = "fake"
-    field_name = "name,age"
+    row.num = 100
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+        card = "int"
+      }
+    }
   }
 }
 
 transform {
-  sql {
-    sql = "select name,age from fake"
+  Filter {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+    fields = [name, card]
   }
 }
 
@@ -41,9 +50,10 @@ sink {
     host = "clickhouse:8123"
     database = "default"
     table = "seatunnel_console"
-    fields = ["name"]
+    fields = ["name", "card"]
     username = "default"
     password = ""
+    source_table_name = "fake1"
   }
 }
 ```
@@ -74,13 +84,39 @@ course, this uses the word 'may', which means that we can also directly treat th
 directly from source to sink. Like below.
 
 ```hocon
-transform {
-  // no thing on here
+env {
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    result_table_name = "fake"
+    row.num = 100
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+        card = "int"
+      }
+    }
+  }
+}
+
+sink {
+  Clickhouse {
+    host = "clickhouse:8123"
+    database = "default"
+    table = "seatunnel_console"
+    fields = ["name", "age", card"]
+    username = "default"
+    password = ""
+    source_table_name = "fake1"
+  }
 }
 ```
 
 Like source, transform has specific parameters that belong to each module. The supported source at now check.
-The supported transform at now check [Transform of SeaTunnel](../transform)
+The supported transform at now check [Transform V2 of SeaTunnel](../transform-v2)
 
 ### sink
 

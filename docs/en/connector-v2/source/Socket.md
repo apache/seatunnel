@@ -62,9 +62,6 @@ source {
     }
 }
 
-transform {
-}
-
 sink {
   Console {}
 }
