@@ -175,7 +175,7 @@ mkdir -p $SEATUNNEL_HOME/logs
 nohup seatunnel-cluster.sh &
 ```
 
-The logs will write in `$SEATUNNEL_HOME/logs/seatunnel-server.log`
+The logs will write in `$SEATUNNEL_HOME/logs/seatunnel-engine-server.log`
 
 ## 8. Install SeaTunnel Engine Client
 

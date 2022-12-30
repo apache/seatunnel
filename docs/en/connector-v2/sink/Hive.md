@@ -21,6 +21,8 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] text
   - [x] parquet
   - [x] orc
+- [x] compress codec
+  - [x] lzo
 
 ## Options
 
@@ -28,8 +30,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 |----------------|--------|----------|---------------|
 | table_name     | string | yes      | -             |
 | metastore_uri  | string | yes      | -             |
+| compressCodec  | string | no       | none          |
 | common-options |        | no       | -             |
-
 ### table_name [string]
 
 Target Hive table name eg: db1.table1
@@ -118,9 +120,6 @@ source {
     table_name = "test_hive.test_hive_source"
     metastore_uri = "thrift://ctyun7:9083"
   }
-}
-
-transform {
 }
 
 sink {
