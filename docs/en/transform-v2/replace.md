@@ -111,46 +111,6 @@ sink {
   Console {
     source_table_name = "fake1"
   }
-  Assert {
-    source_table_name = "fake1"
-    rules =
-      {
-        row_rules = [
-          {
-            rule_type = MIN_ROW
-            rule_value = 100
-          }
-        ],
-        field_rules = [
-          {
-            field_name = id
-            field_type = int
-            field_value = [
-              {
-                rule_type = NOT_NULL
-              }
-            ]
-          },
-          {
-            field_name = name
-            field_type = string
-            field_value = [
-              {
-                rule_type = NOT_NULL
-              },
-              {
-                rule_type = MIN_LENGTH
-                rule_value = 1
-              },
-              {
-                rule_type = MAX_LENGTH
-                rule_value = 1
-              }
-            ]
-          }
-        ]
-      }
-  }
 }
 ```
 

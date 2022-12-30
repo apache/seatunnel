@@ -63,21 +63,5 @@ sink {
   Console {
     source_table_name = "fake1"
   }
-  Assert {
-    source_table_name = "fake1"
-    rules =
-      {
-        row_rules = [
-          {
-            rule_type = MIN_ROW
-            rule_value = 0
-          },
-          {
-            rule_type = MAX_ROW
-            rule_value = 0
-          }
-        ]
-      }
-  }
 }
 ```

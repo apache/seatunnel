@@ -50,8 +50,15 @@ public class BaseFileSinkConfig implements DelimiterConfig, CompressConfig, Seri
 
     public BaseFileSinkConfig(@NonNull Config config) {
         if (config.hasPath(BaseSinkConfig.COMPRESS_CODEC.key())) {
-            throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
-                    "Compress not supported by SeaTunnel file connector now");
+            CompressFormat compressFormat = CompressFormat.valueOf(config.getString(BaseSinkConfig.COMPRESS_CODEC.key()).toUpperCase(Locale.ROOT));
+            switch (compressFormat) {
+                case LZO:
+                    this.compressCodec = compressFormat.getCompressCodec();
+                    break;
+                default:
+                    throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,
+                            "Compress not supported this compress code by SeaTunnel file connector now");
+            }
         }
         if (config.hasPath(BaseSinkConfig.BATCH_SIZE.key())) {
             this.batchSize = config.getInt(BaseSinkConfig.BATCH_SIZE.key());
