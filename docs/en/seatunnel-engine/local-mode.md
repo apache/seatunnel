@@ -7,3 +7,13 @@ sidebar_position: 2
 Only for test.
 
 The most recommended way to use SeaTunnel Engine in the production environment is [Cluster Mode](cluster-mode.md).
+
+## Deploy SeaTunnel Engine Local Mode
+
+[Deploy a SeaTunnel Engine Local Mode reference](../start-v2/locally/deployment.md)
+
+## Submit Job
+
+```shell
+$SEATUNNEL_HOME/bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template -e local
+```

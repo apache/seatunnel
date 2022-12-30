@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.engine.common.config;
 
+import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.client.config.YamlClientConfigBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
 
 public class YamlSeaTunnelConfigParserTest {
 
@@ -57,4 +61,12 @@ public class YamlSeaTunnelConfigParserTest {
 
     }
 
+    @Test
+    public void testCustomizeClientConfig() throws IOException {
+        YamlClientConfigBuilder yamlClientConfigBuilder = new YamlClientConfigBuilder("custmoize-client.yaml");
+        ClientConfig clientConfig = yamlClientConfigBuilder.build();
+
+        Assertions.assertEquals("custmoize", clientConfig.getClusterName());
+
+    }
 }
