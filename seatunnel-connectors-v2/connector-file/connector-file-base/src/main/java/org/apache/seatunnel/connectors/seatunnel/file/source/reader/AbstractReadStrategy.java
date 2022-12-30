@@ -95,21 +95,24 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
         configuration.set(String.format("fs.%s.impl", hadoopConf.getSchema()), hadoopConf.getFsHdfsImpl());
         hadoopConf.setExtraOptionsForConfiguration(configuration);
-        if (!isKerberosAuthorization && StringUtils.isNotBlank(hadoopConf.getKerberosPrincipal())) {
+        String principal = hadoopConf.getKerberosPrincipal();
+        String keytabPath = hadoopConf.getKerberosKeytabPath();
+        if (!isKerberosAuthorization && StringUtils.isNotBlank(principal)) {
             // kerberos authentication and only once
-            if (StringUtils.isBlank(hadoopConf.getKerberosPrincipal())) {
+            if (StringUtils.isBlank(keytabPath)) {
                 throw new FileConnectorException(CommonErrorCode.KERBEROS_AUTHORIZED_FAILED,
                         "Kerberos keytab path is blank, please check this parameter that in your config file");
             }
             configuration.set("hadoop.security.authentication", "kerberos");
             UserGroupInformation.setConfiguration(configuration);
             try {
+                log.info("Start Kerberos authentication using principal {} and keytab {}", principal, keytabPath);
                 UserGroupInformation.loginUserFromKeytab(hadoopConf.getKerberosPrincipal(),
                         hadoopConf.getKerberosKeytabPath());
+                log.info("Kerberos authentication successful");
             } catch (IOException e) {
                 String errorMsg = String.format("Kerberos authentication failed using this " +
-                        "principal [%s] and keytab path [%s]",
-                        hadoopConf.getKerberosPrincipal(), hadoopConf.getKerberosKeytabPath());
+                        "principal [%s] and keytab path [%s]", principal, keytabPath);
                 throw new FileConnectorException(CommonErrorCode.KERBEROS_AUTHORIZED_FAILED, errorMsg, e);
             }
             isKerberosAuthorization = true;
