@@ -26,6 +26,8 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] parquet
   - [x] orc
   - [x] json
+- [x] compress codec
+  - [x] lzo
 
 ## Options
 
@@ -33,8 +35,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 |----------------|--------|----------|---------------|
 | table_name     | string | yes      | -             |
 | metastore_uri  | string | yes      | -             |
+| compressCodec  | string | no       | none          |
 | common-options |        | no       | -             |
-
 ### table_name [string]
 
 Target Hive table name eg: db1.table1
