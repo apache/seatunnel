@@ -83,7 +83,8 @@ public class FieldMapperTransform extends AbstractSeaTunnelTransform {
             if (value.isTextual()) {
                 fieldsMap.put(key, value.textValue());
             } else {
-                throw new SeaTunnelRuntimeException(CommonErrorCode.UNSUPPORTED_OPERATION,
+                String errorMsg = String.format("The value [%s] of key [%s] that in config is not text", key, value.toString());
+                throw new FieldMapperTransformException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg)
                     "field mapper value must be text");
             }
         });
