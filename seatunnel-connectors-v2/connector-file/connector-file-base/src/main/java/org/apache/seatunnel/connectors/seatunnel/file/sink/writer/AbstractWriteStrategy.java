@@ -28,6 +28,7 @@ import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.VariablesSubstitute;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
@@ -197,8 +198,12 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     public String generateFileName(String transactionId) {
         String fileNameExpression = fileSinkConfig.getFileNameExpression();
         FileFormat fileFormat = fileSinkConfig.getFileFormat();
+        String suffix = fileFormat.getSuffix();
+        if (CompressFormat.LZO.getCompressCodec().equals(fileSinkConfig.getCompressCodec())) {
+            suffix = "." + CompressFormat.LZO.getCompressCodec() + "." + suffix;
+        }
         if (StringUtils.isBlank(fileNameExpression)) {
-            return transactionId + fileFormat.getSuffix();
+            return transactionId + suffix;
         }
         String timeFormat = fileSinkConfig.getFileNameTimeFormat();
         DateTimeFormatter df = DateTimeFormatter.ofPattern(timeFormat);
@@ -209,7 +214,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         valuesMap.put(timeFormat, formattedDate);
         valuesMap.put(BaseSinkConfig.TRANSACTION_EXPRESSION, transactionId);
         String substitute = VariablesSubstitute.substitute(fileNameExpression, valuesMap) + "_" + partId;
-        return substitute + fileFormat.getSuffix();
+        return substitute + suffix;
     }
 
     /**
