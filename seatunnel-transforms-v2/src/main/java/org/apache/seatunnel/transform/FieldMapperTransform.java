@@ -64,7 +64,7 @@ public class FieldMapperTransform extends AbstractSeaTunnelTransform {
     @Override
     protected void setConfig(Config pluginConfig) {
         if (!pluginConfig.hasPath(FIELD_MAPPER.key())) {
-            throw new IllegalArgumentException("The configuration missing key: " + FIELD_MAPPER);
+            throw new FieldMapperTransformException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED, "The configuration missing key: " + FIELD_MAPPER);
         }
         this.fieldMapper = convertConfigToSortedMap(pluginConfig.getConfig(FIELD_MAPPER.key()));
     }
