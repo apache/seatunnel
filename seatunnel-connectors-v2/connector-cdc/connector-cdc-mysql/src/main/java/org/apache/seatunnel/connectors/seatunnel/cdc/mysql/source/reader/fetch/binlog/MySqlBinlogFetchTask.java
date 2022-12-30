@@ -123,7 +123,7 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
         public void execute(ChangeEventSourceContext context, MySqlOffsetContext offsetContext)
             throws InterruptedException {
             this.context = context;
-            super.execute(context, offsetContext);
+            super.execute(context, this.offsetContext);
         }
 
         @Override

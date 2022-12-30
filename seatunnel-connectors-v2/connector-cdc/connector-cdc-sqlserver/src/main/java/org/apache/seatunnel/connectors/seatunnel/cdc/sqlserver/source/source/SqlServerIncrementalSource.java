@@ -37,7 +37,6 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.off
 
 import com.google.auto.service.AutoService;
 import io.debezium.connector.sqlserver.SqlServerConnection;
-import io.debezium.connector.sqlserver.SqlServerConnectorConfig;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 
@@ -66,9 +65,7 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
         SqlServerSourceConfig sqlServerSourceConfig = (SqlServerSourceConfig) this.configFactory.create(0);
         TableId tableId = this.dataSourceDialect.discoverDataCollections(sqlServerSourceConfig).get(0);
 
-        SqlServerConnectorConfig dbzConnectorConfig = sqlServerSourceConfig.getDbzConnectorConfig();
-
-        SqlServerConnection sqlServerConnection = createSqlServerConnection(dbzConnectorConfig.jdbcConfig());
+        SqlServerConnection sqlServerConnection = createSqlServerConnection(sqlServerSourceConfig.getDbzConfiguration());
 
         Table table = ((SqlServerDialect) dataSourceDialect).queryTableSchema(sqlServerConnection, tableId).getTable();
 

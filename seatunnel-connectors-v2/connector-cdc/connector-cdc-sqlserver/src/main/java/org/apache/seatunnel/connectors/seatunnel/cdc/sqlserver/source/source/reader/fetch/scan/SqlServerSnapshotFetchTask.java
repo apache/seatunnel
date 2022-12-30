@@ -30,14 +30,17 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.rea
 
 import io.debezium.config.Configuration;
 import io.debezium.connector.sqlserver.SqlServerConnectorConfig;
+import io.debezium.connector.sqlserver.SqlServerOffsetContext;
 import io.debezium.heartbeat.Heartbeat;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.pipeline.spi.SnapshotResult;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
 
+@Slf4j
 public class SqlServerSnapshotFetchTask implements FetchTask<SourceSplitBase> {
 
     private final SnapshotSplit split;
@@ -89,9 +92,16 @@ public class SqlServerSnapshotFetchTask implements FetchTask<SourceSplitBase> {
         if (snapshotResult.isCompletedOrSkipped()) {
             final SqlServerTransactionLogFetchTask.TransactionLogSplitReadTask backfillBinlogReadTask =
                 createBackFillLsnSplitReadTask(backfillBinlogSplit, sourceFetchContext);
+
+            SqlServerOffsetContext sqlServerOffsetContext =
+                new SqlServerOffsetContext.Loader(sourceFetchContext.getDbzConnectorConfig()).load(
+                    backfillBinlogSplit.getStartupOffset().getOffset());
+            log.info("start execute backfillBinlogReadTask, start offset : {}, stop offset : {}",
+                backfillBinlogSplit.getStartupOffset(), backfillBinlogSplit.getStopOffset());
             backfillBinlogReadTask.execute(
                 new SnapshotBinlogSplitChangeEventSourceContext(),
-                sourceFetchContext.getOffsetContext());
+                sqlServerOffsetContext);
+            log.info("backfillBinlogReadTask execute end");
         } else {
             taskRunning = false;
             throw new IllegalStateException(
@@ -117,7 +127,8 @@ public class SqlServerSnapshotFetchTask implements FetchTask<SourceSplitBase> {
             context.getSourceConfig()
                 .getDbzConfiguration()
                 .edit()
-                .with("table.include.list", split.getTableId().toString())
+                .with("table.include.list",
+                    split.getTableId().toString().substring(split.getTableId().toString().indexOf(".") + 1))
                 // Disable heartbeat event in snapshot split fetcher
                 .with(Heartbeat.HEARTBEAT_INTERVAL, 0)
                 .build();
