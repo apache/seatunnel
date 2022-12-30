@@ -372,10 +372,6 @@ public class PhysicalVertex {
         }
     }
 
-    public TaskGroupDefaultImpl getTaskGroup() {
-        return taskGroup;
-    }
-
     public void cancel() {
         if (updateTaskState(ExecutionState.CREATED, ExecutionState.CANCELED) ||
             updateTaskState(ExecutionState.SCHEDULED, ExecutionState.CANCELED) ||
@@ -392,6 +388,7 @@ public class PhysicalVertex {
         if (!checkTaskGroupIsExecuting(taskGroupLocation)){
             updateTaskState(ExecutionState.CANCELING, ExecutionState.CANCELED);
             taskFuture.complete(new TaskExecutionState(this.taskGroupLocation, ExecutionState.CANCELED, null));
+            return;
         }
         int i = 0;
         // In order not to generate uncontrolled tasks, We will try again until the taskFuture is completed
@@ -415,7 +412,6 @@ public class PhysicalVertex {
                 }
             }
         }
-        this.taskFuture.complete(new TaskExecutionState(taskGroupLocation, ExecutionState.CANCELED, null));
     }
 
     private void updateStateTimestamps(@NonNull ExecutionState targetState) {
