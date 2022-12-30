@@ -127,9 +127,6 @@ source {
   }
 }
 
-transform {
-}
-
 sink {
   # choose stdout output plugin to output data to console
 
