@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -24,7 +25,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.transform.common.AbstractSeaTunnelTransform;
 import org.apache.seatunnel.transform.exception.FieldMapperTransformErrorCode;
@@ -83,9 +83,8 @@ public class FieldMapperTransform extends AbstractSeaTunnelTransform {
             if (value.isTextual()) {
                 fieldsMap.put(key, value.textValue());
             } else {
-                String errorMsg = String.format("The value [%s] of key [%s] that in config is not text", key, value.toString());
-                throw new FieldMapperTransformException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg)
-                    "field mapper value must be text");
+                String errorMsg = String.format("The value [%s] of key [%s] that in config is not text", value, key);
+                throw new FieldMapperTransformException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
             }
         });
         return fieldsMap;
@@ -95,16 +94,16 @@ public class FieldMapperTransform extends AbstractSeaTunnelTransform {
     protected SeaTunnelRowType transformRowType(SeaTunnelRowType inputRowType) {
         needReaderColIndex = new ArrayList<>(fieldMapper.size());
         List<String> outputFiledNameList = new ArrayList<>(fieldMapper.size());
-        List<SeaTunnelDataType> outputDataTypeList = new ArrayList<>(fieldMapper.size());
+        List<SeaTunnelDataType<?>> outputDataTypeList = new ArrayList<>(fieldMapper.size());
         ArrayList<String> inputFieldNames = Lists.newArrayList(inputRowType.getFieldNames());
-        fieldMapper.entrySet().forEach(entry -> {
-            int fieldIndex = inputFieldNames.indexOf(entry.getKey());
+        fieldMapper.forEach((key, value) -> {
+            int fieldIndex = inputFieldNames.indexOf(key);
             if (fieldIndex < 0) {
                 throw new FieldMapperTransformException(FieldMapperTransformErrorCode.INPUT_FIELD_NOT_FOUND,
-                    "Can not found field " + entry.getKey() + " from inputRowType");
+                        "Can not found field " + key + " from inputRowType");
             }
             needReaderColIndex.add(fieldIndex);
-            outputFiledNameList.add(entry.getValue());
+            outputFiledNameList.add(value);
             outputDataTypeList.add(inputRowType.getFieldTypes()[fieldIndex]);
         });
 
