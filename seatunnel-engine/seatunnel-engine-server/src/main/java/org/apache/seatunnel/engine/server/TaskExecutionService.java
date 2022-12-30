@@ -268,8 +268,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 invoke.get();
                 notifyStateSuccess = true;
             } catch (InterruptedException e) {
-                logger.severe(e);
-                Thread.interrupted();
+                logger.severe("send notify task status failed", e);
             } catch (ExecutionException e) {
                 logger.warning(ExceptionUtils.getMessage(e));
                 logger.warning(String.format("notify the job of the task(%s) status failed, retry in %s millis",
@@ -278,7 +277,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     Thread.sleep(sleepTime);
                 } catch (InterruptedException ex) {
                     logger.severe(e);
-                    Thread.interrupted();
                 }
             }
         }
