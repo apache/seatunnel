@@ -43,6 +43,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -83,6 +84,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     protected int partId = 0;
     protected int batchSize;
     protected int currentBatchSize = 0;
+    protected boolean isKerberosAuthorization = false;
 
     public AbstractWriteStrategy(FileSinkConfig fileSinkConfig) {
         this.fileSinkConfig = fileSinkConfig;
@@ -129,6 +131,25 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
         configuration.set(String.format("fs.%s.impl", hadoopConf.getSchema()), hadoopConf.getFsHdfsImpl());
         this.hadoopConf.setExtraOptionsForConfiguration(configuration);
+        if (!isKerberosAuthorization && StringUtils.isNotBlank(hadoopConf.getKerberosPrincipal())) {
+            // kerberos authentication and only once
+            if (StringUtils.isBlank(hadoopConf.getKerberosPrincipal())) {
+                throw new FileConnectorException(CommonErrorCode.KERBEROS_AUTHORIZED_FAILED,
+                        "Kerberos keytab path is blank, please check this parameter that in your config file");
+            }
+            configuration.set("hadoop.security.authentication", "kerberos");
+            UserGroupInformation.setConfiguration(configuration);
+            try {
+                UserGroupInformation.loginUserFromKeytab(hadoopConf.getKerberosPrincipal(),
+                        hadoopConf.getKerberosKeytabPath());
+            } catch (IOException e) {
+                String errorMsg = String.format("Kerberos authentication failed using this " +
+                                "principal [%s] and keytab path [%s]",
+                        hadoopConf.getKerberosPrincipal(), hadoopConf.getKerberosKeytabPath());
+                throw new FileConnectorException(CommonErrorCode.KERBEROS_AUTHORIZED_FAILED, errorMsg, e);
+            }
+            isKerberosAuthorization = true;
+        }
         return configuration;
     }
 
