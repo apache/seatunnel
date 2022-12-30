@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
@@ -384,15 +385,22 @@ public class CoordinatorService {
         runningJobInfoIMap.remove(jobId);
     }
 
-    public PassiveCompletableFuture<JobStatus> waitForJobComplete(long jobId) {
+    public PassiveCompletableFuture<JobResult> waitForJobComplete(long jobId) {
         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
         if (runningJobMaster == null) {
             JobStatus jobStatus = jobHistoryService.getJobDetailState(jobId).getJobStatus();
-            CompletableFuture<JobStatus> future = new CompletableFuture<>();
-            future.complete(jobStatus);
+            CompletableFuture<JobResult> future = new CompletableFuture<>();
+            // TODO support history service record job execute error
+            future.complete(new JobResult(jobStatus, null));
             return new PassiveCompletableFuture<>(future);
         } else {
-            return runningJobMaster.getJobMasterCompleteFuture();
+            return new PassiveCompletableFuture<>(runningJobMaster.getJobMasterCompleteFuture().thenApply(status -> {
+                Throwable throwable = null;
+                if (status.equals(JobStatus.FAILED)) {
+                    // nothing
+                }
+                return new JobResult(status, throwable);
+            }));
         }
     }
 
