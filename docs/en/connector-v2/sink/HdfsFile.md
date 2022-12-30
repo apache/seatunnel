@@ -52,8 +52,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 | batch_size                       | int     | no       | 1000000                                    |                                                           |
 | kerberos_principal               | string  | no       | -                                          |
 | kerberos_keytab_path             | string  | no       | -                                          |                                                           |
+| compress_codec                   | string  | no       | none                                       |                                                           |
 | common-options                   | object  | no       | -                                          |                                                           |
-| compressCodec                    | string  | no       | none                                       |                                                           |
 
 ### fs.defaultFS [string]
 

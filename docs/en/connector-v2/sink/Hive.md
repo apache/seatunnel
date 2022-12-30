@@ -34,7 +34,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 |----------------------|--------|----------|---------------|
 | table_name           | string | yes      | -             |
 | metastore_uri        | string | yes      | -             |
-| compressCodec        | string | no       | none          |
+| compress_codec       | string | no       | none          |
 | kerberos_principal   | string | no       | -             |
 | kerberos_keytab_path | string | no       | -             |
 | common-options       |        | no       | -             |
