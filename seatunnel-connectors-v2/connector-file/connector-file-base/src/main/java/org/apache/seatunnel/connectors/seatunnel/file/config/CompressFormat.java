@@ -15,23 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.checkpoint;
+package org.apache.seatunnel.connectors.seatunnel.file.config;
 
-public enum CheckpointFailureReason {
+import java.io.Serializable;
 
-    PIPELINE_END("Pipeline turn to end state."),
-    CHECKPOINT_EXPIRED("Checkpoint expired before completing."),
-    CHECKPOINT_COORDINATOR_COMPLETED("CheckpointCoordinator completed."),
-    CHECKPOINT_COORDINATOR_SHUTDOWN("CheckpointCoordinator shutdown."),
-    CHECKPOINT_INSIDE_ERROR("CheckpointCoordinator inside have error.");
+public enum CompressFormat implements Serializable {
 
-    private final String message;
+    LZO("lzo"),
+    NONE("none");
 
-    CheckpointFailureReason(String message) {
-        this.message = message;
+    private final String compressCodec;
+
+    CompressFormat(String compressCodec) {
+        this.compressCodec = compressCodec;
     }
 
-    public String message() {
-        return message;
+    public String getCompressCodec() {
+        return compressCodec;
+    }
+
+    public static CompressFormat getCompressFormat(String value) {
+        switch (value) {
+            case "lzo":
+                return CompressFormat.LZO;
+            default:
+                return CompressFormat.NONE;
+        }
     }
 }
