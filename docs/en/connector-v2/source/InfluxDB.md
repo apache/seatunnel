@@ -117,14 +117,17 @@ the `partition_num` of the InfluxDB when you select
 > Tips: Ensure that `upper_bound` minus `lower_bound` is divided `bypartition_num`, otherwise the query results will overlap
 
 ### epoch [string]
+
 returned time precision
 - Optional values: H, m, s, MS, u, n
 - default value: n
 
 ### query_timeout_sec [int]
+
 the `query_timeout` of the InfluxDB when you select, in seconds
 
 ### connect_timeout_ms [long]
+
 the timeout for connecting to InfluxDB, in milliseconds
 
 ### common options

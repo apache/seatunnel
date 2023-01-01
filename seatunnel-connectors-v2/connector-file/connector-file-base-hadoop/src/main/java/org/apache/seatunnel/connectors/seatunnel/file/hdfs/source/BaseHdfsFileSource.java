@@ -52,6 +52,9 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
         readStrategy.setPluginConfig(pluginConfig);
         String path = pluginConfig.getString(HdfsSourceConfig.FILE_PATH.key());
         hadoopConf = new HadoopConf(pluginConfig.getString(HdfsSourceConfig.DEFAULT_FS.key()));
+        if (pluginConfig.hasPath(HdfsSourceConfig.HDFS_SITE_PATH.key())) {
+            hadoopConf.setHdfsSitePath(pluginConfig.getString(HdfsSourceConfig.HDFS_SITE_PATH.key()));
+        }
         try {
             filePaths = readStrategy.getFileNamesByPath(hadoopConf, path);
         } catch (IOException e) {

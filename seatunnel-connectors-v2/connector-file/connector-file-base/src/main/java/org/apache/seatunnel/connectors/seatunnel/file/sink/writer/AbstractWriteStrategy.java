@@ -28,16 +28,16 @@ import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.VariablesSubstitute;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 
 import com.google.common.collect.Lists;
-import lombok.Getter;
 import lombok.NonNull;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -61,12 +61,12 @@ import java.util.stream.Collectors;
 
 public abstract class AbstractWriteStrategy implements WriteStrategy {
     protected final Logger log = LoggerFactory.getLogger(this.getClass());
-    @Getter
-    protected final TextFileSinkConfig textFileSinkConfig;
+    protected final FileSinkConfig fileSinkConfig;
     protected final List<Integer> sinkColumnsIndexInRow;
     protected String jobId;
     protected int subTaskIndex;
     protected HadoopConf hadoopConf;
+    protected FileSystemUtils fileSystemUtils;
     protected String transactionId;
     /**
      * The uuid prefix to make sure same job different file sink will not conflict.
@@ -84,10 +84,10 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     protected int batchSize;
     protected int currentBatchSize = 0;
 
-    public AbstractWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
-        this.textFileSinkConfig = textFileSinkConfig;
-        this.sinkColumnsIndexInRow = textFileSinkConfig.getSinkColumnsIndexInRow();
-        this.batchSize = textFileSinkConfig.getBatchSize();
+    public AbstractWriteStrategy(FileSinkConfig fileSinkConfig) {
+        this.fileSinkConfig = fileSinkConfig;
+        this.sinkColumnsIndexInRow = fileSinkConfig.getSinkColumnsIndexInRow();
+        this.batchSize = fileSinkConfig.getBatchSize();
     }
 
     /**
@@ -101,7 +101,6 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         this.jobId = jobId;
         this.subTaskIndex = subTaskIndex;
         this.uuidPrefix = uuidPrefix;
-        FileSystemUtils.CONF = getConfiguration(hadoopConf);
     }
 
     @Override
@@ -151,14 +150,14 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      */
     @Override
     public Map<String, List<String>> generatorPartitionDir(SeaTunnelRow seaTunnelRow) {
-        List<Integer> partitionFieldsIndexInRow = textFileSinkConfig.getPartitionFieldsIndexInRow();
+        List<Integer> partitionFieldsIndexInRow = fileSinkConfig.getPartitionFieldsIndexInRow();
         Map<String, List<String>> partitionDirAndValuesMap = new HashMap<>(1);
         if (CollectionUtils.isEmpty(partitionFieldsIndexInRow)) {
             partitionDirAndValuesMap.put(BaseSinkConfig.NON_PARTITION, null);
             return partitionDirAndValuesMap;
         }
-        List<String> partitionFieldList = textFileSinkConfig.getPartitionFieldList();
-        String partitionDirExpression = textFileSinkConfig.getPartitionDirExpression();
+        List<String> partitionFieldList = fileSinkConfig.getPartitionFieldList();
+        String partitionDirExpression = fileSinkConfig.getPartitionDirExpression();
         String[] keys = new String[partitionFieldList.size()];
         String[] values = new String[partitionFieldList.size()];
         for (int i = 0; i < partitionFieldList.size(); i++) {
@@ -197,12 +196,16 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      */
     @Override
     public String generateFileName(String transactionId) {
-        String fileNameExpression = textFileSinkConfig.getFileNameExpression();
-        FileFormat fileFormat = textFileSinkConfig.getFileFormat();
-        if (StringUtils.isBlank(fileNameExpression)) {
-            return transactionId + fileFormat.getSuffix();
+        String fileNameExpression = fileSinkConfig.getFileNameExpression();
+        FileFormat fileFormat = fileSinkConfig.getFileFormat();
+        String suffix = fileFormat.getSuffix();
+        if (CompressFormat.LZO.getCompressCodec().equals(fileSinkConfig.getCompressCodec())) {
+            suffix = "." + CompressFormat.LZO.getCompressCodec() + "." + suffix;
         }
-        String timeFormat = textFileSinkConfig.getFileNameTimeFormat();
+        if (StringUtils.isBlank(fileNameExpression)) {
+            return transactionId + suffix;
+        }
+        String timeFormat = fileSinkConfig.getFileNameTimeFormat();
         DateTimeFormatter df = DateTimeFormatter.ofPattern(timeFormat);
         String formattedDate = df.format(ZonedDateTime.now());
         Map<String, String> valuesMap = new HashMap<>();
@@ -211,7 +214,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         valuesMap.put(timeFormat, formattedDate);
         valuesMap.put(BaseSinkConfig.TRANSACTION_EXPRESSION, transactionId);
         String substitute = VariablesSubstitute.substitute(fileNameExpression, valuesMap) + "_" + partId;
-        return substitute + fileFormat.getSuffix();
+        return substitute + suffix;
     }
 
     /**
@@ -242,7 +245,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      */
     public void abortPrepare(String transactionId) {
         try {
-            FileSystemUtils.deleteFile(getTransactionDir(transactionId));
+            fileSystemUtils.deleteFile(getTransactionDir(transactionId));
         } catch (IOException e) {
             throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
                     "Abort transaction " + transactionId + " error, delete transaction directory failed", e);
@@ -292,7 +295,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      * @return transaction directory
      */
     private String getTransactionDir(@NonNull String transactionId) {
-        String transactionDirectoryPrefix = getTransactionDirPrefix(textFileSinkConfig.getTmpPath(), jobId, uuidPrefix);
+        String transactionDirectoryPrefix = getTransactionDirPrefix(fileSinkConfig.getTmpPath(), jobId, uuidPrefix);
         return String.join(File.separator, new String[]{transactionDirectoryPrefix, transactionId});
     }
 
@@ -321,7 +324,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
 
     public String getTargetLocation(@NonNull String seaTunnelFilePath) {
         String tmpPath = seaTunnelFilePath.replaceAll(Matcher.quoteReplacement(transactionDirectory),
-                Matcher.quoteReplacement(textFileSinkConfig.getPath()));
+                Matcher.quoteReplacement(fileSinkConfig.getPath()));
         return tmpPath.replaceAll(BaseSinkConfig.NON_PARTITION + Matcher.quoteReplacement(File.separator), "");
     }
 
@@ -331,7 +334,17 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     }
 
     @Override
-    public TextFileSinkConfig getFileSinkConfig() {
-        return textFileSinkConfig;
+    public FileSinkConfig getFileSinkConfig() {
+        return fileSinkConfig;
+    }
+
+    @Override
+    public FileSystemUtils getFileSystemUtils() {
+        return fileSystemUtils;
+    }
+
+    @Override
+    public void setFileSystemUtils(FileSystemUtils fileSystemUtils) {
+        this.fileSystemUtils = fileSystemUtils;
     }
 }

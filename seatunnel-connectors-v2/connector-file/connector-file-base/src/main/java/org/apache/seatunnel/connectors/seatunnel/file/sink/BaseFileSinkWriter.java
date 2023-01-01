@@ -42,10 +42,14 @@ import java.util.stream.Collectors;
 
 public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> {
     private final WriteStrategy writeStrategy;
+    private final FileSystemUtils fileSystemUtils;
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    public BaseFileSinkWriter(WriteStrategy writeStrategy, HadoopConf hadoopConf, SinkWriter.Context context, String jobId, List<FileSinkState> fileSinkStates) {
+    public BaseFileSinkWriter(WriteStrategy writeStrategy, HadoopConf hadoopConf,
+                              SinkWriter.Context context, String jobId,
+                              List<FileSinkState> fileSinkStates) {
         this.writeStrategy = writeStrategy;
+        this.fileSystemUtils = writeStrategy.getFileSystemUtils();
         int subTaskIndex = context.getIndexOfSubtask();
         String uuidPrefix;
         if (!fileSinkStates.isEmpty()) {
@@ -58,7 +62,7 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
         if (!fileSinkStates.isEmpty()) {
             try {
                 List<String> transactions = findTransactionList(jobId, uuidPrefix);
-                FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(hadoopConf);
+                FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(fileSystemUtils);
                 HashMap<String, FileSinkState> fileStatesMap = new HashMap<>();
                 fileSinkStates.forEach(fileSinkState ->
                     fileStatesMap.put(fileSinkState.getTransactionId(), fileSinkState));
@@ -87,7 +91,9 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
     }
 
     private List<String> findTransactionList(String jobId, String uuidPrefix) throws IOException {
-        return FileSystemUtils.dirList(AbstractWriteStrategy.getTransactionDirPrefix(writeStrategy.getFileSinkConfig().getTmpPath(), jobId, uuidPrefix))
+        return fileSystemUtils.dirList(AbstractWriteStrategy.getTransactionDirPrefix(writeStrategy
+                                .getFileSinkConfig().getTmpPath(),
+                        jobId, uuidPrefix))
             .stream().map(Path::getName).collect(Collectors.toList());
     }
 
