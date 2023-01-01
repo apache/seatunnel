@@ -352,7 +352,7 @@ public class CoordinatorService {
         return new PassiveCompletableFuture<>(voidCompletableFuture);
     }
 
-    private void onJobDone(JobMaster jobMaster, long jobId){
+    private void onJobDone(JobMaster jobMaster, long jobId) {
         // storage job state and metrics to HistoryStorage
         jobHistoryService.storeJobInfo(jobId, runningJobMasterMap.get(jobId).getJobDAGInfo());
         jobHistoryService.storeFinishedJobState(jobMaster);
@@ -387,6 +387,9 @@ public class CoordinatorService {
     public PassiveCompletableFuture<JobStatus> waitForJobComplete(long jobId) {
         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
         if (runningJobMaster == null) {
+            if (jobHistoryService.getJobDetailState(jobId) == null) {
+                throw new SeaTunnelEngineException(String.format("jobId [%s] does not exist.", jobId));
+            }
             JobStatus jobStatus = jobHistoryService.getJobDetailState(jobId).getJobStatus();
             CompletableFuture<JobStatus> future = new CompletableFuture<>();
             future.complete(jobStatus);
@@ -504,29 +507,29 @@ public class CoordinatorService {
         long completedTaskCount = threadPoolExecutor.getCompletedTaskCount();
         long taskCount = threadPoolExecutor.getTaskCount();
         logger.info(String.format(
-                "\n" + "***********************************************" +
+            "\n" + "***********************************************" +
                 "\n" + "     %s" +
                 "\n" + "***********************************************" +
                 "\n" + "%-26s: %19s\n" + "%-26s: %19s\n" + "%-26s: %19s\n"
-                        + "%-26s: %19s\n" + "%-26s: %19s\n" + "%-26s: %19s\n"
+                + "%-26s: %19s\n" + "%-26s: %19s\n" + "%-26s: %19s\n"
                 + "***********************************************\n",
-                "CoordinatorService Thread Pool Status",
-                "activeCount",
-                activeCount,
+            "CoordinatorService Thread Pool Status",
+            "activeCount",
+            activeCount,
 
-                "corePoolSize",
-                corePoolSize,
+            "corePoolSize",
+            corePoolSize,
 
-                "maximumPoolSize",
-                maximumPoolSize,
+            "maximumPoolSize",
+            maximumPoolSize,
 
-                "poolSize",
-                poolSize,
+            "poolSize",
+            poolSize,
 
-                "completedTaskCount",
-                completedTaskCount,
+            "completedTaskCount",
+            completedTaskCount,
 
-                "taskCount",
-                taskCount));
+            "taskCount",
+            taskCount));
     }
 }
