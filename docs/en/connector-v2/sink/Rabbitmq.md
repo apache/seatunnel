@@ -9,7 +9,6 @@ Used to write data to Rabbitmq.
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [schema projection](../../concept/connector-v2-features.md)
 
 ##  Options
 

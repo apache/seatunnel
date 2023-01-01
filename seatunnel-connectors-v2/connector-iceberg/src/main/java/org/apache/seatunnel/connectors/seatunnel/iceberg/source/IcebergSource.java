@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportColumnProjection;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -54,7 +56,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 @AutoService(SeaTunnelSource.class)
-public class IcebergSource implements SeaTunnelSource<SeaTunnelRow, IcebergFileScanTaskSplit, IcebergSplitEnumeratorState> {
+public class IcebergSource implements SeaTunnelSource<SeaTunnelRow, IcebergFileScanTaskSplit, IcebergSplitEnumeratorState>,
+    SupportParallelism, SupportColumnProjection {
 
     private static final long serialVersionUID = 4343414808223919870L;
 
