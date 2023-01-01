@@ -72,7 +72,7 @@ public class FactoryUtil<T> {
                             .collect(Collectors.joining("\n"))));
             }
 
-            return result.get(0);
+            return foundFactories.get(0);
         } catch (ServiceConfigurationError e) {
             log.error("Could not load service provider for factories.", e);
             throw new SeaTunnelEngineException("Could not load service provider for factories.", e);
