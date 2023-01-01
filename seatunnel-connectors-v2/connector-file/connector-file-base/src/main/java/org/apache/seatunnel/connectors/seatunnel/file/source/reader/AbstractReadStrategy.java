@@ -107,8 +107,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             UserGroupInformation.setConfiguration(configuration);
             try {
                 log.info("Start Kerberos authentication using principal {} and keytab {}", principal, keytabPath);
-                UserGroupInformation.loginUserFromKeytab(hadoopConf.getKerberosPrincipal(),
-                        hadoopConf.getKerberosKeytabPath());
+                UserGroupInformation.loginUserFromKeytab(principal, keytabPath);
                 log.info("Kerberos authentication successful");
             } catch (IOException e) {
                 String errorMsg = String.format("Kerberos authentication failed using this " +
