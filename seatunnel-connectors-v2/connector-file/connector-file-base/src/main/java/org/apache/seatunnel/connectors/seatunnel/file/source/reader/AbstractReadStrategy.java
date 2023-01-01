@@ -70,6 +70,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected SeaTunnelRowType seaTunnelRowTypeWithPartition;
     protected Config pluginConfig;
     protected List<String> fileNames = new ArrayList<>();
+    protected List<String> readPartitions = new ArrayList<>();
     protected boolean isMergePartition = true;
     protected long skipHeaderNumber = BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.defaultValue();
     protected boolean isKerberosAuthorization = false;
@@ -142,8 +143,18 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             if (fileStatus.isFile()) {
                 // filter '_SUCCESS' file
                 if (!fileStatus.getPath().getName().equals("_SUCCESS")) {
-                    fileNames.add(fileStatus.getPath().toString());
-                    this.fileNames.add(fileStatus.getPath().toString());
+                    if (!readPartitions.isEmpty()) {
+                        for (String readPartition : readPartitions) {
+                            if (fileStatus.getPath().toString().contains(readPartition)) {
+                                fileNames.add(fileStatus.getPath().toString());
+                                this.fileNames.add(fileStatus.getPath().toString());
+                                break;
+                            }
+                        }
+                    } else {
+                        fileNames.add(fileStatus.getPath().toString());
+                        this.fileNames.add(fileStatus.getPath().toString());
+                    }
                 }
             }
         }
@@ -158,6 +169,9 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         }
         if (pluginConfig.hasPath(BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.key())) {
             skipHeaderNumber = pluginConfig.getLong(BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.key());
+        }
+        if (pluginConfig.hasPath(BaseSourceConfig.READ_PARTITIONS.key())) {
+            readPartitions.addAll(pluginConfig.getStringList(BaseSourceConfig.READ_PARTITIONS.key()));
         }
     }
 
