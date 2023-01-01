@@ -39,6 +39,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | metastore_uri        | string | yes      | -             |
 | kerberos_principal   | string | no       | -             |
 | kerberos_keytab_path | string | no       | -             | 
+| read_partitions | string | no       | -             |
 | common-options       |        | no       | -             |
 
 ### table_name [string]
@@ -48,6 +49,13 @@ Target Hive table name eg: db1.table1
 ### metastore_uri [string]
 
 Hive metastore uri
+
+### read_partitions [list]
+
+The target partitions that user want to read from hive table, if user does not set this parameter, it will read all the data from hive table.
+
+**Tips: Every partition in partitions list should have the same directory depth. For example, a hive table has two partitions: par1 and par2, if user sets it like as the following:**
+**read_partitions = [par1=xxx, par1=yyy/par2=zzz], it is illegal**
 
 ### common options 
 
@@ -73,3 +81,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ### Next version
 
 - [Improve] Support kerberos authentication ([3840](https://github.com/apache/incubator-seatunnel/pull/3840))
+
+### Next version
+
+- Support user-defined partitions ([3842](https://github.com/apache/incubator-seatunnel/pull/3842))
