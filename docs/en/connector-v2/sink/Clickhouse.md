@@ -12,7 +12,6 @@ Used to write data to Clickhouse.
 
 The Clickhouse sink plug-in can achieve accuracy once by implementing idempotent writing, and needs to cooperate with aggregatingmergetree and other engines that support deduplication.
 
-- [ ] [schema projection](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
 
 :::tip

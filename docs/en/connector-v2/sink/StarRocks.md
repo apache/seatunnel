@@ -8,7 +8,6 @@ The internal implementation of StarRocks sink connector is cached and imported b
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [schema projection](../../concept/connector-v2-features.md)
 
 ## Options
 
