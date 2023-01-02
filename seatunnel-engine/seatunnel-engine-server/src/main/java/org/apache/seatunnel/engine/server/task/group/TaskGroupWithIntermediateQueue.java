@@ -17,37 +17,46 @@
 
 package org.apache.seatunnel.engine.server.task.group;
 
-import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.group.disruptor.RecordEvent;
+import org.apache.seatunnel.engine.server.task.group.disruptor.RecordEventFactory;
+
+import com.lmax.disruptor.EventFactory;
+import com.lmax.disruptor.YieldingWaitStrategy;
+import com.lmax.disruptor.dsl.Disruptor;
+import com.lmax.disruptor.dsl.ProducerType;
+import com.lmax.disruptor.util.DaemonThreadFactory;
 
 import java.util.Collection;
 import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class TaskGroupWithIntermediateQueue extends TaskGroupDefaultImpl {
 
-    public static final int QUEUE_SIZE = 100000;
+    public static final int RING_BUFFER_SIZE = 1024 * 1024;
 
     public TaskGroupWithIntermediateQueue(TaskGroupLocation taskGroupLocation, String taskGroupName, Collection<Task> tasks) {
         super(taskGroupLocation, taskGroupName, tasks);
     }
 
-    private Map<Long, BlockingQueue<Record<?>>> blockingQueueCache = null;
+    private Map<Long, Disruptor<RecordEvent>> blockingQueueCache = null;
 
     @Override
     public void init() {
         blockingQueueCache = new ConcurrentHashMap<>();
         getTasks().stream().filter(SeaTunnelTask.class::isInstance)
-                .map(s -> (SeaTunnelTask) s).forEach(s -> s.setTaskGroup(this));
+            .map(s -> (SeaTunnelTask) s).forEach(s -> s.setTaskGroup(this));
     }
 
-    public BlockingQueue<Record<?>> getBlockingQueueCache(long id) {
-        blockingQueueCache.computeIfAbsent(id, i -> new ArrayBlockingQueue<>(QUEUE_SIZE));
+    public Disruptor<RecordEvent> getBlockingQueueCache(long id) {
+        EventFactory<RecordEvent> eventFactory = new RecordEventFactory();
+        Disruptor<RecordEvent> disruptor = new Disruptor<>(eventFactory, RING_BUFFER_SIZE, DaemonThreadFactory.INSTANCE,
+            ProducerType.SINGLE, new YieldingWaitStrategy());
+
+        blockingQueueCache.putIfAbsent(id, disruptor);
         return blockingQueueCache.get(id);
     }
 
