@@ -170,7 +170,7 @@ public final class FactoryUtil {
             throw new FactoryException("sourceOptionRule can not be null");
         }
 
-        Class<SeaTunnelSource> sourceClass = factory.getSourceClass();
+        Class<? extends SeaTunnelSource> sourceClass = factory.getSourceClass();
         if (sourceClass.isAssignableFrom(SupportParallelism.class)) {
             OptionRule sourceCommonOptionRule =
                 OptionRule.builder().optional(SourceCommonOptions.PARALLELISM).build();
