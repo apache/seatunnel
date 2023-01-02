@@ -52,4 +52,4 @@ simple:
 
 ### next version
 
-- Add GoogleSheets Sink Connector
+- Add GoogleSheets Sink Connector [3848](https://github.com/apache/incubator-seatunnel/pull/3848)
