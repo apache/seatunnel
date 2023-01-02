@@ -212,3 +212,9 @@ problems encountered by users.
 |-------------|-----------------------------------------|----------------------------------------------------------------------------------------------------------------------|
 | DINGTALK-01 | Send response to DinkTalk server failed | When users encounter this error code, it means that send response message to DinkTalk server failed, please check it |
 | DINGTALK-02 | Get sign from DinkTalk server failed    | When users encounter this error code, it means that get signature from DinkTalk server failed , please check it      |
+
+## GoogleSheets Connector Error Codes
+
+| code            | description                                | solution                                                                                                             |
+|-----------------|--------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| GOOGLESHEETS-01 | Build google sheets http request exception | When users encounter this error code, it means that send http request to build google sheets failed, please check it |
