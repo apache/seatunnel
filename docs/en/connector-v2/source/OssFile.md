@@ -6,8 +6,16 @@
 
 Read data from aliyun oss file system.
 
-> Tips: We made some trade-offs in order to support more file types, so we used the HDFS protocol for internal access to OSS and this connector need some hadoop dependencies. 
-> It's only support hadoop version **2.9.X+**.
+:::tip
+
+If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
+
+If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+
+We made some trade-offs in order to support more file types, so we used the HDFS protocol for internal access to OSS and this connector need some hadoop dependencies.
+It only supports hadoop version **2.9.X+**.
+
+:::
 
 ## Key features
 

@@ -115,6 +115,8 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
 
         if (config.hasPath(COMMIT_ON_CHECKPOINT.key())) {
             this.metadata.setCommitOnCheckpoint(config.getBoolean(COMMIT_ON_CHECKPOINT.key()));
+        } else {
+            this.metadata.setCommitOnCheckpoint(COMMIT_ON_CHECKPOINT.defaultValue());
         }
 
         if (config.hasPath(START_MODE.key())) {

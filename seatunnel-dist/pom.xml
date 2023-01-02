@@ -527,6 +527,7 @@
                     <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
+                    <classifier>optional</classifier>
                 </dependency>
                 <!-- hadoop jar end -->
             </dependencies>
