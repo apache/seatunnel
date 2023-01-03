@@ -32,12 +32,12 @@ import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConf
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class InfluxDBSinkFactory implements TableSourceFactory {
+public class InfluxDBSinkFactory implements TableSinkFactory {
 
     @Override
     public String factoryIdentifier() {
