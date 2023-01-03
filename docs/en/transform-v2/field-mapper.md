@@ -12,7 +12,7 @@ Add input schema and output schema mapping.
 |--------------------|--------| -------- |---------------|
 | field_mapper       | Object | yes      |               |
 
-### field_mapper [string]
+### field_mapper [config]
 
 Specify the field mapping relationship between input and output
 
