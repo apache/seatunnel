@@ -132,4 +132,4 @@ sink {
 - Add Doris Sink Connector
 
 ### Next version
-- [Improve] Change Doris Config Prefix
+- [Improve] Change Doris Config Prefix [3856](https://github.com/apache/incubator-seatunnel/pull/3856)
