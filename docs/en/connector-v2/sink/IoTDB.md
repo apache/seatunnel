@@ -6,20 +6,18 @@
 
 Used to write data to IoTDB.
 
+:::tip
+
+There is a conflict of thrift version between IoTDB and Spark.Therefore, you need to execute `rm -f $SPARK_HOME/jars/libthrift*` and `cp $IOTDB_HOME/lib/libthrift* $SPARK_HOME/jars/` to resolve it.
+
+:::
+
 ## Key features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
 IoTDB supports the `exactly-once` feature through idempotent writing. If two pieces of data have
 the same `key` and `timestamp`, the new data will overwrite the old one.
-
-- [ ] [schema projection](../../concept/connector-v2-features.md)
-
-:::tip
-
-There is a conflict of thrift version between IoTDB and Spark.Therefore, you need to execute `rm -f $SPARK_HOME/jars/libthrift*` and `cp $IOTDB_HOME/lib/libthrift* $SPARK_HOME/jars/` to resolve it.
-
-:::
 
 ## Options
 

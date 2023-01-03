@@ -41,6 +41,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -70,7 +71,8 @@ import java.util.Map;
 import java.util.Properties;
 
 @AutoService(SeaTunnelSource.class)
-public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSplit, KafkaSourceState> {
+public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSplit, KafkaSourceState>,
+    SupportParallelism {
 
     private static final String DEFAULT_CONSUMER_GROUP = "SeaTunnel-Consumer-Group";
 
@@ -113,6 +115,8 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
 
         if (config.hasPath(COMMIT_ON_CHECKPOINT.key())) {
             this.metadata.setCommitOnCheckpoint(config.getBoolean(COMMIT_ON_CHECKPOINT.key()));
+        } else {
+            this.metadata.setCommitOnCheckpoint(COMMIT_ON_CHECKPOINT.defaultValue());
         }
 
         if (config.hasPath(START_MODE.key())) {
@@ -137,9 +141,11 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
                     Map<TopicPartition, Long> specificStartOffsets = new HashMap<>();
                     ObjectNode jsonNodes = JsonUtils.parseObject(offsetsJson);
                     jsonNodes.fieldNames().forEachRemaining(key -> {
-                        String[] topicAndPartition = key.split("-");
+                        int splitIndex = key.lastIndexOf("-");
+                        String topic = key.substring(0, splitIndex);
+                        String partition = key.substring(splitIndex + 1);
                         long offset = jsonNodes.get(key).asLong();
-                        TopicPartition topicPartition = new TopicPartition(topicAndPartition[0], Integer.valueOf(topicAndPartition[1]));
+                        TopicPartition topicPartition = new TopicPartition(topic, Integer.valueOf(partition));
                         specificStartOffsets.put(topicPartition, offset);
                     });
                     this.metadata.setSpecificStartOffsets(specificStartOffsets);

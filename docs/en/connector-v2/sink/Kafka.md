@@ -11,8 +11,6 @@ Write Rows to a Kafka topic.
 
 By default, we will use 2pc to guarantee the message is sent to kafka exactly once.
 
-- [ ] [schema projection](../../concept/connector-v2-features.md)
-
 ## Options
 
 | name                 | type                  | required | default value |

@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.common.utils;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -46,7 +49,7 @@ public class FileUtils {
                     try {
                         return path.toUri().toURL();
                     } catch (MalformedURLException e) {
-                        throw new SeaTunnelException(e);
+                        throw new SeaTunnelRuntimeException(CommonErrorCode.REFLECT_CLASS_OPERATION_FAILED, e);
                     }
                 }).collect(Collectors.toList());
         }
@@ -57,8 +60,7 @@ public class FileUtils {
             byte[] bytes = Files.readAllBytes(path);
             return new String(bytes);
         } catch (IOException e) {
-            log.error(ExceptionUtils.getMessage(e));
-            throw new SeaTunnelException(e);
+            throw new SeaTunnelRuntimeException(CommonErrorCode.FILE_OPERATION_FAILED, ExceptionUtils.getMessage(e));
         }
     }
 
@@ -69,8 +71,7 @@ public class FileUtils {
             ps = new PrintStream(new FileOutputStream(file));
             ps.println(str);
         } catch (FileNotFoundException e) {
-            log.error(ExceptionUtils.getMessage(e));
-            throw new SeaTunnelException(e);
+            throw new SeaTunnelRuntimeException(CommonErrorCode.FILE_OPERATION_FAILED, ExceptionUtils.getMessage(e), e);
         } finally {
             if (ps != null) {
                 ps.close();
@@ -112,7 +113,8 @@ public class FileUtils {
         try {
             return Files.lines(Paths.get(filePath)).count();
         } catch (IOException e) {
-            throw new SeaTunnelException(String.format("get file[%s] line error", filePath), e);
+            throw new SeaTunnelRuntimeException(CommonErrorCode.FILE_OPERATION_FAILED,
+                    String.format("get file[%s] line error", filePath), e);
         }
     }
 
@@ -178,8 +180,8 @@ public class FileUtils {
             file.delete();
 
         } catch (Exception e) {
-            log.error("delete file [" + file.getPath() + "] error");
-            throw new SeaTunnelException(e);
+            String errorMsg = String.format("Delete file [%s] failed", file.getPath());
+            throw new SeaTunnelRuntimeException(CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
         }
     }
 }

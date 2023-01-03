@@ -247,7 +247,12 @@ public class SubPlan {
         if (!PipelineStatus.CANCELING.equals(runningJobStateIMap.get(pipelineLocation))) {
             updatePipelineState(getPipelineState(), PipelineStatus.CANCELING);
         }
+        cancelCheckpointCoordinator();
         cancelPipelineTasks();
+    }
+
+    private void cancelCheckpointCoordinator() {
+        jobMaster.getCheckpointManager().listenPipelineRetry(pipelineId, PipelineStatus.CANCELING).join();
     }
 
     private void cancelPipelineTasks() {
@@ -338,6 +343,7 @@ public class SubPlan {
                     forcePipelineFinish();
                     return;
                 }
+                jobMaster.getCheckpointManager().reportedPipelineRunning(pipelineId, false);
                 reSchedulerPipelineFuture = jobMaster.reSchedulerPipeline(this);
                 if (reSchedulerPipelineFuture != null) {
                     reSchedulerPipelineFuture.join();
@@ -371,7 +377,7 @@ public class SubPlan {
         } else if (PipelineStatus.CANCELING.equals(getPipelineState())) {
             cancelPipelineTasks();
         } else if (PipelineStatus.RUNNING.equals(getPipelineState())) {
-            jobMaster.getCheckpointManager().reportedPipelineRunning(this.getPipelineLocation().getPipelineId());
+            jobMaster.getCheckpointManager().reportedPipelineRunning(this.getPipelineLocation().getPipelineId(), true);
         }
     }
 
