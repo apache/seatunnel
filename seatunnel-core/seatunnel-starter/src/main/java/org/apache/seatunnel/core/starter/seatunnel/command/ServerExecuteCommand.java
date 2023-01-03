@@ -24,10 +24,12 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * This command is used to execute the SeaTunnel engine job by SeaTunnel API.
  */
+@Slf4j
 public class ServerExecuteCommand implements Command<ServerCommandArgs> {
 
     private final ServerCommandArgs serverCommandArgs;
@@ -40,6 +42,8 @@ public class ServerExecuteCommand implements Command<ServerCommandArgs> {
     public void execute() {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(serverCommandArgs.getClusterName());
+        log.info("SeaTunnel server engine config:{}", seaTunnelConfig.getEngineConfig());
+        log.info("SeaTunnel server hazelcast config:{}", seaTunnelConfig.getHazelcastConfig());
         HazelcastInstanceFactory.newHazelcastInstance(seaTunnelConfig.getHazelcastConfig(),
             Thread.currentThread().getName(),
             new SeaTunnelNodeContext(seaTunnelConfig));

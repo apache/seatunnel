@@ -21,12 +21,14 @@ import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.enums.EngineType;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ServerCommandArgs;
+import org.apache.seatunnel.core.starter.seatunnel.utils.EnvironmentInformation;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
 public class SeaTunnelServer {
     public static void main(String[] args) throws CommandException {
         ServerCommandArgs serverCommandArgs = CommandLineUtils.parse(args, new ServerCommandArgs(),
                 EngineType.SEATUNNEL.getStarterShellName(), true);
+        EnvironmentInformation.logEnvironmentInfo(log, "SeaTunnel Server", args);
         SeaTunnel.run(serverCommandArgs.buildCommand());
     }
 }

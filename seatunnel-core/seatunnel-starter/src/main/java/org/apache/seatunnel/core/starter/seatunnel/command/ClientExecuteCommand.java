@@ -77,6 +77,8 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 clusterName = creatRandomClusterName(clusterName);
                 instance = createServerInLocal(clusterName);
             }
+            log.info("SeaTunnel client engine config:{}", seaTunnelConfig.getEngineConfig());
+            log.info("SeaTunnel client hazelcast config:{}", seaTunnelConfig.getHazelcastConfig());
             seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(clusterName);
