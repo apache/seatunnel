@@ -250,6 +250,7 @@ public class DorisIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException("Get doris connection error", e);
         }
     }
+
     private void initializeJdbcConnection() throws SQLException, ClassNotFoundException, MalformedURLException, InstantiationException, IllegalAccessException {
         URLClassLoader urlClassLoader = new URLClassLoader(new URL[]{new URL(DRIVER_JAR)}, DorisIT.class.getClassLoader());
         Thread.currentThread().setContextClassLoader(urlClassLoader);
