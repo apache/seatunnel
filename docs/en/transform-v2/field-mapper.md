@@ -18,7 +18,7 @@ Specify the field mapping relationship between input and output
 
 ### common options [string]
 
-Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details
+Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details.
 
 ## Example
 
