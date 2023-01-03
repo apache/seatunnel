@@ -25,6 +25,7 @@ import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.Rabbitmq
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PORT;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.QUEUE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.RABBITMQ_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.ROUTING_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.TOPOLOGY_RECOVERY_ENABLED;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.URL;
@@ -62,7 +63,8 @@ public class RabbitmqSinkFactory implements TableSourceFactory {
                 NETWORK_RECOVERY_INTERVAL,
                 TOPOLOGY_RECOVERY_ENABLED,
                 AUTOMATIC_RECOVERY_ENABLED,
-                CONNECTION_TIMEOUT
+                CONNECTION_TIMEOUT,
+                RABBITMQ_CONFIG
             )
             .build();
     }
