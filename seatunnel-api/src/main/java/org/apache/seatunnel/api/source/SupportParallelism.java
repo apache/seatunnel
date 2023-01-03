@@ -15,28 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.plugin.discovery.flink;
+package org.apache.seatunnel.api.source;
 
-import org.apache.seatunnel.flink.BaseFlinkTransform;
-import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
-
-public class FlinkTransformPluginDiscovery extends FlinkAbstractPluginDiscovery<BaseFlinkTransform> {
-
-    public FlinkTransformPluginDiscovery() {
-        super("flink");
-    }
-
-    @Override
-    public List<URL> getPluginJarPaths(List<PluginIdentifier> pluginIdentifiers) {
-        return new ArrayList<>();
-    }
-
-    @Override
-    protected Class<BaseFlinkTransform> getPluginBaseClass() {
-        return BaseFlinkTransform.class;
-    }
+/**
+ * Mark whether the Source connector supports parallelism
+ */
+public interface SupportParallelism {
 }
