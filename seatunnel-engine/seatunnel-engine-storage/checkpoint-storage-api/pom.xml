@@ -35,15 +35,10 @@
             <artifactId>seatunnel-api</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <!--protostuff-->
         <dependency>
-            <groupId>io.protostuff</groupId>
-            <artifactId>protostuff-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.protostuff</groupId>
-            <artifactId>protostuff-runtime</artifactId>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-engine-common</artifactId>
+            <version>${project.version}</version>
         </dependency>
     </dependencies>
 
