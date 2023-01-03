@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -53,7 +54,7 @@ import java.sql.Types;
 import java.util.List;
 
 @AutoService(SeaTunnelSource.class)
-public class OpenMldbSource extends AbstractSingleSplitSource<SeaTunnelRow> {
+public class OpenMldbSource extends AbstractSingleSplitSource<SeaTunnelRow> implements SupportColumnProjection {
     private OpenMldbParameters openMldbParameters;
     private JobContext jobContext;
     private SeaTunnelRowType seaTunnelRowType;

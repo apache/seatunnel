@@ -22,6 +22,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.uti
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
@@ -44,7 +45,8 @@ import io.debezium.relational.TableId;
 import java.time.ZoneId;
 
 @AutoService(SeaTunnelSource.class)
-public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig> {
+public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig> implements
+    SupportParallelism {
 
     @Override
     public String getPluginName() {
