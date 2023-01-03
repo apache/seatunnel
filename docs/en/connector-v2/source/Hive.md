@@ -21,7 +21,7 @@ If you use SeaTunnel Engine, You need put seatunnel-hadoop3-3.1.4-uber.jar and h
 
 Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
-- [ ] [column projection](../../concept/connector-v2-features.md)
+- [x] [schema projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] file format
@@ -39,7 +39,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | metastore_uri        | string | yes      | -             |
 | kerberos_principal   | string | no       | -             |
 | kerberos_keytab_path | string | no       | -             | 
-| read_partitions | string | no       | -             |
+| read_partitions | list   | no       | -             |
 | common-options       |        | no       | -             |
 
 ### table_name [string]
@@ -81,7 +81,4 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ### Next version
 
 - [Improve] Support kerberos authentication ([3840](https://github.com/apache/incubator-seatunnel/pull/3840))
-
-### Next version
-
 - Support user-defined partitions ([3842](https://github.com/apache/incubator-seatunnel/pull/3842))
