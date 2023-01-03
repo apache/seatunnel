@@ -16,7 +16,7 @@ Add input schema and output schema mapping.
 
 Specify the field mapping relationship between input and output
 
-### common options [string]
+### common options [config]
 
 Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details.
 
