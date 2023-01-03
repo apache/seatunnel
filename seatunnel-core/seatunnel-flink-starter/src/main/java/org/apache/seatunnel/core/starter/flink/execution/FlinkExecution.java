@@ -55,6 +55,7 @@ import java.util.stream.Stream;
 public class FlinkExecution implements TaskExecution {
     private final FlinkRuntimeEnvironment flinkRuntimeEnvironment;
     private final PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment> sourcePluginExecuteProcessor;
+    private final PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment> transformPluginExecuteProcessor;
     private final PluginExecuteProcessor<DataStream<Row>, FlinkRuntimeEnvironment> sinkPluginExecuteProcessor;
     private final List<URL> jarPaths;
 
@@ -71,13 +72,15 @@ public class FlinkExecution implements TaskExecution {
 
         this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(jarPaths,
                 config.getConfigList(Constants.SOURCE), jobContext);
+        this.transformPluginExecuteProcessor = new SourceExecuteProcessor(jarPaths,
+                config.getConfigList(Constants.TRANSFORM), jobContext);
         this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(jarPaths,
                 config.getConfigList(Constants.SINK), jobContext);
 
         this.flinkRuntimeEnvironment = FlinkRuntimeEnvironment.getInstance(this.registerPlugin(config, jarPaths));
 
         this.sourcePluginExecuteProcessor.setRuntimeEnvironment(flinkRuntimeEnvironment);
-        // TODO: Support SeaTunnel Transform V2
+        this.transformPluginExecuteProcessor.setRuntimeEnvironment(flinkRuntimeEnvironment);
         this.sinkPluginExecuteProcessor.setRuntimeEnvironment(flinkRuntimeEnvironment);
     }
 

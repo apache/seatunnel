@@ -41,7 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunnelTransform> {
+public class TransformExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<SeaTunnelTransform> {
 
     private static final String PLUGIN_TYPE = "transform";
 
