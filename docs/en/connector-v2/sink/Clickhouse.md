@@ -12,7 +12,6 @@ Used to write data to Clickhouse.
 
 The Clickhouse sink plug-in can achieve accuracy once by implementing idempotent writing, and needs to cooperate with aggregatingmergetree and other engines that support deduplication.
 
-- [ ] [schema projection](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
 
 :::tip
@@ -30,7 +29,7 @@ Write data to Clickhouse can also be done using JDBC
 | table                                 | string  | yes      | -             |
 | username                              | string  | yes      | -             |
 | password                              | string  | yes      | -             |
-| clickhouse.*                          | string  | no       |               |
+| clickhouse.config                     | map     | no       |               |
 | bulk_size                             | string  | no       | 20000         |
 | split_mode                            | string  | no       | false         |
 | sharding_key                          | string  | no       | -             |
@@ -59,11 +58,9 @@ The table name
 
 `ClickHouse` user password
 
-### clickhouse [string]
+### clickhouse.config [map]
 
 In addition to the above mandatory parameters that must be specified by `clickhouse-jdbc` , users can also specify multiple optional parameters, which cover all the [parameters](https://github.com/ClickHouse/clickhouse-jdbc/tree/master/clickhouse-client#configuration) provided by `clickhouse-jdbc` .
-
-The way to specify the parameter is to add the prefix `clickhouse.` to the original parameter name. For example, the way to specify `socket_timeout` is: `clickhouse.socket_timeout = 50000` . If these non-essential parameters are not specified, they will use the default values given by `clickhouse-jdbc`.
 
 ### bulk_size [number]
 
@@ -109,6 +106,10 @@ sink {
     table = "fake_all"
     username = "default"
     password = ""
+    clickhouse.confg = {
+      max_rows_to_read = "100"
+      read_overflow_mode = "throw"
+    }
   }
 }
 ```
@@ -180,9 +181,8 @@ sink {
 ### next version
 
 - [Improve] Clickhouse Sink support nest type and array type([3047](https://github.com/apache/incubator-seatunnel/pull/3047))
-
 - [Improve] Clickhouse Sink support geo type([3141](https://github.com/apache/incubator-seatunnel/pull/3141))
-
 - [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3653](https://github.com/apache/incubator-seatunnel/pull/3653))
 
 - [Improve] Remove Clickhouse Fields Config ([3826](https://github.com/apache/incubator-seatunnel/pull/3826))
+- [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)

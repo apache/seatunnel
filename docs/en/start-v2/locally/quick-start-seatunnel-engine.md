@@ -32,10 +32,6 @@ source {
     }
 }
 
-transform {
-
-}
-
 sink {
   Console {}
 }
@@ -82,7 +78,7 @@ row=16 : SGZCr, 94186144
 
 ## What's More
 
-For now, you are already take a quick look about SeaTunnel, you could see [connector](/docs/category/connector-v2) to find all
+For now, you are already take a quick look about SeaTunnel, you could see [connector](../../connector-v2/source/FakeSource.md) to find all
 source and sink SeaTunnel supported. Or see [SeaTunnel Engine](../../seatunnel-engine/about.md) if you want to know more about SeaTunnel Engine.
 
 SeaTunnel also supports running jobs in Spark/Flink. You can see [Quick Start With Spark](quick-start-spark.md) or [Quick Start With Flink](quick-start-flink.md).

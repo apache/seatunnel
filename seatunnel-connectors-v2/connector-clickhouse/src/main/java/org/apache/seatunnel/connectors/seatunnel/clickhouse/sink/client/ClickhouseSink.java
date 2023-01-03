@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client;
 
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.BULK_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_PREFIX;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PASSWORD;
@@ -41,7 +41,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ReaderOption;
@@ -112,10 +111,8 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
         }
 
         Properties clickhouseProperties = new Properties();
-        if (TypesafeConfigUtils.hasSubConfig(config, CLICKHOUSE_PREFIX.key() + ".")) {
-            TypesafeConfigUtils.extractSubConfig(config, CLICKHOUSE_PREFIX.key() + ".", false).entrySet().forEach(e -> {
-                clickhouseProperties.put(e.getKey(), String.valueOf(e.getValue().unwrapped()));
-            });
+        if (CheckConfigUtil.isValidParam(config, CLICKHOUSE_CONFIG.key())) {
+            config.getObject(CLICKHOUSE_CONFIG.key()).forEach((key, value) -> clickhouseProperties.put(key, String.valueOf(value.unwrapped())));
         }
 
         if (isCredential) {
