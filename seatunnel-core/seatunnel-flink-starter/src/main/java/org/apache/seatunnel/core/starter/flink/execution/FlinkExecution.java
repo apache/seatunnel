@@ -72,7 +72,7 @@ public class FlinkExecution implements TaskExecution {
 
         this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(jarPaths,
                 config.getConfigList(Constants.SOURCE), jobContext);
-        this.transformPluginExecuteProcessor = new SourceExecuteProcessor(jarPaths,
+        this.transformPluginExecuteProcessor = new TransformExecuteProcessor(jarPaths,
                 config.getConfigList(Constants.TRANSFORM), jobContext);
         this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(jarPaths,
                 config.getConfigList(Constants.SINK), jobContext);
@@ -88,6 +88,7 @@ public class FlinkExecution implements TaskExecution {
     public void execute() throws TaskExecuteException {
         List<DataStream<Row>> dataStreams = new ArrayList<>();
         dataStreams = sourcePluginExecuteProcessor.execute(dataStreams);
+        dataStreams = transformPluginExecuteProcessor.execute(dataStreams);
         sinkPluginExecuteProcessor.execute(dataStreams);
         log.info("Flink Execution Plan: {}", flinkRuntimeEnvironment.getStreamExecutionEnvironment().getExecutionPlan());
         log.info("Flink job name: {}", flinkRuntimeEnvironment.getJobName());
