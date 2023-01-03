@@ -35,6 +35,7 @@ public class SinkConfig {
     private static final int DEFAULT_BATCH_MAX_SIZE = 1024;
     private static final int DEFAULT_BATCH_INTERVAL_MS = 1000;
     private static final long DEFAULT_BATCH_BYTES = 5 * 1024 * 1024;
+    private static final long DEFAULT_FLUSH_QUEUE_OFFER_TIMEOUT = 600000L;
 
     private static final String LOAD_FORMAT = "format";
     private static final StreamLoadFormat DEFAULT_LOAD_FORMAT = StreamLoadFormat.CSV;
@@ -106,6 +107,12 @@ public class SinkConfig {
             .noDefaultValue()
             .withDescription("The amount of time to wait before attempting to retry a request to Doris");
 
+    public static final Option<Long> FLUSH_QUEUE_OFFER_TIMEOUT = Options.key("flush_queue_offer_timeout_ms")
+            .longType().defaultValue(DEFAULT_FLUSH_QUEUE_OFFER_TIMEOUT).withDescription("Offer to flushQueue timeout in millisecond.");
+
+    public static final Option<String> SINK_SEMANTIC = Options.key("sink.semantic")
+            .stringType().defaultValue(DorisSinkSemantics.AT_LEAST_ONCE.getName()).withDescription("Fault tolerance guarantee. 'non' or `at-least-once` or `exactly-once`");
+
     public enum StreamLoadFormat {
         CSV, JSON;
         public static StreamLoadFormat parse(String format) {
@@ -131,6 +138,9 @@ public class SinkConfig {
     private int maxRetries;
     private int retryBackoffMultiplierMs;
     private int maxRetryBackoffMs;
+    private long sinkBufferEnqueueTimeoutMs = FLUSH_QUEUE_OFFER_TIMEOUT.defaultValue();
+    private String sinkSemantic = SINK_SEMANTIC.defaultValue();
+
 
     private final Map<String, String> streamLoadProps = new HashMap<>();
 
@@ -174,6 +184,12 @@ public class SinkConfig {
         if (sinkConfig.streamLoadProps.containsKey(LOAD_FORMAT)) {
             sinkConfig.setLoadFormat(StreamLoadFormat.parse(sinkConfig.streamLoadProps.get(LOAD_FORMAT)));
         }
+        if (pluginConfig.hasPath(SINK_SEMANTIC.key())) {
+            sinkConfig.sinkSemantic = pluginConfig.getString(SINK_SEMANTIC.key());
+        }
+        if (pluginConfig.hasPath(FLUSH_QUEUE_OFFER_TIMEOUT.key())) {
+            sinkConfig.sinkBufferEnqueueTimeoutMs = pluginConfig.getLong(FLUSH_QUEUE_OFFER_TIMEOUT.key());
+        }
         return sinkConfig;
     }
 
@@ -185,4 +201,9 @@ public class SinkConfig {
             sinkConfig.streamLoadProps.put(configKey, entry.getValue().unwrapped().toString());
         });
     }
+
+    public DorisSinkSemantics getDorisSinkSemantic() {
+        return DorisSinkSemantics.fromName(this.sinkSemantic);
+    }
+
 }

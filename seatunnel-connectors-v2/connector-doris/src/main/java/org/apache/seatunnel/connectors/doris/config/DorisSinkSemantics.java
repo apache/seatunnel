@@ -15,42 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.doris.client;
+package org.apache.seatunnel.connectors.doris.config;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @AllArgsConstructor
-@NoArgsConstructor
-@Data
-public class DorisFlushTuple {
-    private String label;
-    private Long bytes = 0L;
-    private List<byte[]> rows;
-    private boolean eof;
+@Getter
+public enum DorisSinkSemantics {
+    NON("non"), EXACTLY_ONCE("exactly-once"), AT_LEAST_ONCE("at-least-once");
 
-    public DorisFlushTuple(String label) {
-        this.label = label;
-        this.rows = new ArrayList<>();
-    }
+    private String name;
 
-    public DorisFlushTuple(String label, Long bytes, List<byte[]> rows) {
-        this.label = label;
-        this.bytes = bytes;
-        this.rows = rows;
-    }
-
-    public DorisFlushTuple asEOF() {
-        eof = true;
-        return this;
-    }
-
-    public void addToBuffer(byte[] bts) {
-        rows.add(bts);
-        bytes += bts.length;
+    public static DorisSinkSemantics fromName(String name) {
+        List<DorisSinkSemantics> rs = Arrays.stream(DorisSinkSemantics.values()).filter(v -> v.getName().equals(name))
+                .collect(Collectors.toList());
+        return rs.isEmpty() ? null : rs.get(0);
     }
 }

@@ -27,6 +27,7 @@ The internal implementation of Doris sink connector is cached and imported by st
 | retry_backoff_multiplier_ms | int                          | no       | -               |
 | max_retry_backoff_ms        | int                          | no       | -               |
 | sink.properties.*           | doris stream load config     | no       | -               |
+| sink.semantic               | string                       | no       | at-least-once   |
 
 ### node_urls [list]
 
@@ -81,6 +82,10 @@ The amount of time to wait before attempting to retry a request to `Doris`
 The parameter of the stream load `data_desc`
 The way to specify the parameter is to add the prefix `sink.properties.` to the original stream load parameter name 
 For example, the way to specify `strip_outer_array` is: `sink.properties.strip_outer_array`
+
+###sink.semantic [string]
+
+at-least-once (flush at checkpoint only and options like batch_interval_ms、batch_max_rows、batch_max_bytes won't work either).
 
 #### Supported import data formats
 
