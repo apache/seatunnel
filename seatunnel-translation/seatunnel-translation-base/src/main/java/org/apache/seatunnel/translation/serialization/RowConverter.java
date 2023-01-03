@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +34,7 @@ import java.util.Map;
  *
  * @param <T> engine row
  */
-public abstract class RowConverter<T> {
+public abstract class RowConverter<T> implements Serializable {
     protected final SeaTunnelDataType<?> dataType;
 
     public RowConverter(SeaTunnelDataType<?> dataType) {
