@@ -33,12 +33,12 @@ import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.Rabbitmq
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class RabbitmqSinkFactory implements TableSourceFactory {
+public class RabbitmqSinkFactory implements TableSinkFactory {
 
     @Override
     public String factoryIdentifier() {
