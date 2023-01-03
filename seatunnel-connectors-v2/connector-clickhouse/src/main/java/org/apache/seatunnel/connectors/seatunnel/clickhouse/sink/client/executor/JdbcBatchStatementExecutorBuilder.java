@@ -57,10 +57,9 @@ public class JdbcBatchStatementExecutorBuilder {
 
     private String[] getDefaultProjectionFields() {
         List<String> fieldNames = Arrays.asList(rowType.getFieldNames());
-        return clickhouseTableSchema.keySet()
+        return (String[]) clickhouseTableSchema.keySet()
             .stream()
-            .filter(fieldNames::contains)
-            .toArray(value -> new String[0]);
+            .filter(fieldNames::contains).toArray();
     }
 
     public JdbcBatchStatementExecutor build() {
