@@ -132,8 +132,8 @@ const sidebars = {
                         }
                     ]
                 },
+                "connector-v2/JobEnvConfig",
                 "connector-v2/Error-Quick-Reference-Manual",
-                "connector-v2/EnvConf"
             ]
         },
         {
