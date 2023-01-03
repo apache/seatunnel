@@ -36,7 +36,7 @@ public class JdbcConfig implements Serializable {
 
     public static final Option<Integer> CONNECTION_CHECK_TIMEOUT_SEC = Options.key("connection_check_timeout_sec").intType().defaultValue(DEFAULT_CONNECTION_CHECK_TIMEOUT_SEC).withDescription("connection check time second");
 
-    public static final Option<Integer> MAX_RETRIES = Options.key("max_retries").intType().noDefaultValue().withDescription("max_retired");
+    public static final Option<Integer> MAX_RETRIES = Options.key("max_retries").intType().defaultValue(0).withDescription("max_retired");
 
     public static final Option<String> USER = Options.key("user").stringType().noDefaultValue().withDescription("user");
 
@@ -54,7 +54,7 @@ public class JdbcConfig implements Serializable {
     public static final Option<Integer> BATCH_INTERVAL_MS = Options.key("batch_interval_ms").intType().noDefaultValue().withDescription("batch interval milliSecond");
 
 
-    public static final Option<String> IS_EXACTLY_ONCE = Options.key("is_exactly_once").stringType().noDefaultValue().withDescription("exactly once");
+    public static final Option<Boolean> IS_EXACTLY_ONCE = Options.key("is_exactly_once").booleanType().defaultValue(true).withDescription("exactly once");
 
     public static final Option<String> XA_DATA_SOURCE_CLASS_NAME = Options.key("xa_data_source_class_name").stringType().noDefaultValue().withDescription("data source class name");
 

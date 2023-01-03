@@ -15,19 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.mongodb.config;
-
-import lombok.Data;
+package org.apache.seatunnel.connectors.seatunnel.file.config;
 
 import java.io.Serializable;
 
-@Data
-public class MongodbParameters implements Serializable {
+public enum CompressFormat implements Serializable {
 
-    private String uri;
+    LZO("lzo"),
+    NONE("none");
 
-    private String database;
+    private final String compressCodec;
 
-    private String collection;
+    CompressFormat(String compressCodec) {
+        this.compressCodec = compressCodec;
+    }
 
+    public String getCompressCodec() {
+        return compressCodec;
+    }
+
+    public static CompressFormat getCompressFormat(String value) {
+        switch (value) {
+            case "lzo":
+                return CompressFormat.LZO;
+            default:
+                return CompressFormat.NONE;
+        }
+    }
 }

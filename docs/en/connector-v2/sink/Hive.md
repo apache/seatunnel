@@ -6,9 +6,12 @@
 
 Write data to Hive.
 
+:::tip
+
 In order to use this connector, You must ensure your spark/flink cluster already integrated hive. The tested hive version is 2.3.9.
 
-**Tips: Hive Sink Connector not support array, map and struct datatype now**
+If you use SeaTunnel Engine, You need put seatunnel-hadoop3-3.1.4-uber.jar and hive-exec-2.3.9.jar in $SEATUNNEL_HOME/lib/ dir.
+:::
 
 ## Key features
 
@@ -16,11 +19,14 @@ In order to use this connector, You must ensure your spark/flink cluster already
 
 By default, we use 2PC commit to ensure `exactly-once`
 
-- [ ] [schema projection](../../concept/connector-v2-features.md)
 - [x] file format
   - [x] text
+  - [x] csv
   - [x] parquet
   - [x] orc
+  - [x] json
+- [x] compress codec
+  - [x] lzo
 
 ## Options
 
@@ -28,8 +34,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 |----------------|--------|----------|---------------|
 | table_name     | string | yes      | -             |
 | metastore_uri  | string | yes      | -             |
+| compressCodec  | string | no       | none          |
 | common-options |        | no       | -             |
-
 ### table_name [string]
 
 Target Hive table name eg: db1.table1
@@ -109,7 +115,7 @@ The job config file can like this:
 ```
 env {
   # You can set flink configuration here
-  execution.parallelism = 3
+  parallelism = 3
   job.name="test_hive_source_to_hive"
 }
 
@@ -120,17 +126,12 @@ source {
   }
 }
 
-transform {
-}
-
 sink {
   # choose stdout output plugin to output data to console
 
   Hive {
     table_name = "test_hive.test_hive_sink_text_simple"
     metastore_uri = "thrift://ctyun7:9083"
-    partition_by = ["test_par1", "test_par2"]
-    sink_columns = ["test_tinyint", "test_smallint", "test_int", "test_bigint", "test_boolean", "test_float", "test_double", "test_string", "test_binary", "test_timestamp", "test_decimal", "test_char", "test_varchar", "test_date", "test_par1", "test_par2"]
   }
 }
 ```

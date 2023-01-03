@@ -11,7 +11,6 @@ should be `true`. Supports Batch and Streaming mode.
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [schema projection](../../concept/connector-v2-features.md)
 
 :::tip
 
