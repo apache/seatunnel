@@ -77,7 +77,9 @@ The amount of time to wait before attempting to retry a request to `Doris`
 
 ### doris.config [map]
 
-The parameter of the stream load `data_desc`
+The parameter of the stream load `data_desc`, you can get more detail at this link:
+
+https://doris.apache.org/docs/sql-manual/sql-reference/Data-Manipulation-Statements/Load/STREAM-LOAD/
 
 #### Supported import data formats
 
