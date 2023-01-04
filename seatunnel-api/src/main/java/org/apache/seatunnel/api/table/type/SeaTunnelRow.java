@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.factory.SupportMultipleTable;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -93,6 +94,12 @@ public final class SeaTunnelRow implements Serializable {
         newRow.setRowKind(this.getRowKind());
         newRow.setTableId(this.getTableId());
         return newRow;
+    }
+
+    public SeaTunnelRow copy(List<Integer> indexMapping) {
+        return copy(indexMapping.stream()
+            .mapToInt(Integer::intValue)
+            .toArray());
     }
 
     @Override
