@@ -19,8 +19,12 @@ package org.apache.seatunnel.core.starter.spark.execution;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.env.EnvCommonOptions;
+import org.apache.seatunnel.api.sink.PathSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
+import org.apache.seatunnel.api.sink.SupportPathSaveMode;
+import org.apache.seatunnel.api.sink.SupportTableSaveMode;
+import org.apache.seatunnel.api.sink.TableSaveMode;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
@@ -60,6 +64,17 @@ public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunn
             SeaTunnelSink<?, ?, ?, ?> seaTunnelSink = sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
             seaTunnelSink.prepare(sinkConfig);
             seaTunnelSink.setJobContext(jobContext);
+            if (seaTunnelSink.getClass().isAssignableFrom(SupportTableSaveMode.class)) {
+                SupportTableSaveMode saveModeSink = (SupportTableSaveMode) seaTunnelSink;
+                TableSaveMode tableSaveMode = saveModeSink.checkOptions(sinkConfig);
+                saveModeSink.handleSaveMode(tableSaveMode);
+            }
+
+            if (seaTunnelSink.getClass().isAssignableFrom(SupportPathSaveMode.class)) {
+                SupportPathSaveMode saveModeSink = (SupportPathSaveMode) seaTunnelSink;
+                PathSaveMode pathSaveMode = saveModeSink.checkOptions(sinkConfig);
+                saveModeSink.handleSaveMode(pathSaveMode);
+            }
             return seaTunnelSink;
         }).distinct().collect(Collectors.toList());
         sparkEnvironment.registerPlugin(pluginJars);

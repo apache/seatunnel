@@ -31,15 +31,15 @@ public interface SupportTableSaveMode {
 
     /**
      * We hope every sink connector use the same option name to config SaveMode, So I add checkOptions method to this interface.
-     * checkOptions method have a default implement to check whether `table_save_mode` parameter is in config.
+     * checkOptions method have a default implement to check whether `save_mode` parameter is in config.
      *
      * @param config config of Sink Connector
-     * @return
+     * @return TableSaveMode TableSaveMode
      */
-    default void checkOptions(Config config) {
+    default TableSaveMode checkOptions(Config config) {
         if (config.hasPath(SinkCommonOptions.TABLE_SAVE_MODE.key())) {
             String tableSaveMode = config.getString(SinkCommonOptions.TABLE_SAVE_MODE.key());
-            TableSaveMode.valueOf(tableSaveMode.toUpperCase(Locale.ROOT));
+            return TableSaveMode.valueOf(tableSaveMode.toUpperCase(Locale.ROOT));
         } else {
             throw new SeaTunnelRuntimeException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                 SinkCommonOptions.TABLE_SAVE_MODE.key() + " must in config");
