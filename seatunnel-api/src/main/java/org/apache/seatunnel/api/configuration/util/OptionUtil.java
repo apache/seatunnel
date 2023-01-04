@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.api.configuration.util;
 
+import org.apache.seatunnel.api.configuration.CheckResult;
 import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.commons.lang3.StringUtils;
@@ -31,6 +35,16 @@ import java.util.List;
 public class OptionUtil {
 
     private OptionUtil() {
+    }
+
+    public static CheckResult configCheck(Config config, OptionRule rule) {
+        try {
+            ConfigValidator.of(ReadonlyConfig.fromConfig(config))
+                    .validate(rule);
+            return CheckResult.success();
+        } catch (OptionValidationException e) {
+            return CheckResult.error(e.getMessage());
+        }
     }
 
     public static String getOptionKeys(List<Option<?>> options) {

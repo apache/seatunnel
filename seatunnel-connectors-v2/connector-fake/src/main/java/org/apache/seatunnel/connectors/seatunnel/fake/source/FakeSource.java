@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.CheckResult;
+import org.apache.seatunnel.api.configuration.util.OptionUtil;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -27,8 +29,6 @@ import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
@@ -39,9 +39,11 @@ import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeSourceState;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 
+@Slf4j
 @AutoService(SeaTunnelSource.class)
 public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit, FakeSourceState>, SupportParallelism,
     SupportColumnProjection {
@@ -82,7 +84,7 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
 
     @Override
     public void prepare(Config pluginConfig) {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, SeaTunnelSchema.SCHEMA.key());
+        CheckResult result = OptionUtil.configCheck(pluginConfig, new FakeSourceFactory().optionRule());
         if (!result.isSuccess()) {
             throw new FakeConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format("PluginName: %s, PluginType: %s, Message: %s",
@@ -95,5 +97,14 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
     @Override
     public void setJobContext(JobContext jobContext) {
         this.jobContext = jobContext;
+    }
+
+    @Override
+    public boolean checkConfig(Config pluginConfig) {
+        CheckResult checkResult = OptionUtil.configCheck(pluginConfig, new FakeSourceFactory().optionRule());
+        if (!checkResult.isSuccess()) {
+            log.error("Plugin [{}] config validation failed, reason: [{}]", getPluginName(), checkResult.getMsg());
+        }
+        return checkResult.isSuccess();
     }
 }
