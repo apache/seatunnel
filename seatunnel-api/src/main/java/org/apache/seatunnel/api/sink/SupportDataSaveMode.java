@@ -22,28 +22,42 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import java.util.List;
 import java.util.Locale;
 
 /**
- * The Sink Connectors which support PathSaveMode should implement this interface
+ * The Sink Connectors which support data SaveMode should implement this interface
  */
-public interface SupportPathSaveMode {
+public interface SupportDataSaveMode {
+
     /**
      * We hope every sink connector use the same option name to config SaveMode, So I add checkOptions method to this interface.
      * checkOptions method have a default implement to check whether `save_mode` parameter is in config.
      *
      * @param config config of Sink Connector
-     * @return
+     * @return TableSaveMode TableSaveMode
      */
-    default PathSaveMode checkOptions(Config config) {
-        if (config.hasPath(SinkCommonOptions.PATH_SAVE_MODE.key())) {
-            String pathSaveMode = config.getString(SinkCommonOptions.PATH_SAVE_MODE.key());
-            return PathSaveMode.valueOf(pathSaveMode.toUpperCase(Locale.ROOT));
+    default void checkOptions(Config config) {
+        if (config.hasPath(SinkCommonOptions.DATA_SAVE_MODE.key())) {
+            String tableSaveMode = config.getString(SinkCommonOptions.DATA_SAVE_MODE.key());
+            DataSaveMode dataSaveMode = DataSaveMode.valueOf(tableSaveMode.toUpperCase(Locale.ROOT));
+            if (!supportedDataSaveModeValues().contains(dataSaveMode)) {
+                throw new SeaTunnelRuntimeException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "This connector don't support save mode: " + dataSaveMode);
+            }
         } else {
             throw new SeaTunnelRuntimeException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                SinkCommonOptions.PATH_SAVE_MODE.key() + " must in config");
+                SinkCommonOptions.DATA_SAVE_MODE.key() + " must in config");
         }
     }
 
-    void handleSaveMode(PathSaveMode pathSaveMode);
+    DataSaveMode getDataSaveModeUsed();
+
+    /**
+     * Return the DataSaveMode list supported by this connector
+     * @return
+     */
+    List<DataSaveMode> supportedDataSaveModeValues();
+
+    void handleSaveMode(DataSaveMode tableSaveMode);
 }

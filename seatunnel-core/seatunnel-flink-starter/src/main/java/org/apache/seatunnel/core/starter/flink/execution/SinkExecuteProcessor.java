@@ -18,11 +18,9 @@
 package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.sink.PathSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SupportPathSaveMode;
-import org.apache.seatunnel.api.sink.SupportTableSaveMode;
-import org.apache.seatunnel.api.sink.TableSaveMode;
+import org.apache.seatunnel.api.sink.SupportDataSaveMode;
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -65,18 +63,10 @@ public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunn
                 sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
             seaTunnelSink.prepare(sinkConfig);
             seaTunnelSink.setJobContext(jobContext);
-            if (seaTunnelSink.getClass().isAssignableFrom(SupportTableSaveMode.class)) {
-                SupportTableSaveMode saveModeSink = (SupportTableSaveMode) seaTunnelSink;
-                TableSaveMode tableSaveMode = saveModeSink.checkOptions(sinkConfig);
-                saveModeSink.handleSaveMode(tableSaveMode);
+            if (seaTunnelSink.getClass().isAssignableFrom(SupportDataSaveMode.class)) {
+                SupportDataSaveMode saveModeSink = (SupportDataSaveMode) seaTunnelSink;
+                saveModeSink.checkOptions(sinkConfig);
             }
-
-            if (seaTunnelSink.getClass().isAssignableFrom(SupportPathSaveMode.class)) {
-                SupportPathSaveMode saveModeSink = (SupportPathSaveMode) seaTunnelSink;
-                PathSaveMode pathSaveMode = saveModeSink.checkOptions(sinkConfig);
-                saveModeSink.handleSaveMode(pathSaveMode);
-            }
-
             return seaTunnelSink;
         }).distinct().collect(Collectors.toList());
         jarPaths.addAll(pluginJars);

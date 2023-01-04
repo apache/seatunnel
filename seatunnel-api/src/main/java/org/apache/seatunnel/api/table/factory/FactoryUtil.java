@@ -20,8 +20,7 @@ package org.apache.seatunnel.api.table.factory;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
-import org.apache.seatunnel.api.sink.SupportPathSaveMode;
-import org.apache.seatunnel.api.sink.SupportTableSaveMode;
+import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceCommonOptions;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -189,15 +188,9 @@ public final class FactoryUtil {
         }
 
         Class<? extends SeaTunnelSink> sinkClass = factory.getSinkClass();
-        if (sinkClass.isAssignableFrom(SupportTableSaveMode.class)) {
+        if (sinkClass.isAssignableFrom(SupportDataSaveMode.class)) {
             OptionRule sinkCommonOptionRule =
-                OptionRule.builder().required(SinkCommonOptions.TABLE_SAVE_MODE).build();
-            sinkOptionRule.getOptionalOptions().addAll(sinkCommonOptionRule.getOptionalOptions());
-        }
-
-        if (sinkClass.isAssignableFrom(SupportPathSaveMode.class)) {
-            OptionRule sinkCommonOptionRule =
-                OptionRule.builder().required(SinkCommonOptions.PATH_SAVE_MODE).build();
+                OptionRule.builder().required(SinkCommonOptions.DATA_SAVE_MODE).build();
             sinkOptionRule.getOptionalOptions().addAll(sinkCommonOptionRule.getOptionalOptions());
         }
 
