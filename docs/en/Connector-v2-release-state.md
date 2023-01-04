@@ -14,8 +14,8 @@ SeaTunnel uses a grading system for connectors to help you understand what to ex
 | [AmazonDynamoDB](connector-v2/sink/AmazonDynamoDB.md)       | Sink   | Beta   | 2.3.0           |
 | [AmazonDynamoDB](connector-v2/source/AmazonDynamoDB.md)     | Source | Beta   | 2.3.0           |
 | [Asset](connector-v2/sink/Assert.md)                        | Sink   | Beta   | 2.2.0-beta      |
-| [Cassandra](connector-v2/sink/Cassandra.md)                 | Sink   | GA     | 2.3.0           |
-| [Cassandra](connector-v2/source/Cassandra.md)               | Source | GA     | 2.3.0           |
+| [Cassandra](connector-v2/sink/Cassandra.md)                 | Sink   | Beta   | 2.3.0           |
+| [Cassandra](connector-v2/source/Cassandra.md)               | Source | Beta   | 2.3.0           |
 | [ClickHouse](connector-v2/source/Clickhouse.md)             | Source | GA     | 2.2.0-beta      |
 | [ClickHouse](connector-v2/sink/Clickhouse.md)               | Sink   | GA     | 2.2.0-beta      |
 | [ClickHouseFile](connector-v2/sink/ClickhouseFile.md)       | Sink   | GA     | 2.2.0-beta      |
