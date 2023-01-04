@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ARRAY_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BYTES_LENGTH;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.MAP_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ROWS;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ROW_NUM;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.SPLIT_NUM;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.SPLIT_READ_INTERVAL;
@@ -42,8 +43,18 @@ public class FakeSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(SeaTunnelSchema.SCHEMA).optional(ROW_NUM, SPLIT_NUM, SPLIT_READ_INTERVAL, MAP_SIZE,
-            ARRAY_SIZE, BYTES_LENGTH, STRING_LENGTH).build();
+        return OptionRule.builder()
+            .required(SeaTunnelSchema.SCHEMA)
+            .optional(
+                ROWS,
+                ROW_NUM,
+                SPLIT_NUM,
+                SPLIT_READ_INTERVAL,
+                MAP_SIZE,
+                ARRAY_SIZE,
+                BYTES_LENGTH,
+                STRING_LENGTH)
+            .build();
     }
 
     @Override

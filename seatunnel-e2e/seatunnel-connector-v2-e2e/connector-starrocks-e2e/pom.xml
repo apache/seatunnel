@@ -40,7 +40,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-jdbc-e2e</artifactId>
+            <artifactId>connector-fake</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
