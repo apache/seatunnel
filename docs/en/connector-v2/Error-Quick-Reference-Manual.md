@@ -117,6 +117,7 @@ problems encountered by users.
 | KAFKA-04 | Add a split back to the split enumerator,it will only happen when a SourceReader failed   | When users encounter this error code, it means that add a split back to the split enumerator failed, please check it              | 
 | KAFKA-05 | Error occurred when the kafka consumer thread was running                                 | When users encounter this error code, it means that an error occurred when the kafka consumer thread was running, please check it |
 | KAFKA-06 | Kafka failed to consume data                                                              | When users encounter this error code, it means that Kafka failed to consume data, please check config and retry it                |
+| KAFKA-07 | Kafka failed to close consumer                                                            | When users encounter this error code, it means that Kafka failed to close consumer                                                |
 
 ## InfluxDB Connector Error Codes
 
