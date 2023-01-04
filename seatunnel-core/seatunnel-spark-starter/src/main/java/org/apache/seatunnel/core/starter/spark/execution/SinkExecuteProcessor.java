@@ -60,6 +60,17 @@ public class SinkExecuteProcessor extends SparkAbstractPluginExecuteProcessor<Se
                     SeaTunnelSink<?, ?, ?, ?> seaTunnelSink = sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
                     seaTunnelSink.prepare(sinkConfig);
                     seaTunnelSink.setJobContext(jobContext);
+                    if (seaTunnelSink.getClass().isAssignableFrom(SupportTableSaveMode.class)) {
+                        SupportTableSaveMode saveModeSink = (SupportTableSaveMode) seaTunnelSink;
+                        TableSaveMode tableSaveMode = saveModeSink.checkOptions(sinkConfig);
+                        saveModeSink.handleSaveMode(tableSaveMode);
+                    }
+
+                    if (seaTunnelSink.getClass().isAssignableFrom(SupportPathSaveMode.class)) {
+                        SupportPathSaveMode saveModeSink = (SupportPathSaveMode) seaTunnelSink;
+                        PathSaveMode pathSaveMode = saveModeSink.checkOptions(sinkConfig);
+                        saveModeSink.handleSaveMode(pathSaveMode);
+                    }
                     return seaTunnelSink;
                 })
                 .distinct()

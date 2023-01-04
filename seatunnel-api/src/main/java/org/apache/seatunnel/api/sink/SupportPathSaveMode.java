@@ -30,15 +30,15 @@ import java.util.Locale;
 public interface SupportPathSaveMode {
     /**
      * We hope every sink connector use the same option name to config SaveMode, So I add checkOptions method to this interface.
-     * checkOptions method have a default implement to check whether `table_save_mode` parameter is in config.
+     * checkOptions method have a default implement to check whether `save_mode` parameter is in config.
      *
      * @param config config of Sink Connector
      * @return
      */
-    default void checkOptions(Config config) {
+    default PathSaveMode checkOptions(Config config) {
         if (config.hasPath(SinkCommonOptions.PATH_SAVE_MODE.key())) {
-            String tableSaveMode = config.getString(SinkCommonOptions.PATH_SAVE_MODE.key());
-            TableSaveMode.valueOf(tableSaveMode.toUpperCase(Locale.ROOT));
+            String pathSaveMode = config.getString(SinkCommonOptions.PATH_SAVE_MODE.key());
+            return PathSaveMode.valueOf(pathSaveMode.toUpperCase(Locale.ROOT));
         } else {
             throw new SeaTunnelRuntimeException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                 SinkCommonOptions.PATH_SAVE_MODE.key() + " must in config");
