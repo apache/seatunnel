@@ -37,6 +37,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -83,7 +84,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             .withNetwork(NETWORK)
             .withNetworkAliases(jdbcCase.getNetworkAliases())
             .withEnv(jdbcCase.getContainerEnv())
-            .withLogConsumer(new Slf4jLogConsumer(log));
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(jdbcCase.getDockerImage())));
         dbServer.setPortBindings(Lists.newArrayList(
             String.format("%s:%s", jdbcCase.getLocalPort(), jdbcCase.getPort())));
         Startables.deepStart(Stream.of(dbServer)).join();

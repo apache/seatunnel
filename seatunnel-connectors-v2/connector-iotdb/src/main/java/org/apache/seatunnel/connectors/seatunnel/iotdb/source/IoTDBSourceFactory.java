@@ -33,6 +33,7 @@ import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfi
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.VERSION;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
@@ -52,5 +53,10 @@ public class IoTDBSourceFactory implements TableSourceFactory{
                 .optional(HOST, PORT, FETCH_SIZE, THRIFT_DEFAULT_BUFFER_SIZE, THRIFT_MAX_FRAME_SIZE,
                         ENABLE_CACHE_LEADER, VERSION, LOWER_BOUND, UPPER_BOUND, NUM_PARTITIONS)
                 .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return IoTDBSource.class;
     }
 }

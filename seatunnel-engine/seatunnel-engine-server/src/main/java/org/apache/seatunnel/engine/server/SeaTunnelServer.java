@@ -161,12 +161,12 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         if (isMasterNode()) {
             // The hazelcast operator request invocation will retry, We must wait enough time to wait the invocation return.
             String hazelcastInvocationMaxRetry = seaTunnelConfig.getHazelcastConfig().getProperty("hazelcast.invocation.max.retry.count");
-            int maxRetry = hazelcastInvocationMaxRetry == null ? 250 * 2 : Integer.valueOf(hazelcastInvocationMaxRetry) * 2;
+            int maxRetry = hazelcastInvocationMaxRetry == null ? 250 * 2 : Integer.parseInt(hazelcastInvocationMaxRetry) * 2;
 
             String hazelcastRetryPause =
                 seaTunnelConfig.getHazelcastConfig().getProperty("hazelcast.invocation.retry.pause.millis");
 
-            int retryPause = hazelcastRetryPause == null ? 500 : Integer.valueOf(hazelcastRetryPause);
+            int retryPause = hazelcastRetryPause == null ? 500 : Integer.parseInt(hazelcastRetryPause);
 
             while (!coordinatorService.isCoordinatorActive() && retryCount < maxRetry && isRunning) {
                 try {
@@ -208,10 +208,9 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     public boolean isMasterNode() {
         // must retry until the cluster have master node
         try {
-            return RetryUtils.retryWithException(() -> {
-                return nodeEngine.getMasterAddress().equals(nodeEngine.getThisAddress());
-            }, new RetryUtils.RetryMaterial(20, true,
-                exception -> exception instanceof NullPointerException && isRunning, 1000));
+            return RetryUtils.retryWithException(() -> nodeEngine.getMasterAddress().equals(nodeEngine.getThisAddress()),
+                new RetryUtils.RetryMaterial(20, true,
+                    exception -> exception instanceof NullPointerException && isRunning, 1000));
         } catch (InterruptedException e) {
             LOGGER.info("master node check interrupted");
             return false;

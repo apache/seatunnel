@@ -34,6 +34,7 @@ import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceCon
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig.KEY_USE_SNAPSHOT_TIMESTAMP;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
@@ -69,5 +70,10 @@ public class IcebergSourceFactory implements TableSourceFactory {
                 KEY_STREAM_SCAN_STRATEGY
             )
             .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return IcebergSource.class;
     }
 }
