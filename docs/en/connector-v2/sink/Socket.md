@@ -69,10 +69,6 @@ source {
     }
 }
 
-transform {
-      sql = "select name, age from fake"
-}
-
 sink {
     Socket {
         host = "localhost"

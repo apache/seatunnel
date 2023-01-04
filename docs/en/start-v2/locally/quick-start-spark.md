@@ -41,10 +41,6 @@ source {
     }
 }
 
-transform {
-
-}
-
 sink {
   Console {}
 }

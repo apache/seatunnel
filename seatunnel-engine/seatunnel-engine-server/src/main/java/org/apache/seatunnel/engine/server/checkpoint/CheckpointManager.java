@@ -137,9 +137,8 @@ public class CheckpointManager {
         return getCheckpointCoordinator(pipelineId).startSavepoint();
     }
 
-    public void reportedPipelineRunning(int pipelineId) {
-        getCheckpointCoordinator(pipelineId).setAllTaskReady(true);
-        getCheckpointCoordinator(pipelineId).tryTriggerPendingCheckpoint();
+    public void reportedPipelineRunning(int pipelineId, boolean alreadyStarted) {
+        getCheckpointCoordinator(pipelineId).restoreCoordinator(alreadyStarted);
     }
 
     protected void handleCheckpointError(int pipelineId, Throwable e) {
@@ -164,7 +163,7 @@ public class CheckpointManager {
      */
     public void reportedTask(TaskReportStatusOperation reportStatusOperation) {
         // task address may change during restore.
-        log.debug("reported task({}) status{}", reportStatusOperation.getLocation().getTaskID(),
+        log.debug("reported task({}) status {}", reportStatusOperation.getLocation().getTaskID(),
             reportStatusOperation.getStatus());
         getCheckpointCoordinator(reportStatusOperation.getLocation()).reportedTask(reportStatusOperation);
     }
@@ -182,7 +181,7 @@ public class CheckpointManager {
      * <br> Listen to the {@link PipelineStatus} of the {@link SubPlan}, which is used to cancel the running {@link PendingCheckpoint} when the SubPlan is abnormal.
      */
     public CompletableFuture<Void> listenPipelineRetry(int pipelineId, PipelineStatus pipelineStatus) {
-        getCheckpointCoordinator(pipelineId).cleanPendingCheckpoint(CheckpointFailureReason.PIPELINE_END);
+        getCheckpointCoordinator(pipelineId).cleanPendingCheckpoint(CheckpointCloseReason.PIPELINE_END);
         return CompletableFuture.completedFuture(null);
     }
 

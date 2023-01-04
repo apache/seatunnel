@@ -137,9 +137,11 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
                     Map<TopicPartition, Long> specificStartOffsets = new HashMap<>();
                     ObjectNode jsonNodes = JsonUtils.parseObject(offsetsJson);
                     jsonNodes.fieldNames().forEachRemaining(key -> {
-                        String[] topicAndPartition = key.split("-");
+                        int splitIndex = key.lastIndexOf("-");
+                        String topic = key.substring(0, splitIndex);
+                        String partition = key.substring(splitIndex + 1);
                         long offset = jsonNodes.get(key).asLong();
-                        TopicPartition topicPartition = new TopicPartition(topicAndPartition[0], Integer.valueOf(topicAndPartition[1]));
+                        TopicPartition topicPartition = new TopicPartition(topic, Integer.valueOf(partition));
                         specificStartOffsets.put(topicPartition, offset);
                     });
                     this.metadata.setSpecificStartOffsets(specificStartOffsets);

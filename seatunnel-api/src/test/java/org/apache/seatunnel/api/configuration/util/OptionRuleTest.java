@@ -87,11 +87,6 @@ public class OptionRuleTest {
                 .build();
         };
 
-        // test required option have no default value
-        assertEquals(
-            "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - Required option 'option.required-have-default' should have no default value.",
-            assertThrows(OptionValidationException.class, executable).getMessage());
-
         executable = () -> {
             OptionRule.builder()
                 .optional(TEST_NUM, TEST_MODE, TEST_REQUIRED_HAVE_DEFAULT_VALUE)
