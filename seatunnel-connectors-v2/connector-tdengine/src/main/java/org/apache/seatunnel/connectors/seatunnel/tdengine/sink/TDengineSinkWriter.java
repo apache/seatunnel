@@ -26,7 +26,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
-import com.taosdata.jdbc.TSDBDriver;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ArrayUtils;
@@ -44,7 +43,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.Properties;
 
 @Slf4j
 public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
@@ -56,14 +54,17 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     @SneakyThrows
     public TDengineSinkWriter(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
-        this.tagsNum = pluginConfig.hasPath("tags") ? pluginConfig.getObject("tags").size() : 0;
-
         config = TDengineSourceConfig.buildSourceConfig(pluginConfig);
-        String jdbcUrl = StringUtils.join(config.getUrl(), config.getDatabase(), "?user=", config.getUsername(), "&password=", config.getPassword(), "&tz=", config.getTimezone());
-
-        Properties connProps = new Properties();
-        connProps.setProperty(TSDBDriver.PROPERTY_KEY_BATCH_LOAD, "false");
-        conn = DriverManager.getConnection(jdbcUrl, connProps);
+        String jdbcUrl = StringUtils.join(config.getUrl(), config.getDatabase(), "?user=", config.getUsername(), "&password=", config.getPassword());
+        conn = DriverManager.getConnection(jdbcUrl);
+        try (Statement statement = conn.createStatement()) {
+            final ResultSet metaResultSet = statement.executeQuery("desc " + config.getDatabase() + "." + config.getStable());
+            while (metaResultSet.next()) {
+                if (StringUtils.equals("TAG", metaResultSet.getString("note"))) {
+                    tagsNum++;
+                }
+            }
+        }
     }
 
     @SneakyThrows

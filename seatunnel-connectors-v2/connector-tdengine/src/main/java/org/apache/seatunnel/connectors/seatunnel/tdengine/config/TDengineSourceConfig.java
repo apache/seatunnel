@@ -18,12 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.tdengine.config;
 
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.LOWER_BOUND;
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.PARTITIONS_NUM;
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.STABLE;
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.TAGS;
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.TIMEZONE;
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.UPPER_BOUND;
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.URL;
@@ -31,7 +28,6 @@ import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengine
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import com.google.common.collect.Lists;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -48,10 +44,11 @@ public class TDengineSourceConfig implements Serializable {
     private String password;
     private String database;
     private String stable;
+    //param of timezone in 'jdbc:TAOS-RS' just effect on taosadapter side, other than the JDBC client side
+    //so this param represent the server-side timezone setting up
     private String timezone;
     private String lowerBound;
     private String upperBound;
-    private Integer partitionsNum;
     private List<String> fields;
     private List<String> tags;
 
@@ -64,10 +61,7 @@ public class TDengineSourceConfig implements Serializable {
         tdengineSourceConfig.setPassword(pluginConfig.hasPath(PASSWORD) ? pluginConfig.getString(PASSWORD) : null);
         tdengineSourceConfig.setUpperBound(pluginConfig.hasPath(UPPER_BOUND) ? pluginConfig.getString(UPPER_BOUND) : null);
         tdengineSourceConfig.setLowerBound(pluginConfig.hasPath(LOWER_BOUND) ? pluginConfig.getString(LOWER_BOUND) : null);
-        tdengineSourceConfig.setTimezone(pluginConfig.hasPath(TIMEZONE) ? pluginConfig.getString(TIMEZONE) : null);
-        tdengineSourceConfig.setPartitionsNum(pluginConfig.hasPath(PARTITIONS_NUM) ? pluginConfig.getInt(PARTITIONS_NUM) : null);
-        tdengineSourceConfig.setFields(pluginConfig.hasPath(FIELDS) ? Lists.newArrayList(pluginConfig.getObject(FIELDS).keySet().toArray(new String[0])) : null);
-        tdengineSourceConfig.setTags(pluginConfig.hasPath(TAGS) ? Lists.newArrayList(pluginConfig.getObject(TAGS).keySet().toArray(new String[0])) : null);
+        tdengineSourceConfig.setTimezone(pluginConfig.hasPath(TIMEZONE) ? pluginConfig.getString(TIMEZONE) : "UTC");
         return tdengineSourceConfig;
     }
 
@@ -81,7 +75,6 @@ public class TDengineSourceConfig implements Serializable {
         public static String TIMEZONE = "timezone";
         public static String LOWER_BOUND = "lower_bound";
         public static String UPPER_BOUND = "upper_bound";
-        public static String PARTITIONS_NUM = "partitions_num";
         public static String FIELDS = "fields";
         public static String TAGS = "tags";
     }

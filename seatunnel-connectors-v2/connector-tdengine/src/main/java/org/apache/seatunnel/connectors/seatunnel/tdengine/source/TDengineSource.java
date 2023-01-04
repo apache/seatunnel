@@ -37,30 +37,35 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.state.TDengineSourceState;
+import org.apache.seatunnel.connectors.seatunnel.tdengine.typemapper.TDengineTypeMapper;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
 import com.google.auto.service.AutoService;
+import com.google.common.collect.Lists;
 import lombok.SneakyThrows;
 import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.List;
 
 /**
  * TDengine source each split corresponds one subtable
  * <p>
  * TODO: wait for optimization
  * 1. batch -> batch + stream
- * 2. 1 reader? -> multiple readers
- * 3. one item of data writine -> a batch of data writing
+ * 2. one item of data writing -> a batch of data writing
  */
 @AutoService(SeaTunnelSource.class)
 public class TDengineSource implements SeaTunnelSource<SeaTunnelRow, TDengineSourceSplit, TDengineSourceState> {
 
     private SeaTunnelRowType seaTunnelRowType;
-
     private TDengineSourceConfig tdengineSourceConfig;
 
     @Override
@@ -76,24 +81,34 @@ public class TDengineSource implements SeaTunnelSource<SeaTunnelRow, TDengineSou
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "TDengine connection require url/database/stable/username/password. All of these must not be empty.");
         }
         tdengineSourceConfig = buildSourceConfig(pluginConfig);
-        SeaTunnelSchema seatunnelSchema = SeaTunnelSchema.buildWithConfig(pluginConfig);
 
         //add subtable_name and tags to `seaTunnelRowType`
-        final SeaTunnelRowType originRowType = seatunnelSchema.getSeaTunnelRowType();
-        //0-subtable_name / 1-n field_names / n+1-> tags
-        String[] fieldNames = ArrayUtils.add(originRowType.getFieldNames(), 0, "subtable_name");
-        for (String tag : tdengineSourceConfig.getTags()) {
-            fieldNames = ArrayUtils.add(fieldNames, tag);
-        }
+        SeaTunnelRowType originRowType = getSTableMetaInfo(tdengineSourceConfig);
+        seaTunnelRowType = addHiddenAttribute(originRowType);
+    }
 
-        SeaTunnelDataType<?>[] fieldTypes = ArrayUtils.add(originRowType.getFieldTypes(), 0, BasicType.STRING_TYPE);
-        if (pluginConfig.hasPath("tags")) {
-            for (ConfigValue tagType : pluginConfig.getObject("tags").values()) {
-                final SeaTunnelDataType<?> seaTunnelDataType = SeaTunnelSchema.parseTypeByString(tagType.unwrapped().toString());
-                fieldTypes = ArrayUtils.add(fieldTypes, seaTunnelDataType);
+    @SneakyThrows
+    private SeaTunnelRowType getSTableMetaInfo(TDengineSourceConfig config) {
+        String jdbcUrl = StringUtils.join(config.getUrl(), config.getDatabase(), "?user=", config.getUsername(), "&password=", config.getPassword());
+        Connection conn = DriverManager.getConnection(jdbcUrl);
+        List<String> fieldNames = Lists.newArrayList();
+        List<SeaTunnelDataType<?>> fieldTypes = Lists.newArrayList();
+        try (Statement statement = conn.createStatement()) {
+            final ResultSet metaResultSet = statement.executeQuery("desc " + config.getDatabase() + "." + config.getStable());
+            while (metaResultSet.next()) {
+                fieldNames.add(metaResultSet.getString(1));
+                fieldTypes.add(TDengineTypeMapper.mapping(metaResultSet.getString(2)));
             }
         }
-        this.seaTunnelRowType = new SeaTunnelRowType(fieldNames, fieldTypes);
+        return new SeaTunnelRowType(fieldNames.toArray(new String[0]), fieldTypes.toArray(new SeaTunnelDataType<?>[0]));
+    }
+
+    private SeaTunnelRowType addHiddenAttribute(SeaTunnelRowType originRowType) {
+        //0-subtable_name / 1-n field_names /
+        String[] fieldNames = ArrayUtils.add(originRowType.getFieldNames(), 0, "subtable_name");
+        // n+1-> tags
+        SeaTunnelDataType<?>[] fieldTypes = ArrayUtils.add(originRowType.getFieldTypes(), 0, BasicType.STRING_TYPE);
+        return new SeaTunnelRowType(fieldNames, fieldTypes);
     }
 
     @Override
@@ -113,13 +128,13 @@ public class TDengineSource implements SeaTunnelSource<SeaTunnelRow, TDengineSou
 
     @Override
     public SourceSplitEnumerator<TDengineSourceSplit, TDengineSourceState> createEnumerator(SourceSplitEnumerator.Context<TDengineSourceSplit> enumeratorContext) {
-        return new TDengineSourceSplitEnumerator(tdengineSourceConfig, enumeratorContext);
+        return new TDengineSourceSplitEnumerator(seaTunnelRowType, tdengineSourceConfig, enumeratorContext);
     }
 
     @Override
     public SourceSplitEnumerator<TDengineSourceSplit, TDengineSourceState> restoreEnumerator(SourceSplitEnumerator.Context<TDengineSourceSplit> enumeratorContext,
         TDengineSourceState checkpointState) {
-        return new TDengineSourceSplitEnumerator(tdengineSourceConfig, checkpointState, enumeratorContext);
+        return new TDengineSourceSplitEnumerator(seaTunnelRowType, tdengineSourceConfig, checkpointState, enumeratorContext);
     }
 
 }

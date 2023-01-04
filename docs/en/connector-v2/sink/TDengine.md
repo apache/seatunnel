@@ -4,12 +4,12 @@
 
 ## Description
 
-Used to write data to TDengine.
+Used to write data to TDengine. You need to create stable before running seatunnel task
 
 ## Key features
 
 - [x] [parallelism](../../concept/connector-v2-features.md)
-- [x] [support user-defined split](../../concept/connector-v2-features.md)
+- [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
 ## Options
 
@@ -20,8 +20,7 @@ Used to write data to TDengine.
 | password                  | string  | yes      | -             |
 | database                        | string  | yes      |          |
 | stable                     | string  | yes      | -             |
-| fields                   | config  | no       | -             |
-| tags                   | config  | no       | -             |
+| timezone                     | string  | no      | UTC            |
 
 ### url [string] 
 
@@ -48,34 +47,9 @@ the database of the TDengine when you select
 
 the stable of the TDengine when you select
 
-### fields [string]
+### timezone [string]
 
-the fields of the TDengine stable
-
-e.g.
-
-```hocon
-      fields {
-        ts = "timestamp"
-        current = "float"
-        voltage = "int"
-        phase = "float"
-        location = "string"
-        groupid = "int"
-      }
-```
-### tags [string]
-
-the tags of the TDengine stable
-
-e.g.
-
-```hocon
-        tags {
-          location = "string"
-          groupid = "int"
-        }
-```
+the timeznoe of the TDengine sever, it's important to the ts field
 
 ## Example
 
@@ -83,22 +57,13 @@ e.g.
 
 ```hocon
 sink {
-      TDengine {
-        url : "jdbc:TAOS-RS://localhost:6041/"
-        username : "root"
-        password : "taosdata"
-        database : "power2"
-        stable : "meters2"
-        fields {
-          ts = "timestamp"
-          current = "float"
-          voltage = "int"
-          phase = "float"
+        TDengine {
+          url : "jdbc:TAOS-RS://localhost:6041/"
+          username : "root"
+          password : "taosdata"
+          database : "power2"
+          stable : "meters2"
+          timezone: UTC
         }
-        tags {
-          location = "string"
-          groupid = "int"
-        }
-      }
 }
 ```

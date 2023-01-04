@@ -84,7 +84,7 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
 
     @Override
     public void open() throws Exception {
-        String jdbcUrl = StringUtils.join(config.getUrl(), config.getDatabase(), "?user=", config.getUsername(), "&password=", config.getPassword(), "&tz=", config.getTimezone());
+        String jdbcUrl = StringUtils.join(config.getUrl(), config.getDatabase(), "?user=", config.getUsername(), "&password=", config.getPassword());
         Properties connProps = new Properties();
         //todo: when TSDBDriver.PROPERTY_KEY_BATCH_LOAD set to "true",
         // there is a exception : Caused by: java.sql.SQLException: can't create connection with server
@@ -123,7 +123,6 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
 
     private Object convertDataType(Object object) {
         if (Timestamp.class.equals(object.getClass())) {
-            //todo  jdbc:TAOS-RS can not config time zone now, so the time is +8h error, this config will be add next month. by @shuduo(tdengine)
             return ((Timestamp) object).toLocalDateTime();
         } else if (byte[].class.equals(object.getClass())) {
             return new String((byte[]) object);

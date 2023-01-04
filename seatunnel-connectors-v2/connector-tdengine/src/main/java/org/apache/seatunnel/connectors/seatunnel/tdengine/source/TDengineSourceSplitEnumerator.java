@@ -17,14 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tdengine.source;
 
+import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SourceSplitEnumerator.Context;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.state.TDengineSourceState;
 
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import lombok.SneakyThrows;
-import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
@@ -33,6 +34,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -43,20 +45,24 @@ import java.util.stream.Collectors;
 
 public class TDengineSourceSplitEnumerator implements SourceSplitEnumerator<TDengineSourceSplit, TDengineSourceState> {
 
-    private final SourceSplitEnumerator.Context<TDengineSourceSplit> context;
+    private final Context<TDengineSourceSplit> context;
     private final TDengineSourceConfig config;
     private Set<TDengineSourceSplit> pendingSplit = new HashSet<>();
     private Set<TDengineSourceSplit> assignedSplit = new HashSet<>();
     private Connection conn;
+    private SeaTunnelRowType seaTunnelRowType;
 
-    public TDengineSourceSplitEnumerator(TDengineSourceConfig config, SourceSplitEnumerator.Context<TDengineSourceSplit> context) {
-        this.config = config;
-        this.context = context;
+    public TDengineSourceSplitEnumerator(SeaTunnelRowType seaTunnelRowType, TDengineSourceConfig config, Context<TDengineSourceSplit> context) {
+        this(seaTunnelRowType, config, null, context);
     }
 
-    public TDengineSourceSplitEnumerator(TDengineSourceConfig config, TDengineSourceState sourceState, SourceSplitEnumerator.Context<TDengineSourceSplit> context) {
-        this(config, context);
-        this.assignedSplit = sourceState.getAssignedSplit();
+    public TDengineSourceSplitEnumerator(SeaTunnelRowType seaTunnelRowType, TDengineSourceConfig config, TDengineSourceState sourceState, Context<TDengineSourceSplit> context) {
+        this.config = config;
+        this.context = context;
+        this.seaTunnelRowType = seaTunnelRowType;
+        if (sourceState != null) {
+            this.assignedSplit = sourceState.getAssignedSplit();
+        }
     }
 
     private static int getSplitOwner(String tp, int numReaders) {
@@ -103,14 +109,8 @@ public class TDengineSourceSplitEnumerator implements SourceSplitEnumerator<TDen
     }
 
     private TDengineSourceSplit createSplitBySubTable(String subTableName, String timestampFieldName) {
-        final List<String> fieldsAndTags = Lists.newArrayListWithExpectedSize(config.getFields().size() + config.getTags().size());
-        fieldsAndTags.addAll(config.getFields());
-        fieldsAndTags.addAll(config.getTags());
-        String fieldsAndTagsStr = StringUtils.EMPTY;
-        if (CollectionUtils.isNotEmpty(fieldsAndTags)) {
-            fieldsAndTagsStr = StringUtils.join(fieldsAndTags, ",");
-        }
-        String subTableSQL = "select " + fieldsAndTagsStr + " from " + config.getDatabase() + "." + subTableName;
+        String selectFields = Arrays.stream(seaTunnelRowType.getFieldNames()).skip(1).collect(Collectors.joining(","));
+        String subTableSQL = "select " + selectFields + " from " + config.getDatabase() + "." + subTableName;
         String start = config.getLowerBound();
         String end = config.getUpperBound();
         if (start != null || end != null) {
@@ -172,8 +172,18 @@ public class TDengineSourceSplitEnumerator implements SourceSplitEnumerator<TDen
     }
 
     @Override
+    public void handleSourceEvent(int subtaskId, SourceEvent sourceEvent) {
+        SourceSplitEnumerator.super.handleSourceEvent(subtaskId, sourceEvent);
+    }
+
+    @Override
     public void notifyCheckpointComplete(long checkpointId) {
         //nothing to do
+    }
+
+    @Override
+    public void notifyCheckpointAborted(long checkpointId) throws Exception {
+        SourceSplitEnumerator.super.notifyCheckpointAborted(checkpointId);
     }
 
     @Override

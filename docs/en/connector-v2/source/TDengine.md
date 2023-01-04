@@ -11,12 +11,12 @@ Read external data source data through TDengine.
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [schema projection](../../concept/connector-v2-features.md)
+- [ ] [schema projection](../../concept/connector-v2-features.md)
 
 supports query SQL and can achieve projection effect.
 
 - [x] [parallelism](../../concept/connector-v2-features.md)
-- [x] [support user-defined split](../../concept/connector-v2-features.md)
+- [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
 ## Options
 
@@ -27,10 +27,8 @@ supports query SQL and can achieve projection effect.
 | password                  | string  | yes      | -             |
 | database                        | string  | yes      |          |
 | stable                     | string  | yes      | -             |
-| fields                   | config  | no       | -             |
-| tags                   | config  | no       | -             |
-| lower_bound                | long    | no       | -             |
-| upper_bound                | long    | no       | -             |
+| lower_bound                | long    | yes       | -             |
+| upper_bound                | long    | yes       | -             |
 
 ### url [string] 
 
@@ -57,38 +55,6 @@ the database of the TDengine when you select
 
 the stable of the TDengine when you select
 
-
-### fields [config]
-
-the fields of the TDengine stable
-
-e.g.
-
-```hocon
-      fields {
-        ts = "timestamp"
-        current = "float"
-        voltage = "int"
-        phase = "float"
-        location = "string"
-        groupid = "int"
-      }
-```
-
-### tags [config]
-
-the tags of the TDengine stable
-
-e.g.
-
-```hocon
-        tags {
-          location = "string"
-          groupid = "int"
-        }
-```
-
-
 ### lower_bound [long]
 
 the lower_bound of the migration period
@@ -102,26 +68,15 @@ the upper_bound of the migration period
 ### source
 ```hocon
 source {
-    TDengine {
-      url : "jdbc:TAOS-RS://localhost:6041/"
-      username : "root"
-      password : "taosdata"
-      database : "power"
-      stable : "meters"
-      lower_bound : 1538548685000
-      upper_bound : 1538548696800
-      partitions_num : 2
-      fields {
-        ts = "timestamp"
-        current = "float"
-        voltage = "int"
-        phase = "float"
-      }
-      tags {
-        location = "string"
-        groupid = "int"
-      }
-      result_table_name = "tdengine_result"
-    }
+        TDengine {
+          url : "jdbc:TAOS-RS://localhost:6041/"
+          username : "root"
+          password : "taosdata"
+          database : "power"
+          stable : "meters"
+          lower_bound : "2018-10-03 14:38:05.000"
+          upper_bound : "2018-10-03 14:38:16.800"
+          result_table_name = "tdengine_result"
+        }
 }
 ```
