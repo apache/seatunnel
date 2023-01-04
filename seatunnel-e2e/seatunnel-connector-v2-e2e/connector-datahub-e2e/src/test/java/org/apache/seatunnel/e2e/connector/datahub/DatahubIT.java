@@ -15,23 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.spark.v2.datahub;
+package org.apache.seatunnel.e2e.connector.datahub;
 
-import org.apache.seatunnel.e2e.spark.SparkContainer;
+import org.apache.seatunnel.e2e.common.TestResource;
+import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
 @Disabled("Disabled because it needs user's personal datahub account to run this test")
-public class FakeSourceToDatahubIT extends SparkContainer {
+public class DatahubIT extends TestSuiteBase implements TestResource {
 
-    @Test
-    public void testFakeSourceToDatahub() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelSparkJob("/datahub/fakesource_to_datahub.conf");
+    @BeforeEach
+    @Override
+    public void startUp() throws Exception {
+
+    }
+
+    @AfterEach
+    @Override
+    public void tearDown() throws Exception {
+
+    }
+
+    @TestTemplate
+    public void testDatahub(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("fakesource_to_datahub.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
