@@ -15,16 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.api.configuration.util;
 
-/**
- * The SaveMode for the Sink connectors that use path to organize data, For example File Connectors.
- */
-public enum PathSaveMode {
+import java.util.List;
 
-    DROP_DATA,
-
-    KEEP_DATA,
-
-    ERROR
+public class SingleChoice<T> {
+    private List<T> optionList;
 }

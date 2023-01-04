@@ -38,15 +38,9 @@ public class SinkCommonOptions {
             .withDescription("When parallelism is not specified, the parallelism in env is used by default. " +
                 "When parallelism is specified, it will override the parallelism in env.");
 
-    public static final Option<TableSaveMode> TABLE_SAVE_MODE =
+    public static final Option<DataSaveMode> DATA_SAVE_MODE =
         Options.key("save_mode")
-            .enumType(TableSaveMode.class)
+            .enumType(DataSaveMode.class)
             .noDefaultValue()
-            .withDescription("The table save mode");
-
-    public static final Option<PathSaveMode> PATH_SAVE_MODE =
-        Options.key("save_mode")
-            .enumType(PathSaveMode.class)
-            .noDefaultValue()
-            .withDescription("The path save mode");
+            .withDescription("The data save mode");
 }

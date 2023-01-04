@@ -20,12 +20,12 @@ package org.apache.seatunnel.api.sink;
 /**
  * The SaveMode for the Sink connectors that use table or other table structures to organize data
  */
-public enum TableSaveMode {
-    DROP_TABLE,
+public enum DataSaveMode {
+    DROP_SCHEMA,
 
-    KEEP_TABLE_DROP_DATA,
+    KEEP_SCHEMA_DROP_DATA,
 
-    KEEP_TABLE_AND_DATA,
+    KEEP_SCHEMA_AND_DATA,
 
     ERROR_WHEN_EXISTS
 }
