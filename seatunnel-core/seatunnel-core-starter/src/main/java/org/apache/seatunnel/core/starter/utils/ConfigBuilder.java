@@ -41,14 +41,8 @@ public class ConfigBuilder {
     }
 
     public static Config of(@NonNull String filePath) {
-        log.info("Loading config file from path: {}", filePath);
-        Config config = ConfigFactory
-                .parseFile(Paths.get(filePath).toFile())
-                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-                .resolveWith(ConfigFactory.systemProperties(),
-                        ConfigResolveOptions.defaults().setAllowUnresolved(true));
-        log.info("Parsed config file: {}", config.root().render(CONFIG_RENDER_OPTIONS));
-        return config;
+        Path path = Paths.get(filePath);
+        return of(path);
     }
 
     public static Config of(@NonNull Path filePath) {
