@@ -29,4 +29,5 @@ public interface OneOutputFlowLifeCycle<T> extends FlowLifeCycle {
 
     void collect(Collector<T> collector) throws Exception;
 
+    void setCollector(Collector<T> collector);
 }

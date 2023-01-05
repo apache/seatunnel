@@ -58,4 +58,5 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
         }
         collector.collect(record);
     }
+
 }

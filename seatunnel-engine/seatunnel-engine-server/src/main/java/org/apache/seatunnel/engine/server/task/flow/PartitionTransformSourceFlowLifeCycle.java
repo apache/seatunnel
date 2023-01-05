@@ -78,4 +78,9 @@ public class PartitionTransformSourceFlowLifeCycle<T> extends AbstractFlowLifeCy
             }
         }
     }
+
+    @Override
+    public void setCollector(Collector<T> collector) {
+        //nothing
+    }
 }

@@ -34,14 +34,11 @@ public class IntermediateQueueFlowLifeCycle extends AbstractFlowLifeCycle implem
 
     private final Disruptor<RecordEvent> disruptor;
 
-    private final SeaTunnelTask runningTask;
-
     public IntermediateQueueFlowLifeCycle(SeaTunnelTask runningTask,
                                           CompletableFuture<Void> completableFuture,
                                           Disruptor<RecordEvent> disruptor) {
         super(runningTask, completableFuture);
         this.disruptor = disruptor;
-        this.runningTask = runningTask;
     }
 
     @Override
@@ -54,6 +51,11 @@ public class IntermediateQueueFlowLifeCycle extends AbstractFlowLifeCycle implem
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void collect(Collector<Record<?>> collector) throws Exception {
+        //nothing
+    }
+
+    @Override
+    public void setCollector(Collector<Record<?>> collector) {
         disruptor.handleEventsWith(new RecordEventHandler(runningTask, collector));
         disruptor.start();
     }
