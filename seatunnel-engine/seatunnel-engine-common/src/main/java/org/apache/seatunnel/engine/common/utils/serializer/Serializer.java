@@ -22,9 +22,6 @@ package org.apache.seatunnel.engine.common.utils.serializer;
 
 import java.io.IOException;
 
-/**
- * Todo: move to common module
- */
 public interface Serializer {
 
     <T> byte[] serialize(T obj) throws IOException;
