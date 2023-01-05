@@ -44,6 +44,7 @@
         <redshift.version>2.1.0.9</redshift.version>
         <presto.version>350</presto.version>
         <saphana.version>2.14.7</saphana.version>
+        <trino.version>397</trino.version>
     </properties>
 
     <dependencyManagement>
@@ -120,12 +121,19 @@
                 <groupId>io.prestosql</groupId>
                 <artifactId>presto-jdbc</artifactId>
                 <version>${presto.version}</version>
+                <scope>provided</scope>
             </dependency>
             <!-- https://mvnrepository.com/artifact/com.sap.cloud.db.jdbc/ngdbc -->
             <dependency>
                 <groupId>com.sap.cloud.db.jdbc</groupId>
                 <artifactId>ngdbc</artifactId>
                 <version>${saphana.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-jdbc</artifactId>
+                <version>${trino.version}</version>
                 <scope>provided</scope>
             </dependency>
         </dependencies>
