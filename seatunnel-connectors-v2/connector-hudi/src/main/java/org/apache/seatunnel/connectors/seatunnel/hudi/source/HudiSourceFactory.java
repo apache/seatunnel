@@ -40,4 +40,9 @@ public class HudiSourceFactory implements TableSourceFactory {
                 .conditional(HudiSourceConfig.USE_KERBEROS, true, HudiSourceConfig.KERBEROS_PRINCIPAL, HudiSourceConfig.KERBEROS_PRINCIPAL_FILE)
                 .build();
     }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return HudiSource.class;
+    }
 }

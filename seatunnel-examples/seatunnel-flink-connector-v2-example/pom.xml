@@ -95,7 +95,6 @@
             <version>${flink.1.13.6.version}</version>
             <scope>${flink.scope}</scope>
         </dependency>
-
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>

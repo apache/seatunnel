@@ -40,6 +40,7 @@
         <module>connector-http-jira</module>
         <module>connector-http-gitlab</module>
         <module>connector-http-notion</module>
+        <module>connector-http-persistiq</module>
     </modules>
 
 </project>

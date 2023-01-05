@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.local.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
@@ -50,5 +51,10 @@ public class LocalFileSourceFactory implements TableSourceFactory {
             .optional(BaseSourceConfig.DATETIME_FORMAT)
             .optional(BaseSourceConfig.TIME_FORMAT)
             .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return LocalFileSource.class;
     }
 }
