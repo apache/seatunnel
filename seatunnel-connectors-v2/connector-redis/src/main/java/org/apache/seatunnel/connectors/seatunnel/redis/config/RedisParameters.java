@@ -41,6 +41,8 @@ public class RedisParameters implements Serializable {
     private String auth = "";
     private String user = "";
     private String keysPattern;
+    private boolean keysTypeCheck;
+    private int scanCount;
     private String keyField;
     private RedisDataType redisDataType;
     private RedisConfig.RedisMode mode;
@@ -86,6 +88,18 @@ public class RedisParameters implements Serializable {
         if (config.hasPath(RedisConfig.KEY_PATTERN.key())) {
             this.keysPattern = config.getString(RedisConfig.KEY_PATTERN.key());
         }
+        // check key type
+        if (config.hasPath(RedisConfig.KEY_TYPE_CHECK.key())) {
+            this.keysTypeCheck = config.getBoolean(RedisConfig.KEY_TYPE_CHECK.key());
+        } else {
+            this.keysTypeCheck = RedisConfig.KEY_TYPE_CHECK.defaultValue();
+        }
+        // set scan_count
+        if (config.hasPath(RedisConfig.SCAN_COUNT.key())) {
+            this.scanCount = config.getInt(RedisConfig.SCAN_COUNT.key());
+        } else {
+            this.scanCount = RedisConfig.SCAN_COUNT.defaultValue();
+        }
         // set redis data type
         try {
             String dataType = config.getString(RedisConfig.DATA_TYPE.key());
@@ -96,7 +110,7 @@ public class RedisParameters implements Serializable {
         }
     }
 
-    public Jedis buildJedis() {
+    public JedisWrapper buildJedis() {
         switch (mode) {
             case SINGLE:
                 Jedis jedis = new Jedis(host, port);
@@ -106,7 +120,7 @@ public class RedisParameters implements Serializable {
                 if (StringUtils.isNotBlank(user)) {
                     jedis.aclSetUser(user);
                 }
-                return jedis;
+                return new JedisSingleWrapper(jedis);
             case CLUSTER:
                 HashSet<HostAndPort> nodes = new HashSet<>();
                 HostAndPort node = new HostAndPort(host, port);
@@ -132,7 +146,7 @@ public class RedisParameters implements Serializable {
                 } else {
                     jedisCluster = new JedisCluster(nodes);
                 }
-                return new JedisWrapper(jedisCluster);
+                return new JedisClusterWrapper(jedisCluster);
             default:
                 // do nothing
                 throw new RedisConnectorException(CommonErrorCode.UNSUPPORTED_OPERATION,

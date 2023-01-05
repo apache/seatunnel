@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.redis.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+@SuppressWarnings("checkstyle:MagicNumber")
 public class RedisConfig {
 
     public enum RedisMode {
@@ -60,7 +61,19 @@ public class RedisConfig {
         Options.key("keys")
             .stringType()
             .noDefaultValue()
-            .withDescription("keys pattern, redis source connector support fuzzy key matching, user needs to ensure that the matched keys are the same type");
+            .withDescription("keys pattern, redis source connector support fuzzy key matching, if keys_type_check is false, user needs to ensure that the matched keys are the same type");
+
+    public static final Option<Boolean> KEY_TYPE_CHECK =
+        Options.key("keys_type_check")
+            .booleanType()
+            .defaultValue(false)
+            .withDescription("If true, redis source only read the key of the corresponding type, default false.");
+
+    public static final Option<Integer> SCAN_COUNT =
+        Options.key("scan_count")
+            .intType()
+            .defaultValue(100)
+            .withDescription("The scan operation queries the number of elements each time, default 100.");
 
     public static final Option<String> KEY =
         Options.key("key")

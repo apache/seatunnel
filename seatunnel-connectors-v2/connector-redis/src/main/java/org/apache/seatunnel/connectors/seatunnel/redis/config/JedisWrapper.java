@@ -17,73 +17,27 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
-import lombok.NonNull;
 import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisCluster;
 
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
-public class JedisWrapper extends Jedis {
-    private final JedisCluster jedisCluster;
+public abstract class JedisWrapper extends Jedis {
 
-    public JedisWrapper(@NonNull JedisCluster jedisCluster) {
-        this.jedisCluster = jedisCluster;
+    protected abstract Set<String> scanKeys(String keysPattern, String keyType, int scanCount)  throws Exception;
+
+    public Set<String> scanKeys(RedisParameters redisParameters)  throws Exception {
+        // if true, check keys type
+        String keysPattern = redisParameters.getKeysPattern();
+        int scanCount = redisParameters.getScanCount();
+        if (redisParameters.isKeysTypeCheck()) {
+            String keyType = redisParameters.getRedisDataType().name();
+            if (keyType.equals(RedisDataType.KEY.name())) {
+                keyType = "STRING";
+            }
+            return scanKeys(keysPattern, keyType, scanCount);
+        } else {
+            return scanKeys(keysPattern, null, scanCount);
+        }
     }
 
-    @Override
-    public String set(final String key, final String value) {
-        return jedisCluster.set(key, value);
-    }
-
-    @Override
-    public String get(final String key) {
-        return jedisCluster.get(key);
-    }
-
-    @Override
-    public long hset(final String key, final Map<String, String> hash) {
-        return jedisCluster.hset(key, hash);
-    }
-
-    @Override
-    public Map<String, String> hgetAll(final String key) {
-        return jedisCluster.hgetAll(key);
-    }
-
-    @Override
-    public long lpush(final String key, final String... strings) {
-        return jedisCluster.lpush(key, strings);
-    }
-
-    @Override
-    public List<String> lrange(final String key, final long start, final long stop) {
-        return jedisCluster.lrange(key, start, stop);
-    }
-
-    @Override
-    public long sadd(final String key, final String... members) {
-        return jedisCluster.sadd(key, members);
-    }
-
-    @Override
-    public Set<String> smembers(final String key) {
-        return jedisCluster.smembers(key);
-    }
-
-    @Override
-    public long zadd(final String key, final double score, final String member) {
-        return jedisCluster.zadd(key, score, member);
-    }
-
-    @Override
-    public List<String> zrange(final String key, final long start, final long stop) {
-        return jedisCluster.zrange(key, start, stop);
-    }
-
-    @Override
-    public void close() {
-        jedisCluster.close();
-    }
 }

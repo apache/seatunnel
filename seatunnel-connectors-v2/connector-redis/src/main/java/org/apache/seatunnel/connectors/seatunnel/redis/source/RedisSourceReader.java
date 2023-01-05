@@ -25,11 +25,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.JedisWrapper;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
-
-import redis.clients.jedis.Jedis;
 
 import java.io.IOException;
 import java.util.List;
@@ -41,7 +40,7 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final RedisParameters redisParameters;
     private final SingleSplitReaderContext context;
     private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
-    private Jedis jedis;
+    private JedisWrapper jedis;
 
     public RedisSourceReader(RedisParameters redisParameters, SingleSplitReaderContext context, DeserializationSchema<SeaTunnelRow> deserializationSchema) {
         this.redisParameters = redisParameters;
@@ -63,7 +62,7 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        Set<String> keys = jedis.keys(redisParameters.getKeysPattern());
+        Set<String> keys = jedis.scanKeys(redisParameters);
         RedisDataType redisDataType = redisParameters.getRedisDataType();
         for (String key : keys) {
             List<String> values = redisDataType.get(jedis, key);
