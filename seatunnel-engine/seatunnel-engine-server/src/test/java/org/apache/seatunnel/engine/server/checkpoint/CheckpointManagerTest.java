@@ -26,10 +26,10 @@ import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorag
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.utils.FactoryUtil;
-import org.apache.seatunnel.engine.common.utils.serializer.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 
 import com.hazelcast.map.IMap;

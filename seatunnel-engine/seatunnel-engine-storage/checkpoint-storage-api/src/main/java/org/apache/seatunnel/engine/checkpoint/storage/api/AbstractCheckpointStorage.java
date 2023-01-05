@@ -23,8 +23,8 @@ package org.apache.seatunnel.engine.checkpoint.storage.api;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.common.StorageThreadFactory;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
-import org.apache.seatunnel.engine.common.utils.serializer.ProtoStuffSerializer;
-import org.apache.seatunnel.engine.common.utils.serializer.Serializer;
+import org.apache.seatunnel.engine.serializer.api.Serializer;
+import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 
 import lombok.extern.slf4j.Slf4j;
 
