@@ -58,7 +58,9 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         FSDataOutputStream fsDataOutputStream = getOrCreateOutputStream(filePath);
         try {
-            byte[] rowBytes = serializationSchema.serialize(seaTunnelRow.copy(sinkColumnsIndexInRow));
+            byte[] rowBytes = serializationSchema.serialize(seaTunnelRow.copy(sinkColumnsIndexInRow.stream()
+                .mapToInt(Integer::intValue)
+                .toArray()));
             if (isFirstWrite.get(filePath)) {
                 isFirstWrite.put(filePath, false);
             } else {
