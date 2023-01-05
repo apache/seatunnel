@@ -41,7 +41,7 @@ simple:
 
 ```hocon
   GoogleSheets {
-    service_account_key = "seatunnel-test"
+    service_account_key = "Your account key"
     sheet_id = "1VI0DvyZK-NIdssSdsDSsSSSC-_-rYMi7ppJiI_jhE"
     sheet_name = "sheets01"
     range = "A1:C3"
