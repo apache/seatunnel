@@ -40,6 +40,7 @@ import org.apache.iotdb.tsfile.utils.Binary;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -56,7 +57,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
-@DisabledOnContainer(value = {}, type = {EngineType.SEATUNNEL, EngineType.SPARK, EngineType.FLINK},
+@DisabledOnContainer(value = {}, type = {EngineType.SEATUNNEL, EngineType.SPARK},
     disabledReason = "There is a conflict of thrift version between IoTDB and Spark.Therefore. Refactor starter module, so disabled in flink")
 public class IoTDBIT extends TestSuiteBase implements TestResource {
 
@@ -94,7 +95,7 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
         testDataset = generateTestDataSet();
     }
 
-    // temporary remote annotation while this pull request being merged https://github.com/apache/incubator-seatunnel/pull/3798
+    @TestTemplate
     public void testIoTDB(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob("/iotdb/iotdb_source_to_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
