@@ -29,6 +29,8 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportColumnProjection;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -53,7 +55,8 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 @AutoService(SeaTunnelSource.class)
-public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, ClickhouseSourceSplit, ClickhouseSourceState> {
+public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, ClickhouseSourceSplit, ClickhouseSourceState>,
+    SupportParallelism, SupportColumnProjection {
 
     private List<ClickHouseNode> servers;
     private SeaTunnelRowType rowTypeInfo;
@@ -66,10 +69,13 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(config, HOST.key(), DATABASE.key(), SQL.key(), USERNAME.key(), PASSWORD.key());
+        CheckResult result =
+            CheckConfigUtil.checkAllExists(config, HOST.key(), DATABASE.key(), SQL.key(), USERNAME.key(),
+                PASSWORD.key());
         if (!result.isSuccess()) {
             throw new ClickhouseConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                String.format("PluginName: %s, PluginType: %s, Message: %s", getPluginName(), PluginType.SOURCE, result.getMsg()));
+                String.format("PluginName: %s, PluginType: %s, Message: %s", getPluginName(), PluginType.SOURCE,
+                    result.getMsg()));
         }
         servers = ClickhouseUtil.createNodes(config.getString(HOST.key()), config.getString(DATABASE.key()),
             config.getString(USERNAME.key()), config.getString(PASSWORD.key()));
@@ -94,7 +100,8 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
 
         } catch (ClickHouseException e) {
             throw new ClickhouseConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                String.format("PluginName: %s, PluginType: %s, Message: %s", getPluginName(), PluginType.SOURCE, e.getMessage()));
+                String.format("PluginName: %s, PluginType: %s, Message: %s", getPluginName(), PluginType.SOURCE,
+                    e.getMessage()));
         }
 
     }
@@ -114,17 +121,21 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, ClickhouseSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
+    public SourceReader<SeaTunnelRow, ClickhouseSourceSplit> createReader(SourceReader.Context readerContext)
+        throws Exception {
         return new ClickhouseSourceReader(servers, readerContext, this.rowTypeInfo, sql);
     }
 
     @Override
-    public SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> createEnumerator(SourceSplitEnumerator.Context<ClickhouseSourceSplit> enumeratorContext) throws Exception {
+    public SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> createEnumerator(
+        SourceSplitEnumerator.Context<ClickhouseSourceSplit> enumeratorContext) throws Exception {
         return new ClickhouseSourceSplitEnumerator(enumeratorContext);
     }
 
     @Override
-    public SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> restoreEnumerator(SourceSplitEnumerator.Context<ClickhouseSourceSplit> enumeratorContext, ClickhouseSourceState checkpointState) throws Exception {
+    public SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> restoreEnumerator(
+        SourceSplitEnumerator.Context<ClickhouseSourceSplit> enumeratorContext, ClickhouseSourceState checkpointState)
+        throws Exception {
         return new ClickhouseSourceSplitEnumerator(enumeratorContext);
     }
 

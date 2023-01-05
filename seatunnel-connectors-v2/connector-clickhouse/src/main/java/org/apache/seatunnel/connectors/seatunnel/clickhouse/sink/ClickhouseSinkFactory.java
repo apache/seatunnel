@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink;
 
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.BULK_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_PREFIX;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.HOST;
@@ -48,7 +48,7 @@ public class ClickhouseSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
             .required(HOST, DATABASE, TABLE)
-            .optional(CLICKHOUSE_PREFIX,
+            .optional(CLICKHOUSE_CONFIG,
                 BULK_SIZE,
                 SPLIT_MODE,
                 FIELDS,

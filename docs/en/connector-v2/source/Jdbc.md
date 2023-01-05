@@ -18,8 +18,8 @@ e.g. If you use MySQL, should download and copy `mysql-connector-java-xxx.jar` t
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [schema projection](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [column projection](../../concept/connector-v2-features.md)
 
 supports query SQL and can achieve projection effect.
 

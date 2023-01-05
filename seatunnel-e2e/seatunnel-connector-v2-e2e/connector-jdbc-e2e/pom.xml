@@ -115,9 +115,14 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-jdbc</artifactId>
             <version>397</version>
+        </dependency>
+        <dependency>
+            <groupId>com.sap.cloud.db.jdbc</groupId>
+            <artifactId>ngdbc</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
