@@ -19,13 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.google.sheets.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.config.SheetsConfig;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class SheetsSinkFactory implements TableSourceFactory {
+public class SheetsSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
         return "GoogleSheets";
