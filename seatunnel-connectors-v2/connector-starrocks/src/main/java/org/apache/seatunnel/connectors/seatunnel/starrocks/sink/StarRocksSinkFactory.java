@@ -37,7 +37,7 @@ public class StarRocksSinkFactory implements TableSinkFactory {
                 .required(SinkConfig.NODE_URLS, SinkConfig.USERNAME, SinkConfig.PASSWORD, SinkConfig.DATABASE, SinkConfig.TABLE)
                 .optional(SinkConfig.LABEL_PREFIX, SinkConfig.BATCH_MAX_SIZE, SinkConfig.BATCH_MAX_BYTES,
                         SinkConfig.BATCH_INTERVAL_MS, SinkConfig.MAX_RETRIES, SinkConfig.MAX_RETRY_BACKOFF_MS,
-                        SinkConfig.RETRY_BACKOFF_MULTIPLIER_MS, SinkConfig.STARROCKS_SINK_CONFIG_PREFIX)
+                        SinkConfig.RETRY_BACKOFF_MULTIPLIER_MS, SinkConfig.STARROCKS_CONFIG)
                 .build();
     }
 }
