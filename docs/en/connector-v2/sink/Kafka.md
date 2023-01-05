@@ -13,19 +13,19 @@ By default, we will use 2pc to guarantee the message is sent to kafka exactly on
 
 ## Options
 
-| name                 | type                  | required | default value |
-|----------------------|-----------------------| -------- | ------------- |
-| topic                | string                | yes      | -             |
-| bootstrap.servers    | string                | yes      | -             |
-| kafka.*              | kafka producer config | no       | -             |
-| semantic             | string                | no       | NON           |
-| partition_key_fields | array                 | no       | -             |
-| partition            | int                   | no       | -             |
-| assign_partitions    | array                 | no       | -             |
-| transaction_prefix   | string                | no       | -             |
-| format               | String                | no       | json          |
-| field_delimiter      | String                | no       | ,             |
-| common-options       | config                | no       | -             |
+| name                 | type   | required | default value |
+|----------------------|--------|----------|---------------|
+| topic                | string | yes      | -             |
+| bootstrap.servers    | string | yes      | -             |
+| kafka.config         | map    | no       | -             |
+| semantic             | string | no       | NON           |
+| partition_key_fields | array  | no       | -             |
+| partition            | int    | no       | -             |
+| assign_partitions    | array  | no       | -             |
+| transaction_prefix   | string | no       | -             |
+| format               | String | no       | json          |
+| field_delimiter      | String | no       | ,             |
+| common-options       | config | no       | -             |
 
 ### topic [string]
 
@@ -59,10 +59,10 @@ For example, if you want to use value of fields from upstream data as key, you c
 
 Upstream data is the following:
 
-| name | age  | data          |
-| ---- | ---- | ------------- |
-| Jack | 16   | data-example1 |
-| Mary | 23   | data-example2 |
+| name | age | data          |
+|------|-----|---------------|
+| Jack | 16  | data-example1 |
+| Mary | 23  | data-example2 |
 
 If name is set as the key, then the hash value of the name column will determine which partition the message is sent to.
 
@@ -79,7 +79,7 @@ We can decide which partition to send based on the content of the message. The f
 For example, there are five partitions in total, and the assign_partitions field in config is as follows:
 assign_partitions = ["shoe", "clothing"]
 
-Then the message containing "shoe" will be sent to partition zero ,because "shoe" is subscripted as zero in assign_partitions, and the message containing "clothing" will be sent to partition one.For other messages, the hash algorithm will be used to divide them into the remaining partitions.
+Then the message containing "shoe" will be sent to partition zero ,because "shoe" is subscribed as zero in assign_partitions, and the message containing "clothing" will be sent to partition one.For other messages, the hash algorithm will be used to divide them into the remaining partitions.
 
 This function by `MessageContentPartitioner` class implements `org.apache.kafka.clients.producer.Partitioner` interface.If we need custom partitions, we need to implement this interface as well.
 
@@ -113,6 +113,11 @@ sink {
       format = json
       kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
+      kafka.config = {
+        acks = "all"
+        request.timeout.ms = 60000
+        buffer.memory = 33554432
+      }
   }
   
 }
@@ -185,3 +190,4 @@ sink {
 
 - [Improve] Support to specify multiple partition keys [3230](https://github.com/apache/incubator-seatunnel/pull/3230)
 - [Improve] Add text format for kafka sink connector [3711](https://github.com/apache/incubator-seatunnel/pull/3711)
+- [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)

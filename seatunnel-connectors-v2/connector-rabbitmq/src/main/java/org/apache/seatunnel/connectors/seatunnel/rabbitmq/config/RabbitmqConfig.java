@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.rabbitmq.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.common.config.CheckConfigUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -29,6 +29,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -57,8 +58,6 @@ public class RabbitmqConfig implements Serializable {
     private String exchange = "";
 
     private boolean forE2ETesting = false;
-
-    public static final String RABBITMQ_SINK_CONFIG_PREFIX = "rabbitmq.properties.";
 
     private final Map<String, Object> sinkOptionProps = new HashMap<>();
 
@@ -150,22 +149,26 @@ public class RabbitmqConfig implements Serializable {
             .withDescription("the routing key to publish the message to");
 
     public static final Option<String> EXCHANGE = Options.key("exchange")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("the exchange to publish the message to");
+        .stringType()
+        .noDefaultValue()
+        .withDescription("the exchange to publish the message to");
 
     public static final Option<Boolean> FOR_E2E_TESTING = Options.key("for_e2e_testing")
-            .booleanType()
-            .noDefaultValue()
-            .withDescription("use to recognize E2E mode");
+        .booleanType()
+        .noDefaultValue()
+        .withDescription("use to recognize E2E mode");
+
+    public static final Option<Map<String, String>> RABBITMQ_CONFIG = Options.key("rabbitmq.config").mapType()
+        .defaultValue(Collections.emptyMap()).withDescription("In addition to the above parameters that must be specified by the RabbitMQ client, the user can also specify multiple non-mandatory parameters for the client, " +
+            "covering [all the parameters specified in the official RabbitMQ document](https://www.rabbitmq.com/configure.html).");
 
     private void parseSinkOptionProperties(Config pluginConfig) {
-        Config sinkOptionConfig = TypesafeConfigUtils.extractSubConfig(pluginConfig,
-                RABBITMQ_SINK_CONFIG_PREFIX, false);
-        sinkOptionConfig.entrySet().forEach(entry -> {
-            final String configKey = entry.getKey().toLowerCase();
-            this.sinkOptionProps.put(configKey, entry.getValue().unwrapped());
-        });
+        if (CheckConfigUtil.isValidParam(pluginConfig, RABBITMQ_CONFIG.key())) {
+            pluginConfig.getObject(RABBITMQ_CONFIG.key()).forEach((key, value) -> {
+                final String configKey = key.toLowerCase();
+                this.sinkOptionProps.put(configKey, value.unwrapped());
+            });
+        }
     }
 
     public RabbitmqConfig(Config config) {

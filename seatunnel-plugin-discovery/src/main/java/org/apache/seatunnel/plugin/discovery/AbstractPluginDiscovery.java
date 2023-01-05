@@ -220,6 +220,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
         factories.forEach(plugin -> {
             if (TableSourceFactory.class.isAssignableFrom(plugin.getClass())) {
+                TableSourceFactory tableSourceFactory = (TableSourceFactory) plugin;
                 plugins.computeIfAbsent(PluginType.SOURCE, k -> new LinkedHashMap<>());
 
                 plugins.get(PluginType.SOURCE).put(PluginIdentifier.of(
@@ -227,7 +228,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                         PluginType.SOURCE.getType(),
                         plugin.factoryIdentifier()
                     ),
-                    FactoryUtil.sourceFullOptionRule(plugin));
+                    FactoryUtil.sourceFullOptionRule(tableSourceFactory));
                 return;
             }
 

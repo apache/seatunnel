@@ -24,6 +24,7 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFA
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PATTERN;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.SCHEMA;
@@ -46,7 +47,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -159,9 +159,9 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
             this.discoveryIntervalMillis = config.getLong(KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS.key());
         }
 
-        TypesafeConfigUtils.extractSubConfig(config, "kafka.", false).entrySet().forEach(e -> {
-            this.metadata.getProperties().put(e.getKey(), String.valueOf(e.getValue().unwrapped()));
-        });
+        if (CheckConfigUtil.isValidParam(config, KAFKA_CONFIG.key())) {
+            config.getObject(KAFKA_CONFIG.key()).forEach((key, value) -> this.metadata.getProperties().put(key, value.unwrapped()));
+        }
 
         setDeserialization(config);
     }

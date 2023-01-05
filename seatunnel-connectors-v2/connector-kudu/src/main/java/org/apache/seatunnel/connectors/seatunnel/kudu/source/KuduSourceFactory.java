@@ -22,6 +22,7 @@ import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceCo
 import static org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig.TABLE_NAME;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
@@ -38,5 +39,10 @@ public class KuduSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder().required(KUDU_MASTER, TABLE_NAME, COLUMNS_LIST).build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return KuduSource.class;
     }
 }
