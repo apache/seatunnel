@@ -24,7 +24,7 @@ SeaTunnel focuses on data integration and data synchronization, and is mainly de
 ## Features of SeaTunnel
 
 - Rich and extensible Connector: SeaTunnel provides a Connector API that does not depend on a specific execution engine. Connectors (Source, Transform, Sink) developed based on this API can run On many different engines, such as SeaTunnel Engine, Flink, Spark that are currently supported.
-- Connector plug-in: The plug-in design allows users to easily develop their own Connector and integrate it into the SeaTunnel project. Currently, SeaTunnel has supported more than 70 Connectors, and the number is surging. There is the list of the [currently-supported connectors](Connector-v2-release-state.md)
+- Connector plug-in: The plug-in design allows users to easily develop their own Connector and integrate it into the SeaTunnel project. Currently, SeaTunnel has supported more than 100 Connectors, and the number is surging. There is the list of the [currently-supported connectors](Connector-v2-release-state.md)
 - Batch-stream integration: Connectors developed based on SeaTunnel Connector API are perfectly compatible with offline synchronization, real-time synchronization, full- synchronization, incremental synchronization and other scenarios. It greatly reduces the difficulty of managing data integration tasks.
 - Support distributed snapshot algorithm to ensure data consistency.
 - Multi-engine support: SeaTunnel uses SeaTunnel Engine for data synchronization by default. At the same time, SeaTunnel also supports the use of Flink or Spark as the execution engine of the Connector to adapt to the existing technical components of the enterprise. SeaTunnel supports multiple versions of Spark and Flink.
@@ -51,7 +51,7 @@ The default engine use by SeaTunnel is [SeaTunnel Engine](seatunnel-engine/about
 
 - **Source Connectors** SeaTunnel support read data from various relational databases, graph databases, NoSQL databases, document databases, and memory databases. Various distributed file systems such as HDFS. A variety of cloud storage, such as S3 and OSS. At the same time, we also support data reading of many common SaaS services. You can access the detailed list [here](connector-v2/source). If you want, You can develop your own source connector and easily integrate it into seatunnel.  
 
-- **Transform Connector** 
+- **Transform Connector** If the schema is different between source and sink, You can use Transform Connector to change the schema read from source and make it same as the sink schema.
 
 - **Sink Connector** SeaTunnel support write data to various relational databases, graph databases, NoSQL databases, document databases, and memory databases. Various distributed file systems such as HDFS. A variety of cloud storage, such as S3 and OSS. At the same time, we also support write data to many common SaaS services. You can access the detailed list [here](connector-v2/sink). If you want, You can develop your own sink connector and easily integrate it into seatunnel.
 

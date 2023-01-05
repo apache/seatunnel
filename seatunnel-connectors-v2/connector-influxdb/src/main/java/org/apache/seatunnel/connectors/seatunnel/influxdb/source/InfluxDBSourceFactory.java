@@ -31,6 +31,7 @@ import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceCo
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.UPPER_BOUND;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
@@ -59,5 +60,10 @@ public class InfluxDBSourceFactory implements TableSourceFactory {
                 QUERY_TIMEOUT_SEC
             )
             .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return InfluxDBSource.class;
     }
 }

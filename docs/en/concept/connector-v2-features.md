@@ -24,11 +24,13 @@ and then locate the **Split** and **offset** read last time and continue to send
 
 For example `File`, `Kafka`.
 
-### schema projection
+### column projection
 
-If the source connector supports selective reading of certain columns or redefine columns order or supports the data format read through `schema` params, we think it supports schema projection.
+If the connector supports reading only specified columns from the data source (note that if you read all columns first and then filter unnecessary columns through the schema, this method is not a real column projection)
 
-For example `JDBCSource` can use sql define read columns, `KafkaSource` can use `schema` params to define the read schema.
+For example `JDBCSource` can use sql define read columns.
+
+`KafkaSource` will read all content from topic and then use `schema` to filter unnecessary columns, This is not `column projection`.
 
 ### batch
 
@@ -59,10 +61,6 @@ For sink connector, the sink connector supports exactly-once if any piece of dat
 
 * The target database supports key deduplication. For example `MySQL`, `Kudu`.
 * The target support **XA Transaction**(This transaction can be used across sessions. Even if the program that created the transaction has ended, the newly started program only needs to know the ID of the last transaction to resubmit or roll back the transaction). Then we can use **Two-phase Commit** to ensure **exactly-once**. For example `File`, `MySQL`.
-
-### schema projection
-
-If a sink connector supports the fields and their types or redefine columns order written in the configuration, we think it supports schema projection.
 
 ### cdc(change data capture)
 

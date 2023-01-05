@@ -306,17 +306,20 @@ public class PhysicalVertex {
 
     private boolean turnToEndState(@NonNull ExecutionState endState) {
         synchronized (this) {
-            // consistency check
-            ExecutionState currentState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
-            if (currentState.isEndState()) {
-                String message = String.format("Task %s is already in terminal state %s", taskFullName, currentState);
-                LOGGER.warning(message);
-                return false;
-            }
             if (!endState.isEndState()) {
                 String message =
                     String.format("Turn task %s state to end state need gave a end state, not %s", taskFullName,
                         endState);
+                LOGGER.warning(message);
+                return false;
+            }
+            // consistency check
+            ExecutionState currentState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
+            if (currentState.equals(endState)) {
+                return true;
+            }
+            if (currentState.isEndState()) {
+                String message = String.format("Task %s is already in terminal state %s", taskFullName, currentState);
                 LOGGER.warning(message);
                 return false;
             }
@@ -372,10 +375,6 @@ public class PhysicalVertex {
         }
     }
 
-    public TaskGroupDefaultImpl getTaskGroup() {
-        return taskGroup;
-    }
-
     public void cancel() {
         if (updateTaskState(ExecutionState.CREATED, ExecutionState.CANCELED) ||
             updateTaskState(ExecutionState.SCHEDULED, ExecutionState.CANCELED) ||
@@ -392,6 +391,7 @@ public class PhysicalVertex {
         if (!checkTaskGroupIsExecuting(taskGroupLocation)){
             updateTaskState(ExecutionState.CANCELING, ExecutionState.CANCELED);
             taskFuture.complete(new TaskExecutionState(this.taskGroupLocation, ExecutionState.CANCELED, null));
+            return;
         }
         int i = 0;
         // In order not to generate uncontrolled tasks, We will try again until the taskFuture is completed
@@ -415,7 +415,6 @@ public class PhysicalVertex {
                 }
             }
         }
-        this.taskFuture.complete(new TaskExecutionState(taskGroupLocation, ExecutionState.CANCELED, null));
     }
 
     private void updateStateTimestamps(@NonNull ExecutionState targetState) {

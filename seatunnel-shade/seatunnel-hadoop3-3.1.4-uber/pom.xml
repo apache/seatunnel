@@ -83,8 +83,12 @@
                                     <shadedPattern>shade.org.apache.commons.io</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>com.google.common.base</pattern>
-                                    <shadedPattern>${seatunnel.shade.package}.hadoop.com.google.common.base</shadedPattern>
+                                    <pattern>com.google.common</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.hadoop.com.google.common</shadedPattern>
+                                    <includes>
+                                        <include>com.google.common.base.*</include>
+                                        <include>com.google.common.cache.*</include>
+                                    </includes>
                                 </relocation>
                                 <relocation>
                                     <pattern>com.fasterxml.jackson</pattern>

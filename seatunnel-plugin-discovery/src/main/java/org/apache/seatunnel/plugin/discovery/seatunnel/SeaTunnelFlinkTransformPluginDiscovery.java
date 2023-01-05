@@ -17,20 +17,16 @@
 
 package org.apache.seatunnel.plugin.discovery.seatunnel;
 
-import org.apache.seatunnel.flink.BaseFlinkTransform;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
 
-/**
- * Discovery for the SeaTunnel Flink transform.
- */
-public class SeaTunnelFlinkTransformPluginDiscovery extends AbstractPluginDiscovery<BaseFlinkTransform> {
-
+public class SeaTunnelFlinkTransformPluginDiscovery extends AbstractPluginDiscovery<SeaTunnelTransform> {
     public SeaTunnelFlinkTransformPluginDiscovery() {
         super("seatunnel");
     }
 
     @Override
-    protected Class<BaseFlinkTransform> getPluginBaseClass() {
-        return BaseFlinkTransform.class;
+    protected Class<SeaTunnelTransform> getPluginBaseClass() {
+        return SeaTunnelTransform.class;
     }
 }

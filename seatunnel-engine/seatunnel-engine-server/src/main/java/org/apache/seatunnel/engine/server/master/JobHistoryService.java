@@ -18,14 +18,12 @@
 package org.apache.seatunnel.engine.server.master;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
-import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
-import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -40,7 +38,6 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -153,13 +150,10 @@ public class JobHistoryService {
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    public void storeFinishedJobMetrics(JobMaster jobMaster) {
-        List<RawJobMetrics> currJobMetrics = jobMaster.getCurrJobMetrics();
-        JobMetrics jobMetrics = JobMetricsUtil.toJobMetrics(currJobMetrics);
-        Long jobId = jobMaster.getJobImmutableInformation().getJobId();
-        finishedJobMetricsImap.put(jobId, jobMetrics, 14, TimeUnit.DAYS);
-        //Clean TaskGroupContext for TaskExecutionServer
-        jobMaster.cleanTaskGroupContext();
+    public void storeFinishedPipelineMetrics(long jobId, JobMetrics metrics) {
+        finishedJobMetricsImap.computeIfAbsent(jobId, key -> JobMetrics.of(new HashMap<>()));
+        JobMetrics newMetrics = finishedJobMetricsImap.get(jobId).merge(metrics);
+        finishedJobMetricsImap.put(jobId, newMetrics, 14, TimeUnit.DAYS);
     }
 
     private JobStateData toJobStateMapper(JobMaster jobMaster) {

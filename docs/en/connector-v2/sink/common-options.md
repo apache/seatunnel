@@ -1,4 +1,4 @@
-# Common Options
+# Sink Common Options
 
 > Common parameters of sink connectors
 
@@ -32,24 +32,27 @@ source {
 }
 
 transform {
-    sql {
+    Filter {
       source_table_name = "fake"
-      sql = "select name from fake"
+      fields = [name]
       result_table_name = "fake_name"
     }
-    sql {
+    Filter {
       source_table_name = "fake"
-      sql = "select age from fake"
+      fields = [age]
       result_table_name = "fake_age"
     }
 }
 
 sink {
-    console {
-      parallelism = 3
+    Console {
       source_table_name = "fake_name"
+    }
+    Console {
+      source_table_name = "fake_age"
     }
 }
 ```
 
-> If `source_table_name` is not specified, the console outputs the data of the last transform, and if it is set to `fake_name` , it will output the data of `fake_name`
+> If the job only have one source and one(or zero) transform and one sink, You do not need to specify `source_table_name` and `result_table_name` for connector.
+> If the number of any operator in source, transform and sink is greater than 1, you must specify the `source_table_name` and `result_table_name` for each connector in the job.

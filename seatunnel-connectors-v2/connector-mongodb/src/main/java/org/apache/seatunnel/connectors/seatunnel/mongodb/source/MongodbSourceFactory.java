@@ -23,6 +23,7 @@ import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOp
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.URI;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
@@ -41,5 +42,10 @@ public class MongodbSourceFactory implements TableSourceFactory {
         return OptionRule.builder()
                 .required(URI, DATABASE, COLLECTION, SeaTunnelSchema.SCHEMA)
                 .optional(MATCHQUERY).build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return MongodbSource.class;
     }
 }

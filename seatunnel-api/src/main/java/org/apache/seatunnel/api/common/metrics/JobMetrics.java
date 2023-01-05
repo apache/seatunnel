@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -68,6 +69,19 @@ public final class JobMetrics implements Serializable {
 
     public static JobMetrics of(Map<String, List<Measurement>> metrics) {
         return new JobMetrics(metrics);
+    }
+
+    public JobMetrics merge(JobMetrics jobMetrics) {
+        if (jobMetrics == null) {
+            return this;
+        }
+        Map<String, List<Measurement>> metricsMap = new HashMap<>();
+        metrics.forEach((key, value) -> metricsMap.put(key, new ArrayList<>(value)));
+        jobMetrics.metrics.forEach((key, value) -> metricsMap.merge(key, value, (v1, v2) -> {
+            v1.addAll(v2);
+            return v1;
+        }));
+        return new JobMetrics(metricsMap);
     }
 
     /**

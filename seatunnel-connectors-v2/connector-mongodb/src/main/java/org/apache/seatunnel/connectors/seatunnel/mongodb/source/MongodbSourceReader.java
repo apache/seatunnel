@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.source;
 
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
@@ -40,7 +41,7 @@ import java.io.IOException;
 import java.util.Optional;
 
 @Slf4j
-public class MongodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
+public class MongodbSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> implements SupportColumnProjection {
 
     private final SingleSplitReaderContext context;
 

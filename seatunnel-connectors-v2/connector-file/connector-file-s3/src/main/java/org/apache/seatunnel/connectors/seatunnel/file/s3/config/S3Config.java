@@ -36,6 +36,15 @@ public class S3Config extends BaseSourceConfig {
         .stringType()
         .noDefaultValue()
         .withDescription("S3 bucket");
+    public static final Option<String> FS_S3A_ENDPOINT = Options.key("fs.s3a.endpoint")
+        .stringType()
+        .noDefaultValue()
+        .withDescription("fs s3a endpoint");
+
+    public static final Option<S3aAwsCredentialsProvider> S3A_AWS_CREDENTIALS_PROVIDER = Options.key("fs.s3a.aws.credentials.provider")
+        .enumType(S3aAwsCredentialsProvider.class)
+        .defaultValue(S3aAwsCredentialsProvider.InstanceProfileCredentialsProvider)
+        .withDescription("s3a aws credentials provider");
 
     /**
      * The current key for that config option.
@@ -51,5 +60,27 @@ public class S3Config extends BaseSourceConfig {
         .mapType()
         .noDefaultValue()
         .withDescription("S3 properties");
+
+    public enum S3aAwsCredentialsProvider {
+
+        SimpleAWSCredentialsProvider("org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"),
+
+        InstanceProfileCredentialsProvider("com.amazonaws.auth.InstanceProfileCredentialsProvider");
+
+        private String provider;
+
+        S3aAwsCredentialsProvider(String provider) {
+            this.provider = provider;
+        }
+
+        public String getProvider() {
+            return provider;
+        }
+
+        @Override
+        public String toString() {
+            return provider;
+        }
+    }
 
 }
