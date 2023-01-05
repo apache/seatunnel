@@ -42,22 +42,22 @@ public class TaskGroupWithIntermediateQueue extends TaskGroupDefaultImpl {
         super(taskGroupLocation, taskGroupName, tasks);
     }
 
-    private Map<Long, Disruptor<RecordEvent>> blockingQueueCache = null;
+    private Map<Long, Disruptor<RecordEvent>> disruptor = null;
 
     @Override
     public void init() {
-        blockingQueueCache = new ConcurrentHashMap<>();
+        disruptor = new ConcurrentHashMap<>();
         getTasks().stream().filter(SeaTunnelTask.class::isInstance)
             .map(s -> (SeaTunnelTask) s).forEach(s -> s.setTaskGroup(this));
     }
 
-    public Disruptor<RecordEvent> getBlockingQueueCache(long id) {
+    public Disruptor<RecordEvent> getDisruptor(long id) {
         EventFactory<RecordEvent> eventFactory = new RecordEventFactory();
         Disruptor<RecordEvent> disruptor = new Disruptor<>(eventFactory, RING_BUFFER_SIZE, DaemonThreadFactory.INSTANCE,
             ProducerType.SINGLE, new YieldingWaitStrategy());
 
-        blockingQueueCache.putIfAbsent(id, disruptor);
-        return blockingQueueCache.get(id);
+        this.disruptor.putIfAbsent(id, disruptor);
+        return this.disruptor.get(id);
     }
 
 }

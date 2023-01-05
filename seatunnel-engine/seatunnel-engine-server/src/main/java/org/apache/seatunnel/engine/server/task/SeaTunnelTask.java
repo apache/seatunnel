@@ -227,7 +227,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 ((IntermediateExecutionFlow<IntermediateQueueConfig>) flow).getConfig();
             lifeCycle = new IntermediateQueueFlowLifeCycle(this, completableFuture,
                 ((TaskGroupWithIntermediateQueue) taskBelongGroup)
-                    .getBlockingQueueCache(config.getQueueID()));
+                    .getDisruptor(config.getQueueID()));
             outputs = flowLifeCycles;
         } else {
             throw new UnknownFlowException(flow);
