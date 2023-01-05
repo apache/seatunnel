@@ -21,26 +21,20 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <artifactId>seatunnel-connectors-v2</artifactId>
+        <artifactId>connector-http</artifactId>
         <groupId>org.apache.seatunnel</groupId>
         <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
-    <artifactId>connector-http</artifactId>
-    <packaging>pom</packaging>
 
-    <modules>
-        <module>connector-http-base</module>
-        <module>connector-http-feishu</module>
-        <module>connector-http-wechat</module>
-        <module>connector-http-myhours</module>
-        <module>connector-http-lemlist</module>
-        <module>connector-http-klaviyo</module>
-        <module>connector-http-onesignal</module>
-        <module>connector-http-jira</module>
-        <module>connector-http-gitlab</module>
-        <module>connector-http-notion</module>
-        <module>connector-http-persistiq</module>
-    </modules>
+    <artifactId>connector-http-persistiq</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-http-base</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
 
 </project>

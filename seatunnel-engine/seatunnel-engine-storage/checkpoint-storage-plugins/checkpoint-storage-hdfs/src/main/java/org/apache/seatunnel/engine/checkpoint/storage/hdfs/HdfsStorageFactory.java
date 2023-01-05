@@ -20,8 +20,6 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.hdfs;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
@@ -50,16 +48,11 @@ import java.util.Map;
  *      fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
  *  </pre>
  */
-@AutoService(Factory.class)
+@AutoService(CheckpointStorageFactory.class)
 public class HdfsStorageFactory implements CheckpointStorageFactory {
     @Override
     public String factoryIdentifier() {
         return "hdfs";
-    }
-
-    @Override
-    public OptionRule optionRule() {
-        return OptionRule.builder().build();
     }
 
     @Override
