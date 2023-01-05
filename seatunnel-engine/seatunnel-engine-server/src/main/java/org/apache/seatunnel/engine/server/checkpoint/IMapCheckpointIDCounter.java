@@ -55,8 +55,11 @@ public class IMapCheckpointIDCounter implements CheckpointIDCounter {
 
     @Override
     public long getAndIncrement() throws Exception {
-        Long currentId = checkpointIdMap.get(pipelineId);
-        checkpointIdMap.put(pipelineId, currentId + 1);
+        Long currentId;
+        synchronized (this) {
+            currentId = checkpointIdMap.get(pipelineId);
+            checkpointIdMap.put(pipelineId, currentId + 1);
+        }
         return currentId;
     }
 
