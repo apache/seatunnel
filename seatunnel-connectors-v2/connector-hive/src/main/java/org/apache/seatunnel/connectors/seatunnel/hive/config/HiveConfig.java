@@ -41,6 +41,7 @@ public class HiveConfig {
     public static final String PARQUET_OUTPUT_FORMAT_CLASSNAME = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat";
     public static final String ORC_INPUT_FORMAT_CLASSNAME = "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat";
     public static final String ORC_OUTPUT_FORMAT_CLASSNAME = "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat";
+    public static final String IS_CONTAIN_PARTITION_NAME = "is_contain_partition_name";
 
     public static Pair<String[], Table> getTableInfo(Config config) {
         String table = config.getString(TABLE_NAME.key());

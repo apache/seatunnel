@@ -51,6 +51,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import com.google.auto.service.AutoService;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -68,6 +69,7 @@ public class HiveSink extends BaseHdfsFileSink {
     private String dbName;
     private String tableName;
     private Table tableInformation;
+    private boolean isContainPartitionName = false;
 
     @Override
     public String getPluginName() {
@@ -108,6 +110,9 @@ public class HiveSink extends BaseHdfsFileSink {
             throw new HiveConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT,
                     "Hive connector only support [text parquet orc] table now");
         }
+        if (pluginConfig.hasPath(HiveConfig.IS_CONTAIN_PARTITION_NAME) && StringUtils.isNotBlank(pluginConfig.getString(HiveConfig.IS_CONTAIN_PARTITION_NAME))) {
+            isContainPartitionName = pluginConfig.getBoolean(HiveConfig.IS_CONTAIN_PARTITION_NAME);
+        }
         pluginConfig = pluginConfig
                 .withValue(IS_PARTITION_FIELD_WRITE_IN_FILE.key(), ConfigValueFactory.fromAnyRef(false))
                 .withValue(FILE_NAME_EXPRESSION.key(), ConfigValueFactory.fromAnyRef("${transactionId}"))
@@ -130,6 +135,6 @@ public class HiveSink extends BaseHdfsFileSink {
 
     @Override
     public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>> createAggregatedCommitter() throws IOException {
-        return Optional.of(new HiveSinkAggregatedCommitter(pluginConfig, dbName, tableName, fileSystemUtils));
+        return Optional.of(new HiveSinkAggregatedCommitter(pluginConfig, dbName, tableName, fileSystemUtils, isContainPartitionName));
     }
 }

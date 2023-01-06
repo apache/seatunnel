@@ -25,8 +25,11 @@ import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.hadoop.hive.metastore.api.Partition;
+import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.thrift.TException;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -37,13 +40,15 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
     private final Config pluginConfig;
     private final String dbName;
     private final String tableName;
+    private boolean isContainPartitionName;
 
     public HiveSinkAggregatedCommitter(Config pluginConfig, String dbName,
-                                       String tableName, FileSystemUtils fileSystemUtils) {
+                                       String tableName, FileSystemUtils fileSystemUtils, boolean isContainPartitionName) {
         super(fileSystemUtils);
         this.pluginConfig = pluginConfig;
         this.dbName = dbName;
         this.tableName = tableName;
+        this.isContainPartitionName = isContainPartitionName;
     }
 
     @Override
@@ -57,7 +62,23 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
                         .map(partition -> partition.replaceAll("\\\\", "/"))
                         .collect(Collectors.toList());
                 try {
-                    hiveMetaStore.addPartitions(dbName, tableName, partitions);
+                    if (!isContainPartitionName) {
+                        hiveMetaStore.addPartitions(dbName, tableName, partitions);
+                    } else {
+                        Partition partition = new Partition();
+                        partition.setDbName(dbName);
+                        partition.setTableName(tableName);
+                        partition.setValues(partitions);
+                        StorageDescriptor sd = hiveMetaStore.getTable(dbName, tableName).getSd();
+                        String partDir = "";
+                        for (String part : partitions) {
+                            partDir = part + File.separatorChar;
+                        }
+                        String location = sd.getLocation() + File.separator + partDir;
+                        sd.setLocation(location);
+                        partition.setSd(sd);
+                        hiveMetaStore.addPartition(partition);
+                    }
                     log.info("Add these partitions {}", partitions);
                 } catch (TException e) {
                     log.error("Failed to add these partitions {}", partitions, e);
