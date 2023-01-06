@@ -92,24 +92,23 @@ public class JsonRowDataSerDeSchemaTest {
 
         SeaTunnelRowType schema = new SeaTunnelRowType(
                 new String[]{"bool", "int",
-                    "longValue", "float", "name", "date", "time", "timestamp3", "timestamp9", "map", "multiSet", "map2map"}
-                ,new SeaTunnelDataType[]{
-            BOOLEAN_TYPE,
-            INT_TYPE,
-            LONG_TYPE,
-            FLOAT_TYPE,
-            STRING_TYPE,
-            LocalTimeType.LOCAL_DATE_TYPE,
-            LocalTimeType.LOCAL_TIME_TYPE,
-            LocalTimeType.LOCAL_DATE_TIME_TYPE,
-            LocalTimeType.LOCAL_DATE_TIME_TYPE,
-            new MapType(STRING_TYPE,LONG_TYPE),
-            new MapType(STRING_TYPE,INT_TYPE),
-            new MapType(STRING_TYPE, new MapType(STRING_TYPE, INT_TYPE))}
+                    "longValue", "float", "name", "date", "time", "timestamp3", "timestamp9", "map", "multiSet", "map2map"}, new SeaTunnelDataType[]{
+                        BOOLEAN_TYPE,
+                        INT_TYPE,
+                        LONG_TYPE,
+                        FLOAT_TYPE,
+                        STRING_TYPE,
+                        LocalTimeType.LOCAL_DATE_TYPE,
+                        LocalTimeType.LOCAL_TIME_TYPE,
+                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                        new MapType(STRING_TYPE, LONG_TYPE),
+                        new MapType(STRING_TYPE, INT_TYPE),
+                        new MapType(STRING_TYPE, new MapType(STRING_TYPE, INT_TYPE))}
             );
 
         JsonDeserializationSchema deserializationSchema =
-                new JsonDeserializationSchema(false, false ,schema);
+                new JsonDeserializationSchema(false, false, schema);
 
         SeaTunnelRow expected = new SeaTunnelRow(12);
         expected.setField(0, true);
@@ -138,13 +137,13 @@ public class JsonRowDataSerDeSchemaTest {
 
     @Test
     public void testSerDeMultiRows() throws Exception {
-        SeaTunnelRowType schema = new SeaTunnelRowType(new String[]{"f1","f2","f3","f4","f5","f6"},
+        SeaTunnelRowType schema = new SeaTunnelRowType(new String[]{"f1", "f2", "f3", "f4", "f5", "f6"},
                 new SeaTunnelDataType[]{INT_TYPE,
                     BOOLEAN_TYPE,
                     STRING_TYPE,
-                    new MapType(STRING_TYPE,STRING_TYPE),
+                    new MapType(STRING_TYPE, STRING_TYPE),
                     STRING_ARRAY_TYPE,
-                    new SeaTunnelRowType(new String[]{"f1","f2"},new SeaTunnelDataType[]{STRING_TYPE,INT_TYPE})});
+                    new SeaTunnelRowType(new String[]{"f1", "f2"}, new SeaTunnelDataType[]{STRING_TYPE, INT_TYPE})});
 
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(false, false, schema);
@@ -198,7 +197,7 @@ public class JsonRowDataSerDeSchemaTest {
     public void testSerDeMultiRowsWithNullValues() throws Exception {
         String[] jsons =
                 new String[] {
-                    "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"metrics\":{\"k1\":10.01,\"k2\":\"invalid\"}}",
+                    "{\"svt\":\"2020-02-24T12:58:09.209+0800\", \"metrics\":{\"k1\":10.01, \"k2\":\"invalid\"}}",
                     "{\"svt\":\"2020-02-24T12:58:09.209+0800\", \"ops\":{\"id\":\"281708d0-4092-4c21-9233-931950b6eccf\"}, "
                             + "\"ids\":[1, 2, 3]}",
                     "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"metrics\":{}}",
@@ -206,13 +205,13 @@ public class JsonRowDataSerDeSchemaTest {
 
         String[] expected =
                 new String[] {
-                    "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"ops\":null,\"ids\":null,\"metrics\":{\"k1\":10.01,\"k2\":null}}",
-                    "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"ops\":{\"id\":\"281708d0-4092-4c21-9233-931950b6eccf\"},"
-                            + "\"ids\":[1,2,3],\"metrics\":null}",
-                    "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"ops\":null,\"ids\":null,\"metrics\":{}}",
+                    "{\"svt\":\"2020-02-24T12:58:09.209+0800\", \"ops\":null, \"ids\":null, \"metrics\":{\"k1\":10.01, \"k2\":null}}",
+                    "{\"svt\":\"2020-02-24T12:58:09.209+0800\", \"ops\":{\"id\":\"281708d0-4092-4c21-9233-931950b6eccf\"},"
+                            + "\"ids\":[1, 2, 3], \"metrics\":null}",
+                    "{\"svt\":\"2020-02-24T12:58:09.209+0800\", \"ops\":null, \"ids\":null, \"metrics\":{}}",
                 };
 
-        SeaTunnelRowType rowType = new SeaTunnelRowType(new String[]{"svt","ops","ids","metrics"},
+        SeaTunnelRowType rowType = new SeaTunnelRowType(new String[]{"svt", "ops", "ids", "metrics"},
             new SeaTunnelDataType[]{STRING_TYPE,
                 new SeaTunnelRowType(new String[]{"id"}, new SeaTunnelDataType[]{STRING_TYPE}),
                 INT_ARRAY_TYPE,
@@ -235,7 +234,7 @@ public class JsonRowDataSerDeSchemaTest {
     public void testDeserializationNullRow() throws Exception {
         SeaTunnelRowType schema = new SeaTunnelRowType(new String[]{"name"}, new SeaTunnelDataType[]{STRING_TYPE});
         JsonDeserializationSchema deserializationSchema =
-                new JsonDeserializationSchema(true,false, schema);
+                new JsonDeserializationSchema(true, false, schema);
 
         assertNull(deserializationSchema.deserialize(null));
     }
@@ -271,7 +270,7 @@ public class JsonRowDataSerDeSchemaTest {
 
         // fail on missing field
         deserializationSchema =
-                new JsonDeserializationSchema( true, false, schema);
+                new JsonDeserializationSchema(true, false, schema);
 
         String errorMessage = "ErrorCode:[COMMON-02], ErrorDescription:[Json covert/parse operation failed] - Failed to deserialize JSON '{\"id\":123123123}'.";
         try {
