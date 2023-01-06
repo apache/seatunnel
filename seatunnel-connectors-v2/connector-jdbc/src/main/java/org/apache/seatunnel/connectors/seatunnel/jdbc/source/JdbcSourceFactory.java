@@ -30,6 +30,7 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.U
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.USER;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
@@ -59,5 +60,10 @@ public class JdbcSourceFactory implements TableSourceFactory {
                 PARTITION_LOWER_BOUND,
                 PARTITION_NUM)
             .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return JdbcSource.class;
     }
 }

@@ -56,7 +56,7 @@ public class PhysicalPlan {
     private final IMap<Object, Object> runningJobStateIMap;
 
     /**
-     * Timestamps (in milliseconds as returned by {@code System.currentTimeMillis()} when the
+     * Timestamps (in milliseconds) as returned by {@code System.currentTimeMillis()} when the
      * execution graph transitioned into a certain state. The index into this array is the ordinal
      * of the enum value, i.e. the timestamp when the graph went into state "RUNNING" is at {@code
      * stateTimestamps[RUNNING.ordinal()]}.
@@ -149,7 +149,6 @@ public class PhysicalPlan {
                         cancelJob();
                     }
                     LOGGER.info(String.format("release the pipeline %s resource", subPlan.getPipelineFullName()));
-                    jobMaster.releasePipelineResource(subPlan);
                 } else if (PipelineStatus.FAILED.equals(pipelineState)) {
                     if (canRestorePipeline(subPlan)) {
                         subPlan.restorePipeline();
@@ -159,11 +158,9 @@ public class PhysicalPlan {
                     if (makeJobEndWhenPipelineEnded) {
                         cancelJob();
                     }
-                    jobMaster.releasePipelineResource(subPlan);
                     LOGGER.severe("Pipeline Failed, Begin to cancel other pipelines in this job.");
                 }
-
-                notifyCheckpointManagerPipelineEnd(subPlan);
+                subPlanDone(subPlan);
 
                 if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
                     if (failedPipelineNum.get() > 0) {
@@ -182,8 +179,15 @@ public class PhysicalPlan {
         });
     }
 
+    private void subPlanDone(SubPlan subPlan) {
+        jobMaster.savePipelineMetricsToHistory(subPlan.getPipelineLocation());
+        jobMaster.releasePipelineResource(subPlan);
+        notifyCheckpointManagerPipelineEnd(subPlan);
+    }
+
     /**
      * only call when the pipeline will never restart
+     *
      * @param subPlan subPlan
      */
     private void notifyCheckpointManagerPipelineEnd(@NonNull SubPlan subPlan) {
