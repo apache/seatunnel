@@ -75,7 +75,5 @@ public class TDengineSourceConfig implements Serializable {
         public static String TIMEZONE = "timezone";
         public static String LOWER_BOUND = "lower_bound";
         public static String UPPER_BOUND = "upper_bound";
-        public static String FIELDS = "fields";
-        public static String TAGS = "tags";
     }
 }

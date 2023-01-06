@@ -22,13 +22,14 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorException;
 
 import com.google.common.collect.Sets;
 import com.taosdata.jdbc.TSDBDriver;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -62,7 +63,7 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
     }
 
     @Override
-    public void pollNext(Collector<SeaTunnelRow> collector) throws Exception {
+    public void pollNext(Collector<SeaTunnelRow> collector) throws InterruptedException {
         if (sourceSplits.isEmpty()) {
             Thread.sleep(THREAD_WAIT_TIME);
             return;
@@ -71,7 +72,7 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
             try {
                 read(split, collector);
             } catch (Exception e) {
-                throw new RuntimeException("TDengine split read error", e);
+                throw new TDengineConnectorException(TDengineConnectorErrorCode.READER_FAILED, "TDengine split read error", e);
             }
         });
 
@@ -83,7 +84,7 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
     }
 
     @Override
-    public void open() throws Exception {
+    public void open(){
         String jdbcUrl = StringUtils.join(config.getUrl(), config.getDatabase(), "?user=", config.getUsername(), "&password=", config.getPassword());
         Properties connProps = new Properties();
         //todo: when TSDBDriver.PROPERTY_KEY_BATCH_LOAD set to "true",
@@ -91,17 +92,21 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
         // under docker network env
         // @bobo (tdengine)
         connProps.setProperty(TSDBDriver.PROPERTY_KEY_BATCH_LOAD, "false");
-        conn = DriverManager.getConnection(jdbcUrl, connProps);
+        try {
+            conn = DriverManager.getConnection(jdbcUrl, connProps);
+        } catch (SQLException e) {
+            throw new TDengineConnectorException(TDengineConnectorErrorCode.CONNECTION_FAILED, "get TDengine connection failed:" + jdbcUrl);
+        }
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         try {
             if (!Objects.isNull(conn)) {
                 conn.close();
             }
         } catch (SQLException e) {
-            throw new IOException(e);
+            throw new TDengineConnectorException(TDengineConnectorErrorCode.CONNECTION_FAILED, "TDengine reader connection close failed", e);
         }
     }
 
@@ -146,7 +151,7 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+    public void notifyCheckpointComplete(long checkpointId) {
         // do nothing
     }
 }

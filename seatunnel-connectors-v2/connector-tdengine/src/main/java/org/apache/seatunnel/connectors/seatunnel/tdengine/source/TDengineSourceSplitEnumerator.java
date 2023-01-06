@@ -22,13 +22,14 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator.Context;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.state.TDengineSourceState;
 
 import com.google.common.collect.Sets;
 import lombok.SneakyThrows;
 import org.apache.commons.lang3.StringUtils;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -187,13 +188,13 @@ public class TDengineSourceSplitEnumerator implements SourceSplitEnumerator<TDen
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         try {
             if (!Objects.isNull(conn)) {
                 conn.close();
             }
         } catch (SQLException e) {
-            throw new IOException(e);
+            throw new TDengineConnectorException(TDengineConnectorErrorCode.CONNECTION_FAILED, "TDengine split_enumerator connection close failed", e);
         }
     }
 

@@ -22,10 +22,10 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorException;
 
 import lombok.extern.slf4j.Slf4j;
-
-import java.sql.SQLException;
 
 @Slf4j
 public class TDengineTypeMapper {
@@ -82,7 +82,7 @@ public class TDengineTypeMapper {
     private static final String TDENGINE_GEOMETRY = "GEOMETRY";
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    public static SeaTunnelDataType<?> mapping(String tdengineType) throws SQLException {
+    public static SeaTunnelDataType<?> mapping(String tdengineType) {
         switch (tdengineType) {
             case TDENGINE_BIT:
                 return BasicType.BOOLEAN_TYPE;
@@ -145,7 +145,7 @@ public class TDengineTypeMapper {
             case TDENGINE_GEOMETRY:
             case TDENGINE_UNKNOWN:
             default:
-                throw new RuntimeException(String.format(
+                throw new TDengineConnectorException(TDengineConnectorErrorCode.TYPE_MAPPER_FAILED, String.format(
                         "Doesn't support TDENGINE type '%s' on column '%s'  yet.",
                         tdengineType));
         }
