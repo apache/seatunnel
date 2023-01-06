@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.Config;
@@ -43,5 +44,10 @@ public class KafkaSourceFactory implements TableSourceFactory {
             .conditional(Config.START_MODE, StartMode.TIMESTAMP, Config.START_MODE_TIMESTAMP)
             .conditional(Config.START_MODE, StartMode.SPECIFIC_OFFSETS, Config.START_MODE_OFFSETS)
             .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return KafkaSource.class;
     }
 }
