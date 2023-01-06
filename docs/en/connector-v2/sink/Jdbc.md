@@ -38,7 +38,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | support_upsert_by_query_primary_key_exist | Boolean | No       | false         |
 | connection_check_timeout_sec              | Int     | No       | 30            |
 | max_retries                               | Int     | No       | 3             |
-| batch_size                                | Int     | No       | 300           |
+| batch_size                                | Int     | No       | 1000          |
 | batch_interval_ms                         | Int     | No       | 1000          |
 | is_exactly_once                           | Boolean | No       | false         |
 | xa_data_source_class_name                 | String  | No       | -             |
