@@ -88,7 +88,7 @@ fi
 CLASS_PATH=${APP_DIR}/lib/*:${APP_JAR}
 
 # The JVM options parser produces the final JVM options to start seatunnel-engine.
-JAVA_OPTS=`java -cp ${CLASS_PATH} ${JVM_PARSER_MAIN} ${CONF_DIR}`
+JAVA_OPTS=${JAVA_OPTS} `java -cp ${CLASS_PATH} ${JVM_PARSER_MAIN} ${CONF_DIR}`
 
 echo "JAVA_OPTS: ${JAVA_OPTS}"
 
