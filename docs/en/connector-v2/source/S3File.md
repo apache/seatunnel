@@ -6,9 +6,15 @@
 
 Read data from aws s3 file system.
 
-> Tips: We made some trade-offs in order to support more file types, so we used the HDFS protocol for internal access to S3 and this connector need some hadoop dependencies.
-> It's only support hadoop version **2.6.5+**.
-> Use this connector, you need add hadoop-aws.jar and hadoop-client.jar to the plugin directory.
+:::tip
+
+If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
+
+If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+
+To use this connector you need put hadoop-aws-3.1.4.jar and aws-java-sdk-bundle-1.11.271.jar in ${SEATUNNEL_HOME}/lib dir.
+
+:::
 
 ## Key features
 
@@ -18,7 +24,7 @@ Read data from aws s3 file system.
 
 Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
-- [x] [schema projection](../../concept/connector-v2-features.md)
+- [ ] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] file format
@@ -30,25 +36,35 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 
 ## Options
 
-| name                      | type    | required | default value       |
-|---------------------------|---------|----------|---------------------|
-| path                      | string  | yes      | -                   |
-| type                      | string  | yes      | -                   |
-| bucket                    | string  | yes      | -                   |
-| access_key                | string  | no       | -                   |
-| access_secret             | string  | no       | -                   |
-| hadoop_s3_properties      | map     | no       | -                   |
-| delimiter                 | string  | no       | \001                |
-| parse_partition_from_path | boolean | no       | true                |
-| date_format               | string  | no       | yyyy-MM-dd          |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
-| time_format               | string  | no       | HH:mm:ss            |
-| schema                    | config  | no       | -                   |
-| common-options            |         | no       | -                   |
+| name                            | type        | required | default value                                         |
+|---------------------------------|-------------|----------|-------------------------------------------------------|
+| path                            | string      | yes      | -                                                     |
+| type                            | string      | yes      | -                                                     |
+| bucket                          | string      | yes      | -                                                     |
+| fs.s3a.endpoint                 | string      | yes      | -                                                     |
+| fs.s3a.aws.credentials.provider | string      | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider |
+| access_key                      | string      | no       | -                                                     |
+| access_secret                   | string      | no       | -                                                     |
+| hadoop_s3_properties            | map         | no       | -                                                     |
+| delimiter                       | string      | no       | \001                                                  |
+| parse_partition_from_path       | boolean     | no       | true                                                  |
+| date_format                     | string      | no       | yyyy-MM-dd                                            |
+| datetime_format                 | string      | no       | yyyy-MM-dd HH:mm:ss                                   |
+| time_format                     | string      | no       | HH:mm:ss                                              |
+| schema                          | config      | no       | -                                                     |
+| common-options                  |             | no       | -                                                     |
 
 ### path [string]
 
 The source file path.
+
+### fs.s3a.endpoint [string] 
+fs s3a endpoint
+
+### fs.s3a.aws.credentials.provider [string]
+The way to authenticate s3a. We only support `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` and `com.amazonaws.auth.InstanceProfileCredentialsProvider` now.
+
+More information about the credential provider you can see [Hadoop AWS Document](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html#Simple_name.2Fsecret_credentials_with_SimpleAWSCredentialsProvider.2A)
 
 ### delimiter [string]
 
@@ -199,8 +215,8 @@ The access secret of s3 file system. If this parameter is not set, please confir
 If you need to add a other option, you could add it here and refer to this [hadoop-aws](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)
 ```
      hadoop_s3_properties {
-       "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
-      }
+           "xxx" = "xxx"
+        }
 ```
 
 ### schema [config]
@@ -219,13 +235,12 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
   S3File {
     path = "/seatunnel/text"
+    fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
+    fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
     access_key = "xxxxxxxxxxxxxxxxx"
     secret_key = "xxxxxxxxxxxxxxxxx"
     bucket = "s3a://seatunnel-test"
-    type = "text"
-    hadoop_s3_properties {
-       "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
-    }    
+    type = "orc"
   }
 
 ```
@@ -235,8 +250,8 @@ Source plugin common parameters, please refer to [Source Common Options](common-
   S3File {
     path = "/seatunnel/json"
     bucket = "s3a://seatunnel-test"
-    access_key = "xxxxxxxxxxxxxxxxx"
-    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
+    fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
     type = "json"
     schema {
       fields {
@@ -244,9 +259,6 @@ Source plugin common parameters, please refer to [Source Common Options](common-
         name = string
       }
     }
-    hadoop_s3_properties {
-       "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
-    }    
   }
 
 ```

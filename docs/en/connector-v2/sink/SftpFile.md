@@ -6,13 +6,20 @@
 
 Output data to Sftp .
 
+:::tip
+
+If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
+
+If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+
+:::
+
 ## Key features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
 By default, we use 2PC commit to ensure `exactly-once`
 
-- [ ] [schema projection](../../concept/connector-v2-features.md)
 - [x] file format
     - [x] text
     - [x] csv
@@ -22,25 +29,27 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ##  Options
 
-| name                             | type    | required | default value                                             |
-|----------------------------------|---------|----------|-----------------------------------------------------------|
-| host                             | string  | yes      | -                                                         |
-| port                             | int     | yes      | -                                                         |
-| username                         | string  | yes      | -                                                         |
-| password                         | string  | yes      | -                                                         |
-| path                             | string  | yes      | -                                                         |
-| file_name_expression             | string  | no       | "${transactionId}"                                        |
-| file_format                      | string  | no       | "text"                                                    |
-| filename_time_format             | string  | no       | "yyyy.MM.dd"                                              |
-| field_delimiter                  | string  | no       | '\001'                                                    |
-| row_delimiter                    | string  | no       | "\n"                                                      |
-| partition_by                     | array   | no       | -                                                         |
-| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"                |
-| is_partition_field_write_in_file | boolean | no       | false                                                     |
-| sink_columns                     | array   | no       | When this parameter is empty, all fields are sink columns |
-| is_enable_transaction            | boolean | no       | true                                                      |
-| batch_size                       | int     | no       | 1000000                                                   |
-| common-options                   |         | no       | -                                                         |
+| name                             | type    | required | default value                              | remarks                                                   |
+|----------------------------------|---------|----------|--------------------------------------------|-----------------------------------------------------------|
+| host                             | string  | yes      | -                                          |                                                           |
+| port                             | int     | yes      | -                                          |                                                           |
+| username                         | string  | yes      | -                                          |                                                           |
+| password                         | string  | yes      | -                                          |                                                           |
+| path                             | string  | yes      | -                                          |                                                           |
+| custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                      |
+| file_name_expression             | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                    |
+| filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                    |
+| file_format                      | string  | no       | "csv"                                      |                                                           |
+| field_delimiter                  | string  | no       | '\001'                                     | Only used when file_format is text                        |
+| row_delimiter                    | string  | no       | "\n"                                       | Only used when file_format is text                        |
+| have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                   |
+| partition_by                     | array   | no       | -                                          | Only used then have_partition is true                     |
+| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                     |
+| is_partition_field_write_in_file | boolean | no       | false                                      | Only used then have_partition is true                     |
+| sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns |
+| is_enable_transaction            | boolean | no       | true                                       |                                                           |
+| batch_size                       | int     | no       | 1000000                                    |                                                           |
+| common-options                   | object  | no       | -                                          |                                                           |
 
 ### host [string]
 
@@ -62,22 +71,21 @@ The target sftp password is required
 
 The target dir path is required.
 
+### custom_filename [boolean]
+Whether custom the filename
+
 ### file_name_expression [string]
+
+Only used when `custom_filename` is `true`
 
 `file_name_expression` describes the file expression which will be created into the `path`. We can add the variable `${now}` or `${uuid}` in the `file_name_expression`, like `test_${uuid}_${now}`,
 `${now}` represents the current time, and its format can be defined by specifying the option `filename_time_format`.
 
 Please note that, If `is_enable_transaction` is `true`, we will auto add `${transactionId}_` in the head of the file.
 
-### file_format [string]
-
-We supported as the following file types:
-
-`text` `json` `csv` `orc` `parquet`
-
-Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
-
 ### filename_time_format [string]
+
+Only used when `custom_filename` is `true`
 
 When the format in the `file_name_expression` parameter is `xxxx-${now}` , `filename_time_format` can specify the time format of the path, and the default value is `yyyy.MM.dd` . The commonly used time formats are listed as follows:
 
@@ -90,6 +98,13 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 | m      | Minute in hour     |
 | s      | Second in minute   |
 
+### file_format [string]
+
+We supported as the following file types:
+
+`text` `json` `csv` `orc` `parquet`
+
+Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
 
 ### field_delimiter [string]
 
@@ -97,19 +112,29 @@ The separator between columns in a row of data. Only needed by `text` file forma
 
 ### row_delimiter [string]
 
-The separator between rows in a file. Only needed by `text` and `csv` file format.
+The separator between rows in a file. Only needed by `text` file format.
+
+### have_partition [boolean]
+
+Whether you need processing partitions.
 
 ### partition_by [array]
 
-Partition data based on selected fields
+Only used when `have_partition` is `true`.
+
+Partition data based on selected fields.
 
 ### partition_dir_expression [string]
+
+Only used when `have_partition` is `true`.
 
 If the `partition_by` is specified, we will generate the corresponding partition directory based on the partition information, and the final file will be placed in the partition directory.
 
 Default `partition_dir_expression` is `${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/`. `k0` is the first partition field and `v0` is the value of the first partition field.
 
 ### is_partition_field_write_in_file [boolean]
+
+Only used when `have_partition` is `true`.
 
 If `is_partition_field_write_in_file` is `true`, the partition field and the value of it will be write into data file.
 
@@ -138,25 +163,27 @@ Sink plugin common parameters, please refer to [Sink Common Options](common-opti
 
 ## Example
 
-For text file format
+For text file format with `have_partition` and `custom_filename` and `sink_columns`
 
 ```bash
 
 SftpFile {
     host = "xxx.xxx.xxx.xxx"
-    port  =22
+    port = 22
     username = "username"
     password = "password"
     path = "/data/sftp"
+    file_format = "text"
     field_delimiter = "\t"
     row_delimiter = "\n"
+    have_partition = true
     partition_by = ["age"]
     partition_dir_expression = "${k0}=${v0}"
     is_partition_field_write_in_file = true
+    custom_filename = true
     file_name_expression = "${transactionId}_${now}"
-    file_format = "text"
-    sink_columns = ["name","age"]
     filename_time_format = "yyyy.MM.dd"
+    sink_columns = ["name","age"]
     is_enable_transaction = true
 }
 
