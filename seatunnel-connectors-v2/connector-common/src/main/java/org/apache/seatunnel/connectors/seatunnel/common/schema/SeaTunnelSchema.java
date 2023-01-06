@@ -103,7 +103,7 @@ public class SeaTunnelSchema implements Serializable {
         return new int[]{precision, scale};
     }
 
-    public static SeaTunnelDataType<?> parseTypeByString(String type) {
+    private static SeaTunnelDataType<?> parseTypeByString(String type) {
         // init precision (used by decimal type)
         int precision = 0;
         // init scale (used by decimal type)

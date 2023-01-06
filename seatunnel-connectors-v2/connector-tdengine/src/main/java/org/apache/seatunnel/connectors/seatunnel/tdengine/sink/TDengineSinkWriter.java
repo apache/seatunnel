@@ -80,13 +80,11 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         final Object[] metrics = ArrayUtils.subarray(element.getFields(), 1, element.getArity() - tagsNum);
 
         try (Statement statement = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
-            String sql = "INSERT INTO " + element.getField(0)
-                + " using " + config.getStable()
-                + " tags ( "
-                + tagValues
-                + " ) VALUES ("
-                + StringUtils.join(convertDataType(metrics), ",")
-                + ");";
+            String sql = String.format("INSERT INTO ? using ? tags ( ? ) VALUES ( ? );",
+                element.getField(0),
+                config.getStable(),
+                tagValues,
+                StringUtils.join(convertDataType(metrics), ","));
             final int rowCount = statement.executeUpdate(sql);
             if (rowCount == 0) {
                 Throwables.propagateIfPossible(new RuntimeException("insert error:" + element));
