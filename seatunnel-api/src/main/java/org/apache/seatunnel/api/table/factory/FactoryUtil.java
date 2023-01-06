@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.api.table.factory;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
@@ -27,6 +30,7 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.connector.TableSource;
 
 import lombok.NonNull;
@@ -192,11 +196,21 @@ public final class FactoryUtil {
             throw new FactoryException("sinkOptionRule can not be null");
         }
 
-        Class<? extends SeaTunnelSink> sinkClass = factory.getSinkClass();
-        if (sinkClass.isAssignableFrom(SupportDataSaveMode.class)) {
-            OptionRule sinkCommonOptionRule =
-                OptionRule.builder().required(SinkCommonOptions.DATA_SAVE_MODE).build();
-            sinkOptionRule.getOptionalOptions().addAll(sinkCommonOptionRule.getOptionalOptions());
+        try {
+            TableSink sink = factory.createSink(null);
+            if (SupportDataSaveMode.class.isAssignableFrom(sink.getClass())) {
+                SupportDataSaveMode supportDataSaveModeSink = (SupportDataSaveMode) sink;
+                Option<DataSaveMode> saveMode =
+                    Options.key(SinkCommonOptions.DATA_SAVE_MODE)
+                        .singleChoice(DataSaveMode.class, supportDataSaveModeSink.supportedDataSaveModeValues())
+                        .noDefaultValue()
+                        .withDescription("data save mode");
+                OptionRule sinkCommonOptionRule =
+                    OptionRule.builder().required(saveMode).build();
+                sinkOptionRule.getOptionalOptions().addAll(sinkCommonOptionRule.getOptionalOptions());
+            }
+        } catch (UnsupportedOperationException e) {
+            LOG.warn("Add save mode option need sink connector support create sink by TableSinkFactory");
         }
 
         return sinkOptionRule;

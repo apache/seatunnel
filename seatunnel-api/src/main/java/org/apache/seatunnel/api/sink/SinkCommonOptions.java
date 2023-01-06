@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.configuration.Options;
 
 public class SinkCommonOptions {
 
+    public static final String DATA_SAVE_MODE = "save_mode";
+
     public static final Option<String> SOURCE_TABLE_NAME =
         Options.key("source_table_name")
             .stringType()
@@ -37,10 +39,4 @@ public class SinkCommonOptions {
             .defaultValue(1)
             .withDescription("When parallelism is not specified, the parallelism in env is used by default. " +
                 "When parallelism is specified, it will override the parallelism in env.");
-
-    public static final Option<DataSaveMode> DATA_SAVE_MODE =
-        Options.key("save_mode")
-            .enumType(DataSaveMode.class)
-            .noDefaultValue()
-            .withDescription("The data save mode");
 }

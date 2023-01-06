@@ -101,4 +101,5 @@ public class SinkExecuteProcessor extends SparkAbstractPluginExecuteProcessor<Se
         // the sink is the last stream
         return null;
     }
+
 }
