@@ -27,12 +27,13 @@
         <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>seatunnel-engine-serializer</artifactId>
     <packaging>pom</packaging>
     <modules>
         <module>serializer-api</module>
         <module>serializer-protobuf</module>
     </modules>
-    <artifactId>seatunnel-engine-serializer</artifactId>
 
 
 </project>
