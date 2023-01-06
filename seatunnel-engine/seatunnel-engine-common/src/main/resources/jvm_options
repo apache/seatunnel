@@ -28,9 +28,19 @@
 ## -Xms represents the initial size of total heap space
 ## -Xmx represents the maximum size of total heap space
 
-# specify an alternative path for heap dumps
-# ensure the directory exists and has sufficient space
-#-XX:HeapDumpPath=/heap/dump/path
+## heap dumps
+
+# generate a heap dump when an allocation from the Java heap fails; heap dumps
+# are created in the working directory of the JVM unless an alternative path is
+# specified
+-XX:+HeapDumpOnOutOfMemoryError
+
+# specify an alternative path for heap dumps; ensure the directory exists and
+# has sufficient space
+# -XX:HeapDumpPath=<filepath>
+
+# specify an alternative path for JVM fatal error logs
+# -XX:HeapDumpPath=<filepath>
 
 ## JDK 8 GC logging
 8:-XX:+PrintGCDetails
