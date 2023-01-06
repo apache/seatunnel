@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.api.table.factory;
 
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.connector.TableSink;
 
 /**
@@ -39,6 +38,4 @@ public interface TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT
     default TableSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createSink(TableFactoryContext context) {
         throw new UnsupportedOperationException("unsupported now");
     }
-
-    Class<? extends SeaTunnelSink> getSinkClass();
 }

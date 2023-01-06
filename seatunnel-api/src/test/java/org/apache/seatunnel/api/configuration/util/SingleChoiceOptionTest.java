@@ -20,10 +20,10 @@ package org.apache.seatunnel.api.configuration.util;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
+import org.apache.seatunnel.api.sink.DataSaveMode;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import sun.tools.jconsole.AboutDialog;
 
 import java.util.Arrays;
 import java.util.List;
@@ -36,12 +36,23 @@ public class SingleChoiceOptionTest {
             Options.key("test_single_choice").singleChoice(String.class, Arrays.asList("A", "B", "C"))
                 .defaultValue("A");
 
-        OptionRule build = OptionRule.builder().optional(stringOption).build();
+        Option<DataSaveMode> saveModeOption =
+            Options.key("save_mode")
+                .singleChoice(DataSaveMode.class, Arrays.asList(DataSaveMode.DROP_SCHEMA, DataSaveMode.KEEP_SCHEMA_DROP_DATA))
+                .defaultValue(DataSaveMode.DROP_SCHEMA)
+                .withDescription("save mode test");
+
+        OptionRule build = OptionRule.builder().optional(stringOption, saveModeOption).build();
         List<Option<?>> optionalOptions = build.getOptionalOptions();
         Option<?> option = optionalOptions.get(0);
         Assertions.assertTrue(SingleChoiceOption.class.isAssignableFrom(option.getClass()));
         SingleChoiceOption singleChoiceOption = (SingleChoiceOption) option;
         Assertions.assertEquals(3, singleChoiceOption.getOptionValues().size());
         Assertions.assertEquals("A", singleChoiceOption.defaultValue());
+
+        option = optionalOptions.get(1);
+        singleChoiceOption = (SingleChoiceOption) option;
+        Assertions.assertEquals(2, singleChoiceOption.getOptionValues().size());
+        Assertions.assertEquals(DataSaveMode.DROP_SCHEMA, singleChoiceOption.defaultValue());
     }
 }

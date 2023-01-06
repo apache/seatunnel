@@ -38,8 +38,8 @@ public interface SupportDataSaveMode {
      * @return TableSaveMode TableSaveMode
      */
     default void checkOptions(Config config) {
-        if (config.hasPath(SinkCommonOptions.DATA_SAVE_MODE.key())) {
-            String tableSaveMode = config.getString(SinkCommonOptions.DATA_SAVE_MODE.key());
+        if (config.hasPath(SinkCommonOptions.DATA_SAVE_MODE)) {
+            String tableSaveMode = config.getString(SinkCommonOptions.DATA_SAVE_MODE);
             DataSaveMode dataSaveMode = DataSaveMode.valueOf(tableSaveMode.toUpperCase(Locale.ROOT));
             if (!supportedDataSaveModeValues().contains(dataSaveMode)) {
                 throw new SeaTunnelRuntimeException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -47,7 +47,7 @@ public interface SupportDataSaveMode {
             }
         } else {
             throw new SeaTunnelRuntimeException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                SinkCommonOptions.DATA_SAVE_MODE.key() + " must in config");
+                SinkCommonOptions.DATA_SAVE_MODE + " must in config");
         }
     }
 
