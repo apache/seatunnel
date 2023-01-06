@@ -77,7 +77,7 @@ SeaTunnel uses a grading system for connectors to help you understand what to ex
 | [Sentry](connector-v2/sink/Sentry.md)                       | Sink   | Alpha  | 2.2.0-beta      |
 | [SFtpFile](connector-v2/sink/SftpFile.md)                   | Sink   | Beta   | 2.3.0           |
 | [SFtpFile](connector-v2/source/SftpFile.md)                 | Source | Beta   | 2.3.0           |
-| [Slack](connector-v2/sink/slack.md)                         | Sink   | Beta   | 2.3.0           |
+| [Slack](connector-v2/sink/Slack.md)                         | Sink   | Beta   | 2.3.0           |
 | [Socket](connector-v2/sink/Socket.md)                       | Sink   | Beta   | 2.2.0-beta      |
 | [Socket](connector-v2/source/Socket.md)                     | Source | Beta   | 2.2.0-beta      |
 | [StarRocks](connector-v2/sink/StarRocks.md)                 | Sink   | Alpha  | 2.3.0           |
