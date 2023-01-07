@@ -23,17 +23,16 @@ import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeM
 
 import com.aliyun.odps.Column;
 import com.aliyun.odps.OdpsType;
+import com.aliyun.odps.TableSchema;
 import com.aliyun.odps.data.ArrayRecord;
 import com.aliyun.odps.data.Record;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.sql.SQLException;
-
 public class BasicTypeToOdpsTypeTest {
 
-    private static void testType(String fieldName, SeaTunnelDataType<?> seaTunnelDataType, OdpsType odpsType, Object object) throws SQLException {
+    private static void testType(String fieldName, SeaTunnelDataType<?> seaTunnelDataType, OdpsType odpsType, Object object) {
         SeaTunnelRowType typeInfo = new SeaTunnelRowType(new String[]{
             fieldName
         }, new SeaTunnelDataType<?>[]{
@@ -45,8 +44,13 @@ public class BasicTypeToOdpsTypeTest {
         });
         record.set(fieldName, object);
 
+        TableSchema tableSchema = new TableSchema();
+        for (Column column : record.getColumns()) {
+            tableSchema.addColumn(column);
+        }
+
         SeaTunnelRow seaTunnelRow = MaxcomputeTypeMapper.getSeaTunnelRowData(record, typeInfo);
-        Record tRecord = MaxcomputeTypeMapper.getMaxcomputeRowData(seaTunnelRow, typeInfo);
+        Record tRecord = MaxcomputeTypeMapper.getMaxcomputeRowData(seaTunnelRow, tableSchema);
 
         for (int i = 0; i < tRecord.getColumns().length; i++) {
             Assertions.assertEquals(record.get(i), tRecord.get(i));

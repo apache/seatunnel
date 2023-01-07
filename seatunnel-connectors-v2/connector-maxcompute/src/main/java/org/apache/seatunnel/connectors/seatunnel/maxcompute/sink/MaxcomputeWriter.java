@@ -22,7 +22,6 @@ import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.Maxcom
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.TABLE_NAME;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
@@ -43,22 +42,17 @@ import java.io.IOException;
 
 @Slf4j
 public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
-    private final SeaTunnelRowType seaTunnelRowType;
     private final RecordWriter recordWriter;
     private final TableTunnel.UploadSession session;
     private final TableSchema tableSchema;
 
-    private Config pluginConfig;
-
-    public MaxcomputeWriter(SeaTunnelRowType seaTunnelRowType, Config pluginConfig) {
-        this.seaTunnelRowType = seaTunnelRowType;
-        this.pluginConfig = pluginConfig;
+    public MaxcomputeWriter(Config pluginConfig) {
         try {
             Table table = MaxcomputeUtil.getTable(pluginConfig);
             this.tableSchema = table.getSchema();
             TableTunnel tunnel = MaxcomputeUtil.getTableTunnel(pluginConfig);
-            if (this.pluginConfig.hasPath(PARTITION_SPEC.key())) {
-                PartitionSpec partitionSpec = new PartitionSpec(this.pluginConfig.getString(PARTITION_SPEC.key()));
+            if (pluginConfig.hasPath(PARTITION_SPEC.key())) {
+                PartitionSpec partitionSpec = new PartitionSpec(pluginConfig.getString(PARTITION_SPEC.key()));
                 session = tunnel.createUploadSession(pluginConfig.getString(PROJECT.key()), pluginConfig.getString(TABLE_NAME.key()), partitionSpec);
             } else {
                 session = tunnel.createUploadSession(pluginConfig.getString(PROJECT.key()), pluginConfig.getString(TABLE_NAME.key()));
@@ -72,7 +66,7 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     @Override
     public void write(SeaTunnelRow seaTunnelRow) throws IOException {
-        Record record = MaxcomputeTypeMapper.getMaxcomputeRowData(seaTunnelRow, this.seaTunnelRowType);
+        Record record = MaxcomputeTypeMapper.getMaxcomputeRowData(seaTunnelRow, this.tableSchema);
         recordWriter.write(record);
     }
 

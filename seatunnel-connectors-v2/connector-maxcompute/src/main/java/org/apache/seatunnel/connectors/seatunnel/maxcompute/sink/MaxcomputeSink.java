@@ -62,6 +62,6 @@ public class MaxcomputeSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
-        return new MaxcomputeWriter(this.typeInfo, this.pluginConfig);
+        return new MaxcomputeWriter(this.pluginConfig);
     }
 }
