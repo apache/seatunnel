@@ -181,7 +181,6 @@
                 <include>com.aliyun.openservices:tablestore-jdbc:jar</include>
                 <include>com.teradata.jdbc:terajdbc4:jar</include>
                 <include>com.amazon.redshift:redshift-jdbc42:jar</include>
-                <include>com.taosdata.jdbc:taos-jdbcdriver:jar</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
             <outputDirectory>/plugins/jdbc/lib</outputDirectory>
