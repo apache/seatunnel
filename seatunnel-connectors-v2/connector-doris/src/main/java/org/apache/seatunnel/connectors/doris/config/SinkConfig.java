@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.doris.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.common.config.CheckConfigUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -70,11 +70,11 @@ public class SinkConfig {
             .noDefaultValue()
             .withDescription("The name of Doris table");
 
-    public static final Option<String> DORIS_SINK_CONFIG_PREFIX = Options.key("sink.properties.")
-            .stringType()
+    public static final Option<Map<String, String>> DORIS_CONFIG = Options.key("doris.config")
+            .mapType()
             .noDefaultValue()
             .withDescription("The parameter of the stream load data_desc. " +
-                    "The way to specify the parameter is to add the prefix `sink.properties.` to the original stream load parameter name ");
+                    "The way to specify the parameter is to add the original stream load parameter into map");
 
     public static final Option<Integer> BATCH_MAX_SIZE = Options.key("batch_max_rows")
             .intType()
@@ -178,11 +178,11 @@ public class SinkConfig {
     }
 
     private static void parseSinkStreamLoadProperties(Config pluginConfig, SinkConfig sinkConfig) {
-        Config dorisConfig = TypesafeConfigUtils.extractSubConfig(pluginConfig,
-                DORIS_SINK_CONFIG_PREFIX.key(), false);
-        dorisConfig.entrySet().forEach(entry -> {
-            final String configKey = entry.getKey().toLowerCase();
-            sinkConfig.streamLoadProps.put(configKey, entry.getValue().unwrapped().toString());
-        });
+        if (CheckConfigUtil.isValidParam(pluginConfig, DORIS_CONFIG.key())) {
+            pluginConfig.getObject(DORIS_CONFIG.key()).forEach((key, value) -> {
+                final String configKey = key.toLowerCase();
+                sinkConfig.streamLoadProps.put(configKey, value.unwrapped().toString());
+            });
+        }
     }
 }
