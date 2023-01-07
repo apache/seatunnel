@@ -8,8 +8,8 @@ Used to write data to TDengine. You need to create stable before running seatunn
 
 ## Key features
 
-- [x] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [cdc](../../concept/connector-v2-features.md)
 
 ## Options
 

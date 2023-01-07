@@ -68,13 +68,15 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
             Thread.sleep(THREAD_WAIT_TIME);
             return;
         }
-        sourceSplits.forEach(split -> {
-            try {
-                read(split, collector);
-            } catch (Exception e) {
-                throw new TDengineConnectorException(TDengineConnectorErrorCode.READER_FAILED, "TDengine split read error", e);
-            }
-        });
+        synchronized (collector.getCheckpointLock()) {
+            sourceSplits.forEach(split -> {
+                try {
+                    read(split, collector);
+                } catch (Exception e) {
+                    throw new TDengineConnectorException(TDengineConnectorErrorCode.READER_FAILED, "TDengine split read error", e);
+                }
+            });
+        }
 
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
