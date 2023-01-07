@@ -77,8 +77,13 @@ public class IoTDBSource implements SeaTunnelSource<SeaTunnelRow, IoTDBSourceSpl
                 );
             }
         }
-        SeaTunnelSchema seatunnelSchema = SeaTunnelSchema.buildWithConfig(pluginConfig);
-        this.typeInfo = seatunnelSchema.getSeaTunnelRowType();
+        if (pluginConfig.hasPath(SeaTunnelSchema.SCHEMA.key())) {
+            Config schemaConfig = pluginConfig.getConfig(SeaTunnelSchema.SCHEMA.key());
+            this.typeInfo = SeaTunnelSchema.buildWithConfig(schemaConfig).getSeaTunnelRowType();
+        } else {
+            SeaTunnelSchema seatunnelSchema = SeaTunnelSchema.buildWithConfig(pluginConfig);
+            this.typeInfo = seatunnelSchema.getSeaTunnelRowType();
+        }
         pluginConfig.entrySet().forEach(entry -> configParams.put(entry.getKey(), entry.getValue().unwrapped()));
     }
 
