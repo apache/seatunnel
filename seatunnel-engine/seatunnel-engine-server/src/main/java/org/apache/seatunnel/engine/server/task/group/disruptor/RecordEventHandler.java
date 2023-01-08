@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import com.lmax.disruptor.EventHandler;
@@ -31,12 +32,13 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
 
     private final Collector<Record<?>> collector;
 
-    protected Boolean prepareClose;
+    private final IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle;
 
-    public RecordEventHandler(SeaTunnelTask runningTask, Collector<Record<?>> collector) {
+    public RecordEventHandler(SeaTunnelTask runningTask, Collector<Record<?>> collector, IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle) {
         this.runningTask = runningTask;
         this.collector = collector;
-        prepareClose = false;
+        this.intermediateQueueFlowLifeCycle = intermediateQueueFlowLifeCycle;
+        this.intermediateQueueFlowLifeCycle.prepareClose = false;
     }
 
     @Override
@@ -49,10 +51,10 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
             CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
             runningTask.ack(barrier);
             if (barrier.prepareClose()) {
-                prepareClose = true;
+                this.intermediateQueueFlowLifeCycle.prepareClose = true;
             }
         } else {
-            if (prepareClose) {
+            if (this.intermediateQueueFlowLifeCycle.prepareClose) {
                 return;
             }
         }

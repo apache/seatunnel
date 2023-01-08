@@ -18,7 +18,9 @@
 package org.apache.seatunnel.engine.server.task.group.disruptor;
 
 import org.apache.seatunnel.api.table.type.Record;
-import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
+import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import com.lmax.disruptor.RingBuffer;
 
@@ -26,21 +28,32 @@ public class RecordEventProducer {
 
     public final RingBuffer<RecordEvent> ringBuffer;
 
-    public RecordEventProducer(RingBuffer<RecordEvent> ringBuffer) {
+    public final IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle;
+
+    public RecordEventProducer(RingBuffer<RecordEvent> ringBuffer, IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle) {
         this.ringBuffer = ringBuffer;
+        this.intermediateQueueFlowLifeCycle = intermediateQueueFlowLifeCycle;
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
     public void onData(Record<?> record) {
+
+        if (record.getData() instanceof Barrier) {
+            CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
+            intermediateQueueFlowLifeCycle.runningTask.ack(barrier);
+            if (barrier.prepareClose()) {
+                intermediateQueueFlowLifeCycle.prepareClose = true;
+            }
+        } else {
+            if (intermediateQueueFlowLifeCycle.prepareClose) {
+                return;
+            }
+        }
+
         long sequence = ringBuffer.next();
         try {
             RecordEvent recordEvent = ringBuffer.get(sequence);
             recordEvent.setRecord(record);
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException e) {
-                throw new SeaTunnelEngineException(e);
-            }
         } finally {
             ringBuffer.publish(sequence);
         }

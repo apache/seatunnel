@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.server.task.group.disruptor.RecordEventProduc
 import com.lmax.disruptor.RingBuffer;
 import com.lmax.disruptor.dsl.Disruptor;
 
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 public class IntermediateQueueFlowLifeCycle extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>>,
@@ -44,7 +45,7 @@ public class IntermediateQueueFlowLifeCycle extends AbstractFlowLifeCycle implem
     @Override
     public void received(Record<?> record) {
         RingBuffer<RecordEvent> ringBuffer = disruptor.getRingBuffer();
-        RecordEventProducer recordEventProducer = new RecordEventProducer(ringBuffer);
+        RecordEventProducer recordEventProducer = new RecordEventProducer(ringBuffer, this);
         recordEventProducer.onData(record);
     }
 
@@ -56,7 +57,13 @@ public class IntermediateQueueFlowLifeCycle extends AbstractFlowLifeCycle implem
 
     @Override
     public void setCollector(Collector<Record<?>> collector) {
-        disruptor.handleEventsWith(new RecordEventHandler(runningTask, collector));
+        disruptor.handleEventsWith(new RecordEventHandler(runningTask, collector, this));
         disruptor.start();
+    }
+
+    @Override
+    public void close() throws IOException {
+        disruptor.shutdown();
+        super.close();
     }
 }

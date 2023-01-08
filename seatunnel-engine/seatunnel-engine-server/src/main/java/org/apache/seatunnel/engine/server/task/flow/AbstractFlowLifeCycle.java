@@ -24,11 +24,11 @@ import java.util.concurrent.CompletableFuture;
 
 public class AbstractFlowLifeCycle implements FlowLifeCycle {
 
-    protected final SeaTunnelTask runningTask;
+    public final SeaTunnelTask runningTask;
 
     protected final CompletableFuture<Void> completableFuture;
 
-    protected Boolean prepareClose;
+    public Boolean prepareClose;
 
     public AbstractFlowLifeCycle(SeaTunnelTask runningTask,
                                  CompletableFuture<Void> completableFuture) {
