@@ -47,18 +47,20 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
     }
 
     private void handleRecord(Record<?> record, Collector<Record<?>> collector) throws Exception {
-        if (record.getData() instanceof Barrier) {
-            CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
-            runningTask.ack(barrier);
-            if (barrier.prepareClose()) {
-                this.intermediateQueueFlowLifeCycle.prepareClose = true;
+        if (record != null){
+            if (record.getData() instanceof Barrier) {
+                CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
+                runningTask.ack(barrier);
+                if (barrier.prepareClose()) {
+                    this.intermediateQueueFlowLifeCycle.prepareClose = true;
+                }
+            } else {
+                if (this.intermediateQueueFlowLifeCycle.prepareClose) {
+                    return;
+                }
             }
-        } else {
-            if (this.intermediateQueueFlowLifeCycle.prepareClose) {
-                return;
-            }
+            collector.collect(record);
         }
-        collector.collect(record);
     }
 
 }
