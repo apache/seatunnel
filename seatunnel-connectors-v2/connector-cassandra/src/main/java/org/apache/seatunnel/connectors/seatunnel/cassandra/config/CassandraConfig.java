@@ -79,7 +79,7 @@ public class CassandraConfig {
     public static final Option<String> BATCH_TYPE =
             Options.key("batch_type")
                     .stringType()
-                    .defaultValue("UNLOGGER")
+                    .defaultValue("UNLOGGED")
                     .withDescription("");
 
     public static final Option<Boolean> ASYNC_WRITE =

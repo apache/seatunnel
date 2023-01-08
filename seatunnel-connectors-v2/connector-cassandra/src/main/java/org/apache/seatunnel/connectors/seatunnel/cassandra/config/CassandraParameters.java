@@ -56,6 +56,8 @@ public class CassandraParameters  implements Serializable {
         }
         if (config.hasPath(CassandraConfig.DATACENTER.key())) {
             this.datacenter = config.getString(CassandraConfig.DATACENTER.key());
+        } else {
+            this.datacenter = CassandraConfig.DATACENTER.defaultValue();
         }
         if (config.hasPath(CassandraConfig.TABLE.key())) {
             this.table = config.getString(CassandraConfig.TABLE.key());
@@ -68,15 +70,23 @@ public class CassandraParameters  implements Serializable {
         }
         if (config.hasPath(CassandraConfig.CONSISTENCY_LEVEL.key())) {
             this.consistencyLevel = DefaultConsistencyLevel.valueOf(config.getString(CassandraConfig.CONSISTENCY_LEVEL.key()));
+        } else {
+            this.consistencyLevel = DefaultConsistencyLevel.valueOf(CassandraConfig.CONSISTENCY_LEVEL.defaultValue());
         }
         if (config.hasPath(CassandraConfig.BATCH_SIZE.key())) {
             this.batchSize = config.getInt(CassandraConfig.BATCH_SIZE.key());
+        } else {
+            this.batchSize = CassandraConfig.BATCH_SIZE.defaultValue();
         }
         if (config.hasPath(CassandraConfig.BATCH_TYPE.key())) {
             this.batchType = DefaultBatchType.valueOf(config.getString(CassandraConfig.BATCH_TYPE.key()));
+        } else {
+            this.batchType = DefaultBatchType.valueOf(CassandraConfig.BATCH_TYPE.defaultValue());
         }
         if (config.hasPath(CassandraConfig.ASYNC_WRITE.key())) {
             this.asyncWrite = config.getBoolean(CassandraConfig.ASYNC_WRITE.key());
+        } else {
+            this.asyncWrite = true;
         }
     }
 }

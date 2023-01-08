@@ -24,7 +24,7 @@ Write data to Apache Cassandra.
 | consistency_level | String   | No       | LOCAL_ONE     |
 | fields            | String   | No       | LOCAL_ONE     |
 | batch_size        | int      | No       | 5000          |
-| batch_type        | String   | No       | UNLOGGER      |
+| batch_type        | String   | No       | UNLOGGED      |
 | async_write       | boolean  | No       | true          |
 
 ### host [string]
