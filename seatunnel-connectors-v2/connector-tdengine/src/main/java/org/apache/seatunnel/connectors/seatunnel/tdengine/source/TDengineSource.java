@@ -25,6 +25,7 @@ import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengine
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.buildSourceConfig;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -36,8 +37,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.state.TDengineSourceState;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.typemapper.TDengineTypeMapper;
 
@@ -78,7 +79,7 @@ public class TDengineSource implements SeaTunnelSource<SeaTunnelRow, TDengineSou
     public void prepare(Config pluginConfig) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, URL, DATABASE, STABLE, USERNAME, PASSWORD);
         if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "TDengine connection require url/database/stable/username/password. All of these must not be empty.");
+            throw new TDengineConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED, "TDengine connection require url/database/stable/username/password. All of these must not be empty.");
         }
         tdengineSourceConfig = buildSourceConfig(pluginConfig);
 

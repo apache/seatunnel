@@ -21,8 +21,8 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorException;
 
 import com.google.common.collect.Sets;
@@ -73,7 +73,7 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
                 try {
                     read(split, collector);
                 } catch (Exception e) {
-                    throw new TDengineConnectorException(TDengineConnectorErrorCode.READER_FAILED, "TDengine split read error", e);
+                    throw new TDengineConnectorException(CommonErrorCode.READER_OPERATION_FAILED, "TDengine split read error", e);
                 }
             });
         }
@@ -97,7 +97,7 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
         try {
             conn = DriverManager.getConnection(jdbcUrl, connProps);
         } catch (SQLException e) {
-            throw new TDengineConnectorException(TDengineConnectorErrorCode.CONNECTION_FAILED, "get TDengine connection failed:" + jdbcUrl);
+            throw new TDengineConnectorException(CommonErrorCode.READER_OPERATION_FAILED, "get TDengine connection failed:" + jdbcUrl);
         }
     }
 
@@ -108,7 +108,7 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
                 conn.close();
             }
         } catch (SQLException e) {
-            throw new TDengineConnectorException(TDengineConnectorErrorCode.CONNECTION_FAILED, "TDengine reader connection close failed", e);
+            throw new TDengineConnectorException(CommonErrorCode.READER_OPERATION_FAILED, "TDengine reader connection close failed", e);
         }
     }
 

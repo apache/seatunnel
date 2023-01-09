@@ -19,10 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.tdengine.source;
 
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.source.SourceSplitEnumerator.Context;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.state.TDengineSourceState;
 
@@ -194,7 +193,7 @@ public class TDengineSourceSplitEnumerator implements SourceSplitEnumerator<TDen
                 conn.close();
             }
         } catch (SQLException e) {
-            throw new TDengineConnectorException(TDengineConnectorErrorCode.CONNECTION_FAILED, "TDengine split_enumerator connection close failed", e);
+            throw new TDengineConnectorException(CommonErrorCode.READER_OPERATION_FAILED, "TDengine split_enumerator connection close failed", e);
         }
     }
 
