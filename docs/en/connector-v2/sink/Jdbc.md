@@ -7,6 +7,14 @@
 Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
 semantics (using XA transaction guarantee).
 
+:::tip
+
+Warn: for license compliance, you have to provide database driver yourself, copy to `$SEATNUNNEL_HOME/plugins/jdbc/lib/` directory in order to make them work.
+
+e.g. If you use MySQL, should download and copy `mysql-connector-java-xxx.jar` to `$SEATNUNNEL_HOME/plugins/jdbc/lib/`
+
+:::
+
 ## Key features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
@@ -14,34 +22,34 @@ semantics (using XA transaction guarantee).
 Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
 support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
-- [ ] [schema projection](../../concept/connector-v2-features.md)
+- [x] [cdc](../../concept/connector-v2-features.md)
 
 ## Options
 
-| name                         | type    | required | default value |
-|------------------------------|---------|----------|---------------|
-| url                          | String  | Yes      | -             |
-| driver                       | String  | Yes      | -             |
-| user                         | String  | No       | -             |
-| password                     | String  | No       | -             |
-| query                        | String  | No       | -             |
-| table                        | String  | No       | -             |
-| primary_keys                 | Array   | No       | -             |
-| connection_check_timeout_sec | Int     | No       | 30            |
-| max_retries                  | Int     | No       | 3             |
-| batch_size                   | Int     | No       | 300           |
-| batch_interval_ms            | Int     | No       | 1000          |
-| is_exactly_once              | Boolean | No       | false         |
-| xa_data_source_class_name    | String  | No       | -             |
-| max_commit_attempts          | Int     | No       | 3             |
-| transaction_timeout_sec      | Int     | No       | -1            |
-| common-options               |         | no       | -             |
+| name                                      | type    | required | default value |
+|-------------------------------------------|---------|----------|---------------|
+| url                                       | String  | Yes      | -             |
+| driver                                    | String  | Yes      | -             |
+| user                                      | String  | No       | -             |
+| password                                  | String  | No       | -             |
+| query                                     | String  | No       | -             |
+| table                                     | String  | No       | -             |
+| primary_keys                              | Array   | No       | -             |
+| support_upsert_by_query_primary_key_exist | Boolean | No       | false         |
+| connection_check_timeout_sec              | Int     | No       | 30            |
+| max_retries                               | Int     | No       | 3             |
+| batch_size                                | Int     | No       | 1000          |
+| batch_interval_ms                         | Int     | No       | 1000          |
+| is_exactly_once                           | Boolean | No       | false         |
+| xa_data_source_class_name                 | String  | No       | -             |
+| max_commit_attempts                       | Int     | No       | 3             |
+| transaction_timeout_sec                   | Int     | No       | -1            |
+| auto_commit                               | Boolean | No       | true          |
+| common-options                            |         | no       | -             |
 
 ### driver [string]
 
-The jdbc class name used to connect to the remote data source, if you use MySQL the value is com.mysql.cj.jdbc.Driver.
-Warn: for license compliance, you have to provide any driver yourself like MySQL JDBC Driver, e.g. copy mysql-connector-java-xxx.jar to
-$SEATNUNNEL_HOME/lib for Standalone.
+The jdbc class name used to connect to the remote data source, if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.
 
 ### user [string]
 
@@ -68,6 +76,11 @@ This option is mutually exclusive with `query` and has a higher priority.
 ### primary_keys [array]
 
 This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.
+
+### support_upsert_by_query_primary_key_exist [boolean]
+
+Choose to use INSERT sql, UPDATE sql to process update events(INSERT, UPDATE_AFTER) based on query primary key exists. This configuration is only used when database unsupport upsert syntax.
+**Note**: that this method has low performance
 
 ### connection_check_timeout_sec [int]
 
@@ -106,6 +119,10 @@ The number of retries for transaction commit failures
 The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect
 exactly-once semantics
 
+### auto_commit [boolean]
+
+Automatic transaction commit is enabled by default
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
@@ -132,9 +149,10 @@ there are some reference value for params above.
 | GBase8a    | com.gbase.jdbc.Driver                        | jdbc:gbase://e2e_gbase8aDb:5258/test                               | /                                                  | https://www.gbase8.cn/wp-content/uploads/2020/10/gbase-connector-java-8.3.81.53-build55.5.7-bin_min_mix.jar |
 | StarRocks  | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
 | db2        | com.ibm.db2.jcc.DB2Driver                    | jdbc:db2://localhost:50000/testdb                                  | com.ibm.db2.jcc.DB2XADataSource                    | https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc/db2jcc4                                           |
+| saphana    | com.sap.db.jdbc.Driver                       | jdbc:sap://localhost:39015                                         | /                                                  | https://mvnrepository.com/artifact/com.sap.cloud.db.jdbc/ngdbc                                              |
 | Doris      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
 | teradata   | com.teradata.jdbc.TeraDriver                 | jdbc:teradata://localhost/DBS_PORT=1025,DATABASE=test              | /                                                  | https://mvnrepository.com/artifact/com.teradata.jdbc/terajdbc                                               |
-| Redshift   | com.amazon.redshift.jdbc42.Driver            | jdbc:redshift://localhost:5439/testdb                              | com.amazon.redshift.xa.RedshiftXADataSource                   | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                                           |
+| Redshift   | com.amazon.redshift.jdbc42.Driver            | jdbc:redshift://localhost:5439/testdb                              | com.amazon.redshift.xa.RedshiftXADataSource        | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                                      |
 
 ## Example
 
@@ -209,3 +227,4 @@ sink {
 - [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3378](https://github.com/apache/incubator-seatunnel/issues/3378))
 - [Feature] Support Doris JDBC Sink
 - [Feature] Support Redshift JDBC Sink([#3615](https://github.com/apache/incubator-seatunnel/pull/3615))
+- [Improve] Add config item enable upsert by query([#3708](https://github.com/apache/incubator-seatunnel/pull/3708))

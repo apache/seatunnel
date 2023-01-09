@@ -39,10 +39,15 @@
 
             <includes>
                 <include>README.md</include>
-                <include>bin/**</include>
                 <include>config/**</include>
                 <include>plugins/**</include>
             </includes>
+        </fileSet>
+        <!-- ============ Install Plugin Bin ============  -->
+        <fileSet>
+            <directory>../bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
         </fileSet>
         <!-- ============ Starter Bin ============  -->
         <!--connector starter v2-->
@@ -69,15 +74,6 @@
                 <include>*</include>
             </includes>
             <fileMode>0755</fileMode>
-        </fileSet>
-        <!--Engine Config File-->
-        <fileSet>
-            <directory>../seatunnel-engine/seatunnel-engine-common/src/main/resources</directory>
-            <includes>
-                <include>*.yaml</include>
-            </includes>
-            <outputDirectory>/config</outputDirectory>
-            <fileMode>0644</fileMode>
         </fileSet>
         <!--Licenses And NOTICE-->
         <fileSet>
@@ -153,7 +149,7 @@
             <scope>provided</scope>
         </dependencySet>
 
-        <!-- ============ SeaTunnel Transforms V2 Jars ============  -->
+        <!-- ============ SeaTunnel Transforms V2 Jars And SeaTunnel Hadoop3 Uber Jar============  -->
         <dependencySet>
             <useProjectArtifact>false</useProjectArtifact>
             <useTransitiveDependencies>true</useTransitiveDependencies>

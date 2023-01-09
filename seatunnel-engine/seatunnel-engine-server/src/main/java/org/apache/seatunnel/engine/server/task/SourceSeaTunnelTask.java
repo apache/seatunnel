@@ -52,7 +52,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
         if (!(startFlowLifeCycle instanceof SourceFlowLifeCycle)) {
             throw new TaskRuntimeException("SourceSeaTunnelTask only support SourceFlowLifeCycle, but get " + startFlowLifeCycle.getClass().getName());
         } else {
-            this.collector = new SeaTunnelSourceCollector<>(checkpointLock, outputs);
+            this.collector = new SeaTunnelSourceCollector<>(checkpointLock, outputs, this.getMetricsContext());
             ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).setCollector(collector);
         }
     }

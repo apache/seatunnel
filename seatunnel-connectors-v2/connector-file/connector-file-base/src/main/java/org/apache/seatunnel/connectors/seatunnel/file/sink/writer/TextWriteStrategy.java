@@ -24,16 +24,19 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
+import io.airlift.compress.lzo.LzopCodec;
 import lombok.NonNull;
 import org.apache.hadoop.fs.FSDataOutputStream;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public class TextWriteStrategy extends AbstractWriteStrategy {
@@ -45,8 +48,9 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     private final DateTimeUtils.Formatter dateTimeFormat;
     private final TimeUtils.Formatter timeFormat;
     private SerializationSchema serializationSchema;
+    private String compressCodec;
 
-    public TextWriteStrategy(TextFileSinkConfig textFileSinkConfig) {
+    public TextWriteStrategy(FileSinkConfig textFileSinkConfig) {
         super(textFileSinkConfig);
         this.beingWrittenOutputStream = new HashMap<>();
         this.isFirstWrite = new HashMap<>();
@@ -55,6 +59,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         this.dateFormat = textFileSinkConfig.getDateFormat();
         this.dateTimeFormat = textFileSinkConfig.getDatetimeFormat();
         this.timeFormat = textFileSinkConfig.getTimeFormat();
+        this.compressCodec = textFileSinkConfig.getCompressCodec();
     }
 
     @Override
@@ -99,7 +104,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
                 try {
                     value.close();
                 } catch (IOException e) {
-                    log.error("error when close output stream {}", key);
+                    log.error("error when close output stream {}", key, e);
                 }
             }
             needMoveFiles.put(key, getTargetLocation(key));
@@ -112,11 +117,24 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         FSDataOutputStream fsDataOutputStream = beingWrittenOutputStream.get(filePath);
         if (fsDataOutputStream == null) {
             try {
-                fsDataOutputStream = FileSystemUtils.getOutputStream(filePath);
+                if (compressCodec != null) {
+                    CompressFormat compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase(Locale.ROOT));
+                    switch (compressFormat) {
+                        case LZO:
+                            LzopCodec lzo = new LzopCodec();
+                            OutputStream out = lzo.createOutputStream(fileSystemUtils.getOutputStream(filePath));
+                            fsDataOutputStream = new FSDataOutputStream(out, null);
+                            break;
+                        default:
+                            fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                    }
+                } else {
+                    fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                }
+
                 beingWrittenOutputStream.put(filePath, fsDataOutputStream);
                 isFirstWrite.put(filePath, true);
             } catch (IOException e) {
-                log.error("can not get output file stream");
                 throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED,
                         String.format("Open file output stream [%s] failed", filePath), e);
             }

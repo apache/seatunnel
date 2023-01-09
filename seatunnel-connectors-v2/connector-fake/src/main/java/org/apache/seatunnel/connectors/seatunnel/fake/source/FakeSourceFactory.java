@@ -26,6 +26,7 @@ import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.S
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.STRING_LENGTH;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
@@ -43,5 +44,10 @@ public class FakeSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder().required(SeaTunnelSchema.SCHEMA).optional(ROW_NUM, SPLIT_NUM, SPLIT_READ_INTERVAL, MAP_SIZE,
             ARRAY_SIZE, BYTES_LENGTH, STRING_LENGTH).build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return FakeSource.class;
     }
 }

@@ -160,6 +160,12 @@ problems encountered by users.
 | HUDI-01 | Create ParquetMetadata failed | When the user encounters this error code, it indicates that ParquetMetadata creation failed. Please check |
 | HUDI-02 | Kerberos Authorized failed    | When the user encounters this error code, it indicates that Kerberos authorization failed. Please check   |
 
+## Doris Connector Error Codes
+
+| code     | description                               | solution                                                                                                                                 |
+|----------|-------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| Doris-01 | Writing records to Doris failed.          | When users encounter this error code, it means that writing records to Doris failed, please check data from files whether is correct     |
+
 ## Clickhouse Connector Error Codes
 
 | code          | description                                                               | solution                                                                                                                                                                |
@@ -170,7 +176,6 @@ problems encountered by users.
 | CLICKHOUSE-04 | Ssh operation failed, such as (login,connect,authentication,close) etc... | When users encounter this error code, it means that the ssh request failed, please check your network environment                                                       |
 | CLICKHOUSE-05 | Get cluster list from clickhouse failed                                   | When users encounter this error code, it means that the clickhouse cluster is not configured correctly, please check                                                    |
 | CLICKHOUSE-06 | Shard key not found in table                                              | When users encounter this error code, it means that the shard key of the distributed table is not configured, please check                                              |
-
 
 ## Jdbc Connector Error Codes
 
@@ -185,23 +190,30 @@ problems encountered by users.
 
 ## Pulsar Connector Error Codes
 
-| code         | description                                                  | solution                                                                                                                                                              |
-|--------------|--------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| PULSAR-01 | Open pulsar admin failed                                        | When users encounter this error code, it means that open pulsar admin failed, please check it                                        |
-| PULSAR-02 | Open pulsar client failed                                       | When users encounter this error code, it means that open pulsar client failed, please check it                                       |
-| PULSAR-03 | Pulsar authentication failed                                    | When users encounter this error code, it means that Pulsar Authentication failed, please check it                                    |
-| PULSAR-04 | Subscribe topic from pulsar failed                              | When users encounter this error code, it means that Subscribe topic from pulsar failed, please check it                              |
-| PULSAR-05 | Get last cursor of pulsar topic failed                          | When users encounter this error code, it means that get last cursor of pulsar topic failed, please check it                          |
-| PULSAR-06 | Get partition information of pulsar topic failed                | When users encounter this error code, it means that Get partition information of pulsar topic failed, please check it                |
+| code      | description                                      | solution                                                                                                              |
+|-----------|--------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| PULSAR-01 | Open pulsar admin failed                         | When users encounter this error code, it means that open pulsar admin failed, please check it                         |
+| PULSAR-02 | Open pulsar client failed                        | When users encounter this error code, it means that open pulsar client failed, please check it                        |
+| PULSAR-03 | Pulsar authentication failed                     | When users encounter this error code, it means that Pulsar Authentication failed, please check it                     |
+| PULSAR-04 | Subscribe topic from pulsar failed               | When users encounter this error code, it means that Subscribe topic from pulsar failed, please check it               |
+| PULSAR-05 | Get last cursor of pulsar topic failed           | When users encounter this error code, it means that get last cursor of pulsar topic failed, please check it           |
+| PULSAR-06 | Get partition information of pulsar topic failed | When users encounter this error code, it means that Get partition information of pulsar topic failed, please check it |
 
 ## StarRocks Connector Error Codes
 
 | code         | description                               | solution                                                                                                                                 |
 |--------------|-------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
 | STARROCKS-01 | Flush batch data to sink connector failed | When users encounter this error code, it means that flush batch data to sink connector failed, please check it                           |
-| STARROCKS-02 | Writing records to StarRocks failed.      | When users encounter this error code, it means that writing records to StarRocks failed, please check data from files whether is correct |
+| STARROCKS-02 | Writing records to StarRocks failed       | When users encounter this error code, it means that writing records to StarRocks failed, please check data from files whether is correct |
 | STARROCKS-03 | Close StarRocks BE reader failed.         | it means that StarRocks has some problems, please check it whether is work                                                               |
 | STARROCKS-04 | Create StarRocks BE reader failed.        | it means that StarRocks has some problems, please check it whether is work                                                               |
 | STARROCKS-05 | Scan data from StarRocks BE failed.       | When users encounter this error code, it means that scan data from StarRocks failed, please check it                                     |
 | STARROCKS-06 | Request query Plan failed.                | When users encounter this error code, it means that scan data from StarRocks failed, please check it                                     |
 | STARROCKS-07 | Read Arrow data failed.                   | When users encounter this error code, it means that that job has some problems, please check it whether is work well                     |
+
+## DingTalk Connector Error Codes
+
+| code        | description                             | solution                                                                                                             |
+|-------------|-----------------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| DINGTALK-01 | Send response to DinkTalk server failed | When users encounter this error code, it means that send response message to DinkTalk server failed, please check it |
+| DINGTALK-02 | Get sign from DinkTalk server failed    | When users encounter this error code, it means that get signature from DinkTalk server failed , please check it      |

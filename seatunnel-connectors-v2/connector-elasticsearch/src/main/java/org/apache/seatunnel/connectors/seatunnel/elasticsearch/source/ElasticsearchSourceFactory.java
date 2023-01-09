@@ -26,6 +26,7 @@ import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.Sou
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig.SOURCE;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
@@ -43,5 +44,10 @@ public class ElasticsearchSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder().required(HOSTS, INDEX).optional(USERNAME, PASSWORD, SCROLL_TIME, SCROLL_SIZE)
             .exclusive(SOURCE, SeaTunnelSchema.SCHEMA).build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return ElasticsearchSource.class;
     }
 }

@@ -116,9 +116,8 @@ public class StarRocksRowBatchReader {
 
     private void addValueToRow(int rowIndex, int colIndex, Object obj) {
         if (rowIndex > rowCountInOneBatch) {
-            String errMsg = "Get row offset: " + rowIndex + " larger than row size: " +
-                    rowCountInOneBatch;
-            throw new StarRocksConnectorException(StarRocksConnectorErrorCode.READER_ARROW_DATA_FAILED, errMsg);
+            throw new StarRocksConnectorException(StarRocksConnectorErrorCode.READER_ARROW_DATA_FAILED,
+                    String.format("Get row offset: %d larger than row size: %d", rowIndex, rowCountInOneBatch));
         }
         seaTunnelRowBatch.get(readRowCount + rowIndex).setField(colIndex, obj);
     }
@@ -251,8 +250,8 @@ public class StarRocksRowBatchReader {
                         }
                         break;
                     default:
-                        String errMsg = "Unsupported type " + seaTunnelDataTypes[col].getSqlType().name();
-                        throw new StarRocksConnectorException(StarRocksConnectorErrorCode.READER_ARROW_DATA_FAILED, errMsg);
+                        throw new StarRocksConnectorException(StarRocksConnectorErrorCode.READER_ARROW_DATA_FAILED,
+                                String.format("Unsupported type %s", seaTunnelDataTypes[col].getSqlType().name()));
                 }
             }
         } catch (Exception e) {
@@ -263,8 +262,8 @@ public class StarRocksRowBatchReader {
 
     public SeaTunnelRow next() {
         if (!hasNext()) {
-            String errMsg = "Get row offset:" + offsetInRowBatch + " larger than row size: " + readRowCount;
-            throw new StarRocksConnectorException(StarRocksConnectorErrorCode.READER_ARROW_DATA_FAILED, errMsg);
+            throw new StarRocksConnectorException(StarRocksConnectorErrorCode.READER_ARROW_DATA_FAILED,
+                    String.format("Get row offset: %d larger than row size: %d", offsetInRowBatch, readRowCount));
         }
         return seaTunnelRowBatch.get(offsetInRowBatch++);
     }

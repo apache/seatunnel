@@ -6,12 +6,20 @@
 
 Read external data source data through JDBC.
 
+:::tip
+
+Warn: for license compliance, you have to provide database driver yourself, copy to `$SEATNUNNEL_HOME/plugins/jdbc/lib/` directory in order to make them work.
+
+e.g. If you use MySQL, should download and copy `mysql-connector-java-xxx.jar` to `$SEATNUNNEL_HOME/plugins/jdbc/lib/`
+
+:::
+
 ## Key features
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [schema projection](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [column projection](../../concept/connector-v2-features.md)
 
 supports query SQL and can achieve projection effect.
 
@@ -38,9 +46,7 @@ supports query SQL and can achieve projection effect.
 
 ### driver [string]
 
-The jdbc class name used to connect to the remote data source, if you use MySQL the value is com.mysql.cj.jdbc.Driver.
-Warn: for license compliance, you have to provide MySQL JDBC driver yourself, e.g. copy mysql-connector-java-xxx.jar to
-$SEATNUNNEL_HOME/lib for Standalone.
+The jdbc class name used to connect to the remote data source, if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.
 
 ### user [string]
 
@@ -109,9 +115,10 @@ there are some reference value for params above.
 | starrocks  | com.mysql.cj.jdbc.Driver                            | jdbc:mysql://localhost:3306/test                                       | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
 | db2        | com.ibm.db2.jcc.DB2Driver                           | jdbc:db2://localhost:50000/testdb                                      | https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc/db2jcc4                                           |
 | tablestore | com.alicloud.openservices.tablestore.jdbc.OTSDriver | "jdbc:ots:http s://myinstance.cn-hangzhou.ots.aliyuncs.com/myinstance" | https://mvnrepository.com/artifact/com.aliyun.openservices/tablestore-jdbc                                  |
+| saphana    | com.sap.db.jdbc.Driver                       | jdbc:sap://localhost:39015                                         | https://mvnrepository.com/artifact/com.sap.cloud.db.jdbc/ngdbc                                              |
 | doris      | com.mysql.cj.jdbc.Driver                            | jdbc:mysql://localhost:3306/test                                       | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
 | teradata   | com.teradata.jdbc.TeraDriver                        | jdbc:teradata://localhost/DBS_PORT=1025,DATABASE=test                  | https://mvnrepository.com/artifact/com.teradata.jdbc/terajdbc                                               |
-| Redshift   | com.amazon.redshift.jdbc42.Driver                   | jdbc:redshift://localhost:5439/testdb                                  | com.amazon.redshift.xa.RedshiftXADataSource                   | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                                           |
+| Redshift   | com.amazon.redshift.jdbc42.Driver                   | jdbc:redshift://localhost:5439/testdb                                  | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                                      |
 
 ## Example
 

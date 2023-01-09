@@ -21,14 +21,15 @@ import static org.apache.seatunnel.connectors.seatunnel.config.DingTalkConfig.SE
 import static org.apache.seatunnel.connectors.seatunnel.config.DingTalkConfig.URL;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter.Context;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.exception.DingTalkConnectorException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -54,12 +55,12 @@ public class DingTalkSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         if (pluginConfig.getIsNull(URL.key())) {
-            throw new PrepareFailException(getPluginName(), PluginType.SINK,
-                String.format("Config must include column : %s", URL.key()));
+            throw new DingTalkConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("Config must include column : %s", URL.key()));
         }
         if (pluginConfig.getIsNull(SECRET.key())) {
-            throw new PrepareFailException(getPluginName(), PluginType.SINK,
-                String.format("Config must include column : %s", SECRET.key()));
+            throw new DingTalkConnectorException(SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format("Config must include column : %s", SECRET.key()));
         }
         this.pluginConfig = pluginConfig;
     }

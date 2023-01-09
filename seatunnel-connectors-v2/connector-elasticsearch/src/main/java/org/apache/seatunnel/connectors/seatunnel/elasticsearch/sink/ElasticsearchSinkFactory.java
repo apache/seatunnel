@@ -22,8 +22,10 @@ import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsC
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.USERNAME;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.INDEX;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.INDEX_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.KEY_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.MAX_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.MAX_RETRY_COUNT;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.PRIMARY_KEYS;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -40,7 +42,15 @@ public class ElasticsearchSinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(HOSTS, INDEX)
-            .optional(INDEX_TYPE, USERNAME, PASSWORD, MAX_RETRY_COUNT, MAX_BATCH_SIZE).build();
+        return OptionRule.builder()
+            .required(HOSTS, INDEX)
+            .optional(INDEX_TYPE,
+                PRIMARY_KEYS,
+                KEY_DELIMITER,
+                USERNAME,
+                PASSWORD,
+                MAX_RETRY_COUNT,
+                MAX_BATCH_SIZE)
+            .build();
     }
 }

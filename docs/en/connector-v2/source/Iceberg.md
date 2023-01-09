@@ -11,10 +11,9 @@ Source connector for Apache Iceberg. It can support batch and stream mode.
 - [x] [batch](../../concept/connector-v2-features.md)
 - [x] [stream](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [schema projection](../../concept/connector-v2-features.md)
+- [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
-
 - [x] data format
     - [x] parquet
     - [x] orc
@@ -140,7 +139,7 @@ source {
 }
 ```
 
-schema projection
+column projection
 
 ```hocon
 source {

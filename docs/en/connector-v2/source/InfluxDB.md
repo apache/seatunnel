@@ -11,7 +11,7 @@ Read external data source data through InfluxDB.
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [schema projection](../../concept/connector-v2-features.md)
+- [x] [column projection](../../concept/connector-v2-features.md)
 
 supports query SQL and can achieve projection effect.
 
@@ -117,14 +117,17 @@ the `partition_num` of the InfluxDB when you select
 > Tips: Ensure that `upper_bound` minus `lower_bound` is divided `bypartition_num`, otherwise the query results will overlap
 
 ### epoch [string]
+
 returned time precision
 - Optional values: H, m, s, MS, u, n
 - default value: n
 
 ### query_timeout_sec [int]
+
 the `query_timeout` of the InfluxDB when you select, in seconds
 
 ### connect_timeout_ms [long]
+
 the timeout for connecting to InfluxDB, in milliseconds
 
 ### common options

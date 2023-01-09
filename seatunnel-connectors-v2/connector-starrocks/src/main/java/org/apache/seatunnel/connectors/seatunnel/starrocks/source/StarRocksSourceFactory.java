@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.starrocks.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
@@ -39,5 +40,10 @@ public class StarRocksSourceFactory implements TableSourceFactory {
                     SourceConfig.SCAN_MEM_LIMIT, SourceConfig.SCAN_QUERY_TIMEOUT_SEC, SourceConfig.SCAN_KEEP_ALIVE_MIN,
                     SourceConfig.SCAN_BATCH_ROWS, SourceConfig.SCAN_CONNECT_TIMEOUT)
             .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return StarRocksSource.class;
     }
 }

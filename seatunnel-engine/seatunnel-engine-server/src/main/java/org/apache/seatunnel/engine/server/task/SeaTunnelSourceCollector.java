@@ -23,7 +23,7 @@ import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVE
 import org.apache.seatunnel.api.common.metrics.Unit;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.Record;
-import org.apache.seatunnel.engine.server.metrics.Metrics;
+import org.apache.seatunnel.engine.server.metrics.MetricsContext;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
 
 import java.io.IOException;
@@ -35,17 +35,20 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
 
     private final List<OneInputFlowLifeCycle<Record<?>>> outputs;
 
-    public SeaTunnelSourceCollector(Object checkpointLock, List<OneInputFlowLifeCycle<Record<?>>> outputs) {
+    private final MetricsContext metricsContext;
+
+    public SeaTunnelSourceCollector(Object checkpointLock, List<OneInputFlowLifeCycle<Record<?>>> outputs, MetricsContext metricsContext) {
         this.checkpointLock = checkpointLock;
         this.outputs = outputs;
+        this.metricsContext = metricsContext;
     }
 
     @Override
     public void collect(T row) {
         try {
             sendRecordToNext(new Record<>(row));
-            Metrics.qpsMetric(SOURCE_RECEIVED_QPS, Unit.COUNT).increment();
-            Metrics.metric(SOURCE_RECEIVED_COUNT, Unit.COUNT).increment();
+            metricsContext.threadSafeQpsMetric(SOURCE_RECEIVED_QPS, Unit.COUNT).increment();
+            metricsContext.threadSafeMetric(SOURCE_RECEIVED_COUNT, Unit.COUNT).increment();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

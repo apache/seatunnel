@@ -58,6 +58,9 @@ public class S3Conf extends HadoopConf {
         if (CheckConfigUtil.isValidParam(config, S3Config.S3_PROPERTIES.key())) {
             config.getObject(S3Config.S3_PROPERTIES.key()).forEach((key, value) -> s3Options.put(key, String.valueOf(value.unwrapped())));
         }
+
+        s3Options.put(S3Config.S3A_AWS_CREDENTIALS_PROVIDER.key(), config.getString(S3Config.S3A_AWS_CREDENTIALS_PROVIDER.key()));
+        s3Options.put(S3Config.FS_S3A_ENDPOINT.key(), config.getString(S3Config.FS_S3A_ENDPOINT.key()));
         hadoopConf.setExtraOptions(s3Options);
         return hadoopConf;
     }
@@ -72,6 +75,9 @@ public class S3Conf extends HadoopConf {
     }
 
     private static void putS3SK(Map<String, String> s3Options, Config config) {
+        if (!CheckConfigUtil.isValidParam(config, S3Config.S3_ACCESS_KEY.key()) && !CheckConfigUtil.isValidParam(config, S3Config.S3_SECRET_KEY.key())) {
+            return;
+        }
         String accessKey = config.getString(S3Config.S3_ACCESS_KEY.key());
         String secretKey = config.getString(S3Config.S3_SECRET_KEY.key());
         if (S3A_SCHEMA.equals(SCHEMA)) {
@@ -83,4 +89,5 @@ public class S3Conf extends HadoopConf {
         s3Options.put("fs.s3n.awsAccessKeyId", accessKey);
         s3Options.put("fs.s3n.awsSecretAccessKey", secretKey);
     }
+
 }

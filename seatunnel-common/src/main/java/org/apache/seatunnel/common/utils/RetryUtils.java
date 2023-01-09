@@ -74,7 +74,7 @@ public class RetryUtils {
         /**
          * An arbitrary absolute maximum practical retry time.
          */
-        public static final long MAX_RETRY_TIME_MS = TimeUnit.MINUTES.toMillis(1);
+        public static final long MAX_RETRY_TIME_MS = TimeUnit.SECONDS.toMillis(20);
 
         /**
          * The maximum retry time.
@@ -93,6 +93,8 @@ public class RetryUtils {
         // this is the exception condition, can add result condition in the future.
         private final RetryCondition<Exception> retryCondition;
 
+        private final boolean sleepTimeIncrease;
+
         /**
          * The interval between each retry
          */
@@ -104,10 +106,16 @@ public class RetryUtils {
 
         public RetryMaterial(int retryTimes, boolean shouldThrowException,
                              RetryCondition<Exception> retryCondition, long sleepTimeMillis) {
+            this(retryTimes, shouldThrowException, retryCondition, sleepTimeMillis, false);
+        }
+
+        public RetryMaterial(int retryTimes, boolean shouldThrowException,
+                             RetryCondition<Exception> retryCondition, long sleepTimeMillis, boolean sleepTimeIncrease) {
             this.retryTimes = retryTimes;
             this.shouldThrowException = shouldThrowException;
             this.retryCondition = retryCondition;
             this.sleepTimeMillis = sleepTimeMillis;
+            this.sleepTimeIncrease = sleepTimeIncrease;
         }
 
         public int getRetryTimes() {
@@ -129,6 +137,9 @@ public class RetryUtils {
         public long computeRetryWaitTimeMillis(int retryAttempts) {
             if (sleepTimeMillis < 0) {
                 return 0;
+            }
+            if (!sleepTimeIncrease) {
+                return sleepTimeMillis;
             }
             if (retryAttempts > MAX_RETRY_TIME) {
                 // This would overflow the exponential algorithm ...
