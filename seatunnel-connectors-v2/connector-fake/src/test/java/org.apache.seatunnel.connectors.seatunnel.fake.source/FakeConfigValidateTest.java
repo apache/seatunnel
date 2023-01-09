@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.fake;
+package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.api.configuration.CheckResult;
 import org.apache.seatunnel.api.configuration.util.OptionUtil;
-import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSourceFactory;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
