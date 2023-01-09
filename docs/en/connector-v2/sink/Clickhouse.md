@@ -29,7 +29,6 @@ Write data to Clickhouse can also be done using JDBC
 | table                                 | string  | yes      | -             |
 | username                              | string  | yes      | -             |
 | password                              | string  | yes      | -             |
-| fields                                | string  | yes      | -             |
 | clickhouse.config                     | map     | no       |               |
 | bulk_size                             | string  | no       | 20000         |
 | split_mode                            | string  | no       | false         |
@@ -58,10 +57,6 @@ The table name
 ### password [string]
 
 `ClickHouse` user password
-
-### fields [array]
-
-The data field that needs to be output to `ClickHouse` , if not configured, it will be automatically adapted according to the sink table `schema` .
 
 ### clickhouse.config [map]
 
@@ -188,4 +183,6 @@ sink {
 - [Improve] Clickhouse Sink support nest type and array type([3047](https://github.com/apache/incubator-seatunnel/pull/3047))
 - [Improve] Clickhouse Sink support geo type([3141](https://github.com/apache/incubator-seatunnel/pull/3141))
 - [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3653](https://github.com/apache/incubator-seatunnel/pull/3653))
+
+- [Improve] Remove Clickhouse Fields Config ([3826](https://github.com/apache/incubator-seatunnel/pull/3826))
 - [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)
