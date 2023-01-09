@@ -40,7 +40,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | delimiter                 | string  | no       | \001                |
 | parse_partition_from_path | boolean | no       | true                |
 | date_format               | string  | no       | yyyy-MM-dd          |
-| skip_header_row_number    | long    | no       | 1                   |
+| skip_header_row_number    | long    | no       | 0                   |
 | datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
 | time_format               | string  | no       | HH:mm:ss            |
 | schema                    | config  | no       | -                   |

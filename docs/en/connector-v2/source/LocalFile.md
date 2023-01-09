@@ -43,7 +43,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | date_format               | string  | no       | yyyy-MM-dd          |
 | datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
 | time_format               | string  | no       | HH:mm:ss            |
-| skip_header_row_number    | long    | no       | 1                   |
+| skip_header_row_number    | long    | no       | 0                   |
 | schema                    | config  | no       | -                   |
 | common-options            |         | no       | -                   |
 

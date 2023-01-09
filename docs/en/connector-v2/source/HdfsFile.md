@@ -45,6 +45,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | date_format               | string  | no       | yyyy-MM-dd          |
 | datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
 | time_format               | string  | no       | HH:mm:ss            |
+| skip_header_row_number    | long    | no       | 0                   |
 | schema                    | config  | no       | -                   |
 | common-options            |         | no       | -                   |
 
@@ -95,6 +96,16 @@ Time type format, used to tell connector how to convert string to time, supporte
 `HH:mm:ss` `HH:mm:ss.SSS`
 
 default `HH:mm:ss`
+
+### skip_header_row_number [long]
+
+Skip the first few lines, but only for the txt and csv.
+
+For example, set like following:
+
+`skip_header_row_number = 2`
+
+then Seatunnel will skip the first 2 lines from source files
 
 ### type [string]
 

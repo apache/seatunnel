@@ -47,7 +47,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | endpoint                  | string  | yes      | -                   |
 | delimiter                 | string  | no       | \001                |
 | parse_partition_from_path | boolean | no       | true                |
-| skip_header_row_number    | long    | no       | 1                   |
+| skip_header_row_number    | long    | no       | 0                   |
 | date_format               | string  | no       | yyyy-MM-dd          |
 | datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
 | time_format               | string  | no       | HH:mm:ss            |
