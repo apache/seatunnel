@@ -63,6 +63,7 @@ import java.util.stream.Collectors;
 public abstract class AbstractWriteStrategy implements WriteStrategy {
     protected final Logger log = LoggerFactory.getLogger(this.getClass());
     protected final FileSinkConfig fileSinkConfig;
+    protected final CompressFormat compressFormat;
     protected final List<Integer> sinkColumnsIndexInRow;
     protected String jobId;
     protected int subTaskIndex;
@@ -90,6 +91,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         this.fileSinkConfig = fileSinkConfig;
         this.sinkColumnsIndexInRow = fileSinkConfig.getSinkColumnsIndexInRow();
         this.batchSize = fileSinkConfig.getBatchSize();
+        this.compressFormat = fileSinkConfig.getCompressFormat();
     }
 
     /**
@@ -222,9 +224,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         String fileNameExpression = fileSinkConfig.getFileNameExpression();
         FileFormat fileFormat = fileSinkConfig.getFileFormat();
         String suffix = fileFormat.getSuffix();
-        if (CompressFormat.LZO.getCompressCodec().equals(fileSinkConfig.getCompressCodec())) {
-            suffix = "." + CompressFormat.LZO.getCompressCodec() + "." + suffix;
-        }
+        suffix = compressFormat.getCompressCodec() + suffix;
         if (StringUtils.isBlank(fileNameExpression)) {
             return transactionId + suffix;
         }

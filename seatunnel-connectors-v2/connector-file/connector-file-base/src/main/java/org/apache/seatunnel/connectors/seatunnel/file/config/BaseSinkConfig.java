@@ -37,9 +37,9 @@ public class BaseSinkConfig {
     public static final String DEFAULT_FILE_NAME_EXPRESSION = "${transactionId}";
     public static final int DEFAULT_BATCH_SIZE = 1000000;
 
-    public static final Option<String> COMPRESS_CODEC = Options.key("compress_codec")
-            .stringType()
-            .noDefaultValue()
+    public static final Option<CompressFormat> COMPRESS_CODEC = Options.key("compress_codec")
+            .enumType(CompressFormat.class)
+            .defaultValue(CompressFormat.NONE)
             .withDescription("Compression codec");
 
     public static final Option<DateUtils.Formatter> DATE_FORMAT = Options.key("date_format")
