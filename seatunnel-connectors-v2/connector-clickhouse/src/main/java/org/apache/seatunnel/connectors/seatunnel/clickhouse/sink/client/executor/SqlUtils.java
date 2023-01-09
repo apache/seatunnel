@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 
 public class SqlUtils {
     public static String quoteIdentifier(String identifier) {
-        return "" + identifier + "";
+        return "\"" + identifier + "\"";
     }
 
     public static String getInsertIntoStatement(String tableName,
