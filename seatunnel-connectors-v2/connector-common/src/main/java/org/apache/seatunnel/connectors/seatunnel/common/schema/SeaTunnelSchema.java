@@ -45,7 +45,10 @@ import java.util.Map;
 
 public class SeaTunnelSchema implements Serializable {
 
-    public static final Option<Schema> SCHEMA = Options.key("schema").objectType(Schema.class).noDefaultValue().withDescription("SeaTunnel Schema");
+    public static final Option<Map<String, String>> SCHEMA = Options.key("schema")
+            .mapType()
+            .noDefaultValue()
+            .withDescription("SeaTunnel Schema");
     private static final String FIELD_KEY = "fields";
     private static final String SIMPLE_SCHEMA_FILED = "content";
     private final SeaTunnelRowType seaTunnelRowType;
