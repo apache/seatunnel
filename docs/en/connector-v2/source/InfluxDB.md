@@ -61,8 +61,8 @@ e.g.
 ```
 schema {
     fields {
-      name = string
-      age = int
+        name = string
+        age = int
     }
   }
 ```
@@ -148,12 +148,12 @@ source {
         lower_bound = 1
         partition_num = 4
         split_column = "value"
-        schema{
-           fields {
-               label = STRING
-               value = INT
-               rt = STRING
-               time = BIGINT
+        schema {
+            fields {
+                label = STRING
+                value = INT
+                rt = STRING
+                time = BIGINT
             }
     }
 
@@ -168,12 +168,12 @@ source {
         url = "http://influxdb-host:8086"
         sql = "select label, value, rt, time from test"
         database = "test"
-        schema{
-           fields {
-               label = STRING
-               value = INT
-               rt = STRING
-               time = BIGINT
+        schema {
+            fields {
+                label = STRING
+                value = INT
+                rt = STRING
+                time = BIGINT
             }
     }
 
