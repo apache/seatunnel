@@ -15,31 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
+package org.apache.seatunnel.transform;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.ShardMetadata;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
+public class FilterRowKindTransformFactoryTest {
 
-import java.io.Serializable;
-import java.util.Map;
-import java.util.Properties;
-
-@Builder
-@Getter
-public class ReaderOption implements Serializable {
-
-    private ShardMetadata shardMetadata;
-    private String[] primaryKeys;
-    private boolean allowExperimentalLightweightDelete;
-    private boolean supportUpsert;
-    private String tableEngine;
-    private Map<String, String> tableSchema;
-    @Setter
-    private SeaTunnelRowType seaTunnelRowType;
-    private Properties properties;
-    private int bulkSize;
+    @Test
+    public void testOptionRule() throws Exception {
+        FilterRowKindTransformFactory filterRowKindTransformFactory = new FilterRowKindTransformFactory();
+        Assertions.assertNotNull(filterRowKindTransformFactory.optionRule());
+    }
 }

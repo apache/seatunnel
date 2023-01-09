@@ -1,4 +1,4 @@
-# OssFile
+# OssJindoFile
 
 > OssJindo file source connector
 

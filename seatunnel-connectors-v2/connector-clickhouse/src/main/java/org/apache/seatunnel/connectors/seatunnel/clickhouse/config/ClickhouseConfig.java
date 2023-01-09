@@ -33,12 +33,6 @@ public class ClickhouseConfig {
     public static final Option<Integer> BULK_SIZE = Options.key("bulk_size").intType()
         .defaultValue(20000).withDescription("Bulk size of clickhouse jdbc");
 
-    /**
-     * Clickhouse fields
-     */
-    public static final Option<String> FIELDS = Options.key("fields").stringType()
-        .noDefaultValue().withDescription("Clickhouse fields");
-
     public static final Option<String> SQL = Options.key("sql").stringType()
         .noDefaultValue().withDescription("Clickhouse sql used to query data");
 
