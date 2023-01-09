@@ -48,6 +48,7 @@ import com.hazelcast.logging.Logger;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -200,7 +201,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         }
         List<SplitT> splits = actionStateList.stream()
             .map(ActionSubtaskState::getState)
-            .flatMap(Collection::stream)
+            .flatMap(Collection::stream).filter(Objects::nonNull)
             .map(bytes -> sneaky(() -> splitSerializer.deserialize(bytes)))
             .collect(Collectors.toList());
         try {
