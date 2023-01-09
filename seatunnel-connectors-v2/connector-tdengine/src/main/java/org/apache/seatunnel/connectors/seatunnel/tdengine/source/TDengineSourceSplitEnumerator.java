@@ -45,18 +45,18 @@ import java.util.stream.Collectors;
 
 public class TDengineSourceSplitEnumerator implements SourceSplitEnumerator<TDengineSourceSplit, TDengineSourceState> {
 
-    private final Context<TDengineSourceSplit> context;
+    private final SourceSplitEnumerator.Context<TDengineSourceSplit> context;
     private final TDengineSourceConfig config;
     private Set<TDengineSourceSplit> pendingSplit = new HashSet<>();
     private Set<TDengineSourceSplit> assignedSplit = new HashSet<>();
     private Connection conn;
     private SeaTunnelRowType seaTunnelRowType;
 
-    public TDengineSourceSplitEnumerator(SeaTunnelRowType seaTunnelRowType, TDengineSourceConfig config, Context<TDengineSourceSplit> context) {
+    public TDengineSourceSplitEnumerator(SeaTunnelRowType seaTunnelRowType, TDengineSourceConfig config, SourceSplitEnumerator.Context<TDengineSourceSplit> context) {
         this(seaTunnelRowType, config, null, context);
     }
 
-    public TDengineSourceSplitEnumerator(SeaTunnelRowType seaTunnelRowType, TDengineSourceConfig config, TDengineSourceState sourceState, Context<TDengineSourceSplit> context) {
+    public TDengineSourceSplitEnumerator(SeaTunnelRowType seaTunnelRowType, TDengineSourceConfig config, TDengineSourceState sourceState, SourceSplitEnumerator.Context<TDengineSourceSplit> context) {
         this.config = config;
         this.context = context;
         this.seaTunnelRowType = seaTunnelRowType;
