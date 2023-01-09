@@ -135,7 +135,6 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
                     .setRowType(option.getSeaTunnelRowType())
                     .setPrimaryKeys(option.getPrimaryKeys())
                     .setClickhouseTableSchema(option.getTableSchema())
-                    .setProjectionFields(option.getFields().toArray(new String[0]))
                     .setAllowExperimentalLightweightDelete(option.isAllowExperimentalLightweightDelete())
                     .setSupportUpsert(option.isSupportUpsert())
                     .build();
