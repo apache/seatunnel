@@ -212,3 +212,9 @@ problems encountered by users.
 |-------------|-----------------------------------------|----------------------------------------------------------------------------------------------------------------------|
 | DINGTALK-01 | Send response to DinkTalk server failed | When users encounter this error code, it means that send response message to DinkTalk server failed, please check it |
 | DINGTALK-02 | Get sign from DinkTalk server failed    | When users encounter this error code, it means that get signature from DinkTalk server failed , please check it      |
+
+## Email Connector Error Codes
+
+| code        | description       | solution                                                                                                                                                            |
+|-------------|-------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| EMAIL-01    | Send email failed | When users encounter this error code, it means that send email to target server failed, please adjust the network environment according to the abnormal information |
