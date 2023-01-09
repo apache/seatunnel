@@ -103,7 +103,8 @@ public class ConfigUtil {
 
     @SuppressWarnings("unchecked")
     public static <T> T convertValue(Object rawValue, TypeReference<T> typeReference) {
-        rawValue = flatteningMapWithObject(rawValue);
+        // temporary remove this logic, because it can change the structure of the map
+        // rawValue = flatteningMapWithObject(rawValue);
         if (typeReference.getType() instanceof Class) {
             // simple type
             Class<T> clazz = (Class<T>) typeReference.getType();
