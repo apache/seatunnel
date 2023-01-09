@@ -36,8 +36,8 @@ public class ConfigBuilder {
 
     private static final ConfigRenderOptions CONFIG_RENDER_OPTIONS = ConfigRenderOptions.concise().setFormatted(true);
 
-    public ConfigBuilder() {
-        throw new UnsupportedOperationException("ConfigBuilder is a utility class and cannot be instantiated");
+    private ConfigBuilder() {
+        // utility class and cannot be instantiated
     }
 
     public static Config of(@NonNull String filePath) {
