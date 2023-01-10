@@ -199,7 +199,7 @@ public class JsonRowDataSerDeSchemaTest {
                 new String[] {
                     "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"metrics\":{\"k1\":10.01,\"k2\":\"invalid\"}}",
                     "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"ops\":{\"id\":\"281708d0-4092-4c21-9233-931950b6eccf\"},"
-                            + "\"ids\":[1, 2, 3]}",
+                            + "\"ids\":[1,2,3]}",
                     "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"metrics\":{}}",
                 };
 
@@ -207,7 +207,7 @@ public class JsonRowDataSerDeSchemaTest {
                 new String[] {
                     "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"ops\":null,\"ids\":null,\"metrics\":{\"k1\":10.01,\"k2\":null}}",
                     "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"ops\":{\"id\":\"281708d0-4092-4c21-9233-931950b6eccf\"},"
-                            + "\"ids\":[1, 2, 3], \"metrics\":null}",
+                            + "\"ids\":[1,2,3], \"metrics\":null}",
                     "{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"ops\":null,\"ids\":null,\"metrics\":{}}",
                 };
 
