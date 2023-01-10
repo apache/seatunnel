@@ -299,4 +299,8 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         MessageType seaTunnelRow = Types.buildMessage().addFields(types.toArray(new Type[0])).named("SeaTunnelRecord");
         return schemaConverter.convert(seaTunnelRow);
     }
+
+    @Override
+    public void close() {
+    }
 }

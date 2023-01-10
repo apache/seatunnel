@@ -103,4 +103,16 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
         }
         return fsDataOutputStream;
     }
+
+    @Override
+    public void close() {
+        try {
+            for (String filePath : beingWrittenOutputStream.keySet()){
+                fileSystemUtils.deleteFile(filePath);
+                log.info("delete no commit file:{}", filePath);
+            }
+        } catch (Exception e){
+            log.error("delete no commit file failed", e);
+        }
+    }
 }

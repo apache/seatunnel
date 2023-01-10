@@ -129,5 +129,6 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
 
     @Override
     public void close() throws IOException {
+        writeStrategy.close();
     }
 }

@@ -100,4 +100,9 @@ public interface WriteStrategy extends Transaction, Serializable {
      * @param fileSystemUtils fileSystemUtils
      */
     void setFileSystemUtils(FileSystemUtils fileSystemUtils);
+
+    /**
+     * Close this resource
+     */
+    void close();
 }

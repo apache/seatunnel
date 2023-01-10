@@ -359,4 +359,8 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
+
+    @Override
+    public void close() {
+    }
 }
