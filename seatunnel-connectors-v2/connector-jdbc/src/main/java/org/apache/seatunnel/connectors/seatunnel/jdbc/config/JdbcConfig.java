@@ -26,6 +26,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import java.io.Serializable;
 import java.util.List;
 
+@SuppressWarnings("checkstyle:MagicNumber")
 public class JdbcConfig implements Serializable {
     private static final int DEFAULT_CONNECTION_CHECK_TIMEOUT_SEC = 30;
     private static final boolean DEFAULT_AUTO_COMMIT = true;
@@ -46,22 +47,20 @@ public class JdbcConfig implements Serializable {
 
     public static final Option<Boolean> AUTO_COMMIT = Options.key("auto_commit").booleanType().defaultValue(DEFAULT_AUTO_COMMIT).withDescription("auto commit");
 
-    public static final Option<Integer> BATCH_SIZE = Options.key("batch_size").intType().noDefaultValue().withDescription("batch size");
+    public static final Option<Integer> BATCH_SIZE = Options.key("batch_size").intType().defaultValue(1000).withDescription("batch size");
 
     public static final Option<Integer> FETCH_SIZE = Options.key("fetch_size").intType().defaultValue(0).withDescription("For queries that return a large number of objects, " +
         "you can configure the row fetch size used in the query to improve performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default value.");
 
-    public static final Option<Integer> BATCH_INTERVAL_MS = Options.key("batch_interval_ms").intType().noDefaultValue().withDescription("batch interval milliSecond");
-
+    public static final Option<Integer> BATCH_INTERVAL_MS = Options.key("batch_interval_ms").intType().defaultValue(1000).withDescription("batch interval milliSecond");
 
     public static final Option<Boolean> IS_EXACTLY_ONCE = Options.key("is_exactly_once").booleanType().defaultValue(true).withDescription("exactly once");
 
     public static final Option<String> XA_DATA_SOURCE_CLASS_NAME = Options.key("xa_data_source_class_name").stringType().noDefaultValue().withDescription("data source class name");
 
+    public static final Option<Integer> MAX_COMMIT_ATTEMPTS = Options.key("max_commit_attempts").intType().defaultValue(3).withDescription("max commit attempts");
 
-    public static final Option<String> MAX_COMMIT_ATTEMPTS = Options.key("max_commit_attempts").stringType().noDefaultValue().withDescription("max commit attempts");
-
-    public static final Option<String> TRANSACTION_TIMEOUT_SEC = Options.key("transaction_timeout_sec").stringType().noDefaultValue().withDescription("transaction timeout (second)");
+    public static final Option<Integer> TRANSACTION_TIMEOUT_SEC = Options.key("transaction_timeout_sec").intType().defaultValue(-1).withDescription("transaction timeout (second)");
 
     public static final Option<String> TABLE = Options.key("table").stringType().noDefaultValue().withDescription("table");
 

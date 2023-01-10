@@ -135,7 +135,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
                 return null;
             }
             throw new SeaTunnelJsonFormatException(CommonErrorCode.JSON_OPERATION_FAILED,
-                    String.format("Failed to deserialize JSON '%s'.", jsonNode.asText()), t);
+                    String.format("Failed to deserialize JSON '%s'.", jsonNode), t);
         }
     }
 

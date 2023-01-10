@@ -139,7 +139,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     private boolean shouldEmit(SourceRecord sourceRecord) {
         if (taskContext.isDataChangeRecord(sourceRecord)) {
             Offset position = taskContext.getStreamOffset(sourceRecord);
-            return position.isAtOrAfter(splitStartWatermark);
+            return position.isAfter(splitStartWatermark);
             // TODO only the table who captured snapshot splits need to filter( Used to support Exactly-Once )
         }
         return true;

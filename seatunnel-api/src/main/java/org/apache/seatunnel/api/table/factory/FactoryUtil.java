@@ -171,7 +171,7 @@ public final class FactoryUtil {
         }
 
         Class<? extends SeaTunnelSource> sourceClass = factory.getSourceClass();
-        if (sourceClass.isAssignableFrom(SupportParallelism.class)) {
+        if (SupportParallelism.class.isAssignableFrom(sourceClass)) {
             OptionRule sourceCommonOptionRule =
                 OptionRule.builder().optional(SourceCommonOptions.PARALLELISM).build();
             sourceOptionRule.getOptionalOptions().addAll(sourceCommonOptionRule.getOptionalOptions());
