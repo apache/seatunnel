@@ -153,13 +153,6 @@ problems encountered by users.
 | FILE-02 | Data deserialization failed | When users encounter this error code, it means that data from files not satisfied the schema that user assigned, please check data from files whether is correct |
 | FILE-03 | Get file list failed        | When users encounter this error code, it means that connector try to traverse the path and get file list failed, please check file system whether is work        |
 
-## Hudi Connector Error Codes
-
-| code    | description                   | solution                                                                                                  |
-|---------|-------------------------------|-----------------------------------------------------------------------------------------------------------|
-| HUDI-01 | Create ParquetMetadata failed | When the user encounters this error code, it indicates that ParquetMetadata creation failed. Please check |
-| HUDI-02 | Kerberos Authorized failed    | When the user encounters this error code, it indicates that Kerberos authorization failed. Please check   |
-
 ## Doris Connector Error Codes
 
 | code     | description                               | solution                                                                                                                                 |
