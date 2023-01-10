@@ -250,8 +250,8 @@ public class MaxcomputeTypeMapper implements Serializable {
                     case DOUBLE:
                         return origArray.toArray(new Double[0]);
                     default:
-                        String errorMsg = String.format("SeaTunnel array type not support this type [%s] now", fieldType.getSqlType());
-                        throw new MaxcomputeConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "SeaTunnel not support this data type now");
+                        String errorMsg = String.format("SeaTunnel Maxcompute array type not support this type [%s] now", fieldType.getSqlType());
+                        throw new MaxcomputeConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
                 }
             case MAP:
                 HashMap<Object, Object> dataMap = new HashMap<>();
