@@ -101,9 +101,12 @@ public class PipelineBaseScheduler implements JobScheduler {
                 deployPipeline(pipeline, slotProfiles);
             }, jobMaster.getExecutorService());
         } catch (Exception e) {
-            log.error(String.format("scheduler pipeline [%s] failed and to cancel pipeline! And exception: %s", pipeline.getPipelineId(), ExceptionUtils.getMessage(e)));
             pipeline.cancelPipeline();
-            return null;
+            CompletableFuture<Void> future = new CompletableFuture<>();
+            future.exceptionally(throwable -> {
+                throw e;
+            });
+            return future;
         }
     }
 
