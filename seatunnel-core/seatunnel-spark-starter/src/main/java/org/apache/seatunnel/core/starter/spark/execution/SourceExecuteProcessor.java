@@ -25,7 +25,6 @@ import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
-import org.apache.seatunnel.spark.SparkEnvironment;
 import org.apache.seatunnel.translation.spark.common.utils.TypeConverterUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -41,11 +40,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunnelSource<?, ?, ?>> {
-
+public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<SeaTunnelSource<?, ?, ?>> {
     private static final String PLUGIN_TYPE = "source";
 
-    public SourceExecuteProcessor(SparkEnvironment sparkEnvironment,
+    public SourceExecuteProcessor(SparkRuntimeEnvironment sparkEnvironment,
                                   JobContext jobContext,
                                   List<? extends Config> sourceConfigs) {
         super(sparkEnvironment, jobContext, sourceConfigs);
@@ -61,9 +59,10 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
             if (pluginConfig.hasPath(SourceCommonOptions.PARALLELISM.key())) {
                 parallelism = pluginConfig.getInt(SourceCommonOptions.PARALLELISM.key());
             } else {
-                parallelism = sparkEnvironment.getSparkConf().getInt(EnvCommonOptions.PARALLELISM.key(), EnvCommonOptions.PARALLELISM.defaultValue());
+                parallelism = sparkRuntimeEnvironment.getSparkConf()
+                        .getInt(EnvCommonOptions.PARALLELISM.key(), EnvCommonOptions.PARALLELISM.defaultValue());
             }
-            Dataset<Row> dataset = sparkEnvironment.getSparkSession()
+            Dataset<Row> dataset = sparkRuntimeEnvironment.getSparkSession()
                 .read()
                 .format(SeaTunnelSource.class.getSimpleName())
                 .option(SourceCommonOptions.PARALLELISM.key(), parallelism)
@@ -89,7 +88,7 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
             seaTunnelSource.setJobContext(jobContext);
             sources.add(seaTunnelSource);
         }
-        sparkEnvironment.registerPlugin(new ArrayList<>(jars));
+        sparkRuntimeEnvironment.registerPlugin(new ArrayList<>(jars));
         return sources;
     }
 }
