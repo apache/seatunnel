@@ -144,6 +144,6 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
 
     @Override
     public void close() {
-        deleteTmpFileWithNoCheckPoint(beingWrittenOutputStream.keySet());
+        deleteUnCommittedFiles(beingWrittenOutputStream.keySet());
     }
 }

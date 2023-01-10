@@ -106,6 +106,6 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
 
     @Override
     public void close() {
-        deleteTmpFileWithNoCheckPoint(beingWrittenOutputStream.keySet());
+        deleteUnCommittedFiles(beingWrittenOutputStream.keySet());
     }
 }

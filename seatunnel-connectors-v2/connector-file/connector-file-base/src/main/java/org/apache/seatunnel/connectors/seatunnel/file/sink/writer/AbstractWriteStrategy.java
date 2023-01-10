@@ -331,19 +331,19 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
 
     /**
      * Delete temporary files not caused by checkpoint.
-     * @param tmpFilePaths temporary files.
+     * @param unCommittedFiles unCommittedFiles files.
      * @return void
      */
-    public void deleteTmpFileWithNoCheckPoint(Set<String> tmpFilePaths){
+    public void deleteUnCommittedFiles(Set<String> unCommittedFiles){
         try {
-            if (tmpFilePaths != null && tmpFilePaths.size() > 0) {
-                for (String filePath : tmpFilePaths){
+            if (unCommittedFiles != null && unCommittedFiles.size() > 0) {
+                for (String filePath : unCommittedFiles){
                     fileSystemUtils.deleteFile(filePath);
-                    log.info("delete no commit file:{}", filePath);
+                    log.info("delete uncommitted file:{}", filePath);
                 }
             }
         } catch (Exception e){
-            log.error("delete no commit file failed", e);
+            log.error("delete uncommitted file failed", e);
         }
     }
 
