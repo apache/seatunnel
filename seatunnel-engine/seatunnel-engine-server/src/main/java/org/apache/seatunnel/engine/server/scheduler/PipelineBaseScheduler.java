@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.scheduler;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
@@ -63,7 +64,7 @@ public class PipelineBaseScheduler implements JobScheduler {
             List<CompletableFuture<Void>> collect =
                 physicalPlan.getPipelineList()
                     .stream()
-                    .map(pipeline -> schedulerPipeline(pipeline))
+                    .map(this::schedulerPipeline)
                     .filter(Objects::nonNull).collect(Collectors.toList());
             try {
                 CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
@@ -99,6 +100,7 @@ public class PipelineBaseScheduler implements JobScheduler {
                 deployPipeline(pipeline, slotProfiles);
             }, jobMaster.getExecutorService());
         } catch (Exception e) {
+            log.error(String.format("scheduler pipeline [%s] failed and to cancel pipeline! And exception: %s", pipeline.getPipelineId(), ExceptionUtils.getMessage(e)));
             pipeline.cancelPipeline();
             return null;
         }
