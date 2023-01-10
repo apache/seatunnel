@@ -362,5 +362,6 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
 
     @Override
     public void close() {
+        deleteTmpFileWithNoCheckPoint(beingWrittenWriter.keySet());
     }
 }

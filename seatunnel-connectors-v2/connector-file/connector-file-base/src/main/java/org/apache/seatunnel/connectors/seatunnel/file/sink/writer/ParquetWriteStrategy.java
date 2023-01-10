@@ -302,5 +302,6 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
 
     @Override
     public void close() {
+        deleteTmpFileWithNoCheckPoint(beingWrittenWriter.keySet());
     }
 }

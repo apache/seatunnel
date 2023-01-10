@@ -55,6 +55,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
@@ -326,6 +327,24 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         String tmpPath = seaTunnelFilePath.replaceAll(Matcher.quoteReplacement(transactionDirectory),
                 Matcher.quoteReplacement(fileSinkConfig.getPath()));
         return tmpPath.replaceAll(BaseSinkConfig.NON_PARTITION + Matcher.quoteReplacement(File.separator), "");
+    }
+
+    /**
+     * Delete temporary files not caused by checkpoint.
+     * @param tmpFilePaths temporary files.
+     * @return void
+     */
+    public void deleteTmpFileWithNoCheckPoint(Set<String> tmpFilePaths){
+        try {
+            if (tmpFilePaths != null && tmpFilePaths.size() > 0) {
+                for (String filePath : tmpFilePaths){
+                    fileSystemUtils.deleteFile(filePath);
+                    log.info("delete no commit file:{}", filePath);
+                }
+            }
+        } catch (Exception e){
+            log.error("delete no commit file failed", e);
+        }
     }
 
     @Override
