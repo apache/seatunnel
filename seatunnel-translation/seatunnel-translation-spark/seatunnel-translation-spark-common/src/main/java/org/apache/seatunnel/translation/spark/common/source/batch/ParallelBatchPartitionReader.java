@@ -123,7 +123,9 @@ public class ParallelBatchPartitionReader {
     public void close() throws IOException {
         running = false;
         try {
-            internalSource.close();
+            if (internalSource != null) {
+                internalSource.close();
+            }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
