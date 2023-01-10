@@ -21,12 +21,12 @@ import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.Starter;
-import org.apache.seatunnel.core.starter.config.ConfigBuilder;
-import org.apache.seatunnel.core.starter.config.PluginType;
+import org.apache.seatunnel.core.starter.enums.EngineType;
+import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
-import org.apache.seatunnel.core.starter.spark.config.StarterConstant;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 import org.apache.seatunnel.core.starter.utils.CompressionUtils;
+import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
@@ -105,7 +105,8 @@ public class SparkStarter implements Starter {
      * {@link ClientModeSparkStarter} depending on deploy mode.
      */
     static SparkStarter getInstance(String[] args) {
-        SparkCommandArgs commandArgs = CommandLineUtils.parse(args, new SparkCommandArgs(), StarterConstant.SHELL_NAME, true);
+        SparkCommandArgs commandArgs = CommandLineUtils.parse(args, new SparkCommandArgs(),
+                EngineType.SPARK.getStarterShellName(), true);
         DeployMode deployMode = commandArgs.getDeployMode();
         switch (deployMode) {
             case CLUSTER:
@@ -126,6 +127,8 @@ public class SparkStarter implements Starter {
         this.jars.addAll(Common.getLibJars());
         this.jars.addAll(getConnectorJarDependencies());
         this.jars.addAll(new ArrayList<>(Common.getThirdPartyJars(sparkConf.getOrDefault(EnvCommonOptions.JARS.key(), ""))));
+        // TODO: override job name in command args, because in spark cluster deploy mode command-line arguments are read first
+        // if user has not specified job with command line, the job name config in file will not work
         return buildFinal();
     }
 
@@ -180,7 +183,7 @@ public class SparkStarter implements Starter {
         if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
             return Collections.emptyList();
         }
-        Config config = new ConfigBuilder(Paths.get(commandArgs.getConfigFile())).getConfig();
+        Config config = ConfigBuilder.of(commandArgs.getConfigFile());
         Set<URL> pluginJars = new HashSet<>();
         SeaTunnelSourcePluginDiscovery seaTunnelSourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery();
         SeaTunnelSinkPluginDiscovery seaTunnelSinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
@@ -195,17 +198,18 @@ public class SparkStarter implements Starter {
     protected List<String> buildFinal() {
         List<String> commands = new ArrayList<>();
         commands.add("${SPARK_HOME}/bin/spark-submit");
-        appendOption(commands, "--class", SeatunnelSpark.class.getName());
+        appendOption(commands, "--class", SeaTunnelSpark.class.getName());
         appendOption(commands, "--name", this.commandArgs.getJobName());
         appendOption(commands, "--master", this.commandArgs.getMaster());
-        appendOption(commands, "--deploy-mode", this.commandArgs.getDeployMode().getName());
+        appendOption(commands, "--deploy-mode", this.commandArgs.getDeployMode().getDeployMode());
         appendJars(commands, this.jars);
         appendFiles(commands, this.files);
         appendSparkConf(commands, this.sparkConf);
         appendAppJar(commands);
         appendOption(commands, "--config", this.commandArgs.getConfigFile());
         appendOption(commands, "--master", this.commandArgs.getMaster());
-        appendOption(commands, "--deploy-mode", this.commandArgs.getDeployMode().getName());
+        appendOption(commands, "--deploy-mode", this.commandArgs.getDeployMode().getDeployMode());
+        appendOption(commands, "--name", this.commandArgs.getJobName());
         if (this.commandArgs.isCheckConfig()) {
             commands.add("--check");
         }
@@ -261,7 +265,7 @@ public class SparkStarter implements Starter {
      * append appJar to StringBuilder
      */
     protected void appendAppJar(List<String> commands) {
-        commands.add(Common.appStarterDir().resolve("seatunnel-spark-starter.jar").toString());
+        commands.add(Common.appStarterDir().resolve(EngineType.SPARK.getStarterJarName()).toString());
     }
 
     @SuppressWarnings("checkstyle:Indentation")

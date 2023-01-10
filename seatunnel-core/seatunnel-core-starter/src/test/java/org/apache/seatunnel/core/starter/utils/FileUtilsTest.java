@@ -19,6 +19,7 @@ package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
+import org.apache.seatunnel.core.starter.command.Command;
 
 import com.beust.jcommander.Parameter;
 import org.junit.jupiter.api.Assertions;
@@ -52,6 +53,11 @@ public class FileUtilsTest {
         private String configFile;
 
         private DeployMode deployMode;
+
+        @Override
+        public Command<?> buildCommand() {
+            return null;
+        }
 
         public void setDeployMode(DeployMode deployMode) {
             this.deployMode = deployMode;
