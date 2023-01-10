@@ -39,7 +39,8 @@ public class SeatunnelChildFirstClassLoader extends SeatunnelBaseClassLoader {
         "org.slf4j",
         "org.apache.log4j",
         "org.apache.logging",
-        "org.apache.commons.logging"
+        "org.apache.commons.logging",
+        "com.fasterxml.jackson"
     };
 
     public SeatunnelChildFirstClassLoader(List<URL> urls) {

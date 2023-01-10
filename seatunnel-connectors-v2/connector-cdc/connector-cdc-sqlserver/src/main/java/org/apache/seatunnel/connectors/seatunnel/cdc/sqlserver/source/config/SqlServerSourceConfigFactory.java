@@ -72,7 +72,7 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
         }
 
         if (dbzProperties != null) {
-            props.putAll(dbzProperties);
+            dbzProperties.forEach(props::put);
         }
 
         return new SqlServerSourceConfig(
