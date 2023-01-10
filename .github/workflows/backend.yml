@@ -124,7 +124,6 @@ jobs:
               - "seatunnel-e2e/seatunnel-e2e-common/**"
               - "seatunnel-formats/**"
               - "seatunnel-plugin-discovery/**"
-              - "seatunnel-transforms/**"
               - "seatunnel-transforms-v2/**"
               - "seatunnel-translation/**"
               - "seatunnel-e2e/seatunnel-transforms-v2-e2e/**"
