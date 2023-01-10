@@ -17,20 +17,22 @@ Used to read data from Redis.
 
 ##  Options
 
-| name                | type   | required              | default value |
-|---------------------|--------|-----------------------|--------------|
-| host                | string | yes                   | -            |
-| port                | int    | yes                   | -            |
-| keys                | string | yes                   | -            |
-| data_type           | string | yes                   | -            |
-| user                | string | no                    | -            |
-| auth                | string | no                    | -            |
-| mode                | string | no                    | single       |
-| hash_key_parse_mode | string | no                    | all          |
-| nodes               | list   | yes when mode=cluster | -            |
-| schema              | config | yes when format=json  | -            |
-| format              | string | no                    | json         |
-| common-options      |        | no                    | -            |
+| name                | type    | required              | default value |
+|---------------------|---------|-----------------------|--------------|
+| host                | string  | yes                   | -            |
+| port                | int     | yes                   | -            |
+| keys                | string  | yes                   | -            |
+| keys_type_check     | boolean | no                    | false        |
+| scan_count          | int     | no                    | 100          |
+| data_type           | string  | yes                   | -            |
+| user                | string  | no                    | -            |
+| auth                | string  | no                    | -            |
+| mode                | string  | no                    | single       |
+| hash_key_parse_mode | string  | no                    | all          |
+| nodes               | list    | yes when mode=cluster | -            |
+| schema              | config  | yes when format=json  | -            |
+| format              | string  | no                    | json         |
+| common-options      |         | no                    | -            |
 
 ### host [string]
 
@@ -112,7 +114,15 @@ each kv that in hash key it will be treated as a row and send it to upstream.
 
 keys pattern
 
-**Tips:Redis source connector support fuzzy key matching, user needs to ensure that the matched keys are the same type**
+**Tips:Redis source connector support fuzzy key matching, if `keys_type_check` is false, user needs to ensure that the matched keys are the same type**
+
+### keys_type_check [boolean]
+
+If true, redis source only read the key of the corresponding type, default false.
+
+### scan_count [int]
+
+The scan operation queries the number of elements each time, default 100.
 
 ### data_type [string]
 
@@ -252,6 +262,10 @@ simple:
 ### 2.2.0-beta 2022-09-26
 
 - Add Redis Source Connector
+
+### 2.3.1-SNAPSHOT 2023-01-05
+
+- RedisSource support scan operation 
 
 ### next version
 
