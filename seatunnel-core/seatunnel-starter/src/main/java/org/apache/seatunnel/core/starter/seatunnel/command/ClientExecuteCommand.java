@@ -66,6 +66,9 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         HazelcastInstance instance = null;
         SeaTunnelClient engineClient = null;
         ScheduledExecutorService executorService = null;
+        JobMetricsRunner.JobMetricsSummary jobMetricsSummary = null;
+        LocalDateTime startTime = null;
+        LocalDateTime endTime = null;
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         try {
             String clusterName = clientCommandArgs.getClusterName();
@@ -104,12 +107,26 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 executorService.scheduleAtFixedRate(jobMetricsRunner, 0,
                         seaTunnelConfig.getEngineConfig().getPrintJobMetricsInfoInterval(), TimeUnit.SECONDS);
                 // get job start time
-                LocalDateTime startTime = LocalDateTime.now();
+                startTime = LocalDateTime.now();
                 clientJobProxy.waitForJobComplete();
                 // get job end time
-                LocalDateTime endTime = LocalDateTime.now();
+                endTime = LocalDateTime.now();
                 // print job statistic information when job finished
-                JobMetricsRunner.JobMetricsSummary jobMetricsSummary = engineClient.getJobMetricsSummary(jobId);
+                jobMetricsSummary = engineClient.getJobMetricsSummary(jobId);
+            }
+        } catch (ExecutionException | InterruptedException e) {
+            throw new CommandExecuteException("SeaTunnel job executed failed", e);
+        } finally {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+            if (instance != null) {
+                instance.shutdown();
+            }
+            if (executorService != null) {
+                executorService.shutdown();
+            }
+            if (jobMetricsSummary != null) {
                 log.info(String.format(
                         "\n" + "***********************************************" +
                                 "\n" + "            %s" +
@@ -135,18 +152,6 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
 
                         "Total Failed Count",
                         jobMetricsSummary.getSourceReadCount() - jobMetricsSummary.getSinkWriteCount()));
-            }
-        } catch (ExecutionException | InterruptedException e) {
-            throw new CommandExecuteException("SeaTunnel job executed failed", e);
-        } finally {
-            if (engineClient != null) {
-                engineClient.close();
-            }
-            if (instance != null) {
-                instance.shutdown();
-            }
-            if (executorService != null) {
-                executorService.shutdown();
             }
         }
     }
