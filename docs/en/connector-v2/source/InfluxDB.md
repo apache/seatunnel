@@ -25,7 +25,7 @@ supports query SQL and can achieve projection effect.
 |--------------------|--------|----------|---------------|
 | url                | string | yes      | -             |
 | sql                | string | yes      | -             |
-| fields             | config | yes      | -             |
+| schema             | object | yes      | -             |
 | database           | string | yes      |               |
 | username           | string | no       | -             |
 | password           | string | no       | -             |
