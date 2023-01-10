@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.server.scheduler;
 
-import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
@@ -85,7 +84,9 @@ public class PipelineBaseScheduler implements JobScheduler {
         try {
             if (!pipeline.updatePipelineState(PipelineStatus.CREATED, PipelineStatus.SCHEDULED)) {
                 handlePipelineStateTurnError(pipeline, PipelineStatus.SCHEDULED);
-                return null;
+                CompletableFuture<Void> future = new CompletableFuture<>();
+                future.complete(null);
+                return future;
             }
 
             Map<TaskGroupLocation, SlotProfile> slotProfiles =
