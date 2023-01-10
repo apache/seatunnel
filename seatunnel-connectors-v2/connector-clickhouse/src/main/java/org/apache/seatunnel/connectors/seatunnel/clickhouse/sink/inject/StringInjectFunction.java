@@ -28,11 +28,11 @@ import java.sql.SQLException;
 
 public class StringInjectFunction implements ClickhouseFieldInjectFunction {
 
+    private final ObjectMapper mapper = new ObjectMapper();
     private String fieldType;
 
     @Override
     public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
-        ObjectMapper mapper = new ObjectMapper();
         try {
             if ("Point".equals(fieldType)) {
                 statement.setObject(index, mapper.readValue(replace(value.toString()), double[].class));
