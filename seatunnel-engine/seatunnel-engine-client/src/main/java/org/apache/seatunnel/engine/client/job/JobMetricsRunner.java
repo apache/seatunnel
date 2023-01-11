@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.client.job;
 
+import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 
 import lombok.AllArgsConstructor;
@@ -25,11 +27,9 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 @Slf4j
 public class JobMetricsRunner extends Thread {
-    public static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private final SeaTunnelClient seaTunnelClient;
     private final Long jobId;
     private LocalDateTime lastRunTime = LocalDateTime.now();
@@ -50,13 +50,7 @@ public class JobMetricsRunner extends Thread {
             long seconds = Duration.between(lastRunTime, now).getSeconds();
             long averageRead = (jobMetricsSummary.getSourceReadCount() - lastReadCount) / seconds;
             long averageWrite = (jobMetricsSummary.getSinkWriteCount() - lastWriteCount) / seconds;
-            log.info(String.format(
-                    "\n" + "***********************************************" +
-                            "\n" + "            %s" +
-                            "\n" + "***********************************************" +
-                            "\n" + "%-26s: %19s\n" + "%-26s: %19s\n" + "%-26s: %19s\n"
-                            + "%-26s: %19s\n" + "%-26s: %19s\n" + "%-26s: %19s\n"
-                            + "***********************************************\n",
+            log.info(StringFormatUtils.formatTable(
                     "Job Progress Information",
                     "Read Count So Far",
                     jobMetricsSummary.getSourceReadCount(),
@@ -70,11 +64,11 @@ public class JobMetricsRunner extends Thread {
                     "Average Write Count",
                     averageWrite + "/s",
 
-                    "Last Run Time",
-                    DATETIME_FORMATTER.format(lastRunTime),
+                    "Last Statistic Time",
+                    DateTimeUtils.toString(lastRunTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
 
-                    "Current Time",
-                    DATETIME_FORMATTER.format(now)));
+                    "Current Statistic Time",
+                    DateTimeUtils.toString(now, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS)));
             lastRunTime = now;
             lastReadCount = jobMetricsSummary.getSourceReadCount();
             lastWriteCount = jobMetricsSummary.getSinkWriteCount();

@@ -18,8 +18,9 @@
 package org.apache.seatunnel.core.starter.seatunnel.command;
 
 import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist;
-import static org.apache.seatunnel.engine.client.job.JobMetricsRunner.DATETIME_FORMATTER;
 
+import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
@@ -67,8 +68,8 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         SeaTunnelClient engineClient = null;
         ScheduledExecutorService executorService = null;
         JobMetricsRunner.JobMetricsSummary jobMetricsSummary = null;
-        LocalDateTime startTime = null;
-        LocalDateTime endTime = null;
+        LocalDateTime startTime = LocalDateTime.now();
+        LocalDateTime endTime = LocalDateTime.now();
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         try {
             String clusterName = clientCommandArgs.getClusterName();
@@ -127,19 +128,13 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 executorService.shutdown();
             }
             if (jobMetricsSummary != null) {
-                log.info(String.format(
-                        "\n" + "***********************************************" +
-                                "\n" + "            %s" +
-                                "\n" + "***********************************************" +
-                                "\n" + "%-26s: %19s\n" + "%-26s: %19s\n" + "%-26s: %19s\n"
-                                + "%-26s: %19s\n" + "%-26s: %19s\n" + "%-26s: %19s\n"
-                                + "***********************************************\n",
+                log.info(StringFormatUtils.formatTable(
                         "Job Statistic Information",
                         "Start Time",
-                        DATETIME_FORMATTER.format(startTime),
+                        DateTimeUtils.toString(startTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
 
                         "End Time",
-                        DATETIME_FORMATTER.format(endTime),
+                        DateTimeUtils.toString(endTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
 
                         "Total Time(s)",
                         Duration.between(startTime, endTime).getSeconds(),
