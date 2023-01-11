@@ -29,7 +29,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 
 @Slf4j
-public class JobMetricsRunner extends Thread {
+public class JobMetricsRunner implements Runnable {
     private final SeaTunnelClient seaTunnelClient;
     private final Long jobId;
     private LocalDateTime lastRunTime = LocalDateTime.now();
