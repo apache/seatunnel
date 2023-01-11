@@ -38,6 +38,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
 import com.google.auto.service.AutoService;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 
 @AutoService(Factory.class)
 public class IoTDBSourceFactory implements TableSourceFactory{
@@ -49,7 +50,7 @@ public class IoTDBSourceFactory implements TableSourceFactory{
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(NODE_URLS, USERNAME, PASSWORD, SQL)
+                .required(NODE_URLS, USERNAME, PASSWORD, SQL, SeaTunnelSchema.SCHEMA)
                 .optional(HOST, PORT, FETCH_SIZE, THRIFT_DEFAULT_BUFFER_SIZE, THRIFT_MAX_FRAME_SIZE,
                         ENABLE_CACHE_LEADER, VERSION, LOWER_BOUND, UPPER_BOUND, NUM_PARTITIONS)
                 .build();
