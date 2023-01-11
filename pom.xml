@@ -80,7 +80,6 @@
         <module>seatunnel-common</module>
         <module>seatunnel-apis</module>
         <module>seatunnel-core</module>
-        <module>seatunnel-transforms</module>
         <module>seatunnel-transforms-v2</module>
         <module>seatunnel-connectors-v2</module>
         <module>seatunnel-api</module>
