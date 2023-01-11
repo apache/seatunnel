@@ -19,6 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.IcebergEnumerationResult;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.IcebergEnumeratorPosition;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
@@ -36,7 +39,6 @@ import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.util.SnapshotUtil;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -135,8 +137,10 @@ public class IcebergScanSplitPlanner {
                     return Optional.of(SnapshotUtil.snapshotAfter(table, snapshotIdAsOfTime));
                 }
             default:
-                throw new UnsupportedOperationException("Unsupported stream scan strategy: " +
-                    icebergScanContext.getStreamScanStrategy());
+                throw new IcebergConnectorException(
+                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    "Unsupported stream scan strategy: " +
+                        icebergScanContext.getStreamScanStrategy());
         }
     }
 
@@ -151,7 +155,8 @@ public class IcebergScanSplitPlanner {
             }
             return splits;
         } catch (IOException e) {
-            throw new UncheckedIOException(
+            throw new IcebergConnectorException(
+                IcebergConnectorErrorCode.FILE_SCAN_SPLIT_FAILED,
                 "Failed to scan iceberg splits from: " + table.name(), e);
         }
     }
