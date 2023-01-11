@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.server.master.JobMaster;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.map.IMap;
+import lombok.Data;
 import lombok.NonNull;
 
 import java.util.List;
@@ -37,6 +38,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+@Data
 public class SubPlan {
     private static final ILogger LOGGER = Logger.getLogger(SubPlan.class);
 

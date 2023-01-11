@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.scheduler;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
@@ -63,7 +64,8 @@ public class PipelineBaseScheduler implements JobScheduler {
             List<CompletableFuture<Void>> collect =
                 physicalPlan.getPipelineList()
                     .stream()
-                    .map(this::schedulerPipeline).collect(Collectors.toList());
+                    .map(this::schedulerPipeline)
+                    .filter(Objects::nonNull).collect(Collectors.toList());
             try {
                 CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
                     collect.toArray(new CompletableFuture[0]));
@@ -83,9 +85,7 @@ public class PipelineBaseScheduler implements JobScheduler {
         try {
             if (!pipeline.updatePipelineState(PipelineStatus.CREATED, PipelineStatus.SCHEDULED)) {
                 handlePipelineStateTurnError(pipeline, PipelineStatus.SCHEDULED);
-                CompletableFuture<Void> future = new CompletableFuture<>();
-                future.complete(null);
-                return future;
+                return null;
             }
 
             Map<TaskGroupLocation, SlotProfile> slotProfiles =
@@ -100,10 +100,10 @@ public class PipelineBaseScheduler implements JobScheduler {
                 deployPipeline(pipeline, slotProfiles);
             }, jobMaster.getExecutorService());
         } catch (Exception e) {
+            log.error(String.format("scheduler pipeline [%s] error and cancel pipeline. The error is %s",
+                pipeline.getPipelineId(), ExceptionUtils.getMessage(e)));
             pipeline.cancelPipeline();
-            CompletableFuture<Void> future = new CompletableFuture<>();
-            future.obtrudeException(e);
-            return future;
+            return null;
         }
     }
 
