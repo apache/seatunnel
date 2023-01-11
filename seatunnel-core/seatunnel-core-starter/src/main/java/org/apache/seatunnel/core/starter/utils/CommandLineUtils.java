@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
-import static org.apache.seatunnel.core.starter.constants.Constants.USAGE_EXIT_CODE;
+import static org.apache.seatunnel.core.starter.constants.SeaTunnelStarterConstants.USAGE_EXIT_CODE;
 
-import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
+import org.apache.seatunnel.core.starter.command.CommandArgs;
+import org.apache.seatunnel.core.starter.command.UsageFormatter;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
-import com.beust.jcommander.UnixStyleUsageFormatter;
 
 public class CommandLineUtils {
 
@@ -31,11 +31,13 @@ public class CommandLineUtils {
         throw new UnsupportedOperationException("CommandLineUtils is a utility class and cannot be instantiated");
     }
 
-    public static <T extends AbstractCommandArgs> T parse(String[] args, T obj) {
+    public static <T extends CommandArgs> T parse(String[] args, T obj) {
         return parse(args, obj, null, false);
     }
 
-    public static <T extends AbstractCommandArgs> T parse(String[] args, T obj, String programName, boolean acceptUnknownOptions) {
+    public static <T extends CommandArgs> T parse(String[] args,
+                                                          T obj, String programName,
+                                                          boolean acceptUnknownOptions) {
         JCommander jCommander = JCommander.newBuilder()
                 .programName(programName)
                 .addObject(obj)
@@ -57,7 +59,7 @@ public class CommandLineUtils {
     }
 
     private static void exit(JCommander jCommander) {
-        jCommander.setUsageFormatter(new UnixStyleUsageFormatter(jCommander));
+        jCommander.setUsageFormatter(new UsageFormatter(jCommander));
         jCommander.usage();
         System.exit(USAGE_EXIT_CODE);
     }

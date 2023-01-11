@@ -22,10 +22,10 @@ import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
-import org.apache.seatunnel.spark.SparkEnvironment;
 import org.apache.seatunnel.translation.spark.common.utils.TypeConverterUtils;
 import org.apache.seatunnel.translation.spark.sink.SparkSinkInjector;
 
@@ -40,29 +40,31 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunnelSink<?, ?, ?, ?>> {
+public class SinkExecuteProcessor extends SparkAbstractPluginExecuteProcessor<SeaTunnelSink<?, ?, ?, ?>> {
+    private static final String PLUGIN_TYPE = PluginType.SINK.getType();
 
-    private static final String PLUGIN_TYPE = "sink";
-
-    protected SinkExecuteProcessor(SparkEnvironment sparkEnvironment,
+    protected SinkExecuteProcessor(SparkRuntimeEnvironment sparkRuntimeEnvironment,
                                    JobContext jobContext,
                                    List<? extends Config> pluginConfigs) {
-        super(sparkEnvironment, jobContext, pluginConfigs);
+        super(sparkRuntimeEnvironment, jobContext, pluginConfigs);
     }
 
     @Override
     protected List<SeaTunnelSink<?, ?, ?, ?>> initializePlugins(List<? extends Config> pluginConfigs) {
         SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
         List<URL> pluginJars = new ArrayList<>();
-        List<SeaTunnelSink<?, ?, ?, ?>> sinks = pluginConfigs.stream().map(sinkConfig -> {
-            PluginIdentifier pluginIdentifier = PluginIdentifier.of(ENGINE_TYPE, PLUGIN_TYPE, sinkConfig.getString(PLUGIN_NAME));
-            pluginJars.addAll(sinkPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-            SeaTunnelSink<?, ?, ?, ?> seaTunnelSink = sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
-            seaTunnelSink.prepare(sinkConfig);
-            seaTunnelSink.setJobContext(jobContext);
-            return seaTunnelSink;
-        }).distinct().collect(Collectors.toList());
-        sparkEnvironment.registerPlugin(pluginJars);
+        List<SeaTunnelSink<?, ?, ?, ?>> sinks = pluginConfigs.stream()
+                .map(sinkConfig -> {
+                    PluginIdentifier pluginIdentifier = PluginIdentifier.of(ENGINE_TYPE, PLUGIN_TYPE, sinkConfig.getString(PLUGIN_NAME));
+                    pluginJars.addAll(sinkPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
+                    SeaTunnelSink<?, ?, ?, ?> seaTunnelSink = sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
+                    seaTunnelSink.prepare(sinkConfig);
+                    seaTunnelSink.setJobContext(jobContext);
+                    return seaTunnelSink;
+                })
+                .distinct()
+                .collect(Collectors.toList());
+        sparkRuntimeEnvironment.registerPlugin(pluginJars);
         return sinks;
     }
 
@@ -72,12 +74,13 @@ public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunn
         for (int i = 0; i < plugins.size(); i++) {
             Config sinkConfig = pluginConfigs.get(i);
             SeaTunnelSink<?, ?, ?, ?> seaTunnelSink = plugins.get(i);
-            Dataset<Row> dataset = fromSourceTable(sinkConfig, sparkEnvironment).orElse(input);
+            Dataset<Row> dataset = fromSourceTable(sinkConfig, sparkRuntimeEnvironment).orElse(input);
             int parallelism;
             if (sinkConfig.hasPath(SinkCommonOptions.PARALLELISM.key())) {
                 parallelism = sinkConfig.getInt(SinkCommonOptions.PARALLELISM.key());
             } else {
-                parallelism = sparkEnvironment.getSparkConf().getInt(EnvCommonOptions.PARALLELISM.key(), EnvCommonOptions.PARALLELISM.defaultValue());
+                parallelism = sparkRuntimeEnvironment.getSparkConf()
+                        .getInt(EnvCommonOptions.PARALLELISM.key(), EnvCommonOptions.PARALLELISM.defaultValue());
             }
             dataset.sparkSession().read().option(SinkCommonOptions.PARALLELISM.key(), parallelism);
             // TODO modify checkpoint location
@@ -87,5 +90,4 @@ public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunn
         // the sink is the last stream
         return null;
     }
-
 }
