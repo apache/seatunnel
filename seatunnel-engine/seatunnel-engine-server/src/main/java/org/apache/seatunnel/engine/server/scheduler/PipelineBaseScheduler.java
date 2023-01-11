@@ -101,9 +101,9 @@ public class PipelineBaseScheduler implements JobScheduler {
             }, jobMaster.getExecutorService());
         } catch (Exception e) {
             pipeline.cancelPipeline();
-            return CompletableFuture.runAsync(() -> {
-                throw e;
-            });
+            CompletableFuture<Void> future = new CompletableFuture<>();
+            future.completeExceptionally(e);
+            return future;
         }
     }
 
