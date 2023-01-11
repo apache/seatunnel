@@ -17,72 +17,114 @@
 
 package org.apache.seatunnel.core.starter.flink.args;
 
+import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
-import org.apache.seatunnel.core.starter.config.EngineType;
-import org.apache.seatunnel.core.starter.flink.config.FlinkRunMode;
+import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.enums.MasterType;
+import org.apache.seatunnel.core.starter.flink.command.FlinkConfValidateCommand;
+import org.apache.seatunnel.core.starter.flink.command.FlinkTaskExecuteCommand;
 
 import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class FlinkCommandArgs extends AbstractCommandArgs {
 
-    @Parameter(names = {"-c", "--config"},
-        description = "Config file",
-        required = true)
-    private String configFile;
+    @Parameter(names = {"-e", "--deploy-mode"},
+            converter = FlinkDeployModeConverter.class,
+            description = "Flink job deploy mode, support [run, run-application]")
+    private DeployMode deployMode = DeployMode.RUN;
 
-    @Parameter(names = {"-r", "--run-mode"},
-        converter = RunModeConverter.class,
-        description = "job run mode, run or run-application")
-    private FlinkRunMode runMode = FlinkRunMode.RUN;
+    @Parameter(names = {"--master", "--target"},
+            converter = FlinkMasterTargetConverter.class,
+            description = "Flink job submitted target master, support [local, remote, yarn-session, yarn-per-job, " +
+                    "kubernetes-session, yarn-application, kubernetes-application]")
+    private MasterType masterType;
 
     @Override
-    public EngineType getEngineType() {
-        return EngineType.FLINK;
+    public Command<?> buildCommand() {
+        Common.setDeployMode(getDeployMode());
+        if (checkConfig) {
+            return new FlinkConfValidateCommand(this);
+        } else {
+            return new FlinkTaskExecuteCommand(this);
+        }
     }
 
-    @Override
     public DeployMode getDeployMode() {
-        return DeployMode.CLIENT;
+        return deployMode;
     }
 
-    public FlinkRunMode getRunMode() {
-        return runMode;
+    public void setDeployMode(DeployMode deployMode) {
+        this.deployMode = deployMode;
     }
 
-    public void setRunMode(FlinkRunMode runMode) {
-        this.runMode = runMode;
+    public MasterType getMasterType() {
+        return masterType;
+    }
+
+    public void setMasterType(MasterType masterType) {
+        this.masterType = masterType;
     }
 
     @Override
-    public String getConfigFile() {
-        return this.configFile;
+    public String toString() {
+        return "FlinkCommandArgs{" +
+                "deployMode=" + deployMode +
+                ", masterType=" + masterType +
+                ", configFile='" + configFile + '\'' +
+                ", variables=" + variables +
+                ", jobName='" + jobName + '\'' +
+                ", originalParameters=" + originalParameters +
+                '}';
     }
 
-    @Override
-    public void setConfigFile(String configFile) {
-        this.configFile = configFile;
-    }
+    public static class FlinkMasterTargetConverter implements IStringConverter<MasterType> {
+        private static final List<MasterType> MASTER_TYPE_LIST = new ArrayList<>();
 
-    /**
-     * Used to convert the run mode string to the enum value.
-     */
-    private static class RunModeConverter implements IStringConverter<FlinkRunMode> {
-        /**
-         * If the '-r' is not set, then will not go into this convert method.
-         *
-         * @param value input value set by '-r' or '--run-mode'
-         * @return flink run mode enum value
-         */
+        static {
+            MASTER_TYPE_LIST.add(MasterType.LOCAL);
+            MASTER_TYPE_LIST.add(MasterType.REMOTE);
+            MASTER_TYPE_LIST.add(MasterType.YARN_SESSION);
+            MASTER_TYPE_LIST.add(MasterType.YARN_PER_JOB);
+            MASTER_TYPE_LIST.add(MasterType.KUBERNETES_SESSION);
+            MASTER_TYPE_LIST.add(MasterType.YARN_APPLICATION);
+            MASTER_TYPE_LIST.add(MasterType.KUBERNETES_APPLICATION);
+        }
+
         @Override
-        public FlinkRunMode convert(String value) {
-            for (FlinkRunMode flinkRunMode : FlinkRunMode.values()) {
-                if (flinkRunMode.getMode().equalsIgnoreCase(value)) {
-                    return flinkRunMode;
-                }
+        public MasterType convert(String value) {
+            MasterType masterType = MasterType.valueOf(value.toUpperCase().replaceAll("-", "_"));
+            if (MASTER_TYPE_LIST.contains(masterType)) {
+                return masterType;
+            } else {
+                throw new IllegalArgumentException("SeaTunnel job on flink engine submitted target only " +
+                        "support these options: [local, remote, yarn-session, yarn-per-job, kubernetes-session, " +
+                        "yarn-application, kubernetes-application]");
             }
-            throw new IllegalArgumentException(String.format("Run mode %s not supported", value));
+        }
+    }
+
+    public static class FlinkDeployModeConverter implements IStringConverter<DeployMode> {
+        private static final List<DeployMode> DEPLOY_MODE_TYPE_LIST = new ArrayList<>();
+
+        static {
+            DEPLOY_MODE_TYPE_LIST.add(DeployMode.RUN);
+            DEPLOY_MODE_TYPE_LIST.add(DeployMode.RUN_APPLICATION);
+        }
+
+        @Override
+        public DeployMode convert(String value) {
+            DeployMode deployMode = DeployMode.valueOf(value.toUpperCase().replaceAll("-", "_"));
+            if (DEPLOY_MODE_TYPE_LIST.contains(deployMode)) {
+                return deployMode;
+            } else {
+                throw new IllegalArgumentException("SeaTunnel job on flink engine deploy mode only " +
+                        "support these options: [run, run-application]");
+            }
         }
     }
 }

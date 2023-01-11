@@ -17,34 +17,39 @@
 
 package org.apache.seatunnel.common.config;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-@Getter
-@AllArgsConstructor
 public enum DeployMode {
+    /**
+     * Spark
+     */
     CLIENT("client"),
     CLUSTER("cluster"),
-    ;
+
+    /**
+     * Flink
+     */
+    RUN("run"),
+    RUN_APPLICATION("run-application");
+
+    private final String deployMode;
+
+    DeployMode(String deployMode) {
+        this.deployMode = deployMode;
+    }
+
+    public String getDeployMode() {
+        return deployMode;
+    }
 
     private static final Map<String, DeployMode> NAME_MAP = Arrays.stream(DeployMode.values())
-        .collect(Collectors.toMap(DeployMode::getName, Function.identity()));
+        .collect(Collectors.toMap(DeployMode::getDeployMode, Function.identity()));
 
-    private final String name;
-
-    public static Optional<DeployMode> from(String name) {
-        return Optional.ofNullable(NAME_MAP.get(name.toLowerCase()));
+    public static Optional<DeployMode> from(String deployMode) {
+        return Optional.ofNullable(NAME_MAP.get(deployMode.toLowerCase()));
     }
-
-    @Override
-    public String toString() {
-        return getName();
-    }
-
 }

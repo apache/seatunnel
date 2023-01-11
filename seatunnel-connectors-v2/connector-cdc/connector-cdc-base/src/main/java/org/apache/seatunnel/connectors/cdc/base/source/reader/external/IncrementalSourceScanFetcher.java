@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.reader.external;
 
+import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isEndWatermarkEvent;
 import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isHighWatermarkEvent;
 import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isLowWatermarkEvent;
 import static com.google.common.base.Preconditions.checkState;
@@ -113,11 +114,12 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
             // data input: [low watermark event][snapshot events][high watermark event][change
             // events][end watermark event]
             // data output: [low watermark event][normalized events][high watermark event]
-            boolean splitEnd = false;
+            boolean reachChangeLogStart = false;
+            boolean reachChangeLogEnd = false;
             SourceRecord lowWatermark = null;
             SourceRecord highWatermark = null;
             Map<Struct, SourceRecord> outputBuffer = new HashMap<>();
-            while (!splitEnd) {
+            while (!reachChangeLogEnd) {
                 checkReadException();
                 List<DataChangeEvent> batch = queue.poll();
                 for (DataChangeEvent event : batch) {
@@ -131,12 +133,24 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
                     if (highWatermark == null && isHighWatermarkEvent(record)) {
                         highWatermark = record;
                         // snapshot events capture end and begin to capture binlog events
-                        splitEnd = true;
+                        reachChangeLogStart = true;
                         continue;
                     }
 
-                    outputBuffer.put((Struct) record.key(), record);
+                    if (reachChangeLogStart && isEndWatermarkEvent(record)) {
+                        // capture to end watermark events, stop the loop
+                        reachChangeLogEnd = true;
+                        break;
+                    }
 
+                    if (!reachChangeLogStart) {
+                        outputBuffer.put((Struct) record.key(), record);
+                    } else {
+                        if (isChangeRecordInChunkRange(record)) {
+                            // rewrite overlapping snapshot records through the record key
+                            taskContext.rewriteOutputBuffer(outputBuffer, record);
+                        }
+                    }
                 }
             }
             // snapshot split return its data once
@@ -189,6 +203,16 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
         } catch (Exception e) {
             log.error("Close scan fetcher error", e);
         }
+    }
+
+    private boolean isChangeRecordInChunkRange(SourceRecord record) {
+        if (taskContext.isDataChangeRecord(record)) {
+            return taskContext.isRecordBetween(
+                record,
+                null == currentSnapshotSplit.getSplitStart() ? null : new Object[]{currentSnapshotSplit.getSplitStart()},
+                null == currentSnapshotSplit.getSplitEnd() ? null : new Object[]{currentSnapshotSplit.getSplitEnd()});
+        }
+        return false;
     }
 
 }
