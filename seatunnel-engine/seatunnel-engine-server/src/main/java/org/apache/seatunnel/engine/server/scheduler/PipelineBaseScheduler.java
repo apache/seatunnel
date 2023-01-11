@@ -102,7 +102,7 @@ public class PipelineBaseScheduler implements JobScheduler {
         } catch (Exception e) {
             pipeline.cancelPipeline();
             CompletableFuture<Void> future = new CompletableFuture<>();
-            future.completeExceptionally(e);
+            future.obtrudeException(e);
             return future;
         }
     }
