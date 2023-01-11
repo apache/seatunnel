@@ -63,8 +63,7 @@ public class PipelineBaseScheduler implements JobScheduler {
             List<CompletableFuture<Void>> collect =
                 physicalPlan.getPipelineList()
                     .stream()
-                    .map(this::schedulerPipeline)
-                    .filter(Objects::nonNull).collect(Collectors.toList());
+                    .map(this::schedulerPipeline).collect(Collectors.toList());
             try {
                 CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
                     collect.toArray(new CompletableFuture[0]));
@@ -102,11 +101,9 @@ public class PipelineBaseScheduler implements JobScheduler {
             }, jobMaster.getExecutorService());
         } catch (Exception e) {
             pipeline.cancelPipeline();
-            CompletableFuture<Void> future = new CompletableFuture<>();
-            future.exceptionally(throwable -> {
+            return CompletableFuture.runAsync(() -> {
                 throw e;
             });
-            return future;
         }
     }
 
