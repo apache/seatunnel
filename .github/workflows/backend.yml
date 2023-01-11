@@ -116,7 +116,6 @@ jobs:
               - "seatunnel-e2e/seatunnel-connector-v2-e2e/**"
             api:
               - "seatunnel-api/**"
-              - "seatunnel-apis/**"
               - "seatunnel-common/**"
               - "seatunnel-config/**"
               - "seatunnel-connectors/**"
