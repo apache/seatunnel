@@ -113,6 +113,12 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
         for (int fieldIndex = 0; fieldIndex < rowType.getTotalFields(); fieldIndex++) {
             SeaTunnelDataType<?> seaTunnelDataType = rowType.getFieldType(fieldIndex);
             int statementIndex = fieldIndex + 1;
+            Object fieldValue = row.getField(fieldIndex);
+            if (fieldValue == null) {
+                statement.setObject(statementIndex, null);
+                continue;
+            }
+
             switch (seaTunnelDataType.getSqlType()) {
                 case STRING:
                     statement.setString(statementIndex, (String) row.getField(fieldIndex));

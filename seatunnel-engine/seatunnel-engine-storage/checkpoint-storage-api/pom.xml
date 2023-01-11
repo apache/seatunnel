@@ -30,11 +30,6 @@
 
     <artifactId>checkpoint-storage-api</artifactId>
     <dependencies>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-api</artifactId>
-            <version>${project.version}</version>
-        </dependency>
         <!--protostuff-->
         <dependency>
             <groupId>io.protostuff</groupId>

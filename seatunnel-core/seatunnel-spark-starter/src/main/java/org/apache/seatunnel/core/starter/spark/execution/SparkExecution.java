@@ -21,8 +21,9 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
-import org.apache.seatunnel.core.starter.spark.config.SparkEnvironmentFactory;
-import org.apache.seatunnel.spark.SparkEnvironment;
+import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
+import org.apache.seatunnel.core.starter.execution.RuntimeEnvironment;
+import org.apache.seatunnel.core.starter.execution.TaskExecution;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -35,29 +36,34 @@ import java.util.Collections;
 import java.util.List;
 
 @Slf4j
-public class SparkExecution {
-
-    private final SparkEnvironment sparkEnvironment;
-    private final PluginExecuteProcessor sourcePluginExecuteProcessor;
-    private final PluginExecuteProcessor transformPluginExecuteProcessor;
-    private final PluginExecuteProcessor sinkPluginExecuteProcessor;
+public class SparkExecution implements TaskExecution {
+    private final SparkRuntimeEnvironment sparkRuntimeEnvironment;
+    private final PluginExecuteProcessor<Dataset<Row>, SparkRuntimeEnvironment> sourcePluginExecuteProcessor;
+    private final PluginExecuteProcessor<Dataset<Row>, SparkRuntimeEnvironment> transformPluginExecuteProcessor;
+    private final PluginExecuteProcessor<Dataset<Row>, SparkRuntimeEnvironment> sinkPluginExecuteProcessor;
 
     public SparkExecution(Config config) {
-        this.sparkEnvironment = new SparkEnvironmentFactory(config).getEnvironment();
+        this.sparkRuntimeEnvironment = SparkRuntimeEnvironment.getInstance(config);
         JobContext jobContext = new JobContext();
-        jobContext.setJobMode(sparkEnvironment.getJobMode());
-        this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(sparkEnvironment, jobContext, config.getConfigList(Constants.SOURCE));
-        this.transformPluginExecuteProcessor = new TransformExecuteProcessor(sparkEnvironment, jobContext,
-            TypesafeConfigUtils.getConfigList(config, Constants.TRANSFORM, Collections.emptyList()));
-        this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(sparkEnvironment, jobContext, config.getConfigList(Constants.SINK));
+        jobContext.setJobMode(RuntimeEnvironment.getJobMode(config));
+        this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(sparkRuntimeEnvironment,
+                jobContext, config.getConfigList(Constants.SOURCE));
+        this.transformPluginExecuteProcessor = new TransformExecuteProcessor(sparkRuntimeEnvironment,
+                jobContext, TypesafeConfigUtils.getConfigList(config, Constants.TRANSFORM, Collections.emptyList()));
+        this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(sparkRuntimeEnvironment,
+                jobContext, config.getConfigList(Constants.SINK));
     }
 
+    @Override
     public void execute() throws TaskExecuteException {
         List<Dataset<Row>> datasets = new ArrayList<>();
         datasets = sourcePluginExecuteProcessor.execute(datasets);
         datasets = transformPluginExecuteProcessor.execute(datasets);
         sinkPluginExecuteProcessor.execute(datasets);
-
         log.info("Spark Execution started");
+    }
+
+    public SparkRuntimeEnvironment getSparkRuntimeEnvironment() {
+        return sparkRuntimeEnvironment;
     }
 }

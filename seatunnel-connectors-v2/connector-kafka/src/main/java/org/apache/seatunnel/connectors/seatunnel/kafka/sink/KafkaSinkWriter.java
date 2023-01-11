@@ -18,7 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.ASSIGN_PARTITIONS;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG_PREFIX;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEFAULT_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PARTITION;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PARTITION_KEY_FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
@@ -27,7 +31,7 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TRAN
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSemantics;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
@@ -123,20 +127,19 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     @Override
     public void close() {
-        try (KafkaProduceSender<?, ?> kafkaProduceSender = kafkaProducerSender) {
-            // no-opt
+        try {
+            kafkaProducerSender.close();
         } catch (Exception e) {
             throw new KafkaConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED,
-                    "Close kafka sink writer error", e);
+                "Close kafka sink writer error", e);
         }
     }
 
     private Properties getKafkaProperties(Config pluginConfig) {
-        Config kafkaConfig = TypesafeConfigUtils.extractSubConfig(pluginConfig, KAFKA_CONFIG_PREFIX.key(), false);
         Properties kafkaProperties = new Properties();
-        kafkaConfig.entrySet().forEach(entry -> {
-            kafkaProperties.put(entry.getKey(), entry.getValue().unwrapped());
-        });
+        if (CheckConfigUtil.isValidParam(pluginConfig, KAFKA_CONFIG.key())) {
+            pluginConfig.getObject(KAFKA_CONFIG.key()).forEach((key, value) -> kafkaProperties.put(key, value.unwrapped()));
+        }
         if (pluginConfig.hasPath(ASSIGN_PARTITIONS.key())) {
             kafkaProperties.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, "org.apache.seatunnel.connectors.seatunnel.kafka.sink.MessageContentPartitioner");
         }
@@ -147,12 +150,20 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     }
 
     private SeaTunnelRowSerializer<byte[], byte[]> getSerializer(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
+        String format = DEFAULT_FORMAT;
+        if (pluginConfig.hasPath(FORMAT.key())) {
+            format = pluginConfig.getString(FORMAT.key());
+        }
+        String delimiter = DEFAULT_FIELD_DELIMITER;
+        if (pluginConfig.hasPath(FIELD_DELIMITER.key())) {
+            delimiter = pluginConfig.getString(FIELD_DELIMITER.key());
+        }
         if (pluginConfig.hasPath(PARTITION.key())) {
             return new DefaultSeaTunnelRowSerializer(pluginConfig.getString(TOPIC.key()),
-                    pluginConfig.getInt(PARTITION.key()), seaTunnelRowType);
+                    pluginConfig.getInt(PARTITION.key()), seaTunnelRowType, format, delimiter);
         } else {
             return new DefaultSeaTunnelRowSerializer(pluginConfig.getString(TOPIC.key()),
-                    getPartitionKeyFields(pluginConfig, seaTunnelRowType), seaTunnelRowType);
+                    getPartitionKeyFields(pluginConfig, seaTunnelRowType), seaTunnelRowType, format, delimiter);
         }
     }
 

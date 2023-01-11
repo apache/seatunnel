@@ -28,6 +28,7 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.M
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.PRIMARY_KEYS;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.QUERY;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.TRANSACTION_TIMEOUT_SEC;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConfig.URL;
@@ -49,8 +50,20 @@ public class JdbcSinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(URL, DRIVER).exclusive(QUERY, TABLE).optional(USER, PASSWORD, MAX_RETRIES, CONNECTION_CHECK_TIMEOUT_SEC, BATCH_SIZE,
-                BATCH_INTERVAL_MS, IS_EXACTLY_ONCE, XA_DATA_SOURCE_CLASS_NAME, MAX_COMMIT_ATTEMPTS, TRANSACTION_TIMEOUT_SEC, PRIMARY_KEYS, AUTO_COMMIT)
-                .build();
+        return OptionRule.builder()
+            .required(URL, DRIVER)
+            .exclusive(QUERY, TABLE)
+            .optional(USER,
+                PASSWORD,
+                CONNECTION_CHECK_TIMEOUT_SEC,
+                BATCH_SIZE,
+                BATCH_INTERVAL_MS,
+                IS_EXACTLY_ONCE,
+                SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST)
+            .conditional(IS_EXACTLY_ONCE, true, XA_DATA_SOURCE_CLASS_NAME, MAX_COMMIT_ATTEMPTS, TRANSACTION_TIMEOUT_SEC)
+            .conditional(IS_EXACTLY_ONCE, false, MAX_RETRIES)
+            .conditional(SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST, true, PRIMARY_KEYS)
+            .conditional(DRIVER, "com.teradata.jdbc.TeraDriver", AUTO_COMMIT)
+            .build();
     }
 }

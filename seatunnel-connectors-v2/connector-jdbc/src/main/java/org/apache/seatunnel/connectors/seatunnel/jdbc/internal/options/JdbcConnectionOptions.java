@@ -26,31 +26,24 @@ public class JdbcConnectionOptions
     implements Serializable {
     private static final long serialVersionUID = 1L;
 
-
-    private static final int DEFAULT_MAX_RETRIES = 3;
-    private static final int DEFAULT_BATCH_SIZE = 300;
-    private static final int DEFAULT_BATCH_INTERVAL_MS = 1000;
-    private static final int DEFAULT_MAX_COMMIT_ATTEMPTS = 3;
-    private static final int DEFAULT_TRANSACTION_TIMEOUT_SEC = -1;
-
     public String url;
     public String driverName;
     public int connectionCheckTimeoutSeconds = JdbcConfig.CONNECTION_CHECK_TIMEOUT_SEC.defaultValue();
-    public int maxRetries = DEFAULT_MAX_RETRIES;
+    public int maxRetries = JdbcConfig.MAX_RETRIES.defaultValue();
     public String username;
     public String password;
     public String query;
 
     public boolean autoCommit = JdbcConfig.AUTO_COMMIT.defaultValue();
 
-    public int batchSize = DEFAULT_BATCH_SIZE;
-    public int batchIntervalMs = DEFAULT_BATCH_INTERVAL_MS;
+    public int batchSize = JdbcConfig.BATCH_SIZE.defaultValue();
+    public int batchIntervalMs = JdbcConfig.BATCH_INTERVAL_MS.defaultValue();
 
     public String xaDataSourceClassName;
 
-    public int maxCommitAttempts = DEFAULT_MAX_COMMIT_ATTEMPTS;
+    public int maxCommitAttempts = JdbcConfig.MAX_COMMIT_ATTEMPTS.defaultValue();
 
-    public int transactionTimeoutSec = DEFAULT_TRANSACTION_TIMEOUT_SEC;
+    public int transactionTimeoutSec = JdbcConfig.TRANSACTION_TIMEOUT_SEC.defaultValue();
 
     public JdbcConnectionOptions() {
     }
@@ -111,16 +104,16 @@ public class JdbcConnectionOptions
         private String url;
         private String driverName;
         private int connectionCheckTimeoutSeconds = JdbcConfig.CONNECTION_CHECK_TIMEOUT_SEC.defaultValue();
-        private int maxRetries = DEFAULT_MAX_RETRIES;
+        private int maxRetries = JdbcConfig.MAX_RETRIES.defaultValue();
         private String username;
         private String password;
         private String query;
         private boolean autoCommit = JdbcConfig.AUTO_COMMIT.defaultValue();
-        private int batchSize = DEFAULT_BATCH_SIZE;
-        private int batchIntervalMs = DEFAULT_BATCH_INTERVAL_MS;
+        private int batchSize = JdbcConfig.BATCH_SIZE.defaultValue();
+        private int batchIntervalMs = JdbcConfig.BATCH_INTERVAL_MS.defaultValue();
         private String xaDataSourceClassName;
-        private int maxCommitAttempts = DEFAULT_MAX_COMMIT_ATTEMPTS;
-        private int transactionTimeoutSec = DEFAULT_TRANSACTION_TIMEOUT_SEC;
+        private int maxCommitAttempts = JdbcConfig.MAX_COMMIT_ATTEMPTS.defaultValue();
+        private int transactionTimeoutSec = JdbcConfig.TRANSACTION_TIMEOUT_SEC.defaultValue();
 
         private JdbcConnectionOptionsBuilder() {
         }

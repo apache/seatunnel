@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
-import org.apache.seatunnel.apis.base.plugin.Plugin;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -39,9 +38,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -71,7 +67,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
      * Add jar url to classloader. The different engine should have different logic to add url into
      * their own classloader
      */
-    private static final BiConsumer DEFAULT_URL_TO_CLASSLOADER = (classLoader, url) -> {
+    private static final BiConsumer<ClassLoader, URL> DEFAULT_URL_TO_CLASSLOADER = (classLoader, url) -> {
         if (classLoader instanceof URLClassLoader) {
             ReflectionUtils.invoke(classLoader, "addURL", url);
         } else {
@@ -140,7 +136,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
      * @param pluginType plugin type, not support transform
      * @return the all plugin identifier of the engine with artifactId
      */
-    public static @Nonnull Map<PluginIdentifier, String> getAllSupportedPlugins(PluginType pluginType) {
+    public static Map<PluginIdentifier, String> getAllSupportedPlugins(PluginType pluginType) {
         Config config = loadConnectorPluginConfig();
         Map<PluginIdentifier, String> pluginIdentifiers = new HashMap<>();
         if (config.isEmpty() || !config.hasPath(CollectionConstants.SEATUNNEL_PLUGIN)) {
@@ -210,7 +206,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         if (this.pluginDir.toFile().exists()) {
             log.info("load plugin from plugin dir: {}", this.pluginDir);
             List<URL> files = FileUtils.searchJarFiles(this.pluginDir);
-            factories = FactoryUtil.discoverFactories(new URLClassLoader((URL[]) files.toArray(new URL[0])));
+            factories = FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])));
         } else {
             log.info("plugin dir: {} not exists, load plugin from classpath", this.pluginDir);
             factories = FactoryUtil.discoverFactories(Thread.currentThread().getContextClassLoader());
@@ -220,23 +216,20 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
         factories.forEach(plugin -> {
             if (TableSourceFactory.class.isAssignableFrom(plugin.getClass())) {
-                if (plugins.get(PluginType.SOURCE) == null) {
-                    plugins.put(PluginType.SOURCE, new LinkedHashMap());
-                }
+                TableSourceFactory tableSourceFactory = (TableSourceFactory) plugin;
+                plugins.computeIfAbsent(PluginType.SOURCE, k -> new LinkedHashMap<>());
 
                 plugins.get(PluginType.SOURCE).put(PluginIdentifier.of(
                         "seatunnel",
                         PluginType.SOURCE.getType(),
                         plugin.factoryIdentifier()
                     ),
-                    FactoryUtil.sourceFullOptionRule(plugin));
+                    FactoryUtil.sourceFullOptionRule(tableSourceFactory));
                 return;
             }
 
             if (TableSinkFactory.class.isAssignableFrom(plugin.getClass())) {
-                if (plugins.get(PluginType.SINK) == null) {
-                    plugins.put(PluginType.SINK, new LinkedHashMap());
-                }
+                plugins.computeIfAbsent(PluginType.SINK, k -> new LinkedHashMap<>());
 
                 plugins.get(PluginType.SINK).put(PluginIdentifier.of(
                         "seatunnel",
@@ -248,9 +241,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             }
 
             if (TableTransformFactory.class.isAssignableFrom(plugin.getClass())) {
-                if (plugins.get(PluginType.TRANSFORM) == null) {
-                    plugins.put(PluginType.TRANSFORM, new LinkedHashMap());
-                }
+                plugins.computeIfAbsent(PluginType.TRANSFORM, k -> new LinkedHashMap<>());
 
                 plugins.get(PluginType.TRANSFORM).put(PluginIdentifier.of(
                         "seatunnel",
@@ -264,17 +255,10 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         return plugins;
     }
 
-    @Nullable
     private T loadPluginInstance(PluginIdentifier pluginIdentifier, ClassLoader classLoader) {
         ServiceLoader<T> serviceLoader = ServiceLoader.load(getPluginBaseClass(), classLoader);
         for (T t : serviceLoader) {
-            if (t instanceof Plugin) {
-                // old api
-                Plugin<?> pluginInstance = (Plugin<?>) t;
-                if (StringUtils.equalsIgnoreCase(pluginInstance.getPluginName(), pluginIdentifier.getPluginName())) {
-                    return (T) pluginInstance;
-                }
-            } else if (t instanceof PluginIdentifierInterface) {
+            if (t instanceof PluginIdentifierInterface) {
                 // new api
                 PluginIdentifierInterface pluginIdentifierInstance = (PluginIdentifierInterface) t;
                 if (StringUtils.equalsIgnoreCase(pluginIdentifierInstance.getPluginName(),

@@ -21,8 +21,6 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 
-import java.time.Duration;
-
 /** Configurations for {@link IncrementalSource} of JDBC data source. */
 @SuppressWarnings("checkstyle:MagicNumber")
 public class JdbcSourceOptions extends SourceOptions {
@@ -77,17 +75,16 @@ public class JdbcSourceOptions extends SourceOptions {
                     .withDescription(
                             "A numeric ID or a numeric ID range of this database client, "
                                     + "The numeric ID syntax is like '5400', the numeric ID range syntax "
-                                    + "is like '5400-5408', The numeric ID range syntax is recommended when "
-                                    + "'scan.incremental.snapshot.enabled' enabled. Every ID must be unique across all "
+                                    + "is like '5400-5408'. Every ID must be unique across all "
                                     + "currently-running database processes in the MySQL cluster. This connector"
                                     + " joins the MySQL  cluster as another server (with this unique ID) "
                                     + "so it can read the binlog. By default, a random number is generated between"
                                     + " 5400 and 6400, though we recommend setting an explicit value.");
 
-    public static final Option<Duration> CONNECT_TIMEOUT =
-            Options.key("connect.timeout")
-                    .durationType()
-                    .defaultValue(Duration.ofSeconds(30))
+    public static final Option<Long> CONNECT_TIMEOUT_MS =
+            Options.key("connect.timeout.ms")
+                    .longType()
+                    .defaultValue(30000L)
                     .withDescription(
                             "The maximum time that the connector should wait after trying to connect to the database server before timing out.");
 

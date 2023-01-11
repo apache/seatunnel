@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.AbstractWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
 
 import org.apache.hadoop.fs.Path;
@@ -36,38 +37,43 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> {
     private final WriteStrategy writeStrategy;
-    private final HadoopConf hadoopConf;
-    private final SinkWriter.Context context;
-    private final int subTaskIndex;
-    private final String jobId;
+    private final FileSystemUtils fileSystemUtils;
 
-    public BaseFileSinkWriter(WriteStrategy writeStrategy, HadoopConf hadoopConf, SinkWriter.Context context, String jobId, List<FileSinkState> fileSinkStates) {
+    @SuppressWarnings("checkstyle:MagicNumber")
+    public BaseFileSinkWriter(WriteStrategy writeStrategy, HadoopConf hadoopConf,
+                              SinkWriter.Context context, String jobId,
+                              List<FileSinkState> fileSinkStates) {
         this.writeStrategy = writeStrategy;
-        this.context = context;
-        this.hadoopConf = hadoopConf;
-        this.jobId = jobId;
-        this.subTaskIndex = context.getIndexOfSubtask();
-        writeStrategy.init(hadoopConf, jobId, subTaskIndex);
+        this.fileSystemUtils = writeStrategy.getFileSystemUtils();
+        int subTaskIndex = context.getIndexOfSubtask();
+        String uuidPrefix;
+        if (!fileSinkStates.isEmpty()) {
+            uuidPrefix = fileSinkStates.get(0).getUuidPrefix();
+        } else {
+            uuidPrefix = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 10);
+        }
+
+        writeStrategy.init(hadoopConf, jobId, uuidPrefix, subTaskIndex);
         if (!fileSinkStates.isEmpty()) {
             try {
-                List<Path> paths = FileSystemUtils.dirList(writeStrategy.getFileSinkConfig().getTmpPath());
-                List<String> transactions = paths.stream().map(Path::getName).collect(Collectors.toList());
-                FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(hadoopConf);
+                List<String> transactions = findTransactionList(jobId, uuidPrefix);
+                FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(fileSystemUtils);
                 HashMap<String, FileSinkState> fileStatesMap = new HashMap<>();
                 fileSinkStates.forEach(fileSinkState ->
-                        fileStatesMap.put(fileSinkState.getTransactionId(), fileSinkState));
+                    fileStatesMap.put(fileSinkState.getTransactionId(), fileSinkState));
                 for (String transaction : transactions) {
                     if (fileStatesMap.containsKey(transaction)) {
                         // need commit
                         FileSinkState fileSinkState = fileStatesMap.get(transaction);
                         FileAggregatedCommitInfo fileCommitInfo = fileSinkAggregatedCommitter
-                                .combine(Collections.singletonList(new FileCommitInfo(fileSinkState.getNeedMoveFiles(),
-                                        fileSinkState.getPartitionDirAndValuesMap(),
-                                        fileSinkState.getTransactionDir())));
+                            .combine(Collections.singletonList(new FileCommitInfo(fileSinkState.getNeedMoveFiles(),
+                                fileSinkState.getPartitionDirAndValuesMap(),
+                                fileSinkState.getTransactionDir())));
                         fileSinkAggregatedCommitter.commit(Collections.singletonList(fileCommitInfo));
                     } else {
                         // need abort
@@ -82,6 +88,13 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
         } else {
             writeStrategy.beginTransaction(1L);
         }
+    }
+
+    private List<String> findTransactionList(String jobId, String uuidPrefix) throws IOException {
+        return fileSystemUtils.dirList(AbstractWriteStrategy.getTransactionDirPrefix(writeStrategy
+                                .getFileSinkConfig().getTmpPath(),
+                        jobId, uuidPrefix))
+            .stream().map(Path::getName).collect(Collectors.toList());
     }
 
     public BaseFileSinkWriter(WriteStrategy writeStrategy, HadoopConf hadoopConf, SinkWriter.Context context, String jobId) {

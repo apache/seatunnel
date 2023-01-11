@@ -20,75 +20,26 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.ShardMetadata;
 
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.io.Serializable;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+@Builder
+@Getter
 public class ReaderOption implements Serializable {
 
     private ShardMetadata shardMetadata;
-    private List<String> fields;
-
+    private String[] primaryKeys;
+    private boolean allowExperimentalLightweightDelete;
+    private boolean supportUpsert;
+    private String tableEngine;
     private Map<String, String> tableSchema;
+    @Setter
     private SeaTunnelRowType seaTunnelRowType;
     private Properties properties;
     private int bulkSize;
-
-    public ReaderOption(ShardMetadata shardMetadata,
-                        Properties properties, List<String> fields, Map<String, String> tableSchema, int bulkSize) {
-        this.shardMetadata = shardMetadata;
-        this.properties = properties;
-        this.fields = fields;
-        this.tableSchema = tableSchema;
-        this.bulkSize = bulkSize;
-    }
-
-    public Properties getProperties() {
-        return properties;
-    }
-
-    public void setProperties(Properties properties) {
-        this.properties = properties;
-    }
-
-    public ShardMetadata getShardMetadata() {
-        return shardMetadata;
-    }
-
-    public void setShardMetadata(ShardMetadata shardMetadata) {
-        this.shardMetadata = shardMetadata;
-    }
-
-    public SeaTunnelRowType getSeaTunnelRowType() {
-        return seaTunnelRowType;
-    }
-
-    public void setSeaTunnelRowType(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
-    }
-
-    public Map<String, String> getTableSchema() {
-        return tableSchema;
-    }
-
-    public void setTableSchema(Map<String, String> tableSchema) {
-        this.tableSchema = tableSchema;
-    }
-
-    public List<String> getFields() {
-        return fields;
-    }
-
-    public void setFields(List<String> fields) {
-        this.fields = fields;
-    }
-
-    public int getBulkSize() {
-        return bulkSize;
-    }
-
-    public void setBulkSize(int bulkSize) {
-        this.bulkSize = bulkSize;
-    }
 }

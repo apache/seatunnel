@@ -20,11 +20,10 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.hdfs;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.HdfsFileStorageInstance;
 
 import com.google.auto.service.AutoService;
 
@@ -49,7 +48,7 @@ import java.util.Map;
  *      fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
  *  </pre>
  */
-@AutoService(Factory.class)
+@AutoService(CheckpointStorageFactory.class)
 public class HdfsStorageFactory implements CheckpointStorageFactory {
     @Override
     public String factoryIdentifier() {
@@ -57,12 +56,10 @@ public class HdfsStorageFactory implements CheckpointStorageFactory {
     }
 
     @Override
-    public OptionRule optionRule() {
-        return OptionRule.builder().build();
-    }
-
-    @Override
     public CheckpointStorage create(Map<String, String> configuration) throws CheckpointStorageException {
-        return new HdfsStorage(configuration);
+        if (HdfsFileStorageInstance.isFsNull()) {
+            return HdfsFileStorageInstance.getOrCreateStorage(configuration);
+        }
+        return HdfsFileStorageInstance.getHdfsStorage();
     }
 }

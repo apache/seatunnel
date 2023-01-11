@@ -131,6 +131,7 @@ public class IMapFileStorage implements IMapStorage {
         this.businessRootPath = namespace + DEFAULT_IMAP_FILE_PATH_SPLIT + clusterName + DEFAULT_IMAP_FILE_PATH_SPLIT + businessName + DEFAULT_IMAP_FILE_PATH_SPLIT;
         try {
             this.fs = FileSystem.get(hadoopConf);
+            fs.setWriteChecksum(false);
         } catch (IOException e) {
             throw new IMapStorageException("Failed to get file system", e);
         }
@@ -221,7 +222,7 @@ public class IMapFileStorage implements IMapStorage {
     }
 
     @Override
-    public void destroy() {
+    public void destroy(boolean deleteAllFileFlag) {
         log.info("start destroy IMapFileStorage, businessName is {}, cluster name is {}", businessName, region);
         /**
          * 1. close current disruptor
@@ -233,15 +234,16 @@ public class IMapFileStorage implements IMapStorage {
         } catch (IOException e) {
             log.error("close walDisruptor error", e);
         }
-        // delete all files
-        String parentPath = businessRootPath;
+        if (deleteAllFileFlag) {
+            // delete all files
+            String parentPath = businessRootPath;
 
-        try {
-            fs.delete(new Path(parentPath), true);
-        } catch (IOException e) {
-            log.error("destroy IMapFileStorage error,businessName is {}, cluster name is {}", businessName, region, e);
+            try {
+                fs.delete(new Path(parentPath), true);
+            } catch (IOException e) {
+                log.error("destroy IMapFileStorage error,businessName is {}, cluster name is {}", businessName, region, e);
+            }
         }
-
     }
 
     private IMapFileData parseToIMapFileData(Object key, Object value) throws IOException {

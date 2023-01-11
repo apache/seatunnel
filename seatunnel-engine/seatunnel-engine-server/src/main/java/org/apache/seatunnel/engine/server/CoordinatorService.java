@@ -177,13 +177,12 @@ public class CoordinatorService {
             nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO)
         );
 
-        List<CompletableFuture<Void>> collect = runningJobInfoIMap.entrySet().stream().map(entry -> {
-            return CompletableFuture.runAsync(() -> {
+        List<CompletableFuture<Void>> collect = runningJobInfoIMap.entrySet().stream().map(entry ->
+            CompletableFuture.runAsync(() -> {
                 logger.info(String.format("begin restore job (%s) from master active switch", entry.getKey()));
                 restoreJobFromMasterActiveSwitch(entry.getKey(), entry.getValue());
                 logger.info(String.format("restore job (%s) from master active switch finished", entry.getKey()));
-            }, executorService);
-        }).collect(Collectors.toList());
+            }, executorService)).collect(Collectors.toList());
 
         try {
             CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
@@ -206,6 +205,7 @@ public class CoordinatorService {
                 nodeEngine,
                 executorService,
                 getResourceManager(),
+                getJobHistoryService(),
                 runningJobStateIMap,
                 runningJobStateTimestampsIMap,
                 ownedSlotProfilesIMap,
@@ -263,7 +263,6 @@ public class CoordinatorService {
                     onJobDone(jobMaster, jobId);
                 }
             });
-            return;
         }
     }
 
@@ -328,6 +327,7 @@ public class CoordinatorService {
             this.nodeEngine,
             executorService,
             getResourceManager(),
+            getJobHistoryService(),
             runningJobStateIMap,
             runningJobStateTimestampsIMap,
             ownedSlotProfilesIMap, engineConfig);
@@ -357,7 +357,6 @@ public class CoordinatorService {
         // storage job state and metrics to HistoryStorage
         jobHistoryService.storeJobInfo(jobId, runningJobMasterMap.get(jobId).getJobDAGInfo());
         jobHistoryService.storeFinishedJobState(jobMaster);
-        jobHistoryService.storeFinishedJobMetrics(jobMaster);
         removeJobIMap(jobMaster);
         runningJobMasterMap.remove(jobId);
     }
@@ -426,7 +425,7 @@ public class CoordinatorService {
         }
         JobMetrics jobMetrics = JobMetricsUtil.toJobMetrics(runningJobMaster.getCurrJobMetrics());
         JobMetrics jobMetricsImap = jobHistoryService.getJobMetrics(jobId);
-        return jobMetricsImap != null ? jobMetricsImap : jobMetrics;
+        return jobMetricsImap != null ? jobMetricsImap.merge(jobMetrics) : jobMetrics;
     }
 
     public JobDAGInfo getJobInfo(long jobId) {

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
@@ -55,9 +57,9 @@ public class IMapCheckpointIDCounter implements CheckpointIDCounter {
 
     @Override
     public long getAndIncrement() throws Exception {
-        Long currentId = checkpointIdMap.get(pipelineId);
-        checkpointIdMap.put(pipelineId, currentId + 1);
-        return currentId;
+        Long nextId = checkpointIdMap.compute(pipelineId, (k, v) -> v == null ? null : v + 1);
+        checkNotNull(nextId);
+        return nextId - 1;
     }
 
     @Override

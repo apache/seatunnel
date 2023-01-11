@@ -38,12 +38,16 @@
 
             <includes>
                 <include>README.md</include>
-                <include>bin/**</include>
                 <include>config/**</include>
                 <include>plugins/**</include>
             </includes>
         </fileSet>
-
+        <!-- ============ Install Plugin Bin ============  -->
+        <fileSet>
+            <directory>../bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
         <!-- ============ Starter Bin ============  -->
         <fileSet>
             <directory>../seatunnel-core/seatunnel-flink-starter/src/main/bin</directory>
@@ -68,15 +72,6 @@
                 <include>*</include>
             </includes>
             <fileMode>0755</fileMode>
-        </fileSet>
-        <!--Engine Config File-->
-        <fileSet>
-            <directory>../seatunnel-engine/seatunnel-engine-common/src/main/resources</directory>
-            <includes>
-                <include>*.yaml</include>
-            </includes>
-            <outputDirectory>/config</outputDirectory>
-            <fileMode>0644</fileMode>
         </fileSet>
         <!--Licenses And NOTICE-->
         <fileSet>
@@ -147,18 +142,22 @@
                 <!-- Don't exclude connector-http-base, because it contains SPI files -->
                 <exclude>org.apache.seatunnel:connector-file-base</exclude>
                 <exclude>org.apache.seatunnel:connector-file-base-hadoop</exclude>
+                <exclude>org.apache.seatunnel:connector-cdc-base</exclude>
             </excludes>
             <outputDirectory>/connectors/seatunnel</outputDirectory>
             <scope>provided</scope>
         </dependencySet>
 
-        <!-- ============ SeaTunnel Transforms V2 Jars ============  -->
+        <!-- ============ SeaTunnel Transforms V2 Jars And SeaTunnel Hadoop3 Uber Jar ============  -->
         <dependencySet>
             <useProjectArtifact>false</useProjectArtifact>
             <useTransitiveDependencies>true</useTransitiveDependencies>
             <unpack>false</unpack>
             <includes>
                 <include>org.apache.seatunnel:seatunnel-transforms-v2:jar</include>
+                <include>org.apache.hadoop:hadoop-aws:jar</include>
+                <include>com.amazonaws:aws-java-sdk-bundle:jar</include>
+                <include>org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber:jar:*:optional</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
             <outputDirectory>/lib</outputDirectory>
@@ -184,7 +183,7 @@
                 <include>com.amazon.redshift:redshift-jdbc42:jar</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
-            <outputDirectory>/lib/jdbc_driver</outputDirectory>
+            <outputDirectory>/plugins/jdbc/lib</outputDirectory>
             <scope>provided</scope>
         </dependencySet>
     </dependencySets>
