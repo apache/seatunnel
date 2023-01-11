@@ -38,7 +38,9 @@ public final class TypesafeConfigUtils {
      * @param source     config source
      * @param prefix     config prefix
      * @param keepPrefix true if keep prefix
+     * @deprecated use org.apache.seatunnel.api.configuration.Option interface instead
      */
+    @Deprecated
     public static Config extractSubConfig(Config source, String prefix, boolean keepPrefix) {
 
         // use LinkedHashMap to keep insertion order
@@ -82,17 +84,6 @@ public final class TypesafeConfigUtils {
         }
 
         return hasConfig;
-    }
-
-    public static Config extractSubConfigThrowable(Config source, String prefix, boolean keepPrefix) {
-
-        Config config = extractSubConfig(source, prefix, keepPrefix);
-
-        if (config.isEmpty()) {
-            throw new ConfigRuntimeException("config is empty");
-        }
-
-        return config;
     }
 
     @SuppressWarnings("unchecked")

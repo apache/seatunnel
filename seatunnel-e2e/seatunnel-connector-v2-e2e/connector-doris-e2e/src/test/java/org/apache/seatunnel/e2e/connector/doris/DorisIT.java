@@ -168,7 +168,7 @@ public class DorisIT extends TestSuiteBase implements TestResource {
         // wait for doris fully start
         given().ignoreExceptions()
                 .await()
-                .atMost(1000, TimeUnit.SECONDS)
+                .atMost(10000, TimeUnit.SECONDS)
                 .untilAsserted(this::initializeJdbcConnection);
         initializeJdbcTable();
         batchInsertData();

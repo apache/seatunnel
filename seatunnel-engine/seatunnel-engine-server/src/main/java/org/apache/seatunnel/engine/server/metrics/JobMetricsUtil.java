@@ -58,19 +58,15 @@ public final class JobMetricsUtil {
     }
 
     public static JobMetrics toJobMetrics(List<RawJobMetrics> rawJobMetrics) {
-        JobMetricsConsumer consumer = null;
+        JobMetricsConsumer consumer = new JobMetricsConsumer();
         for (RawJobMetrics metrics : rawJobMetrics) {
             if (metrics.getBlob() == null) {
                 continue;
             }
-            if (consumer == null) {
-                consumer = new JobMetricsConsumer();
-            }
             consumer.timestamp = metrics.getTimestamp();
             MetricsCompressor.extractMetrics(metrics.getBlob(), consumer);
         }
-        return consumer == null ? JobMetrics.empty() : JobMetrics.of(consumer.metrics);
-
+        return JobMetrics.of(consumer.metrics);
     }
 
     private static class JobMetricsConsumer implements MetricConsumer {
