@@ -140,8 +140,9 @@ public class PipelineBaseScheduler implements JobScheduler {
         }
         if (oldProfile == null || !resourceManager.slotActiveCheck(oldProfile)) {
             SlotProfile newProfile;
-            if (applyResourceForTask(task) != null) {
-                newProfile = applyResourceForTask(task).join();
+            CompletableFuture<SlotProfile> slotProfileCompletableFuture = applyResourceForTask(task);
+            if (slotProfileCompletableFuture != null) {
+                newProfile = slotProfileCompletableFuture.join();
             } else {
                 throw new SeaTunnelEngineException(String.format("The task [%s] state is [%s] and the resource can not be retrieved", task.getTaskFullName(), task.getExecutionState()));
             }
