@@ -148,7 +148,8 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
                 sinkWriteCount += sinkWriter.get("value").asLong();
             }
             return new JobMetricsSummary(sourceReadCount, sinkWriteCount);
-        } catch (JsonProcessingException e) {
+            // Add NullPointerException because of metrics information can be empty like {}
+        } catch (JsonProcessingException | NullPointerException e) {
             return new JobMetricsSummary(sourceReadCount, sinkWriteCount);
         }
     }
