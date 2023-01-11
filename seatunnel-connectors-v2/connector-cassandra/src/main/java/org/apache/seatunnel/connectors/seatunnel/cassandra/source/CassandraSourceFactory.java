@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cassandra.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig;
@@ -37,5 +38,10 @@ public class CassandraSourceFactory implements TableSourceFactory {
                 .required(CassandraConfig.HOST, CassandraConfig.KEYSPACE, CassandraConfig.CQL)
                 .optional(CassandraConfig.USERNAME, CassandraConfig.PASSWORD, CassandraConfig.DATACENTER, CassandraConfig.CONSISTENCY_LEVEL)
                 .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return CassandraSource.class;
     }
 }
