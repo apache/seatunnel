@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.scheduler;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.exception.JobException;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
@@ -138,11 +139,17 @@ public class PipelineBaseScheduler implements JobScheduler {
             oldProfile = ownedSlotProfiles.get(task.getTaskGroupLocation());
         }
         if (oldProfile == null || !resourceManager.slotActiveCheck(oldProfile)) {
-            SlotProfile newProfile = applyResourceForTask(task).join();
-            log.info(String.format("use new profile: %s to replace not active profile: %s for task %s", newProfile, oldProfile, task));
+            SlotProfile newProfile;
+            if (applyResourceForTask(task) != null) {
+                newProfile = applyResourceForTask(task).join();
+            } else {
+                throw new SeaTunnelEngineException(String.format("The task [%s] state is [%s] and the resource can not be retrieved", task.getTaskFullName(), task.getExecutionState()));
+            }
+
+            log.info(String.format("use new profile: %s to replace not active profile: %s for task %s", newProfile, oldProfile, task.getTaskFullName()));
             return newProfile;
         }
-        log.info(String.format("use active old profile: %s for task %s", oldProfile, task));
+        log.info(String.format("use active old profile: %s for task %s", oldProfile, task.getTaskFullName()));
         task.updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED);
         return oldProfile;
     }
