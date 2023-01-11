@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -41,10 +42,12 @@ import com.google.auto.service.AutoService;
 import java.time.ZoneId;
 
 @AutoService(SeaTunnelSource.class)
-public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig> {
+public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig> implements SupportParallelism {
+    static final String IDENTIFIER = "MySQL-CDC";
+
     @Override
     public String getPluginName() {
-        return "MySQL-CDC";
+        return IDENTIFIER;
     }
 
     @Override

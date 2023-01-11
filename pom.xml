@@ -80,7 +80,6 @@
         <module>seatunnel-common</module>
         <module>seatunnel-apis</module>
         <module>seatunnel-core</module>
-        <module>seatunnel-transforms</module>
         <module>seatunnel-transforms-v2</module>
         <module>seatunnel-connectors-v2</module>
         <module>seatunnel-api</module>
@@ -90,6 +89,7 @@
         <module>seatunnel-engine</module>
         <module>seatunnel-examples</module>
         <module>seatunnel-e2e</module>
+        <module>seatunnel-shade</module>
     </modules>
 
     <profiles>
@@ -493,6 +493,14 @@
                 <groupId>com.google.auto.service</groupId>
                 <artifactId>auto-service</artifactId>
                 <version>${auto-service.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+                <version>${project.version}</version>
+                <classifier>optional</classifier>
                 <scope>provided</scope>
             </dependency>
 

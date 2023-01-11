@@ -82,10 +82,10 @@ JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.config=${SEATUNNEL_CONFIG}"
 JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.config=${HAZELCAST_CONFIG}"
 
 # Log4j2 Config
-if [ -e "${CONF_DIR}/log4j2.properties" ]; then
-  JAVA_OPTS="${JAVA_OPTS} -Dlog4j2.configurationFile=${CONF_DIR}/log4j2.properties"
+if [ -e "${CONF_DIR}/log4j2_client.properties" ]; then
+  JAVA_OPTS="${JAVA_OPTS} -Dlog4j2.configurationFile=${CONF_DIR}/log4j2_client.properties"
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.path=${APP_DIR}/logs"
-  if [[ $args == *" -e local"* || $args == *" --deploy-mode local"* ]]; then
+  if [[ $args == *" -m local"* || $args == *" --master local"* ]]; then
     JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-starter-client-$((`date '+%s'`*1000+`date '+%N'`/1000000))"
   else
       JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-starter-client"

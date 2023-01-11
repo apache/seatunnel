@@ -6,40 +6,52 @@
 
 Output data to hdfs file
 
+:::tip
+
+If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
+
+If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+
+:::
+
 ## Key features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
 By default, we use 2PC commit to ensure `exactly-once`
 
-- [ ] [schema projection](../../concept/connector-v2-features.md)
 - [x] file format
   - [x] text
   - [x] csv
   - [x] parquet
   - [x] orc
   - [x] json
+- [x] compress codec
+  - [x] lzo
+
 
 ## Options
 
-In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
-
-| name                             | type    | required | default value                                             |
-|----------------------------------|---------|----------|-----------------------------------------------------------|
-| fs.defaultFS                     | string  | yes      | -                                                         |
-| path                             | string  | yes      | -                                                         |
-| file_name_expression             | string  | no       | "${transactionId}"                                        |
-| file_format                      | string  | no       | "text"                                                    |
-| filename_time_format             | string  | no       | "yyyy.MM.dd"                                              |
-| field_delimiter                  | string  | no       | '\001'                                                    |
-| row_delimiter                    | string  | no       | "\n"                                                      |
-| partition_by                     | array   | no       | -                                                         |
-| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"                |
-| is_partition_field_write_in_file | boolean | no       | false                                                     |
-| sink_columns                     | array   | no       | When this parameter is empty, all fields are sink columns |
-| is_enable_transaction            | boolean | no       | true                                                      |
-| batch_size                       | int     | no       | 1000000                                                   |
-| common-options                   |         | no       | -                                                         |
+| name                             | type    | required | default value                              | remarks                                                   |
+|----------------------------------|---------|----------|--------------------------------------------|-----------------------------------------------------------|
+| fs.defaultFS                     | string  | yes      | -                                          |                                                           |
+| path                             | string  | yes      | -                                          |                                                           |
+| hdfs_site_path                   | string  | no       | -                                          |                                                           |
+| custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                      |
+| file_name_expression             | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                    |
+| filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                    |
+| file_format                      | string  | no       | "csv"                                      |                                                           |
+| field_delimiter                  | string  | no       | '\001'                                     | Only used when file_format is text                        |
+| row_delimiter                    | string  | no       | "\n"                                       | Only used when file_format is text                        |
+| have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                   |
+| partition_by                     | array   | no       | -                                          | Only used then have_partition is true                     |
+| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                     |
+| is_partition_field_write_in_file | boolean | no       | false                                      | Only used then have_partition is true                     |
+| sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns |
+| is_enable_transaction            | boolean | no       | true                                       |                                                           |
+| batch_size                       | int     | no       | 1000000                                    |                                                           |
+| common-options                   | object  | no       | -                                          |                                                           |
+| compressCodec                    | string  | no       | none                                       |                                                           |
 
 ### fs.defaultFS [string]
 
@@ -49,22 +61,25 @@ The hadoop cluster address that start with `hdfs://`, for example: `hdfs://hadoo
 
 The target dir path is required.
 
+### hdfs_site_path [string]
+
+The path of `hdfs-site.xml`, used to load ha configuration of namenodes
+
+### custom_filename [boolean]
+Whether custom the filename
+
 ### file_name_expression [string]
+
+Only used when `custom_filename` is `true`
 
 `file_name_expression` describes the file expression which will be created into the `path`. We can add the variable `${now}` or `${uuid}` in the `file_name_expression`, like `test_${uuid}_${now}`,
 `${now}` represents the current time, and its format can be defined by specifying the option `filename_time_format`.
 
 Please note that, If `is_enable_transaction` is `true`, we will auto add `${transactionId}_` in the head of the file.
 
-### file_format [string]
-
-We supported as the following file types:
-
-`text` `csv` `parquet` `orc` `json`
-
-Please note that, The final file name will ends with the file_format's suffix, the suffix of the text file is `txt`.
-
 ### filename_time_format [string]
+
+Only used when `custom_filename` is `true`
 
 When the format in the `file_name_expression` parameter is `xxxx-${now}` , `filename_time_format` can specify the time format of the path, and the default value is `yyyy.MM.dd` . The commonly used time formats are listed as follows:
 
@@ -77,27 +92,43 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 | m      | Minute in hour     |
 | s      | Second in minute   |
 
-See [Java SimpleDateFormat](https://docs.oracle.com/javase/tutorial/i18n/format/simpleDateFormat.html) for detailed time format syntax.
+### file_format [string]
+
+We supported as the following file types:
+
+`text` `json` `csv` `orc` `parquet`
+
+Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
 
 ### field_delimiter [string]
 
-The separator between columns in a row of data. Only needed by `text` and `csv` file format.
+The separator between columns in a row of data. Only needed by `text` file format.
 
 ### row_delimiter [string]
 
-The separator between rows in a file. Only needed by `text` and `csv` file format.
+The separator between rows in a file. Only needed by `text` file format.
+
+### have_partition [boolean]
+
+Whether you need processing partitions.
 
 ### partition_by [array]
 
-Partition data based on selected fields
+Only used when `have_partition` is `true`.
+
+Partition data based on selected fields.
 
 ### partition_dir_expression [string]
+
+Only used when `have_partition` is `true`.
 
 If the `partition_by` is specified, we will generate the corresponding partition directory based on the partition information, and the final file will be placed in the partition directory.
 
 Default `partition_dir_expression` is `${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/`. `k0` is the first partition field and `v0` is the value of the first partition field.
 
 ### is_partition_field_write_in_file [boolean]
+
+Only used when `have_partition` is `true`.
 
 If `is_partition_field_write_in_file` is `true`, the partition field and the value of it will be write into data file.
 
@@ -120,66 +151,65 @@ Only support `true` now.
 
 The maximum number of rows in a file. For SeaTunnel Engine, the number of lines in the file is determined by `batch_size` and `checkpoint.interval` jointly decide. If the value of `checkpoint.interval` is large enough, sink writer will write rows in a file until the rows in the file larger than `batch_size`. If `checkpoint.interval` is small, the sink writer will create a new file when a new checkpoint trigger.
 
-### common options
+### compressCodec [string]
+Support lzo compression for text in file format. The file name ends with ".lzo.txt" .
 
+### common options
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Example
 
-For text file format
+For orc file format simple config
 
 ```bash
 
 HdfsFile {
     fs.defaultFS = "hdfs://hadoopcluster"
     path = "/tmp/hive/warehouse/test2"
+    file_format = "orc"
+}
+
+```
+
+For text file format with `have_partition` and `custom_filename` and `sink_columns`
+
+```bash
+
+HdfsFile {
+    fs.defaultFS = "hdfs://hadoopcluster"
+    path = "/tmp/hive/warehouse/test2"
+    file_format = "text"
     field_delimiter = "\t"
     row_delimiter = "\n"
+    have_partition = true
     partition_by = ["age"]
     partition_dir_expression = "${k0}=${v0}"
     is_partition_field_write_in_file = true
+    custom_filename = true
     file_name_expression = "${transactionId}_${now}"
-    file_format = "text"
-    sink_columns = ["name","age"]
     filename_time_format = "yyyy.MM.dd"
+    sink_columns = ["name","age"]
     is_enable_transaction = true
 }
 
 ```
 
-For parquet file format
+For parquet file format with `have_partition` and `custom_filename` and `sink_columns`
 
 ```bash
 
 HdfsFile {
     fs.defaultFS = "hdfs://hadoopcluster"
     path = "/tmp/hive/warehouse/test2"
+    have_partition = true
     partition_by = ["age"]
     partition_dir_expression = "${k0}=${v0}"
     is_partition_field_write_in_file = true
+    custom_filename = true
     file_name_expression = "${transactionId}_${now}"
+    filename_time_format = "yyyy.MM.dd"
     file_format = "parquet"
     sink_columns = ["name","age"]
-    filename_time_format = "yyyy.MM.dd"
-    is_enable_transaction = true
-}
-
-```
-
-For orc file format
-
-```bash
-
-HdfsFile {
-    fs.defaultFS = "hdfs://hadoopcluster"
-    path = "/tmp/hive/warehouse/test2"
-    partition_by = ["age"]
-    partition_dir_expression = "${k0}=${v0}"
-    is_partition_field_write_in_file = true
-    file_name_expression = "${transactionId}_${now}"
-    file_format = "orc"
-    sink_columns = ["name","age"]
-    filename_time_format = "yyyy.MM.dd"
     is_enable_transaction = true
 }
 
@@ -203,3 +233,4 @@ HdfsFile {
   - When restore writer from states getting transaction directly failed
 
 - [Improve] Support setting batch size for every file ([3625](https://github.com/apache/incubator-seatunnel/pull/3625))
+- [Improve] Support lzo compression for text in file format ([3782](https://github.com/apache/incubator-seatunnel/pull/3782))

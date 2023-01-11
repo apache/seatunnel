@@ -60,12 +60,15 @@
         <module>connector-amazondynamodb</module>
         <module>connector-tablestore</module>
         <module>connector-cassandra</module>
+        <module>connector-s3-redshift</module>
         <module>connector-starrocks</module>
         <module>connector-google-sheets</module>
         <module>connector-slack</module>
         <module>connector-rabbitmq</module>
         <module>connector-openmldb</module>
+        <module>connector-doris</module>
         <module>connector-maxcompute</module>
+        <module>connector-tdengine</module>
     </modules>
 
     <dependencyManagement>

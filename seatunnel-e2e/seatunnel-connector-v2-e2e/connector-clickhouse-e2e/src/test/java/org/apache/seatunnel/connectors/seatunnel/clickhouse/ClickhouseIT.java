@@ -368,10 +368,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private Boolean compare(String sql) {
         try (Statement statement = connection.createStatement()) {
             ResultSet resultSet = statement.executeQuery(sql);
-            while (resultSet.next()) {
-                return false;
-            }
-            return true;
+            return !resultSet.next();
         } catch (SQLException e) {
             throw new RuntimeException("result compare error", e);
         }

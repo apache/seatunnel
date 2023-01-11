@@ -26,6 +26,7 @@ import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.Maxcom
 import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.TABLE_NAME;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
@@ -44,5 +45,10 @@ public class MaxcomputeSourceFactory implements TableSourceFactory {
             .required(ACCESS_ID, ACCESS_KEY, ENDPOINT, PROJECT, TABLE_NAME)
             .optional(PARTITION_SPEC, SPLIT_ROW)
             .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return MaxcomputeSource.class;
     }
 }

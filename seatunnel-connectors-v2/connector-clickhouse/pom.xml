@@ -28,7 +28,7 @@
 
     <artifactId>connector-clickhouse</artifactId>
     <properties>
-        <clickhouse.version>0.3.2-patch9</clickhouse.version>
+        <clickhouse.version>0.3.2-patch11</clickhouse.version>
         <sshd.scp.version>2.7.0</sshd.scp.version>
     </properties>
     <dependencies>

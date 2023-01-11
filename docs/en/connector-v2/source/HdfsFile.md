@@ -6,6 +6,14 @@
 
 Read data from hdfs file system.
 
+:::tip
+
+If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
+
+If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+
+:::
+
 ## Key features
 
 - [x] [batch](../../concept/connector-v2-features.md)
@@ -14,7 +22,7 @@ Read data from hdfs file system.
 
 Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
-- [x] [schema projection](../../concept/connector-v2-features.md)
+- [ ] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] file format
@@ -26,18 +34,19 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 
 ## Options
 
-| name                       | type    | required | default value       |
-|----------------------------|---------|----------|---------------------|
-| path                       | string  | yes      | -                   |
-| type                       | string  | yes      | -                   |
-| fs.defaultFS               | string  | yes      | -                   |
-| delimiter                  | string  | no       | \001                |
-| parse_partition_from_path  | boolean | no       | true                |
-| date_format                | string  | no       | yyyy-MM-dd          |
-| datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss |
-| time_format                | string  | no       | HH:mm:ss            |
-| schema                     | config  | no       | -                   |
-| common-options             |         | no       | -                   |
+| name                      | type    | required | default value       |
+|---------------------------|---------|----------|---------------------|
+| path                      | string  | yes      | -                   |
+| type                      | string  | yes      | -                   |
+| fs.defaultFS              | string  | yes      | -                   |
+| hdfs_site_path            | string  | no       | -                   |
+| delimiter                 | string  | no       | \001                |
+| parse_partition_from_path | boolean | no       | true                |
+| date_format               | string  | no       | yyyy-MM-dd          |
+| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
+| time_format               | string  | no       | HH:mm:ss            |
+| schema                    | config  | no       | -                   |
+| common-options            |         | no       | -                   |
 
 ### path [string]
 
@@ -179,6 +188,10 @@ connector will generate data as the following:
 ### fs.defaultFS [string]
 
 Hdfs cluster address.
+
+### hdfs_site_path [string]
+
+The path of `hdfs-site.xml`, used to load ha configuration of namenodes
 
 ### schema [Config]
 

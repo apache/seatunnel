@@ -96,7 +96,7 @@ public class CassandraSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> 
             try {
                 this.session.execute(this.batchStatement.addAll(boundStatementList));
             } catch (Exception e) {
-                log.error("Batch insert error,Try inserting one by one!");
+                log.error("Batch insert error,Try inserting one by one!", e);
                 for (BoundStatement statement : boundStatementList) {
                     this.session.execute(statement);
                 }

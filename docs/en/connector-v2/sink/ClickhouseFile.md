@@ -11,7 +11,6 @@ should be `true`. Supports Batch and Streaming mode.
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [schema projection](../../concept/connector-v2-features.md)
 
 :::tip
 
@@ -21,22 +20,25 @@ Write data to Clickhouse can also be done using JDBC
 
 ## Options
 
-| name                   | type    | required | default value |
-| ---------------------- | ------- | -------- | ------------- |
-| host                   | string  | yes      | -             |
-| database               | string  | yes      | -             |
-| table                  | string  | yes      | -             |
-| username               | string  | yes      | -             |
-| password               | string  | yes      | -             |
-| clickhouse_local_path  | string  | yes      | -             |
-| sharding_key           | string  | no       | -             |
-| copy_method            | string  | no       | scp           |
-| node_free_password     | boolean | no       | false         |
-| node_pass              | list    | no       | -             |
-| node_pass.node_address | string  | no       | -             |
-| node_pass.username     | string  | no       | "root"        |
-| node_pass.password     | string  | no       | -             |
-| common-options         |         | no       | -             |
+| name                   | type    | required | default value                          |
+|------------------------|---------|----------|----------------------------------------|
+| host                   | string  | yes      | -                                      |
+| database               | string  | yes      | -                                      |
+| table                  | string  | yes      | -                                      |
+| username               | string  | yes      | -                                      |
+| password               | string  | yes      | -                                      |
+| clickhouse_local_path  | string  | yes      | -                                      |
+| sharding_key           | string  | no       | -                                      |
+| copy_method            | string  | no       | scp                                    |
+| node_free_password     | boolean | no       | false                                  |
+| node_pass              | list    | no       | -                                      |
+| node_pass.node_address | string  | no       | -                                      |
+| node_pass.username     | string  | no       | "root"                                 |
+| node_pass.password     | string  | no       | -                                      |
+| compatible_mode        | boolean | no       | false                                  |
+| file_fields_delimiter  | string  | no       | "\t"                                   |
+| file_temp_path         | string  | no       | "/tmp/seatunnel/clickhouse-local/file" |
+| common-options         |         | no       | -                                      |
 
 ### host [string]
 
@@ -94,6 +96,21 @@ The username corresponding to the clickhouse server, default root user.
 
 The password corresponding to the clickhouse server.
 
+### compatible_mode [boolean]
+
+In the lower version of Clickhouse, the ClickhouseLocal program does not support the `--path` parameter,
+you need to use this mode to take other ways to realize the `--path` parameter function
+
+### file_fields_delimiter [string]
+
+ClickhouseFile uses csv format to temporarily save data. If the data in the row contains the delimiter value
+of csv, it may cause program exceptions. 
+Avoid this with this configuration. Value string has to be an exactly one character long
+
+### file_temp_path [string]
+
+The directory where ClickhouseFile stores temporary files locally.
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
@@ -122,3 +139,8 @@ Sink plugin common parameters, please refer to [Sink Common Options](common-opti
 ### 2.2.0-beta 2022-09-26
 
 - Support write data to ClickHouse File and move to ClickHouse data dir
+
+### Next version
+
+- [BugFix] Fix generated data part name conflict and improve file commit logic [3416](https://github.com/apache/incubator-seatunnel/pull/3416)
+- [Feature] Support compatible_mode compatible with lower version Clickhouse  [3416](https://github.com/apache/incubator-seatunnel/pull/3416)

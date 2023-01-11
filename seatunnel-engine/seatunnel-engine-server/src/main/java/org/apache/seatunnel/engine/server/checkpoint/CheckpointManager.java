@@ -17,13 +17,15 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
-import org.apache.seatunnel.api.table.factory.FactoryUtil;
+import static org.apache.seatunnel.engine.common.Constant.IMAP_CHECKPOINT_ID;
+
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
+import org.apache.seatunnel.engine.common.utils.FactoryUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -88,7 +90,7 @@ public class CheckpointManager {
                     checkpointConfig.getStorage().getStorage())
                 .create(checkpointConfig.getStorage().getStoragePluginConfig());
         IMap<Integer, Long> checkpointIdMap =
-            nodeEngine.getHazelcastInstance().getMap(String.format("checkpoint-id-%d", jobId));
+            nodeEngine.getHazelcastInstance().getMap(String.format(IMAP_CHECKPOINT_ID, jobId));
         this.coordinatorMap = checkpointPlanMap.values().parallelStream()
             .map(plan -> {
                 IMapCheckpointIDCounter idCounter = new IMapCheckpointIDCounter(plan.getPipelineId(), checkpointIdMap);
@@ -135,9 +137,8 @@ public class CheckpointManager {
         return getCheckpointCoordinator(pipelineId).startSavepoint();
     }
 
-    public void reportedPipelineRunning(int pipelineId) {
-        getCheckpointCoordinator(pipelineId).setAllTaskReady(true);
-        getCheckpointCoordinator(pipelineId).tryTriggerPendingCheckpoint();
+    public void reportedPipelineRunning(int pipelineId, boolean alreadyStarted) {
+        getCheckpointCoordinator(pipelineId).restoreCoordinator(alreadyStarted);
     }
 
     protected void handleCheckpointError(int pipelineId, Throwable e) {
@@ -162,7 +163,7 @@ public class CheckpointManager {
      */
     public void reportedTask(TaskReportStatusOperation reportStatusOperation) {
         // task address may change during restore.
-        log.debug("reported task({}) status{}", reportStatusOperation.getLocation().getTaskID(),
+        log.debug("reported task({}) status {}", reportStatusOperation.getLocation().getTaskID(),
             reportStatusOperation.getStatus());
         getCheckpointCoordinator(reportStatusOperation.getLocation()).reportedTask(reportStatusOperation);
     }
@@ -180,7 +181,7 @@ public class CheckpointManager {
      * <br> Listen to the {@link PipelineStatus} of the {@link SubPlan}, which is used to cancel the running {@link PendingCheckpoint} when the SubPlan is abnormal.
      */
     public CompletableFuture<Void> listenPipelineRetry(int pipelineId, PipelineStatus pipelineStatus) {
-        getCheckpointCoordinator(pipelineId).cleanPendingCheckpoint(CheckpointFailureReason.PIPELINE_END);
+        getCheckpointCoordinator(pipelineId).cleanPendingCheckpoint(CheckpointCloseReason.PIPELINE_END);
         return CompletableFuture.completedFuture(null);
     }
 

@@ -8,25 +8,24 @@ The internal implementation of StarRocks sink connector is cached and imported b
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [schema projection](../../concept/connector-v2-features.md)
 
 ## Options
 
-| name                        | type                         | required | default value   |
-|-----------------------------|------------------------------|----------|-----------------|
-| node_urls                   | list                         | yes      | -               |
-| username                    | string                       | yes      | -               |
-| password                    | string                       | yes      | -               |
-| database                    | string                       | yes      | -               |
-| table                       | string                       | yes       | -               |
-| labelPrefix                 | string                       | no       | -               |
-| batch_max_rows              | long                         | no       | 1024            |
-| batch_max_bytes             | int                          | no       | 5 * 1024 * 1024 |
-| batch_interval_ms           | int                          | no       | -               |
-| max_retries                 | int                          | no       | -               |
-| retry_backoff_multiplier_ms | int                          | no       | -               |
-| max_retry_backoff_ms        | int                          | no       | -               |
-| sink.properties.*           | starrocks stream load config | no       | -               |
+| name                        | type   | required | default value   |
+|-----------------------------|--------|----------|-----------------|
+| node_urls                   | list   | yes      | -               |
+| username                    | string | yes      | -               |
+| password                    | string | yes      | -               |
+| database                    | string | yes      | -               |
+| table                       | string | yes      | -               |
+| labelPrefix                 | string | no       | -               |
+| batch_max_rows              | long   | no       | 1024            |
+| batch_max_bytes             | int    | no       | 5 * 1024 * 1024 |
+| batch_interval_ms           | int    | no       | -               |
+| max_retries                 | int    | no       | -               |
+| retry_backoff_multiplier_ms | int    | no       | -               |
+| max_retry_backoff_ms        | int    | no       | -               |
+| starrocks.config            | map    | no       | -               |
 
 ### node_urls [list]
 
@@ -76,11 +75,9 @@ Using as a multiplier for generating the next delay for backoff
 
 The amount of time to wait before attempting to retry a request to `StarRocks`
 
-### sink.properties.*  [starrocks stream load config]
+### starrocks.config  [map]
 
 The parameter of the stream load `data_desc`
-The way to specify the parameter is to add the prefix `sink.properties.` to the original stream load parameter name 
-For example, the way to specify `strip_outer_array` is: `sink.properties.strip_outer_array`
 
 #### Supported import data formats
 
@@ -90,37 +87,41 @@ The supported formats include CSV and JSON. Default value: CSV
 
 Use JSON format to import data
 
-```
+```hocon
 sink {
-    StarRocks {
-        nodeUrls = ["e2e_starRocksdb:8030"]
-        username = root
-        password = ""
-        database = "test"
-        table = "e2e_table_sink"
-        batch_max_rows = 10
-        sink.properties.format = "JSON"
-        sink.properties.strip_outer_array = true
+  StarRocks {
+    nodeUrls = ["e2e_starRocksdb:8030"]
+    username = root
+    password = ""
+    database = "test"
+    table = "e2e_table_sink"
+    batch_max_rows = 10
+    starrocks.config = {
+      format = "JSON"
+      strip_outer_array = true
     }
+  }
 }
 
 ```
 
 Use CSV format to import data
 
-```
+```hocon
 sink {
-    StarRocks {
-        nodeUrls = ["e2e_starRocksdb:8030"]
-        username = root
-        password = ""
-        database = "test"
-        table = "e2e_table_sink"
-        batch_max_rows = 10
-        sink.properties.format = "CSV"
-        sink.properties.column_separator = "\x01"
-        sink.properties.row_delimiter = "\x02"
+  StarRocks {
+    nodeUrls = ["e2e_starRocksdb:8030"]
+    username = root
+    password = ""
+    database = "test"
+    table = "e2e_table_sink"
+    batch_max_rows = 10
+    starrocks.config = {
+      format = "CSV"
+      column_separator = "\\x01"
+      row_delimiter = "\\x02"
     }
+  }
 }
 ```
 
@@ -129,3 +130,4 @@ sink {
 ### next version
 
 - Add StarRocks Sink Connector
+- [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/incubator-seatunnel/pull/3719)

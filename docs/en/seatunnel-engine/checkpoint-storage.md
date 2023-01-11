@@ -1,3 +1,7 @@
+---
+sidebar_position: 7
+---
+
 # Checkpoint Storage
 ## Introduction
 Checkpoint is a fault-tolerant recovery mechanism. This mechanism ensures that when the program is running, it can recover itself even if it suddenly encounters an exception.
@@ -28,7 +32,7 @@ seatunnel:
                 type: hdfs #plugin name of checkpoint storage, we support hdfs(S3, local, hdfs), localfile (native local file) is the default, but this plugin is de
               # plugin configuration
                 plugin-config: 
-                  storageNameSpace: #checkpoint storage parent path, the default value is /seatunnel/checkpoint
+                  namespace: #checkpoint storage parent path, the default value is /seatunnel/checkpoint
                   K1: V1 # plugin other configuration
                   K2: V2 # plugin other configuration   
 ```
@@ -56,6 +60,7 @@ seatunnel:
                 plugin-config:
                     storage-type: s3
                     s3.bucket: your-bucket
+                    fs.s3a.endpoint: your-endpoint
                     fs.s3a.access-key: your-access-key
                     fs.s3a.secret-key: your-secret-key
                     fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
@@ -116,6 +121,6 @@ seatunnel:
         max-retained: 3
         plugin-config:
           storage-type: hdfs
-            fs.defaultFS: /tmp/ # Ensure that the directory has written permission 
+          fs.defaultFS: /tmp/ # Ensure that the directory has written permission 
 
 ```

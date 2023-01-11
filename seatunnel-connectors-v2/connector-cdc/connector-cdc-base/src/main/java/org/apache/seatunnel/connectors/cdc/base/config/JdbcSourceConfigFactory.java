@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -47,7 +46,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     protected int splitSize = SourceOptions.SNAPSHOT_SPLIT_SIZE.defaultValue();
     protected int fetchSize = SourceOptions.SNAPSHOT_FETCH_SIZE.defaultValue();
     protected String serverTimeZone = JdbcSourceOptions.SERVER_TIME_ZONE.defaultValue();
-    protected Duration connectTimeout = JdbcSourceOptions.CONNECT_TIMEOUT.defaultValue();
+    protected long connectTimeoutMillis = JdbcSourceOptions.CONNECT_TIMEOUT_MS.defaultValue();
     protected int connectMaxRetries = JdbcSourceOptions.CONNECT_MAX_RETRIES.defaultValue();
     protected int connectionPoolSize = JdbcSourceOptions.CONNECTION_POOL_SIZE.defaultValue();
     protected Properties dbzProperties;
@@ -144,8 +143,8 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
      * The maximum time that the connector should wait after trying to connect to the database
      * server before timing out.
      */
-    public JdbcSourceConfigFactory connectTimeout(Duration connectTimeout) {
-        this.connectTimeout = connectTimeout;
+    public JdbcSourceConfigFactory connectTimeoutMillis(long connectTimeoutMillis) {
+        this.connectTimeoutMillis = connectTimeoutMillis;
         return this;
     }
 
@@ -199,7 +198,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.splitSize = config.get(SourceOptions.SNAPSHOT_SPLIT_SIZE);
         this.fetchSize = config.get(SourceOptions.SNAPSHOT_FETCH_SIZE);
         this.serverTimeZone = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
-        this.connectTimeout = config.get(JdbcSourceOptions.CONNECT_TIMEOUT);
+        this.connectTimeoutMillis = config.get(JdbcSourceOptions.CONNECT_TIMEOUT_MS);
         this.connectMaxRetries = config.get(JdbcSourceOptions.CONNECT_MAX_RETRIES);
         this.connectionPoolSize = config.get(JdbcSourceOptions.CONNECTION_POOL_SIZE);
         this.dbzProperties = new Properties();

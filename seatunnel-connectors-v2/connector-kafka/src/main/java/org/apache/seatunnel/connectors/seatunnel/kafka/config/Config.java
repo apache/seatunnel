@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
 import java.util.List;
+import java.util.Map;
 
 public class Config {
 
@@ -29,27 +30,29 @@ public class Config {
      */
     public static final String DEFAULT_FORMAT = "json";
 
+    public static final String TEXT_FORMAT = "text";
+
     /**
      * The default field delimiter is “,”
      */
     public static final String DEFAULT_FIELD_DELIMITER = ",";
 
-    public static final Option<String> KAFKA_CONFIG_PREFIX = Options.key("kafka.")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("In addition to the above parameters that must be specified by the Kafka producer or consumer client, " +
-                    "the user can also specify multiple non-mandatory parameters for the producer or consumer client, " +
-                    "covering all the producer parameters specified in the official Kafka document.");
+    public static final Option<Map<String, String>> KAFKA_CONFIG = Options.key("kafka.config")
+        .mapType()
+        .noDefaultValue()
+        .withDescription("In addition to the above parameters that must be specified by the Kafka producer or consumer client, " +
+            "the user can also specify multiple non-mandatory parameters for the producer or consumer client, " +
+            "covering all the producer parameters specified in the official Kafka document.");
 
     public static final Option<String> TOPIC = Options.key("topic")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("Kafka topic name. If there are multiple topics, use , to split, for example: \"tpc1,tpc2\".");
+        .stringType()
+        .noDefaultValue()
+        .withDescription("Kafka topic name. If there are multiple topics, use , to split, for example: \"tpc1,tpc2\".");
 
     public static final Option<Boolean> PATTERN = Options.key("pattern")
-            .booleanType()
-            .defaultValue(false)
-            .withDescription("If pattern is set to true,the regular expression for a pattern of topic names to read from." +
+        .booleanType()
+        .defaultValue(false)
+        .withDescription("If pattern is set to true,the regular expression for a pattern of topic names to read from." +
                     " All topics in clients with names that match the specified regular expression will be subscribed by the consumer.");
 
     public static final Option<String> BOOTSTRAP_SERVERS = Options.key("bootstrap.servers")
