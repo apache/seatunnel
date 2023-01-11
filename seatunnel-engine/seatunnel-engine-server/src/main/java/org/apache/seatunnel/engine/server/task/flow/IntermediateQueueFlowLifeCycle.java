@@ -29,11 +29,14 @@ import com.lmax.disruptor.dsl.Disruptor;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 
 public class IntermediateQueueFlowLifeCycle extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>>,
     OneOutputFlowLifeCycle<Record<?>> {
 
     private final Disruptor<RecordEvent> disruptor;
+
+    private final CountDownLatch latch = new CountDownLatch(1);
 
     public IntermediateQueueFlowLifeCycle(SeaTunnelTask runningTask,
                                           CompletableFuture<Void> completableFuture,
@@ -52,13 +55,13 @@ public class IntermediateQueueFlowLifeCycle extends AbstractFlowLifeCycle implem
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void collect(Collector<Record<?>> collector) throws Exception {
-        //nothing
-    }
-
-    @Override
-    public void setCollector(Collector<Record<?>> collector) {
-        disruptor.handleEventsWith(new RecordEventHandler(runningTask, collector, this));
-        disruptor.start();
+        if (latch.getCount() == 1) {
+            disruptor.handleEventsWith(new RecordEventHandler(runningTask, collector, this));
+            disruptor.start();
+            latch.countDown();
+        } else {
+            Thread.sleep(100);
+        }
     }
 
     @Override

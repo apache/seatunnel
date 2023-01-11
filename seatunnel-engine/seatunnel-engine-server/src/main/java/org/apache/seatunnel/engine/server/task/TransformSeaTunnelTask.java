@@ -51,8 +51,6 @@ public class TransformSeaTunnelTask extends SeaTunnelTask {
         collector = new SeaTunnelTransformCollector(outputs);
         if (!(startFlowLifeCycle instanceof OneOutputFlowLifeCycle)) {
             throw new TaskRuntimeException("TransformSeaTunnelTask only support OneOutputFlowLifeCycle, but get " + startFlowLifeCycle.getClass().getName());
-        } else {
-            ((OneOutputFlowLifeCycle) startFlowLifeCycle).setCollector(collector);
         }
     }
 
