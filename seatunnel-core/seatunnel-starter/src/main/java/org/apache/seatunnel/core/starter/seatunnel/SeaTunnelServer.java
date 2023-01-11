@@ -24,6 +24,9 @@ import org.apache.seatunnel.core.starter.seatunnel.args.ServerCommandArgs;
 import org.apache.seatunnel.core.starter.seatunnel.utils.EnvironmentInformation;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 public class SeaTunnelServer {
     public static void main(String[] args) throws CommandException {
         ServerCommandArgs serverCommandArgs = CommandLineUtils.parse(args, new ServerCommandArgs(),
