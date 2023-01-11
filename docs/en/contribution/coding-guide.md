@@ -22,7 +22,6 @@ This guide documents an overview of the current Apache SeaTunnel modules and bes
 | seatunnel-engine                       | SeaTunnel engine module, seatunnel-engine is a new computational engine developed by the SeaTunnel Community that focuses on data synchronization.                 |
 | seatunnel-formats                      | SeaTunnel formats module, used to offer the ability of formatting data                                                                                             |
 | seatunnel-plugin-discovery             | SeaTunnel plugin discovery module, used to offer the ability of loading SPI plugins from classpath                                                                 |
-| seatunnel-transforms                   | SeaTunnel transform V1 module, currently transform V1 is in a stable state, the community will continue to maintain it, but there will be no major feature updates |
 | seatunnel-transforms-v2                | SeaTunnel transform V2 module, currently transform V2 is under development and the community will focus on it                                                      |
 | seatunnel-translation                  | SeaTunnel translation module, used to adapt Connector V2 and other computing engines such as Spark Flink etc...                                                    |
 
