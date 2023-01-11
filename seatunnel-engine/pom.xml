@@ -23,25 +23,25 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <packaging>pom</packaging>
-    <artifactId>seatunnel-engine</artifactId>
+    <artifactId>seatunnel-zeta</artifactId>
 
     <properties>
-        <!--  SeaTunnel Engine use     -->
+        <!--  SeaTunnel zeta use     -->
         <hazelcast.version>5.1</hazelcast.version>
         <disruptor.version>3.4.4</disruptor.version>
     </properties>
 
     <modules>
-        <module>seatunnel-engine-client</module>
-        <module>seatunnel-engine-common</module>
-        <module>seatunnel-engine-server</module>
-        <module>seatunnel-engine-core</module>
-        <module>seatunnel-engine-storage</module>
+        <module>seatunnel-zeta-client</module>
+        <module>seatunnel-zeta-common</module>
+        <module>seatunnel-zeta-server</module>
+        <module>seatunnel-zeta-core</module>
+        <module>seatunnel-zeta-storage</module>
     </modules>
 
     <dependencyManagement>
         <dependencies>
-            <!-- SeaTunnel engine use begin -->
+            <!-- SeaTunnel zeta use begin -->
             <dependency>
                 <groupId>com.hazelcast</groupId>
                 <artifactId>hazelcast</artifactId>
@@ -61,7 +61,7 @@
                 <version>${hazelcast.version}</version>
                 <classifier>tests</classifier>
             </dependency>
-            <!-- SeaTunnel engine use end -->
+            <!-- SeaTunnel zeta use end -->
         </dependencies>
     </dependencyManagement>
 
