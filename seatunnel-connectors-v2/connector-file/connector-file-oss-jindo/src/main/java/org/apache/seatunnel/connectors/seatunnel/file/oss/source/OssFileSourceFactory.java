@@ -18,9 +18,12 @@
 package org.apache.seatunnel.connectors.seatunnel.file.oss.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfig;
 
@@ -38,18 +41,24 @@ public class OssFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(OssConfig.FILE_PATH)
-                .required(OssConfig.FILE_TYPE)
-                .required(OssConfig.BUCKET)
-                .required(OssConfig.ACCESS_KEY)
-                .required(OssConfig.ACCESS_SECRET)
-                .required(OssConfig.ENDPOINT)
-                .optional(OssConfig.DELIMITER)
-                .optional(OssConfig.PARSE_PARTITION_FROM_PATH)
-                .optional(OssConfig.DATE_FORMAT)
-                .optional(OssConfig.DATETIME_FORMAT)
-                .optional(OssConfig.TIME_FORMAT)
-                .conditional(OssConfig.FILE_TYPE, Arrays.asList("text", "json"), SeaTunnelSchema.SCHEMA)
-                .build();
+            .required(OssConfig.FILE_PATH)
+            .required(OssConfig.BUCKET)
+            .required(OssConfig.ACCESS_KEY)
+            .required(OssConfig.ACCESS_SECRET)
+            .required(OssConfig.ENDPOINT)
+            .required(BaseSourceConfig.FILE_TYPE)
+            .conditional(BaseSourceConfig.FILE_TYPE, FileFormat.TEXT, BaseSourceConfig.DELIMITER)
+            .conditional(BaseSourceConfig.FILE_TYPE, Arrays.asList(FileFormat.TEXT, FileFormat.JSON),
+                SeaTunnelSchema.SCHEMA)
+            .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)
+            .optional(BaseSourceConfig.DATE_FORMAT)
+            .optional(BaseSourceConfig.DATETIME_FORMAT)
+            .optional(BaseSourceConfig.TIME_FORMAT)
+            .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return OssFileSource.class;
     }
 }

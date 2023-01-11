@@ -33,12 +33,6 @@ public class ClickhouseConfig {
     public static final Option<Integer> BULK_SIZE = Options.key("bulk_size").intType()
         .defaultValue(20000).withDescription("Bulk size of clickhouse jdbc");
 
-    /**
-     * Clickhouse fields
-     */
-    public static final Option<String> FIELDS = Options.key("fields").stringType()
-        .noDefaultValue().withDescription("Clickhouse fields");
-
     public static final Option<String> SQL = Options.key("sql").stringType()
         .noDefaultValue().withDescription("Clickhouse sql used to query data");
 
@@ -129,7 +123,7 @@ public class ClickhouseConfig {
     public static final Option<List<NodePassConfig>> NODE_PASS = Options.key("node_pass").listType(NodePassConfig.class)
         .noDefaultValue().withDescription("The password of Clickhouse server node");
 
-    public static final Option<Map<String, String>> CLICKHOUSE_PREFIX = Options.key("clickhouse").mapType()
+    public static final Option<Map<String, String>> CLICKHOUSE_CONFIG = Options.key("clickhouse.config").mapType()
         .defaultValue(Collections.emptyMap()).withDescription("Clickhouse custom config");
 
     public static final Option<String> FILE_FIELDS_DELIMITER = Options.key("file_fields_delimiter").stringType()

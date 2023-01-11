@@ -205,6 +205,12 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-http-persistiq</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-jdbc</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -437,6 +443,12 @@
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-tdengine</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
 
                 <!-- jdbc driver -->
                 <dependency>
@@ -527,6 +539,7 @@
                     <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
+                    <classifier>optional</classifier>
                 </dependency>
                 <!-- hadoop jar end -->
             </dependencies>

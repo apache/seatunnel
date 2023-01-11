@@ -58,6 +58,9 @@ public class S3Conf extends HadoopConf {
         if (CheckConfigUtil.isValidParam(config, S3Config.S3_PROPERTIES.key())) {
             config.getObject(S3Config.S3_PROPERTIES.key()).forEach((key, value) -> s3Options.put(key, String.valueOf(value.unwrapped())));
         }
+
+        s3Options.put(S3Config.S3A_AWS_CREDENTIALS_PROVIDER.key(), config.getString(S3Config.S3A_AWS_CREDENTIALS_PROVIDER.key()));
+        s3Options.put(S3Config.FS_S3A_ENDPOINT.key(), config.getString(S3Config.FS_S3A_ENDPOINT.key()));
         hadoopConf.setExtraOptions(s3Options);
         return hadoopConf;
     }

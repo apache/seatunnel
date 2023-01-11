@@ -6,12 +6,20 @@
 
 Read data from ftp file server.
 
+:::tip
+
+If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
+
+If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+
+:::
+
 ## Key features
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [schema projection](../../concept/connector-v2-features.md)
+- [ ] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] file format
@@ -109,9 +117,9 @@ The schema information of upstream data.
 
 File type, supported as the following file types:
 
-`text` `csv` `json`
+`text` `csv` `parquet` `orc` `json`
 
-If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
+If you assign file type to `json` , you should also assign schema option to tell connector how to parse data to the row you want.
 
 For example:
 

@@ -17,41 +17,45 @@
 
 package org.apache.seatunnel.core.starter.spark.args;
 
+import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
-import org.apache.seatunnel.core.starter.command.DeployModeConverter;
-import org.apache.seatunnel.core.starter.config.EngineType;
+import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.spark.command.SparkConfValidateCommand;
+import org.apache.seatunnel.core.starter.spark.command.SparkTaskExecuteCommand;
 
+import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class SparkCommandArgs extends AbstractCommandArgs {
 
-    @Parameter(names = {"-c", "--config"},
-        description = "Config file",
-        required = true)
-    private String configFile;
-
     @Parameter(names = {"-e", "--deploy-mode"},
-        description = "Spark deploy mode",
-        required = true,
-        converter = DeployModeConverter.class)
-    private DeployMode deployMode;
+        description = "Spark deploy mode, support [cluster, client]",
+        converter = SparkDeployModeConverter.class)
+    private DeployMode deployMode = DeployMode.CLIENT;
 
     @Parameter(names = {"-m", "--master"},
-        description = "Spark master",
-        required = true)
-    private String master = null;
+        description = "Spark master, support [spark://host:port, mesos://host:port, yarn, " +
+                "k8s://https://host:port, local], default local[*]")
+    private String master = "local[*]";
+
+    @Override
+    public Command<?> buildCommand() {
+        Common.setDeployMode(getDeployMode());
+        if (checkConfig) {
+            return new SparkConfValidateCommand(this);
+        } else {
+            return new SparkTaskExecuteCommand(this);
+        }
+    }
 
     public String getMaster() {
         return master;
     }
 
-    @Override
-    public EngineType getEngineType() {
-        return EngineType.SPARK;
-    }
-
-    @Override
     public DeployMode getDeployMode() {
         return deployMode;
     }
@@ -64,14 +68,23 @@ public class SparkCommandArgs extends AbstractCommandArgs {
         this.master = master;
     }
 
-    @Override
-    public String getConfigFile() {
-        return this.configFile;
-    }
+    public static class SparkDeployModeConverter implements IStringConverter<DeployMode> {
+        private static final List<DeployMode> DEPLOY_MODE_TYPE_LIST = new ArrayList<>();
 
-    @Override
-    public void setConfigFile(String configFile) {
-        this.configFile = configFile;
-    }
+        static {
+            DEPLOY_MODE_TYPE_LIST.add(DeployMode.CLIENT);
+            DEPLOY_MODE_TYPE_LIST.add(DeployMode.CLUSTER);
+        }
 
+        @Override
+        public DeployMode convert(String value) {
+            DeployMode deployMode = DeployMode.valueOf(value.toUpperCase());
+            if (DEPLOY_MODE_TYPE_LIST.contains(deployMode)) {
+                return deployMode;
+            } else {
+                throw new IllegalArgumentException("SeaTunnel job on spark engine deploy mode only " +
+                        "support these options: [cluster, client]");
+            }
+        }
+    }
 }

@@ -22,6 +22,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.uti
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
@@ -37,14 +38,14 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.off
 
 import com.google.auto.service.AutoService;
 import io.debezium.connector.sqlserver.SqlServerConnection;
-import io.debezium.connector.sqlserver.SqlServerConnectorConfig;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 
 import java.time.ZoneId;
 
 @AutoService(SeaTunnelSource.class)
-public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig> {
+public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig> implements
+    SupportParallelism {
 
     @Override
     public String getPluginName() {
@@ -66,9 +67,7 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
         SqlServerSourceConfig sqlServerSourceConfig = (SqlServerSourceConfig) this.configFactory.create(0);
         TableId tableId = this.dataSourceDialect.discoverDataCollections(sqlServerSourceConfig).get(0);
 
-        SqlServerConnectorConfig dbzConnectorConfig = sqlServerSourceConfig.getDbzConnectorConfig();
-
-        SqlServerConnection sqlServerConnection = createSqlServerConnection(dbzConnectorConfig.jdbcConfig());
+        SqlServerConnection sqlServerConnection = createSqlServerConnection(sqlServerSourceConfig.getDbzConfiguration());
 
         Table table = ((SqlServerDialect) dataSourceDialect).queryTableSchema(sqlServerConnection, tableId).getTable();
 

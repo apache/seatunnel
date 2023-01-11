@@ -53,5 +53,4 @@ seatunnel-config-base-2.1.1.jar
 seatunnel-config-shade-2.1.1.jar
 slf4j-api-1.7.25.jar
 snappy-java-1.1.1.3.jar
-snappy-java-1.1.8.3.jar
 xz-1.5.jar

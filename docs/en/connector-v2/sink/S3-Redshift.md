@@ -18,7 +18,6 @@ Output data to AWS Redshift.
 
 By default, we use 2PC commit to ensure `exactly-once`
 
-- [ ] [schema projection](../../concept/connector-v2-features.md)
 - [x] file format
     - [x] text
     - [x] csv

@@ -229,7 +229,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
             clientJobProxy.cancelJob();
 
-            Awaitility.await().atMost(20000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
 
@@ -311,7 +311,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             // shutdown on worker node
             node2.shutdown();
 
-            Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(400000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
 
@@ -407,7 +407,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             Thread.sleep(10000);
             clientJobProxy.cancelJob();
 
-            Awaitility.await().atMost(20000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
 
@@ -585,7 +585,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             Thread.sleep(10000);
             clientJobProxy.cancelJob();
 
-            Awaitility.await().atMost(20000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
 

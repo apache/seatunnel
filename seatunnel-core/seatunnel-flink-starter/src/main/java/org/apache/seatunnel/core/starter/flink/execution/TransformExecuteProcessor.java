@@ -18,23 +18,30 @@
 package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
-import org.apache.seatunnel.flink.stream.FlinkStreamTransform;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFlinkTransformPluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
+import org.apache.seatunnel.translation.flink.serialization.FlinkRowConverter;
+import org.apache.seatunnel.translation.flink.utils.TypeConverterUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.common.collect.Lists;
+import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.Collector;
 
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<FlinkStreamTransform> {
+public class TransformExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<SeaTunnelTransform> {
 
     private static final String PLUGIN_TYPE = "transform";
 
@@ -43,17 +50,19 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Fl
     }
 
     @Override
-    protected List<FlinkStreamTransform> initializePlugins(List<URL> jarPaths, List<? extends Config> pluginConfigs) {
-        SeaTunnelFlinkTransformPluginDiscovery transformPluginDiscovery = new SeaTunnelFlinkTransformPluginDiscovery();
+    protected List<SeaTunnelTransform> initializePlugins(List<URL> jarPaths, List<? extends Config> pluginConfigs) {
+        SeaTunnelTransformPluginDiscovery transformPluginDiscovery = new SeaTunnelTransformPluginDiscovery();
         List<URL> pluginJars = new ArrayList<>();
-        List<FlinkStreamTransform> transforms = pluginConfigs.stream()
+        List<SeaTunnelTransform> transforms = pluginConfigs.stream()
             .map(transformConfig -> {
                 PluginIdentifier pluginIdentifier = PluginIdentifier.of(ENGINE_TYPE, PLUGIN_TYPE, transformConfig.getString(PLUGIN_NAME));
-                pluginJars.addAll(transformPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-                FlinkStreamTransform pluginInstance = (FlinkStreamTransform) transformPluginDiscovery.createPluginInstance(pluginIdentifier);
-                pluginInstance.setConfig(transformConfig);
-                pluginInstance.prepare(flinkEnvironment);
-                return pluginInstance;
+                List<URL> pluginJarPaths = transformPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier));
+                SeaTunnelTransform<?> seaTunnelTransform =
+                        transformPluginDiscovery.createPluginInstance(pluginIdentifier);
+                jarPaths.addAll(pluginJarPaths);
+                seaTunnelTransform.prepare(transformConfig);
+                seaTunnelTransform.setJobContext(jobContext);
+                return seaTunnelTransform;
             }).distinct().collect(Collectors.toList());
         jarPaths.addAll(pluginJars);
         return transforms;
@@ -68,12 +77,11 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Fl
         List<DataStream<Row>> result = new ArrayList<>();
         for (int i = 0; i < plugins.size(); i++) {
             try {
-                FlinkStreamTransform transform = plugins.get(i);
+                SeaTunnelTransform<SeaTunnelRow> transform = plugins.get(i);
                 Config pluginConfig = pluginConfigs.get(i);
                 DataStream<Row> stream = fromSourceTable(pluginConfig).orElse(input);
-                input = transform.processStream(flinkEnvironment, stream);
+                input = flinkTransform(transform, stream);
                 registerResultTable(pluginConfig, input);
-                transform.registerFunction(flinkEnvironment);
                 result.add(input);
             } catch (Exception e) {
                 throw new TaskExecuteException(
@@ -81,5 +89,26 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Fl
             }
         }
         return result;
+    }
+
+    protected DataStream<Row> flinkTransform(SeaTunnelTransform transform, DataStream<Row> stream) {
+        SeaTunnelDataType seaTunnelDataType = TypeConverterUtils.convert(stream.getType());
+        transform.setTypeInfo(seaTunnelDataType);
+        TypeInformation rowTypeInfo = TypeConverterUtils.convert(transform.getProducedType());
+        FlinkRowConverter transformInputRowConverter = new FlinkRowConverter(seaTunnelDataType);
+        FlinkRowConverter transformOutputRowConverter = new FlinkRowConverter(transform.getProducedType());
+        DataStream<Row> output =  stream.flatMap(new FlatMapFunction<Row, Row>() {
+            @Override
+            public void flatMap(Row value, Collector<Row> out) throws Exception {
+                SeaTunnelRow seaTunnelRow = transformInputRowConverter.reconvert(value);
+                SeaTunnelRow dataRow = (SeaTunnelRow) transform.map(seaTunnelRow);
+                if (dataRow != null) {
+                    Row copy = transformOutputRowConverter.convert(dataRow);
+                    out.collect(copy);
+                }
+            }
+        },
+            rowTypeInfo);
+        return output;
     }
 }
