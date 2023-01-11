@@ -132,6 +132,7 @@ Sink plugin common parameters, please refer to [Sink Common Options](common-opti
 In the case of is_exactly_once = "true", Xa transactions are used. This requires database support, and some databases require some setup : 
   1 postgres needs to set `max_prepared_transactions > 1` such as `ALTER SYSTEM set max_prepared_transactions to 10`.
   2 mysql version need >= `8.0.29` and Non-root users need to grant `XA_RECOVER_ADMIN` permissions. such as `grant XA_RECOVER_ADMIN on test_db.* to 'user1'@'%'`.
+  3 mysql can try to add `rewriteBatchedStatements=true` parameter in url for better performance.
 
 ## appendix
 
