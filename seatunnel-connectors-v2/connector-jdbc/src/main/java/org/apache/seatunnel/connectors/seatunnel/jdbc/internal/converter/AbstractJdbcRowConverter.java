@@ -31,6 +31,7 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -113,46 +114,129 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
             int statementIndex = fieldIndex + 1;
             switch (seaTunnelDataType.getSqlType()) {
                 case STRING:
-                    statement.setString(statementIndex, (String) row.getField(fieldIndex));
+//                    statement.setString(statementIndex, (String) row.getField(fieldIndex));
+                    String strValue = (String) row.getField(fieldIndex);
+                    if(Objects.nonNull(strValue)) {
+                        statement.setString(statementIndex, strValue);
+                    }else{
+                        statement.setNull(statementIndex, java.sql.Types.NULL);
+                    }
                     break;
                 case BOOLEAN:
-                    statement.setBoolean(statementIndex, (Boolean) row.getField(fieldIndex));
+                    Boolean boolValue = (Boolean)row.getField(fieldIndex);
+                    if(Objects.nonNull(boolValue)){
+                        statement.setBoolean(statementIndex, boolValue);
+                    }else{
+                        statement.setNull(statementIndex, java.sql.Types.NULL);
+                    }
+//                    statement.setBoolean(statementIndex, (Boolean) row.getField(fieldIndex));
                     break;
                 case TINYINT:
-                    statement.setByte(statementIndex, (Byte) row.getField(fieldIndex));
+//                    statement.setByte(statementIndex, (Byte) row.getField(fieldIndex));
+                    Byte byteValue = (Byte)row.getField(fieldIndex);
+                    if(Objects.nonNull(byteValue)){
+                        statement.setByte(statementIndex, byteValue);
+                    }else{
+                        statement.setNull(statementIndex, java.sql.Types.NULL);
+                    }
                     break;
                 case SMALLINT:
-                    statement.setShort(statementIndex, (Short) row.getField(fieldIndex));
+//                    statement.setShort(statementIndex, (Short) row.getField(fieldIndex));
+                    Short shortValue = (Short)row.getField(fieldIndex);
+                    if(Objects.nonNull(shortValue)){
+                        statement.setShort(statementIndex, shortValue);
+                    }else{
+                        statement.setNull(statementIndex, java.sql.Types.NULL);
+                    }
                     break;
                 case INT:
-                    statement.setInt(statementIndex, (Integer) row.getField(fieldIndex));
+//                    statement.setInt(statementIndex, (Integer) row.getField(fieldIndex));
+                    Integer intValue = (Integer)row.getField(fieldIndex);
+                    if(Objects.nonNull(intValue)){
+                        statement.setInt(statementIndex, intValue);
+                    }else{
+                        statement.setNull(statementIndex, java.sql.Types.NULL);
+                    }
                     break;
                 case BIGINT:
-                    statement.setLong(statementIndex, (Long) row.getField(fieldIndex));
+                    Long longValue = (Long) row.getField(fieldIndex);
+                    if(Objects.nonNull(longValue)) {
+                        statement.setLong(statementIndex, longValue);
+                    }else{
+                        statement.setNull(statementIndex, java.sql.Types.NULL);
+                    }
                     break;
                 case FLOAT:
-                    statement.setFloat(statementIndex, (Float) row.getField(fieldIndex));
+//                    statement.setFloat(statementIndex, (Float) row.getField(fieldIndex));
+                    Float floatValue = (Float)row.getField(fieldIndex);
+                    if(Objects.nonNull(floatValue)){
+                        statement.setFloat(statementIndex, floatValue);
+                    }else{
+                        statement.setNull(statementIndex, java.sql.Types.NULL);
+                    }
                     break;
                 case DOUBLE:
-                    statement.setDouble(statementIndex, (Double) row.getField(fieldIndex));
+//                    statement.setDouble(statementIndex, (Double) row.getField(fieldIndex));
+                    Double doubleValue = (Double)row.getField(fieldIndex);
+                    if(Objects.nonNull(doubleValue)){
+                        statement.setDouble(statementIndex, doubleValue);
+                    }else{
+                        statement.setNull(statementIndex, java.sql.Types.NULL);
+                    }
                     break;
                 case DECIMAL:
-                    statement.setBigDecimal(statementIndex, (BigDecimal) row.getField(fieldIndex));
+//                    statement.setBigDecimal(statementIndex, (BigDecimal) row.getField(fieldIndex));
+                    BigDecimal decimalValue = (BigDecimal)row.getField(fieldIndex);
+                    if(Objects.nonNull(decimalValue)){
+                        statement.setBigDecimal(statementIndex, decimalValue);
+                    }else{
+                        statement.setNull(statementIndex, java.sql.Types.NULL);
+                    }
                     break;
                 case DATE:
                     LocalDate localDate = (LocalDate) row.getField(fieldIndex);
-                    statement.setDate(statementIndex, java.sql.Date.valueOf(localDate));
+                    java.sql.Date date = Optional.ofNullable(localDate)
+                            .map(e -> java.sql.Date.valueOf(e))
+                            .orElse(null);
+//                    statement.setDate(statementIndex, date);
+                    if(Objects.nonNull(date)){
+                        statement.setDate(statementIndex, date);
+                    }else{
+                        statement.setNull(statementIndex, java.sql.Types.NULL);
+                    }
                     break;
                 case TIME:
                     LocalTime localTime = (LocalTime) row.getField(fieldIndex);
-                    statement.setTime(statementIndex, java.sql.Time.valueOf(localTime));
+                    java.sql.Time time = Optional.ofNullable(localTime)
+                            .map(e -> java.sql.Time.valueOf(e))
+                            .orElse(null);
+//                    statement.setTime(statementIndex, time);
+                    if(Objects.nonNull(time)){
+                        statement.setTime(statementIndex, time);
+                    }else{
+                        statement.setNull(statementIndex, java.sql.Types.NULL);
+                    }
                     break;
                 case TIMESTAMP:
                     LocalDateTime localDateTime = (LocalDateTime) row.getField(fieldIndex);
-                    statement.setTimestamp(statementIndex, java.sql.Timestamp.valueOf(localDateTime));
+                    java.sql.Timestamp timestamp = Optional.ofNullable(localDateTime)
+                            .map(e -> java.sql.Timestamp.valueOf(e))
+                            .orElse(null);
+//                    statement.setTimestamp(statementIndex, timestamp);
+                    if(Objects.nonNull(timestamp)){
+                        statement.setTimestamp(statementIndex, timestamp);
+                    }else{
+                        statement.setNull(statementIndex, java.sql.Types.NULL);
+                    }
                     break;
                 case BYTES:
-                    statement.setBytes(statementIndex, (byte[]) row.getField(fieldIndex));
+//                    statement.setBytes(statementIndex, (byte[]) row.getField(fieldIndex));
+                    byte[] bytes = (byte[])row.getField(fieldIndex);
+                    if(Objects.nonNull(bytes)){
+                        statement.setBytes(statementIndex, bytes);
+                    }else{
+                        statement.setNull(statementIndex, java.sql.Types.NULL);
+                    }
                     break;
                 case NULL:
                     statement.setNull(statementIndex, java.sql.Types.NULL);
