@@ -41,16 +41,14 @@ import java.util.concurrent.TimeUnit;
 public class SavePointTest extends AbstractSeaTunnelServerTest {
     public static String OUT_PATH = "/tmp/hive/warehouse/test3";
     public static String CONF_PATH = "stream_fakesource_to_file_savepoint.conf";
-    public static long JOB_ID = 1L;
+    public static long JOB_ID = 823342L;
 
     @Test
-    @Disabled()
     public void testSavePoint() throws InterruptedException {
         savePointAndRestore(false);
     }
 
     @Test
-    @Disabled()
     public void testSavePointOnServerRestart() throws InterruptedException {
         savePointAndRestore(true);
     }
@@ -70,7 +68,7 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
             });
 
         //3 start savePoint
-        server.getCoordinatorService().savePoint(1L);
+        server.getCoordinatorService().savePoint(JOB_ID);
 
         //4 Wait for savePoint to complete
         await().atMost(120000, TimeUnit.MILLISECONDS)
