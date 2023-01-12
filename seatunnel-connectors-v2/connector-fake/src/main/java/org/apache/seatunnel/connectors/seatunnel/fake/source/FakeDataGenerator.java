@@ -43,7 +43,6 @@ import java.util.HashMap;
 import java.util.List;
 
 public class FakeDataGenerator {
-    public static final String SCHEMA = "schema";
     private final SeaTunnelSchema schema;
     private final FakeConfig fakeConfig;
     private final JsonDeserializationSchema jsonDeserializationSchema;
