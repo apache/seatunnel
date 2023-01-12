@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -28,10 +29,12 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorException;
+import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.RandomUtils;
 
+import java.io.IOException;
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -43,10 +46,27 @@ public class FakeDataGenerator {
     public static final String SCHEMA = "schema";
     private final SeaTunnelSchema schema;
     private final FakeConfig fakeConfig;
+    private final JsonDeserializationSchema jsonDeserializationSchema;
 
     public FakeDataGenerator(SeaTunnelSchema schema, FakeConfig fakeConfig) {
         this.schema = schema;
         this.fakeConfig = fakeConfig;
+        this.jsonDeserializationSchema = fakeConfig.getFakeRows() == null ?
+            null :
+            new JsonDeserializationSchema(
+                false, false, schema.getSeaTunnelRowType());
+    }
+
+    private SeaTunnelRow convertRow(FakeConfig.RowData rowData) {
+        try {
+            SeaTunnelRow seaTunnelRow = jsonDeserializationSchema.deserialize(rowData.getFieldsJson());
+            if (rowData.getKind() != null) {
+                seaTunnelRow.setRowKind(RowKind.valueOf(rowData.getKind()));
+            }
+            return seaTunnelRow;
+        } catch (IOException e) {
+            throw new FakeConnectorException(CommonErrorCode.JSON_OPERATION_FAILED, e);
+        }
     }
 
     private SeaTunnelRow randomRow() {
@@ -61,7 +81,14 @@ public class FakeDataGenerator {
     }
 
     public List<SeaTunnelRow> generateFakedRows(int rowNum) {
-        ArrayList<SeaTunnelRow> seaTunnelRows = new ArrayList<>();
+        List<SeaTunnelRow> seaTunnelRows = new ArrayList<>();
+        if (fakeConfig.getFakeRows() != null) {
+            for (FakeConfig.RowData rowData : fakeConfig.getFakeRows()) {
+                seaTunnelRows.add(convertRow(rowData));
+            }
+            return seaTunnelRows;
+        }
+
         for (int i = 0; i < rowNum; i++) {
             seaTunnelRows.add(randomRow());
         }
