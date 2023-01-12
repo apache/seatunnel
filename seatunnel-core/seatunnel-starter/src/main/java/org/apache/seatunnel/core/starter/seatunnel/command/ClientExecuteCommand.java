@@ -107,6 +107,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 } else {
                     jobExecutionEnv = engineClient.createExecutionContext(configFile.toString(), jobConfig);
                 }
+
                 // get job start time
                 startTime = LocalDateTime.now();
                 // create job proxy
