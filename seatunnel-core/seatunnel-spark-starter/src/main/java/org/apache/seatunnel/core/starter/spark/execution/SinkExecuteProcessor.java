@@ -19,6 +19,7 @@ package org.apache.seatunnel.core.starter.spark.execution;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.env.EnvCommonOptions;
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.sink.SupportDataSaveMode;
@@ -90,6 +91,11 @@ public class SinkExecuteProcessor extends SparkAbstractPluginExecuteProcessor<Se
             dataset.sparkSession().read().option(SinkCommonOptions.PARALLELISM.key(), parallelism);
             // TODO modify checkpoint location
             seaTunnelSink.setTypeInfo((SeaTunnelRowType) TypeConverterUtils.convert(dataset.schema()));
+            if (seaTunnelSink.getClass().isAssignableFrom(SupportDataSaveMode.class)) {
+                SupportDataSaveMode saveModeSink = (SupportDataSaveMode) seaTunnelSink;
+                DataSaveMode dataSaveMode = saveModeSink.getDataSaveMode();
+                saveModeSink.handleSaveMode(dataSaveMode);
+            }
             SparkSinkInjector.inject(dataset.write(), seaTunnelSink).option("checkpointLocation", "/tmp").save();
         }
         // the sink is the last stream
