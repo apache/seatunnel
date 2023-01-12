@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.plugin.discovery;
+package org.apache.seatunnel.core.starter.plugin;
 
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.api.configuration.util.OptionRule;

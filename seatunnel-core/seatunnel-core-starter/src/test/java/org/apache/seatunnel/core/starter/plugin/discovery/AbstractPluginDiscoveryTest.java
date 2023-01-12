@@ -15,11 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.plugin.discovery;
+package org.apache.seatunnel.core.starter.plugin.discovery;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.core.starter.plugin.AbstractPluginDiscovery;
+import org.apache.seatunnel.core.starter.plugin.PluginIdentifier;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

@@ -24,8 +24,8 @@ import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
-import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
+import org.apache.seatunnel.core.starter.plugin.PluginIdentifier;
+import org.apache.seatunnel.core.starter.plugin.discovery.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.translation.spark.common.utils.TypeConverterUtils;
 import org.apache.seatunnel.translation.spark.sink.SparkSinkInjector;
 

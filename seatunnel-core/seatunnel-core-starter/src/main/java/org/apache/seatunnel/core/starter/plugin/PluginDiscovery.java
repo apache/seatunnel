@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.plugin.discovery;
+package org.apache.seatunnel.core.starter.plugin;
 
 import java.net.URL;
 import java.util.Collection;
