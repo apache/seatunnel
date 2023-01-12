@@ -28,20 +28,20 @@ import java.sql.SQLException;
 
 public class StringInjectFunction implements ClickhouseFieldInjectFunction {
 
+    private static final ObjectMapper MAPPER = new ObjectMapper();
     private String fieldType;
 
     @Override
     public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
-        ObjectMapper mapper = new ObjectMapper();
         try {
             if ("Point".equals(fieldType)) {
-                statement.setObject(index, mapper.readValue(replace(value.toString()), double[].class));
+                statement.setObject(index, MAPPER.readValue(replace(value.toString()), double[].class));
             } else if ("Ring".equals(fieldType)) {
-                statement.setObject(index, mapper.readValue(replace(value.toString()), double[][].class));
+                statement.setObject(index, MAPPER.readValue(replace(value.toString()), double[][].class));
             } else if ("Polygon".equals(fieldType)) {
-                statement.setObject(index, mapper.readValue(replace(value.toString()), double[][][].class));
+                statement.setObject(index, MAPPER.readValue(replace(value.toString()), double[][][].class));
             } else if ("MultiPolygon".equals(fieldType)) {
-                statement.setObject(index, mapper.readValue(replace(value.toString()), double[][][][].class));
+                statement.setObject(index, MAPPER.readValue(replace(value.toString()), double[][][][].class));
             } else {
                 statement.setString(index, value.toString());
             }

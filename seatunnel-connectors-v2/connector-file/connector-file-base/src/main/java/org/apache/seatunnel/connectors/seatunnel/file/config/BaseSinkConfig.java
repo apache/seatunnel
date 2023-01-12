@@ -65,14 +65,21 @@ public class BaseSinkConfig {
             .stringType()
             .defaultValue(DEFAULT_ROW_DELIMITER)
             .withDescription("The separator between rows in a file. Only needed by `text` and `csv` file format");
+
+    public static final Option<Boolean> HAVE_PARTITION = Options.key("have_partition")
+        .booleanType()
+        .defaultValue(false)
+        .withDescription("Whether need partition when write data");
+
     public static final Option<List<String>> PARTITION_BY = Options.key("partition_by")
             .listType()
             .noDefaultValue()
-            .withDescription("Partition keys list");
+            .withDescription("Partition keys list, Only used when have_partition is true");
+
     public static final Option<String> PARTITION_DIR_EXPRESSION = Options.key("partition_dir_expression")
             .stringType()
             .defaultValue(DEFAULT_PARTITION_DIR_EXPRESSION)
-            .withDescription("If the `partition_by` is specified, " +
+            .withDescription("Only used when have_partition is true. If the `partition_by` is specified, " +
                     "we will generate the corresponding partition directory based on the partition information, " +
                     "and the final file will be placed in the partition directory. " +
                     "Default `partition_dir_expression` is `${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/`. " +
@@ -80,36 +87,53 @@ public class BaseSinkConfig {
     public static final Option<Boolean> IS_PARTITION_FIELD_WRITE_IN_FILE = Options.key("is_partition_field_write_in_file")
             .booleanType()
             .defaultValue(false)
-            .withDescription("Whether to write partition fields to file");
+            .withDescription("Only used when have_partition is true. Whether to write partition fields to file");
+
     public static final Option<String> TMP_PATH = Options.key("tmp_path")
             .stringType()
             .defaultValue(DEFAULT_TMP_PATH)
             .withDescription("Data write temporary path");
+
+    public static final Option<Boolean> CUSTOM_FILENAME = Options.key("custom_filename")
+        .booleanType()
+        .defaultValue(false)
+        .withDescription("Whether custom the output filename");
+
     public static final Option<String> FILE_NAME_EXPRESSION = Options.key("file_name_expression")
             .stringType()
             .defaultValue(DEFAULT_FILE_NAME_EXPRESSION)
-            .withDescription("`file_name_expression` describes the file expression which will be created into the `path`. " +
+            .withDescription("Only used when `custom_filename` is true. `file_name_expression` describes the file expression which will be created into the `path`. " +
                     "We can add the variable `${now}` or `${uuid}` in the `file_name_expression`, " +
                     "like `test_${uuid}_${now}`,`${now}` represents the current time, " +
                     "and its format can be defined by specifying the option `filename_time_format`.");
+
+    public static final Option<String> FILENAME_TIME_FORMAT = Options.key("filename_time_format")
+        .stringType()
+        .defaultValue(DateUtils.Formatter.YYYY_MM_DD_SPOT.getValue())
+        .withDescription("Only used when `custom_filename` is true. The time format of the path");
+
     public static final Option<FileFormat> FILE_FORMAT = Options.key("file_format")
             .enumType(FileFormat.class)
-            .defaultValue(FileFormat.TEXT)
+            .defaultValue(FileFormat.CSV)
             .withDescription("File format type");
+
     public static final Option<List<String>> SINK_COLUMNS = Options.key("sink_columns")
             .listType()
             .noDefaultValue()
             .withDescription("Which columns need be wrote to file");
-    public static final Option<String> FILENAME_TIME_FORMAT = Options.key("filename_time_format")
-            .stringType()
-            .defaultValue(DateUtils.Formatter.YYYY_MM_DD_SPOT.getValue())
-            .withDescription("The time format of the path");
+
     public static final Option<Boolean> IS_ENABLE_TRANSACTION = Options.key("is_enable_transaction")
             .booleanType()
             .defaultValue(true)
             .withDescription("If or not enable transaction");
+
     public static final Option<Integer> BATCH_SIZE = Options.key("batch_size")
             .intType()
             .defaultValue(DEFAULT_BATCH_SIZE)
             .withDescription("The batch size of each split file");
+
+    public static final Option<String> HDFS_SITE_PATH = Options.key("hdfs_site_path")
+            .stringType()
+            .noDefaultValue()
+            .withDescription("The path of hdfs-site.xml");
 }

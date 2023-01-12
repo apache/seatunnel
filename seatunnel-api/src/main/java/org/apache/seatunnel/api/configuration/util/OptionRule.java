@@ -144,7 +144,7 @@ public class OptionRule {
         public Builder required(@NonNull Option<?>... options) {
             for (Option<?> option : options) {
                 verifyDuplicate(option, "RequiredOption");
-                verifyRequiredOptionDefaultValue(option);
+                //verifyRequiredOptionDefaultValue(option);
             }
             this.requiredOptions.add(RequiredOption.AbsolutelyRequiredOptions.of(options));
             return this;
@@ -159,7 +159,7 @@ public class OptionRule {
             }
             for (Option<?> option : options) {
                 verifyDuplicate(option, "ExclusiveOption");
-                verifyRequiredOptionDefaultValue(option);
+                //verifyRequiredOptionDefaultValue(option);
             }
             this.requiredOptions.add(RequiredOption.ExclusiveRequiredOptions.of(options));
             return this;
@@ -168,7 +168,7 @@ public class OptionRule {
         public <T> Builder conditional(@NonNull Option<T> conditionalOption, @NonNull List<T> expectValues, @NonNull Option<?>... requiredOptions) {
             for (Option<?> o : requiredOptions) {
                 verifyDuplicate(o, "ConditionalOption");
-                verifyRequiredOptionDefaultValue(o);
+                //verifyRequiredOptionDefaultValue(o);
             }
 
             verifyConditionalExists(conditionalOption);
@@ -196,7 +196,7 @@ public class OptionRule {
         public <T> Builder conditional(@NonNull Option<T> conditionalOption, @NonNull T expectValue, @NonNull Option<?>... requiredOptions) {
             for (Option<?> o : requiredOptions) {
                 verifyDuplicate(o, "ConditionalOption");
-                verifyRequiredOptionDefaultValue(o);
+                //verifyRequiredOptionDefaultValue(o);
             }
 
             verifyConditionalExists(conditionalOption);

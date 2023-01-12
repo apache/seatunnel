@@ -17,38 +17,50 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.config;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.COLLECTION;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.MATCHQUERY;
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbOption.URI;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import lombok.Builder;
+import lombok.Getter;
 
 import java.io.Serializable;
+
+
 
 /**
  * The config of mongodb
  */
+@Builder
+@Getter
 public class MongodbConfig implements Serializable {
 
-    public static final Option<String> URI =
-        Options.key("uri")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("MongoDB uri");
-
-    public static final Option<String> DATABASE =
-        Options.key("database")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("MongoDB database name");
-
-    public static final Option<String> COLLECTION =
-        Options.key("collection")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("MongoDB collection");
-
-    // Don't use now
-    public static final String FORMAT = "format";
-
-    // Don't use now
-    public static final String DEFAULT_FORMAT = "json";
+    @Builder.Default
+    private String uri = URI.defaultValue();
+    @Builder.Default
+    private String database = DATABASE.defaultValue();
+    @Builder.Default
+    private String collection = COLLECTION.defaultValue();
+    @Builder.Default
+    private String matchQuery = MATCHQUERY.defaultValue();
+    public static MongodbConfig buildWithConfig(Config config) {
+        MongodbConfigBuilder builder = MongodbConfig.builder();
+        if (config.hasPath(URI.key())) {
+            builder.uri(config.getString(URI.key()));
+        }
+        if (config.hasPath(DATABASE.key())) {
+            builder.database(config.getString(DATABASE.key()));
+        }
+        if (config.hasPath(COLLECTION.key())) {
+            builder.collection(config.getString(COLLECTION.key()));
+        }
+        if (config.hasPath(MATCHQUERY.key())) {
+            builder.matchQuery(config.getString(MATCHQUERY.key()));
+        }
+        return builder.build();
+    }
 
 }

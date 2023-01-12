@@ -6,12 +6,20 @@
 
 Read data from sftp file server.
 
+:::tip
+
+If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
+
+If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+
+:::
+
 ## Key features
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [schema projection](../../concept/connector-v2-features.md)
+- [ ] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] file format
@@ -21,21 +29,22 @@ Read data from sftp file server.
 
 ## Options
 
-| name                        | type    | required | default value       |
-|-----------------------------|---------|----------|---------------------|
-| host                        | string  | yes      | -                   |
-| port                        | int     | yes      | -                   |
-| user                        | string  | yes      | -                   |
-| password                    | string  | yes      | -                   |
-| path                        | string  | yes      | -                   |
-| type                        | string  | yes      | -                   |
-| delimiter                   | string  | no       | \001                |
-| parse_partition_from_path   | boolean | no       | true                |
-| date_format                 | string  | no       | yyyy-MM-dd          |
-| datetime_format             | string  | no       | yyyy-MM-dd HH:mm:ss |
-| time_format                 | string  | no       | HH:mm:ss            |
-| schema                      | config  | no       | -                   |
-| common-options              |         | no       | -                   |
+| name                      | type    | required | default value       |
+|---------------------------|---------|----------|---------------------|
+| host                      | string  | yes      | -                   |
+| port                      | int     | yes      | -                   |
+| user                      | string  | yes      | -                   |
+| password                  | string  | yes      | -                   |
+| path                      | string  | yes      | -                   |
+| type                      | string  | yes      | -                   |
+| delimiter                 | string  | no       | \001                |
+| parse_partition_from_path | boolean | no       | true                |
+| date_format               | string  | no       | yyyy-MM-dd          |
+| skip_header_row_number    | long    | no       | 0                   |
+| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
+| time_format               | string  | no       | HH:mm:ss            |
+| schema                    | config  | no       | -                   |
+| common-options            |         | no       | -                   |
 
 ### host [string]
 
@@ -101,6 +110,16 @@ Time type format, used to tell connector how to convert string to time, supporte
 
 default `HH:mm:ss`
 
+### skip_header_row_number [long]
+
+Skip the first few lines, but only for the txt and csv.
+
+For example, set like following:
+
+`skip_header_row_number = 2`
+
+then Seatunnel will skip the first 2 lines from source files
+
 ### schema [config]
 
 The schema information of upstream data.
@@ -109,7 +128,7 @@ The schema information of upstream data.
 
 File type, supported as the following file types:
 
-`text` `csv` `json`
+`text` `csv` `parquet` `orc` `json`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 

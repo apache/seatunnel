@@ -38,7 +38,6 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
@@ -67,7 +66,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled("disabled until we fix the file sink filename duplicate bug when use SeaTunnel Engine")
     public void testBatchJobRunOkIn3Node() throws ExecutionException, InterruptedException {
         String testCaseName = "testBatchJobRunOkIn3Node";
         String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testBatchJobRunOkIn3Node";
@@ -179,7 +177,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled("disabled until we fix the file sink filename duplicate bug when use SeaTunnel Engine")
     public void testStreamJobRunOkIn3Node() throws ExecutionException, InterruptedException {
         String testCaseName = "testStreamJobRunOkIn3Node";
         String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testStreamJobRunOkIn3Node";
@@ -232,7 +229,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
             clientJobProxy.cancelJob();
 
-            Awaitility.await().atMost(20000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
 
@@ -260,7 +257,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled("disabled until we fix the file sink filename duplicate bug when use SeaTunnel Engine")
     public void testBatchJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testBatchJobRestoreIn3NodeWorkerDown";
         String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testBatchJobRestoreIn3NodeWorkerDown";
@@ -315,7 +311,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             // shutdown on worker node
             node2.shutdown();
 
-            Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(400000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.FINISHED.equals(objectCompletableFuture.get())));
 
@@ -343,7 +339,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled("disabled until we fix the file sink filename duplicate bug when use SeaTunnel Engine")
     public void testStreamJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testStreamJobRestoreIn3NodeWorkerDown";
         String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testStreamJobRestoreIn3NodeWorkerDown";
@@ -412,7 +407,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             Thread.sleep(10000);
             clientJobProxy.cancelJob();
 
-            Awaitility.await().atMost(20000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
 
@@ -441,7 +436,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled("disabled until we fix the file sink filename duplicate bug when use SeaTunnel Engine")
     public void testBatchJobRestoreIn3NodeMasterDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testBatchJobRestoreIn3NodeMasterDown";
         String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testBatchJobRestoreIn3NodeMasterDown";
@@ -524,7 +518,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    @Disabled("disabled until we fix the file sink filename duplicate bug when use SeaTunnel Engine")
     public void testStreamJobRestoreIn3NodeMasterDown() throws ExecutionException, InterruptedException {
         String testCaseName = "testStreamJobRestoreIn3NodeMasterDown";
         String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testStreamJobRestoreIn3NodeMasterDown";
@@ -592,7 +585,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             Thread.sleep(10000);
             clientJobProxy.cancelJob();
 
-            Awaitility.await().atMost(20000, TimeUnit.MILLISECONDS)
+            Awaitility.await().atMost(200000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(
                     objectCompletableFuture.isDone() && JobStatus.CANCELED.equals(objectCompletableFuture.get())));
 

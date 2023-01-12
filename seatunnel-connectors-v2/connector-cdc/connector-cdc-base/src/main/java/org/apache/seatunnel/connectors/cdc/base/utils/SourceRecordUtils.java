@@ -97,7 +97,8 @@ public class SourceRecordUtils {
     public static boolean isDataChangeRecord(SourceRecord record) {
         Schema valueSchema = record.valueSchema();
         Struct value = (Struct) record.value();
-        return valueSchema.field(Envelope.FieldName.OPERATION) != null
+        return valueSchema != null
+                && valueSchema.field(Envelope.FieldName.OPERATION) != null
                 && value.getString(Envelope.FieldName.OPERATION) != null;
     }
 

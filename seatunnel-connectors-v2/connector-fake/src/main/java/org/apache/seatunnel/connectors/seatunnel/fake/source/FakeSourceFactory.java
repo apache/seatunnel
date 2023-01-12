@@ -20,12 +20,14 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ARRAY_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BYTES_LENGTH;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.MAP_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ROWS;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ROW_NUM;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.SPLIT_NUM;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.SPLIT_READ_INTERVAL;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.STRING_LENGTH;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
@@ -41,7 +43,22 @@ public class FakeSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(SeaTunnelSchema.SCHEMA).optional(ROW_NUM, SPLIT_NUM, SPLIT_READ_INTERVAL, MAP_SIZE,
-            ARRAY_SIZE, BYTES_LENGTH, STRING_LENGTH).build();
+        return OptionRule.builder()
+            .required(SeaTunnelSchema.SCHEMA)
+            .optional(
+                ROWS,
+                ROW_NUM,
+                SPLIT_NUM,
+                SPLIT_READ_INTERVAL,
+                MAP_SIZE,
+                ARRAY_SIZE,
+                BYTES_LENGTH,
+                STRING_LENGTH)
+            .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return FakeSource.class;
     }
 }

@@ -334,7 +334,7 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                         default:
                     }
                 } else if (dbzObj instanceof Integer) {
-                    return LocalTime.ofNanoOfDay((long) dbzObj * 1000_000L);
+                    return LocalTime.ofNanoOfDay((Integer) dbzObj * 1000_000L);
                 }
                 // get number of milliseconds of the day
                 return TemporalConversions.toLocalTime(dbzObj);

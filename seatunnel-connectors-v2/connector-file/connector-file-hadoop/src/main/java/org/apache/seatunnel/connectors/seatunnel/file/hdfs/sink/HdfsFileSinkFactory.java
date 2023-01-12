@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfig;
 
@@ -36,18 +37,22 @@ public class HdfsFileSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HdfsSourceConfig.DEFAULT_FS)
-                .required(BaseSinkConfig.FILE_PATH)
-                .optional(BaseSinkConfig.FILE_NAME_EXPRESSION)
-                .optional(BaseSinkConfig.FILE_FORMAT)
-                .optional(BaseSinkConfig.FILENAME_TIME_FORMAT)
-                .optional(BaseSinkConfig.FIELD_DELIMITER)
-                .optional(BaseSinkConfig.ROW_DELIMITER)
-                .optional(BaseSinkConfig.PARTITION_BY)
-                .optional(BaseSinkConfig.PARTITION_DIR_EXPRESSION)
-                .optional(BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE)
-                .optional(BaseSinkConfig.SINK_COLUMNS)
-                .optional(BaseSinkConfig.IS_ENABLE_TRANSACTION)
-                .build();
+            .required(HdfsSourceConfig.DEFAULT_FS)
+            .required(BaseSinkConfig.FILE_PATH)
+            .optional(BaseSinkConfig.FILE_FORMAT)
+            .conditional(BaseSinkConfig.FILE_FORMAT, FileFormat.TEXT, BaseSinkConfig.ROW_DELIMITER,
+                BaseSinkConfig.FIELD_DELIMITER)
+            .optional(BaseSinkConfig.CUSTOM_FILENAME)
+            .conditional(BaseSinkConfig.CUSTOM_FILENAME, true, BaseSinkConfig.FILE_NAME_EXPRESSION,
+                BaseSinkConfig.FILENAME_TIME_FORMAT)
+            .optional(BaseSinkConfig.HAVE_PARTITION)
+            .conditional(BaseSinkConfig.HAVE_PARTITION, true, BaseSinkConfig.PARTITION_BY,
+                BaseSinkConfig.PARTITION_DIR_EXPRESSION, BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE)
+            .optional(BaseSinkConfig.SINK_COLUMNS)
+            .optional(BaseSinkConfig.IS_ENABLE_TRANSACTION)
+            .optional(BaseSinkConfig.DATE_FORMAT)
+            .optional(BaseSinkConfig.DATETIME_FORMAT)
+            .optional(BaseSinkConfig.TIME_FORMAT)
+            .build();
     }
 }

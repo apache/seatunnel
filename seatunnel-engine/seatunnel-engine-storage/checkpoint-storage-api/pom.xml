@@ -32,18 +32,8 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-api</artifactId>
+            <artifactId>serializer-protobuf</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <!--protostuff-->
-        <dependency>
-            <groupId>io.protostuff</groupId>
-            <artifactId>protostuff-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.protostuff</groupId>
-            <artifactId>protostuff-runtime</artifactId>
         </dependency>
     </dependencies>
 

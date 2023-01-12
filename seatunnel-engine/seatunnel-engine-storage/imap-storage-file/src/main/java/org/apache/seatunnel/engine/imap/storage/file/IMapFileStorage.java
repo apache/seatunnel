@@ -28,8 +28,6 @@ import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.NAMESPACE_KEY;
 
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
-import org.apache.seatunnel.engine.imap.storage.api.common.ProtoStuffSerializer;
-import org.apache.seatunnel.engine.imap.storage.api.common.Serializer;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
@@ -38,6 +36,8 @@ import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALDisruptor;
 import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALEventType;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFuture;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFutureCache;
+import org.apache.seatunnel.engine.serializer.api.Serializer;
+import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
@@ -131,6 +131,7 @@ public class IMapFileStorage implements IMapStorage {
         this.businessRootPath = namespace + DEFAULT_IMAP_FILE_PATH_SPLIT + clusterName + DEFAULT_IMAP_FILE_PATH_SPLIT + businessName + DEFAULT_IMAP_FILE_PATH_SPLIT;
         try {
             this.fs = FileSystem.get(hadoopConf);
+            fs.setWriteChecksum(false);
         } catch (IOException e) {
             throw new IMapStorageException("Failed to get file system", e);
         }
@@ -221,7 +222,7 @@ public class IMapFileStorage implements IMapStorage {
     }
 
     @Override
-    public void destroy() {
+    public void destroy(boolean deleteAllFileFlag) {
         log.info("start destroy IMapFileStorage, businessName is {}, cluster name is {}", businessName, region);
         /**
          * 1. close current disruptor
@@ -233,15 +234,16 @@ public class IMapFileStorage implements IMapStorage {
         } catch (IOException e) {
             log.error("close walDisruptor error", e);
         }
-        // delete all files
-        String parentPath = businessRootPath;
+        if (deleteAllFileFlag) {
+            // delete all files
+            String parentPath = businessRootPath;
 
-        try {
-            fs.delete(new Path(parentPath), true);
-        } catch (IOException e) {
-            log.error("destroy IMapFileStorage error,businessName is {}, cluster name is {}", businessName, region, e);
+            try {
+                fs.delete(new Path(parentPath), true);
+            } catch (IOException e) {
+                log.error("destroy IMapFileStorage error,businessName is {}, cluster name is {}", businessName, region, e);
+            }
         }
-
     }
 
     private IMapFileData parseToIMapFileData(Object key, Object value) throws IOException {

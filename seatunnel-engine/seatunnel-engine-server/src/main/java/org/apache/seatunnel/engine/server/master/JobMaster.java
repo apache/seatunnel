@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.master;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
 
+import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -31,18 +32,14 @@ import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.loader.SeatunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
-import org.apache.seatunnel.engine.core.dag.actions.ActionUtils;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
-import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
-import org.apache.seatunnel.engine.core.job.Edge;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
-import org.apache.seatunnel.engine.core.job.VertexInfo;
-import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
+import org.apache.seatunnel.engine.server.dag.DAGUtils;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlanGenerator;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
@@ -51,12 +48,14 @@ import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.scheduler.JobScheduler;
 import org.apache.seatunnel.engine.server.scheduler.PipelineBaseScheduler;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.google.common.collect.Lists;
 import com.hazelcast.cluster.Address;
@@ -68,21 +67,19 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
-import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 import org.apache.commons.collections4.CollectionUtils;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
-public class JobMaster extends Thread {
+public class JobMaster {
     private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
 
     private PhysicalPlan physicalPlan;
@@ -95,6 +92,8 @@ public class JobMaster extends Thread {
     private final FlakeIdGenerator flakeIdGenerator;
 
     private final ResourceManager resourceManager;
+
+    private final JobHistoryService jobHistoryService;
 
     private CheckpointManager checkpointManager;
 
@@ -122,7 +121,7 @@ public class JobMaster extends Thread {
     private volatile boolean restore = false;
 
     // TODO add config to change value
-    private boolean isPhyicalDAGInfo = true;
+    private boolean isPhysicalDAGIInfo = true;
 
     private final EngineConfig engineConfig;
 
@@ -132,6 +131,7 @@ public class JobMaster extends Thread {
                      @NonNull NodeEngine nodeEngine,
                      @NonNull ExecutorService executorService,
                      @NonNull ResourceManager resourceManager,
+                     @NonNull JobHistoryService jobHistoryService,
                      @NonNull IMap runningJobStateIMap,
                      @NonNull IMap runningJobStateTimestampsIMap,
                      @NonNull IMap ownedSlotProfilesIMap, EngineConfig engineConfig) {
@@ -142,6 +142,7 @@ public class JobMaster extends Thread {
             this.nodeEngine.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME);
         this.ownedSlotProfilesIMap = ownedSlotProfilesIMap;
         this.resourceManager = resourceManager;
+        this.jobHistoryService = jobHistoryService;
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
         this.engineConfig = engineConfig;
@@ -250,37 +251,8 @@ public class JobMaster extends Thread {
     }
 
     public JobDAGInfo getJobDAGInfo() {
-        if (jobDAGInfo != null) {
-            return jobDAGInfo;
-        }
-        List<Pipeline> pipelines = new ExecutionPlanGenerator(this.logicalDag, this.getJobImmutableInformation()).generate().getPipelines();
-
-        if (isPhyicalDAGInfo) {
-            // Generate ExecutePlan DAG
-            Map<Integer, List<Edge>> pipelineWithEdges = new HashMap<>();
-            Map<Long, VertexInfo> vertexInfoMap = new HashMap<>();
-            pipelines.forEach(pipeline -> {
-                pipelineWithEdges.put(pipeline.getId(), pipeline.getEdges().stream()
-                    .map(e -> new Edge(e.getLeftVertexId(), e.getRightVertexId())).collect(Collectors.toList()));
-                pipeline.getVertexes().forEach((id, vertex) -> {
-                    vertexInfoMap.put(id, new VertexInfo(vertex.getVertexId(), ActionUtils.getActionType(vertex.getAction()), vertex.getAction().getName()));
-                });
-            });
-            jobDAGInfo = new JobDAGInfo(this.jobImmutableInformation.getJobId(), pipelineWithEdges, vertexInfoMap);
-        } else {
-            // Generate LogicalPlan DAG
-            List<Edge> edges = this.logicalDag.getEdges().stream()
-                .map(e -> new Edge(e.getInputVertexId(), e.getTargetVertexId())).collect(Collectors.toList());
-
-            Map<Long, LogicalVertex> logicalVertexMap = this.logicalDag.getLogicalVertexMap();
-            Map<Long, VertexInfo> vertexInfoMap = logicalVertexMap.values().stream().map(v -> new VertexInfo(v.getVertexId(),
-                ActionUtils.getActionType(v.getAction()), v.getAction().getName())).collect(Collectors.toMap(VertexInfo::getVertexId, Function.identity()));
-
-            Map<Integer, List<Edge>> pipelineWithEdges = edges.stream().collect(Collectors.groupingBy(e -> {
-                LogicalVertex info = logicalVertexMap.get(e.getInputVertexId() != null ? e.getInputVertexId() : e.getTargetVertexId());
-                return pipelines.stream().filter(p -> p.getActions().containsKey(info.getAction().getId())).findFirst().get().getId();
-            }, Collectors.toList()));
-            jobDAGInfo = new JobDAGInfo(this.jobImmutableInformation.getJobId(), pipelineWithEdges, vertexInfoMap);
+        if (jobDAGInfo == null) {
+            jobDAGInfo = DAGUtils.getJobDAGInfo(logicalDag, jobImmutableInformation, isPhysicalDAGIInfo);
         }
         return jobDAGInfo;
     }
@@ -340,41 +312,46 @@ public class JobMaster extends Thread {
     }
 
     public List<RawJobMetrics> getCurrJobMetrics() {
+        return getCurrJobMetrics(ownedSlotProfilesIMap.values());
+    }
+
+    public List<RawJobMetrics> getCurrJobMetrics(Collection<Map<TaskGroupLocation, SlotProfile>> groupLocations) {
         List<RawJobMetrics> metrics = new ArrayList<>();
-        ownedSlotProfilesIMap.forEach((pipelineLocation, taskGroupLocationSlotProfileMap) -> {
-            taskGroupLocationSlotProfileMap.forEach((taskGroupLocation, slotProfile) -> {
+        for (Map<TaskGroupLocation, SlotProfile> groupLocation : groupLocations) {
+            groupLocation.forEach((taskGroupLocation, slotProfile) -> {
                 if (taskGroupLocation.getJobId() == this.getJobImmutableInformation().getJobId()) {
-                    Address worker = slotProfile.getWorker();
-                    InvocationFuture<Object> invoke = nodeEngine.getOperationService().createInvocationBuilder(
-                        SeaTunnelServer.SERVICE_NAME,
-                        new GetTaskGroupMetricsOperation(taskGroupLocation),
-                        worker).invoke();
                     try {
-                        RawJobMetrics rawJobMetrics = (RawJobMetrics) invoke.get();
+                        RawJobMetrics rawJobMetrics = (RawJobMetrics) NodeEngineUtil.sendOperationToMemberNode(nodeEngine,
+                            new GetTaskGroupMetricsOperation(taskGroupLocation), slotProfile.getWorker()).get();
                         metrics.add(rawJobMetrics);
                     } catch (Exception e) {
                         throw new SeaTunnelException(e.getMessage());
                     }
                 }
             });
-        });
+        }
         return metrics;
     }
 
-    public void cleanTaskGroupContext() {
-        ownedSlotProfilesIMap.forEach((pipelineLocation, taskGroupLocationSlotProfileMap) -> {
-            taskGroupLocationSlotProfileMap.forEach((taskGroupLocation, slotProfile) -> {
-                Address worker = slotProfile.getWorker();
-                InvocationFuture<Object> invoke = nodeEngine.getOperationService().createInvocationBuilder(
-                    SeaTunnelServer.SERVICE_NAME,
-                    new CleanTaskGroupContextOperation(taskGroupLocation),
-                    worker).invoke();
-                try {
-                    invoke.get();
-                } catch (Exception e) {
-                    throw new SeaTunnelException(e.getMessage());
-                }
-            });
+    public void savePipelineMetricsToHistory(PipelineLocation pipelineLocation) {
+        List<RawJobMetrics> currJobMetrics = this.getCurrJobMetrics(Collections.singleton(this.getOwnedSlotProfiles(pipelineLocation)));
+        JobMetrics jobMetrics = JobMetricsUtil.toJobMetrics(currJobMetrics);
+        long jobId = this.getJobImmutableInformation().getJobId();
+        synchronized (this) {
+            jobHistoryService.storeFinishedPipelineMetrics(jobId, jobMetrics);
+        }
+        //Clean TaskGroupContext for TaskExecutionServer
+        this.cleanTaskGroupContext(pipelineLocation);
+    }
+
+    private void cleanTaskGroupContext(PipelineLocation pipelineLocation) {
+        ownedSlotProfilesIMap.get(pipelineLocation).forEach((taskGroupLocation, slotProfile) -> {
+            try {
+                NodeEngineUtil.sendOperationToMemberNode(nodeEngine,
+                    new CleanTaskGroupContextOperation(taskGroupLocation), slotProfile.getWorker()).get();
+            } catch (Exception e) {
+                throw new SeaTunnelException(e.getMessage());
+            }
         });
     }
 
@@ -449,12 +426,8 @@ public class JobMaster extends Thread {
     }
 
     public void interrupt() {
-        try {
-            isRunning = false;
-            jobMasterCompleteFuture.cancel(true);
-        } finally {
-            super.interrupt();
-        }
+        isRunning = false;
+        jobMasterCompleteFuture.cancel(true);
     }
 
     public void markRestore() {

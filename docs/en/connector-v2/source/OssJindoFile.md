@@ -1,4 +1,4 @@
-# OssFile
+# OssJindoFile
 
 > OssJindo file source connector
 
@@ -6,7 +6,16 @@
 
 Read data from aliyun oss file system using jindo api.
 
-> Tips: We made some trade-offs in order to support more file types, so we used the HDFS protocol for internal access to OSS and this connector need some hadoop dependencies. 
+:::tip
+
+If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
+
+If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+
+We made some trade-offs in order to support more file types, so we used the HDFS protocol for internal access to OSS and this connector need some hadoop dependencies.
+It only supports hadoop version **2.9.X+**.
+
+:::
 
 ## Key features
 
@@ -16,7 +25,7 @@ Read data from aliyun oss file system using jindo api.
 
 Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
-- [x] [schema projection](../../concept/connector-v2-features.md)
+- [ ] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] file format
@@ -41,6 +50,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | date_format               | string  | no       | yyyy-MM-dd          |
 | datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
 | time_format               | string  | no       | HH:mm:ss            |
+| skip_header_row_number    | long    | no       | 0                   |
 | schema                    | config  | no       | -                   |
 | common-options            |         | no       | -                   |
 
@@ -91,6 +101,16 @@ Time type format, used to tell connector how to convert string to time, supporte
 `HH:mm:ss` `HH:mm:ss.SSS`
 
 default `HH:mm:ss`
+
+### skip_header_row_number [long]
+
+Skip the first few lines, but only for the txt and csv.
+
+For example, set like following:
+
+`skip_header_row_number = 2`
+
+then Seatunnel will skip the first 2 lines from source files
 
 ### type [string]
 

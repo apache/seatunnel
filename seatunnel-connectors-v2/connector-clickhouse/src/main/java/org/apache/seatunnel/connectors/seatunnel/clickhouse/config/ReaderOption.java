@@ -25,7 +25,6 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.io.Serializable;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -34,7 +33,6 @@ import java.util.Properties;
 public class ReaderOption implements Serializable {
 
     private ShardMetadata shardMetadata;
-    private List<String> fields;
     private String[] primaryKeys;
     private boolean allowExperimentalLightweightDelete;
     private boolean supportUpsert;

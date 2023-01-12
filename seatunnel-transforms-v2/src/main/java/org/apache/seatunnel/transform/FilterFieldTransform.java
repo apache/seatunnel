@@ -38,7 +38,7 @@ public class FilterFieldTransform extends AbstractSeaTunnelTransform {
     public static final Option<List<String>> KEY_FIELDS = Options.key("fields")
             .listType()
             .noDefaultValue()
-            .withDescription("The fields you want to filter");
+            .withDescription("The list of fields that need to be kept. Fields not in the list will be deleted");
 
     private String[] fields;
     private int[] inputValueIndex;

@@ -25,6 +25,7 @@ import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.Rabbitmq
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PORT;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.QUEUE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.RABBITMQ_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.ROUTING_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.TOPOLOGY_RECOVERY_ENABLED;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.URL;
@@ -33,12 +34,12 @@ import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.Rabbitmq
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class RabbitmqSinkFactory implements TableSourceFactory {
+public class RabbitmqSinkFactory implements TableSinkFactory {
 
     @Override
     public String factoryIdentifier() {
@@ -62,7 +63,8 @@ public class RabbitmqSinkFactory implements TableSourceFactory {
                 NETWORK_RECOVERY_INTERVAL,
                 TOPOLOGY_RECOVERY_ENABLED,
                 AUTOMATIC_RECOVERY_ENABLED,
-                CONNECTION_TIMEOUT
+                CONNECTION_TIMEOUT,
+                RABBITMQ_CONFIG
             )
             .build();
     }

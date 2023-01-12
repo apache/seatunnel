@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.common.config.CheckConfigUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -64,30 +64,30 @@ public class SinkConfig {
             .withDescription("The prefix of StarRocks stream load label");
 
     public static final Option<String> DATABASE = Options.key("database")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("The name of StarRocks database");
+        .stringType()
+        .noDefaultValue()
+        .withDescription("The name of StarRocks database");
 
     public static final Option<String> TABLE = Options.key("table")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("The name of StarRocks table");
+        .stringType()
+        .noDefaultValue()
+        .withDescription("The name of StarRocks table");
 
-    public static final Option<String> STARROCKS_SINK_CONFIG_PREFIX = Options.key("sink.properties.")
-            .stringType()
-            .noDefaultValue()
-            .withDescription("The parameter of the stream load data_desc. " +
-                    "The way to specify the parameter is to add the prefix `sink.properties.` to the original stream load parameter name ");
+    public static final Option<Map<String, String>> STARROCKS_CONFIG = Options.key("starrocks.config")
+        .mapType()
+        .noDefaultValue()
+        .withDescription("The parameter of the stream load data_desc. " +
+            "The way to specify the parameter is to add the original stream load parameter into map");
 
     public static final Option<Integer> BATCH_MAX_SIZE = Options.key("batch_max_rows")
-            .intType()
-            .defaultValue(DEFAULT_BATCH_MAX_SIZE)
-            .withDescription("For batch writing, when the number of buffers reaches the number of batch_max_rows or the byte size of batch_max_bytes or the time reaches batch_interval_ms, the data will be flushed into the StarRocks");
+        .intType()
+        .defaultValue(DEFAULT_BATCH_MAX_SIZE)
+        .withDescription("For batch writing, when the number of buffers reaches the number of batch_max_rows or the byte size of batch_max_bytes or the time reaches batch_interval_ms, the data will be flushed into the StarRocks");
 
     public static final Option<Long> BATCH_MAX_BYTES = Options.key("batch_max_bytes")
-            .longType()
-            .defaultValue(DEFAULT_BATCH_BYTES)
-            .withDescription("For batch writing, when the number of buffers reaches the number of batch_max_rows or the byte size of batch_max_bytes or the time reaches batch_interval_ms, the data will be flushed into the StarRocks");
+        .longType()
+        .defaultValue(DEFAULT_BATCH_BYTES)
+        .withDescription("For batch writing, when the number of buffers reaches the number of batch_max_rows or the byte size of batch_max_bytes or the time reaches batch_interval_ms, the data will be flushed into the StarRocks");
 
     public static final Option<Integer> BATCH_INTERVAL_MS = Options.key("batch_interval_ms")
             .intType()
@@ -108,6 +108,11 @@ public class SinkConfig {
             .intType()
             .noDefaultValue()
             .withDescription("The amount of time to wait before attempting to retry a request to StarRocks");
+
+    public static final Option<Boolean> ENABLE_UPSERT_DELETE = Options.key("enable_upsert_delete")
+        .booleanType()
+        .defaultValue(false)
+        .withDescription("Whether to enable upsert/delete, only supports PrimaryKey model.");
 
     public enum StreamLoadFormat {
         CSV, JSON;
@@ -135,6 +140,7 @@ public class SinkConfig {
     private int maxRetries;
     private int retryBackoffMultiplierMs;
     private int maxRetryBackoffMs;
+    private boolean enableUpsertDelete;
 
     private final Map<String, Object> streamLoadProps = new HashMap<>();
 
@@ -171,6 +177,9 @@ public class SinkConfig {
         if (pluginConfig.hasPath(MAX_RETRY_BACKOFF_MS.key())) {
             sinkConfig.setMaxRetryBackoffMs(pluginConfig.getInt(MAX_RETRY_BACKOFF_MS.key()));
         }
+        if (pluginConfig.hasPath(ENABLE_UPSERT_DELETE.key())) {
+            sinkConfig.setEnableUpsertDelete(pluginConfig.getBoolean(ENABLE_UPSERT_DELETE.key()));
+        }
         parseSinkStreamLoadProperties(pluginConfig, sinkConfig);
         if (sinkConfig.streamLoadProps.containsKey(COLUMN_SEPARATOR)) {
             sinkConfig.setColumnSeparator((String) sinkConfig.streamLoadProps.get(COLUMN_SEPARATOR));
@@ -182,11 +191,11 @@ public class SinkConfig {
     }
 
     private static void parseSinkStreamLoadProperties(Config pluginConfig, SinkConfig sinkConfig) {
-        Config starRocksConfig = TypesafeConfigUtils.extractSubConfig(pluginConfig,
-                STARROCKS_SINK_CONFIG_PREFIX.key(), false);
-        starRocksConfig.entrySet().forEach(entry -> {
-            final String configKey = entry.getKey().toLowerCase();
-            sinkConfig.streamLoadProps.put(configKey, entry.getValue().unwrapped());
-        });
+        if (CheckConfigUtil.isValidParam(pluginConfig, STARROCKS_CONFIG.key())) {
+            pluginConfig.getObject(STARROCKS_CONFIG.key()).forEach((key, value) -> {
+                final String configKey = key.toLowerCase();
+                sinkConfig.streamLoadProps.put(configKey, value.unwrapped());
+            });
+        }
     }
 }
