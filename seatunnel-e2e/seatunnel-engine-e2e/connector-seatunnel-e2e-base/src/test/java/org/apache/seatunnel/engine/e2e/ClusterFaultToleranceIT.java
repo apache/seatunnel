@@ -652,6 +652,7 @@ public class ClusterFaultToleranceIT {
                 "        initial-mode: EAGER\n" +
                 "        factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory\n" +
                 "        properties:\n" +
+                "          type: hdfs\n" +
                 "          namespace: /tmp/seatunnel/imap\n" +
                 "          clusterName: seatunnel-clsuter\n" +
                 "          fs.defaultFS: file:///\n" +
