@@ -69,8 +69,6 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
                     FileUtils.getFileLineNumberFromDir(OUT_PATH) > 10);
             });
 
-        Thread.sleep(5000);
-
         //3 start savePoint
         server.getCoordinatorService().savePoint(1L);
 
