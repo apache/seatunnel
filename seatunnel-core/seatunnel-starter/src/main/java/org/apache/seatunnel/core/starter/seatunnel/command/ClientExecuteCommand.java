@@ -19,6 +19,8 @@ package org.apache.seatunnel.core.starter.seatunnel.command;
 
 import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist;
 
+import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
@@ -27,6 +29,7 @@ import org.apache.seatunnel.core.starter.utils.FileUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
+import org.apache.seatunnel.engine.client.job.JobMetricsRunner;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -38,8 +41,13 @@ import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * This command is used to execute the SeaTunnel engine job by SeaTunnel API.
@@ -53,11 +61,15 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         this.clientCommandArgs = clientCommandArgs;
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
+    @SuppressWarnings({"checkstyle:RegexpSingleline", "checkstyle:MagicNumber"})
     @Override
     public void execute() throws CommandExecuteException {
         HazelcastInstance instance = null;
         SeaTunnelClient engineClient = null;
+        ScheduledExecutorService executorService = null;
+        JobMetricsRunner.JobMetricsSummary jobMetricsSummary = null;
+        LocalDateTime startTime = LocalDateTime.now();
+        LocalDateTime endTime = LocalDateTime.now();
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         try {
             String clusterName = clientCommandArgs.getClusterName();
@@ -87,11 +99,22 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 jobConfig.setName(clientCommandArgs.getJobName());
                 JobExecutionEnvironment jobExecutionEnv =
                     engineClient.createExecutionContext(configFile.toString(), jobConfig);
-
+                // get job start time
+                startTime = LocalDateTime.now();
+                // create job proxy
                 ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-                clientJobProxy.waitForJobComplete();
+                // get job id
                 long jobId = clientJobProxy.getJobId();
-                System.out.println(engineClient.getJobMetrics(jobId));
+                JobMetricsRunner jobMetricsRunner = new JobMetricsRunner(engineClient, jobId);
+                executorService = Executors.newSingleThreadScheduledExecutor();
+                executorService.scheduleAtFixedRate(jobMetricsRunner, 0,
+                        seaTunnelConfig.getEngineConfig().getPrintJobMetricsInfoInterval(), TimeUnit.SECONDS);
+                // wait for job complete
+                clientJobProxy.waitForJobComplete();
+                // get job end time
+                endTime = LocalDateTime.now();
+                // get job statistic information when job finished
+                jobMetricsSummary = engineClient.getJobMetricsSummary(jobId);
             }
         } catch (ExecutionException | InterruptedException e) {
             throw new CommandExecuteException("SeaTunnel job executed failed", e);
@@ -101,6 +124,31 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             }
             if (instance != null) {
                 instance.shutdown();
+            }
+            if (executorService != null) {
+                executorService.shutdown();
+            }
+            if (jobMetricsSummary != null) {
+                // print job statistics information when job finished
+                log.info(StringFormatUtils.formatTable(
+                        "Job Statistic Information",
+                        "Start Time",
+                        DateTimeUtils.toString(startTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
+
+                        "End Time",
+                        DateTimeUtils.toString(endTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
+
+                        "Total Time(s)",
+                        Duration.between(startTime, endTime).getSeconds(),
+
+                        "Total Read Count",
+                        jobMetricsSummary.getSourceReadCount(),
+
+                        "Total Write Count",
+                        jobMetricsSummary.getSinkWriteCount(),
+
+                        "Total Failed Count",
+                        jobMetricsSummary.getSourceReadCount() - jobMetricsSummary.getSinkWriteCount()));
             }
         }
     }
