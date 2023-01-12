@@ -22,16 +22,18 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <artifactId>seatunnel-engine-storage</artifactId>
+        <artifactId>seatunnel-engine</artifactId>
         <groupId>org.apache.seatunnel</groupId>
         <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>imap-storage-api</artifactId>
+    <artifactId>seatunnel-engine-serializer</artifactId>
+    <packaging>pom</packaging>
+    <modules>
+        <module>serializer-api</module>
+        <module>serializer-protobuf</module>
+    </modules>
 
-    <dependencies>
-
-    </dependencies>
 
 </project>

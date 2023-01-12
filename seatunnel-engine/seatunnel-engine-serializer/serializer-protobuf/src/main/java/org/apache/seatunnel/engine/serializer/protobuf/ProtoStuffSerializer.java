@@ -18,7 +18,9 @@
  *
  */
 
-package org.apache.seatunnel.engine.imap.storage.api.common;
+package org.apache.seatunnel.engine.serializer.protobuf;
+
+import org.apache.seatunnel.engine.serializer.api.Serializer;
 
 import io.protostuff.LinkedBuffer;
 import io.protostuff.ProtostuffIOUtil;
