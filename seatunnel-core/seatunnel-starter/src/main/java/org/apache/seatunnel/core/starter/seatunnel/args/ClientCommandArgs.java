@@ -33,9 +33,9 @@ import java.util.List;
 
 public class ClientCommandArgs extends AbstractCommandArgs {
     @Parameter(names = {"-m", "--master"},
-        description = "SeaTunnel job submit master, support [client, cluster]",
+        description = "SeaTunnel job submit master, support [local, cluster]",
         converter = SeaTunnelMasterTargetConverter.class)
-    private MasterType masterType = MasterType.LOCAL;
+    private MasterType masterType = MasterType.CLUSTER;
 
     @Parameter(names = {"-r", "--restore"},
         description = "restore with savepoint by jobId")
