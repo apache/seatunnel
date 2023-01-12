@@ -17,19 +17,23 @@
 
 package org.apache.seatunnel.engine.core.job;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NonNull;
+import lombok.Getter;
 
 import java.io.Serializable;
 
-@Data
-@AllArgsConstructor
-public class JobResult implements Serializable {
+@Getter
+public class PipelineExecutionState implements Serializable {
 
-    @NonNull
-    private JobStatus status;
+    private final int pipelineId;
 
-    private String error;
+    private final PipelineStatus pipelineStatus;
+
+    private final String throwableMsg;
+
+    public PipelineExecutionState(int pipelineId, PipelineStatus pipelineStatus, String throwableMsg) {
+        this.pipelineId = pipelineId;
+        this.pipelineStatus = pipelineStatus;
+        this.throwableMsg = throwableMsg;
+    }
 
 }

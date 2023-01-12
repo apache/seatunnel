@@ -394,13 +394,7 @@ public class CoordinatorService {
             future.complete(new JobResult(jobStatus, null));
             return new PassiveCompletableFuture<>(future);
         } else {
-            return new PassiveCompletableFuture<>(runningJobMaster.getJobMasterCompleteFuture().thenApply(status -> {
-                Throwable throwable = null;
-                if (status.equals(JobStatus.FAILED)) {
-                    // nothing
-                }
-                return new JobResult(status, throwable);
-            }));
+            return new PassiveCompletableFuture<>(runningJobMaster.getJobMasterCompleteFuture());
         }
     }
 
