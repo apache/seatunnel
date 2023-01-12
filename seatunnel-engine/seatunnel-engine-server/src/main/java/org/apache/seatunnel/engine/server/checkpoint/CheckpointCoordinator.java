@@ -26,14 +26,14 @@ import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTask
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
-import org.apache.seatunnel.engine.checkpoint.storage.common.ProtoStuffSerializer;
-import org.apache.seatunnel.engine.checkpoint.storage.common.Serializer;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
+import org.apache.seatunnel.engine.serializer.api.Serializer;
+import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointBarrierTriggerOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishedOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskRestoreOperation;

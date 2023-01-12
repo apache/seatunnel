@@ -73,7 +73,7 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
 
     @Override
     public JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
-        return createSqlServerConnection(sourceConfig.getDbzConnectorConfig().getJdbcConfig());
+        return createSqlServerConnection(sourceConfig.getDbzConfiguration());
     }
 
     @Override
@@ -109,9 +109,9 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
     public SqlServerSourceFetchTaskContext createFetchTaskContext(
         SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
         final SqlServerConnection jdbcConnection =
-            createSqlServerConnection(taskSourceConfig.getDbzConnectorConfig().getJdbcConfig());
+            createSqlServerConnection(taskSourceConfig.getDbzConfiguration());
         final SqlServerConnection metaDataConnection =
-            createSqlServerConnection(taskSourceConfig.getDbzConnectorConfig().getJdbcConfig());
+            createSqlServerConnection(taskSourceConfig.getDbzConfiguration());
 
         List<TableChanges.TableChange> tableChangeList = new ArrayList<>();
         // TODO: support save table schema

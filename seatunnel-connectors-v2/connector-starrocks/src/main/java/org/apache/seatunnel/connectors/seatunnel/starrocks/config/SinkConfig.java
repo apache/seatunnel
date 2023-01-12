@@ -109,6 +109,11 @@ public class SinkConfig {
             .noDefaultValue()
             .withDescription("The amount of time to wait before attempting to retry a request to StarRocks");
 
+    public static final Option<Boolean> ENABLE_UPSERT_DELETE = Options.key("enable_upsert_delete")
+        .booleanType()
+        .defaultValue(false)
+        .withDescription("Whether to enable upsert/delete, only supports PrimaryKey model.");
+
     public enum StreamLoadFormat {
         CSV, JSON;
         public static StreamLoadFormat parse(String format) {
@@ -135,6 +140,7 @@ public class SinkConfig {
     private int maxRetries;
     private int retryBackoffMultiplierMs;
     private int maxRetryBackoffMs;
+    private boolean enableUpsertDelete;
 
     private final Map<String, Object> streamLoadProps = new HashMap<>();
 
@@ -170,6 +176,9 @@ public class SinkConfig {
         }
         if (pluginConfig.hasPath(MAX_RETRY_BACKOFF_MS.key())) {
             sinkConfig.setMaxRetryBackoffMs(pluginConfig.getInt(MAX_RETRY_BACKOFF_MS.key()));
+        }
+        if (pluginConfig.hasPath(ENABLE_UPSERT_DELETE.key())) {
+            sinkConfig.setEnableUpsertDelete(pluginConfig.getBoolean(ENABLE_UPSERT_DELETE.key()));
         }
         parseSinkStreamLoadProperties(pluginConfig, sinkConfig);
         if (sinkConfig.streamLoadProps.containsKey(COLUMN_SEPARATOR)) {

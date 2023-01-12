@@ -66,7 +66,7 @@ public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
 
     @Override
     public boolean isDataChangeRecord(SourceRecord record) {
-        return false;
+        return SourceRecordUtils.isDataChangeRecord(record);
     }
 
     @Override
@@ -161,7 +161,7 @@ public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
     }
 
     public SchemaNameAdjuster getSchemaNameAdjuster() {
-        return null;
+        return schemaNameAdjuster;
     }
 
     public abstract RelationalDatabaseSchema getDatabaseSchema();

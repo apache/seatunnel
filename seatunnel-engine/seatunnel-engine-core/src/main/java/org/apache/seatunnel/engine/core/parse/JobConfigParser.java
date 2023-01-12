@@ -31,7 +31,7 @@ import org.apache.seatunnel.api.transform.TransformCommonOptions;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.core.starter.config.ConfigBuilder;
+import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.loader.SeatunnelChildFirstClassLoader;
@@ -103,7 +103,7 @@ public class JobConfigParser {
         this.jobDefineFilePath = jobDefineFilePath;
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
-        this.seaTunnelJobConfig = new ConfigBuilder(Paths.get(jobDefineFilePath)).getConfig();
+        this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath));
         this.envConfigs = seaTunnelJobConfig.getConfig("env");
         this.commonPluginJars = commonPluginJars;
     }

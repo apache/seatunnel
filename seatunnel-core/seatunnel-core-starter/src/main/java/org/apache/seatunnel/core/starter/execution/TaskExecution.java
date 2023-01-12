@@ -19,6 +19,9 @@ package org.apache.seatunnel.core.starter.execution;
 
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 
+/**
+ * Executes a SeaTunnel task of the specified engine, contained in the {@link org.apache.seatunnel.core.starter.command.Command}
+ */
 public interface TaskExecution {
 
     void execute() throws TaskExecuteException;

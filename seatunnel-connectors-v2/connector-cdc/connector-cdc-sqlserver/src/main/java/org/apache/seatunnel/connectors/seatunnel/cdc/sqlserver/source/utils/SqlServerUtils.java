@@ -188,7 +188,7 @@ public class SqlServerUtils {
             offsetStrMap.put(
                 entry.getKey(), entry.getValue() == null ? null : entry.getValue().toString());
         }
-        return new LsnOffset(Lsn.valueOf(offsetStrMap.get(SourceInfo.CHANGE_LSN_KEY)));
+        return LsnOffset.valueOf(offsetStrMap.get(SourceInfo.COMMIT_LSN_KEY));
     }
 
     /**
@@ -196,8 +196,8 @@ public class SqlServerUtils {
      */
     public static LsnOffset currentLsn(SqlServerConnection connection) {
         try {
-            Lsn maxLsn = connection.getMaxLsn();
-            return new LsnOffset(maxLsn);
+            Lsn commitLsn = connection.getMaxTransactionLsn();
+            return LsnOffset.valueOf(commitLsn.toString());
         } catch (SQLException e) {
             throw new SeaTunnelException(e.getMessage(), e);
         }

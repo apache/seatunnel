@@ -21,7 +21,6 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Clickh
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.BULK_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PRIMARY_KEY;
@@ -51,7 +50,6 @@ public class ClickhouseSinkFactory implements TableSinkFactory {
             .optional(CLICKHOUSE_CONFIG,
                 BULK_SIZE,
                 SPLIT_MODE,
-                FIELDS,
                 SHARDING_KEY,
                 PRIMARY_KEY,
                 SUPPORT_UPSERT,
