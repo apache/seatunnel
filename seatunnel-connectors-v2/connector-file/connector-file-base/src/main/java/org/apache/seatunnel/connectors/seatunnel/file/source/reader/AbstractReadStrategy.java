@@ -67,6 +67,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected Config pluginConfig;
     protected List<String> fileNames = new ArrayList<>();
     protected boolean isMergePartition = true;
+    protected long skipHeaderNumber = BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.defaultValue();
 
     @Override
     public void init(HadoopConf conf) {
@@ -128,6 +129,9 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         this.pluginConfig = pluginConfig;
         if (pluginConfig.hasPath(BaseSourceConfig.PARSE_PARTITION_FROM_PATH.key())) {
             isMergePartition = pluginConfig.getBoolean(BaseSourceConfig.PARSE_PARTITION_FROM_PATH.key());
+        }
+        if (pluginConfig.hasPath(BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.key())) {
+            skipHeaderNumber = pluginConfig.getLong(BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.key());
         }
     }
 

@@ -53,6 +53,9 @@ public class LocalFileIT extends TestSuiteBase {
         // test write local text file
         Container.ExecResult textWriteResult = container.executeJob("/text/fake_to_local_file_text.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
+        // test read skip header
+        Container.ExecResult textWriteAndSkipResult = container.executeJob("/text/local_file_text_skip_headers.conf");
+        Assertions.assertEquals(0, textWriteAndSkipResult.getExitCode());
         // test read local text file
         Container.ExecResult textReadResult = container.executeJob("/text/local_file_text_to_assert.conf");
         Assertions.assertEquals(0, textReadResult.getExitCode());
