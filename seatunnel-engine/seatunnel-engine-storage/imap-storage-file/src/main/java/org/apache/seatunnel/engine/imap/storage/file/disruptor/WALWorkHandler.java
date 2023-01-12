@@ -20,11 +20,11 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.disruptor;
 
-import org.apache.seatunnel.engine.imap.storage.api.common.Serializer;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALWriter;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFutureCache;
+import org.apache.seatunnel.engine.serializer.api.Serializer;
 
 import com.lmax.disruptor.WorkHandler;
 import lombok.extern.slf4j.Slf4j;

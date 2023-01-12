@@ -18,9 +18,7 @@
  *
  */
 
-package org.apache.seatunnel.engine.imap.storage.api;
-
-import org.apache.seatunnel.engine.imap.storage.api.common.ProtoStuffSerializer;
+package org.apache.seatunnel.engine.serializer.protobuf;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

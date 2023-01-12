@@ -18,13 +18,10 @@
  *
  */
 
-package org.apache.seatunnel.engine.imap.storage.api.common;
+package org.apache.seatunnel.engine.serializer.api;
 
 import java.io.IOException;
 
-/**
- * Todo: move to common module
- */
 public interface Serializer {
 
     <T> byte[] serialize(T obj) throws IOException;
