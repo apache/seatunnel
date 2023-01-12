@@ -33,6 +33,14 @@ import java.util.List;
 
 public class FlinkCommandArgs extends AbstractCommandArgs {
 
+    /**
+     * config file path
+     */
+    @Parameter(names = {"-c", "--config"},
+        description = "Config file",
+        required = true)
+    protected String configFile;
+
     @Parameter(names = {"-e", "--deploy-mode"},
             converter = FlinkDeployModeConverter.class,
             description = "Flink job deploy mode, support [run, run-application]")
@@ -52,6 +60,14 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
         } else {
             return new FlinkTaskExecuteCommand(this);
         }
+    }
+
+    public String getConfigFile() {
+        return configFile;
+    }
+
+    public void setConfigFile(String configFile) {
+        this.configFile = configFile;
     }
 
     public DeployMode getDeployMode() {

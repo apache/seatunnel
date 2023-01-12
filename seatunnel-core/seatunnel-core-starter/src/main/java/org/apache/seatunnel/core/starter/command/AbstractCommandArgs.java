@@ -31,14 +31,6 @@ import java.util.List;
 public abstract class AbstractCommandArgs extends CommandArgs {
 
     /**
-     * config file path
-     */
-    @Parameter(names = {"-c", "--config"},
-            description = "Config file",
-            required = true)
-    protected String configFile;
-
-    /**
      * user-defined parameters
      */
     @Parameter(names = {"-i", "--variable"},
@@ -59,13 +51,9 @@ public abstract class AbstractCommandArgs extends CommandArgs {
             description = "SeaTunnel job name")
     protected String jobName = Constants.LOGO;
 
-    public String getConfigFile() {
-        return configFile;
-    }
+    public abstract String getConfigFile();
 
-    public void setConfigFile(String configFile) {
-        this.configFile = configFile;
-    }
+    public abstract void setConfigFile(String configFile);
 
     public List<String> getVariables() {
         return variables;

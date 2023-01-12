@@ -32,6 +32,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ClientCommandArgs extends AbstractCommandArgs {
+
+    @Parameter(names = {"-c", "--config"},
+        description = "Config file")
+    protected String configFile;
+
     @Parameter(names = {"-m", "--master"},
         description = "SeaTunnel job submit master, support [client, cluster]",
         converter = SeaTunnelMasterTargetConverter.class)
@@ -73,6 +78,14 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         } else {
             return new ClientExecuteCommand(this);
         }
+    }
+
+    public String getConfigFile() {
+        return configFile;
+    }
+
+    public void setConfigFile(String configFile) {
+        this.configFile = configFile;
     }
 
     public MasterType getMasterType() {

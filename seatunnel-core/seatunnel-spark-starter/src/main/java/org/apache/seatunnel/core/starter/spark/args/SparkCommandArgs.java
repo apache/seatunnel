@@ -32,6 +32,14 @@ import java.util.List;
 
 public class SparkCommandArgs extends AbstractCommandArgs {
 
+    /**
+     * config file path
+     */
+    @Parameter(names = {"-c", "--config"},
+        description = "Config file",
+        required = true)
+    protected String configFile;
+
     @Parameter(names = {"-e", "--deploy-mode"},
         description = "Spark deploy mode, support [cluster, client]",
         converter = SparkDeployModeConverter.class)
@@ -50,6 +58,14 @@ public class SparkCommandArgs extends AbstractCommandArgs {
         } else {
             return new SparkTaskExecuteCommand(this);
         }
+    }
+
+    public String getConfigFile() {
+        return configFile;
+    }
+
+    public void setConfigFile(String configFile) {
+        this.configFile = configFile;
     }
 
     public String getMaster() {
