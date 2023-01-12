@@ -123,9 +123,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     public TaskGroupContext getExecutionContext(TaskGroupLocation taskGroupLocation) {
-        if (executionContexts.get(taskGroupLocation) == null) {
-            return finishedExecutionContexts.get(taskGroupLocation);
-        }
         return executionContexts.get(taskGroupLocation);
     }
 
@@ -259,7 +256,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    private void notifyTaskStatusToMaster(TaskGroupLocation taskGroupLocation, TaskExecutionState taskExecutionState) {
+    private void notifyTaskStatusToMaster(TaskGroupLocation taskGroupLocation, TaskExecutionState taskExecutionState){
         long sleepTime = 1000;
         boolean notifyStateSuccess = false;
         while (isRunning && !notifyStateSuccess) {
@@ -305,7 +302,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     }
 
-    public void notifyCleanTaskGroupContext(TaskGroupLocation taskGroupLocation) {
+    public void notifyCleanTaskGroupContext(TaskGroupLocation taskGroupLocation){
         finishedExecutionContexts.remove(taskGroupLocation);
     }
 
