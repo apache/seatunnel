@@ -25,7 +25,7 @@ The internal implementation of Doris sink connector is cached and imported by st
 | max_retries                 | int                          | no       | 1               |
 | retry_backoff_multiplier_ms | int                          | no       | -               |
 | max_retry_backoff_ms        | int                          | no       | -               |
-| sink.properties.*           | doris stream load config     | no       | -               |
+| doris.config                | map                          | no       | -               |
 
 ### node_urls [list]
 
@@ -75,11 +75,11 @@ Using as a multiplier for generating the next delay for backoff
 
 The amount of time to wait before attempting to retry a request to `Doris`
 
-### sink.properties.*  [doris stream load config]
+### doris.config [map]
 
-The parameter of the stream load `data_desc`
-The way to specify the parameter is to add the prefix `sink.properties.` to the original stream load parameter name 
-For example, the way to specify `strip_outer_array` is: `sink.properties.strip_outer_array`
+The parameter of the stream load `data_desc`, you can get more detail at this link:
+
+https://doris.apache.org/docs/sql-manual/sql-reference/Data-Manipulation-Statements/Load/STREAM-LOAD/
 
 #### Supported import data formats
 
@@ -98,8 +98,10 @@ sink {
         database = "test"
         table = "e2e_table_sink"
         batch_max_rows = 100
-        sink.properties.format = "JSON"
-        sink.properties.strip_outer_array = true
+        doris.config = {
+          format = "JSON"
+          strip_outer_array = true
+        }
     }
 }
 
@@ -118,12 +120,18 @@ sink {
         batch_max_rows = 100
         sink.properties.format = "CSV"
         sink.properties.column_separator = ","
+        doris.config = {
+          format = "CSV"
+          column_separator = ","
+        }
     }
 }
 ```
 
 ## Changelog
 
-### next version
-
+### 2.3.0-beta 2022-10-20
 - Add Doris Sink Connector
+
+### Next version
+- [Improve] Change Doris Config Prefix [3856](https://github.com/apache/incubator-seatunnel/pull/3856)

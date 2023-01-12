@@ -23,31 +23,45 @@ import org.junit.jupiter.api.Test;
 public class FlinkStarterTest {
 
     @Test
-    public void buildCommands() {
-        String[] args = {"--config", "test.conf", "-m", "yarn-cluster", "-n", "test", "-i", "key1=value1", "-i", "key2=value2"};
+    public void testConfigOption() {
+        String[] args = {"--config", "test.conf"};
         FlinkStarter flinkStarter = new FlinkStarter(args);
         String flinkExecuteCommand = String.join(" ", flinkStarter.buildCommands());
-        // since we cannot get the actual jar path, so we just check the command contains the command
         Assertions.assertTrue(flinkExecuteCommand.contains("--config test.conf"));
-        Assertions.assertTrue(flinkExecuteCommand.contains("-m yarn-cluster"));
-        Assertions.assertTrue(flinkExecuteCommand.contains("-Dkey1=value1"));
-        Assertions.assertTrue(flinkExecuteCommand.contains("-Dpipeline.name=test"));
-        Assertions.assertTrue(flinkExecuteCommand.contains("${FLINK_HOME}/bin/flink run"));
+    }
 
-        String[] args1 = {"--config", "test.conf", "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2", "--run-mode", "run-application"};
-        flinkExecuteCommand = String.join(" ", new FlinkStarter(args1).buildCommands());
-        Assertions.assertTrue(flinkExecuteCommand.contains("${FLINK_HOME}/bin/flink run-application"));
+    @Test
+    public void testSubmitMasterOption() {
+        String[] args = {"--config", "test.conf", "-n", "test-flink-job", "--master", "yarn-session"};
+        FlinkStarter flinkStarter = new FlinkStarter(args);
+        String flinkExecuteCommand = String.join(" ", flinkStarter.buildCommands());
+        Assertions.assertTrue(flinkExecuteCommand.contains("--target yarn-session"));
+    }
 
-        String[] args2 = {"--config", "test.conf", "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2", "--run-mode", "run"};
-        flinkExecuteCommand = String.join(" ", new FlinkStarter(args2).buildCommands());
-        Assertions.assertTrue(flinkExecuteCommand.contains("${FLINK_HOME}/bin/flink run"));
+    @Test
+    public void testDeployModeOption() {
+        String[] args = {"--config", "test.conf", "-n", "test-flink-job", "--master", "yarn-per-job", "-e", "run-application"};
+        FlinkStarter flinkStarter = new FlinkStarter(args);
+        String flinkExecuteCommand = String.join(" ", flinkStarter.buildCommands());
+        Assertions.assertTrue(flinkExecuteCommand.contains("--target yarn-per-job"));
+        Assertions.assertTrue(flinkExecuteCommand.contains("flink run-application"));
+    }
 
-        try {
-            String[] args3 = {"--config", "test.conf", "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2", "--run-mode", "run123"};
-            new FlinkStarter(args3);
-        } catch (Exception e) {
-            Assertions.assertTrue(e instanceof IllegalArgumentException);
-            Assertions.assertEquals("Run mode run123 not supported", e.getMessage());
-        }
+    @Test
+    public void testExtraParametersOption() {
+        String[] args = {"--config", "test.conf", "-n", "test-flink-job", "--master", "yarn-per-job", "-m", "192.168.1.1:8080"};
+        FlinkStarter flinkStarter = new FlinkStarter(args);
+        String flinkExecuteCommand = String.join(" ", flinkStarter.buildCommands());
+        Assertions.assertTrue(flinkExecuteCommand.contains("--target yarn-per-job"));
+        Assertions.assertTrue(flinkExecuteCommand.contains("-m 192.168.1.1:8080"));
+    }
+
+    @Test
+    public void testExtraVariablesOption() {
+        String[] args = {"--config", "test.conf", "-n", "test-flink-job", "-i", "name=tyrantlucifer", "-i", "age=26"};
+        FlinkStarter flinkStarter = new FlinkStarter(args);
+        String flinkExecuteCommand = String.join(" ", flinkStarter.buildCommands());
+        Assertions.assertTrue(flinkExecuteCommand.contains("-Dname=tyrantlucifer"));
+        Assertions.assertTrue(flinkExecuteCommand.contains("-Dage=26"));
     }
 }

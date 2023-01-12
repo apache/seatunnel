@@ -77,7 +77,7 @@ public class Common {
      * When running seatunnel in --master yarn or --master mesos, you can put plugins related files in plugins dir.
      */
     public static Path appRootDir() {
-        if (DeployMode.CLIENT == MODE || STARTER) {
+        if (DeployMode.CLIENT == MODE || DeployMode.RUN == MODE || STARTER) {
             try {
                 String path = Common.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
                 path = new File(path).getPath();
@@ -85,7 +85,7 @@ public class Common {
             } catch (URISyntaxException e) {
                 throw new RuntimeException(e);
             }
-        } else if (DeployMode.CLUSTER == MODE) {
+        } else if (DeployMode.CLUSTER == MODE || DeployMode.RUN_APPLICATION == MODE) {
             return Paths.get("");
         } else {
             throw new IllegalStateException("deploy mode not support : " + MODE);

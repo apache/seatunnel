@@ -17,8 +17,43 @@
 
 package org.apache.seatunnel.core.starter.command;
 
+import com.beust.jcommander.Parameter;
+
+import java.util.List;
+
 /**
- * Used to create command.
+ * CommandArgs, used to create command {@link Command}
  */
-public interface CommandArgs {
+public abstract class CommandArgs {
+
+    /**
+     * Help parameter
+     */
+    @Parameter(names = {"-h", "--help"},
+            help = true,
+            description = "Show the usage message")
+    protected boolean help = false;
+
+    /**
+     * Undefined parameters parsed will be stored here as engine original command parameters.
+     */
+    protected List<String> originalParameters;
+
+    public boolean isHelp() {
+        return help;
+    }
+
+    public void setHelp(boolean help) {
+        this.help = help;
+    }
+
+    public List<String> getOriginalParameters() {
+        return originalParameters;
+    }
+
+    public void setOriginalParameters(List<String> originalParameters) {
+        this.originalParameters = originalParameters;
+    }
+
+    public abstract Command<?> buildCommand();
 }
