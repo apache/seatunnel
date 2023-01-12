@@ -99,7 +99,9 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 jobConfig.setName(clientCommandArgs.getJobName());
                 JobExecutionEnvironment jobExecutionEnv =
                     engineClient.createExecutionContext(configFile.toString(), jobConfig);
-
+                // get job start time
+                startTime = LocalDateTime.now();
+                // create job proxy
                 ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
                 // get job id
                 long jobId = clientJobProxy.getJobId();
@@ -107,12 +109,11 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 executorService = Executors.newSingleThreadScheduledExecutor();
                 executorService.scheduleAtFixedRate(jobMetricsRunner, 0,
                         seaTunnelConfig.getEngineConfig().getPrintJobMetricsInfoInterval(), TimeUnit.SECONDS);
-                // get job start time
-                startTime = LocalDateTime.now();
+                // wait for job complete
                 clientJobProxy.waitForJobComplete();
                 // get job end time
                 endTime = LocalDateTime.now();
-                // print job statistic information when job finished
+                // get job statistic information when job finished
                 jobMetricsSummary = engineClient.getJobMetricsSummary(jobId);
             }
         } catch (ExecutionException | InterruptedException e) {
@@ -128,6 +129,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 executorService.shutdown();
             }
             if (jobMetricsSummary != null) {
+                // print job statistics information when job finished
                 log.info(StringFormatUtils.formatTable(
                         "Job Statistic Information",
                         "Start Time",
