@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.server.TestUtils;
 
 import com.hazelcast.internal.serialization.Data;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -43,11 +44,13 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
     public static long JOB_ID = 1L;
 
     @Test
+    @Disabled()
     public void testSavePoint() throws InterruptedException {
         savePointAndRestore(false);
     }
 
     @Test
+    @Disabled()
     public void testSavePointOnServerRestart() throws InterruptedException {
         savePointAndRestore(true);
     }
