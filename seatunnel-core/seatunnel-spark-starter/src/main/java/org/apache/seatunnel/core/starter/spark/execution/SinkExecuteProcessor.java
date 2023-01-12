@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
+import org.apache.seatunnel.api.sink.SupportDataSaveMode;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
@@ -60,16 +61,9 @@ public class SinkExecuteProcessor extends SparkAbstractPluginExecuteProcessor<Se
                     SeaTunnelSink<?, ?, ?, ?> seaTunnelSink = sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
                     seaTunnelSink.prepare(sinkConfig);
                     seaTunnelSink.setJobContext(jobContext);
-                    if (seaTunnelSink.getClass().isAssignableFrom(SupportTableSaveMode.class)) {
-                        SupportTableSaveMode saveModeSink = (SupportTableSaveMode) seaTunnelSink;
-                        TableSaveMode tableSaveMode = saveModeSink.checkOptions(sinkConfig);
-                        saveModeSink.handleSaveMode(tableSaveMode);
-                    }
-
-                    if (seaTunnelSink.getClass().isAssignableFrom(SupportPathSaveMode.class)) {
-                        SupportPathSaveMode saveModeSink = (SupportPathSaveMode) seaTunnelSink;
-                        PathSaveMode pathSaveMode = saveModeSink.checkOptions(sinkConfig);
-                        saveModeSink.handleSaveMode(pathSaveMode);
+                    if (seaTunnelSink.getClass().isAssignableFrom(SupportDataSaveMode.class)) {
+                        SupportDataSaveMode saveModeSink = (SupportDataSaveMode) seaTunnelSink;
+                        saveModeSink.checkOptions(sinkConfig);
                     }
                     return seaTunnelSink;
                 })
