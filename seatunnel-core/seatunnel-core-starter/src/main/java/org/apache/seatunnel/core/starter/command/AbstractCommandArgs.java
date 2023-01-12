@@ -34,8 +34,7 @@ public abstract class AbstractCommandArgs extends CommandArgs {
      * config file path
      */
     @Parameter(names = {"-c", "--config"},
-            description = "Config file",
-            required = true)
+            description = "Config file")
     protected String configFile;
 
     /**
