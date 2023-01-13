@@ -38,6 +38,7 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
+import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 import org.apache.seatunnel.engine.server.dag.DAGUtils;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
@@ -177,6 +178,7 @@ public class JobMaster {
         this.physicalPlan.setJobMaster(this);
         this.checkpointManager = new CheckpointManager(
             jobImmutableInformation.getJobId(),
+            jobImmutableInformation.isStartWithSavePoint(),
             nodeEngine,
             this,
             planTuple.f1(),
@@ -378,6 +380,15 @@ public class JobMaster {
                 task.updateTaskExecutionState(taskExecutionState);
             });
         });
+    }
+
+    /**
+     * Execute savePoint, which will cause the job to end.
+     */
+    public CompletableFuture<Void> savePoint(){
+        PassiveCompletableFuture<CompletedCheckpoint>[] passiveCompletableFutures =
+            checkpointManager.triggerSavepoints();
+        return CompletableFuture.allOf(passiveCompletableFutures);
     }
 
     public Map<TaskGroupLocation, SlotProfile> getOwnedSlotProfiles(PipelineLocation pipelineLocation) {
