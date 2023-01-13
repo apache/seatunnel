@@ -126,7 +126,7 @@ public class FakeOption {
 
     public static final Option<Integer> TINYINT_MIN = Options.key("tinyint.min")
             .intType()
-            .defaultValue((int) Byte.MIN_VALUE)
+            .defaultValue(0)
             .withDescription("The min value of tinyint type data");
 
     public static final Option<Integer> TINYINT_MAX = Options.key("tinyint.max")
@@ -136,7 +136,7 @@ public class FakeOption {
 
     public static final Option<Integer> SMALLINT_MIN = Options.key("smallint.min")
             .intType()
-            .defaultValue((int) Short.MIN_VALUE)
+            .defaultValue(0)
             .withDescription("The min value of smallint type data");
 
     public static final Option<Integer> SMALLINT_MAX = Options.key("smallint.max")
@@ -146,7 +146,7 @@ public class FakeOption {
 
     public static final Option<Integer> INT_MIN = Options.key("int.min")
             .intType()
-            .defaultValue(Integer.MIN_VALUE)
+            .defaultValue(0)
             .withDescription("The min value of int type data");
 
     public static final Option<Integer> INT_MAX = Options.key("int.max")
@@ -156,7 +156,7 @@ public class FakeOption {
 
     public static final Option<Long> BIGINT_MIN = Options.key("bigint.min")
             .longType()
-            .defaultValue(Long.MIN_VALUE)
+            .defaultValue(0L)
             .withDescription("The min value of bigint type data");
 
     public static final Option<Long> BIGINT_MAX = Options.key("bigint.max")
@@ -166,7 +166,7 @@ public class FakeOption {
 
     public static final Option<Float> FLOAT_MIN = Options.key("float.min")
             .floatType()
-            .defaultValue(Float.MIN_VALUE)
+            .defaultValue(0F)
             .withDescription("The min value of float type data");
 
     public static final Option<Float> FLOAT_MAX = Options.key("float.max")
@@ -176,7 +176,7 @@ public class FakeOption {
 
     public static final Option<Double> DOUBLE_MIN = Options.key("double.min")
             .doubleType()
-            .defaultValue(Double.MIN_VALUE)
+            .defaultValue(0D)
             .withDescription("The min value of double type data");
 
     public static final Option<Double> DOUBLE_MAX = Options.key("double.max")

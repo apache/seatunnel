@@ -32,13 +32,8 @@ import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.fake.utils.FakeDataRandomUtils;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
-import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.commons.lang3.RandomUtils;
-
 import java.io.IOException;
 import java.lang.reflect.Array;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -123,35 +118,34 @@ public class FakeDataGenerator {
                 }
                 return objectMap;
             case STRING:
-                return RandomStringUtils.randomAlphabetic(fakeConfig.getStringLength());
+                return fakeDataRandomUtils.randomString();
             case BOOLEAN:
-                return RandomUtils.nextInt(0, 2) == 1;
+                return fakeDataRandomUtils.randomBoolean();
             case TINYINT:
-                return (byte) RandomUtils.nextInt(0, 255);
+                return fakeDataRandomUtils.randomTinyint();
             case SMALLINT:
-                return (short) RandomUtils.nextInt(Byte.MAX_VALUE, Short.MAX_VALUE);
+                return fakeDataRandomUtils.randomSmallint();
             case INT:
-                return RandomUtils.nextInt(Short.MAX_VALUE, Integer.MAX_VALUE);
+                return fakeDataRandomUtils.randomInt();
             case BIGINT:
-                return RandomUtils.nextLong(Integer.MAX_VALUE, Long.MAX_VALUE);
+                return fakeDataRandomUtils.randomBigint();
             case FLOAT:
-                return RandomUtils.nextFloat(Float.MIN_VALUE, Float.MAX_VALUE);
+                return fakeDataRandomUtils.randomFloat();
             case DOUBLE:
-                return RandomUtils.nextDouble(Float.MAX_VALUE, Double.MAX_VALUE);
+                return fakeDataRandomUtils.randomDouble();
             case DECIMAL:
                 DecimalType decimalType = (DecimalType) fieldType;
-                return new BigDecimal(RandomStringUtils.randomNumeric(decimalType.getPrecision() - decimalType.getScale()) + "." +
-                        RandomStringUtils.randomNumeric(decimalType.getScale()));
+                return fakeDataRandomUtils.randomBigDecimal(decimalType.getPrecision(), decimalType.getScale());
             case NULL:
                 return null;
             case BYTES:
-                return RandomStringUtils.randomAlphabetic(fakeConfig.getBytesLength()).getBytes();
+                return fakeDataRandomUtils.randomBytes();
             case DATE:
-                return randomLocalDateTime().toLocalDate();
+                return fakeDataRandomUtils.randomLocalDate();
             case TIME:
-                return randomLocalDateTime().toLocalTime();
+                return fakeDataRandomUtils.randomLocalTime();
             case TIMESTAMP:
-                return randomLocalDateTime();
+                return fakeDataRandomUtils.randomLocalDateTime();
             case ROW:
                 SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) fieldType).getFieldTypes();
                 Object[] objects = new Object[fieldTypes.length];
@@ -165,16 +159,5 @@ public class FakeDataGenerator {
                 throw new FakeConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                         "SeaTunnel Fake source connector not support this data type");
         }
-    }
-
-    @SuppressWarnings("magicnumber")
-    private LocalDateTime randomLocalDateTime() {
-        return LocalDateTime.of(
-            LocalDateTime.now().getYear(),
-            RandomUtils.nextInt(1, 12),
-            RandomUtils.nextInt(1, 28),
-            RandomUtils.nextInt(0, 24),
-            RandomUtils.nextInt(0, 59)
-        );
     }
 }
