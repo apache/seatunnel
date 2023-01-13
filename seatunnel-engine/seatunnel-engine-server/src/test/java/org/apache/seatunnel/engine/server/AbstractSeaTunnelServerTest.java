@@ -63,4 +63,12 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
             log.error(ExceptionUtils.getMessage(e));
         }
     }
+
+    /**
+     * For tests that require a cluster restart
+     */
+    public void restartServer() {
+        this.after();
+        this.before();
+    }
 }

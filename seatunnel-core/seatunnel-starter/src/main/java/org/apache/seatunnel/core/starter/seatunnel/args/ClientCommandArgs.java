@@ -37,6 +37,14 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         converter = SeaTunnelMasterTargetConverter.class)
     private MasterType masterType = MasterType.CLUSTER;
 
+    @Parameter(names = {"-r", "--restore"},
+        description = "restore with savepoint by jobId")
+    private String restoreJobId;
+
+    @Parameter(names = {"-s", "--savepoint"},
+        description = "savepoint job by jobId")
+    private String savePointJobId;
+
     @Parameter(names = {"-cn", "--cluster"},
         description = "The name of cluster")
     private String clusterName = "seatunnel_default_cluster";
@@ -101,6 +109,14 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
     public String getMetricsJobId() {
         return metricsJobId;
+    }
+
+    public String getRestoreJobId(){
+        return restoreJobId;
+    }
+
+    public String getSavePointJobId(){
+        return savePointJobId;
     }
 
     public void setMetricsJobId(String metricsJobId) {
