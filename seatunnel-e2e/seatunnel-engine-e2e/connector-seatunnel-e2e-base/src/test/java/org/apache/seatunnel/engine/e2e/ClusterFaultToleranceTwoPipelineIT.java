@@ -67,8 +67,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testTwoPipelineBatchJobRunOkIn3Node() throws ExecutionException, InterruptedException {
-        String testCaseName = "testBatchJobRunOkIn3Node";
-        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testBatchJobRunOkIn3Node";
+        String testCaseName = "testTwoPipelineBatchJobRunOkIn3Node";
+        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineBatchJobRunOkIn3Node";
         long testRowNumber = 1000;
         int testParallelism = 6;
 
@@ -178,8 +178,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testTwoPipelineStreamJobRunOkIn3Node() throws ExecutionException, InterruptedException {
-        String testCaseName = "testStreamJobRunOkIn3Node";
-        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testStreamJobRunOkIn3Node";
+        String testCaseName = "testTwoPipelineStreamJobRunOkIn3Node";
+        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineStreamJobRunOkIn3Node";
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
@@ -258,8 +258,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testTwoPipelineBatchJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
-        String testCaseName = "testBatchJobRestoreIn3NodeWorkerDown";
-        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testBatchJobRestoreIn3NodeWorkerDown";
+        String testCaseName = "testTwoPipelineBatchJobRestoreIn3NodeWorkerDown";
+        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineBatchJobRestoreIn3NodeWorkerDown";
         long testRowNumber = 1000;
         int testParallelism = 2;
         HazelcastInstanceImpl node1 = null;
@@ -340,8 +340,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testTwoPipelineStreamJobRestoreIn3NodeWorkerDown() throws ExecutionException, InterruptedException {
-        String testCaseName = "testStreamJobRestoreIn3NodeWorkerDown";
-        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testStreamJobRestoreIn3NodeWorkerDown";
+        String testCaseName = "testTwoPipelineStreamJobRestoreIn3NodeWorkerDown";
+        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineStreamJobRestoreIn3NodeWorkerDown";
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
@@ -437,8 +437,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testTwoPipelineBatchJobRestoreIn3NodeMasterDown() throws ExecutionException, InterruptedException {
-        String testCaseName = "testBatchJobRestoreIn3NodeMasterDown";
-        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testBatchJobRestoreIn3NodeMasterDown";
+        String testCaseName = "testTwoPipelineBatchJobRestoreIn3NodeMasterDown";
+        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineBatchJobRestoreIn3NodeMasterDown";
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
@@ -517,8 +517,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
     @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     public void testTwoPipelineStreamJobRestoreIn3NodeMasterDown() throws ExecutionException, InterruptedException {
-        String testCaseName = "testStreamJobRestoreIn3NodeMasterDown";
-        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testStreamJobRestoreIn3NodeMasterDown";
+        String testCaseName = "testTwoPipelineStreamJobRestoreIn3NodeMasterDown";
+        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineStreamJobRestoreIn3NodeMasterDown";
         long testRowNumber = 1000;
         int testParallelism = 6;
         HazelcastInstanceImpl node1 = null;
