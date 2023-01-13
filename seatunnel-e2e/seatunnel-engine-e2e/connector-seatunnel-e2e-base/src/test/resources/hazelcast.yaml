@@ -28,6 +28,6 @@ hazelcast:
       port-count: 100
       port: 5801
   properties:
-    hazelcast.invocation.max.retry.count: 20
+    hazelcast.invocation.max.retry.count: 60
     hazelcast.tcp.join.port.try.count: 30
     hazelcast.logging.type: log4j2

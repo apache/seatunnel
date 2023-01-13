@@ -28,8 +28,6 @@ import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.NAMESPACE_KEY;
 
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
-import org.apache.seatunnel.engine.imap.storage.api.common.ProtoStuffSerializer;
-import org.apache.seatunnel.engine.imap.storage.api.common.Serializer;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
@@ -38,6 +36,8 @@ import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALDisruptor;
 import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALEventType;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFuture;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFutureCache;
+import org.apache.seatunnel.engine.serializer.api.Serializer;
+import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;

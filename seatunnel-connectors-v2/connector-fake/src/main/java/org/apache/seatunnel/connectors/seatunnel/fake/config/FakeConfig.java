@@ -20,17 +20,22 @@ package org.apache.seatunnel.connectors.seatunnel.fake.config;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ARRAY_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BYTES_LENGTH;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.MAP_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ROWS;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ROW_NUM;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.SPLIT_NUM;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.SPLIT_READ_INTERVAL;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.STRING_LENGTH;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 @Builder
 @Getter
@@ -49,6 +54,7 @@ public class FakeConfig implements Serializable {
     private int bytesLength = BYTES_LENGTH.defaultValue();
     @Builder.Default
     private int stringLength = STRING_LENGTH.defaultValue();
+    private List<RowData> fakeRows;
 
     public static FakeConfig buildWithConfig(Config config) {
         FakeConfigBuilder builder = FakeConfig.builder();
@@ -73,6 +79,27 @@ public class FakeConfig implements Serializable {
         if (config.hasPath(STRING_LENGTH.key())) {
             builder.stringLength(config.getInt(STRING_LENGTH.key()));
         }
+        if (config.hasPath(ROWS.key())) {
+            List<? extends Config> configs = config.getConfigList(ROWS.key());
+            List<RowData> rows = new ArrayList<>(configs.size());
+            ConfigRenderOptions options = ConfigRenderOptions.concise();
+            for (Config configItem : configs) {
+                String fieldsJson = configItem.getValue(RowData.KEY_FIELDS).render(options);
+                RowData rowData = new RowData(configItem.getString(RowData.KEY_KIND), fieldsJson);
+                rows.add(rowData);
+            }
+            builder.fakeRows(rows);
+        }
         return builder.build();
+    }
+
+    @Getter
+    @AllArgsConstructor
+    public static class RowData implements Serializable {
+        static final String KEY_KIND = "kind";
+        static final String KEY_FIELDS = "fields";
+
+        private String kind;
+        private String fieldsJson;
     }
 }

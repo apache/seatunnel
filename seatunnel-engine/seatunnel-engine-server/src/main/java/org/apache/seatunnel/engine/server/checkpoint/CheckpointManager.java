@@ -78,6 +78,7 @@ public class CheckpointManager {
     private final JobMaster jobMaster;
 
     public CheckpointManager(long jobId,
+                             boolean isStartWithSavePoint,
                              NodeEngine nodeEngine,
                              JobMaster jobMaster,
                              Map<Integer, CheckpointPlan> checkpointPlanMap,
@@ -96,9 +97,15 @@ public class CheckpointManager {
                 IMapCheckpointIDCounter idCounter = new IMapCheckpointIDCounter(plan.getPipelineId(), checkpointIdMap);
                 try {
                     idCounter.start();
-                    // TODO: support savepoint
                     PipelineState pipelineState = null;
-                    if (idCounter.get() != CheckpointIDCounter.INITIAL_CHECKPOINT_ID) {
+                    if (isStartWithSavePoint){
+                        pipelineState = checkpointStorage.getLatestCheckpointByJobIdAndPipelineId(String.valueOf(jobId),
+                                String.valueOf(plan.getPipelineId()));
+                        long checkpointId = pipelineState.getCheckpointId();
+                        idCounter.setCount(checkpointId);
+                        log.info("pipeline({}) start with savePoint on checkPointId({})", plan.getPipelineId(), checkpointId);
+                    }
+                    else if (idCounter.get() != CheckpointIDCounter.INITIAL_CHECKPOINT_ID) {
                         pipelineState =
                             checkpointStorage.getCheckpoint(String.valueOf(jobId), String.valueOf(plan.getPipelineId()),
                                 String.valueOf(idCounter.get() - 1));
@@ -198,7 +205,7 @@ public class CheckpointManager {
      * <br> Listen to the {@link JobStatus} of the {@link Job}.
      */
     public CompletableFuture<Void> shutdown(JobStatus jobStatus) {
-        if (jobStatus == JobStatus.FINISHED) {
+        if ((jobStatus == JobStatus.FINISHED || jobStatus == JobStatus.CANCELED) && !isSavePointEnd()) {
             checkpointStorage.deleteCheckpoint(jobId + "");
         }
         return CompletableFuture.completedFuture(null);
@@ -223,6 +230,11 @@ public class CheckpointManager {
             return;
         }
         coordinator.acknowledgeTask(ackOperation);
+    }
+
+    private boolean isSavePointEnd() {
+        return coordinatorMap.values().stream().map(CheckpointCoordinator::isEndOfSavePoint)
+            .reduce((v1, v2) -> v1 && v2).orElse(false);
     }
 
     protected InvocationFuture<?> sendOperationToMemberNode(TaskOperation operation) {

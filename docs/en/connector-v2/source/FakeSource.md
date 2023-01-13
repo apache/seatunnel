@@ -21,6 +21,7 @@ just for some test cases such as type conversion or connector new feature testin
 | name                | type   | required | default value |
 |---------------------|--------|----------|---------------|
 | schema              | config | yes      | -             |
+| rows                | config | no       | -             |
 | row.num             | int    | no       | 5             |
 | split.num           | int    | no       | 1             |
 | split.read-interval | long   | no       | 1             |
@@ -77,6 +78,33 @@ The schema of fake data that you want to generate
   }
 ```
 
+### rows
+
+The row list of fake data output per degree of parallelism
+
+example
+
+```hocon
+  rows = [
+    {
+      kind = INSERT
+      fields = [1, "A", 100]
+    },
+    {
+      kind = UPDATE_BEFORE
+      fields = [1, "A", 100]
+    },
+    {
+      kind = UPDATE_AFTER
+      fields = [1, "A_1", 100]
+    },
+    {
+      kind = DELETE
+      fields = [1, "A_1", 100]
+    }
+  ]
+```
+
 ### row.num
 
 The total number of data generated per degree of parallelism
@@ -110,6 +138,8 @@ The length of `string` type that connector generated
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
 ## Example
+
+Auto generate data rows
 
 ```hocon
 FakeSource {
@@ -157,6 +187,46 @@ FakeSource {
 }
 ```
 
+Using fake data rows
+
+```hocon
+FakeSource {
+  schema = {
+    fields {
+      pk_id = bigint
+      name = string
+      score = int
+    }
+  }
+  rows = [
+    {
+      kind = INSERT
+      fields = [1, "A", 100]
+    },
+    {
+      kind = INSERT
+      fields = [2, "B", 100]
+    },
+    {
+      kind = INSERT
+      fields = [3, "C", 100]
+    },
+    {
+      kind = UPDATE_BEFORE
+      fields = [1, "A", 100]
+    },
+    {
+      kind = UPDATE_AFTER
+      fields = [1, "A_1", 100]
+    },
+    {
+      kind = DELETE
+      fields = [2, "B", 100]
+    }
+  ]
+}
+```
+
 ## Changelog
 
 ### 2.2.0-beta 2022-09-26
@@ -173,3 +243,7 @@ FakeSource {
   - Support user-defined bytes length
 - [Improve] Support multiple splits for fake source connector ([2974](https://github.com/apache/incubator-seatunnel/pull/2974))
 - [Improve] Supports setting the number of splits per parallelism and the reading interval between two splits ([3098](https://github.com/apache/incubator-seatunnel/pull/3098))
+
+### next version
+
+- [Feature] Support config fake data rows [3865](https://github.com/apache/incubator-seatunnel/pull/3865)
