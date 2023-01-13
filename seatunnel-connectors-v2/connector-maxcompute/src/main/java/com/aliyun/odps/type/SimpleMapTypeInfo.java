@@ -17,6 +17,9 @@
 
 package com.aliyun.odps.type;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
+
 import com.aliyun.odps.OdpsType;
 
 public class SimpleMapTypeInfo implements MapTypeInfo {
@@ -28,7 +31,7 @@ public class SimpleMapTypeInfo implements MapTypeInfo {
             this.keyType = keyType;
             this.valueType = valueType;
         } else {
-            throw new IllegalArgumentException("Invalid key or value type for map.");
+            throw new MaxcomputeConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Invalid key or value type for map.");
         }
     }
 

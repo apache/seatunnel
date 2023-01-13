@@ -17,6 +17,9 @@
 
 package com.aliyun.odps.type;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
+
 import com.aliyun.odps.OdpsType;
 
 public class SimpleArrayTypeInfo implements ArrayTypeInfo {
@@ -24,7 +27,7 @@ public class SimpleArrayTypeInfo implements ArrayTypeInfo {
 
     SimpleArrayTypeInfo(TypeInfo typeInfo) {
         if (typeInfo == null) {
-            throw new IllegalArgumentException("Invalid element type.");
+            throw new MaxcomputeConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE,"Invalid element type.");
         } else {
             this.valueType = typeInfo;
         }

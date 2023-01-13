@@ -17,6 +17,9 @@
 
 package com.aliyun.odps.type;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
+
 import com.aliyun.odps.OdpsType;
 
 import java.util.ArrayList;
@@ -48,10 +51,10 @@ public class SimpleStructTypeInfo implements StructTypeInfo {
     private void validateParameters(List<String> names, List<TypeInfo> typeInfos) {
         if (names != null && typeInfos != null && !names.isEmpty() && !typeInfos.isEmpty()) {
             if (names.size() != typeInfos.size()) {
-                throw new IllegalArgumentException("The amount of field names must be equal to the amount of field types.");
+                throw new MaxcomputeConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "The amount of field names must be equal to the amount of field types.");
             }
         } else {
-            throw new IllegalArgumentException("Invalid name or element type for struct.");
+            throw new MaxcomputeConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Invalid name or element type for struct.");
         }
     }
 
