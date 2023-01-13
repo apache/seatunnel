@@ -92,13 +92,22 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             } else if (null != clientCommandArgs.getMetricsJobId()) {
                 String jobMetrics = engineClient.getJobMetrics(Long.parseLong(clientCommandArgs.getMetricsJobId()));
                 System.out.println(jobMetrics);
-            } else {
+            } else if (null != clientCommandArgs.getSavePointJobId()){
+                engineClient.savePointJob(Long.parseLong(clientCommandArgs.getSavePointJobId()));
+            }
+            else {
                 Path configFile = FileUtils.getConfigPath(clientCommandArgs);
                 checkConfigExist(configFile);
                 JobConfig jobConfig = new JobConfig();
+                JobExecutionEnvironment jobExecutionEnv;
                 jobConfig.setName(clientCommandArgs.getJobName());
-                JobExecutionEnvironment jobExecutionEnv =
-                    engineClient.createExecutionContext(configFile.toString(), jobConfig);
+                if (null != clientCommandArgs.getRestoreJobId()) {
+                    jobExecutionEnv = engineClient.restoreExecutionContext(configFile.toString(), jobConfig,
+                        Long.parseLong(clientCommandArgs.getRestoreJobId()));
+                } else {
+                    jobExecutionEnv = engineClient.createExecutionContext(configFile.toString(), jobConfig);
+                }
+
                 // get job start time
                 startTime = LocalDateTime.now();
                 // create job proxy

@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client;
+package org.apache.seatunnel.engine.core.job;
 
-import org.apache.seatunnel.engine.client.job.JobClient;
-import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
-import org.apache.seatunnel.engine.common.config.JobConfig;
-
+import lombok.AllArgsConstructor;
+import lombok.Data;
 import lombok.NonNull;
 
-public interface SeaTunnelClientInstance {
+import java.io.Serializable;
 
-    JobExecutionEnvironment createExecutionContext(@NonNull String filePath, @NonNull JobConfig config);
+@Data
+@AllArgsConstructor
+public class JobResult implements Serializable {
 
-    JobExecutionEnvironment restoreExecutionContext(@NonNull String filePath, @NonNull JobConfig config, @NonNull Long jobId);
+    @NonNull
+    private JobStatus status;
 
-    JobClient createJobClient();
+    private String error;
 
-    void close();
 }

@@ -21,25 +21,23 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.serializable.ClientToServerOperationDataSerializerHook;
 
-public class WaitForJobCompleteOperation extends AbstractJobAsyncOperation {
-
-    public WaitForJobCompleteOperation() {
+public class SavePointJobOperation extends AbstractJobAsyncOperation {
+    public SavePointJobOperation() {
         super();
     }
 
-    public WaitForJobCompleteOperation(long jobId) {
+    public SavePointJobOperation(long jobId) {
         super(jobId);
     }
 
     @Override
     protected PassiveCompletableFuture<?> doRun() throws Exception {
         SeaTunnelServer service = getService();
-        return new PassiveCompletableFuture<>(service.getCoordinatorService().waitForJobComplete(jobId)
-            .thenApply(jobResult -> this.getNodeEngine().getSerializationService().toData(jobResult)));
+        return service.getCoordinatorService().savePoint(jobId);
     }
 
     @Override
     public int getClassId() {
-        return ClientToServerOperationDataSerializerHook.WAIT_FORM_JOB_COMPLETE_OPERATOR;
+        return ClientToServerOperationDataSerializerHook.SAVEPOINT_JOB_OPERATOR;
     }
 }

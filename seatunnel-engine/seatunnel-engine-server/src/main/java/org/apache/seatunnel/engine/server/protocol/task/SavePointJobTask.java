@@ -17,30 +17,29 @@
 
 package org.apache.seatunnel.engine.server.protocol.task;
 
-import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelWaitForJobCompleteCodec;
-import org.apache.seatunnel.engine.server.operation.WaitForJobCompleteOperation;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSavePointJobCodec;
+import org.apache.seatunnel.engine.server.operation.SavePointJobOperation;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.nio.Connection;
-import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
-public class WaitForJobCompleteTask extends AbstractSeaTunnelMessageTask<Long, Data> {
-    protected WaitForJobCompleteTask(ClientMessage clientMessage, Node node, Connection connection) {
+public class SavePointJobTask extends AbstractSeaTunnelMessageTask<Long, Void> {
+    protected SavePointJobTask(ClientMessage clientMessage, Node node, Connection connection) {
         super(clientMessage, node, connection,
-            SeaTunnelWaitForJobCompleteCodec::decodeRequest,
-            SeaTunnelWaitForJobCompleteCodec::encodeResponse);
+            SeaTunnelSavePointJobCodec::decodeRequest,
+            x -> SeaTunnelSavePointJobCodec.encodeResponse());
     }
 
     @Override
     protected Operation prepareOperation() {
-        return new WaitForJobCompleteOperation(parameters);
+        return new SavePointJobOperation(parameters);
     }
 
     @Override
     public String getMethodName() {
-        return "waitForJobComplete";
+        return "savePointJob";
     }
 
     @Override
