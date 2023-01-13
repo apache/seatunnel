@@ -18,8 +18,8 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
-import org.apache.seatunnel.engine.checkpoint.storage.common.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
+import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.Assertions;

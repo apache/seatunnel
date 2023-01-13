@@ -47,7 +47,7 @@ public class DeployTaskOperation extends Operation implements IdentifiedDataSeri
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         server.getSlotService().getSlotContext(slotProfile)
-            .getTaskExecutionService().deployTask(taskImmutableInformation);
+            .getTaskExecutionService().deployTask(taskImmutableInformation).get();
     }
 
     @Override
