@@ -129,6 +129,8 @@ public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
                 Arrays.asList(3L, "C", 100))
             .collect(Collectors.toSet());
         Assertions.assertIterableEquals(expected, actual);
+
+        clearSinkTable();
     }
 
     private void initializeJdbcConnection() throws Exception {
@@ -149,6 +151,14 @@ public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
             statement.execute(DDL_SINK);
         } catch (SQLException e) {
             throw new RuntimeException("Initializing table failed!", e);
+        }
+    }
+
+    private void clearSinkTable() {
+        try (Statement statement = jdbcConnection.createStatement()) {
+            statement.execute(String.format("TRUNCATE TABLE %s.%s", DATABASE, SINK_TABLE));
+        } catch (SQLException e) {
+            throw new RuntimeException("test starrocks server image error", e);
         }
     }
 }
