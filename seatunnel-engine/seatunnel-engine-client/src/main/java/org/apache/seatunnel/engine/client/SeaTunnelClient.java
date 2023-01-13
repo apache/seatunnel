@@ -31,6 +31,7 @@ import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobMetricsCod
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelListJobStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSavePointJobCodec;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -50,6 +51,12 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
     @Override
     public JobExecutionEnvironment createExecutionContext(@NonNull String filePath, @NonNull JobConfig jobConfig) {
         return new JobExecutionEnvironment(jobConfig, filePath, hazelcastClient);
+    }
+
+    @Override
+    public JobExecutionEnvironment restoreExecutionContext(@NonNull String filePath, @NonNull JobConfig jobConfig,
+                                                           @NonNull Long jobId) {
+        return new JobExecutionEnvironment(jobConfig, filePath, hazelcastClient, true, jobId);
     }
 
     @Override
@@ -117,6 +124,13 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
             SeaTunnelGetJobMetricsCodec.encodeRequest(jobId),
             SeaTunnelGetJobMetricsCodec::decodeResponse
         );
+    }
+
+    public void savePointJob(Long jobId){
+        PassiveCompletableFuture<Void> cancelFuture = hazelcastClient.requestOnMasterAndGetCompletableFuture(
+            SeaTunnelSavePointJobCodec.encodeRequest(jobId));
+
+        cancelFuture.join();
     }
 
     public void cancelJob(Long jobId) {

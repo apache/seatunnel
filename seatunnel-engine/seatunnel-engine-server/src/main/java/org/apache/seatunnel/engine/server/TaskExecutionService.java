@@ -249,7 +249,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
         resultFuture.whenComplete(withTryCatch(logger, (r, s) -> {
             logger.info(
-                String.format("Task %s complete with state %s", r.getTaskGroupLocation(), r.getExecutionState()));
+                String.format("Task %s complete with state %s", r != null ? r.getTaskGroupLocation() : "null",
+                    r != null ? r.getExecutionState() : "null"));
             notifyTaskStatusToMaster(taskGroup.getTaskGroupLocation(), r);
         }));
         return new PassiveCompletableFuture<>(resultFuture);
