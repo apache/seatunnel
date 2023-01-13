@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.reader;
 
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.IcebergRecordProjection;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
 
 import com.google.common.collect.Sets;
 import lombok.Builder;
@@ -93,7 +95,9 @@ public class IcebergFileScanTaskReader implements Closeable {
 
     private CloseableIterable<Record> openFile(FileScanTask task, Schema fileProjection) {
         if (task.isDataTask()) {
-            throw new UnsupportedOperationException("Cannot read data task.");
+            throw new IcebergConnectorException(
+                CommonErrorCode.UNSUPPORTED_OPERATION,
+                "Cannot read data task.");
         }
         InputFile input = fileIO.newInputFile(task.file().path().toString());
         Map<Integer, ?> partition = PartitionUtil.constantsMap(task, IdentityPartitionConverters::convertConstant);
@@ -131,8 +135,10 @@ public class IcebergFileScanTaskReader implements Closeable {
                     .filter(task.residual());
                 return orc.build();
             default:
-                throw new UnsupportedOperationException(String.format("Cannot read %s file: %s",
-                    task.file().format().name(), task.file().path()));
+                throw new IcebergConnectorException(
+                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    String.format("Cannot read %s file: %s",
+                        task.file().format().name(), task.file().path()));
         }
     }
 

@@ -235,8 +235,8 @@ public class JsonRowDataSerDeSchemaTest {
         SeaTunnelRowType schema = new SeaTunnelRowType(new String[]{"name"}, new SeaTunnelDataType[]{STRING_TYPE});
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(true, false, schema);
-
-        assertNull(deserializationSchema.deserialize(null));
+        String s = null;
+        assertNull(deserializationSchema.deserialize(s));
     }
 
     @Test

@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.dag.physical;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.core.job.PipelineExecutionState;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
@@ -35,6 +36,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class SubPlan {
@@ -57,7 +59,7 @@ public class SubPlan {
     private final IMap<Object, Object> runningJobStateIMap;
 
     /**
-     * Timestamps (in milliseconds as returned by {@code System.currentTimeMillis()} when the
+     * Timestamps (in milliseconds) as returned by {@code System.currentTimeMillis()} when the
      * pipeline transitioned into a certain state. The index into this array is the ordinal
      * of the enum value, i.e. the timestamp when the graph went into state "RUNNING" is at {@code
      * stateTimestamps[RUNNING.ordinal()]}.
@@ -68,9 +70,14 @@ public class SubPlan {
      * Complete this future when this sub plan complete. When this future completed, the waitForCompleteBySubPlan in {@link PhysicalPlan }
      * whenComplete method will be called.
      */
-    private CompletableFuture<PipelineStatus> pipelineFuture;
+    private CompletableFuture<PipelineExecutionState> pipelineFuture;
 
     private final PipelineLocation pipelineLocation;
+
+    /**
+     * The error throw by physicalVertex, should be set when physicalVertex throw error.
+     */
+    private final AtomicReference<String> errorByPhysicalVertex = new AtomicReference<>();
 
     private final ExecutorService executorService;
 
@@ -122,7 +129,7 @@ public class SubPlan {
         this.executorService = executorService;
     }
 
-    public PassiveCompletableFuture<PipelineStatus> initStateFuture() {
+    public PassiveCompletableFuture<PipelineExecutionState> initStateFuture() {
         physicalVertexList.forEach(physicalVertex -> {
             addPhysicalVertexCallBack(physicalVertex.initStateFuture());
         });
@@ -146,6 +153,7 @@ public class SubPlan {
                         executionState.getTaskGroupLocation(),
                         this.getPipelineFullName()));
                     failedTaskNum.incrementAndGet();
+                    errorByPhysicalVertex.compareAndSet(null, executionState.getThrowableMsg());
                     cancelPipeline();
                 }
 
@@ -160,7 +168,7 @@ public class SubPlan {
                         turnToEndState(PipelineStatus.FINISHED);
                         LOGGER.info(String.format("%s end with state FINISHED", this.pipelineFullName));
                     }
-                    pipelineFuture.complete((PipelineStatus) runningJobStateIMap.get(pipelineLocation));
+                    pipelineFuture.complete(new PipelineExecutionState(pipelineId, (PipelineStatus) runningJobStateIMap.get(pipelineLocation), errorByPhysicalVertex.get()));
                 }
             } catch (Throwable e) {
                 LOGGER.severe(String.format("Never come here. handle %s %s error",

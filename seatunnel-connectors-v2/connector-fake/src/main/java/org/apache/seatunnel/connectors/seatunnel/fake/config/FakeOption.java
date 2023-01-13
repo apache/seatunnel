@@ -19,10 +19,15 @@ package org.apache.seatunnel.connectors.seatunnel.fake.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+
+import java.util.List;
 
 @SuppressWarnings("checkstyle:MagicNumber")
 public class FakeOption {
 
+    public static final Option<List<SeaTunnelRow>> ROWS = Options.key("rows").listType(SeaTunnelRow.class).noDefaultValue()
+        .withDescription("The row list of fake data output per degree of parallelism");
     public static final Option<Integer> ROW_NUM = Options.key("row.num").intType().defaultValue(5)
         .withDescription("The total number of data generated per degree of parallelism");
     public static final Option<Integer> SPLIT_NUM = Options.key("split.num").intType().defaultValue(1)

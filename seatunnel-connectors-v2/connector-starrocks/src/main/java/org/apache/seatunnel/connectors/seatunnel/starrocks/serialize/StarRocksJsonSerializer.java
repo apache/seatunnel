@@ -28,9 +28,12 @@ public class StarRocksJsonSerializer extends StarRocksBaseSerializer implements 
 
     private static final long serialVersionUID = 1L;
     private final SeaTunnelRowType seaTunnelRowType;
+    private final boolean enableUpsertDelete;
 
-    public StarRocksJsonSerializer(SeaTunnelRowType seaTunnelRowType) {
+    public StarRocksJsonSerializer(SeaTunnelRowType seaTunnelRowType,
+                                   boolean enableUpsertDelete) {
         this.seaTunnelRowType = seaTunnelRowType;
+        this.enableUpsertDelete = enableUpsertDelete;
     }
 
     @Override
@@ -38,8 +41,11 @@ public class StarRocksJsonSerializer extends StarRocksBaseSerializer implements 
         Map<String, Object> rowMap = new HashMap<>(row.getFields().length);
 
         for (int i = 0; i < row.getFields().length; i++) {
-            String value = convert(seaTunnelRowType.getFieldType(i), row.getField(i));
+            Object value = convert(seaTunnelRowType.getFieldType(i), row.getField(i));
             rowMap.put(seaTunnelRowType.getFieldName(i), value);
+        }
+        if (enableUpsertDelete) {
+            rowMap.put(StarRocksSinkOP.COLUMN_KEY, StarRocksSinkOP.parse(row.getRowKind()).ordinal());
         }
         return JsonUtils.toJsonString(rowMap);
     }
