@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.fake;
+package org.apache.seatunnel.connectors.seatunnel.fake.utils;
 
-import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+public class FakeDataRandomUtils {
+    private final FakeConfig fakeConfig;
 
-public class FakeFactoryTest {
+    public FakeDataRandomUtils(FakeConfig fakeConfig) {
+        this.fakeConfig = fakeConfig;
+    }
 
-    @Test
-    void optionRule() {
-        Assertions.assertNotNull((new FakeSourceFactory()).optionRule());
+    public String randomString() {
+
     }
 }

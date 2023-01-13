@@ -29,6 +29,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeaTunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.fake.utils.FakeDataRandomUtils;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import org.apache.commons.lang3.RandomStringUtils;
@@ -46,6 +47,7 @@ public class FakeDataGenerator {
     private final SeaTunnelSchema schema;
     private final FakeConfig fakeConfig;
     private final JsonDeserializationSchema jsonDeserializationSchema;
+    private final FakeDataRandomUtils fakeDataRandomUtils;
 
     public FakeDataGenerator(SeaTunnelSchema schema, FakeConfig fakeConfig) {
         this.schema = schema;
@@ -54,6 +56,7 @@ public class FakeDataGenerator {
             null :
             new JsonDeserializationSchema(
                 false, false, schema.getSeaTunnelRowType());
+        this.fakeDataRandomUtils = new FakeDataRandomUtils(fakeConfig);
     }
 
     private SeaTunnelRow convertRow(FakeConfig.RowData rowData) {
