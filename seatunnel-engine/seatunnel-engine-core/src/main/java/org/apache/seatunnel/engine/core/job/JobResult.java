@@ -17,20 +17,19 @@
 
 package org.apache.seatunnel.engine.core.job;
 
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NonNull;
 
-/**
- * Job interface define the Running job apis
- */
-public interface Job {
-    long getJobId();
+import java.io.Serializable;
 
-    PassiveCompletableFuture<JobResult> doWaitForJobComplete();
+@Data
+@AllArgsConstructor
+public class JobResult implements Serializable {
 
-    void cancelJob();
+    @NonNull
+    private JobStatus status;
 
-    JobStatus getJobStatus();
-
-    JobStatus waitForJobComplete();
+    private String error;
 
 }

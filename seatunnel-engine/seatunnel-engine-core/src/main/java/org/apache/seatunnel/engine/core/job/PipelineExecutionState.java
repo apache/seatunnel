@@ -15,35 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.core.job;
 
-import org.apache.seatunnel.common.utils.ExceptionUtils;
+import lombok.Getter;
 
 import java.io.Serializable;
 
-public class TaskExecutionState implements Serializable {
+@Getter
+public class PipelineExecutionState implements Serializable {
 
-    private final TaskGroupLocation taskGroupLocation;
+    private final int pipelineId;
 
-    private final ExecutionState executionState;
+    private final PipelineStatus pipelineStatus;
 
     private final String throwableMsg;
 
-    public TaskExecutionState(TaskGroupLocation taskGroupLocation, ExecutionState executionState, Throwable throwable) {
-        this.taskGroupLocation = taskGroupLocation;
-        this.executionState = executionState;
-        this.throwableMsg = throwable == null ? "" : ExceptionUtils.getMessage(throwable);
+    public PipelineExecutionState(int pipelineId, PipelineStatus pipelineStatus, String throwableMsg) {
+        this.pipelineId = pipelineId;
+        this.pipelineStatus = pipelineStatus;
+        this.throwableMsg = throwableMsg;
     }
 
-    public ExecutionState getExecutionState() {
-        return executionState;
-    }
-
-    public String getThrowableMsg() {
-        return throwableMsg;
-    }
-
-    public TaskGroupLocation getTaskGroupLocation() {
-        return taskGroupLocation;
-    }
 }
