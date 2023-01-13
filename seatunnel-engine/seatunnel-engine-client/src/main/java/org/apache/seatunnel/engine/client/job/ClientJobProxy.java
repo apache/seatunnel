@@ -36,6 +36,7 @@ import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.NonNull;
+import org.apache.commons.lang3.StringUtils;
 
 public class ClientJobProxy implements Job {
     private static final ILogger LOGGER = Logger.getLogger(ClientJobProxy.class);
@@ -91,7 +92,7 @@ public class ClientJobProxy implements Job {
             jobImmutableInformation.getJobConfig().getName(),
             jobImmutableInformation.getJobId(),
             jobResult.getStatus()));
-        if (jobResult.getError() != null) {
+        if (StringUtils.isNotEmpty(jobResult.getError())) {
             throw new SeaTunnelEngineException(jobResult.getError());
         }
         return jobResult.getStatus();
