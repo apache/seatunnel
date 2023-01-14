@@ -65,12 +65,19 @@ public class FakeSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(SeaTunnelSchema.SCHEMA)
+                .optional(STRING_FAKE_MODE)
                 .conditional(STRING_FAKE_MODE, FakeOption.FakeMode.TEMPLATE, STRING_TEMPLATE)
+                .optional(TINYINT_FAKE_MODE)
                 .conditional(TINYINT_FAKE_MODE, FakeOption.FakeMode.TEMPLATE, TINYINT_TEMPLATE)
+                .optional(SMALLINT_FAKE_MODE)
                 .conditional(SMALLINT_FAKE_MODE, FakeOption.FakeMode.TEMPLATE, SMALLINT_TEMPLATE)
+                .optional(INT_FAKE_MODE)
                 .conditional(INT_FAKE_MODE, FakeOption.FakeMode.TEMPLATE, INT_TEMPLATE)
+                .optional(BIGINT_FAKE_MODE)
                 .conditional(BIGINT_FAKE_MODE, FakeOption.FakeMode.TEMPLATE, BIGINT_TEMPLATE)
+                .optional(FLOAT_FAKE_MODE)
                 .conditional(FLOAT_FAKE_MODE, FakeOption.FakeMode.TEMPLATE, FLOAT_TEMPLATE)
+                .optional(DOUBLE_FAKE_MODE)
                 .conditional(DOUBLE_FAKE_MODE, FakeOption.FakeMode.TEMPLATE, DOUBLE_TEMPLATE)
                 .optional(
                         ROWS,
