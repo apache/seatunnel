@@ -112,12 +112,16 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 startTime = LocalDateTime.now();
                 // create job proxy
                 ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+                // register hook
+                if (clientCommandArgs.isCloseJob()) {
+                    Runtime.getRuntime().addShutdownHook(new Thread(() -> shutdownHook(clientJobProxy)));
+                }
                 // get job id
                 long jobId = clientJobProxy.getJobId();
                 JobMetricsRunner jobMetricsRunner = new JobMetricsRunner(engineClient, jobId);
                 executorService = Executors.newSingleThreadScheduledExecutor();
                 executorService.scheduleAtFixedRate(jobMetricsRunner, 0,
-                        seaTunnelConfig.getEngineConfig().getPrintJobMetricsInfoInterval(), TimeUnit.SECONDS);
+                    seaTunnelConfig.getEngineConfig().getPrintJobMetricsInfoInterval(), TimeUnit.SECONDS);
                 // wait for job complete
                 clientJobProxy.waitForJobComplete();
                 // get job end time
@@ -140,24 +144,24 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             if (jobMetricsSummary != null) {
                 // print job statistics information when job finished
                 log.info(StringFormatUtils.formatTable(
-                        "Job Statistic Information",
-                        "Start Time",
-                        DateTimeUtils.toString(startTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
+                    "Job Statistic Information",
+                    "Start Time",
+                    DateTimeUtils.toString(startTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
 
-                        "End Time",
-                        DateTimeUtils.toString(endTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
+                    "End Time",
+                    DateTimeUtils.toString(endTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
 
-                        "Total Time(s)",
-                        Duration.between(startTime, endTime).getSeconds(),
+                    "Total Time(s)",
+                    Duration.between(startTime, endTime).getSeconds(),
 
-                        "Total Read Count",
-                        jobMetricsSummary.getSourceReadCount(),
+                    "Total Read Count",
+                    jobMetricsSummary.getSourceReadCount(),
 
-                        "Total Write Count",
-                        jobMetricsSummary.getSinkWriteCount(),
+                    "Total Write Count",
+                    jobMetricsSummary.getSinkWriteCount(),
 
-                        "Total Failed Count",
-                        jobMetricsSummary.getSourceReadCount() - jobMetricsSummary.getSinkWriteCount()));
+                    "Total Failed Count",
+                    jobMetricsSummary.getSourceReadCount() - jobMetricsSummary.getSinkWriteCount()));
             }
         }
     }
@@ -174,6 +178,11 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
     private String creatRandomClusterName(String namePrefix) {
         Random random = new Random();
         return namePrefix + "-" + random.nextInt(1000000);
+    }
+
+    private void shutdownHook(ClientJobProxy clientJobProxy) {
+        log.warn("Task will be closed due to client shutdown.");
+        clientJobProxy.cancelJob();
     }
 
 }

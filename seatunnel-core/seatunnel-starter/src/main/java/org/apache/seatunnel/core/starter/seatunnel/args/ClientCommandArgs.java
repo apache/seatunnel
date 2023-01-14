@@ -27,10 +27,12 @@ import org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelConfValidate
 
 import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
+import lombok.Data;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@Data
 public class ClientCommandArgs extends AbstractCommandArgs {
     @Parameter(names = {"-m", "--master"},
         description = "SeaTunnel job submit master, support [local, cluster]",
@@ -64,6 +66,10 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     @Parameter(names = {"-l", "--list"},
         description = "list job status")
     private boolean listJob = false;
+
+    @Parameter(names = {"-c", "--close-job"},
+        description = "Close client the task will also be closed")
+    private boolean closeJob = false;
 
     @Override
     public Command<?> buildCommand() {
@@ -150,7 +156,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
                 return masterType;
             } else {
                 throw new IllegalArgumentException("SeaTunnel job on st-engine submitted target only " +
-                        "support these options: [local, cluster]");
+                    "support these options: [local, cluster]");
             }
         }
     }
