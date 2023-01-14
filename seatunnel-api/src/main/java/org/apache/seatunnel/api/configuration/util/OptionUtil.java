@@ -23,7 +23,8 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
 import org.apache.commons.lang3.StringUtils;
 
 import java.lang.reflect.Field;
