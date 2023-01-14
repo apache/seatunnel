@@ -168,7 +168,7 @@ public final class FactoryUtil {
 
     /**
      * This method is called by SeaTunnel Web to get the full option rule of a source.
-     * @return
+     * @return Option rule
      */
     public static OptionRule sourceFullOptionRule(@NonNull TableSourceFactory factory) {
         OptionRule sourceOptionRule = factory.optionRule();
@@ -188,7 +188,7 @@ public final class FactoryUtil {
 
     /**
      * This method is called by SeaTunnel Web to get the full option rule of a sink.
-     * @return
+     * @return Option rule
      */
     public static OptionRule sinkFullOptionRule(@NonNull TableSinkFactory factory) {
         OptionRule sinkOptionRule = factory.optionRule();

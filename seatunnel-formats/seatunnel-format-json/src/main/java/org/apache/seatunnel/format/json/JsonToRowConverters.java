@@ -30,7 +30,6 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -304,12 +303,16 @@ public class JsonToRowConverters implements Serializable {
         return new JsonToRowConverter() {
             @Override
             public Object convert(JsonNode jsonNode) {
-                ObjectNode node = (ObjectNode) jsonNode;
                 int arity = fieldNames.length;
                 SeaTunnelRow row = new SeaTunnelRow(arity);
                 for (int i = 0; i < arity; i++) {
                     String fieldName = fieldNames[i];
-                    JsonNode field = node.get(fieldName);
+                    JsonNode field;
+                    if (jsonNode.isArray()) {
+                        field = jsonNode.get(i);
+                    } else {
+                        field = jsonNode.get(fieldName);
+                    }
                     try {
                         Object convertedField = convertField(fieldConverters[i], fieldName, field);
                         row.setField(i, convertedField);

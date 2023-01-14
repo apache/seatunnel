@@ -30,15 +30,10 @@
 
     <artifactId>checkpoint-storage-api</artifactId>
     <dependencies>
-        <!--protostuff-->
         <dependency>
-            <groupId>io.protostuff</groupId>
-            <artifactId>protostuff-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.protostuff</groupId>
-            <artifactId>protostuff-runtime</artifactId>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>serializer-protobuf</artifactId>
+            <version>${project.version}</version>
         </dependency>
     </dependencies>
 

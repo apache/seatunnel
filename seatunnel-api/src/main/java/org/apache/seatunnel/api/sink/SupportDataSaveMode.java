@@ -34,8 +34,7 @@ public interface SupportDataSaveMode {
      * We hope every sink connector use the same option name to config SaveMode, So I add checkOptions method to this interface.
      * checkOptions method have a default implement to check whether `save_mode` parameter is in config.
      *
-     * @param config config of Sink Connector
-     * @return TableSaveMode TableSaveMode
+     * @param config config of sink Connector
      */
     default void checkOptions(Config config) {
         if (config.hasPath(SinkCommonOptions.DATA_SAVE_MODE)) {
@@ -51,13 +50,21 @@ public interface SupportDataSaveMode {
         }
     }
 
-    DataSaveMode getDataSaveModeUsed();
+    /**
+     * Get the {@link DataSaveMode} that the user configured
+     * @return DataSaveMode
+     */
+    DataSaveMode getDataSaveMode();
 
     /**
-     * Return the DataSaveMode list supported by this connector
-     * @return
+     * Return the {@link DataSaveMode} list supported by this connector
+     * @return the list of supported data save modes
      */
     List<DataSaveMode> supportedDataSaveModeValues();
 
-    void handleSaveMode(DataSaveMode tableSaveMode);
+    /**
+     * The implementation of specific logic according to different {@link DataSaveMode}
+     * @param saveMode data save mode
+     */
+    void handleSaveMode(DataSaveMode saveMode);
 }

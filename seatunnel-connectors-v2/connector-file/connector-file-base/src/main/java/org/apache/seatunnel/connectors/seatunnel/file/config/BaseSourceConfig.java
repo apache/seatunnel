@@ -56,4 +56,8 @@ public class BaseSourceConfig {
             .stringType()
             .noDefaultValue()
             .withDescription("The path of hdfs-site.xml");
+    public static final Option<Long> SKIP_HEADER_ROW_NUMBER = Options.key("skip_header_row_number")
+            .longType()
+            .defaultValue(0L)
+            .withDescription("The number of rows to skip");
 }
