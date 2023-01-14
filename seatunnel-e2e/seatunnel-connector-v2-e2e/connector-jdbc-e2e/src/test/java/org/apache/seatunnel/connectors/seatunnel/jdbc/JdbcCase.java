@@ -21,7 +21,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import lombok.Builder;
 import lombok.Data;
+import org.apache.commons.lang3.tuple.Pair;
 
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -35,16 +37,14 @@ public class JdbcCase {
     private String password;
     private int port;
     private int localPort;
-    private String dataBase;
+    private String database;
     private String sourceTable;
     private String sinkTable;
-    private String driverJar;
     private String jdbcTemplate;
     private String jdbcUrl;
-    private String ddlSource;
-    private String ddlSink;
-    private String initDataSql;
+    private String createSql;
+    private String insertSql;
     private String configFile;
-    private SeaTunnelRow seaTunnelRow;
+    private Pair<String[], List<SeaTunnelRow>> testData;
     private Map<String, String> containerEnv;
 }

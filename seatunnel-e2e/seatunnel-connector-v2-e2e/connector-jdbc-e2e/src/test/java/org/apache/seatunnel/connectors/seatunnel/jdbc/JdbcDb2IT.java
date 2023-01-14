@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,171 +18,201 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.connectors.seatunnel.jdbc.util.JdbcCompareUtil;
-import org.apache.seatunnel.e2e.common.TestResource;
-import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import com.google.common.collect.Lists;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestTemplate;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testcontainers.containers.Container;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.containers.Db2Container;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
-import java.net.URL;
-import java.sql.Connection;
-import java.sql.Driver;
-import java.sql.ResultSet;
+import java.math.BigDecimal;
+import java.sql.Date;
 import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.Properties;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-public class JdbcDb2IT extends TestSuiteBase implements TestResource {
+@Slf4j
+public class JdbcDb2IT extends AbstractJdbcIT {
 
-    private static final Logger LOG = LoggerFactory.getLogger(JdbcDb2IT.class);
+    private static final String DB2_CONTAINER_HOST = "db2-e2e";
+
+    private static final String DB2_DATABASE = "E2E";
+    private static final String DB2_SOURCE = "SOURCE";
+    private static final String DB2_SINK = "SINK";
+
+    private static final String DB2_URL = "jdbc:db2://" + HOST + ":%s/%s";
+
+    private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
+
+    private static final String CONFIG_FILE = "/jdbc_db2_source_and_sink.conf";
+
     /**
      * <a href="https://hub.docker.com/r/ibmcom/db2">db2 in dockerhub</a>
      */
-    private static final String IMAGE = "ibmcom/db2";
-    private static final String HOST = "e2e_db2";
+    private static final String DB2_IMAGE = "ibmcom/db2";
+
     private static final int PORT = 50000;
     private static final int LOCAL_PORT = 50000;
-    private static final String USER = "db2inst1";
-    private static final String PASSWORD = "123456";
-    public static final String DB2_DRIVER_JAR = "https://repo1.maven.org/maven2/com/ibm/db2/jcc/db2jcc/db2jcc4/db2jcc-db2jcc4.jar";
+    private static final String DB2_USER = "db2inst1";
+    private static final String DB2_PASSWORD = "123456";
 
-    private static final String DATABASE = "E2E";
-    private static final String SOURCE_TABLE = "E2E_TABLE_SOURCE";
-    private static final String SINK_TABLE = "E2E_TABLE_SINK";
-    private String jdbcUrl;
-    private Db2Container db2;
-    private Connection jdbcConnection;
+    private static final String CREATE_SQL = "create table %s\n" +
+        "(\n" +
+        "    C_BOOLEAN          BOOLEAN,\n" +
+        "    C_SMALLINT         SMALLINT,\n" +
+        "    C_INT              INTEGER,\n" +
+        "    C_INTEGER          INTEGER,\n" +
+        "    C_BIGINT           BIGINT,\n" +
+        "    C_DECIMAL          DECIMAL(5),\n" +
+        "    C_DEC              DECIMAL(5),\n" +
+        "    C_NUMERIC          DECIMAL(5),\n" +
+        "    C_NUM              DECIMAL(5),\n" +
+        "    C_REAL             REAL,\n" +
+        "    C_FLOAT            DOUBLE,\n" +
+        "    C_DOUBLE           DOUBLE,\n" +
+        "    C_DOUBLE_PRECISION DOUBLE,\n" +
+        "    C_DECFLOAT         DECFLOAT(34),\n" +
+        "    C_CHAR             CHARACTER(1),\n" +
+        "    C_VARCHAR          VARCHAR(255),\n" +
+        "    C_CLOB             CLOB(1048576),\n" +
+        "    C_GRAPHIC          GRAPHIC(1),\n" +
+        "    C_VARGRAPHIC       VARGRAPHIC(2048),\n" +
+        "    C_DBCLOB           DBCLOB(1048576),\n" +
+        "    C_BINARY           BINARY(1),\n" +
+        "    C_VARBINARY        VARBINARY(2048),\n" +
+        "    C_BLOB             BLOB(1048576),\n" +
+        "    C_DATE             DATE,\n" +
+        "    C_TIMESTAMP        TIMESTAMP(6)\n" +
+        ");\n";
 
-    @TestContainerExtension
-    private final ContainerExtendedFactory extendedFactory = container -> {
-        Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + DB2_DRIVER_JAR);
-        Assertions.assertEquals(0, extraCommands.getExitCode());
-    };
-
-    @BeforeAll
     @Override
-    public void startUp() throws Exception {
-        db2 = new Db2Container(IMAGE)
+    JdbcCase getJdbcCase() {
+        Map<String, String> containerEnv = new HashMap<>();
+        String jdbcUrl = String.format(DB2_URL, PORT, DB2_DATABASE);
+        Pair<String[], List<SeaTunnelRow>> testDataSet = initTestData();
+        String[] fieldNames = testDataSet.getKey();
+
+        String insertSql = insertTable(DB2_DATABASE, DB2_SOURCE, fieldNames);
+
+        return JdbcCase.builder()
+            .dockerImage(DB2_IMAGE)
+            .networkAliases(DB2_CONTAINER_HOST)
+            .containerEnv(containerEnv)
+            .driverClass(DRIVER_CLASS)
+            .host(HOST)
+            .port(PORT)
+            .localPort(PORT)
+            .jdbcTemplate(DB2_URL)
+            .jdbcUrl(jdbcUrl)
+            .userName(DB2_USER)
+            .password(DB2_PASSWORD)
+            .database(DB2_DATABASE)
+            .sourceTable(DB2_SOURCE)
+            .sinkTable(DB2_SINK)
+            .createSql(CREATE_SQL)
+            .configFile(CONFIG_FILE)
+            .insertSql(insertSql)
+            .testData(testDataSet)
+            .build();
+    }
+
+    @Override
+    void compareResult() throws SQLException, IOException {
+
+    }
+
+    @Override
+    String driverUrl() {
+        return "https://repo1.maven.org/maven2/com/ibm/db2/jcc/db2jcc/db2jcc4/db2jcc-db2jcc4.jar";
+    }
+
+    @Override
+    Pair<String[], List<SeaTunnelRow>> initTestData() {
+        String[] fieldNames = {
+            "C_BOOLEAN",
+            "C_SMALLINT",
+            "C_INT",
+            "C_INTEGER",
+            "C_BIGINT",
+            "C_DECIMAL",
+            "C_DEC",
+            "C_NUMERIC",
+            "C_NUM",
+            "C_REAL",
+            "C_FLOAT",
+            "C_DOUBLE",
+            "C_DOUBLE_PRECISION",
+            "C_DECFLOAT",
+            "C_CHAR",
+            "C_VARCHAR",
+            "C_CLOB",
+            "C_GRAPHIC",
+            "C_VARGRAPHIC",
+            "C_DBCLOB",
+            "C_BINARY",
+            "C_VARBINARY",
+            "C_BLOB",
+            "C_DATE",
+            "C_TIMESTAMP"
+        };
+
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            SeaTunnelRow row = new SeaTunnelRow(
+                new Object[] {
+                    i % 2 == 0 ? Boolean.TRUE : Boolean.FALSE,
+                    Short.valueOf("1"),
+                    i,
+                    i,
+                    Long.parseLong("1"),
+                    BigDecimal.valueOf(i, 0),
+                    BigDecimal.valueOf(i, 18),
+                    BigDecimal.valueOf(i, 18),
+                    BigDecimal.valueOf(i, 18),
+                    Float.parseFloat("1.1"),
+                    Double.parseDouble("1.1"),
+                    Double.parseDouble("1.1"),
+                    Double.parseDouble("1.1"),
+                    Double.parseDouble("1.1"),
+                    "f",
+                    String.format("f1_%s", i),
+                    String.format("f1_%s", i),
+                    String.format("f1_%s", i),
+                    String.format("f1_%s", i),
+                    String.format("f1_%s", i),
+                    String.format("f1_%s", i),
+                    "f".getBytes(),
+                    "test".getBytes(),
+                    "test".getBytes(),
+                    Date.valueOf(LocalDate.now()),
+                    new Timestamp(System.currentTimeMillis())
+                });
+            rows.add(row);
+        }
+        return Pair.of(fieldNames, rows);
+    }
+
+    @Override
+    protected GenericContainer<?> initContainer() {
+        GenericContainer<?> container = new Db2Container(DB2_IMAGE)
             .withExposedPorts(PORT)
             .withNetwork(NETWORK)
-            .withNetworkAliases(HOST)
-            .withDatabaseName(DATABASE)
-            .withUsername(USER)
-            .withPassword(PASSWORD)
-            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
+            .withNetworkAliases(DB2_CONTAINER_HOST)
+            .withDatabaseName(DB2_DATABASE)
+            .withUsername(DB2_USER)
+            .withPassword(DB2_PASSWORD)
+            .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DB2_IMAGE)))
             .acceptLicense();
-        db2.setPortBindings(Lists.newArrayList(String.format("%s:%s", LOCAL_PORT, PORT)));
-        jdbcUrl = String.format("jdbc:db2://%s:%s/%s", db2.getHost(), LOCAL_PORT, DATABASE);
-        LOG.info("DB2 container started");
-        db2.start();
-        initializeJdbcConnection();
-        initializeJdbcTable();
-    }
+        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", LOCAL_PORT, PORT)));
 
-    @Override
-    public void tearDown() throws Exception {
-        if (jdbcConnection != null) {
-            jdbcConnection.close();
-        }
-        if (db2 != null) {
-            db2.close();
-        }
-    }
-
-    private void initializeJdbcConnection() throws SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException {
-        Properties properties = new Properties();
-        properties.setProperty("user", USER);
-        properties.setProperty("password", PASSWORD);
-        Driver driver = (Driver) Class.forName(db2.getDriverClassName()).newInstance();
-        jdbcConnection = driver.connect(jdbcUrl, properties);
-        Statement statement = jdbcConnection.createStatement();
-        ResultSet resultSet = statement.executeQuery("select 1 from SYSSTAT.TABLES");
-        Assertions.assertTrue(resultSet.next());
-        resultSet.close();
-        statement.close();
-    }
-
-    /**
-     * init the table
-     */
-    private void initializeJdbcTable() {
-        URL resource = JdbcDb2IT.class.getResource("/init/db2_init.conf");
-        if (resource == null) {
-            throw new IllegalArgumentException("can't find find file");
-        }
-        String file = resource.getFile();
-        Config config = ConfigFactory.parseFile(new File(file));
-        assert config.hasPath("table_source") && config.hasPath("DML") && config.hasPath("table_sink");
-        try (Statement statement = jdbcConnection.createStatement()) {
-            // source
-            LOG.info("source DDL start");
-            String sourceTableDDL = config.getString("table_source");
-            statement.execute(sourceTableDDL);
-            LOG.info("source DML start");
-            String insertSQL = config.getString("DML");
-            statement.execute(insertSQL);
-            LOG.info("sink DDL start");
-            String sinkTableDDL = config.getString("table_sink");
-            statement.execute(sinkTableDDL);
-        } catch (SQLException e) {
-            throw new RuntimeException("Initializing table failed!", e);
-        }
-    }
-
-    private void assertHasData(String table) {
-        try (Statement statement = jdbcConnection.createStatement()) {
-            String sql = String.format("select * from \"%s\".%s", USER, table);
-            ResultSet source = statement.executeQuery(sql);
-            Assertions.assertTrue(source.next(), "result is null when sql is " + sql);
-        } catch (SQLException e) {
-            throw new RuntimeException("server image error", e);
-        }
-    }
-
-    @Test
-    void pullImageOK() {
-        assertHasData(SOURCE_TABLE);
-    }
-
-    @TestTemplate
-    @DisplayName("JDBC-Db2 end to end test")
-    public void testJdbcSourceAndSink(TestContainer container) throws IOException, InterruptedException, SQLException {
-        assertHasData(SOURCE_TABLE);
-        Container.ExecResult execResult = container.executeJob("/jdbc_db2_source_and_sink.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        assertHasData(SINK_TABLE);
-        JdbcCompareUtil.compare(jdbcConnection, String.format("select * from \"%s\".%s", USER, SOURCE_TABLE),
-            String.format("select * from \"%s\".%s", USER, SINK_TABLE),
-            "COL_BOOLEAN, COL_INT, COL_INTEGER, COL_SMALLINT, COL_BIGINT, COL_DECIMAL, COL_DEC," +
-                "COL_NUMERIC, COL_NUMBER, COL_REAL, COL_FLOAT,COL_DOUBLE_PRECISION, COL_DOUBLE, COL_DECFLOAT, COL_CHAR, COL_VARCHAR," +
-                "COL_LONG_VARCHAR, COL_GRAPHIC, COL_VARGRAPHIC, COL_LONG_VARGRAPHIC");
-        clearSinkTable();
-    }
-
-    private void clearSinkTable() {
-        try (Statement statement = jdbcConnection.createStatement()) {
-            String truncate = String.format("delete from \"%s\".%s where 1=1;", USER, SINK_TABLE);
-            statement.execute(truncate);
-        } catch (SQLException e) {
-            throw new RuntimeException("test db2 server image error", e);
-        }
+        return container;
     }
 }

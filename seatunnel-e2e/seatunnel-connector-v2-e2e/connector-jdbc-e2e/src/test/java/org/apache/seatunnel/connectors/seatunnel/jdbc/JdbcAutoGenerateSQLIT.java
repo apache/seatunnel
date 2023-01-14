@@ -49,13 +49,12 @@ import java.util.stream.Stream;
 public class JdbcAutoGenerateSQLIT extends TestSuiteBase implements TestResource {
     private static final String PG_IMAGE = "postgres:alpine3.16";
     private static final String PG_DRIVER_JAR = "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
-    private PostgreSQLContainer<?> postgreSQLContainer;
-
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory = container -> {
         Container.ExecResult extraCommands = container.execInContainer("bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O " + PG_DRIVER_JAR);
         Assertions.assertEquals(0, extraCommands.getExitCode());
     };
+    private PostgreSQLContainer<?> postgreSQLContainer;
 
     @BeforeAll
     @Override
