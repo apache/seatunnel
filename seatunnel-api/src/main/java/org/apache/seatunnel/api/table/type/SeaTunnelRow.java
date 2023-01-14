@@ -95,6 +95,10 @@ public final class SeaTunnelRow implements Serializable {
         return newRow;
     }
 
+    public boolean isNullAt(int pos) {
+        return this.fields[pos] == null;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {

@@ -31,6 +31,7 @@ public class BasicType<T> implements SeaTunnelDataType<T> {
     public static final BasicType<Float> FLOAT_TYPE = new BasicType<>(Float.class, SqlType.FLOAT);
     public static final BasicType<Double> DOUBLE_TYPE = new BasicType<>(Double.class, SqlType.DOUBLE);
     public static final BasicType<Void> VOID_TYPE = new BasicType<>(Void.class, SqlType.NULL);
+    public static final BasicType<SeaTunnelRow> ROW_TYPE = new BasicType<>(SeaTunnelRow.class, SqlType.ROW);
 
     // --------------------------------------------------------------------------------------------
 
