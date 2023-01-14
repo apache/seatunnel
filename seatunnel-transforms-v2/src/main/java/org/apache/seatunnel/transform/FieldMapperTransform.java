@@ -30,11 +30,11 @@ import org.apache.seatunnel.transform.common.AbstractSeaTunnelTransform;
 import org.apache.seatunnel.transform.exception.FieldMapperTransformErrorCode;
 import org.apache.seatunnel.transform.exception.FieldMapperTransformException;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
