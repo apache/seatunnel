@@ -112,7 +112,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 // create job proxy
                 ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
                 // register cancelJob hook
-                if (clientCommandArgs.isCancelJob()) {
+                if (clientCommandArgs.isCloseJob()) {
                     Runtime.getRuntime().addShutdownHook(new Thread(() -> shutdownHook(clientJobProxy)));
                 }
                 // get job id

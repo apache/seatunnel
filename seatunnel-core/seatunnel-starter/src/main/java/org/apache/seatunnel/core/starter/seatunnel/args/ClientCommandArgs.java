@@ -69,9 +69,9 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         description = "list job status")
     private boolean listJob = false;
 
-    @Parameter(names = {"-cj", "--cancel-job"},
+    @Parameter(names = {"-cj", "--close-job"},
         description = "Close client the task will also be closed")
-    private boolean cancelJob = false;
+    private boolean closeJob = false;
 
     @Override
     public Command<?> buildCommand() {
