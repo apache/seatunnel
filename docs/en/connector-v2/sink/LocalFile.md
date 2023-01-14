@@ -45,6 +45,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns |
 | is_enable_transaction            | boolean | no       | true                                       |                                                           |
 | batch_size                       | int     | no       | 1000000                                    |                                                           |
+| compress_codec                   | string  | no       | none                                       |                                                           |
 | common-options                   | object  | no       | -                                          |                                                           |
 
 ### path [string]
@@ -136,6 +137,16 @@ Only support `true` now.
 ### batch_size [int]
 
 The maximum number of rows in a file. For SeaTunnel Engine, the number of lines in the file is determined by `batch_size` and `checkpoint.interval` jointly decide. If the value of `checkpoint.interval` is large enough, sink writer will write rows in a file until the rows in the file larger than `batch_size`. If `checkpoint.interval` is small, the sink writer will create a new file when a new checkpoint trigger.
+
+### compress_codec [string]
+
+The compress codec of files and the details that supported as the following shown:
+
+- txt: `lzo` `none`
+- json: `lzo` `none`
+- csv: `lzo` `none`
+- orc: `lzo` `snappy` `lz4` `zlib` `none`
+- parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
 
 ### common options
 
