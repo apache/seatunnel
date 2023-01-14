@@ -21,9 +21,8 @@ import org.apache.seatunnel.api.configuration.CheckResult;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.commons.lang3.StringUtils;
 
