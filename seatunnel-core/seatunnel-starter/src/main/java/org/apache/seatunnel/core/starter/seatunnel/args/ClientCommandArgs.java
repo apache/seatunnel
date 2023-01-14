@@ -28,10 +28,12 @@ import org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelConfValidate
 import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@EqualsAndHashCode(callSuper = true)
 @Data
 public class ClientCommandArgs extends AbstractCommandArgs {
     @Parameter(names = {"-m", "--master"},
@@ -79,62 +81,6 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         } else {
             return new ClientExecuteCommand(this);
         }
-    }
-
-    public MasterType getMasterType() {
-        return masterType;
-    }
-
-    public void setMasterType(MasterType masterType) {
-        this.masterType = masterType;
-    }
-
-    public String getClusterName() {
-        return clusterName;
-    }
-
-    public void setClusterName(String clusterName) {
-        this.clusterName = clusterName;
-    }
-
-    public String getJobId() {
-        return jobId;
-    }
-
-    public void setJobId(String jobId) {
-        this.jobId = jobId;
-    }
-
-    public String getCancelJobId() {
-        return cancelJobId;
-    }
-
-    public void setCancelJobId(String cancelJobId) {
-        this.cancelJobId = cancelJobId;
-    }
-
-    public String getMetricsJobId() {
-        return metricsJobId;
-    }
-
-    public String getRestoreJobId(){
-        return restoreJobId;
-    }
-
-    public String getSavePointJobId(){
-        return savePointJobId;
-    }
-
-    public void setMetricsJobId(String metricsJobId) {
-        this.metricsJobId = metricsJobId;
-    }
-
-    public boolean isListJob() {
-        return listJob;
-    }
-
-    public void setListJob(boolean listJob) {
-        this.listJob = listJob;
     }
 
     public DeployMode getDeployMode() {
