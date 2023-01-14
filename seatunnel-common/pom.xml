@@ -46,9 +46,12 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
+
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-jackson</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
         </dependency>
 
         <dependency>
