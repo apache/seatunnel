@@ -49,7 +49,7 @@ just for some test cases such as type conversion or connector new feature testin
 | float.fake.mode     | string   | no       | range                   |
 | float.min           | float    | no       | 0                       |
 | float.max           | float    | no       | 0x1.fffffeP+127         |
-| float.tempalte      | list     | no       | -                       |
+| float.template      | list     | no       | -                       |
 | double.fake.mode    | string   | no       | range                   |
 | double.min          | double   | no       | 0                       |
 | double.max          | double   | no       | 0x1.fffffffffffffP+1023 |
